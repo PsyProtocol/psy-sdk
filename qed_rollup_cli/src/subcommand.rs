@@ -20,28 +20,28 @@ pub struct Cli {
 #[derive(Subcommand)]
 pub enum Commands {
     #[command(about = "Run the coordinator edge node")]
-    CoordinatorEdge(qed_node::coordinator::CoordinatorEdgeArgs),
+    CoordinatorEdge(psy_node::coordinator::CoordinatorEdgeArgs),
     #[command(about = "Run the coordinator processor node")]
-    CoordinatorProcessor(qed_node::coordinator::CoordinatorProcessorArgs),
+    CoordinatorProcessor(psy_node::coordinator::CoordinatorProcessorArgs),
     #[command(about = "Run the realm edge node")]
     RealmEdge {
         #[command(flatten)]
-        config: qed_node::realm::RealmEdgeConfig,
+        config: psy_node::realm::RealmEdgeConfig,
     },
     #[command(about = "Run the realm edge node v2")]
     RealmEdgeV2 {
         #[command(flatten)]
-        config: qed_node::realm::RealmEdgeConfig,
+        config: psy_node::realm::RealmEdgeConfig,
     },
     #[command(about = "Run the realm processor node")]
     RealmProcessor {
         #[command(flatten)]
-        config: qed_node::realm::RealmNodeConfig,
+        config: psy_node::realm::RealmNodeConfig,
     },
     #[command(about = "Run the realm processor node v2")]
     RealmProcessorV2 {
         #[command(flatten)]
-        config: qed_node::realm::RealmNodeConfig,
+        config: psy_node::realm::RealmNodeConfig,
     },
     #[command(about = "Run the worker node")]
     Worker {
@@ -75,7 +75,7 @@ pub enum Commands {
         max_connections: u32,
     },
     #[command(about = "Run the watcher service for monitoring and reporting node status")]
-    Watcher(qed_node::watcher::WatcherArgs),
+    Watcher(psy_node::watcher::WatcherArgs),
     #[command(about = "Sync coordinator processor from S3 backup")]
     CoordinatorProcessorSync {
         #[arg(long = "checkpoint", help = "Target checkpoint to sync to (defaults to latest)")]

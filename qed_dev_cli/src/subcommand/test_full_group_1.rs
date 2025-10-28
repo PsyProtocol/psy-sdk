@@ -19,7 +19,7 @@ use psy_crypto::{
 use psy_data::guta::api::{
     GUTARealmCheckpointResult, SubmitGUTARealmResultAPINoProofInput, SubmitUserEndCapProofAPIInput,
 };
-use qed_node::{
+use psy_node::{
     coordinator::{
         state::{
             edge::CoordinatorEdgeContext,
@@ -35,7 +35,7 @@ use qed_node::{
         simple_async_realm::SimpleAsyncRealmWorker,
     },
 };
-use qed_node::common::verifier::get_cached_generic_verifier;
+use psy_node::common::verifier::get_cached_generic_verifier;
 use qed_prover::{local::provider::UPSCircuitManagerTrait, ups::{
     circuit_manager::core::{QCircuitManager, QEDUPSStepCircuitManager}, session::UserProvingSessionManager,
 }};
@@ -62,7 +62,7 @@ use plonky2::{
     plonk::config::PoseidonGoldilocksConfig,
 };
 use psy_core::data::qhashout::QHashOut;
-use qed_node::coordinator::edge::rpc::CoordinatorEdgeRpcClient;
+use psy_node::coordinator::edge::rpc::CoordinatorEdgeRpcClient;
 use psy_store::store::journal::JournalStore;
 use psy_store::store::QEDStore;
 

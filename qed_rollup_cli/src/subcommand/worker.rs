@@ -6,9 +6,9 @@ use psy_core::data::qhashout::QHashOut;
 use psy_crypto::common::simple_circuit_library::SimpleCircuitLibrary;
 use psy_crypto::hash::traits::qhashable::QFieldHashable;
 use psy_data::config::store_config::{QEDFelt, QEDHash, QEDHasher};
-use qed_node::common::verifier::get_cached_generic_verifier;
-use qed_node::common::retry::{RetryConfig, retry_with_backoff};
-use qed_node::worker::{
+use psy_node::common::verifier::get_cached_generic_verifier;
+use psy_node::common::retry::{RetryConfig, retry_with_backoff};
+use psy_node::worker::{
     job_tracker::{JobLocation, WorkerJobTracker},
     run_worker,
 };
@@ -27,7 +27,7 @@ use tokio::sync::Mutex;
 use tokio::time::sleep;
 use tracing::{error, info};
 use tracing::log::warn;
-use qed_node::worker::client::WorkerCoordinatorClient;
+use psy_node::worker::client::WorkerCoordinatorClient;
 
 type C = plonky2::plonk::config::PoseidonGoldilocksConfig;
 const D: usize = 2;

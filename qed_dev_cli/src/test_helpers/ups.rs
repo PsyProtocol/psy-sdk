@@ -5,7 +5,7 @@ use qed_common_circuit::{circuits::{traits::qstandard::QStandardCircuit, zk_sign
 use psy_core::{config::network_constants::QED_NETWORK_MAGIC_REGTEST, data::qhashout::QHashOut, job::{drain_queue::CheckpointDrainQueueEmitterAsyncImm, traits::QProofStoreAsyncImm}, utils::debug_timer::DebugTimer};
 use psy_crypto::{common::user_id::get_user_id_from_registration_id, signature::zk::wallet::SimpleQEDPrivateKey};
 use psy_data::guta::end_cap_input::SubmitUserEndCapNonProofInput;
-use qed_node::{coordinator::state::edge::CoordinatorEdgeContext, realm::state::edge::RealmEdgeContext};
+use psy_node::{coordinator::state::edge::CoordinatorEdgeContext, realm::state::edge::RealmEdgeContext};
 use qed_prover::ups::{circuit_manager::core::{QCircuitManager, QEDUPSStepCircuitManager}, session::UserProvingSessionManager};
 use psy_data::{config::store_config::QEDHasher, qstore::imm::cmd_processor::QEDReadCommandProcessorSync};
 use psy_store::node::{coordinator::QEDCoordinatorStoreReaderAsync, realm::QEDRealmStoreReaderAsync};

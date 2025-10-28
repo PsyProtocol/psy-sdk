@@ -1,6 +1,6 @@
-use qed_node::realm::{QueueConfig, RedisConfig};
+use psy_node::realm::{QueueConfig, RedisConfig};
 
-use qed_node::worker::{RealmWorker, Worker, WorkerState};
+use psy_node::worker::{RealmWorker, Worker, WorkerState};
 use tracing::info;
 
 async fn run_worker(redis_config: RedisConfig, queue_config: QueueConfig) -> anyhow::Result<()> {

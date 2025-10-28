@@ -39,7 +39,7 @@ use psy_crypto::{
 use psy_data::guta::api::{
     GUTARealmCheckpointResult, SubmitGUTARealmResultAPINoProofInput, SubmitUserEndCapProofAPIInput,
 };
-use qed_node::{
+use psy_node::{
     coordinator::{
         state::{
             edge::CoordinatorEdgeContext,
@@ -55,7 +55,7 @@ use qed_node::{
         simple_async_realm::SimpleAsyncRealmWorker,
     },
 };
-use qed_node::common::verifier::get_cached_generic_verifier;
+use psy_node::common::verifier::get_cached_generic_verifier;
 use qed_prover::{local::provider::UPSCircuitManagerTrait, ups::{
     circuit_manager::core::{QCircuitManager, QEDUPSStepCircuitManager}, session::UserProvingSessionManager,
 }};

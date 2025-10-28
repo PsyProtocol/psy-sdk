@@ -175,7 +175,7 @@
         "args": {
         },
         "env": {
-          "RUST_LOG": "qed_user_cli=debug,qed_dev_cli=debug,qed_rollup_cli=debug,qed_node=debug,qed_common_circuit=debug,qed_rollup_circuit=debug,qed_prover=debug,psy_data=debug,plonky2=error"
+          "RUST_LOG": "qed_user_cli=debug,qed_dev_cli=debug,qed_rollup_cli=debug,psy_node=debug,qed_common_circuit=debug,qed_rollup_circuit=debug,qed_prover=debug,psy_data=debug,plonky2=error"
         },
         "aws": {
           "cpu": 4096,
@@ -195,7 +195,7 @@
           "listen_addr": "0.0.0.0:8545"
         },
         "env": {
-          "RUST_LOG": "qed_user_cli=debug,qed_dev_cli=debug,qed_rollup_cli=debug,qed_node=debug,qed_common_circuit=debug,qed_rollup_circuit=debug,qed_prover=debug,psy_data=debug,plonky2=error"
+          "RUST_LOG": "qed_user_cli=debug,qed_dev_cli=debug,qed_rollup_cli=debug,psy_node=debug,qed_common_circuit=debug,qed_rollup_circuit=debug,qed_prover=debug,psy_data=debug,plonky2=error"
         },
         "aws": {
           "cpu": 4096,
@@ -216,7 +216,7 @@
         "args": {
         },
         "env": {
-          "RUST_LOG": "qed_user_cli=debug,qed_dev_cli=debug,qed_rollup_cli=debug,qed_node=debug,qed_common_circuit=debug,qed_rollup_circuit=debug,qed_prover=debug,psy_data=debug,plonky2=error"
+          "RUST_LOG": "qed_user_cli=debug,qed_dev_cli=debug,qed_rollup_cli=debug,psy_node=debug,qed_common_circuit=debug,qed_rollup_circuit=debug,qed_prover=debug,psy_data=debug,plonky2=error"
         },
         "aws": {
           "cpu": 8192,
@@ -294,7 +294,7 @@
             "queue_biz_key": "rwq0"
             },
           "env": {
-            "RUST_LOG": "qed_user_cli=debug,qed_dev_cli=debug,qed_rollup_cli=debug,qed_node=debug,qed_common_circuit=debug,qed_rollup_circuit=debug,qed_prover=debug,psy_data=debug,plonky2=error"
+            "RUST_LOG": "qed_user_cli=debug,qed_dev_cli=debug,qed_rollup_cli=debug,psy_node=debug,qed_common_circuit=debug,qed_rollup_circuit=debug,qed_prover=debug,psy_data=debug,plonky2=error"
           },
           "aws": {
             "cpu": 4096,
@@ -316,7 +316,7 @@
             "queue_biz_key": "rwq0"
           },
           "env": {
-            "RUST_LOG": "qed_user_cli=debug,qed_dev_cli=debug,qed_rollup_cli=debug,qed_node=debug,qed_common_circuit=debug,qed_rollup_circuit=debug,qed_prover=debug,psy_data=debug,plonky2=error"
+            "RUST_LOG": "qed_user_cli=debug,qed_dev_cli=debug,qed_rollup_cli=debug,psy_node=debug,qed_common_circuit=debug,qed_rollup_circuit=debug,qed_prover=debug,psy_data=debug,plonky2=error"
           },
           "aws": {
             "cpu": 4096,
@@ -338,7 +338,7 @@
             "queue_biz_key": "rwq0"
           },
           "env": {
-            "RUST_LOG": "qed_user_cli=debug,qed_dev_cli=debug,qed_rollup_cli=debug,qed_node=debug,qed_common_circuit=debug,qed_rollup_circuit=debug,qed_prover=debug,psy_data=debug,plonky2=error"
+            "RUST_LOG": "qed_user_cli=debug,qed_dev_cli=debug,qed_rollup_cli=debug,psy_node=debug,qed_common_circuit=debug,qed_rollup_circuit=debug,qed_prover=debug,psy_data=debug,plonky2=error"
           },
           "aws": {
             "cpu": 8192,
@@ -399,7 +399,7 @@
             "queue_biz_key": "rwq1"
             },
           "env": {
-            "RUST_LOG": "qed_user_cli=debug,qed_dev_cli=debug,qed_rollup_cli=debug,qed_node=debug,qed_common_circuit=debug,qed_rollup_circuit=debug,qed_prover=debug,psy_data=debug,plonky2=error"
+            "RUST_LOG": "qed_user_cli=debug,qed_dev_cli=debug,qed_rollup_cli=debug,psy_node=debug,qed_common_circuit=debug,qed_rollup_circuit=debug,qed_prover=debug,psy_data=debug,plonky2=error"
           },
           "aws": {
             "cpu": 4096,
@@ -421,7 +421,7 @@
             "queue_biz_key": "rwq1"
           },
           "env": {
-            "RUST_LOG": "qed_user_cli=debug,qed_dev_cli=debug,qed_rollup_cli=debug,qed_node=debug,qed_common_circuit=debug,qed_rollup_circuit=debug,qed_prover=debug,psy_data=debug,plonky2=error"
+            "RUST_LOG": "qed_user_cli=debug,qed_dev_cli=debug,qed_rollup_cli=debug,psy_node=debug,qed_common_circuit=debug,qed_rollup_circuit=debug,qed_prover=debug,psy_data=debug,plonky2=error"
           },
           "aws": {
             "cpu": 4096,
@@ -443,7 +443,7 @@
             "queue_biz_key": "rwq1"
           },
           "env": {
-            "RUST_LOG": "qed_user_cli=debug,qed_dev_cli=debug,qed_rollup_cli=debug,qed_node=debug,qed_common_circuit=debug,qed_rollup_circuit=debug,qed_prover=debug,psy_data=debug,plonky2=error"
+            "RUST_LOG": "qed_user_cli=debug,qed_dev_cli=debug,qed_rollup_cli=debug,psy_node=debug,qed_common_circuit=debug,qed_rollup_circuit=debug,qed_prover=debug,psy_data=debug,plonky2=error"
           },
           "aws": {
             "cpu": 8192,
@@ -462,7 +462,7 @@
         "listen_addr": "0.0.0.0:8888"
       },
       "env": {
-        "RUST_LOG": "qed_user_cli=debug,qed_dev_cli=debug,qed_rollup_cli=debug,qed_node=debug,qed_common_circuit=debug,qed_rollup_circuit=debug,qed_prover=debug,psy_data=debug,plonky2=error"
+        "RUST_LOG": "qed_user_cli=debug,qed_dev_cli=debug,qed_rollup_cli=debug,psy_node=debug,qed_common_circuit=debug,qed_rollup_circuit=debug,qed_prover=debug,psy_data=debug,plonky2=error"
       },
       "aws": {
         "cpu": 8192,

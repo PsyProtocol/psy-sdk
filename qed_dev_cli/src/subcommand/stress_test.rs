@@ -16,7 +16,7 @@ use qed_prover::{
     session::WalletSession,
 };
 use tracing::{error, info};
-use qed_node::common::slot::{SLOT_SIZE, LocalClock, Slot};
+use psy_node::common::slot::{SLOT_SIZE, LocalClock, Slot};
 use qed_prover::local::provider::RpcProvider;
 use crate::subcommand::StressTestArgs;
 type F = GoldilocksField;

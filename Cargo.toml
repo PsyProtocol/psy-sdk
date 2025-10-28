@@ -12,7 +12,7 @@ members = [
     "psy_data",
     "qed_common_circuit",
     "qed_rollup_circuit",
-    "qed_node",
+    "psy_node",
     "qed_user_cli",
     "qed_rollup_cli",
     "qed_dev_cli",
@@ -232,7 +232,7 @@ psy_exec = { path = "./psy_exec", default-features = false}
 psy_store = { path = "./psy_store", default-features = false}
 psy_data = { path = "./psy_data",default-features = false}
 psy_core = { path = "./psy_core" }
-qed_node = { path = "./qed_node" }
+psy_node = { path = "./psy_node" }
 qed_prover = { path = "./qed_prover", default-features = false }
 qed_common_circuit = { path = "./qed_common_circuit" ,default-features = false}
 kvq = { path = "./kvq" }

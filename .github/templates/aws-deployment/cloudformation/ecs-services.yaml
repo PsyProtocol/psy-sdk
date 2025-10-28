@@ -97,7 +97,7 @@ Resources:
           Environment:
 
             - Name: RUST_LOG
-              Value: 'qed_node=info,plonky2=error'
+              Value: 'psy_node=info,plonky2=error'
 
 
           MountPoints:
@@ -158,7 +158,7 @@ Resources:
           Environment:
 
             - Name: RUST_LOG
-              Value: 'qed_node=info'
+              Value: 'psy_node=info'
 
           PortMappings:
             - ContainerPort: 8545
@@ -240,7 +240,7 @@ Resources:
           Environment:
 
             - Name: RUST_LOG
-              Value: 'qed_node=info'
+              Value: 'psy_node=info'
 
           LogConfiguration:
             LogDriver: awslogs
@@ -298,7 +298,7 @@ Resources:
           Environment:
 
             - Name: RUST_LOG
-              Value: 'qed_node=info,plonky2=error'
+              Value: 'psy_node=info,plonky2=error'
 
           LogConfiguration:
             LogDriver: awslogs
@@ -366,7 +366,7 @@ Resources:
           Environment:
 
             - Name: RUST_LOG
-              Value: 'qed_node=info'
+              Value: 'psy_node=info'
 
           PortMappings:
             - ContainerPort: 8546
@@ -437,7 +437,7 @@ Resources:
           Environment:
 
             - Name: RUST_LOG
-              Value: 'qed_node=info'
+              Value: 'psy_node=info'
 
           LogConfiguration:
             LogDriver: awslogs
@@ -493,7 +493,7 @@ Resources:
           Environment:
 
             - Name: RUST_LOG
-              Value: 'qed_node=info,plonky2=error'
+              Value: 'psy_node=info,plonky2=error'
 
           LogConfiguration:
             LogDriver: awslogs
@@ -561,7 +561,7 @@ Resources:
           Environment:
 
             - Name: RUST_LOG
-              Value: 'qed_node=info'
+              Value: 'psy_node=info'
 
           PortMappings:
             - ContainerPort: 8547
@@ -632,7 +632,7 @@ Resources:
           Environment:
 
             - Name: RUST_LOG
-              Value: 'qed_node=info'
+              Value: 'psy_node=info'
 
           LogConfiguration:
             LogDriver: awslogs

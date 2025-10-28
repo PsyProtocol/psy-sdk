@@ -1,7 +1,7 @@
 use anyhow::Result;
 use tracing::info;
-use qed_node::watcher::config::{WatcherArgs, WatcherConfig};
-use qed_node::watcher::watcher_service::WatcherService;
+use psy_node::watcher::config::{WatcherArgs, WatcherConfig};
+use psy_node::watcher::watcher_service::WatcherService;
 
 pub async fn run(args: WatcherArgs) -> Result<()> {
     info!("Starting watcher service");
