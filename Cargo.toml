@@ -250,7 +250,7 @@ qed-lexer = { path = "./qed_compiler/qed-lexer" }
 qed-interpreter = { path = "./qed_compiler/qed-interpreter" }
 qed_package = { path = "./qed_compiler/qed_package" }
 dargo = { path = "./qed_compiler/qed-dargo-cli" }
-qed-abi = { path = "./qed_compiler/qed-abi" }
+psy-abi = { path = "./qed_compiler/psy-abi" }
 qed_api_services = { path = "./qed_api_services" }
 serial_test = "3.2"
 

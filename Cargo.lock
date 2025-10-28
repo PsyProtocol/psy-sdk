@@ -2373,6 +2373,7 @@ dependencies = [
  "num-bigint",
  "num-traits",
  "plonky2",
+ "psy-abi",
  "psy_common_circuit",
  "psy_core",
  "psy_crypto",
@@ -2380,7 +2381,6 @@ dependencies = [
  "psy_exec",
  "psy_store",
  "psy_vm",
- "qed-abi",
  "qed-ast",
  "qed-common",
  "qed-interpreter",
@@ -5619,6 +5619,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "106dd99e98437432fed6519dedecfade6a06a73bb7b2a1e019fdd2bee5778d94"
 
 [[package]]
+name = "psy-abi"
+version = "0.1.0"
+dependencies = [
+ "pretty_assertions",
+ "qed-ast",
+ "qed-common",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "psy_common_circuit"
 version = "0.1.0"
 dependencies = [
@@ -5889,17 +5900,6 @@ dependencies = [
  "serde_repr",
  "ts-rs",
  "twox-hash 1.6.3",
-]
-
-[[package]]
-name = "qed-abi"
-version = "0.1.0"
-dependencies = [
- "pretty_assertions",
- "qed-ast",
- "qed-common",
- "serde",
- "serde_json",
 ]
 
 [[package]]

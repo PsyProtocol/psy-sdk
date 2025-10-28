@@ -25,7 +25,7 @@ psy_core = { workspace = true }
 psy_common_circuit = { workspace = true }
 qed-sema = { workspace = true }
 qed-ast = { workspace = true }
-qed-abi = { workspace = true }
+psy-abi = { workspace = true }
 num-bigint = { workspace = true }
 kvq = { workspace = true }
 psy_store = { workspace = true, default-features = false }
