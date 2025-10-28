@@ -5793,8 +5793,10 @@ dependencies = [
  "anyhow",
  "async-trait",
  "bincode",
+ "chrono",
  "hex",
  "indexmap 2.11.3",
+ "jsonwebtoken",
  "k256",
  "kvq",
  "plonky2",
@@ -5806,6 +5808,7 @@ dependencies = [
  "strum_macros",
  "tokio",
  "tracing",
+ "tracing-subscriber",
  "ts-rs",
  "uuid 1.18.1",
 ]
@@ -5887,7 +5890,6 @@ dependencies = [
  "psy_data",
  "psy_network_circuit",
  "psy_node",
- "psy_node_utils",
  "psy_prover",
  "psy_rust_sdk",
  "psy_store",
@@ -5975,7 +5977,6 @@ dependencies = [
  "psy_crypto",
  "psy_data",
  "psy_network_circuit",
- "psy_node_utils",
  "psy_prover",
  "psy_rust_sdk",
  "psy_services",
@@ -6017,7 +6018,6 @@ dependencies = [
  "psy_data",
  "psy_network_circuit",
  "psy_node",
- "psy_node_utils",
  "psy_prover",
  "psy_rust_sdk",
  "psy_services",
@@ -6025,19 +6025,6 @@ dependencies = [
  "serde_json",
  "tokio",
  "tracing",
-]
-
-[[package]]
-name = "psy_node_utils"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "chrono",
- "jsonwebtoken",
- "serde",
- "serde_json",
- "tracing",
- "tracing-subscriber",
 ]
 
 [[package]]
@@ -6088,7 +6075,6 @@ dependencies = [
  "psy_data",
  "psy_exec",
  "psy_network_circuit",
- "psy_node_utils",
  "psy_rust_sdk",
  "psy_store",
  "psy_vm",
@@ -6153,7 +6139,6 @@ dependencies = [
  "psy_data",
  "psy_exec",
  "psy_network_circuit",
- "psy_node_utils",
  "psy_store",
  "psy_vm",
  "psylang_macros",
@@ -6232,7 +6217,6 @@ dependencies = [
  "psy_core",
  "psy_crypto",
  "psy_data",
- "psy_node_utils",
  "psy_vm",
  "rand 0.8.5",
  "redis 0.30.0",
@@ -6275,7 +6259,6 @@ dependencies = [
  "psy_crypto",
  "psy_data",
  "psy_node",
- "psy_node_utils",
  "psy_prover",
  "psy_rust_sdk",
  "psy_services",

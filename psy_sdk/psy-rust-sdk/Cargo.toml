@@ -26,7 +26,6 @@ kvq = { workspace = true }
 psy_core = { workspace = true }
 psy_common_circuit = { workspace = true, default-features = false }
 psy_network_circuit = { workspace = true, default-features = false }
-psy_node_utils = { workspace = true }
 psy-common = { workspace = true }
 psy_vm = { workspace = true }
 psy_data = { workspace = true, default-features = false }

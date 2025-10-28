@@ -16,7 +16,6 @@ members = [
     "psy_user_cli",
     "psy_node_cli",
     "psy_dev_cli",
-    "psy_node_utils",
     "psy_precompiles",
     "psy_compiler/psy-fmt",
     "psy_compiler/psy-lsp-server",
@@ -238,7 +237,6 @@ psy_prover = { path = "./psy_prover", default-features = false }
 psy_common_circuit = { path = "./psy_common_circuit" ,default-features = false}
 kvq = { path = "./kvq" }
 psy_network_circuit = { path = "./psy_network_circuit" , default-features = false}
-psy_node_utils= { path = "./psy_node_utils" , default-features = false}
 psy_precompiles = { path = "./psy_precompiles" , default-features = false}
 
 psy-ast = { path = "./psy_compiler/psy-ast" }

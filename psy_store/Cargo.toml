@@ -27,7 +27,6 @@ psy_core = { workspace = true }
 psy_data = { workspace = true, default-features = false }
 psy_crypto = { workspace = true }
 psy_vm = { workspace = true }
-psy_node_utils = { workspace = true }
 thiserror = { workspace = true }
 maybe-async = { workspace = true }
 

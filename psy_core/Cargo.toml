@@ -28,6 +28,11 @@ kvq = { workspace = true }
 uuid = { workspace = true }
 strum_macros = { workspace = true }
 tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+chrono = { workspace = true }
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+jsonwebtoken = { workspace = true }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["macros"] }

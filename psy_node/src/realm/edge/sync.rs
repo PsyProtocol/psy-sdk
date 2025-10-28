@@ -32,7 +32,7 @@ use psy_data::{
     models::checkpoint::sync_info::CheckpointError,
     qdata::checkpoint::CheckpointSyncInfo,
 };
-use psy_node_utils::generate_jwt_token;
+use psy_core::jwt::generate_jwt_token;
 use psy_store::{node::realm::PsyRealmStoreReaderAsync, queue::ProofStoreRedis};
 use serde::{Deserialize, Serialize};
 use tracing::{debug, error, info, trace, warn};
