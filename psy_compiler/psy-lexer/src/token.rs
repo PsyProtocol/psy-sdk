@@ -1,6 +1,8 @@
-use crate::error::Error;
-use logos::Logos;
 use std::fmt;
+
+use logos::Logos;
+
+use crate::error::Error;
 
 #[derive(Logos, Clone, Debug, PartialEq)]
 #[logos(skip r"[\s\t\r\n\f]+", error = Error)]
@@ -288,10 +290,7 @@ impl fmt::Display for Token<'_> {
 #[test]
 fn test_lex_comment() {
     let mut lex = Token::lexer("// This is a line comment\nlet x = 5;");
-    assert_eq!(
-        lex.next(),
-        Some(Ok(Token::LineComment("// This is a line comment")))
-    );
+    assert_eq!(lex.next(), Some(Ok(Token::LineComment("// This is a line comment"))));
     assert_eq!(lex.next(), Some(Ok(Token::KeywordLet)));
     assert_eq!(lex.next(), Some(Ok(Token::Ident("x"))));
     assert_eq!(lex.next(), Some(Ok(Token::Assign)));
@@ -300,10 +299,7 @@ fn test_lex_comment() {
     assert_eq!(lex.next(), None);
 
     let mut lex = Token::lexer("/* This is a\nblock comment */\nlet y = 10;");
-    assert_eq!(
-        lex.next(),
-        Some(Ok(Token::BlockComment("/* This is a\nblock comment */")))
-    );
+    assert_eq!(lex.next(), Some(Ok(Token::BlockComment("/* This is a\nblock comment */"))));
     assert_eq!(lex.next(), Some(Ok(Token::KeywordLet)));
     assert_eq!(lex.next(), Some(Ok(Token::Ident("y"))));
     assert_eq!(lex.next(), Some(Ok(Token::Assign)));
@@ -322,11 +318,14 @@ fn test_lex_integer() {
 }
 #[cfg(test)]
 mod tests {
+    use std::{
+        fs::File,
+        io::{self, Read},
+        path::PathBuf,
+    };
+
     use super::*;
     use crate::Token;
-    use std::fs::File;
-    use std::io::{self, Read};
-    use std::path::PathBuf;
 
     #[test]
     fn test_lex_from_file() -> io::Result<()> {
@@ -348,12 +347,7 @@ mod tests {
             let start = span.start;
             let end = span.end;
 
-            println!(
-                "{:<10} | {:<20} | {:<10}",
-                start,
-                format!("{:?}", token),
-                end
-            );
+            println!("{:<10} | {:<20} | {:<10}", start, format!("{:?}", token), end);
         }
 
         Ok(())

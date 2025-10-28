@@ -1,13 +1,8 @@
-use crate::{
-    CheckedEnumNode, CheckedFunctionNode, CheckedStructNode, CheckedTraitNode, ScopeId, Type,
-    TypeCheckerVisitorContext, TypeId, VarId,
-};
 use itertools::Itertools;
-use psy_ast::{
-    Comment, DefId, DefinitionNode, EnumVariant, ExprId, ExprNode, IdentId, StmtId, StmtNode,
-    Visibility, VisitorContext,
-};
+use psy_ast::{Comment, DefId, DefinitionNode, EnumVariant, ExprId, ExprNode, IdentId, StmtId, StmtNode, Visibility, VisitorContext};
 use psy_vm::dpn::ops::context_trait::ContextFelt;
+
+use crate::{CheckedEnumNode, CheckedFunctionNode, CheckedStructNode, CheckedTraitNode, ScopeId, Type, TypeCheckerVisitorContext, TypeId, VarId};
 
 macro_rules! writeln {
     ($fmt:expr, $($arg:tt)*) => {
@@ -103,7 +98,8 @@ impl<'a, F: Clone + From<u32> + ContextFelt, C> TypeCheckerVisitorVisualizerInne
             fmt.indent();
             for (indent_id, var_id) in &scope.variables {
                 self.debug_variable_inline(*indent_id, *var_id, fmt);
-                // writeln!(fmt, "{:?}: {:?}", var_id, self.context.ident(*indent_id));
+                // writeln!(fmt, "{:?}: {:?}", var_id,
+                // self.context.ident(*indent_id));
             }
             fmt.dedent();
         }
@@ -149,9 +145,7 @@ impl<'a, F: Clone + From<u32> + ContextFelt, C> TypeCheckerVisitorVisualizerInne
                 let type_name = &self.context.ident(name);
                 write!(fmt, "trait {} ", type_name);
             }
-            Type::Function(CheckedFunctionNode {
-                name, qualifier, ..
-            }) => {
+            Type::Function(CheckedFunctionNode { name, qualifier, .. }) => {
                 if qualifier.is_extern {
                     write!(fmt, "extern ");
                 }
@@ -162,11 +156,7 @@ impl<'a, F: Clone + From<u32> + ContextFelt, C> TypeCheckerVisitorVisualizerInne
                 write!(fmt, "fn {} ", type_name);
             }
             Type::Const(node) => {
-                write!(
-                    fmt,
-                    "{:?} ",
-                    self.context.symbols.get_constant_value(node.value)
-                );
+                write!(fmt, "{:?} ", self.context.symbols.get_constant_value(node.value));
             }
             Type::Array(_) => {
                 write!(fmt, "Array ");
@@ -211,11 +201,7 @@ impl<'a, F: Clone + From<u32> + ContextFelt, C> TypeCheckerVisitorVisualizerInne
                             write!(fmt, "pub ");
                         };
                         let type_name = self.get_type_name(field.ty);
-                        write!(
-                            fmt,
-                            "{} {} ({:?}, {:?})",
-                            type_name, ident_name, ident_id, type_id
-                        );
+                        write!(fmt, "{} {} ({:?}, {:?})", type_name, ident_name, ident_id, type_id);
                         write!(fmt, "\n");
                     }
                     fmt.dedent();
@@ -236,21 +222,12 @@ impl<'a, F: Clone + From<u32> + ContextFelt, C> TypeCheckerVisitorVisualizerInne
                         }
                         let type_name = self.get_type_name(parameter.ty);
                         let ident_name = &self.context.ident(parameter.name);
-                        write!(
-                            fmt,
-                            "{} {} ({:?}, {:?})",
-                            type_name, ident_name, parameter.name, type_id
-                        );
+                        write!(fmt, "{} {} ({:?}, {:?})", type_name, ident_name, parameter.name, type_id);
                         write!(fmt, "\n");
                     }
                     fmt.dedent();
                 };
-                writeln!(
-                    fmt,
-                    "Return Type: {} ({:?})",
-                    self.get_type_name(node.return_type),
-                    node.return_type
-                );
+                writeln!(fmt, "Return Type: {} ({:?})", self.get_type_name(node.return_type), node.return_type);
                 if let Some(body) = node.body {
                     writeln!(fmt, "Body: {:?}", body);
                 }
@@ -274,12 +251,7 @@ impl<'a, F: Clone + From<u32> + ContextFelt, C> TypeCheckerVisitorVisualizerInne
                 self.fmt_type_names("Implementor", &[], fmt);
             }
             Type::Array(node) => {
-                writeln!(
-                    fmt,
-                    "[{}; {}]",
-                    self.get_type_name(node.inner_ty),
-                    self.get_type_name(node.size_ty),
-                );
+                writeln!(fmt, "[{}; {}]", self.get_type_name(node.inner_ty), self.get_type_name(node.size_ty),);
                 self.fmt_type_names("Implementations", &[], fmt);
             }
             Type::TypeVariable(_) => {}
@@ -295,22 +267,14 @@ impl<'a, F: Clone + From<u32> + ContextFelt, C> TypeCheckerVisitorVisualizerInne
                 writeln!(fmt, "Path");
                 fmt.indent();
                 writeln!(fmt, "Root: {:?}", node.root);
-                let segments = node
-                    .segments
-                    .iter()
-                    .map(|segment| format!("{:?}", segment))
-                    .join(", ");
+                let segments = node.segments.iter().map(|segment| format!("{:?}", segment)).join(", ");
                 writeln!(fmt, "Segments: [{}]", segments);
                 writeln!(fmt, "Target: {:?}", format!("{:?}", node.target));
                 fmt.indent();
             }
             ExprNode::Value(node) => writeln!(fmt, "{:?}", node),
             ExprNode::Binary(node) => {
-                writeln!(
-                    fmt,
-                    "Binary: {:?} {} {:?}",
-                    node.lhs, node.operator, node.rhs
-                )
+                writeln!(fmt, "Binary: {:?} {} {:?}", node.lhs, node.operator, node.rhs)
             }
             ExprNode::Unary(node) => {
                 writeln!(fmt, "Unary: {}{:?}", node.operator, node.rhs);
@@ -663,11 +627,7 @@ impl<'a, F: Clone + From<u32> + ContextFelt, C> TypeCheckerVisitorVisualizerInne
                 fmt.indent();
                 writeln!(fmt, "Visibility: {:?}", node.visibility);
                 writeln!(fmt, "Kind: {:?}", node.kind);
-                let segments = node
-                    .segments
-                    .iter()
-                    .map(|identifier| self.indent_name(identifier.id))
-                    .join(", ");
+                let segments = node.segments.iter().map(|identifier| self.indent_name(identifier.id)).join(", ");
                 writeln!(fmt, "Segments: [{}]", segments);
                 if let Some(target) = node.target {
                     writeln!(fmt, "Target: {:?}", self.indent_name(target.id));
@@ -720,21 +680,12 @@ impl<'a, F: Clone + From<u32> + ContextFelt, C> TypeCheckerVisitorVisualizerInne
 
     pub fn fmt_type_names(&self, attr: &str, values: &[TypeId], fmt: &mut IndentFormatter) {
         if !values.is_empty() {
-            let implementations = values
-                .iter()
-                .map(|ty| self.get_type_name(*ty))
-                .collect::<Vec<_>>()
-                .join(", ");
+            let implementations = values.iter().map(|ty| self.get_type_name(*ty)).collect::<Vec<_>>().join(", ");
             writeln!(fmt, "{}: {}", attr, implementations);
         }
     }
 
-    pub fn debug_variable_inline(
-        &self,
-        ident_id: IdentId,
-        var_id: VarId,
-        fmt: &mut IndentFormatter,
-    ) {
+    pub fn debug_variable_inline(&self, ident_id: IdentId, var_id: VarId, fmt: &mut IndentFormatter) {
         let var_name = &self.context.ident(ident_id).0;
         let checked_var = &self.context.symbols[var_id];
         fmt.write_indent();
@@ -751,9 +702,7 @@ impl<'a, F: Clone + From<u32> + ContextFelt, C> TypeCheckerVisitorVisualizerInne
     }
 }
 
-impl<F: Clone + From<u32> + ContextFelt, C> AstVisualizer<F, C>
-    for TypeCheckerVisitorContext<F, C>
-{
+impl<F: Clone + From<u32> + ContextFelt, C> AstVisualizer<F, C> for TypeCheckerVisitorContext<F, C> {
     type DebugResult = String;
     fn debug_scope(&self, scope_id: ScopeId) -> Self::DebugResult {
         let visualizer = TypeCheckerVisitorVisualizerInner { context: &self };

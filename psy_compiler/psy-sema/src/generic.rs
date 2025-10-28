@@ -9,12 +9,7 @@ pub struct CheckedGenericParameter {
 }
 
 impl CheckedGenericParameter {
-    pub fn new(
-        name: IdentId,
-        constraints: Vec<TypeId>,
-        scope_id: ScopeId,
-        location: Location,
-    ) -> Self {
+    pub fn new(name: IdentId, constraints: Vec<TypeId>, scope_id: ScopeId, location: Location) -> Self {
         Self {
             name,
             constraints,

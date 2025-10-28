@@ -19,9 +19,7 @@ pub struct UserContractStateGadget {
 }
 
 impl UserContractStateGadget {
-    pub fn add_virtual_to<F: RichField + Extendable<D>, const D: usize>(
-        builder: &mut CircuitBuilder<F, D>,
-    ) -> Self {
+    pub fn add_virtual_to<F: RichField + Extendable<D>, const D: usize>(builder: &mut CircuitBuilder<F, D>) -> Self {
         let checkpoint_tree_root = builder.add_virtual_hash();
         let user_leaf = QEDUserLeafGadget::create_virtual(builder);
         let start_contract_state_root = builder.add_virtual_hash();
@@ -39,17 +37,10 @@ impl UserContractStateGadget {
         }
     }
 
-    pub fn set_witness<F: RichField>(
-        &self,
-        witness: &mut impl Witness<F>,
-        target: &UserContractState<F>,
-    ) -> anyhow::Result<()> {
+    pub fn set_witness<F: RichField>(&self, witness: &mut impl Witness<F>, target: &UserContractState<F>) -> anyhow::Result<()> {
         witness.set_hash_target(self.checkpoint_tree_root, target.checkpoint_tree_root.0)?;
         self.user_leaf.set_witness(witness, &target.user_leaf)?;
-        witness.set_hash_target(
-            self.start_contract_state_root,
-            target.start_contract_state_root.0,
-        )?;
+        witness.set_hash_target(self.start_contract_state_root, target.start_contract_state_root.0)?;
         witness.set_target(self.contract_id, target.contract_id)?;
         witness.set_target(self.checkpoint_id, target.checkpoint_id)
     }
@@ -90,9 +81,7 @@ pub struct SignContextGadget {
 }
 
 impl SignContextGadget {
-    pub fn add_virtual_to<F: RichField + Extendable<D>, const D: usize>(
-        builder: &mut CircuitBuilder<F, D>,
-    ) -> Self {
+    pub fn add_virtual_to<F: RichField + Extendable<D>, const D: usize>(builder: &mut CircuitBuilder<F, D>) -> Self {
         let checkpoint_tree_root = builder.add_virtual_hash();
         let user_leaf = QEDUserLeafGadget::create_virtual(builder);
 
@@ -102,11 +91,7 @@ impl SignContextGadget {
         }
     }
 
-    pub fn set_witness<F: RichField>(
-        &self,
-        witness: &mut impl Witness<F>,
-        target: &UserContractState<F>,
-    ) -> anyhow::Result<()> {
+    pub fn set_witness<F: RichField>(&self, witness: &mut impl Witness<F>, target: &UserContractState<F>) -> anyhow::Result<()> {
         witness.set_hash_target(self.checkpoint_tree_root, target.checkpoint_tree_root.0)?;
         self.user_leaf.set_witness(witness, &target.user_leaf)?;
         Ok(())

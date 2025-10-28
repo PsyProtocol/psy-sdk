@@ -1,6 +1,3 @@
-
-
-
 use kvq::traits::KVQSerializable;
 use plonky2::hash::hash_types::RichField;
 use psy_core::data::qhashout::QHashOut;

@@ -1,25 +1,28 @@
-use jsonrpsee::core::RpcResult;
-use jsonrpsee::proc_macros::rpc;
-use psy_core::job::id::{QProvingJobDataID, VariableHeightRewardMerkleProof};
-use psy_crypto::signature::zk::data::ZKPublicKeyInfo;
-use psy_data::config::store_config::QEDFelt;
-use psy_core::data::qhashout::QHashOut;
-use plonky2::plonk::proof::ProofWithPublicInputs;
-use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
-use psy_data::guta::api::SubmitGUTARealmResultAPINoProofInput;
-use psy_data::qblock::cmds::deploy_contract::QBCDeployContract;
-use psy_data::qdata::checkpoint::{QEDCheckpointLeaf, QEDL2BlockState, QEDCheckpointGlobalStateRoots};
-use psy_data::qdata::contract::{ContractCodeDefinition, QEDContractLeaf};
-use psy_data::qdata::user::QEDUserLeaf;
-use psy_crypto::hash::merkle::core::MerkleProofCore;
-use psy_data::qdata::checkpoint::CheckpointSyncInfo;
-use psy_data::config::store_config::QCheckpointSyncInfoCompact;
-use crate::common_v2::traits::realm::{BasicRealmStatusOnCoordinator, GlobalBlockUpdateFromCoordinator, RealmDataForCoordinator};
-
+use jsonrpsee::{core::RpcResult, proc_macros::rpc};
+use plonky2::plonk::{
+    config::{GenericConfig, PoseidonGoldilocksConfig},
+    proof::ProofWithPublicInputs,
+};
+use psy_core::{
+    data::qhashout::QHashOut,
+    job::id::{QProvingJobDataID, VariableHeightRewardMerkleProof},
+};
+use psy_crypto::{hash::merkle::core::MerkleProofCore, signature::zk::data::ZKPublicKeyInfo};
+use psy_data::{
+    config::store_config::{QCheckpointSyncInfoCompact, QEDFelt},
+    guta::api::SubmitGUTARealmResultAPINoProofInput,
+    qblock::cmds::deploy_contract::QBCDeployContract,
+    qdata::{
+        checkpoint::{CheckpointSyncInfo, QEDCheckpointGlobalStateRoots, QEDCheckpointLeaf, QEDL2BlockState},
+        contract::{ContractCodeDefinition, QEDContractLeaf},
+        user::QEDUserLeaf,
+    },
+};
 // Import the request types from psy_prover
-use psy_prover::local::request::{QRegisterUserRPCRequest, QDeployContractRPCRequest};
+use psy_prover::local::request::{QDeployContractRPCRequest, QRegisterUserRPCRequest};
 
 use super::types::LatestCheckpointResponse;
+use crate::common_v2::traits::realm::{BasicRealmStatusOnCoordinator, GlobalBlockUpdateFromCoordinator, RealmDataForCoordinator};
 
 type F = QEDFelt;
 type C = PoseidonGoldilocksConfig;
@@ -49,12 +52,7 @@ pub trait CoordinatorEdgeRpc {
     ) -> RpcResult<String>;
 
     #[method(name = "submit_guta_v1")]
-    async fn submit_guta_v1(
-        &self,
-        input: SubmitGUTARealmResultAPINoProofInput<F>,
-        proof: Vec<u8>,
-        realm_id: u64,
-    ) -> RpcResult<()>;
+    async fn submit_guta_v1(&self, input: SubmitGUTARealmResultAPINoProofInput<F>, proof: Vec<u8>, realm_id: u64) -> RpcResult<()>;
 
     #[method(name = "submit_realm_result")]
     async fn submit_realm_result(&self, realm_result: RealmDataForCoordinator<F>) -> RpcResult<()>;
@@ -135,7 +133,13 @@ pub trait CoordinatorEdgeRpc {
     async fn get_user_tree_root_f(&self, checkpoint_id: F) -> RpcResult<QHashOut<F>>;
 
     #[method(name = "get_user_sub_tree_merkle_proof")]
-    async fn get_user_sub_tree_merkle_proof(&self, checkpoint_id: u64, root_level: u8, leaf_level: u8, leaf_index: u64) -> RpcResult<MerkleProofCore<QHashOut<F>>>;
+    async fn get_user_sub_tree_merkle_proof(
+        &self,
+        checkpoint_id: u64,
+        root_level: u8,
+        leaf_level: u8,
+        leaf_index: u64,
+    ) -> RpcResult<MerkleProofCore<QHashOut<F>>>;
 
     #[method(name = "get_user_top_tree_merkle_proof")]
     async fn get_user_top_tree_merkle_proof(&self, checkpoint_id: u64, leaf_level: u8, leaf_index: u64) -> RpcResult<MerkleProofCore<QHashOut<F>>>;
@@ -169,10 +173,20 @@ pub trait CoordinatorEdgeRpc {
     async fn get_contract_function_tree_leaf_hash_f(&self, checkpoint_id: F, contract_id: F, function_id: F) -> RpcResult<QHashOut<F>>;
 
     #[method(name = "get_contract_function_tree_merkle_proof")]
-    async fn get_contract_function_tree_merkle_proof(&self, checkpoint_id: u64, contract_id: u32, function_id: u32) -> RpcResult<MerkleProofCore<QHashOut<F>>>;
+    async fn get_contract_function_tree_merkle_proof(
+        &self,
+        checkpoint_id: u64,
+        contract_id: u32,
+        function_id: u32,
+    ) -> RpcResult<MerkleProofCore<QHashOut<F>>>;
 
     #[method(name = "get_contract_function_tree_merkle_proof_f")]
-    async fn get_contract_function_tree_merkle_proof_f(&self, checkpoint_id: F, contract_id: F, function_id: F) -> RpcResult<MerkleProofCore<QHashOut<F>>>;
+    async fn get_contract_function_tree_merkle_proof_f(
+        &self,
+        checkpoint_id: F,
+        contract_id: F,
+        function_id: F,
+    ) -> RpcResult<MerkleProofCore<QHashOut<F>>>;
 
     // Contract tree
     #[method(name = "get_contract_tree_root")]
@@ -254,7 +268,11 @@ pub trait CoordinatorEdgeRpc {
     async fn get_checkpoint_tree_merkle_proof_f(&self, checkpoint_id: F, leaf_checkpoint_id: F) -> RpcResult<MerkleProofCore<QHashOut<F>>>;
 
     #[method(name = "generate_batch_variable_height_reward_proofs")]
-    async fn generate_batch_variable_height_reward_proofs(&self, checkpoint_id: u64, job_ids: Vec<QProvingJobDataID>) -> RpcResult<Vec<(VariableHeightRewardMerkleProof, QProvingJobDataID)>>;
+    async fn generate_batch_variable_height_reward_proofs(
+        &self,
+        checkpoint_id: u64,
+        job_ids: Vec<QProvingJobDataID>,
+    ) -> RpcResult<Vec<(VariableHeightRewardMerkleProof, QProvingJobDataID)>>;
 
     #[method(name = "get_graphviz")]
     async fn get_graphviz(&self, checkpoint_id: u64) -> RpcResult<String>;
@@ -266,7 +284,12 @@ pub trait CoordinatorEdgeRpc {
     async fn get_current_checkpoint_id(&self) -> RpcResult<u64>;
 
     #[method(name = "get_latest_block_updates_from_coordinator")]
-    async fn get_latest_block_updates_from_coordinator(&self, realm_id: u32, from_checkpoint: u64, to_checkpoint: u64) -> RpcResult<Vec<GlobalBlockUpdateFromCoordinator<F>>>;
+    async fn get_latest_block_updates_from_coordinator(
+        &self,
+        realm_id: u32,
+        from_checkpoint: u64,
+        to_checkpoint: u64,
+    ) -> RpcResult<Vec<GlobalBlockUpdateFromCoordinator<F>>>;
 
     #[method(name = "wait_until_coordinator_completed")]
     async fn wait_until_coordinator_completed(&self, realm_id: u64, checkpoint_id: u64) -> RpcResult<GlobalBlockUpdateFromCoordinator<F>>;

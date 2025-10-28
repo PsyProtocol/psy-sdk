@@ -19,11 +19,7 @@ pub struct SimpleQEDSigAction {
     pub sig_action_hash: HashOutTarget,
 }
 
-pub fn compute_sig_action_hash_circuit<
-    H: AlgebraicHasher<F>,
-    F: RichField + Extendable<D>,
-    const D: usize,
->(
+pub fn compute_sig_action_hash_circuit<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     network_magic: Target,
     user: Target,
@@ -59,14 +55,7 @@ impl SimpleQEDSigAction {
         let sig_action = builder.add_virtual_target();
         let nonce = builder.add_virtual_target();
         let action_arguments = builder.add_virtual_targets(action_arguments_length);
-        let sig_action_hash = compute_sig_action_hash_circuit::<H, F, D>(
-            builder,
-            network_magic,
-            user,
-            sig_action,
-            nonce,
-            &action_arguments,
-        );
+        let sig_action_hash = compute_sig_action_hash_circuit::<H, F, D>(builder, network_magic, user, sig_action, nonce, &action_arguments);
         Self {
             network_magic,
             user,
@@ -76,11 +65,7 @@ impl SimpleQEDSigAction {
             sig_action_hash,
         }
     }
-    pub fn set_witness<W: Witness<F>, F: RichField>(
-        &self,
-        witness: &mut PartialWitness<F>,
-        sig_action_hint: &QEDSigAction<F>,
-    ) -> anyhow::Result<()> {
+    pub fn set_witness<W: Witness<F>, F: RichField>(&self, witness: &mut PartialWitness<F>, sig_action_hint: &QEDSigAction<F>) -> anyhow::Result<()> {
         witness.set_target(self.network_magic, sig_action_hint.network_magic)?;
         witness.set_target(self.user, sig_action_hint.user)?;
         witness.set_target(self.sig_action, sig_action_hint.sig_action)?;
@@ -89,9 +74,11 @@ impl SimpleQEDSigAction {
     }
 }
 
-
 impl AlgebraicHashableTarget for SimpleQEDSigAction {
-    fn to_hash_target<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(&self, _builder: &mut CircuitBuilder<F, D>) -> HashOutTarget {
+    fn to_hash_target<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
+        &self,
+        _builder: &mut CircuitBuilder<F, D>,
+    ) -> HashOutTarget {
         self.sig_action_hash
     }
 }

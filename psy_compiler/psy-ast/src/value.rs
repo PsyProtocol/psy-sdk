@@ -1,6 +1,7 @@
+use std::fmt::{Display, Formatter};
+
 use enum_as_inner::EnumAsInner;
 use indexmap::IndexMap;
-use std::fmt::{Display, Formatter};
 
 #[derive(Debug, Copy, Clone, PartialEq, EnumAsInner)]
 pub enum ConstValue {
@@ -44,12 +45,7 @@ pub enum ValueNode<F: Clone + From<u32>> {
     Bool(F, Location),
     U32(F, Location),
     Array(u32, Vec<ExprId>, Location),
-    Struct(
-        ExprId,
-        Vec<UncheckedType>,
-        IndexMap<Identifier, ExprId>,
-        Location,
-    ),
+    Struct(ExprId, Vec<UncheckedType>, IndexMap<Identifier, ExprId>, Location),
 }
 
 impl<F: Clone + From<u32>> NodeInfo for ValueNode<F> {

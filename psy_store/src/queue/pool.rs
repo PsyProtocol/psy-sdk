@@ -2,9 +2,8 @@ use std::time::Duration;
 
 use fred::{
     prelude::{ClientLike, Config, Pool, ReconnectPolicy},
-    types::Builder,
+    types::{Builder, ClusterHash, CustomCommand},
 };
-use fred::types::{ClusterHash, CustomCommand};
 
 /// Create a new Redis connection pool
 ///
@@ -40,16 +39,13 @@ pub async fn new_fred_pool(redis_url: &str, pool_size: usize) -> anyhow::Result<
             };
 
             client
-                .custom::<(), _>(
-                    command,
-                    vec!["SETNAME", &name]
-                )
+                .custom::<(), _>(command, vec!["SETNAME", &name])
                 .await
                 .map_err(|e| anyhow::anyhow!("Failed to set client name for client {}: {:?}", index, e))?;
         }
 
-        // tracing::info!("✅ All fred clients in pool set with CLIENT SETNAME");
-
+        // tracing::info!("✅ All fred clients in pool set with CLIENT
+        // SETNAME");
     }
     Ok(pool)
 }

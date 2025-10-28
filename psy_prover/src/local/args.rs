@@ -1,10 +1,11 @@
+use std::collections::HashMap;
+
 use clap::{Args, Parser, ValueEnum};
 use plonky2::hash::hash_types::RichField;
+use psy_core::{data::qhashout::QHashOut, job::id::QProvingJobDataID};
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 use ts_rs::TS;
-use std::collections::HashMap;
-use psy_core::{data::qhashout::QHashOut, job::id::QProvingJobDataID};
 
 #[derive(Debug, Clone, Deserialize, Serialize, Parser, TS)]
 #[ts(export)]
@@ -44,12 +45,7 @@ pub fn parse_contract_call_args(s: &str) -> anyhow::Result<Vec<ContractCallArgs>
 pub struct WalletSessionArgs {
     #[clap(env, long, default_value = "config.json", env)]
     pub rpc_config: String,
-    #[arg(
-        long,
-        short,
-        default_value = "17c975c2668ebe0ca7c87f67c6414ebb7fd664f46370a0af2a3b204c8824ac5a",
-        env
-    )]
+    #[arg(long, short, default_value = "17c975c2668ebe0ca7c87f67c6414ebb7fd664f46370a0af2a3b204c8824ac5a", env)]
     pub private_key: String,
     #[clap(env, long, default_value = "contract_call.json", env)]
     pub contract_calls: String,
@@ -67,15 +63,9 @@ pub struct ProverArgs {
     pub rpc_config: String,
     #[clap(env = "PROVER_LISTEN_ADDR", long, default_value = "0.0.0.0:8888")]
     pub listen_addr: String,
-    #[clap(
-        long,
-        default_value = "17c975c2668ebe0ca7c87f67c6414ebb7fd664f46370a0af2a3b204c8824ac5a"
-    )]
+    #[clap(long, default_value = "17c975c2668ebe0ca7c87f67c6414ebb7fd664f46370a0af2a3b204c8824ac5a")]
     pub private_key: String,
-    #[clap(
-        long,
-        default_value = "9f5cb6b51fd293bbc95f94013d65c566d7adeebb7e1cc77c89b9ccd73571b5c0"
-    )]
+    #[clap(long, default_value = "9f5cb6b51fd293bbc95f94013d65c566d7adeebb7e1cc77c89b9ccd73571b5c0")]
     pub api_key: String,
 }
 

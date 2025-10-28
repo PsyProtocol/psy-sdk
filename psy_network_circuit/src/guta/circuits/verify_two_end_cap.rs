@@ -1,27 +1,42 @@
+use async_trait::async_trait;
 use plonky2::{
-    gates::{constant::ConstantGate, gate::GateRef}, hash::hash_types::{HashOut, HashOutTarget}, iop::
-        witness::{PartialWitness, WitnessWrite}, plonk::{
+    field::types::Field,
+    gates::{constant::ConstantGate, gate::GateRef},
+    hash::hash_types::{HashOut, HashOutTarget},
+    iop::witness::{PartialWitness, WitnessWrite},
+    plonk::{
         circuit_builder::CircuitBuilder,
         circuit_data::{CircuitConfig, CircuitData, CommonCircuitData, VerifierOnlyCircuitData},
         config::{AlgebraicHasher, GenericConfig},
         proof::ProofWithPublicInputs,
-    }, field::types::Field
+    },
 };
 use psy_common_circuit::{
-    builder::{comparison::CircuitBuilderComparison, hash::core::CircuitBuilderHashCore, pad_circuit::pad_circuit_degree}, circuits::traits::qstandard::{ QStandardCircuit, QStandardCircuitProvableWithProofStoreAndRefLibraryAsync}, proof_minifier::
-        pm_core::get_circuit_fingerprint_generic, traits::ToTargets
+    builder::{comparison::CircuitBuilderComparison, hash::core::CircuitBuilderHashCore, pad_circuit::pad_circuit_degree},
+    circuits::traits::qstandard::{QStandardCircuit, QStandardCircuitProvableWithProofStoreAndRefLibraryAsync},
+    proof_minifier::pm_core::get_circuit_fingerprint_generic,
+    traits::ToTargets,
 };
-use psy_core::{data::qhashout::QHashOut, job::{id::QProvingJobDataID, traits::QProofStoreReaderAsync}, utils::debug_timer::DebugTimer};
-use psy_crypto::{common::circuit_library::CircuitInfoLibrary, hash::{merkle::treeprover::data::CircuitInputWithDependencies, traits::hasher::MerkleZeroHasher}};
+use psy_core::{
+    data::qhashout::QHashOut,
+    job::{id::QProvingJobDataID, traits::QProofStoreReaderAsync},
+    utils::debug_timer::DebugTimer,
+};
+use psy_crypto::{
+    common::circuit_library::CircuitInfoLibrary,
+    hash::{merkle::treeprover::data::CircuitInputWithDependencies, traits::hasher::MerkleZeroHasher},
+};
 use psy_data::{guta::proof_input::VerifyTwoEndCapCircuitInput, qdata::pm_jobs_completed_stats::PMJobsCompletedStats};
 
-use crate::{guta::gadgets::{helpers::ToGUTAHeader, two_nca_state_transition::TwoNCAStateTransitionGadget, verify_end_cap::VerifyEndCapProofGadget}, gadgets::qdata::pm_jobs_completed_stats::PMJobsCompletedStatsGadget};
-use async_trait::async_trait;
+use crate::{
+    gadgets::qdata::pm_jobs_completed_stats::PMJobsCompletedStatsGadget,
+    guta::gadgets::{helpers::ToGUTAHeader, two_nca_state_transition::TwoNCAStateTransitionGadget, verify_end_cap::VerifyEndCapProofGadget},
+};
 
 #[derive(Debug)]
 pub struct GUTAVerifyTwoEndCapCircuit<C: GenericConfig<D> + 'static, const D: usize>
 where
-    C::Hasher:AlgebraicHasher<C::F>,
+    C::Hasher: AlgebraicHasher<C::F>,
 {
     pub guta_circuit_whitelist_root_hash: HashOutTarget,
     pub a_end_cap_gadget: VerifyEndCapProofGadget<D>,
@@ -34,15 +49,15 @@ where
     pub fingerprint: QHashOut<C::F>,
 }
 
-impl<C: GenericConfig<D>+ 'static, const D: usize> GUTAVerifyTwoEndCapCircuit<C, D>
+impl<C: GenericConfig<D> + 'static, const D: usize> GUTAVerifyTwoEndCapCircuit<C, D>
 where
-    C::Hasher:AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> {
-        pub fn new(
-            end_cap_proof_common_data: &CommonCircuitData<C::F, D>,
-            end_cap_proof_verifier_data_cap_height: usize,
-            known_end_cap_fingerprint: QHashOut<C::F>,
-        ) -> Self {
-
+    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>>,
+{
+    pub fn new(
+        end_cap_proof_common_data: &CommonCircuitData<C::F, D>,
+        end_cap_proof_verifier_data_cap_height: usize,
+        known_end_cap_fingerprint: QHashOut<C::F>,
+    ) -> Self {
         let config = CircuitConfig::standard_recursion_config();
         let mut builder = CircuitBuilder::<C::F, D>::new(config);
 
@@ -64,24 +79,14 @@ where
             known_end_cap_fingerprint_hash,
         );
 
-
-        let a_end_cap_guta_header = a_end_cap_gadget.get_guta_header::<C::Hasher, C::F>(
-            &mut builder,
-            guta_circuit_whitelist_root_hash,
-        );
+        let a_end_cap_guta_header = a_end_cap_gadget.get_guta_header::<C::Hasher, C::F>(&mut builder, guta_circuit_whitelist_root_hash);
         tracing::debug!("📊 a_end_cap_guta_header: {:?}", a_end_cap_guta_header);
 
-        let b_end_cap_guta_header = b_end_cap_gadget.get_guta_header::<C::Hasher, C::F>(
-            &mut builder,
-            guta_circuit_whitelist_root_hash,
-        );
+        let b_end_cap_guta_header = b_end_cap_gadget.get_guta_header::<C::Hasher, C::F>(&mut builder, guta_circuit_whitelist_root_hash);
         tracing::debug!("📊 b_end_cap_guta_header: {:?}", b_end_cap_guta_header);
 
-        let nca_state_transition_gadget = TwoNCAStateTransitionGadget::add_virtual_to::<C::Hasher, C::F, D>(
-            &mut builder,
-            a_end_cap_guta_header,
-            b_end_cap_guta_header,
-        );
+        let nca_state_transition_gadget =
+            TwoNCAStateTransitionGadget::add_virtual_to::<C::Hasher, C::F, D>(&mut builder, a_end_cap_guta_header, b_end_cap_guta_header);
 
         let worker_public_key = builder.add_virtual_hash();
 
@@ -103,9 +108,7 @@ where
         pad_circuit_degree(&mut builder, 12);
         let circuit_data = builder.build::<C>();
 
-        let fingerprint = QHashOut(get_circuit_fingerprint_generic(
-            &circuit_data.verifier_only,
-        ));
+        let fingerprint = QHashOut(get_circuit_fingerprint_generic(&circuit_data.verifier_only));
 
         Self {
             guta_circuit_whitelist_root_hash,
@@ -138,7 +141,7 @@ where
             &input.a_end_cap.guta_stats,
             &input.a_end_cap.checkpoint_historical_merkle_proof,
             child_a_proof,
-            end_cap_verifier_data
+            end_cap_verifier_data,
         )?;
         self.b_end_cap_gadget.set_witness(
             &mut pw,
@@ -146,13 +149,10 @@ where
             &input.b_end_cap.guta_stats,
             &input.b_end_cap.checkpoint_historical_merkle_proof,
             child_b_proof,
-            end_cap_verifier_data
+            end_cap_verifier_data,
         )?;
 
-        self.nca_state_transition_gadget.set_witness_partial(
-            &mut pw,
-            &input.nca_proof
-        )?;
+        self.nca_state_transition_gadget.set_witness_partial(&mut pw, &input.nca_proof)?;
 
         // Set witness for pm_jobs_completed stats (leaf circuit adds 1 GUTA completion)
         let pm_stats = PMJobsCompletedStats::new_gutas(C::F::ONE);
@@ -168,11 +168,9 @@ where
     }
 }
 
-
-impl<C: GenericConfig<D> + 'static, const D: usize> QStandardCircuit<C, D>
-    for GUTAVerifyTwoEndCapCircuit<C, D>
+impl<C: GenericConfig<D> + 'static, const D: usize> QStandardCircuit<C, D> for GUTAVerifyTwoEndCapCircuit<C, D>
 where
-    C::Hasher:AlgebraicHasher<C::F>,
+    C::Hasher: AlgebraicHasher<C::F>,
 {
     fn get_fingerprint(&self) -> QHashOut<C::F> {
         self.fingerprint
@@ -187,18 +185,11 @@ where
     }
 }
 
-
-
-
 #[async_trait]
-impl <
-    S: QProofStoreReaderAsync + Send + Sync,
-    L: CircuitInfoLibrary<C,D> + Send + Sync,
-    C: GenericConfig<D>+ 'static,
-    const D: usize,
-> QStandardCircuitProvableWithProofStoreAndRefLibraryAsync<S, L, C, D> for GUTAVerifyTwoEndCapCircuit<C,D>
+impl<S: QProofStoreReaderAsync + Send + Sync, L: CircuitInfoLibrary<C, D> + Send + Sync, C: GenericConfig<D> + 'static, const D: usize>
+    QStandardCircuitProvableWithProofStoreAndRefLibraryAsync<S, L, C, D> for GUTAVerifyTwoEndCapCircuit<C, D>
 where
-C::Hasher:AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>>,
+    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>>,
 {
     async fn prove_with_proof_store_async(
         &self,
@@ -207,8 +198,8 @@ C::Hasher:AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>>,
         job_id: QProvingJobDataID,
         worker_public_key: QHashOut<C::F>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
-
-        let r: CircuitInputWithDependencies<VerifyTwoEndCapCircuitInput<C::F>> = bincode::deserialize(&store.get_bytes_by_id(job_id.get_input_witness_id()).await?).map_err(|e| anyhow::anyhow!(e))?;
+        let r: CircuitInputWithDependencies<VerifyTwoEndCapCircuitInput<C::F>> =
+            bincode::deserialize(&store.get_bytes_by_id(job_id.get_input_witness_id()).await?).map_err(|e| anyhow::anyhow!(e))?;
         tracing::debug!("GUTAVerifyTwoEndCapCircuitInput: {}", serde_json::to_string_pretty(&r)?);
 
         if r.dependencies.len() != 2 {
@@ -220,17 +211,8 @@ C::Hasher:AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>>,
 
         let dep_0_type = r.dependencies[0].circuit_type;
         let vd = library.get_verifier_data(dep_0_type)?;
-        let result = self.prove_base(
-            worker_public_key,
-            &r.input,
-            &proof_a,
-            &proof_b,
-            &vd,
-        )?;
+        let result = self.prove_base(worker_public_key, &r.input, &proof_a, &proof_b, &vd)?;
 
         Ok(result)
-
-
     }
 }
-

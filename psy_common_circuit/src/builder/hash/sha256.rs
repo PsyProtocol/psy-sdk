@@ -1,13 +1,14 @@
+use plonky2::{field::extension::Extendable, hash::hash_types::RichField, iop::target::BoolTarget, plonk::circuit_builder::CircuitBuilder};
 use psy_crypto::field::qfield::QRichField;
-use plonky2::field::extension::Extendable;
-use plonky2::hash::hash_types::RichField;
-use plonky2::iop::target::BoolTarget;
-use plonky2::plonk::circuit_builder::CircuitBuilder;
 
-use crate::hash::base_types::hash256::{CircuitBuilderHash256, Hash256Target};
-use crate::traits::GenericCircuitMerkleHasher;
-use crate::u32::arithmetic_u32::{CircuitBuilderU32, U32Target};
-use crate::u32::interleaved_u32::CircuitBuilderB32;
+use crate::{
+    hash::base_types::hash256::{CircuitBuilderHash256, Hash256Target},
+    traits::GenericCircuitMerkleHasher,
+    u32::{
+        arithmetic_u32::{CircuitBuilderU32, U32Target},
+        interleaved_u32::CircuitBuilderB32,
+    },
+};
 
 pub trait CircuitBuilderHashSha256<F: RichField + Extendable<D>, const D: usize> {
     fn hash_sha256_u32(&mut self, data: &[U32Target]) -> Hash256Target;
@@ -36,13 +37,7 @@ pub const K32: [u32; 64] = [
 ];
 
 // (a rrot r1) xor (a rrot r2) xor (a rsh s3)
-pub fn sigma<F: RichField + Extendable<D>, const D: usize>(
-    builder: &mut CircuitBuilder<F, D>,
-    a: U32Target,
-    r1: u8,
-    r2: u8,
-    s3: u8,
-) -> U32Target {
+pub fn sigma<F: RichField + Extendable<D>, const D: usize>(builder: &mut CircuitBuilder<F, D>, a: U32Target, r1: u8, r2: u8, s3: u8) -> U32Target {
     let x = builder.rrot_u32(a, r1);
     let y = builder.rrot_u32(a, r2);
     let z = builder.rsh_u32(a, s3);
@@ -66,12 +61,7 @@ pub fn big_sigma<F: RichField + Extendable<D>, const D: usize>(
 }
 
 // (e and f) xor ((not e) and g)
-pub fn ch<F: RichField + Extendable<D>, const D: usize>(
-    builder: &mut CircuitBuilder<F, D>,
-    e: U32Target,
-    f: U32Target,
-    g: U32Target,
-) -> U32Target {
+pub fn ch<F: RichField + Extendable<D>, const D: usize>(builder: &mut CircuitBuilder<F, D>, e: U32Target, f: U32Target, g: U32Target) -> U32Target {
     let not_e = builder.not_u32(e);
 
     let ef = builder.and_xor_u32(e, f).0;
@@ -83,12 +73,7 @@ pub fn ch<F: RichField + Extendable<D>, const D: usize>(
 // (a and b) xor (a and c) xor (b and c)
 // = (a and (b xor c)) xor (b and c)
 // we can calculate (b xor c), (b and c) in a single op
-pub fn maj<F: RichField + Extendable<D>, const D: usize>(
-    builder: &mut CircuitBuilder<F, D>,
-    a: U32Target,
-    b: U32Target,
-    c: U32Target,
-) -> U32Target {
+pub fn maj<F: RichField + Extendable<D>, const D: usize>(builder: &mut CircuitBuilder<F, D>, a: U32Target, b: U32Target, c: U32Target) -> U32Target {
     let (b_and_c, b_xor_c) = builder.and_xor_u32(b, c);
 
     let a = builder.interleave_u32(a);
@@ -97,9 +82,7 @@ pub fn maj<F: RichField + Extendable<D>, const D: usize>(
     builder.and_xor_b32_to_u32(abc, b_and_c).1
 }
 
-pub fn sha256_start_state<F: RichField + Extendable<D>, const D: usize>(
-    builder: &mut CircuitBuilder<F, D>,
-) -> [U32Target; 8] {
+pub fn sha256_start_state<F: RichField + Extendable<D>, const D: usize>(builder: &mut CircuitBuilder<F, D>) -> [U32Target; 8] {
     [
         builder.constant_u32(H256_256[0]),
         builder.constant_u32(H256_256[1]),
@@ -112,9 +95,7 @@ pub fn sha256_start_state<F: RichField + Extendable<D>, const D: usize>(
     ]
 }
 
-pub fn sha256_round_constants<F: RichField + Extendable<D>, const D: usize>(
-    builder: &mut CircuitBuilder<F, D>,
-) -> [U32Target; 64] {
+pub fn sha256_round_constants<F: RichField + Extendable<D>, const D: usize>(builder: &mut CircuitBuilder<F, D>) -> [U32Target; 64] {
     core::array::from_fn(|i| builder.constant_u32(K32[i]))
 }
 
@@ -153,21 +134,18 @@ pub fn sha256_digest_block<F: RichField + Extendable<D>, const D: usize>(
     ];
 
     for i in 0..64 {
-        // Extend the first 16 words into the remaining 48 words w[16..63] of the message schedule array
+        // Extend the first 16 words into the remaining 48 words w[16..63] of the
+        // message schedule array
         if i >= 16 {
             let s0 = sigma(builder, w[(i + 1) & 0xf], 7, 18, 3);
             let s1 = sigma(builder, w[(i + 14) & 0xf], 17, 19, 10);
-            w[i & 0xf] = builder
-                .add_many_u32(&[s0, s1, w[(i + 9) & 0xf], w[i & 0xf]])
-                .0;
+            w[i & 0xf] = builder.add_many_u32(&[s0, s1, w[(i + 9) & 0xf], w[i & 0xf]]).0;
         }
 
         // Compression function main loop
         let big_s1_e = big_sigma(builder, e, 6, 11, 25);
         let ch_efg = ch(builder, e, f, g);
-        let temp1 = builder
-            .add_many_u32(&[h, big_s1_e, ch_efg, k256[i], w[i & 0xf]])
-            .0;
+        let temp1 = builder.add_many_u32(&[h, big_s1_e, ch_efg, k256[i], w[i & 0xf]]).0;
 
         let big_s0_a = big_sigma(builder, a, 2, 13, 22);
         let maj_abc = maj(builder, a, b, c);
@@ -180,7 +158,8 @@ pub fn sha256_digest_block<F: RichField + Extendable<D>, const D: usize>(
         d = c;
         c = b;
         b = a;
-        a = builder.add_u32_lo(temp1, temp2); // add_many_u32 of 3 elements is the same
+        a = builder.add_u32_lo(temp1, temp2); // add_many_u32 of 3 elements is
+                                              // the same
     }
 
     // Add the compressed chunk to the current hash value
@@ -203,12 +182,7 @@ fn sha256_digest_u32_array_with_length<F: RichField + Extendable<D>, const D: us
     let round_constants = sha256_round_constants(builder);
     let standard_rounds = data.len() / 16;
     for i in 0..standard_rounds {
-        sha256_digest_block(
-            builder,
-            &mut state,
-            &data[i * 16..i * 16 + 16],
-            &round_constants,
-        );
+        sha256_digest_block(builder, &mut state, &data[i * 16..i * 16 + 16], &round_constants);
     }
     let remaining = data.len() - standard_rounds * 16;
     let zero = builder.zero_u32();
@@ -236,12 +210,7 @@ fn sha256_digest_u32_array_with_length<F: RichField + Extendable<D>, const D: us
     state
 }
 
-fn mask_add_u32<F: RichField + Extendable<D>, const D: usize>(
-    builder: &mut CircuitBuilder<F, D>,
-    mask: u32,
-    x: U32Target,
-    y: u32,
-) -> U32Target {
+fn mask_add_u32<F: RichField + Extendable<D>, const D: usize>(builder: &mut CircuitBuilder<F, D>, mask: u32, x: U32Target, y: u32) -> U32Target {
     let mask_target = builder.constant_u32(mask);
     let masked_x = builder.and_u32(x, mask_target);
     let y_target = builder.constant(F::from_canonical_u32(y));
@@ -258,12 +227,7 @@ fn sha256_digest_u32_array_with_byte_length<F: RichField + Extendable<D>, const 
     let round_constants = sha256_round_constants(builder);
     let standard_rounds = data.len() / 16;
     for i in 0..standard_rounds {
-        sha256_digest_block(
-            builder,
-            &mut state,
-            &data[i * 16..i * 16 + 16],
-            &round_constants,
-        );
+        sha256_digest_block(builder, &mut state, &data[i * 16..i * 16 + 16], &round_constants);
     }
     let remaining = data.len() - standard_rounds * 16;
     let rem_bytes = length_bytes % 4;
@@ -275,14 +239,11 @@ fn sha256_digest_u32_array_with_byte_length<F: RichField + Extendable<D>, const 
         }
 
         if rem_bytes == 3 {
-            block_data[remaining - 1] =
-                mask_add_u32(builder, 0xffffff00, block_data[remaining - 1], 0x80);
+            block_data[remaining - 1] = mask_add_u32(builder, 0xffffff00, block_data[remaining - 1], 0x80);
         } else if rem_bytes == 2 {
-            block_data[remaining - 1] =
-                mask_add_u32(builder, 0xffff0000, block_data[remaining - 1], 0x8000);
+            block_data[remaining - 1] = mask_add_u32(builder, 0xffff0000, block_data[remaining - 1], 0x8000);
         } else if rem_bytes == 1 {
-            block_data[remaining - 1] =
-                mask_add_u32(builder, 0xff000000, block_data[remaining - 1], 0x800000);
+            block_data[remaining - 1] = mask_add_u32(builder, 0xff000000, block_data[remaining - 1], 0x800000);
         } else {
             block_data[remaining] = builder.constant_u32(0x80000000);
         }
@@ -297,14 +258,11 @@ fn sha256_digest_u32_array_with_byte_length<F: RichField + Extendable<D>, const 
             block_data[i] = data[standard_rounds * 16 + i];
         }
         if rem_bytes == 3 {
-            block_data[remaining - 1] =
-                mask_add_u32(builder, 0xffffff00, block_data[remaining - 1], 0x80);
+            block_data[remaining - 1] = mask_add_u32(builder, 0xffffff00, block_data[remaining - 1], 0x80);
         } else if rem_bytes == 2 {
-            block_data[remaining - 1] =
-                mask_add_u32(builder, 0xffff0000, block_data[remaining - 1], 0x8000);
+            block_data[remaining - 1] = mask_add_u32(builder, 0xffff0000, block_data[remaining - 1], 0x8000);
         } else if rem_bytes == 1 {
-            block_data[remaining - 1] =
-                mask_add_u32(builder, 0xff000000, block_data[remaining - 1], 0x800000);
+            block_data[remaining - 1] = mask_add_u32(builder, 0xff000000, block_data[remaining - 1], 0x800000);
         } else {
             block_data[remaining] = builder.constant_u32(0x80000000);
         }
@@ -318,16 +276,11 @@ fn sha256_digest_u32_array_with_byte_length<F: RichField + Extendable<D>, const 
     state
 }
 
-fn sha256_digest_u32_array<F: RichField + Extendable<D>, const D: usize>(
-    builder: &mut CircuitBuilder<F, D>,
-    data: &[U32Target],
-) -> Hash256Target {
+fn sha256_digest_u32_array<F: RichField + Extendable<D>, const D: usize>(builder: &mut CircuitBuilder<F, D>, data: &[U32Target]) -> Hash256Target {
     sha256_digest_u32_array_with_length(builder, data, data.len() * 32)
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderHashSha256<F, D>
-    for CircuitBuilder<F, D>
-{
+impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderHashSha256<F, D> for CircuitBuilder<F, D> {
     fn hash_sha256_u32(&mut self, data: &[U32Target]) -> Hash256Target {
         sha256_digest_u32_array(self, data)
     }
@@ -346,7 +299,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderHashSha256<F, D
         ];
 
         // Initialize array of round constants:
-        // (first 32 bits of the fractional parts of the cube roots of the first 64 primes 2..311)
+        // (first 32 bits of the fractional parts of the cube roots of the first 64
+        // primes 2..311)
         let k256 = sha256_round_constants(self);
 
         // Pre-processing (Padding)
@@ -354,8 +308,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderHashSha256<F, D
 
         // block 1 data (left and right)
         let w: [U32Target; 16] = [
-            left[0], left[1], left[2], left[3], left[4], left[5], left[6], left[7], right[0],
-            right[1], right[2], right[3], right[4], right[5], right[6], right[7],
+            left[0], left[1], left[2], left[3], left[4], left[5], left[6], left[7], right[0], right[1], right[2], right[3], right[4], right[5],
+            right[6], right[7],
         ];
         // digest block 1
         sha256_digest_block(self, &mut state, &w, &k256);
@@ -366,8 +320,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderHashSha256<F, D
 
         // block 2 (padding/length in bits)
         let w: [U32Target; 16] = [
-            cx80, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero,
-            zero, c512,
+            cx80, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, zero, c512,
         ];
 
         // digest block 2
@@ -435,24 +388,32 @@ impl GenericCircuitMerkleHasher<Hash256Target> for Sha256Hasher {
 mod tests {
     use std::time::Instant;
 
-    use crate::builder::hash::sha256::sha256_digest_u32_array_with_byte_length;
-    use crate::hash::base_types::hash256::{CircuitBuilderHash256, WitnessHash256};
-    use crate::u32::arithmetic_u32::CircuitBuilderU32;
-    use crate::u32::witness::WitnessU32;
+    use hex;
+    use plonky2::{
+        field::{
+            goldilocks_field::GoldilocksField,
+            types::{Field, PrimeField64},
+        },
+        hash::poseidon::PoseidonHash,
+        iop::witness::{PartialWitness, WitnessWrite},
+        plonk::{
+            circuit_builder::CircuitBuilder,
+            circuit_data::CircuitConfig,
+            config::{GenericConfig, Hasher, PoseidonGoldilocksConfig},
+        },
+    };
+    use psy_core::{
+        data::{base_types::hash256::Hash256, qhashout::QHashOut},
+        utils::binary_helpers::{bytes_to_u32_vec_be, u32_vec_to_bytes_be},
+    };
+    use psy_crypto::hash::core::sha256::CoreSha256Hasher;
 
     use super::CircuitBuilderHashSha256;
-    use psy_core::data::base_types::hash256::Hash256;
-    use psy_core::data::qhashout::QHashOut;
-    use hex;
-    use plonky2::field::goldilocks_field::GoldilocksField;
-    use plonky2::field::types::{Field, PrimeField64};
-    use plonky2::hash::poseidon::PoseidonHash;
-    use plonky2::iop::witness::{PartialWitness, WitnessWrite};
-    use plonky2::plonk::circuit_builder::CircuitBuilder;
-    use plonky2::plonk::circuit_data::CircuitConfig;
-    use plonky2::plonk::config::{GenericConfig, Hasher, PoseidonGoldilocksConfig};
-    use psy_core::utils::binary_helpers::{bytes_to_u32_vec_be, u32_vec_to_bytes_be};
-    use psy_crypto::hash::core::sha256::CoreSha256Hasher;
+    use crate::{
+        builder::hash::sha256::sha256_digest_u32_array_with_byte_length,
+        hash::base_types::hash256::{CircuitBuilderHash256, WitnessHash256},
+        u32::{arithmetic_u32::CircuitBuilderU32, witness::WitnessU32},
+    };
 
     #[test]
     fn test_sha256_two_to_one() {
@@ -538,7 +499,9 @@ mod tests {
         let data = builder.build::<C>();
         tracing::info!(
             "two_to_one_sha256 num_gates={}, copy_constraints={}, quotient_degree_factor={}",
-            num_gates, copy_constraints, data.common.quotient_degree_factor
+            num_gates,
+            copy_constraints,
+            data.common.quotient_degree_factor
         );
 
         for t in tests {
@@ -562,12 +525,10 @@ mod tests {
 
     #[test]
     fn test_sha256_long_arbitrary_length() {
-        let tests = [
-            [
-                "600D54000000000000000000000000000000000000000000000000000000000077F1040000000000000000000000000000000000000000000000000000000000",
-                "9E05820FB000642E0F36AD7696F92D95C965CB27A8DC093D81A0D37B260A0F8E",
-            ],
-        ];
+        let tests = [[
+            "600D54000000000000000000000000000000000000000000000000000000000077F1040000000000000000000000000000000000000000000000000000000000",
+            "9E05820FB000642E0F36AD7696F92D95C965CB27A8DC093D81A0D37B260A0F8E",
+        ]];
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;
@@ -683,8 +644,7 @@ mod tests {
         let preimage_target = builder.add_virtual_u32_targets(padded_input.len() / 4);
         let expected_output_target = builder.add_virtual_hash256_target();
 
-        let hash_output =
-            sha256_digest_u32_array_with_byte_length(&mut builder, &preimage_target, input.len());
+        let hash_output = sha256_digest_u32_array_with_byte_length(&mut builder, &preimage_target, input.len());
         builder.connect_hash256(hash_output, expected_output_target);
         builder.register_public_inputs(&hash_output.iter().map(|o| o.0).collect::<Vec<_>>());
 
@@ -704,13 +664,7 @@ mod tests {
         let proof = data.prove(pw).unwrap();
         let duration_ms = start_time.elapsed().as_millis();
         //tracing::info!("sha256 ({} bytes) proved in {}ms", input.len(), duration_ms);
-        let result_hash = u32_vec_to_bytes_be(
-            &proof
-                .public_inputs
-                .iter()
-                .map(|f| f.to_canonical_u64() as u32)
-                .collect::<Vec<_>>(),
-        );
+        let result_hash = u32_vec_to_bytes_be(&proof.public_inputs.iter().map(|f| f.to_canonical_u64() as u32).collect::<Vec<_>>());
         assert_eq!(result_hash, expected_result.0.to_vec());
         tracing::info!(
             "[sha256 {} bytes, proved in {}ms] sha256({}) = {} ",
@@ -739,9 +693,7 @@ mod tests {
         let preimage_target = builder.add_virtual_u32_targets(padded_input.len() / 4);
         let expected_output_target = builder.add_virtual_hash();
 
-        let hash_output = builder.hash_n_to_hash_no_pad::<PoseidonHash>(
-            preimage_target.iter().map(|x| x.0).collect::<Vec<_>>(),
-        );
+        let hash_output = builder.hash_n_to_hash_no_pad::<PoseidonHash>(preimage_target.iter().map(|x| x.0).collect::<Vec<_>>());
         builder.connect_hashes(hash_output, expected_output_target);
         builder.register_public_inputs(&hash_output.elements);
 
@@ -761,10 +713,7 @@ mod tests {
         let proof = data.prove(pw).unwrap();
         let duration_ms = start_time.elapsed().as_millis();
         //tracing::info!("sha256 ({} bytes) proved in {}ms", input.len(), duration_ms);
-        assert_eq!(
-            proof.public_inputs.to_vec(),
-            expected_result.elements.to_vec()
-        );
+        assert_eq!(proof.public_inputs.to_vec(), expected_result.elements.to_vec());
         tracing::info!(
             "[poseidon {} bytes, proved in {}ms] poseidon({}) = {} ",
             input.len(),
@@ -847,10 +796,18 @@ mod tests {
         check_sha_hash(&hex::decode("e215b964d86f7b0991b94b8c25f55d285746ad969d").unwrap());
         check_sha_hash(&hex::decode("33cd9afd9b6d7fd578560cfaf3a9c1f5b25ed1b2103af272c08eb6f1d59ede43b080ae4376be70410b4e705c2dbcc49d93213fa774d2847905453f5200bbaaea36376084f7973f2c6b1d7c437b78aac7e2b2677895c2458b839f0ab36fad7f70637097f145d0136c1d84200887ba42d7d7a5f8c37c5007f74e5a4ee8b79356e68014ce74d60d2cd83c2a5223200df10c86f6769080f7f27c12e4e66bf6cdbeab77df631cf8293fb18b066ec2bb9d99a2").unwrap());
         check_sha_hash(&hex::decode("3133793ab909c2971eb33d5fe0a9aa064cc1ddc79feee4e303bc8c6962365bbf17be47362004346cb57d24799f63a634f0682455b95634b1d541c29210e82f9fbd4519f583afb3f9531c1853fcc49b4440094b87e1e71dc04bd13f1c9259d5d2582f6f74a83e3ff4892e2b56").unwrap());
-        check_sha_hash(&hex::decode("969215958dbdd66b3cce8c895170b72a72659eebfee4625e2b275049ebd0b0f007f50f1ca845fa11b5f112bad5b2c7879a21e85c7a0be2e8c814f2c026e55cc137").unwrap());
+        check_sha_hash(
+            &hex::decode(
+                "969215958dbdd66b3cce8c895170b72a72659eebfee4625e2b275049ebd0b0f007f50f1ca845fa11b5f112bad5b2c7879a21e85c7a0be2e8c814f2c026e55cc137",
+            )
+            .unwrap(),
+        );
         check_sha_hash(&hex::decode("8aa202ada9ea5cab2a0c223b9f5a3cbd1cc4b6092ae5ee867b43c8d8af02b33ea23c732a7c75dcf3631c86bd391a085e52a696b4fce90cf062de9f15b1be656362a1e565efabbcfbcd0e3103035ec86d03c056f1a94cce09847268869892a31481a00d323d439c21cf0a5aecd5abfc4369bd154f034f4c9e2a3200b5a867e074249861285b740c5d2bca11a1989ac97742e57358580b9e030fb1758193ab91307bfcfc55905f733e518722490c61b8880a8c3bcb7685d2a84af97b88a5d3090580ae49c80e0dc176585e382eed0f6fb8acfbfb7e2711d8cb3a355ba59c2e137cf4b389042d50e7720c99d2962a1ecde99517c9").unwrap());
         check_sha_hash(&hex::decode("e78d5dfd8d6229c04c727ba6369e41e2ae28b00962bffce0933cb5e06067c96efbe19493a877933f039012684f87fef66af3479afe5271b903a9d5b3aaa486cc683613d898f4f3607e4c8ec06a6733867af8939abd971831977c162001").unwrap());
-        check_sha_hash(&hex::decode("7a12f3d7a585f3a7f183b27bdea0552f285eec83f95d8273243f885c9637e591b1b472d1d28bc09160ea148c30352f0b6de764f56ce68862ae89").unwrap());
+        check_sha_hash(
+            &hex::decode("7a12f3d7a585f3a7f183b27bdea0552f285eec83f95d8273243f885c9637e591b1b472d1d28bc09160ea148c30352f0b6de764f56ce68862ae89")
+                .unwrap(),
+        );
         check_sha_hash(&hex::decode("1732c9641c3ad37b869e16261e5f8505ff932af565e7f7965bcb2499fa8bf5255984c6d0921da4b3841e09e1e7ef8a783481f7a12da43d098822b12cc148f9248d8e18f1baf3e48a1f9b74832146e223b8320b8de0c8afbed3799e30dca917358913e9fe074c918fa2f6119e2037e22bf5c173743f029cf16a83d010469ea21ea362865d243e643b2fe61b282330940dc115c1b9e7f50f8ae5fed5c01bbc830bca5967e088624f6fcaa117bb62f9c2ad2efb1d9dbce32eaf840f801322713e7a2a39ce1ffae4dca445bf0a7a93aed7d79b84dd6c8a16d521a9c0d399221e559bc00601666d5d2f74920afc6e3658bdc6bc677f66e54862a67d62ad13f735ca287b79007d3acb6ceaf3cf45aeea50c13e474e719d2d03d64314e4b8f475355d8099b2ce7c2fb76ed1f8a647def3c7fb0df402afbe2f").unwrap());
         check_sha_hash(&hex::decode("8049fd72f7f3de2b3bc0a3dacc6f9d7652999c681caaa65f019f79f217f8bc9bef22e835f61987e78e13103c8ea92d1069cb5f592d56377321e4249f338d760ce3c9af6058cb5ef1898af97bb25b4ebf1a130ccf39d67109d31057ea9bbe653726a135c30ac1a157224cea20d9eaddbe40419ea94503ec1170d1b5991f1b1cc33b2ce952c6b7469025c0835da6da18da7af10efa57ce40ffcc0b02cb318716f0930e8ececabd8233ba10ef34a0bb32804801f5e025acc1964fbbde37cda1076b53fd7e3e94db80f4568c66f5ff8a2e5ddd676fbfce5b137f4160a674c356a9a8c9c590f3a2ba1bac7c87d27129b9915b138930915dadba9ac87f55e35a954e49f7fc17df29e44cb4c5ac10cd2a6c42fa62169b").unwrap());
         check_sha_hash(&hex::decode("3d65f1dda3fca05665d80a3e13d00e62fc33d50129b1053b7457c2b8f21d93bc19b288dc7906335fd6b48212cce883ce8923416c4d6f638b669ebc4d3a4425b05b09364be22201b9c481f535dbbe150841068912d5c4225ce919a5cb2537960e3b6b3590a768fa872ffd6e28e847efdec462d1227ff63093d5897b6d8b22691da979860c65b284a109d12e13c1630fbbed08c4b12462f284c501368b35ac8c58b7b22e36bf4c828e1fa5ceda6a61f5e888ee6680ce390ca41f4a5473b4cad6ecf114b5b1846d5bbf75173a8c62081afd14911df6e91f69681a2685cc86e1daa8ccef710036327c7bacff0100250239fc88").unwrap());

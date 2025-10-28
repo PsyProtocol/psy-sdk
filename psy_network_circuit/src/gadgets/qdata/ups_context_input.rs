@@ -6,16 +6,11 @@ use plonky2::{
 };
 use psy_common_circuit::{
     builder::hash::core::CircuitBuilderHashCore,
-    traits::{
-        AlgebraicHashableTarget, CreatableTarget, CreatableWithHasherTarget, WitnessValueFor,
-    },
+    traits::{AlgebraicHashableTarget, CreatableTarget, CreatableWithHasherTarget, WitnessValueFor},
 };
 use psy_data::ups::ups_context_input::{UserProvingSessionCurrentState, UserProvingSessionHeader, UserProvingSessionStartContext};
 
-
-use super::
-    user::QEDUserLeafGadget
-;
+use super::user::QEDUserLeafGadget;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct UserProvingSessionStartContextGadget {
@@ -31,15 +26,12 @@ pub struct UserProvingSessionStartContextGadget {
 }
 
 impl UserProvingSessionStartContextGadget {
-    fn add_virtual_to<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
-        builder: &mut CircuitBuilder<F, D>,
-    ) -> Self {
+    fn add_virtual_to<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(builder: &mut CircuitBuilder<F, D>) -> Self {
         let checkpoint_id = builder.add_virtual_target();
         let checkpoint_tree_root = builder.add_virtual_hash();
         let checkpoint_leaf_hash = builder.add_virtual_hash();
         let start_session_user_leaf = QEDUserLeafGadget::create_virtual(builder);
         let start_session_user_leaf_hash = start_session_user_leaf.to_hash::<H, F, D>(builder);
-
 
         Self {
             checkpoint_id,
@@ -62,28 +54,17 @@ impl UserProvingSessionStartContextGadget {
         builder.connect_hashes(expected_global_chain_root, computed_global_chain_root);
     }
     */
-    pub fn set_witness<F: RichField>(
-        &self,
-        witness: &mut impl Witness<F>,
-        target: &UserProvingSessionStartContext<F>,
-    ) -> anyhow::Result<()> {
+    pub fn set_witness<F: RichField>(&self, witness: &mut impl Witness<F>, target: &UserProvingSessionStartContext<F>) -> anyhow::Result<()> {
         witness.set_target(self.checkpoint_id, target.checkpoint_id)?;
         witness.set_hash_target(self.checkpoint_tree_root, target.checkpoint_tree_root.0)?;
         witness.set_hash_target(self.checkpoint_leaf_hash, target.checkpoint_leaf_hash.0)?;
-        self.start_session_user_leaf
-            .set_witness(witness, &target.start_session_user_leaf)
+        self.start_session_user_leaf.set_witness(witness, &target.start_session_user_leaf)
     }
-    pub fn to_hash<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
-        &self,
-        builder: &mut CircuitBuilder<F, D>,
-    ) -> HashOutTarget {
-
-        // IMPORTANT: Must be the same hash result/algo as DapenCFCProvingSessionStartContextGadget
-        let checkpoint_combo =
-            builder.hash_two_to_one::<H>(self.checkpoint_tree_root, self.checkpoint_leaf_hash);
-        let user_leaf_hash = self
-            .start_session_user_leaf
-            .to_hash_target::<H, F, D>(builder);
+    pub fn to_hash<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(&self, builder: &mut CircuitBuilder<F, D>) -> HashOutTarget {
+        // IMPORTANT: Must be the same hash result/algo as
+        // DapenCFCProvingSessionStartContextGadget
+        let checkpoint_combo = builder.hash_two_to_one::<H>(self.checkpoint_tree_root, self.checkpoint_leaf_hash);
+        let user_leaf_hash = self.start_session_user_leaf.to_hash_target::<H, F, D>(builder);
 
         let checkpoint_user_combo = builder.hash_two_to_one::<H>(checkpoint_combo, user_leaf_hash);
         builder.hash_n_to_hash_no_pad::<H>(vec![
@@ -96,50 +77,29 @@ impl UserProvingSessionStartContextGadget {
     }
 }
 impl CreatableWithHasherTarget for UserProvingSessionStartContextGadget {
-    fn create_virtual_with_hasher<
-        H:AlgebraicHasher<F>,
-        F: RichField + Extendable<D>,
-        const D: usize,
-    >(
-        builder: &mut CircuitBuilder<F, D>,
-    ) -> Self {
+    fn create_virtual_with_hasher<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(builder: &mut CircuitBuilder<F, D>) -> Self {
         Self::add_virtual_to::<H, F, D>(builder)
     }
 }
 impl AlgebraicHashableTarget for UserProvingSessionStartContextGadget {
-    fn to_hash_target<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
+    fn to_hash_target<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
         &self,
         builder: &mut CircuitBuilder<F, D>,
     ) -> HashOutTarget {
         self.to_hash::<H, F, D>(builder)
     }
 }
-impl<F: RichField> WitnessValueFor<UserProvingSessionStartContextGadget, F, true>
-    for UserProvingSessionStartContext<F>
-{
-    fn set_for_witness(
-        &self,
-        witness: &mut impl Witness<F>,
-        target: &UserProvingSessionStartContextGadget,
-    ) -> anyhow::Result<()> {
+impl<F: RichField> WitnessValueFor<UserProvingSessionStartContextGadget, F, true> for UserProvingSessionStartContext<F> {
+    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &UserProvingSessionStartContextGadget) -> anyhow::Result<()> {
         target.set_witness(witness, self)
     }
 }
 
-impl<F: RichField> WitnessValueFor<UserProvingSessionStartContextGadget, F, false>
-    for UserProvingSessionStartContext<F>
-{
-    fn set_for_witness(
-        &self,
-        witness: &mut impl Witness<F>,
-        target: &UserProvingSessionStartContextGadget,
-    ) -> anyhow::Result<()> {
+impl<F: RichField> WitnessValueFor<UserProvingSessionStartContextGadget, F, false> for UserProvingSessionStartContext<F> {
+    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &UserProvingSessionStartContextGadget) -> anyhow::Result<()> {
         target.set_witness(witness, self)
     }
 }
-
-
-
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct UserProvingSessionCurrentStateGadget {
@@ -153,9 +113,7 @@ pub struct UserProvingSessionCurrentStateGadget {
 }
 
 impl UserProvingSessionCurrentStateGadget {
-    pub fn add_virtual_to<F: RichField + Extendable<D>, const D: usize>(
-        builder: &mut CircuitBuilder<F, D>,
-    ) -> Self {
+    pub fn add_virtual_to<F: RichField + Extendable<D>, const D: usize>(builder: &mut CircuitBuilder<F, D>) -> Self {
         let user_leaf = QEDUserLeafGadget::create_virtual::<F, D>(builder);
 
         let deferred_tx_debt_tree_root = builder.add_virtual_hash();
@@ -163,7 +121,6 @@ impl UserProvingSessionCurrentStateGadget {
 
         let tx_hash_stack = builder.add_virtual_hash();
         let tx_count = builder.add_virtual_target();
-
 
         Self {
             user_leaf,
@@ -173,23 +130,14 @@ impl UserProvingSessionCurrentStateGadget {
             tx_count,
         }
     }
-    pub fn set_witness<F: RichField>(
-        &self,
-        witness: &mut impl Witness<F>,
-        target: &UserProvingSessionCurrentState<F>,
-    ) -> anyhow::Result<()> {
+    pub fn set_witness<F: RichField>(&self, witness: &mut impl Witness<F>, target: &UserProvingSessionCurrentState<F>) -> anyhow::Result<()> {
         self.user_leaf.set_witness(witness, &target.user_leaf)?;
         witness.set_hash_target(self.deferred_tx_debt_tree_root, target.deferred_tx_debt_tree_root.0)?;
         witness.set_hash_target(self.inline_tx_debt_tree_root, target.inline_tx_debt_tree_root.0)?;
         witness.set_hash_target(self.tx_hash_stack, target.tx_hash_stack.0)?;
         witness.set_target(self.tx_count, target.tx_count)
     }
-    pub fn to_hash<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
-        &self,
-        builder: &mut CircuitBuilder<F, D>,
-    ) -> HashOutTarget {
-
-
+    pub fn to_hash<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(&self, builder: &mut CircuitBuilder<F, D>) -> HashOutTarget {
         let user_leaf_hash = self.user_leaf.to_hash::<H, F, D>(builder);
         let debt_combo = builder.hash_two_to_one::<H>(self.deferred_tx_debt_tree_root, self.inline_tx_debt_tree_root);
         let tx_combo = builder.hash_n_to_hash_no_pad::<H>(vec![
@@ -207,47 +155,29 @@ impl UserProvingSessionCurrentStateGadget {
     }
 }
 impl CreatableTarget for UserProvingSessionCurrentStateGadget {
-    fn create_virtual<F: RichField + Extendable<D>, const D: usize>(
-        builder: &mut CircuitBuilder<F, D>,
-    ) -> Self {
+    fn create_virtual<F: RichField + Extendable<D>, const D: usize>(builder: &mut CircuitBuilder<F, D>) -> Self {
         Self::add_virtual_to(builder)
     }
 }
 impl AlgebraicHashableTarget for UserProvingSessionCurrentStateGadget {
-    fn to_hash_target<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
+    fn to_hash_target<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
         &self,
         builder: &mut CircuitBuilder<F, D>,
     ) -> HashOutTarget {
         self.to_hash::<H, F, D>(builder)
     }
 }
-impl<F: RichField> WitnessValueFor<UserProvingSessionCurrentStateGadget, F, true>
-    for UserProvingSessionCurrentState<F>
-{
-    fn set_for_witness(
-        &self,
-        witness: &mut impl Witness<F>,
-        target: &UserProvingSessionCurrentStateGadget,
-    ) -> anyhow::Result<()> {
+impl<F: RichField> WitnessValueFor<UserProvingSessionCurrentStateGadget, F, true> for UserProvingSessionCurrentState<F> {
+    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &UserProvingSessionCurrentStateGadget) -> anyhow::Result<()> {
         target.set_witness(witness, self)
     }
 }
 
-impl<F: RichField> WitnessValueFor<UserProvingSessionCurrentStateGadget, F, false>
-    for UserProvingSessionCurrentState<F>
-{
-    fn set_for_witness(
-        &self,
-        witness: &mut impl Witness<F>,
-        target: &UserProvingSessionCurrentStateGadget,
-    ) -> anyhow::Result<()> {
+impl<F: RichField> WitnessValueFor<UserProvingSessionCurrentStateGadget, F, false> for UserProvingSessionCurrentState<F> {
+    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &UserProvingSessionCurrentStateGadget) -> anyhow::Result<()> {
         target.set_witness(witness, self)
     }
 }
-
-
-
-
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct UserProvingSessionHeaderGadget {
@@ -261,27 +191,21 @@ pub struct UserProvingSessionHeaderGadget {
 }
 
 impl UserProvingSessionHeaderGadget {
-    pub fn new_from_existing_ups_context<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
+    pub fn new_from_existing_ups_context<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
         ups_step_circuit_whitelist_root: HashOutTarget,
         session_start_context: UserProvingSessionStartContextGadget,
         current_state: UserProvingSessionCurrentStateGadget,
     ) -> Self {
         // sanity check: make sure we are on the same user as we started with
-        builder.connect(
-            session_start_context.start_session_user_leaf.user_id,
-            current_state.user_leaf.user_id,
-        );
+        builder.connect(session_start_context.start_session_user_leaf.user_id, current_state.user_leaf.user_id);
         builder.connect_hashes(
             session_start_context.start_session_user_leaf.public_key,
             current_state.user_leaf.public_key,
         );
 
-
         let session_start_context_hash = session_start_context.to_hash::<H, F, D>(builder);
         let current_state_hash = current_state.to_hash::<H, F, D>(builder);
-
-
 
         Self {
             ups_step_circuit_whitelist_root,
@@ -292,28 +216,20 @@ impl UserProvingSessionHeaderGadget {
             current_state_hash,
         }
     }
-    pub fn add_virtual_to<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
-        builder: &mut CircuitBuilder<F, D>,
-    ) -> Self {
+    pub fn add_virtual_to<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(builder: &mut CircuitBuilder<F, D>) -> Self {
         let ups_step_circuit_whitelist_root = builder.add_virtual_hash();
         let session_start_context = UserProvingSessionStartContextGadget::add_virtual_to::<H, F, D>(builder);
         let current_state = UserProvingSessionCurrentStateGadget::add_virtual_to::<F, D>(builder);
 
         // sanity check: make sure we are on the same user as we started with
-        builder.connect(
-            session_start_context.start_session_user_leaf.user_id,
-            current_state.user_leaf.user_id,
-        );
+        builder.connect(session_start_context.start_session_user_leaf.user_id, current_state.user_leaf.user_id);
         builder.connect_hashes(
             session_start_context.start_session_user_leaf.public_key,
             current_state.user_leaf.public_key,
         );
 
-
         let session_start_context_hash = session_start_context.to_hash::<H, F, D>(builder);
         let current_state_hash = current_state.to_hash::<H, F, D>(builder);
-
-
 
         Self {
             ups_step_circuit_whitelist_root,
@@ -324,69 +240,38 @@ impl UserProvingSessionHeaderGadget {
             current_state_hash,
         }
     }
-    pub fn set_witness<F: RichField>(
-        &self,
-        witness: &mut impl Witness<F>,
-        target: &UserProvingSessionHeader<F>,
-    ) -> anyhow::Result<()> {
-        witness.set_hash_target(
-            self.ups_step_circuit_whitelist_root,
-            target.ups_step_circuit_whitelist_root.0,
-        )?;
+    pub fn set_witness<F: RichField>(&self, witness: &mut impl Witness<F>, target: &UserProvingSessionHeader<F>) -> anyhow::Result<()> {
+        witness.set_hash_target(self.ups_step_circuit_whitelist_root, target.ups_step_circuit_whitelist_root.0)?;
         self.session_start_context.set_witness(witness, &target.session_start_context)?;
         self.current_state.set_witness(witness, &target.current_state)
     }
-    pub fn to_hash<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
-        &self,
-        builder: &mut CircuitBuilder<F, D>,
-    ) -> HashOutTarget {
-        let start_current_combo = builder.hash_two_to_one::<H>(
-            self.session_start_context_hash,
-            self.current_state_hash
-        );
+    pub fn to_hash<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(&self, builder: &mut CircuitBuilder<F, D>) -> HashOutTarget {
+        let start_current_combo = builder.hash_two_to_one::<H>(self.session_start_context_hash, self.current_state_hash);
 
-        builder.hash_two_to_one::<H>(
-            self.ups_step_circuit_whitelist_root,
-            start_current_combo,
-        )
+        builder.hash_two_to_one::<H>(self.ups_step_circuit_whitelist_root, start_current_combo)
     }
 }
 impl CreatableWithHasherTarget for UserProvingSessionHeaderGadget {
-    fn create_virtual_with_hasher<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
-        builder: &mut CircuitBuilder<F, D>,
-    ) -> Self {
+    fn create_virtual_with_hasher<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(builder: &mut CircuitBuilder<F, D>) -> Self {
         Self::add_virtual_to::<H, F, D>(builder)
     }
 }
 impl AlgebraicHashableTarget for UserProvingSessionHeaderGadget {
-    fn to_hash_target<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
+    fn to_hash_target<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
         &self,
         builder: &mut CircuitBuilder<F, D>,
     ) -> HashOutTarget {
         self.to_hash::<H, F, D>(builder)
     }
 }
-impl<F: RichField> WitnessValueFor<UserProvingSessionHeaderGadget, F, true>
-    for UserProvingSessionHeader<F>
-{
-    fn set_for_witness(
-        &self,
-        witness: &mut impl Witness<F>,
-        target: &UserProvingSessionHeaderGadget,
-    ) -> anyhow::Result<()> {
+impl<F: RichField> WitnessValueFor<UserProvingSessionHeaderGadget, F, true> for UserProvingSessionHeader<F> {
+    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &UserProvingSessionHeaderGadget) -> anyhow::Result<()> {
         target.set_witness(witness, self)
     }
 }
 
-impl<F: RichField> WitnessValueFor<UserProvingSessionHeaderGadget, F, false>
-    for UserProvingSessionHeader<F>
-{
-    fn set_for_witness(
-        &self,
-        witness: &mut impl Witness<F>,
-        target: &UserProvingSessionHeaderGadget,
-    ) -> anyhow::Result<()> {
+impl<F: RichField> WitnessValueFor<UserProvingSessionHeaderGadget, F, false> for UserProvingSessionHeader<F> {
+    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &UserProvingSessionHeaderGadget) -> anyhow::Result<()> {
         target.set_witness(witness, self)
     }
 }
-

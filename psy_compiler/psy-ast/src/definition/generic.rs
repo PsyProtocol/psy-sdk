@@ -9,11 +9,7 @@ pub struct GenericParameter {
 
 impl GenericParameter {
     pub fn new(name: IdentId, constraints: Vec<UncheckedType>, location: Location) -> Self {
-        Self {
-            name,
-            constraints,
-            location,
-        }
+        Self { name, constraints, location }
     }
 }
 

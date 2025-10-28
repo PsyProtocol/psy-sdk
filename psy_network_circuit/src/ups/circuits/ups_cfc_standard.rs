@@ -1,18 +1,24 @@
 use plonky2::{
-    hash::hash_types::HashOut, iop::
-        witness::PartialWitness
-    , plonk::{
+    hash::hash_types::HashOut,
+    iop::witness::PartialWitness,
+    plonk::{
         circuit_builder::CircuitBuilder,
         circuit_data::{CircuitConfig, CircuitData, CommonCircuitData, VerifierOnlyCircuitData},
         config::{AlgebraicHasher, GenericConfig},
         proof::ProofWithPublicInputs,
-    }
+    },
 };
 use psy_common_circuit::{
-    builder::pad_circuit::{pad_circuit_degree, CircuitBuilderQEDCommonGates}, circuits::traits::qstandard::{provable::QStandardCircuitProvable, QStandardCircuit, QStandardCircuitProvableWithProofStoreSync}, proof_minifier::
-        pm_core::get_circuit_fingerprint_generic, treeprover::qrecursion::standard::gadgets::attest_tree_aware_proof_in_tree::compute_tree_aware_proof_public_inputs
+    builder::pad_circuit::{pad_circuit_degree, CircuitBuilderQEDCommonGates},
+    circuits::traits::qstandard::{provable::QStandardCircuitProvable, QStandardCircuit, QStandardCircuitProvableWithProofStoreSync},
+    proof_minifier::pm_core::get_circuit_fingerprint_generic,
+    treeprover::qrecursion::standard::gadgets::attest_tree_aware_proof_in_tree::compute_tree_aware_proof_public_inputs,
 };
-use psy_core::{config::network_constants::{UPS_CIRCUIT_WHITELIST_TREE_HEIGHT, UPS_SESSION_PROOF_TREE_HEIGHT}, data::qhashout::QHashOut, job::traits::QProofStoreReaderSync};
+use psy_core::{
+    config::network_constants::{UPS_CIRCUIT_WHITELIST_TREE_HEIGHT, UPS_SESSION_PROOF_TREE_HEIGHT},
+    data::qhashout::QHashOut,
+    job::traits::QProofStoreReaderSync,
+};
 use psy_crypto::hash::traits::hasher::MerkleZeroHasher;
 use psy_data::ups::ups_cfc_standard_step::UPSCFCStandardTransactionCircuitInput;
 
@@ -21,7 +27,7 @@ use crate::ups::gadgets::{ups_cfc_standard::UPSVerifyCFCStandardStepGadget, veri
 #[derive(Debug)]
 pub struct UPSCFCStandardTransactionCircuit<C: GenericConfig<D> + 'static, const D: usize>
 where
-    C::Hasher:AlgebraicHasher<C::F>,
+    C::Hasher: AlgebraicHasher<C::F>,
 {
     pub verify_previous_ups_step_gadget: VerifyPreviousUPSStepProofInProofTreeGadget,
     pub standard_cfc_step_gadget: UPSVerifyCFCStandardStepGadget,
@@ -32,21 +38,16 @@ where
 
 impl<C: GenericConfig<D> + 'static, const D: usize> UPSCFCStandardTransactionCircuit<C, D>
 where
-    C::Hasher:AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> {
-        pub fn new() -> Self {
-            Self::new_with_config(
-                UPS_SESSION_PROOF_TREE_HEIGHT as usize,
-                UPS_CIRCUIT_WHITELIST_TREE_HEIGHT as usize
-            )
-        }
-    pub fn new_with_config(
-        ups_session_proof_tree_height: usize,
-        ups_circuit_whitelist_tree_height: usize,
-    ) -> Self {
+    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>>,
+{
+    pub fn new() -> Self {
+        Self::new_with_config(UPS_SESSION_PROOF_TREE_HEIGHT as usize, UPS_CIRCUIT_WHITELIST_TREE_HEIGHT as usize)
+    }
+    pub fn new_with_config(ups_session_proof_tree_height: usize, ups_circuit_whitelist_tree_height: usize) -> Self {
         let config = CircuitConfig::standard_recursion_config();
         let mut builder = CircuitBuilder::<C::F, D>::new(config);
 
-        let verify_previous_ups_step_gadget = VerifyPreviousUPSStepProofInProofTreeGadget::add_virtual_to::<C::Hasher,C::F,D>(
+        let verify_previous_ups_step_gadget = VerifyPreviousUPSStepProofInProofTreeGadget::add_virtual_to::<C::Hasher, C::F, D>(
             &mut builder,
             ups_session_proof_tree_height,
             ups_circuit_whitelist_tree_height,
@@ -54,22 +55,17 @@ where
 
         let current_proof_tree_root = verify_previous_ups_step_gadget.current_proof_tree_root;
 
-
-        let standard_cfc_step_gadget = UPSVerifyCFCStandardStepGadget::add_virtual_to::<C::Hasher,C::F,D>(
+        let standard_cfc_step_gadget = UPSVerifyCFCStandardStepGadget::add_virtual_to::<C::Hasher, C::F, D>(
             &mut builder,
             &verify_previous_ups_step_gadget.previous_step_header_gadget,
             current_proof_tree_root,
             ups_session_proof_tree_height,
         );
 
-
         let inner_public_inputs_hash = standard_cfc_step_gadget.new_header_gadget.to_hash::<C::Hasher, C::F, D>(&mut builder);
 
-        let public_inputs_hash = compute_tree_aware_proof_public_inputs::<C::Hasher, C::F, D>(
-            &mut builder,
-            current_proof_tree_root,
-            inner_public_inputs_hash,
-        );
+        let public_inputs_hash =
+            compute_tree_aware_proof_public_inputs::<C::Hasher, C::F, D>(&mut builder, current_proof_tree_root, inner_public_inputs_hash);
 
         builder.register_public_inputs(&public_inputs_hash.elements);
 
@@ -78,9 +74,7 @@ where
 
         let circuit_data = builder.build::<C>();
 
-        let fingerprint = QHashOut(get_circuit_fingerprint_generic(
-            &circuit_data.verifier_only,
-        ));
+        let fingerprint = QHashOut(get_circuit_fingerprint_generic(&circuit_data.verifier_only));
         Self {
             verify_previous_ups_step_gadget,
             standard_cfc_step_gadget,
@@ -89,35 +83,26 @@ where
         }
     }
 
-    fn prove_base_inner(
-        &self,
-        target: &UPSCFCStandardTransactionCircuitInput<C::F>,
-    ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
+    fn prove_base_inner(&self, target: &UPSCFCStandardTransactionCircuitInput<C::F>) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         let mut pw = PartialWitness::<C::F>::new();
-/*
-        println!("\n\n\nUPSCFCStandardTransactionCircuitInput:\n{:?}\n\n",&target);
-        println!("\n\n\nUPSCFCStandardTransactionCircuitInput:\n{}\n\n",serde_json::to_string_pretty(&target).unwrap());
-*/
-        self.verify_previous_ups_step_gadget.set_witness(&mut pw, &target.verify_previous_ups_step)?;
+        /*
+                println!("\n\n\nUPSCFCStandardTransactionCircuitInput:\n{:?}\n\n",&target);
+                println!("\n\n\nUPSCFCStandardTransactionCircuitInput:\n{}\n\n",serde_json::to_string_pretty(&target).unwrap());
+        */
+        self.verify_previous_ups_step_gadget
+            .set_witness(&mut pw, &target.verify_previous_ups_step)?;
         self.standard_cfc_step_gadget.set_witness(&mut pw, &target.standard_cfc_step)?;
-
 
         self.circuit_data.prove(pw)
     }
-    pub fn prove_base(
-        &self,
-        target: &UPSCFCStandardTransactionCircuitInput<C::F>,
-    ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
+    pub fn prove_base(&self, target: &UPSCFCStandardTransactionCircuitInput<C::F>) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         self.prove_base_inner(target)
     }
-
 }
 
-
-impl<C: GenericConfig<D> + 'static, const D: usize> QStandardCircuit<C, D>
-    for UPSCFCStandardTransactionCircuit<C, D>
+impl<C: GenericConfig<D> + 'static, const D: usize> QStandardCircuit<C, D> for UPSCFCStandardTransactionCircuit<C, D>
 where
-    C::Hasher:AlgebraicHasher<C::F>,
+    C::Hasher: AlgebraicHasher<C::F>,
 {
     fn get_fingerprint(&self) -> QHashOut<C::F> {
         self.fingerprint
@@ -132,28 +117,20 @@ where
     }
 }
 
-
-impl<C: GenericConfig<D>, const D: usize>
-    QStandardCircuitProvable<UPSCFCStandardTransactionCircuitInput<C::F>, C, D>
+impl<C: GenericConfig<D>, const D: usize> QStandardCircuitProvable<UPSCFCStandardTransactionCircuitInput<C::F>, C, D>
     for UPSCFCStandardTransactionCircuit<C, D>
 where
-    C::Hasher:AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>>,
+    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>>,
 {
-    fn prove_standard(
-        &self,
-        input: &UPSCFCStandardTransactionCircuitInput<C::F>,
-    ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
-        self.prove_base(
-            input
-        )
+    fn prove_standard(&self, input: &UPSCFCStandardTransactionCircuitInput<C::F>) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
+        self.prove_base(input)
     }
 }
 
 impl<S: QProofStoreReaderSync, C: GenericConfig<D>, const D: usize>
-    QStandardCircuitProvableWithProofStoreSync<S, UPSCFCStandardTransactionCircuitInput<C::F>, C, D>
-    for UPSCFCStandardTransactionCircuit<C, D>
+    QStandardCircuitProvableWithProofStoreSync<S, UPSCFCStandardTransactionCircuitInput<C::F>, C, D> for UPSCFCStandardTransactionCircuit<C, D>
 where
-    C::Hasher:AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>>,
+    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>>,
 {
     fn prove_with_proof_store_sync(
         &self,

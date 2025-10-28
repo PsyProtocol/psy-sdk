@@ -1,79 +1,89 @@
-use super::args::CoordinatorProcessorArgs;
-use crate::common::verifier::get_cached_generic_verifier;
-use crate::coordinator::state::processor::CoordinatorConfig;
-use crate::coordinator::state::processor::CoordinatorProcessorContext;
+use std::{collections::HashMap, str::FromStr, sync::Arc, time::Duration};
+
 use anyhow::{bail, Context};
-use plonky2::plonk::config::PoseidonGoldilocksConfig;
-use plonky2::field::types::Field;
-use psy_core::config::network_constants::DEFAULT_USER_STATE_TREE_ROOT;
-use psy_core::config::network_constants::GLOBAL_CONTRACT_TREE_HEIGHT;
-use psy_core::config::network_constants::GLOBAL_USER_TREE_HEIGHT;
-use psy_crypto::common::user_id::get_user_id_from_registration_id;
-use psy_crypto::hash::merkle::utils::common::QMerkleNode;
-use psy_data::config::genesis_config::GenesisConfig;
-use psy_data::qblock::cmds::deploy_contract::QBCDeployContractWithRoot;
-use psy_core::config::network_constants::MAX_CONTRACT_STATE_TREE_HEIGHT;
-use psy_core::data::qhashout::QHashOut;
-use psy_core::job::worker_queue::WorkerEventReceiverAsyncImm;
-use psy_core::job::{
-    drain_queue::CheckpointDrainQueueConsumerAsyncImm,
-    history_queue::{CheckpointHistoryQueueEmitterAsyncImm, CheckpointHistoryQueueConsumerAsyncImm},
-    traits::{QProofStoreAsyncImm, QProofStoreReaderAsync, QProofStoreWriterAsyncImm},
-    worker_queue::WorkerEventTransmitterAsyncImm,
+use indexmap::IndexMap;
+use plonky2::{
+    field::{goldilocks_field::GoldilocksField, types::Field},
+    hash::hash_types::RichField,
+    plonk::config::PoseidonGoldilocksConfig,
 };
-use psy_crypto::common::generic_circuit_verifier::GenericCircuitVerifier;
-use psy_data::qdata::contract::QEDContractLeaf;
+use psy_core::{
+    config::network_constants::{
+        BATCH_USER_REGISTRAITION_SUB_TREE_HEIGHT, COORDINATOR_EDGE_TO_PROCESSOR_CHANNEL, COORDINATOR_USER_TREE_HEIGHT, DEFAULT_USER_STATE_TREE_ROOT,
+        GLOBAL_CONTRACT_TREE_HEIGHT, GLOBAL_USER_TREE_HEIGHT, MAX_CONTRACT_STATE_TREE_HEIGHT, REALM_USER_TREE_HEIGHT, USERS_PER_REALM,
+    },
+    data::qhashout::QHashOut,
+    job::{
+        drain_queue::CheckpointDrainQueueConsumerAsyncImm,
+        history_queue::{CheckpointHistoryQueueConsumerAsyncImm, CheckpointHistoryQueueEmitterAsyncImm},
+        traits::{QProofStoreAsyncImm, QProofStoreReaderAsync, QProofStoreWriterAsyncImm},
+        worker_queue::{WorkerEventReceiverAsyncImm, WorkerEventTransmitterAsyncImm},
+    },
+};
+use psy_crypto::{
+    common::{generic_circuit_verifier::GenericCircuitVerifier, user_id::get_user_id_from_registration_id},
+    hash::{
+        merkle::utils::{
+            common::{QMerkleNode, SimpleMerkleNode, SimpleMerkleNodeKey},
+            simple_merkle_tree::SimpleMerkleTree,
+        },
+        traits::qhashable::QFieldHashable,
+    },
+};
 use psy_data::{
-    config::store_config::QEDFelt,
-    traits::qdatastore::{qtreedata::QEDComboDataStoreReaderWriterSync, qtreedata::QTreeDataStoreWriterSync},
+    config::{
+        genesis_config::GenesisConfig,
+        store_config::{QEDFelt, QEDHasher, UserTreeStore},
+    },
+    qblock::cmds::deploy_contract::QBCDeployContractWithRoot,
+    qdata::{
+        contract::{ContractCodeDefinition, ContractFunctionCodeDefinition, QEDContractLeaf},
+        realm_status::BasicRealmStatus,
+        user::QEDUserLeaf,
+        user_public_key::QEDUserPublicKeyRecord,
+    },
+    traits::qdatastore::qtreedata::{QEDComboDataStoreReaderWriterSync, QTreeDataStoreWriterSync},
 };
 use psy_network_circuit::coordinator::coordinator_helper::QEDCoordinatorCircuitManager;
-use psy_store::node::coordinator::InitializeParams;
-use psy_store::node::coordinator::{
-    QEDCoordinatorStoreReaderAsync, QEDCoordinatorStoreWriterAsyncImm,
-};
-use psy_store::queue::new_redis_async_pool;
-use psy_store::queue::ProofStoreFred;
-use psy_store::queue::ProofStoreRedisAsync;
-use psy_store::queue::rsmq_queue::CEQueueNotification;
-use psy_core::config::network_constants::COORDINATOR_EDGE_TO_PROCESSOR_CHANNEL;
-use psy_store::store::QEDStore;
-use psy_vm::dpn::vm::def::DPNFunctionCircuitDefinition;
-use tracing::trace;
-use std::time::Duration;
-use psy_data::qdata::realm_status::BasicRealmStatus;
-use psy_store::store::journal::{Journal, JournalStore};
-use std::sync::Arc;
-use psy_crypto::hash::merkle::utils::common::{SimpleMerkleNode, SimpleMerkleNodeKey};
-use psy_crypto::hash::merkle::utils::simple_merkle_tree::SimpleMerkleTree;
-use psy_data::qdata::user::QEDUserLeaf;
-use psy_crypto::hash::traits::qhashable::QFieldHashable;
-use psy_data::qdata::user_public_key::QEDUserPublicKeyRecord;
 use psy_prover::session::gen_contract_deploy_and_circuits_for_functions;
-use psy_vm::dpn::vm::compile::QEDCompileResult;
-use psy_data::config::store_config::QEDHasher;
-use psy_core::config::network_constants::BATCH_USER_REGISTRAITION_SUB_TREE_HEIGHT;
-use psy_data::qdata::contract::{ContractCodeDefinition, ContractFunctionCodeDefinition};
-use psy_data::config::store_config::UserTreeStore;
-use psy_core::config::network_constants::{USERS_PER_REALM, REALM_USER_TREE_HEIGHT, COORDINATOR_USER_TREE_HEIGHT};
-use std::str::FromStr;
-use std::collections::HashMap;
-use indexmap::IndexMap;
-use plonky2::field::goldilocks_field::GoldilocksField;
-use plonky2::hash::hash_types::RichField;
-use tokio::time::{sleep_until, Instant};
-use tracing::{debug, error, info, warn};
+use psy_store::{
+    node::coordinator::{InitializeParams, QEDCoordinatorStoreReaderAsync, QEDCoordinatorStoreWriterAsyncImm},
+    queue::{
+        new_redis_async_pool,
+        redis_queue::{CheckpointDrainQueueConsumerAsyncImmWithPosition, NotificationQueue},
+        rsmq_queue::CEQueueNotification,
+        task_queue::{QProvingTaskStore, QProvingTaskStoreImpl},
+        ProofStoreFred, ProofStoreRedisAsync,
+    },
+    store::{
+        journal::{Journal, JournalStore},
+        QEDStore,
+    },
+};
+use psy_vm::dpn::vm::{compile::QEDCompileResult, def::DPNFunctionCircuitDefinition};
 use serde_json;
-use psy_store::queue::task_queue::{QProvingTaskStore, QProvingTaskStoreImpl};
-use psy_store::queue::redis_queue::{CheckpointDrainQueueConsumerAsyncImmWithPosition, NotificationQueue};
-use crate::common::clock::SlotTimer;
-use crate::common::retry::Retryable;
-use crate::common::slot;
-use crate::common::slot::{LocalClock, Parity, Slot, SLOT_SIZE};
-use crate::realm::RealmProcessor;
-use super::backup::{CoordinatorS3BackupClient, try_backup_coordinator_checkpoint};
-use tokio::sync::mpsc;
-use crate::common_v2::traits::realm::BasicRealmStatusOnCoordinator;
+use tokio::{
+    sync::mpsc,
+    time::{sleep_until, Instant},
+};
+use tracing::{debug, error, info, trace, warn};
+
+use super::{
+    args::CoordinatorProcessorArgs,
+    backup::{try_backup_coordinator_checkpoint, CoordinatorS3BackupClient},
+};
+use crate::{
+    common::{
+        clock::SlotTimer,
+        retry::Retryable,
+        slot,
+        slot::{LocalClock, Parity, Slot, SLOT_SIZE},
+        verifier::get_cached_generic_verifier,
+    },
+    common_v2::traits::realm::BasicRealmStatusOnCoordinator,
+    coordinator::state::processor::{CoordinatorConfig, CoordinatorProcessorContext},
+    realm::RealmProcessor,
+};
 
 type C = PoseidonGoldilocksConfig;
 const D: usize = 2;
@@ -127,7 +137,7 @@ impl<
         coordinator_worker_circuits: QEDCoordinatorCircuitManager<C, D>,
         task_store: Arc<QProvingTaskStoreImpl>,
     ) -> Self {
-        let backup_tx =  match CoordinatorS3BackupClient::new_from_env().await {
+        let backup_tx = match CoordinatorS3BackupClient::new_from_env().await {
             Ok(client) => {
                 info!("✅ S3 backup client initialized");
                 let (tx, rx) = mpsc::unbounded_channel();
@@ -137,7 +147,7 @@ impl<
                 info!("Started coordinator backup task");
 
                 Some(tx)
-            },
+            }
             Err(e) => {
                 warn!("⚠️ S3 backup client initialization failed: {}", e);
                 None
@@ -165,8 +175,10 @@ impl<
         let latest_l2_block_state = self.ctx.store.get_latest_l2_block_state().await?;
 
         let CEQueueNotification::StartProduceBlock { next_checkpoint } = notify_message;
-        debug!("coordinator: wait_for_produce_block: next_checkpoint: {}, latest_l2_block_state.checkpoint_id: {}",
-            next_checkpoint, latest_l2_block_state.checkpoint_id);
+        debug!(
+            "coordinator: wait_for_produce_block: next_checkpoint: {}, latest_l2_block_state.checkpoint_id: {}",
+            next_checkpoint, latest_l2_block_state.checkpoint_id
+        );
 
         match next_checkpoint.cmp(&latest_l2_block_state.checkpoint_id) {
             std::cmp::Ordering::Equal => {
@@ -182,9 +194,7 @@ impl<
                 // No need to delete from history queue, it's already processed
                 return Ok(false);
             }
-            std::cmp::Ordering::Greater
-                if next_checkpoint - latest_l2_block_state.checkpoint_id > 1 =>
-            {
+            std::cmp::Ordering::Greater if next_checkpoint - latest_l2_block_state.checkpoint_id > 1 => {
                 warn!(
                     "🚧 Future checkpoint {} too far ahead of {}",
                     next_checkpoint, latest_l2_block_state.checkpoint_id
@@ -205,12 +215,12 @@ impl<
             }
             Ok(false) => {
                 info!("⚠️ No pending tasks, waiting for next checkpoint");
-                tokio::time::sleep(Duration::from_millis(slot::SLOT_SIZE/2)).await;
+                tokio::time::sleep(Duration::from_millis(slot::SLOT_SIZE / 2)).await;
                 false
             }
             Err(e) => {
                 error!("❌ Error waiting for produce block: {:?}", e);
-                tokio::time::sleep(Duration::from_millis(slot::SLOT_SIZE/2)).await;
+                tokio::time::sleep(Duration::from_millis(slot::SLOT_SIZE / 2)).await;
                 false
             }
         }
@@ -230,17 +240,9 @@ impl
     >
 {
     pub async fn new_with_config(cp_config: CoordinatorProcessorArgs) -> anyhow::Result<Self> {
-        let task_store = Arc::new(
-            QProvingTaskStoreImpl::new(
-                &cp_config.redis_uri,
-                cp_config.redis_pool_size,
-                &cp_config.queue_args.queue_biz_key
-            ).await?);
-        let q = ProofStoreRedisAsync::new(
-            &cp_config.redis_uri,
-            cp_config.queue_args.queue_biz_key.clone(),
-        )
-        .await?;
+        let task_store =
+            Arc::new(QProvingTaskStoreImpl::new(&cp_config.redis_uri, cp_config.redis_pool_size, &cp_config.queue_args.queue_biz_key).await?);
+        let q = ProofStoreRedisAsync::new(&cp_config.redis_uri, cp_config.queue_args.queue_biz_key.clone()).await?;
 
         let psy_store = QEDStore::from_backend(cp_config.backend.to_backend()).await?;
         let psy_store = JournalStore::new(psy_store);
@@ -278,7 +280,7 @@ impl
             task_store.clone(),
             Arc::clone(&proof_verifier),
             cp_config.max_processed_contracts_per_block,
-            cp_config.max_processed_users_per_block
+            cp_config.max_processed_users_per_block,
         )
         .await?;
 
@@ -295,11 +297,11 @@ impl
             proof_verifier,
             coordinator_worker_circuits,
             task_store,
-        ).await)
+        )
+        .await)
     }
 
     pub async fn initialize_store(psy_store: &JournalStore<QEDStore>, genesis_config: Option<GenesisConfig<GoldilocksField>>) -> anyhow::Result<u64> {
-
         let genesis_store_config = if let Some(ref config) = genesis_config {
             info!("initialize_store Some()");
             let deploy_root = Self::process_genesis_contracts(psy_store, config).await?;
@@ -331,9 +333,7 @@ impl
             bail!("Rollback: Failed to build and prove block: {}", e);
         }
         let (pair_to_set, remove_keys) = match self.ctx.commit(next_checkpoint_id).await {
-            Ok((pair_to_set, remove_keys)) => {
-                (pair_to_set, remove_keys)
-            }
+            Ok((pair_to_set, remove_keys)) => (pair_to_set, remove_keys),
             Err(e) => {
                 ctx.rollback(next_checkpoint_id).await?;
                 bail!("Rollback: Failed to commit block: {}", e);
@@ -342,7 +342,9 @@ impl
 
         info!(
             "✅ Successfully built and committed block {}, slot {}, cost time: {:?}",
-            next_checkpoint_id, slot, now.elapsed()
+            next_checkpoint_id,
+            slot,
+            now.elapsed()
         );
 
         // Auto backup after successful commit
@@ -380,36 +382,36 @@ impl
             } = request;
             // Retry up to 3 times with 1 second delay
             for retry_count in 0..=3 {
-                match super::backup::create_checkpoint_backup(
-                    checkpoint_id,
-                    pair_to_set.clone(),
-                    removed_keys.clone(),
-                ).await {
-                    Ok(backup) => {
-                        match backup_client.backup_checkpoint(&backup).await {
-                            Ok(_) => {
-                                info!("✅ Coordinator checkpoint {} backup succeeded", checkpoint_id);
-                                break;
-                            }
-                            Err(e) if retry_count < 3 => {
-                                warn!("⚠️ Coordinator backup retry {}/3 for checkpoint {}: {}",
-                                    retry_count + 1, checkpoint_id, e);
-                                tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
-                            }
-                            Err(e) => {
-                                error!("❌ Coordinator backup final failure for checkpoint {}: {}",
-                                    checkpoint_id, e);
-                            }
+                match super::backup::create_checkpoint_backup(checkpoint_id, pair_to_set.clone(), removed_keys.clone()).await {
+                    Ok(backup) => match backup_client.backup_checkpoint(&backup).await {
+                        Ok(_) => {
+                            info!("✅ Coordinator checkpoint {} backup succeeded", checkpoint_id);
+                            break;
                         }
-                    }
+                        Err(e) if retry_count < 3 => {
+                            warn!(
+                                "⚠️ Coordinator backup retry {}/3 for checkpoint {}: {}",
+                                retry_count + 1,
+                                checkpoint_id,
+                                e
+                            );
+                            tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+                        }
+                        Err(e) => {
+                            error!("❌ Coordinator backup final failure for checkpoint {}: {}", checkpoint_id, e);
+                        }
+                    },
                     Err(e) if retry_count < 3 => {
-                        warn!("⚠️ Coordinator backup creation retry {}/3 for checkpoint {}: {}",
-                            retry_count + 1, checkpoint_id, e);
+                        warn!(
+                            "⚠️ Coordinator backup creation retry {}/3 for checkpoint {}: {}",
+                            retry_count + 1,
+                            checkpoint_id,
+                            e
+                        );
                         tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
                     }
                     Err(e) => {
-                        error!("❌ Failed to create coordinator backup for checkpoint {}: {}",
-                            checkpoint_id, e);
+                        error!("❌ Failed to create coordinator backup for checkpoint {}: {}", checkpoint_id, e);
                         break;
                     }
                 }
@@ -446,19 +448,14 @@ impl
             if !function_defs.is_empty() {
                 let genesis_deployer = precompile_config.deployer;
 
-                let (circuits, deploy_cmd) = gen_contract_deploy_and_circuits_for_functions::<C, D>(
-                    genesis_deployer,
-                    MAX_CONTRACT_STATE_TREE_HEIGHT,
-                    &function_defs,
-                )?;
+                let (circuits, deploy_cmd) =
+                    gen_contract_deploy_and_circuits_for_functions::<C, D>(genesis_deployer, MAX_CONTRACT_STATE_TREE_HEIGHT, &function_defs)?;
 
                 let contract_id = contract_index as u64;
 
-                let function_tree_root = store.set_contract_function_whitelist_imm(
-                    0,
-                    contract_id,
-                    &deploy_cmd.function_whitelist,
-                ).await?;
+                let function_tree_root = store
+                    .set_contract_function_whitelist_imm(0, contract_id, &deploy_cmd.function_whitelist)
+                    .await?;
 
                 let contract_leaf = QEDContractLeaf {
                     deployer: deploy_cmd.deployer,
@@ -467,7 +464,9 @@ impl
                 };
 
                 store.set_contract_leaf_data_imm(0, contract_id, &contract_leaf).await?;
-                store.set_contract_code_definition_imm(0, contract_id, &deploy_cmd.code_definition).await?;
+                store
+                    .set_contract_code_definition_imm(0, contract_id, &deploy_cmd.code_definition)
+                    .await?;
 
                 let contract_leaf_hash = contract_leaf.qfhash::<QEDHasher>();
                 store.set_contract_tree_leaf_hash_imm(0, contract_id, contract_leaf_hash).await?;
@@ -477,7 +476,9 @@ impl
         Ok(store.get_contract_tree_root(0).await?)
     }
 
-    async fn process_genesis_user_states<SR: QEDCoordinatorStoreWriterAsyncImm<F> + QEDCoordinatorStoreReaderAsync<F> + QTreeDataStoreWriterSync<F>>(
+    async fn process_genesis_user_states<
+        SR: QEDCoordinatorStoreWriterAsyncImm<F> + QEDCoordinatorStoreReaderAsync<F> + QTreeDataStoreWriterSync<F>,
+    >(
         store: &SR,
         genesis_config: &GenesisConfig<F>,
     ) -> anyhow::Result<QHashOut<F>> {
@@ -518,7 +519,6 @@ impl
 
             let user_state_root = user_contracts_tree.get_root();
 
-
             let register_id = user_id_to_register_id[&user_id];
             let user_leaf = QEDUserLeaf {
                 public_key: genesis_users[register_id as usize].get_public_key::<QEDHasher>(),
@@ -544,7 +544,10 @@ impl
         let mut realm_statuses = Vec::new();
 
         for (realm_id, realm_tree) in realm_user_trees {
-            let realm_root = realm_tree.get_node_value(&SimpleMerkleNodeKey { level: COORDINATOR_USER_TREE_HEIGHT, index: realm_id });
+            let realm_root = realm_tree.get_node_value(&SimpleMerkleNodeKey {
+                level: COORDINATOR_USER_TREE_HEIGHT,
+                index: realm_id,
+            });
             realm_ids.push(realm_id);
             realm_statuses.push(BasicRealmStatus {
                 checkpoint_id: 0,
@@ -595,10 +598,7 @@ impl
 
         store.set_user_public_key_records(&new_user_records).await?;
 
-        let new_public_keys: Vec<QHashOut<F>> = user_registrations
-            .iter()
-            .map(|x| x.get_public_key::<QEDHasher>())
-            .collect();
+        let new_public_keys: Vec<QHashOut<F>> = user_registrations.iter().map(|x| x.get_public_key::<QEDHasher>()).collect();
 
         let _wits = store
             .batch_append_user_registration_tree_imm(
@@ -615,7 +615,7 @@ impl
 
 pub async fn run_processor(args: CoordinatorProcessorArgs) -> anyhow::Result<()> {
     let mut coordinator_processor = CoordinatorProcessNode::new_with_config(args).await?;
-    let slot_timer= SlotTimer::new(LocalClock);
+    let slot_timer = SlotTimer::new(LocalClock);
     let slot_timer_other = slot_timer.clone();
     loop {
         let next_checkpoint_id = coordinator_processor.next_checkpoint_id().await?;
@@ -645,19 +645,24 @@ pub async fn run_processor(args: CoordinatorProcessorArgs) -> anyhow::Result<()>
                 info!("✅ Successfully built block for checkpoint {}, slot {}", checkpoint_id, slot);
             }
             Err(err) => {
-                error!("❌Failed to build block checkpoint: {}, error: {:?}, slot: {}",next_checkpoint_id, err, slot);
+                error!(
+                    "❌Failed to build block checkpoint: {}, error: {:?}, slot: {}",
+                    next_checkpoint_id, err, slot
+                );
             }
         }
     }
 }
 
 impl<
-    JL: Journal,
-    SR: QEDCoordinatorStoreWriterAsyncImm<F> + QEDCoordinatorStoreReaderAsync<F> + Journal,
-    DQ: CheckpointDrainQueueConsumerAsyncImmWithPosition,
-    HQ: CheckpointHistoryQueueEmitterAsyncImm + CheckpointHistoryQueueConsumerAsyncImm + NotificationQueue<CEQueueNotification>,
-    WQ: WorkerEventTransmitterAsyncImm,
-    PS: QProofStoreAsyncImm,
-    ER: WorkerEventReceiverAsyncImm,
-    TS: QProvingTaskStore,
-> Retryable for CoordinatorProcessNode<JL, SR, DQ, HQ, WQ, PS, ER, TS>{}
+        JL: Journal,
+        SR: QEDCoordinatorStoreWriterAsyncImm<F> + QEDCoordinatorStoreReaderAsync<F> + Journal,
+        DQ: CheckpointDrainQueueConsumerAsyncImmWithPosition,
+        HQ: CheckpointHistoryQueueEmitterAsyncImm + CheckpointHistoryQueueConsumerAsyncImm + NotificationQueue<CEQueueNotification>,
+        WQ: WorkerEventTransmitterAsyncImm,
+        PS: QProofStoreAsyncImm,
+        ER: WorkerEventReceiverAsyncImm,
+        TS: QProvingTaskStore,
+    > Retryable for CoordinatorProcessNode<JL, SR, DQ, HQ, WQ, PS, ER, TS>
+{
+}

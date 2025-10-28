@@ -1,5 +1,9 @@
-use kvq::traits::{KVQBinaryStore, KVQSerializable, KVQStoreAdapterReader, KVQPair};
-use crate::{models::kvq_merkle::model::CHECKPOINT_ID_FUZZY_SIZE, qdata::{staging_checkpoint_info::StagingCheckpointInfo, staging_checkpoint_key::StagingCheckpointKey}};
+use kvq::traits::{KVQBinaryStore, KVQPair, KVQSerializable, KVQStoreAdapterReader};
+
+use crate::{
+    models::kvq_merkle::model::CHECKPOINT_ID_FUZZY_SIZE,
+    qdata::{staging_checkpoint_info::StagingCheckpointInfo, staging_checkpoint_key::StagingCheckpointKey},
+};
 
 pub const UUID_FUZZY_SIZE: usize = 16;
 
@@ -41,9 +45,7 @@ impl<const TABLE_TYPE: u16, S, IDKVA> StagingCheckpointInfoModel<TABLE_TYPE, S, 
         Ok(())
     }
 
-    pub fn get_latest_checkpoint_info_with_uuid(
-        store: &S,
-    ) -> anyhow::Result<Option<(u128, u64, StagingCheckpointInfo)>>
+    pub fn get_latest_checkpoint_info_with_uuid(store: &S) -> anyhow::Result<Option<(u128, u64, StagingCheckpointInfo)>>
     where
         IDKVA: KVQStoreAdapterReader<S, StagingCheckpointKey<TABLE_TYPE>, StagingCheckpointInfo>,
     {

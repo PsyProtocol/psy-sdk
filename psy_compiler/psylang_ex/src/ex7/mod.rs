@@ -1,8 +1,10 @@
 use std::marker::PhantomData;
 
-use psy_vm::dpn::ops::sym_felt::QStateInitializable;
-use psy_vm::dpn::ops::utils::SparseArray;
-use psy_vm::dpn::ops::{context_trait::DPNContext, sym_felt::SymFeltRef};
+use psy_vm::dpn::ops::{
+    context_trait::DPNContext,
+    sym_felt::{QStateInitializable, SymFeltRef},
+    utils::SparseArray,
+};
 use psylang_macros::{qcontract, FeltSized, QStateInitializable};
 
 type Felt = SymFeltRef;
@@ -21,21 +23,13 @@ pub struct SimpleContractStateful<C: DPNContext<Felt>> {
 }
 impl<C: DPNContext<Felt>> SimpleContractStateful<C> {
     pub fn new_with_ctx(context: &mut C) -> Self {
-        let contract_state_tree_height = SimpleContractState::size()
-            .next_power_of_two()
-            .trailing_zeros() as u16;
+        let contract_state_tree_height = SimpleContractState::size().next_power_of_two().trailing_zeros() as u16;
 
         let user_id = context.get_user_id();
         let contract_id = context.get_contract_id();
         Self {
             _phantom: PhantomData,
-            state: SimpleContractState::create_stateful_at(
-                context,
-                SymFeltRef::new_constant(0),
-                contract_state_tree_height,
-                contract_id,
-                user_id,
-            ),
+            state: SimpleContractState::create_stateful_at(context, SymFeltRef::new_constant(0), contract_state_tree_height, contract_id, user_id),
         }
     }
 }
@@ -190,10 +184,7 @@ mod test {
         let z = contract.simple_math(&mut ctx, a, b);
         let result = exec_eval_simple(vec![v_a, v_b], &ctx, Some(vec![z]));
 
-        assert_eq!(
-            result[0],
-            real_simple_math(gl(v_a), gl(v_b)).to_canonical_u64()
-        );
+        assert_eq!(result[0], real_simple_math(gl(v_a), gl(v_b)).to_canonical_u64());
     }
     fn run_test_simple_if(v_a: u64, v_b: u64) {
         let mut ctx = QExecContext::new();
@@ -203,10 +194,7 @@ mod test {
         let z = contract.if_test_2(&mut ctx, a, b);
         let result = exec_eval_simple(vec![v_a, v_b], &ctx, Some(vec![z]));
 
-        assert_eq!(
-            result[0],
-            real_if_test_2(gl(v_a), gl(v_b)).to_canonical_u64()
-        );
+        assert_eq!(result[0], real_if_test_2(gl(v_a), gl(v_b)).to_canonical_u64());
     }
 
     #[test]

@@ -17,17 +17,12 @@ use psy_common_circuit::{
         hash::core::CircuitBuilderHashCore,
         pad_circuit::{pad_circuit_degree, CircuitBuilderQEDCommonGates},
     },
-    circuits::traits::qstandard::{
-        provable::QStandardCircuitProvable, QStandardCircuit,
-        QStandardCircuitProvableWithProofStoreSync,
-    },
+    circuits::traits::qstandard::{provable::QStandardCircuitProvable, QStandardCircuit, QStandardCircuitProvableWithProofStoreSync},
     proof_minifier::{pm_chain::QEDProofMinifierChain, pm_core::get_circuit_fingerprint_generic},
     u32::gates::comparison::ComparisonGate,
 };
 use psy_core::{data::qhashout::QHashOut, job::traits::QProofStoreReaderSync};
-use psy_crypto::{
-    hash::traits::hasher::MerkleZeroHasher, signature::zk::wallet::PRIVATE_KEY_CONSTANTS,
-};
+use psy_crypto::{hash::traits::hasher::MerkleZeroHasher, signature::zk::wallet::PRIVATE_KEY_CONSTANTS};
 use psy_exec::vm::cfc_input::DapenContractFunctionCircuitInput;
 use psy_vm::dpn::vm::def::DPNFunctionCircuitDefinition;
 
@@ -57,12 +52,8 @@ where
     fn clone(&self) -> Self {
         Self::new(
             &self.fn_def,
-            self.fn_builder_gadget
-                .state_reader
-                .contract_state_tree_height,
-            self.fn_builder_gadget
-                .state_reader
-                .session_proof_tree_height,
+            self.fn_builder_gadget.state_reader.contract_state_tree_height,
+            self.fn_builder_gadget.state_reader.session_proof_tree_height,
             self.fn_builder_gadget.state_reader.force_four_align,
         )
     }
@@ -82,23 +73,17 @@ where
         let config = CircuitConfig::standard_ecc_config();
         let mut builder = CircuitBuilder::<C::F, D>::new(config);
         let inputs = builder.add_virtual_targets(fn_def.circuit_inputs.len());
-        let fn_builder_gadget =
-            QEDContractFunctionBuilderGadget::add_virtual_to::<C::Hasher, C::F, D>(
-                &mut builder,
-                fn_def,
-                contract_state_tree_height,
-                session_proof_tree_height,
-                inputs.clone(),
-                force_four_align,
-            );
-
-        let inner_public_inputs_hash = fn_builder_gadget
-            .tx_ctx_header
-            .to_hash::<C::Hasher, C::F, D>(&mut builder);
-        let public_inputs_hash = builder.hash_two_to_one::<C::Hasher>(
-            fn_builder_gadget.session_proof_tree_root,
-            inner_public_inputs_hash,
+        let fn_builder_gadget = QEDContractFunctionBuilderGadget::add_virtual_to::<C::Hasher, C::F, D>(
+            &mut builder,
+            fn_def,
+            contract_state_tree_height,
+            session_proof_tree_height,
+            inputs.clone(),
+            force_four_align,
         );
+
+        let inner_public_inputs_hash = fn_builder_gadget.tx_ctx_header.to_hash::<C::Hasher, C::F, D>(&mut builder);
+        let public_inputs_hash = builder.hash_two_to_one::<C::Hasher>(fn_builder_gadget.session_proof_tree_root, inner_public_inputs_hash);
 
         builder.register_public_inputs(&public_inputs_hash.elements);
         //builder.add_qed_type_a_common_gates(Some(coset_gate.clone()));
@@ -107,16 +92,13 @@ where
 
         let circuit_data = builder.build::<C>();
 
-        // let fingerprint = QHashOut(get_circuit_fingerprint_generic(&circuit_data.verifier_only));
+        // let fingerprint =
+        // QHashOut(get_circuit_fingerprint_generic(&circuit_data.verifier_only));
 
         let added_gates_for_minifier = [GateRef::new(ComparisonGate::new(32, 16))];
 
-        let minifier_chain = QEDProofMinifierChain::<D, C::F, C>::new_add_gates(
-            &circuit_data.verifier_only,
-            &circuit_data.common,
-            2,
-            Some(&added_gates_for_minifier),
-        );
+        let minifier_chain =
+            QEDProofMinifierChain::<D, C::F, C>::new_add_gates(&circuit_data.verifier_only, &circuit_data.common, 2, Some(&added_gates_for_minifier));
 
         Self {
             inputs,
@@ -127,25 +109,15 @@ where
             minifier_chain,
         }
     }
-    pub fn prove_base(
-        &self,
-        cfc_input: &DapenContractFunctionCircuitInput<C::F>,
-    ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
+    pub fn prove_base(&self, cfc_input: &DapenContractFunctionCircuitInput<C::F>) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         let mut pw = PartialWitness::<C::F>::new();
 
         pw.set_target_arr(&self.inputs, &cfc_input.inputs)?;
 
-        pw.set_hash_target(
-            self.fn_builder_gadget.session_proof_tree_root,
-            cfc_input.session_proof_tree_root.0,
-        )?;
+        pw.set_hash_target(self.fn_builder_gadget.session_proof_tree_root, cfc_input.session_proof_tree_root.0)?;
 
-        self.fn_builder_gadget
-            .tx_ctx_header
-            .set_witness(&mut pw, &cfc_input.tx_input_ctx)?;
-        self.fn_builder_gadget
-            .state_reader
-            .set_witness(&mut pw, cfc_input, &self.fn_def);
+        self.fn_builder_gadget.tx_ctx_header.set_witness(&mut pw, &cfc_input.tx_input_ctx)?;
+        self.fn_builder_gadget.state_reader.set_witness(&mut pw, cfc_input, &self.fn_def);
 
         let base_proof = self.circuit_data.prove(pw)?;
         let minified_proof = self.minifier_chain.prove(&base_proof)?;
@@ -153,8 +125,7 @@ where
     }
 }
 
-impl<C: GenericConfig<D>, const D: usize> QStandardCircuit<C, D>
-    for DapenContractFunctionCircuit<C, D>
+impl<C: GenericConfig<D>, const D: usize> QStandardCircuit<C, D> for DapenContractFunctionCircuit<C, D>
 where
     C::Hasher: AlgebraicHasher<C::F>,
 {
@@ -170,23 +141,18 @@ where
         self.minifier_chain.get_common_data()
     }
 }
-impl<C: GenericConfig<D>, const D: usize>
-    QStandardCircuitProvable<DapenContractFunctionCircuitInput<C::F>, C, D>
+impl<C: GenericConfig<D>, const D: usize> QStandardCircuitProvable<DapenContractFunctionCircuitInput<C::F>, C, D>
     for DapenContractFunctionCircuit<C, D>
 where
     C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>>,
 {
-    fn prove_standard(
-        &self,
-        input: &DapenContractFunctionCircuitInput<C::F>,
-    ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
+    fn prove_standard(&self, input: &DapenContractFunctionCircuitInput<C::F>) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         self.prove_base(input)
     }
 }
 
 impl<S: QProofStoreReaderSync, C: GenericConfig<D>, const D: usize>
-    QStandardCircuitProvableWithProofStoreSync<S, DapenContractFunctionCircuitInput<C::F>, C, D>
-    for DapenContractFunctionCircuit<C, D>
+    QStandardCircuitProvableWithProofStoreSync<S, DapenContractFunctionCircuitInput<C::F>, C, D> for DapenContractFunctionCircuit<C, D>
 where
     C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>>,
 {

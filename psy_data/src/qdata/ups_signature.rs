@@ -1,18 +1,17 @@
 use kvq::traits::KVQSerializable;
 use plonky2::hash::hash_types::RichField;
 use psy_core::{
-    config::network_constants::QED_SIG_ACTION_SIGN_UPS_END_CAP, data::qhashout::QHashOut, traits::to_qfelts::{QFeltSized, ToQFelts}
+    config::network_constants::QED_SIG_ACTION_SIGN_UPS_END_CAP,
+    data::qhashout::QHashOut,
+    traits::to_qfelts::{QFeltSized, ToQFelts},
 };
-use psy_crypto::{hash::traits::{
-    hasher::FieldQHasher,
-    qhashable::QFieldHashable,
-}, signature::zk::wallet::QEDSigAction};
+use psy_crypto::{
+    hash::traits::{hasher::FieldQHasher, qhashable::QFieldHashable},
+    signature::zk::wallet::QEDSigAction,
+};
 use serde::{Deserialize, Serialize};
 
 use crate::qdata::user_contract_state::{SignContext, UserContractState};
-
-
-
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Copy, Default)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
@@ -32,7 +31,6 @@ impl<F: RichField> QEDUserProvingSessionSignatureDataCompact<F> {
         nonce: F,
         sign_context: SignContext<F>,
     ) -> QEDSigAction<F> {
-
         let network_magic_f = F::from_noncanonical_u64(network_magic);
         let sig_action = F::from_noncanonical_u64(QED_SIG_ACTION_SIGN_UPS_END_CAP);
         let ups_end_data_hash = self.qfhash::<H>();
@@ -41,7 +39,7 @@ impl<F: RichField> QEDUserProvingSessionSignatureDataCompact<F> {
         let mut action_arguments = ups_end_data_hash.0.elements.to_vec();
         action_arguments.extend_from_slice(&sign_context.to_qfelts());
 
-        QEDSigAction{
+        QEDSigAction {
             network_magic: network_magic_f,
             user: user_id,
             sig_action,
@@ -69,10 +67,7 @@ impl<F: RichField> QFeltSized for QEDUserProvingSessionSignatureDataCompact<F> {
 
 impl<F: RichField> QFieldHashable<F> for QEDUserProvingSessionSignatureDataCompact<F> {
     fn qfhash<H: FieldQHasher<F>>(&self) -> QHashOut<F> {
-        let user_leaf_change_combo = H::q_two_to_one(
-            self.start_user_leaf_hash,
-            self.end_user_leaf_hash,
-        );
+        let user_leaf_change_combo = H::q_two_to_one(self.start_user_leaf_hash, self.end_user_leaf_hash);
         let tx_sized_hash = H::q_hash_many(&[
             self.tx_count,
             self.tx_stack_hash.0.elements[0],
@@ -81,16 +76,8 @@ impl<F: RichField> QFieldHashable<F> for QEDUserProvingSessionSignatureDataCompa
             self.tx_stack_hash.0.elements[3],
         ]);
 
-        let state_context_combo = H::q_two_to_one(
-            self.checkpoint_leaf_hash,
-            user_leaf_change_combo,
-        );
+        let state_context_combo = H::q_two_to_one(self.checkpoint_leaf_hash, user_leaf_change_combo);
 
-        H::q_two_to_one(
-            state_context_combo,
-            tx_sized_hash
-        )
+        H::q_two_to_one(state_context_combo, tx_sized_hash)
     }
 }
-
-

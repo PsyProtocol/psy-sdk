@@ -1,15 +1,18 @@
-
-
-
 use kvq::traits::KVQSerializable;
 use plonky2::hash::hash_types::{HashOut, RichField};
 use psy_core::{config::network_constants::DA_CHALLENGE_WINDOW, data::qhashout::QHashOut};
-use psy_crypto::hash::{merkle::core::{DeltaMerkleProofCore, MerkleProofCore}, traits::{hasher::FieldQHasher, qhashable::QFieldHashable}};
+use psy_crypto::hash::{
+    merkle::core::{DeltaMerkleProofCore, MerkleProofCore},
+    traits::{hasher::FieldQHasher, qhashable::QFieldHashable},
+};
 use serde::{Deserialize, Serialize};
 
-use crate::qdata::{checkpoint::{QEDCheckpointGlobalStateRoots, QEDCheckpointLeaf, QEDCheckpointLeafStats}, pm_reward_commitment::PMRewardCommitment, pm_jobs_completed_stats::PMJobsCompletedStats};
-
 use super::agg_part_1::QCAggUserRegistartionDeployContractsGUTAInput;
+use crate::qdata::{
+    checkpoint::{QEDCheckpointGlobalStateRoots, QEDCheckpointLeaf, QEDCheckpointLeafStats},
+    pm_jobs_completed_stats::PMJobsCompletedStats,
+    pm_reward_commitment::PMRewardCommitment,
+};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
@@ -52,7 +55,7 @@ impl<F: RichField> QCQEDCheckpointStateTransitionInputPartial<F> {
                 ],
             }),
             user_tree_root: self.part_1_header.guta_proof_header.state_transition.new_node_value,
-            withdrawal_tree_root:QHashOut(HashOut {
+            withdrawal_tree_root: QHashOut(HashOut {
                 elements: [
                     F::from_canonical_u64(16463394126558395459),
                     F::from_canonical_u64(12818610997234032270),
@@ -74,9 +77,8 @@ impl<F: RichField> QCQEDCheckpointStateTransitionInputPartial<F> {
                 random_seed: H::q_two_to_one(self.old_stats.random_seed, self.final_random_seed_contribution),
                 pm_rewards_commitment: self.pm_rewards_commitment.clone(),
                 da_challenges_claimed: [F::ZERO; DA_CHALLENGE_WINDOW],
-            }
+            },
         }
-
     }
 
     pub fn get_old_checkpoint_leaf<H: FieldQHasher<F>>(&self) -> QEDCheckpointLeaf<F> {
@@ -98,7 +100,7 @@ impl<F: RichField> QCQEDCheckpointStateTransitionInputPartial<F> {
                 ],
             }),
             user_tree_root: self.part_1_header.guta_proof_header.state_transition.old_node_value,
-            withdrawal_tree_root:QHashOut(HashOut {
+            withdrawal_tree_root: QHashOut(HashOut {
                 elements: [
                     F::from_canonical_u64(16463394126558395459),
                     F::from_canonical_u64(12818610997234032270),

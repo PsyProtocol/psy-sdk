@@ -1,13 +1,7 @@
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 
-
-
-
-
-#[derive(
-    Serialize_repr, Deserialize_repr, PartialEq, Debug, Clone, Copy, Eq, Hash, PartialOrd, Ord,
-)]
+#[derive(Serialize_repr, Deserialize_repr, PartialEq, Debug, Clone, Copy, Eq, Hash, PartialOrd, Ord)]
 #[repr(u8)]
 pub enum UPSCommonDataTypes {
     Unknown = 0,
@@ -26,10 +20,7 @@ impl TryFrom<u8> for UPSCommonDataTypes {
             0 => Ok(UPSCommonDataTypes::Unknown),
             1 => Ok(UPSCommonDataTypes::TypeA),
             2 => Ok(UPSCommonDataTypes::TypeB),
-            _ => Err(anyhow::format_err!(
-                "Invalid UPSCircuitType value: {}",
-                value
-            )),
+            _ => Err(anyhow::format_err!("Invalid UPSCircuitType value: {}", value)),
         }
     }
 }
@@ -39,12 +30,7 @@ impl From<UPSCommonDataTypes> for u8 {
     }
 }
 
-
-
-
-#[derive(
-    Serialize_repr, Deserialize_repr, PartialEq, Debug, Clone, Copy, Eq, Hash, PartialOrd, Ord,
-)]
+#[derive(Serialize_repr, Deserialize_repr, PartialEq, Debug, Clone, Copy, Eq, Hash, PartialOrd, Ord)]
 #[repr(u8)]
 pub enum UPSCircuitType {
     Start = 0,
@@ -55,7 +41,7 @@ impl UPSCircuitType {
     pub fn to_u8(&self) -> u8 {
         *self as u8
     }
-    pub fn get_lct(&self) -> LocalCircuitType{
+    pub fn get_lct(&self) -> LocalCircuitType {
         match self {
             UPSCircuitType::Start => LocalCircuitType::UPSStart,
             UPSCircuitType::CFCStandard => LocalCircuitType::UPSCFCStandard,
@@ -70,10 +56,7 @@ impl TryFrom<u8> for UPSCircuitType {
             0 => Ok(UPSCircuitType::Start),
             1 => Ok(UPSCircuitType::CFCStandard),
             2 => Ok(UPSCircuitType::CFCDeferred),
-            _ => Err(anyhow::format_err!(
-                "Invalid UPSCircuitType value: {}",
-                value
-            )),
+            _ => Err(anyhow::format_err!("Invalid UPSCircuitType value: {}", value)),
         }
     }
 }
@@ -83,15 +66,9 @@ impl From<UPSCircuitType> for u8 {
     }
 }
 
-
-
-
-#[derive(
-    Serialize_repr, Deserialize_repr, PartialEq, Debug, Clone, Copy, Eq, Hash, PartialOrd, Ord,
-)]
+#[derive(Serialize_repr, Deserialize_repr, PartialEq, Debug, Clone, Copy, Eq, Hash, PartialOrd, Ord)]
 #[repr(u8)]
 pub enum LocalCircuitType {
-
     // UPS Step Circuits (0-31 reserved)
     UPSStart = 0,
     UPSCFCStandard = 1,
@@ -140,7 +117,7 @@ impl LocalCircuitType {
         v >= 32 && v <= 47
     }
     pub fn is_contract_function_circuit(&self) -> bool {
-       *self == LocalCircuitType::ContractFunctionCircuit
+        *self == LocalCircuitType::ContractFunctionCircuit
     }
     pub fn has_custom_variant(&self) -> bool {
         (*self as u8) >= 192
@@ -166,26 +143,20 @@ impl TryFrom<u8> for LocalCircuitType {
             37 => Ok(LocalCircuitType::PTAggLeftLeafRightAgg),
             48 => Ok(LocalCircuitType::SimpleZKSignature),
             49 => Ok(LocalCircuitType::SimpleSecp256K1),
-            
+
             65 => Ok(LocalCircuitType::GUTATwoEndCap),
             66 => Ok(LocalCircuitType::GUTATwoGUTA),
             67 => Ok(LocalCircuitType::GUTALeftEndCapRightGUTA),
             68 => Ok(LocalCircuitType::GUTALeftGUTARightEndCap),
             69 => Ok(LocalCircuitType::GUTASingleEndCap),
-            
+
             192 => Ok(LocalCircuitType::ContractFunctionCircuit),
-            _ => Err(anyhow::format_err!(
-                "Invalid LocalCircuitType value: {}",
-                value
-            )),
+            _ => Err(anyhow::format_err!("Invalid LocalCircuitType value: {}", value)),
         }
     }
 }
 
-
-#[derive(
-    Serialize, Deserialize, PartialEq, Debug, Clone, Copy, Eq, Hash, PartialOrd, Ord, Default,
-)]
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone, Copy, Eq, Hash, PartialOrd, Ord, Default)]
 pub struct LocalCircuitId {
     pub circuit_type: LocalCircuitType,
     pub variant: u64,
@@ -246,11 +217,7 @@ impl PartialEq<LocalCircuitType> for LocalCircuitId {
     }
 }*/
 
-
-
-#[derive(
-    Serialize, Deserialize, PartialEq, Debug, Clone, Copy, Eq, Hash, PartialOrd, Ord,
-)]
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone, Copy, Eq, Hash, PartialOrd, Ord)]
 pub struct ContractFunctionCircuitId {
     pub contract_id: u32,
     pub method_id: u32,
@@ -258,15 +225,12 @@ pub struct ContractFunctionCircuitId {
 
 impl ContractFunctionCircuitId {
     pub fn new(contract_id: u32, method_id: u32) -> Self {
-        Self {
-            contract_id,
-            method_id,
-        }
+        Self { contract_id, method_id }
     }
     pub fn get_circuit_id(&self) -> LocalCircuitId {
-        LocalCircuitId { 
+        LocalCircuitId {
             circuit_type: LocalCircuitType::ContractFunctionCircuit,
-            variant: ((self.contract_id as u64)<<32u64) | (self.method_id as u64),
+            variant: ((self.contract_id as u64) << 32u64) | (self.method_id as u64),
         }
     }
 }

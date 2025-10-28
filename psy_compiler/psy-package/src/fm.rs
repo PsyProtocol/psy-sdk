@@ -1,7 +1,8 @@
 use std::path::{Component, Path, PathBuf};
 
 pub trait NormalizePath {
-    /// Replacement for `std::fs::canonicalize` that doesn't verify the path exists.
+    /// Replacement for `std::fs::canonicalize` that doesn't verify the path
+    /// exists.
     ///
     /// Plucked from <https://github.com/rust-lang/cargo/blob/fede83ccf973457de319ba6fa0e36ead454d2e20/src/cargo/util/paths.rs#L61>
     ///

@@ -1,11 +1,7 @@
-use plonky2::field::extension::Extendable;
-use plonky2::hash::hash_types::RichField;
-use plonky2::iop::target::Target;
-use plonky2::plonk::circuit_builder::CircuitBuilder;
-
-use crate::hash::base_types::hash256::{CircuitBuilderHash256, Hash256Target, WitnessHash256};
+use plonky2::{field::extension::Extendable, hash::hash_types::RichField, iop::target::Target, plonk::circuit_builder::CircuitBuilder};
 
 use super::merkle_proof::compute_merkle_root;
+use crate::hash::base_types::hash256::{CircuitBuilderHash256, Hash256Target, WitnessHash256};
 
 pub struct DeltaMerkleProofSha256Gadget {
     pub old_root: Hash256Target,
@@ -19,13 +15,8 @@ pub struct DeltaMerkleProofSha256Gadget {
 }
 
 impl DeltaMerkleProofSha256Gadget {
-    pub fn add_virtual_to<F: RichField + Extendable<D>, const D: usize>(
-        builder: &mut CircuitBuilder<F, D>,
-        height: usize,
-    ) -> Self {
-        let siblings: Vec<Hash256Target> = (0..height)
-            .map(|_| builder.add_virtual_hash256_target())
-            .collect();
+    pub fn add_virtual_to<F: RichField + Extendable<D>, const D: usize>(builder: &mut CircuitBuilder<F, D>, height: usize) -> Self {
+        let siblings: Vec<Hash256Target> = (0..height).map(|_| builder.add_virtual_hash256_target()).collect();
 
         let old_value = builder.add_virtual_hash256_target();
         let new_value = builder.add_virtual_hash256_target();
@@ -64,14 +55,20 @@ impl DeltaMerkleProofSha256Gadget {
 
 #[cfg(test)]
 mod tests {
-    use plonky2::iop::witness::PartialWitness;
-    use plonky2::plonk::circuit_builder::CircuitBuilder;
-    use plonky2::plonk::circuit_data::CircuitConfig;
-    use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
+    use plonky2::{
+        iop::witness::PartialWitness,
+        plonk::{
+            circuit_builder::CircuitBuilder,
+            circuit_data::CircuitConfig,
+            config::{GenericConfig, PoseidonGoldilocksConfig},
+        },
+    };
     use psy_crypto::hash::base_types::DeltaMerkleProof256;
 
-    use crate::hash::base_types::hash256::{CircuitBuilderHash256, WitnessHash256};
-    use crate::hash::merkle::gadgets::sha256::delta_merkle_proof::DeltaMerkleProofSha256Gadget;
+    use crate::hash::{
+        base_types::hash256::{CircuitBuilderHash256, WitnessHash256},
+        merkle::gadgets::sha256::delta_merkle_proof::DeltaMerkleProofSha256Gadget,
+    };
 
     #[test]
     fn test_verify_small_delta_merkle_proof() {
@@ -94,7 +91,8 @@ mod tests {
         let data = builder.build::<C>();
         tracing::info!(
             "circuit num_gates={}, quotient_degree_factor={}",
-            num_gates, data.common.quotient_degree_factor
+            num_gates,
+            data.common.quotient_degree_factor
         );
 
         let mut pw = PartialWitness::new();

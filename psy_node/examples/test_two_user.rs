@@ -1,38 +1,29 @@
+use std::{sync::Arc, time::Duration};
+
 use fred::prelude::*;
 use kvq::memory::simple::KVQSimpleMemoryBackingStore;
-use psy_store::node::coordinator::QEDCoordinatorStoreWriterAsyncImm;
-use psy_core::
-    utils::debug_timer::DebugTimer
-;
-use psy_crypto::{
-    common::simple_circuit_library::SimpleCircuitLibrary, signature::zk::data::ZKPublicKeyInfo,
-};
+use plonky2::{field::goldilocks_field::GoldilocksField, plonk::config::PoseidonGoldilocksConfig};
+use psy_core::{data::qhashout::QHashOut, utils::debug_timer::DebugTimer};
+use psy_crypto::{common::simple_circuit_library::SimpleCircuitLibrary, signature::zk::data::ZKPublicKeyInfo};
+use psy_data::traits::qdatastore::qtreedata::QEDComboDataStoreReaderWriterSync;
+use psy_network_circuit::coordinator::coordinator_helper::QEDCoordinatorCircuitManager;
 use psy_node::{
+    common::verifier::get_cached_generic_verifier,
     coordinator::state::{
         edge::CoordinatorEdgeContext,
         processor::{CoordinatorConfig, CoordinatorProcessorContext},
     },
     worker::simple_async_coord::SimpleAsyncCoordinatorWorker,
 };
-use psy_store::queue::ProofStoreFred;
-use psy_store::queue::task_queue::{QProvingTaskStore, QProvingTaskStoreImpl};
-use psy_node::common::verifier::get_cached_generic_verifier;
-use psy_network_circuit::coordinator::coordinator_helper::QEDCoordinatorCircuitManager;
-use psy_data::traits::qdatastore::qtreedata::QEDComboDataStoreReaderWriterSync;
-use std::{sync::Arc, time::Duration};
-
-
-use plonky2::{
-    field::goldilocks_field::GoldilocksField,
-    plonk::
-        config::PoseidonGoldilocksConfig
-    ,
+use psy_store::{
+    node::coordinator::QEDCoordinatorStoreWriterAsyncImm,
+    queue::{
+        new_fred_pool,
+        task_queue::{QProvingTaskStore, QProvingTaskStoreImpl},
+        ProofStoreFred,
+    },
+    store::journal::JournalStore,
 };
-use psy_core::
-    data::qhashout::QHashOut
-;
-use psy_store::queue::new_fred_pool;
-use psy_store::store::journal::JournalStore;
 
 async fn run_fred_test3() -> anyhow::Result<()> {
     type C = PoseidonGoldilocksConfig;
@@ -40,7 +31,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
     let mut timer = DebugTimer::new("dq_rust_2v2");
     timer.lap("start");
 
-    let pool = new_fred_pool("redis://127.0.0.1:6379",8).await?;
+    let pool = new_fred_pool("redis://127.0.0.1:6379", 8).await?;
     timer.lap("connected to redis");
 
     let q = ProofStoreFred::new(pool, "wq1".to_string());
@@ -62,7 +53,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
     let task_store = Arc::new(
         QProvingTaskStoreImpl::new("redis://127.0.0.1/", 10, "biz_key")
             .await
-            .expect("Failed to create JobTaskStore")
+            .expect("Failed to create JobTaskStore"),
     );
 
     let proof_verifier = Arc::new(get_cached_generic_verifier::<C, D>());
@@ -74,14 +65,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
     timer.lap("built coordinator worker circuits");
 
     let coordinator_edge_node =
-        CoordinatorEdgeContext::new(
-            coord_config,
-            Arc::clone(&st),
-            qps.clone(),
-            qps.clone(),
-            Arc::clone(&proof_verifier),
-        )
-        .await?;
+        CoordinatorEdgeContext::new(coord_config, Arc::clone(&st), qps.clone(), qps.clone(), Arc::clone(&proof_verifier)).await?;
 
     let mut coordinator_processor_node = CoordinatorProcessorContext::new(
         coord_config,
@@ -103,18 +87,14 @@ async fn run_fred_test3() -> anyhow::Result<()> {
         fingerprint: QHashOut::rand(),
     };
 
-    coordinator_edge_node
-        .handle_process_regsiter_user(user_a_info)
-        .await?;
+    coordinator_edge_node.handle_process_regsiter_user(user_a_info).await?;
 
     let user_b_info = ZKPublicKeyInfo {
         public_key_param: QHashOut::rand(),
         fingerprint: QHashOut::rand(),
     };
 
-    coordinator_edge_node
-        .handle_process_regsiter_user(user_b_info)
-        .await?;
+    coordinator_edge_node.handle_process_regsiter_user(user_b_info).await?;
     timer.lap("sent requests");
 
     coordinator_processor_node.build_block(0).await?;
@@ -122,14 +102,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
 
     timer.lap("started up");
 
-    SimpleAsyncCoordinatorWorker::run_worker::<
-        _,
-        _,
-        SimpleCircuitLibrary<GoldilocksField>,
-        QEDCoordinatorCircuitManager<C, D>,
-        C,
-        D,
-    >(
+    SimpleAsyncCoordinatorWorker::run_worker::<_, _, SimpleCircuitLibrary<GoldilocksField>, QEDCoordinatorCircuitManager<C, D>, C, D>(
         &q,
         &q,
         &coordinator_worker_circuits,

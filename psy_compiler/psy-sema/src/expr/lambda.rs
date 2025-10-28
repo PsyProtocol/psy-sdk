@@ -1,9 +1,6 @@
 use psy_ast::{ExprId, Location};
 
-use crate::{
-    CheckedFunctionParameter, CheckedFunctionSignature, Identifier, NodeInfo, NodeType, ScopeId,
-    TypeId,
-};
+use crate::{CheckedFunctionParameter, CheckedFunctionSignature, Identifier, NodeInfo, NodeType, ScopeId, TypeId};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct CheckedLambdaFunctionNode {
@@ -19,11 +16,7 @@ pub struct CheckedLambdaFunctionNode {
 impl CheckedLambdaFunctionNode {
     pub fn signature(&self) -> CheckedFunctionSignature {
         CheckedFunctionSignature {
-            parameters: self
-                .parameters
-                .iter()
-                .map(|parameter| parameter.ty.clone())
-                .collect(),
+            parameters: self.parameters.iter().map(|parameter| parameter.ty.clone()).collect(),
             return_type: self.return_type.clone(),
         }
     }

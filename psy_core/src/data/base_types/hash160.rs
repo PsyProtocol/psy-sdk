@@ -5,7 +5,6 @@ use kvq::traits::KVQSerializable;
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 
-
 pub const P2SH_ADDRESS_CHECK58_VERSION: u8 = 0xc4;
 pub const P2PKH_ADDRESS_CHECK58_VERSION: u8 = 0x6f;
 
@@ -44,14 +43,10 @@ impl KVQSerializable for Hash160 {
 
     fn from_bytes(bytes: &[u8]) -> anyhow::Result<Self> {
         if bytes.len() != 20 {
-            anyhow::bail!(
-                "expected 20 bytes for deserializing Hash160, got {} bytes",
-                bytes.len()
-            );
+            anyhow::bail!("expected 20 bytes for deserializing Hash160, got {} bytes", bytes.len());
         }
         let mut inner_data = [0u8; 20];
         inner_data.copy_from_slice(bytes);
         Ok(Hash160(inner_data))
     }
 }
-

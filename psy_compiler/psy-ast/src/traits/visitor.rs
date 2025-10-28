@@ -9,20 +9,10 @@ pub trait AstVisitor<F: Clone + From<u32>, C> {
     type ExprResult;
     type StmtResult: From<Self::ExprResult> + From<Self::DefinitionResult>;
     type DefinitionResult;
-    type Context: VisitorContext<
-        F,
-        C,
-        Expr = Self::Expr,
-        Stmt = Self::Stmt,
-        Definition = Self::Definition,
-    >;
+    type Context: VisitorContext<F, C, Expr = Self::Expr, Stmt = Self::Stmt, Definition = Self::Definition>;
     type Error: std::fmt::Debug + From<psy_common::Error>;
 
-    fn visit_expr(
-        &mut self,
-        expr_id: ExprId,
-        ctx: &mut Self::Context,
-    ) -> Result<Self::ExprResult, Self::Error> {
+    fn visit_expr(&mut self, expr_id: ExprId, ctx: &mut Self::Context) -> Result<Self::ExprResult, Self::Error> {
         ctx.push_node_id(NodeId::from(expr_id));
         let res = match ctx.expression(expr_id).node_type() {
             NodeType::PathExpr => self.visit_path(expr_id, ctx)?,
@@ -48,11 +38,7 @@ pub trait AstVisitor<F: Clone + From<u32>, C> {
         Ok(res)
     }
 
-    fn visit_definition(
-        &mut self,
-        def_id: DefId,
-        ctx: &mut Self::Context,
-    ) -> Result<Self::DefinitionResult, Self::Error> {
+    fn visit_definition(&mut self, def_id: DefId, ctx: &mut Self::Context) -> Result<Self::DefinitionResult, Self::Error> {
         ctx.push_node_id(NodeId::from(def_id));
         let res = match ctx.definition(def_id).node_type() {
             NodeType::FunctionDef => self.visit_function(def_id, ctx)?,
@@ -70,11 +56,7 @@ pub trait AstVisitor<F: Clone + From<u32>, C> {
         Ok(res)
     }
 
-    fn visit_stmt(
-        &mut self,
-        stmt_id: StmtId,
-        ctx: &mut Self::Context,
-    ) -> Result<Self::StmtResult, Self::Error> {
+    fn visit_stmt(&mut self, stmt_id: StmtId, ctx: &mut Self::Context) -> Result<Self::StmtResult, Self::Error> {
         ctx.push_node_id(NodeId::from(stmt_id));
         let res = match ctx.statement(stmt_id).node_type() {
             NodeType::WhileStmt => self.visit_while(stmt_id, ctx)?,
@@ -97,17 +79,9 @@ pub trait AstVisitor<F: Clone + From<u32>, C> {
         Ok(res)
     }
 
-    fn visit_use(
-        &mut self,
-        def_id: DefId,
-        ctx: &mut Self::Context,
-    ) -> Result<Self::DefinitionResult, Self::Error>;
+    fn visit_use(&mut self, def_id: DefId, ctx: &mut Self::Context) -> Result<Self::DefinitionResult, Self::Error>;
 
-    fn visit_module(
-        &mut self,
-        module_id: ModuleId,
-        ctx: &mut Self::Context,
-    ) -> Result<(), Self::Error> {
+    fn visit_module(&mut self, module_id: ModuleId, ctx: &mut Self::Context) -> Result<(), Self::Error> {
         ctx.push_node_id(NodeId::from(module_id));
         // Avoid clone
         let len = ctx.module(module_id).definitions.len();
@@ -144,162 +118,38 @@ pub trait AstVisitor<F: Clone + From<u32>, C> {
         Ok(())
     }
 
-    fn visit_path(
-        &mut self,
-        node: ExprId,
-        ctx: &mut Self::Context,
-    ) -> Result<Self::ExprResult, Self::Error>;
-    fn visit_index_access(
-        &mut self,
-        node: ExprId,
-        ctx: &mut Self::Context,
-    ) -> Result<Self::ExprResult, Self::Error>;
-    fn visit_member_access(
-        &mut self,
-        node: ExprId,
-        ctx: &mut Self::Context,
-    ) -> Result<Self::ExprResult, Self::Error>;
-    fn visit_intrinsic_expr(
-        &mut self,
-        node: ExprId,
-        ctx: &mut Self::Context,
-    ) -> Result<Self::ExprResult, Self::Error>;
-    fn visit_value(
-        &mut self,
-        node: ExprId,
-        ctx: &mut Self::Context,
-    ) -> Result<Self::ExprResult, Self::Error>;
-    fn visit_binary(
-        &mut self,
-        node: ExprId,
-        ctx: &mut Self::Context,
-    ) -> Result<Self::ExprResult, Self::Error>;
-    fn visit_unary(
-        &mut self,
-        node: ExprId,
-        ctx: &mut Self::Context,
-    ) -> Result<Self::ExprResult, Self::Error>;
-    fn visit_call(
-        &mut self,
-        node: ExprId,
-        ctx: &mut Self::Context,
-    ) -> Result<Self::ExprResult, Self::Error>;
-    fn visit_member_call(
-        &mut self,
-        node: ExprId,
-        ctx: &mut Self::Context,
-    ) -> Result<Self::ExprResult, Self::Error>;
-    fn visit_cast(
-        &mut self,
-        node: ExprId,
-        ctx: &mut Self::Context,
-    ) -> Result<Self::ExprResult, Self::Error>;
-    fn visit_lambda_function(
-        &mut self,
-        node: ExprId,
-        ctx: &mut Self::Context,
-    ) -> Result<Self::ExprResult, Self::Error>;
+    fn visit_path(&mut self, node: ExprId, ctx: &mut Self::Context) -> Result<Self::ExprResult, Self::Error>;
+    fn visit_index_access(&mut self, node: ExprId, ctx: &mut Self::Context) -> Result<Self::ExprResult, Self::Error>;
+    fn visit_member_access(&mut self, node: ExprId, ctx: &mut Self::Context) -> Result<Self::ExprResult, Self::Error>;
+    fn visit_intrinsic_expr(&mut self, node: ExprId, ctx: &mut Self::Context) -> Result<Self::ExprResult, Self::Error>;
+    fn visit_value(&mut self, node: ExprId, ctx: &mut Self::Context) -> Result<Self::ExprResult, Self::Error>;
+    fn visit_binary(&mut self, node: ExprId, ctx: &mut Self::Context) -> Result<Self::ExprResult, Self::Error>;
+    fn visit_unary(&mut self, node: ExprId, ctx: &mut Self::Context) -> Result<Self::ExprResult, Self::Error>;
+    fn visit_call(&mut self, node: ExprId, ctx: &mut Self::Context) -> Result<Self::ExprResult, Self::Error>;
+    fn visit_member_call(&mut self, node: ExprId, ctx: &mut Self::Context) -> Result<Self::ExprResult, Self::Error>;
+    fn visit_cast(&mut self, node: ExprId, ctx: &mut Self::Context) -> Result<Self::ExprResult, Self::Error>;
+    fn visit_lambda_function(&mut self, node: ExprId, ctx: &mut Self::Context) -> Result<Self::ExprResult, Self::Error>;
 
-    fn visit_block_expr(
-        &mut self,
-        node: ExprId,
-        ctx: &mut Self::Context,
-    ) -> Result<Self::ExprResult, Self::Error>;
+    fn visit_block_expr(&mut self, node: ExprId, ctx: &mut Self::Context) -> Result<Self::ExprResult, Self::Error>;
 
-    fn visit_while(
-        &mut self,
-        node: StmtId,
-        ctx: &mut Self::Context,
-    ) -> Result<Self::StmtResult, Self::Error>;
-    fn visit_for(
-        &mut self,
-        node: StmtId,
-        ctx: &mut Self::Context,
-    ) -> Result<Self::StmtResult, Self::Error>;
-    fn visit_assignment(
-        &mut self,
-        node: StmtId,
-        ctx: &mut Self::Context,
-    ) -> Result<Self::StmtResult, Self::Error>;
-    fn visit_variable(
-        &mut self,
-        node: StmtId,
-        ctx: &mut Self::Context,
-    ) -> Result<Self::StmtResult, Self::Error>;
-    fn visit_return(
-        &mut self,
-        expr: StmtId,
-        ctx: &mut Self::Context,
-    ) -> Result<Self::StmtResult, Self::Error>;
-    fn visit_intrinsic_stmt(
-        &mut self,
-        node: StmtId,
-        ctx: &mut Self::Context,
-    ) -> Result<Self::StmtResult, Self::Error>;
-    fn visit_match(
-        &mut self,
-        node: ExprId,
-        ctx: &mut Self::Context,
-    ) -> Result<Self::ExprResult, Self::Error>;
-    fn visit_parentheses(
-        &mut self,
-        node: ExprId,
-        ctx: &mut Self::Context,
-    ) -> Result<Self::ExprResult, Self::Error>;
+    fn visit_while(&mut self, node: StmtId, ctx: &mut Self::Context) -> Result<Self::StmtResult, Self::Error>;
+    fn visit_for(&mut self, node: StmtId, ctx: &mut Self::Context) -> Result<Self::StmtResult, Self::Error>;
+    fn visit_assignment(&mut self, node: StmtId, ctx: &mut Self::Context) -> Result<Self::StmtResult, Self::Error>;
+    fn visit_variable(&mut self, node: StmtId, ctx: &mut Self::Context) -> Result<Self::StmtResult, Self::Error>;
+    fn visit_return(&mut self, expr: StmtId, ctx: &mut Self::Context) -> Result<Self::StmtResult, Self::Error>;
+    fn visit_intrinsic_stmt(&mut self, node: StmtId, ctx: &mut Self::Context) -> Result<Self::StmtResult, Self::Error>;
+    fn visit_match(&mut self, node: ExprId, ctx: &mut Self::Context) -> Result<Self::ExprResult, Self::Error>;
+    fn visit_parentheses(&mut self, node: ExprId, ctx: &mut Self::Context) -> Result<Self::ExprResult, Self::Error>;
 
-    fn visit_impl(
-        &mut self,
-        node: DefId,
-        ctx: &mut Self::Context,
-    ) -> Result<Self::DefinitionResult, Self::Error>;
-    fn visit_trait_impl(
-        &mut self,
-        node: DefId,
-        ctx: &mut Self::Context,
-    ) -> Result<Self::DefinitionResult, Self::Error>;
-    fn visit_trait(
-        &mut self,
-        node: DefId,
-        ctx: &mut Self::Context,
-    ) -> Result<Self::DefinitionResult, Self::Error>;
-    fn visit_function(
-        &mut self,
-        node: DefId,
-        ctx: &mut Self::Context,
-    ) -> Result<Self::DefinitionResult, Self::Error>;
-    fn visit_struct(
-        &mut self,
-        node: DefId,
-        ctx: &mut Self::Context,
-    ) -> Result<Self::DefinitionResult, Self::Error>;
-    fn visit_enum(
-        &mut self,
-        node: DefId,
-        ctx: &mut Self::Context,
-    ) -> Result<Self::DefinitionResult, Self::Error>;
-    fn visit_if_expr(
-        &mut self,
-        node: ExprId,
-        ctx: &mut Self::Context,
-    ) -> std::result::Result<Self::ExprResult, Self::Error>;
-    fn visit_type_alias(
-        &mut self,
-        node: DefId,
-        ctx: &mut Self::Context,
-    ) -> Result<Self::DefinitionResult, Self::Error>;
-    fn visit_const(
-        &mut self,
-        node: DefId,
-        ctx: &mut Self::Context,
-    ) -> Result<Self::DefinitionResult, Self::Error>;
-    fn visit_tuple(
-        &mut self,
-        node: ExprId,
-        ctx: &mut Self::Context,
-    ) -> Result<Self::ExprResult, Self::Error>;
-    fn visit_tuple_access(
-        &mut self,
-        node: ExprId,
-        ctx: &mut Self::Context,
-    ) -> Result<Self::ExprResult, Self::Error>;
+    fn visit_impl(&mut self, node: DefId, ctx: &mut Self::Context) -> Result<Self::DefinitionResult, Self::Error>;
+    fn visit_trait_impl(&mut self, node: DefId, ctx: &mut Self::Context) -> Result<Self::DefinitionResult, Self::Error>;
+    fn visit_trait(&mut self, node: DefId, ctx: &mut Self::Context) -> Result<Self::DefinitionResult, Self::Error>;
+    fn visit_function(&mut self, node: DefId, ctx: &mut Self::Context) -> Result<Self::DefinitionResult, Self::Error>;
+    fn visit_struct(&mut self, node: DefId, ctx: &mut Self::Context) -> Result<Self::DefinitionResult, Self::Error>;
+    fn visit_enum(&mut self, node: DefId, ctx: &mut Self::Context) -> Result<Self::DefinitionResult, Self::Error>;
+    fn visit_if_expr(&mut self, node: ExprId, ctx: &mut Self::Context) -> std::result::Result<Self::ExprResult, Self::Error>;
+    fn visit_type_alias(&mut self, node: DefId, ctx: &mut Self::Context) -> Result<Self::DefinitionResult, Self::Error>;
+    fn visit_const(&mut self, node: DefId, ctx: &mut Self::Context) -> Result<Self::DefinitionResult, Self::Error>;
+    fn visit_tuple(&mut self, node: ExprId, ctx: &mut Self::Context) -> Result<Self::ExprResult, Self::Error>;
+    fn visit_tuple_access(&mut self, node: ExprId, ctx: &mut Self::Context) -> Result<Self::ExprResult, Self::Error>;
 }

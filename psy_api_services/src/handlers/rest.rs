@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use axum::{
     extract::{Path, Query, State},
     http::StatusCode,
@@ -8,10 +10,12 @@ use axum::{
 use chrono::{DateTime, Utc};
 use psy_core::job::id::{ProvingJobCircuitType, QJobTopic};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 
-use crate::{models::*, repositories::*, services::ApiService};
-use crate::services::JobStatusService;
+use crate::{
+    models::*,
+    repositories::*,
+    services::{ApiService, JobStatusService},
+};
 
 /// Parse order parameter from query string
 /// Returns true for ASC, false for DESC (default)
@@ -38,30 +42,18 @@ pub fn create_router(api_service: ApiService) -> Router {
         .route("/user_info", get(user_info_handler))
         .route("/worker_events", get(worker_events_handler))
         .route("/user_events", get(user_events_handler))
-        .route(
-            "/worker_events_aggregations",
-            get(worker_events_aggregations_handler),
-        )
-        .route(
-            "/user_events_aggregations",
-            get(user_events_aggregations_handler),
-        )
+        .route("/worker_events_aggregations", get(worker_events_aggregations_handler))
+        .route("/user_events_aggregations", get(user_events_aggregations_handler))
         .route("/stats", get(stats_handler))
         .route("/stats/realms", get(global_realm_stats_handler))
         .route("/stats/realms/{realm_id}", get(realm_stats_handler))
-        .route(
-            "/stats/workers/{worker_public_key}",
-            get(worker_stats_handler),
-        )
+        .route("/stats/workers/{worker_public_key}", get(worker_stats_handler))
         .route("/stats/jobs", get(job_status_summary_handler))
         .route("/stats/jobs/realm/{realm_id}", get(realm_job_status_handler))
         .route("/stats/jobs/all-realms", get(all_realms_job_status_handler))
         .route("/stats/jobs/counts", get(job_counts_handler))
         .route("/rewards/{worker_public_key}", get(worker_rewards_handler))
-        .route(
-            "/rewards_aggregations/{worker_public_key}",
-            get(worker_rewards_aggregations_handler),
-        )
+        .route("/rewards_aggregations/{worker_public_key}", get(worker_rewards_aggregations_handler))
         .route("/leaderboard/workers", get(worker_leaderboard_handler))
         .route("/admin/refresh_aggregates", post(refresh_aggregates_handler))
         .with_state(api_service)
@@ -81,10 +73,7 @@ pub struct RegisterResponse {
     pub user_id: Option<String>,
 }
 
-async fn register_handler(
-    State(service): State<ApiService>,
-    Json(payload): Json<RegisterRequest>,
-) -> Result<Json<RegisterResponse>, StatusCode> {
+async fn register_handler(State(service): State<ApiService>, Json(payload): Json<RegisterRequest>) -> Result<Json<RegisterResponse>, StatusCode> {
     tracing::info!(
         "User registration request received for public_key: {}, twitter_handle: {}",
         payload.public_key,
@@ -95,10 +84,7 @@ async fn register_handler(
     // Check if user already exists
     match UserRepository::find_by_public_key(&service.pool, &payload.public_key).await {
         Ok(Some(existing_user)) => {
-            tracing::warn!(
-                "User registration failed: user already exists with public_key: {}",
-                payload.public_key
-            );
+            tracing::warn!("User registration failed: user already exists with public_key: {}", payload.public_key);
             tracing::info!("Existing user: {:#?}", existing_user);
             return Ok(Json(RegisterResponse {
                 success: false,
@@ -122,7 +108,8 @@ async fn register_handler(
     }
 
     // TODO: Implement signature verification
-    // The signature should be verified against the public key and a challenge message
+    // The signature should be verified against the public key and a challenge
+    // message
     if payload.signature.is_empty() {
         tracing::warn!("Registration failed: empty signature");
         return Err(StatusCode::BAD_REQUEST);
@@ -131,14 +118,7 @@ async fn register_handler(
     tracing::info!("Validation passed, proceeding with user creation");
 
     // Create new user
-    match UserRepository::create(
-        &service.pool,
-        &payload.public_key,
-        Some(&payload.twitter_handle),
-        Some(&payload.label),
-    )
-    .await
-    {
+    match UserRepository::create(&service.pool, &payload.public_key, Some(&payload.twitter_handle), Some(&payload.label)).await {
         Ok(user) => {
             let user_id = user.id.unwrap().to_string();
             tracing::info!(
@@ -188,10 +168,7 @@ pub struct UserInfoQuery {
     pub public_key: String,
 }
 
-async fn user_info_handler(
-    State(service): State<ApiService>,
-    Query(query): Query<UserInfoQuery>,
-) -> Result<Json<UserInfo>, StatusCode> {
+async fn user_info_handler(State(service): State<ApiService>, Query(query): Query<UserInfoQuery>) -> Result<Json<UserInfo>, StatusCode> {
     tracing::info!("User info request for public_key: {}", query.public_key);
     match UserRepository::find_by_public_key(&service.pool, &query.public_key).await {
         Ok(Some(user)) => {
@@ -276,10 +253,7 @@ pub struct UserEventsQuery {
     pub order: Option<String>, // "asc" or "desc", default "desc"
 }
 
-async fn user_events_handler(
-    State(service): State<ApiService>,
-    Query(query): Query<UserEventsQuery>,
-) -> Result<Json<Vec<UserEvent>>, StatusCode> {
+async fn user_events_handler(State(service): State<ApiService>, Query(query): Query<UserEventsQuery>) -> Result<Json<Vec<UserEvent>>, StatusCode> {
     tracing::info!("User events query: {:?}", query);
     let offset = query.offset.unwrap_or(0).max(0);
     let limit = query.limit.unwrap_or(300).clamp(1, 1000);
@@ -377,16 +351,7 @@ async fn user_events_aggregations_handler(
         _ => return Err(StatusCode::BAD_REQUEST),
     };
 
-    match UserEventAggregationRepository::get_aggregations(
-        &service.pool,
-        view_name,
-        query.start_time,
-        query.end_time,
-        offset,
-        limit,
-        order_asc,
-    )
-    .await
+    match UserEventAggregationRepository::get_aggregations(&service.pool, view_name, query.start_time, query.end_time, offset, limit, order_asc).await
     {
         Ok(aggregations) => Ok(Json(aggregations)),
         Err(e) => {
@@ -396,9 +361,7 @@ async fn user_events_aggregations_handler(
     }
 }
 
-async fn stats_handler(
-    State(service): State<ApiService>,
-) -> Result<Json<HashMap<String, serde_json::Value>>, StatusCode> {
+async fn stats_handler(State(service): State<ApiService>) -> Result<Json<HashMap<String, serde_json::Value>>, StatusCode> {
     tracing::info!("Stats request received");
     let mut stats = HashMap::new();
 
@@ -451,22 +414,10 @@ async fn stats_handler(
         }
     };
 
-    stats.insert(
-        "status".to_string(),
-        serde_json::Value::String("ok".to_string()),
-    );
-    stats.insert(
-        "worker_events_24h".to_string(),
-        serde_json::Value::Number(worker_events_count.into()),
-    );
-    stats.insert(
-        "user_events_24h".to_string(),
-        serde_json::Value::Number(user_events_count.into()),
-    );
-    stats.insert(
-        "timestamp".to_string(),
-        serde_json::Value::String(now.to_rfc3339()),
-    );
+    stats.insert("status".to_string(), serde_json::Value::String("ok".to_string()));
+    stats.insert("worker_events_24h".to_string(), serde_json::Value::Number(worker_events_count.into()));
+    stats.insert("user_events_24h".to_string(), serde_json::Value::Number(user_events_count.into()));
+    stats.insert("timestamp".to_string(), serde_json::Value::String(now.to_rfc3339()));
 
     // Get block height (maximum checkpoint ID from worker_events)
     let block_height = match TpsRepository::get_max_checkpoint(&service.pool).await {
@@ -479,10 +430,7 @@ async fn stats_handler(
             0
         }
     };
-    stats.insert(
-        "block_height".to_string(),
-        serde_json::Value::Number(block_height.into()),
-    );
+    stats.insert("block_height".to_string(), serde_json::Value::Number(block_height.into()));
 
     tracing::info!(
         "Stats generated successfully: worker_events_24h={}, user_events_24h={}, block_height={}",
@@ -495,10 +443,7 @@ async fn stats_handler(
     Ok(Json(stats))
 }
 
-async fn realm_stats_handler(
-    State(service): State<ApiService>,
-    Path(realm_id): Path<i64>,
-) -> Result<Json<RealmStats>, StatusCode> {
+async fn realm_stats_handler(State(service): State<ApiService>, Path(realm_id): Path<i64>) -> Result<Json<RealmStats>, StatusCode> {
     tracing::info!("Realm stats request for realm_id: {}", realm_id);
     match RealmStatsRepository::get_realm_stats(&service.pool, realm_id).await {
         Ok(stats) => {
@@ -506,19 +451,13 @@ async fn realm_stats_handler(
             Ok(Json(stats))
         }
         Err(e) => {
-            tracing::error!(
-                "Failed to retrieve realm stats for realm_id {}: {}",
-                realm_id,
-                e
-            );
+            tracing::error!("Failed to retrieve realm stats for realm_id {}: {}", realm_id, e);
             Err(StatusCode::INTERNAL_SERVER_ERROR)
         }
     }
 }
 
-async fn global_realm_stats_handler(
-    State(service): State<ApiService>,
-) -> Result<Json<GlobalRealmStats>, StatusCode> {
+async fn global_realm_stats_handler(State(service): State<ApiService>) -> Result<Json<GlobalRealmStats>, StatusCode> {
     tracing::info!("Global realm stats request received");
     match RealmStatsRepository::get_global_realm_stats(&service.pool).await {
         Ok(stats) => {
@@ -532,10 +471,7 @@ async fn global_realm_stats_handler(
     }
 }
 
-async fn worker_stats_handler(
-    State(service): State<ApiService>,
-    Path(worker_public_key): Path<String>,
-) -> Result<Json<WorkerStats>, StatusCode> {
+async fn worker_stats_handler(State(service): State<ApiService>, Path(worker_public_key): Path<String>) -> Result<Json<WorkerStats>, StatusCode> {
     tracing::info!("Worker stats request for worker: {}", worker_public_key);
 
     match WorkerStatsRepository::get_worker_stats(&service.pool, &worker_public_key).await {
@@ -544,11 +480,7 @@ async fn worker_stats_handler(
             Ok(Json(stats))
         }
         Err(e) => {
-            tracing::error!(
-                "Failed to retrieve worker stats for worker {}: {}",
-                worker_public_key,
-                e
-            );
+            tracing::error!("Failed to retrieve worker stats for worker {}: {}", worker_public_key, e);
             Err(StatusCode::INTERNAL_SERVER_ERROR)
         }
     }
@@ -572,13 +504,7 @@ async fn worker_rewards_handler(
         checkpoint_id
     );
 
-    match WorkerRewardsRepository::get_worker_rewards(
-        &service.pool,
-        &worker_public_key,
-        checkpoint_id,
-    )
-    .await
-    {
+    match WorkerRewardsRepository::get_worker_rewards(&service.pool, &worker_public_key, checkpoint_id).await {
         Ok(rewards) => {
             tracing::info!("Retrieved worker rewards: {:#?}", rewards);
             Ok(Json(rewards))
@@ -654,15 +580,8 @@ async fn worker_rewards_aggregations_handler(
 
     let limit = query.limit.unwrap_or(100).min(1000).max(1);
 
-    match WorkerRewardsAggregationRepository::get_aggregations(
-        &service.pool,
-        view_name,
-        &worker_public_key,
-        query.start_time,
-        query.end_time,
-        limit,
-    )
-    .await
+    match WorkerRewardsAggregationRepository::get_aggregations(&service.pool, view_name, &worker_public_key, query.start_time, query.end_time, limit)
+        .await
     {
         Ok(aggregations) => {
             tracing::info!(
@@ -673,16 +592,11 @@ async fn worker_rewards_aggregations_handler(
             Ok(Json(aggregations))
         }
         Err(e) => {
-            tracing::error!(
-                "Failed to retrieve worker rewards aggregations for worker {}: {}",
-                worker_public_key,
-                e
-            );
+            tracing::error!("Failed to retrieve worker rewards aggregations for worker {}: {}", worker_public_key, e);
             Err(StatusCode::INTERNAL_SERVER_ERROR)
         }
     }
 }
-
 
 #[derive(Debug, Deserialize)]
 pub struct RefreshAggregatesRequest {
@@ -744,8 +658,6 @@ async fn refresh_aggregates_handler(
     })))
 }
 
-
-
 // Query parameters for job status endpoint
 #[derive(Debug, Deserialize)]
 pub struct JobStatusQuery {
@@ -772,9 +684,7 @@ async fn job_status_summary_handler(
     tracing::info!("Job status summary request: {:?}", query);
 
     // Check materialized view health
-    let view_healthy = JobStatusRepository::check_materialized_view_health(&service.pool)
-        .await
-        .unwrap_or(false);
+    let view_healthy = JobStatusRepository::check_materialized_view_health(&service.pool).await.unwrap_or(false);
 
     if !view_healthy {
         tracing::warn!("❗ Materialized view 'latest_job_status' is not healthy or empty");
@@ -793,11 +703,7 @@ async fn job_status_summary_handler(
         Ok(summary) => {
             let total_jobs: i64 = summary.iter().map(|s| s.job_count).sum();
 
-            tracing::info!(
-                "Retrieved job status summary: {} statuses, {} total jobs",
-                summary.len(),
-                total_jobs
-            );
+            tracing::info!("Retrieved job status summary: {} statuses, {} total jobs", summary.len(), total_jobs);
 
             Ok(Json(JobStatusResponse {
                 summary,
@@ -814,36 +720,23 @@ async fn job_status_summary_handler(
 }
 
 /// GET /stats/jobs/realm/:realm_id - Get job status for a specific realm
-async fn realm_job_status_handler(
-    State(service): State<ApiService>,
-    Path(realm_id): Path<i64>,
-) -> Result<Json<Vec<JobStatusSummary>>, StatusCode> {
+async fn realm_job_status_handler(State(service): State<ApiService>, Path(realm_id): Path<i64>) -> Result<Json<Vec<JobStatusSummary>>, StatusCode> {
     tracing::info!("Realm job status request for realm_id: {}", realm_id);
 
     match JobStatusRepository::get_job_status_summary_by_realm(&service.pool, Some(realm_id)).await {
         Ok(summary) => {
-            tracing::info!(
-                "Retrieved job status for realm {}: {} statuses",
-                realm_id,
-                summary.len()
-            );
+            tracing::info!("Retrieved job status for realm {}: {} statuses", realm_id, summary.len());
             Ok(Json(summary))
         }
         Err(e) => {
-            tracing::error!(
-                "Failed to retrieve job status for realm {}: {}",
-                realm_id,
-                e
-            );
+            tracing::error!("Failed to retrieve job status for realm {}: {}", realm_id, e);
             Err(StatusCode::INTERNAL_SERVER_ERROR)
         }
     }
 }
 
 /// GET /stats/jobs/all-realms - Get job status grouped by all realms
-async fn all_realms_job_status_handler(
-    State(service): State<ApiService>,
-) -> Result<Json<Vec<RealmJobStatusSummary>>, StatusCode> {
+async fn all_realms_job_status_handler(State(service): State<ApiService>) -> Result<Json<Vec<RealmJobStatusSummary>>, StatusCode> {
     tracing::info!("All realms job status request");
 
     match JobStatusRepository::get_all_realm_job_status_summary(&service.pool).await {
@@ -859,9 +752,7 @@ async fn all_realms_job_status_handler(
 }
 
 /// GET /stats/jobs/counts - Get simple job counts by status
-async fn job_counts_handler(
-    State(service): State<ApiService>,
-) -> Result<Json<HashMap<String, i64>>, StatusCode> {
+async fn job_counts_handler(State(service): State<ApiService>) -> Result<Json<HashMap<String, i64>>, StatusCode> {
     tracing::info!("Job counts request");
 
     match JobStatusRepository::get_job_counts_by_status(&service.pool).await {
@@ -877,9 +768,7 @@ async fn job_counts_handler(
 }
 
 /// POST /admin/refresh-job-status - Manually trigger materialized view refresh
-async fn refresh_job_status_handler(
-    State(service): State<ApiService>,
-) -> Result<Json<serde_json::Value>, StatusCode> {
+async fn refresh_job_status_handler(State(service): State<ApiService>) -> Result<Json<serde_json::Value>, StatusCode> {
     tracing::info!("Manual job status refresh requested");
 
     match JobStatusService::force_refresh(&service.pool).await {

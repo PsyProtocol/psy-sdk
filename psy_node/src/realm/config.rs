@@ -1,18 +1,15 @@
 use std::str::FromStr;
+
 use anyhow::anyhow;
 use clap::Parser;
-use serde::{Deserialize, Serialize};
 use psy_store::store::backend::BackendConfig;
+use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Deserialize, Serialize, Parser)]
 #[serde(default)]
 pub struct RedisConfig {
     /// Redis URL
-    #[arg(
-        long,
-        env = "REALM_REDIS_URI",
-        default_value = "redis://127.0.0.1:6379"
-    )]
+    #[arg(long, env = "REALM_REDIS_URI", default_value = "redis://127.0.0.1:6379")]
     pub redis_uri: String,
 
     /// Redis connection pool size
@@ -83,7 +80,6 @@ impl FromStr for QueueConfig {
     }
 }
 
-
 #[derive(Clone, Debug, Deserialize, Serialize, Parser)]
 #[serde(default)]
 pub struct RPCConfig {
@@ -92,11 +88,7 @@ pub struct RPCConfig {
     pub listen_addr: String,
 
     /// Coordinator RPC address
-    #[arg(
-        long,
-        env = "COORDINATOR_EDGE_ADDR",
-        default_value = "http://127.0.0.1:8545"
-    )]
+    #[arg(long, env = "COORDINATOR_EDGE_ADDR", default_value = "http://127.0.0.1:8545")]
     pub coordinator_addr: String,
 }
 
@@ -116,11 +108,7 @@ pub struct RealmNodeConfig {
     #[command(flatten)]
     pub realm: RealmConfig,
 
-    #[arg(
-        long,
-        env = "COORDINATOR_EDGE_ADDR",
-        default_value = "http://127.0.0.1:8545"
-    )]
+    #[arg(long, env = "COORDINATOR_EDGE_ADDR", default_value = "http://127.0.0.1:8545")]
     pub coordinator_addr: String,
 
     /// Store backend configuration
@@ -171,8 +159,8 @@ pub struct RealmEdgeConfig {
 impl RealmEdgeConfig {
     pub fn queue_biz_key(&self) -> String {
         if self.queue.queue_biz_key.is_empty() {
-            format!("{}",self.realm.realm_id)
-        }else{
+            format!("{}", self.realm.realm_id)
+        } else {
             self.queue.queue_biz_key.clone()
         }
     }
@@ -181,8 +169,8 @@ impl RealmEdgeConfig {
 impl RealmNodeConfig {
     pub fn queue_biz_key(&self) -> String {
         if self.queue.queue_biz_key.is_empty() {
-            format!("{}",self.realm.realm_id)
-        }else{
+            format!("{}", self.realm.realm_id)
+        } else {
             self.queue.queue_biz_key.clone()
         }
     }

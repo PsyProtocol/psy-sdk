@@ -1,71 +1,36 @@
+use std::time::Duration;
+
 use clap::Parser;
 use serde::{Deserialize, Serialize};
-use std::time::Duration;
 
 #[derive(Clone, Debug, Serialize, Deserialize, Parser)]
 #[serde(default)]
 pub struct ScyllaDBConfig {
-    #[arg(
-        long = "scylla-uri",
-        env = "SCYLLA_URI",
-        default_value = "127.0.0.1:9042"
-    )]
+    #[arg(long = "scylla-uri", env = "SCYLLA_URI", default_value = "127.0.0.1:9042")]
     pub uri: String,
 
-    #[arg(
-        long = "scylla-keyspace",
-        env = "SCYLLA_KEYSPACE",
-        default_value = "qed_storage"
-    )]
+    #[arg(long = "scylla-keyspace", env = "SCYLLA_KEYSPACE", default_value = "qed_storage")]
     pub keyspace: String,
 
-    #[arg(
-        long = "scylla-consistency-level",
-        env = "SCYLLA_CONSISTENCY_LEVEL",
-        default_value = "ONE"
-    )]
+    #[arg(long = "scylla-consistency-level", env = "SCYLLA_CONSISTENCY_LEVEL", default_value = "ONE")]
     pub consistency_level: String,
 
-    #[arg(
-        long = "scylla-timeout-ms",
-        env = "SCYLLA_TIMEOUT_MS",
-        default_value_t = 30000
-    )]
+    #[arg(long = "scylla-timeout-ms", env = "SCYLLA_TIMEOUT_MS", default_value_t = 30000)]
     pub timeout_ms: u64,
 
-    #[arg(
-        long = "scylla-max-retries",
-        env = "SCYLLA_MAX_RETRIES",
-        default_value_t = 3
-    )]
+    #[arg(long = "scylla-max-retries", env = "SCYLLA_MAX_RETRIES", default_value_t = 3)]
     pub max_retries: u32,
 
-    #[arg(
-        long = "scylla-retry-interval-ms",
-        env = "SCYLLA_RETRY_INTERVAL_MS",
-        default_value_t = 1000
-    )]
+    #[arg(long = "scylla-retry-interval-ms", env = "SCYLLA_RETRY_INTERVAL_MS", default_value_t = 1000)]
     pub retry_interval_ms: u64,
 
-    #[arg(
-        long = "scylla-pool-size",
-        env = "SCYLLA_POOL_SIZE",
-        default_value_t = 10
-    )]
+    #[arg(long = "scylla-pool-size", env = "SCYLLA_POOL_SIZE", default_value_t = 10)]
     pub pool_size: u32,
 
-    #[arg(
-        long = "scylla-replication-class",
-        env = "SCYLLA_REPLICATION_CLASS",
-        default_value = "SimpleStrategy"
-    )]
+    #[arg(long = "scylla-replication-class", env = "SCYLLA_REPLICATION_CLASS", default_value = "SimpleStrategy")]
     pub replication_class: String,
 
-    #[arg(
-        long = "scylla-replication-factor",
-        env = "SCYLLA_REPLICATION_FACTOR",
-        default_value_t = 1
-    )]
+    #[arg(long = "scylla-replication-factor", env = "SCYLLA_REPLICATION_FACTOR", default_value_t = 1)]
     pub replication_factor: u32,
 }
 
@@ -140,22 +105,17 @@ pub struct StoreConfig {
 impl Default for StoreConfig {
     fn default() -> Self {
         Self {
-            coordinator_scylla: ScyllaDBConfig::new(
-                "127.0.0.1:9042".to_string(),
-                "qed_coordinator".to_string(),
-            ),
-            realm_scylla: ScyllaDBConfig::new(
-                "127.0.0.1:9042".to_string(),
-                "qed_realm".to_string(),
-            ),
+            coordinator_scylla: ScyllaDBConfig::new("127.0.0.1:9042".to_string(), "qed_coordinator".to_string()),
+            realm_scylla: ScyllaDBConfig::new("127.0.0.1:9042".to_string(), "qed_realm".to_string()),
         }
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use tempfile::NamedTempFile;
+
+    use super::*;
 
     #[test]
     fn test_scylla_config_default() {
@@ -189,13 +149,7 @@ mod tests {
         let json = serde_json::to_string_pretty(&config).unwrap();
         let deserialized: StoreConfig = serde_json::from_str(&json).unwrap();
 
-        assert_eq!(
-            config.coordinator_scylla.uri,
-            deserialized.coordinator_scylla.uri
-        );
-        assert_eq!(
-            config.realm_scylla.keyspace,
-            deserialized.realm_scylla.keyspace
-        );
+        assert_eq!(config.coordinator_scylla.uri, deserialized.coordinator_scylla.uri);
+        assert_eq!(config.realm_scylla.keyspace, deserialized.realm_scylla.keyspace);
     }
 }

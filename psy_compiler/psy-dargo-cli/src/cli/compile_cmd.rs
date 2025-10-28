@@ -1,12 +1,16 @@
-use crate::cli::doc_cmd::{extract_function_metadata_from_context, FunctionNode};
-use crate::cli::save_build_artifact_to_file;
-use crate::errors::Result;
+use std::{collections::HashMap, path::PathBuf};
 
 use clap::Args;
 use psy_package::Workspace;
 use psy_vm::dpn::vm::def::DPNFunctionCircuitDefinition;
-use std::collections::HashMap;
-use std::path::PathBuf;
+
+use crate::{
+    cli::{
+        doc_cmd::{extract_function_metadata_from_context, FunctionNode},
+        save_build_artifact_to_file,
+    },
+    errors::Result,
+};
 
 /// Compile the program and its secret execution trace
 #[derive(Debug, Clone, Args)]
@@ -26,13 +30,10 @@ pub struct CompilationResult {
 }
 
 /// Parse and compile the entire workspace, then report errors.
-/// This is the main entry point used by all other commands that need compilation.
-pub fn compile_workspace_full(
-    workspace: &Workspace,
-    compile_options: &CompileOptions,
-) -> Result<CompilationResult> {
-    let crate_path_graph =
-        super::resolve_crate_path_graph(workspace, compile_options.entry_path.clone());
+/// This is the main entry point used by all other commands that need
+/// compilation.
+pub fn compile_workspace_full(workspace: &Workspace, compile_options: &CompileOptions) -> Result<CompilationResult> {
+    let crate_path_graph = super::resolve_crate_path_graph(workspace, compile_options.entry_path.clone());
 
     let mut interpret_result = psy_interpreter::interpret(
         compile_options.contract_name.clone(),

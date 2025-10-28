@@ -62,11 +62,7 @@ where
 
 use proc_macro2::TokenStream;
 use quote::{quote, quote_spanned};
-use syn::spanned::Spanned;
-use syn::{
-    parse_macro_input, parse_quote, Data, DeriveInput, Fields, GenericParam, Generics, Index,
-};
-
+use syn::{parse_macro_input, parse_quote, spanned::Spanned, Data, DeriveInput, Fields, GenericParam, Generics, Index};
 
 // Add a bound `T: HeapSize` to every type parameter T.
 pub fn add_trait_bounds(mut generics: Generics) -> Generics {

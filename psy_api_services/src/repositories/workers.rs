@@ -3,10 +3,9 @@ use psy_core::job::id::{ProvingJobCircuitType, QJobTopic, QProvingJobDataID};
 use sqlx::PgPool;
 
 use crate::{
-    models::{job_id_to_json, WorkerEvent, WorkerEventSource, WorkerEventStatus},
+    models::{job_id_to_json, JobFilterCategory, WorkerEvent, WorkerEventSource, WorkerEventStatus},
     Result,
 };
-use crate::models::JobFilterCategory;
 
 pub struct WorkerEventRepository;
 
@@ -56,13 +55,9 @@ impl WorkerEventRepository {
 
         let parsed_job_id = crate::models::job_id_from_json(row.job_id)?;
 
-        let status = row.status
-            .parse()
-            .map_err(|e| anyhow::anyhow!("Failed to parse status: {}", e))?;
+        let status = row.status.parse().map_err(|e| anyhow::anyhow!("Failed to parse status: {}", e))?;
 
-        let source = row.source
-            .parse()
-            .map_err(|e| anyhow::anyhow!("Failed to parse source: {}", e))?;
+        let source = row.source.parse().map_err(|e| anyhow::anyhow!("Failed to parse source: {}", e))?;
 
         Ok(WorkerEvent {
             id: Some(row.id),
@@ -106,16 +101,17 @@ impl WorkerEventRepository {
             JobFilterCategory::All => {
                 // No additional filtering
                 (String::new(), None)
-            },
+            }
             JobFilterCategory::RewardOnly => {
                 // Filter for reward-eligible circuit types and completed status
                 let conditions = r#"
                 AND circuit_type = ANY($11::SMALLINT[])
                 AND status = 'COMPLETED'
-            "#.to_string();
+            "#
+                .to_string();
                 let params = Some(Self::get_reward_circuit_types());
                 (conditions, params)
-            },
+            }
         };
 
         // Build the complete query with additional conditions
@@ -154,7 +150,7 @@ impl WorkerEventRepository {
                 .bind(public_key)
                 .bind(limit)
                 .bind(offset)
-                .bind(&circuit_types)  // Bind the extra circuit types array
+                .bind(&circuit_types) // Bind the extra circuit types array
                 .fetch_all(pool)
                 .await?
         } else {
@@ -175,8 +171,9 @@ impl WorkerEventRepository {
         };
 
         use psy_core::job::id::ProvingJobCircuitType;
-        use crate::models::job_id_from_json;
         use sqlx::Row;
+
+        use crate::models::job_id_from_json;
 
         // Create a default QProvingJobDataID in case of conversion failure
         let default_job_id = QProvingJobDataID::new_proof_job_id(0, 0, 0, ProvingJobCircuitType::AddL1Deposit, 0, 0);
@@ -187,11 +184,13 @@ impl WorkerEventRepository {
                 let job_id_json: serde_json::Value = row.get("job_id");
                 let parsed_job_id = job_id_from_json(job_id_json).unwrap_or(default_job_id.clone());
 
-                let status = row.get::<String, _>("status")
+                let status = row
+                    .get::<String, _>("status")
                     .parse()
                     .map_err(|e| anyhow::anyhow!("Failed to parse status: {}", e))?;
 
-                let source = row.get::<String, _>("source")
+                let source = row
+                    .get::<String, _>("source")
                     .parse()
                     .map_err(|e| anyhow::anyhow!("Failed to parse source: {}", e))?;
 
@@ -302,13 +301,9 @@ impl WorkerEventRepository {
         for row in rows {
             let parsed_job_id = crate::models::job_id_from_json(row.job_id)?;
 
-            let status = row.status
-                .parse()
-                .map_err(|e| anyhow::anyhow!("Failed to parse status: {}", e))?;
+            let status = row.status.parse().map_err(|e| anyhow::anyhow!("Failed to parse status: {}", e))?;
 
-            let source = row.source
-                .parse()
-                .map_err(|e| anyhow::anyhow!("Failed to parse source: {}", e))?;
+            let source = row.source.parse().map_err(|e| anyhow::anyhow!("Failed to parse source: {}", e))?;
 
             events.push(WorkerEvent {
                 id: Some(row.id),
@@ -345,17 +340,17 @@ impl WorkerEventRepository {
     /// Get reward-eligible circuit types
     pub fn get_reward_circuit_types() -> Vec<i16> {
         vec![
-            ProvingJobCircuitType::GUTAOnlyRegisterUsers.to_u8() as i16,                        // 14
-            ProvingJobCircuitType::GUTARegisterUsers.to_u8() as i16,                            // 12
-            ProvingJobCircuitType::GUTATwoEndCap.to_u8() as i16,                                // 7
-            ProvingJobCircuitType::GUTATwoGUTA.to_u8() as i16,                                  // 8
-            ProvingJobCircuitType::GUTALeftEndCapRightGUTA.to_u8() as i16,                      // 9
-            ProvingJobCircuitType::GUTALeftGUTARightEndCap.to_u8() as i16,                      // 10
-            ProvingJobCircuitType::GUTASingleEndCap.to_u8() as i16,                             // 11
-            ProvingJobCircuitType::GUTAVerifyToCap.to_u8() as i16,                              // 13
-            ProvingJobCircuitType::GUTANoChange.to_u8() as i16,                                 // 15
-            ProvingJobCircuitType::GUTATwoGUTAWithCheckpointUpgrade.to_u8() as i16,             // 55
-            ProvingJobCircuitType::GUTAVerifyToCapWithCheckpointUpgrade.to_u8() as i16,         // 56
+            ProvingJobCircuitType::GUTAOnlyRegisterUsers.to_u8() as i16,                // 14
+            ProvingJobCircuitType::GUTARegisterUsers.to_u8() as i16,                    // 12
+            ProvingJobCircuitType::GUTATwoEndCap.to_u8() as i16,                        // 7
+            ProvingJobCircuitType::GUTATwoGUTA.to_u8() as i16,                          // 8
+            ProvingJobCircuitType::GUTALeftEndCapRightGUTA.to_u8() as i16,              // 9
+            ProvingJobCircuitType::GUTALeftGUTARightEndCap.to_u8() as i16,              // 10
+            ProvingJobCircuitType::GUTASingleEndCap.to_u8() as i16,                     // 11
+            ProvingJobCircuitType::GUTAVerifyToCap.to_u8() as i16,                      // 13
+            ProvingJobCircuitType::GUTANoChange.to_u8() as i16,                         // 15
+            ProvingJobCircuitType::GUTATwoGUTAWithCheckpointUpgrade.to_u8() as i16,     // 55
+            ProvingJobCircuitType::GUTAVerifyToCapWithCheckpointUpgrade.to_u8() as i16, // 56
         ]
     }
 }

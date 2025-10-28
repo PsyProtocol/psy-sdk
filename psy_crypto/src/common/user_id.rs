@@ -1,4 +1,9 @@
-use plonky2::{field::extension::Extendable, hash::hash_types::RichField, iop::target::{BoolTarget, Target}, plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher}};
+use plonky2::{
+    field::extension::Extendable,
+    hash::hash_types::RichField,
+    iop::target::{BoolTarget, Target},
+    plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher},
+};
 use psy_core::config::network_constants::{COORDINATOR_USER_TREE_HEIGHT, GLOBAL_USER_TREE_HEIGHT, GROUP_REALM_HEIGHT, REALM_USER_TREE_HEIGHT};
 
 fn reverse_bits_in_limit(x: u64, num_bits: u8) -> u64 {
@@ -12,7 +17,7 @@ pub trait UserIdGeneratorStrategy {
         user_registration_tree_leaf_index: Target,
         user_registration_tree_leaf_index_bits: &[BoolTarget],
         global_user_tree_height: usize,
-    )-> Target;
+    ) -> Target;
     fn get_user_id_from_registration_id(registration_id: u64) -> u64;
 }
 pub struct UserIdBitsStrategy1;
@@ -23,7 +28,7 @@ impl UserIdGeneratorStrategy for UserIdBitsStrategy1 {
         _user_registration_tree_leaf_index: Target,
         user_registration_tree_leaf_index_bits: &[BoolTarget],
         _global_user_tree_height: usize,
-    )-> Target {
+    ) -> Target {
         let mut reversed_bits = user_registration_tree_leaf_index_bits.to_vec();
         reversed_bits.reverse();
 
@@ -46,19 +51,13 @@ impl UserIdGeneratorStrategy for UserIdBitsStrategy2 {
         _user_registration_tree_leaf_index: Target,
         user_registration_tree_leaf_index_bits: &[BoolTarget],
         _global_user_tree_height: usize,
-    )-> Target {
+    ) -> Target {
         let mut new_top_bits = user_registration_tree_leaf_index_bits[0..(COORDINATOR_USER_TREE_HEIGHT as usize)].to_vec();
         new_top_bits.reverse();
 
         let new_bottom_bits = user_registration_tree_leaf_index_bits[(COORDINATOR_USER_TREE_HEIGHT as usize)..].to_vec();
 
-
-
-
-        let new_bits = [
-            new_bottom_bits,
-            new_top_bits,
-        ].concat();
+        let new_bits = [new_bottom_bits, new_top_bits].concat();
         let reversed_bits_index = builder.le_sum(new_bits.iter());
 
         reversed_bits_index
@@ -66,15 +65,17 @@ impl UserIdGeneratorStrategy for UserIdBitsStrategy2 {
 
     fn get_user_id_from_registration_id(registration_id: u64) -> u64 {
         // rotate realms on each index
-        let new_top_bits = reverse_bits_in_limit(registration_id&((1u64<<COORDINATOR_USER_TREE_HEIGHT)-1u64), COORDINATOR_USER_TREE_HEIGHT);
+        let new_top_bits = reverse_bits_in_limit(
+            registration_id & ((1u64 << COORDINATOR_USER_TREE_HEIGHT) - 1u64),
+            COORDINATOR_USER_TREE_HEIGHT,
+        );
 
         // sequential within realms
-        let new_bottom_bits = registration_id>>COORDINATOR_USER_TREE_HEIGHT;
+        let new_bottom_bits = registration_id >> COORDINATOR_USER_TREE_HEIGHT;
 
-        (new_top_bits<<REALM_USER_TREE_HEIGHT)|new_bottom_bits
+        (new_top_bits << REALM_USER_TREE_HEIGHT) | new_bottom_bits
     }
 }
-
 
 pub struct UserIdBitsStrategy3;
 
@@ -84,28 +85,20 @@ impl UserIdGeneratorStrategy for UserIdBitsStrategy3 {
         _user_registration_tree_leaf_index: Target,
         user_registration_tree_leaf_index_bits: &[BoolTarget],
         _global_user_tree_height: usize,
-    )-> Target {
-
+    ) -> Target {
         let mut new_top_bits = user_registration_tree_leaf_index_bits[10..].to_vec();
         new_top_bits.reverse();
 
         let new_bottom_bits = user_registration_tree_leaf_index_bits[0..10].to_vec();
 
-
-
-
-        let new_bits = [
-            new_bottom_bits,
-            new_top_bits,
-        ].concat();
+        let new_bits = [new_bottom_bits, new_top_bits].concat();
         let reversed_bits_index = builder.le_sum(new_bits.iter());
 
         reversed_bits_index
     }
 
     fn get_user_id_from_registration_id(registration_id: u64) -> u64 {
-        (reverse_bits_in_limit(registration_id>>10u64, GLOBAL_USER_TREE_HEIGHT-10)<<10u64) |
-        (registration_id & ((1u64<<10)-1u64))
+        (reverse_bits_in_limit(registration_id >> 10u64, GLOBAL_USER_TREE_HEIGHT - 10) << 10u64) | (registration_id & ((1u64 << 10) - 1u64))
     }
 }
 
@@ -139,11 +132,12 @@ impl UserIdGeneratorStrategy for UserIdBitsStrategy4 {
         _user_registration_tree_leaf_index: Target,
         user_registration_tree_leaf_index_bits: &[BoolTarget],
         _global_user_tree_height: usize,
-    )-> Target {
+    ) -> Target {
         let mut realm_index_bit = user_registration_tree_leaf_index_bits[0..(GROUP_REALM_HEIGHT as usize)].to_vec();
         realm_index_bit.reverse();
 
-        let user_index_bits = user_registration_tree_leaf_index_bits[(GROUP_REALM_HEIGHT as usize)..((GROUP_REALM_HEIGHT + REALM_USER_TREE_HEIGHT) as usize)].to_vec();
+        let user_index_bits =
+            user_registration_tree_leaf_index_bits[(GROUP_REALM_HEIGHT as usize)..((GROUP_REALM_HEIGHT + REALM_USER_TREE_HEIGHT) as usize)].to_vec();
         let group_id_bits = user_registration_tree_leaf_index_bits[((GROUP_REALM_HEIGHT + REALM_USER_TREE_HEIGHT) as usize)..].to_vec();
 
         let user_index_half_bits = (REALM_USER_TREE_HEIGHT / 2) as usize;
@@ -152,16 +146,9 @@ impl UserIdGeneratorStrategy for UserIdBitsStrategy4 {
 
         user_index_high_half.reverse();
 
-        let modified_user_index_bits = [
-            user_index_high_half,
-            user_index_low_half,
-        ].concat();
+        let modified_user_index_bits = [user_index_high_half, user_index_low_half].concat();
 
-        let new_bits = [
-            modified_user_index_bits,
-            realm_index_bit,
-            group_id_bits,
-        ].concat();
+        let new_bits = [modified_user_index_bits, realm_index_bit, group_id_bits].concat();
         let user_id = builder.le_sum(new_bits.iter());
 
         user_id
@@ -170,7 +157,8 @@ impl UserIdGeneratorStrategy for UserIdBitsStrategy4 {
     fn get_user_id_from_registration_id(registration_id: u64) -> u64 {
         let realm_index = registration_id & ((1u64 << GROUP_REALM_HEIGHT) - 1);
         let user_index = (registration_id >> GROUP_REALM_HEIGHT) & ((1u64 << REALM_USER_TREE_HEIGHT) - 1);
-        let group_id = (registration_id >> (GROUP_REALM_HEIGHT + REALM_USER_TREE_HEIGHT)) & ((1u64 << (COORDINATOR_USER_TREE_HEIGHT - GROUP_REALM_HEIGHT)) - 1);
+        let group_id =
+            (registration_id >> (GROUP_REALM_HEIGHT + REALM_USER_TREE_HEIGHT)) & ((1u64 << (COORDINATOR_USER_TREE_HEIGHT - GROUP_REALM_HEIGHT)) - 1);
 
         let reversed_realm_index = reverse_bits_in_limit(realm_index, GROUP_REALM_HEIGHT);
         let realm_id = (group_id << GROUP_REALM_HEIGHT) | reversed_realm_index;
@@ -219,7 +207,7 @@ pub fn circuit_user_registration_tree_index_bits_to_user_id<H: AlgebraicHasher<F
     user_registration_tree_leaf_index_bits: &[BoolTarget],
     global_user_tree_height: usize,
 ) -> Target {
-    UserIdBitsStrategy::circuit_user_registration_tree_index_bits_to_user_id::<H,F,D>(
+    UserIdBitsStrategy::circuit_user_registration_tree_index_bits_to_user_id::<H, F, D>(
         builder,
         user_registration_tree_leaf_index,
         user_registration_tree_leaf_index_bits,
@@ -229,7 +217,23 @@ pub fn circuit_user_registration_tree_index_bits_to_user_id<H: AlgebraicHasher<F
 
 #[cfg(test)]
 mod tests {
-    use plonky2::{field::{extension::Extendable, types::{Field, PrimeField64}}, hash::hash_types::RichField, iop::{target::{BoolTarget, Target}, witness::{PartialWitness, WitnessWrite}}, plonk::{circuit_builder::CircuitBuilder, circuit_data::{CircuitConfig, CircuitData}, config::{AlgebraicHasher, GenericConfig, PoseidonGoldilocksConfig}, proof::ProofWithPublicInputs}};
+    use plonky2::{
+        field::{
+            extension::Extendable,
+            types::{Field, PrimeField64},
+        },
+        hash::hash_types::RichField,
+        iop::{
+            target::{BoolTarget, Target},
+            witness::{PartialWitness, WitnessWrite},
+        },
+        plonk::{
+            circuit_builder::CircuitBuilder,
+            circuit_data::{CircuitConfig, CircuitData},
+            config::{AlgebraicHasher, GenericConfig, PoseidonGoldilocksConfig},
+            proof::ProofWithPublicInputs,
+        },
+    };
     use psy_core::config::network_constants::GLOBAL_USER_TREE_HEIGHT;
     use rand::{thread_rng, RngCore};
 
@@ -238,103 +242,112 @@ mod tests {
     struct SimpleBitsTester<C: GenericConfig<D>, const D: usize> {
         pub registration_ids: Vec<Target>,
         //pub user_ids: Vec<Target>,
-        pub circuit_data: CircuitData<C::F,C,D>,
+        pub circuit_data: CircuitData<C::F, C, D>,
     }
 
-    impl<C: GenericConfig<D>, const D: usize> SimpleBitsTester<C,D> where C::Hasher: AlgebraicHasher<C::F>{
+    impl<C: GenericConfig<D>, const D: usize> SimpleBitsTester<C, D>
+    where
+        C::Hasher: AlgebraicHasher<C::F>,
+    {
         pub fn new<UIDGen: UserIdGeneratorStrategy>(count: usize, global_user_tree_height: usize) -> Self {
+            let config = CircuitConfig::standard_recursion_config();
+            let mut builder = CircuitBuilder::<C::F, D>::new(config);
+            let registration_ids = builder.add_virtual_targets(count);
 
-        let config = CircuitConfig::standard_recursion_config();
-        let mut builder = CircuitBuilder::<C::F, D>::new(config);
-        let registration_ids = builder.add_virtual_targets(count);
+            let user_ids = registration_ids
+                .iter()
+                .map(|x| {
+                    let user_registration_tree_leaf_index = *x;
+                    let user_registration_tree_leaf_index_bits = builder.split_le(user_registration_tree_leaf_index, global_user_tree_height);
 
-        let user_ids = registration_ids.iter().map(|x| {
-            let user_registration_tree_leaf_index = *x;
-            let user_registration_tree_leaf_index_bits = builder.split_le(user_registration_tree_leaf_index, global_user_tree_height);
+                    UIDGen::circuit_user_registration_tree_index_bits_to_user_id::<C::Hasher, C::F, D>(
+                        &mut builder,
+                        user_registration_tree_leaf_index,
+                        &user_registration_tree_leaf_index_bits,
+                        global_user_tree_height,
+                    )
+                })
+                .collect::<Vec<_>>();
 
-            UIDGen::circuit_user_registration_tree_index_bits_to_user_id::<C::Hasher, C::F, D>(&mut builder, user_registration_tree_leaf_index, &user_registration_tree_leaf_index_bits, global_user_tree_height)
-        }).collect::<Vec<_>>();
+            //builder.register_public_inputs(&registration_ids);
+            builder.register_public_inputs(&user_ids);
 
-        //builder.register_public_inputs(&registration_ids);
-        builder.register_public_inputs(&user_ids);
-
-
-        let circuit_data = builder.build::<C>();
-        Self {
-            registration_ids,
-            circuit_data,
+            let circuit_data = builder.build::<C>();
+            Self {
+                registration_ids,
+                circuit_data,
+            }
         }
 
+        pub fn prove_base(&self, registration_ids: &[u64]) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
+            let mut pw = PartialWitness::<C::F>::new();
+            //tracing::info!("agg_fingerprint: {}", agg_fingerprint.to_string());
+            //tracing::info!("leaf_fingerprint: {}", leaf_fingerprint.to_string());
+            for (t, v) in self.registration_ids.iter().zip(registration_ids.iter()) {
+                pw.set_target(*t, C::F::from_noncanonical_u64(*v))?;
+            }
+            /*
+            let inner_proof = self.circuit_data.prove(pw)?;
+
+            self.minifier_chain.prove(&inner_proof)*/
+            self.circuit_data.prove(pw)
         }
-
-    pub fn prove_base(
-        &self,
-        registration_ids: &[u64],
-    ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
-
-        let mut pw = PartialWitness::<C::F>::new();
-        //tracing::info!("agg_fingerprint: {}", agg_fingerprint.to_string());
-        //tracing::info!("leaf_fingerprint: {}", leaf_fingerprint.to_string());
-        for (t,v) in self.registration_ids.iter().zip(registration_ids.iter()) {
-            pw.set_target(*t, C::F::from_noncanonical_u64(*v))?;
-        }
-        /*
-        let inner_proof = self.circuit_data.prove(pw)?;
-
-        self.minifier_chain.prove(&inner_proof)*/
-        self.circuit_data.prove(pw)
-    }
-    pub fn check_strategy<UIDGen: UserIdGeneratorStrategy>(&self, registration_ids: &[u64]) -> anyhow::Result<()>{
-
-        for (user_id, reg_id) in self.prove_base(registration_ids)?.public_inputs.iter().map(|x|x.to_canonical_u64()).zip(registration_ids.iter()) {
-            let expected_user_id = UIDGen::get_user_id_from_registration_id(*reg_id);
-            if expected_user_id != user_id {
-                anyhow::bail!("expected registration_id {} to map to {}, but got {} from the circuit instead", *reg_id, expected_user_id, user_id);
+        pub fn check_strategy<UIDGen: UserIdGeneratorStrategy>(&self, registration_ids: &[u64]) -> anyhow::Result<()> {
+            for (user_id, reg_id) in self
+                .prove_base(registration_ids)?
+                .public_inputs
+                .iter()
+                .map(|x| x.to_canonical_u64())
+                .zip(registration_ids.iter())
+            {
+                let expected_user_id = UIDGen::get_user_id_from_registration_id(*reg_id);
+                if expected_user_id != user_id {
+                    anyhow::bail!(
+                        "expected registration_id {} to map to {}, but got {} from the circuit instead",
+                        *reg_id,
+                        expected_user_id,
+                        user_id
+                    );
+                }
             }
 
+            Ok(())
         }
+        pub fn full_check<UIDGen: UserIdGeneratorStrategy>(batch_size: usize, count: usize, rand_count: usize) -> anyhow::Result<()> {
+            type C = PoseidonGoldilocksConfig;
+            let max_regions = (count / batch_size) as u64;
+            let rand_regions = (rand_count / batch_size) as u64;
+            let b_size = batch_size as u64;
+            let circ = Self::new::<UIDGen>(batch_size, GLOBAL_USER_TREE_HEIGHT as usize);
+            let mask = (1u64 << GLOBAL_USER_TREE_HEIGHT) - 1u64;
+            for i in 0u64..(max_regions + 1) {
+                let ids = ((i * b_size)..((i + 1u64) * b_size)).map(|x| x & mask).collect::<Vec<u64>>();
+                circ.check_strategy::<UIDGen>(&ids)?;
+            }
+            for _ in 0u64..rand_regions {
+                let ids = (0..batch_size).map(|_| thread_rng().next_u64() & mask).collect::<Vec<_>>();
+                circ.check_strategy::<UIDGen>(&ids)?;
+            }
 
-        Ok(())
-
-
-
-    }
-    pub fn full_check<UIDGen: UserIdGeneratorStrategy>(batch_size: usize, count: usize, rand_count: usize) -> anyhow::Result<()> {
-        type C = PoseidonGoldilocksConfig;
-        let max_regions = (count/batch_size) as u64;
-        let rand_regions =  (rand_count/batch_size) as u64;
-        let b_size = batch_size as u64;
-        let circ = Self::new::<UIDGen>(batch_size, GLOBAL_USER_TREE_HEIGHT as usize);
-        let mask = (1u64<<GLOBAL_USER_TREE_HEIGHT)-1u64;
-        for i in 0u64..(max_regions+1) {
-            let ids = ((i*b_size)..(((i+1u64)*b_size))).map(|x| x&mask).collect::<Vec<u64>>();
-            circ.check_strategy::<UIDGen>(&ids)?;
+            Ok(())
         }
-        for _ in 0u64..rand_regions {
-            let ids = (0..batch_size).map(|_| thread_rng().next_u64()&mask).collect::<Vec<_>>();
-            circ.check_strategy::<UIDGen>(&ids)?;
-        }
-
-        Ok(())
-    }
-
     }
 
     #[test]
     fn check_strategy_1() {
-        SimpleBitsTester::<PoseidonGoldilocksConfig, 2>::full_check::<UserIdBitsStrategy1>(1024, 64*1024, 64*1024).unwrap();
+        SimpleBitsTester::<PoseidonGoldilocksConfig, 2>::full_check::<UserIdBitsStrategy1>(1024, 64 * 1024, 64 * 1024).unwrap();
     }
     #[test]
     fn check_strategy_2() {
-        SimpleBitsTester::<PoseidonGoldilocksConfig, 2>::full_check::<UserIdBitsStrategy2>(1024, 64*1024, 64*1024).unwrap();
+        SimpleBitsTester::<PoseidonGoldilocksConfig, 2>::full_check::<UserIdBitsStrategy2>(1024, 64 * 1024, 64 * 1024).unwrap();
     }
     #[test]
     fn check_strategy_3() {
-        SimpleBitsTester::<PoseidonGoldilocksConfig, 2>::full_check::<UserIdBitsStrategy3>(1024, 64*1024, 64*1024).unwrap();
+        SimpleBitsTester::<PoseidonGoldilocksConfig, 2>::full_check::<UserIdBitsStrategy3>(1024, 64 * 1024, 64 * 1024).unwrap();
     }
     #[test]
     fn check_strategy_4() {
-        SimpleBitsTester::<PoseidonGoldilocksConfig, 2>::full_check::<UserIdBitsStrategy4>(1024, 64*1024, 64*1024).unwrap();
+        SimpleBitsTester::<PoseidonGoldilocksConfig, 2>::full_check::<UserIdBitsStrategy4>(1024, 64 * 1024, 64 * 1024).unwrap();
     }
     /*
     #[test]

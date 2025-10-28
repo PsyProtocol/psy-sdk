@@ -1,9 +1,12 @@
-use crate::cli::init_cmd::initialize_project;
-use crate::cli::DargoConfig;
-use crate::errors::{CliError, Result};
+use std::path::PathBuf;
+
 use clap::Args;
 use psy_package::{CrateName, PackageType};
-use std::path::PathBuf;
+
+use crate::{
+    cli::{init_cmd::initialize_project, DargoConfig},
+    errors::{CliError, Result},
+};
 
 #[allow(rustdoc::broken_intra_doc_links)]
 /// Create a project in a new directory.
@@ -40,15 +43,10 @@ pub(crate) fn run(args: NewCommand, config: DargoConfig) -> Result<()> {
         Some(name) => name,
         None => {
             let name = args.path.file_name().unwrap().to_str().unwrap();
-            name.parse()
-                .map_err(|_| CliError::InvalidPackageName(name.into()))?
+            name.parse().map_err(|_| CliError::InvalidPackageName(name.into()))?
         }
     };
-    let package_type = if args.lib {
-        PackageType::Library
-    } else {
-        PackageType::Binary
-    };
+    let package_type = if args.lib { PackageType::Library } else { PackageType::Binary };
     initialize_project(package_dir, package_name, package_type);
     Ok(())
 }

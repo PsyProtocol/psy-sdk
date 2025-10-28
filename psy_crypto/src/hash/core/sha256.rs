@@ -19,15 +19,12 @@ impl CoreSha256Hasher {
         let mut hasher = Sha256::new();
         for d in data {
             hasher.update(u64::to_le_bytes(*d));
-
         }
         let result = hasher.finalize();
         Hash256(result.into())
     }
     pub fn new() -> Self {
-        Self {
-            hasher: Sha256::new(),
-        }
+        Self { hasher: Sha256::new() }
     }
     pub fn update(&mut self, bytes: &[u8]) {
         self.hasher.update(bytes);

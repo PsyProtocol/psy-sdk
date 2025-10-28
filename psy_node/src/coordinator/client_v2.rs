@@ -4,8 +4,8 @@ use jsonrpsee::{
     proc_macros::rpc,
 };
 use plonky2::plonk::config::PoseidonGoldilocksConfig;
-use tracing::{error, info, trace};
 use psy_data::{config::store_config::QEDFelt, guta::api::SubmitGUTARealmResultAPINoProofInput, qdata::checkpoint::CheckpointSyncInfo};
+use tracing::{error, info, trace};
 
 use crate::{
     common::retry::{RetryConfig, Retryable},
@@ -35,19 +35,10 @@ pub trait CoordinatorRpcV2 {
     async fn submit_realm_result(&self, realm_result: &RealmDataForCoordinator<F>) -> RpcResult<()>;
 
     #[method(name = "get_checkpoint_sync_info")]
-    async fn get_checkpoint_sync_info(
-        &self,
-        realm_id: u32,
-        checkpoint_id: u64,
-    ) -> RpcResult<CheckpointSyncInfo<F>> ;
+    async fn get_checkpoint_sync_info(&self, realm_id: u32, checkpoint_id: u64) -> RpcResult<CheckpointSyncInfo<F>>;
 
     #[method(name = "submit_guta_v1")]
-    async fn submit_guta_v1(
-        &self,
-        input: &SubmitGUTARealmResultAPINoProofInput<F>,
-        proof: &[u8],
-        realm_id: u64,
-    ) -> RpcResult<()>;
+    async fn submit_guta_v1(&self, input: &SubmitGUTARealmResultAPINoProofInput<F>, proof: &[u8], realm_id: u64) -> RpcResult<()>;
 }
 
 #[derive(Debug, Clone)]
@@ -93,7 +84,9 @@ impl CoordinatorClient<F> for ConcreteCoordinatorClient {
         to_checkpoint: u64,
     ) -> anyhow::Result<Vec<GlobalBlockUpdateFromCoordinator<F>>> {
         self.retry_with_backoff("get_latest_block_updates_from_coordinator", || async {
-            self.rpc_client.get_latest_block_updates_from_coordinator(realm_id, from_checkpoint, to_checkpoint).await
+            self.rpc_client
+                .get_latest_block_updates_from_coordinator(realm_id, from_checkpoint, to_checkpoint)
+                .await
         })
         .await
     }
@@ -111,26 +104,20 @@ impl CoordinatorClient<F> for ConcreteCoordinatorClient {
                         return Ok(());
                     }
                     Err(err)
-                },
+                }
             }
         })
         .await
     }
 
-    async fn get_checkpoint_sync_info(
-        &self,
-        realm_id: u32,
-        checkpoint_id: u64,
-    ) -> anyhow::Result<CheckpointSyncInfo<F>> {
-        self.rpc_client.get_checkpoint_sync_info(realm_id, checkpoint_id).await.map_err(|e| anyhow::anyhow!(e))
+    async fn get_checkpoint_sync_info(&self, realm_id: u32, checkpoint_id: u64) -> anyhow::Result<CheckpointSyncInfo<F>> {
+        self.rpc_client
+            .get_checkpoint_sync_info(realm_id, checkpoint_id)
+            .await
+            .map_err(|e| anyhow::anyhow!(e))
     }
 
-    async fn submit_guta_v1(
-        &self,
-        input: &SubmitGUTARealmResultAPINoProofInput<F>,
-        proof: &[u8],
-        realm_id: u64,
-    ) -> anyhow::Result<()> {
+    async fn submit_guta_v1(&self, input: &SubmitGUTARealmResultAPINoProofInput<F>, proof: &[u8], realm_id: u64) -> anyhow::Result<()> {
         self.retry_with_backoff("submit_guta_v1", || async {
             match self.rpc_client.submit_guta_v1(input, proof, realm_id).await {
                 Ok(_) => {
@@ -143,7 +130,7 @@ impl CoordinatorClient<F> for ConcreteCoordinatorClient {
                         return Ok(());
                     }
                     Err(err)
-                },
+                }
             }
         })
         .await

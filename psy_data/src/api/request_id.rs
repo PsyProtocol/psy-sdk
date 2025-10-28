@@ -2,10 +2,7 @@ use kvq::traits::KVQSerializable;
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 
-
-#[derive(
-    Serialize_repr, Deserialize_repr, PartialEq, Debug, Clone, Copy, Eq, Hash, PartialOrd, Ord,
-)]
+#[derive(Serialize_repr, Deserialize_repr, PartialEq, Debug, Clone, Copy, Eq, Hash, PartialOrd, Ord)]
 #[repr(u8)]
 pub enum QAPIWriteRequestType {
     Unknown = 0,
@@ -41,10 +38,7 @@ impl TryFrom<u8> for QAPIWriteRequestType {
     }
 }
 
-
-#[derive(
-    Serialize_repr, Deserialize_repr, PartialEq, Debug, Clone, Copy, Eq, Hash, PartialOrd, Ord,
-)]
+#[derive(Serialize_repr, Deserialize_repr, PartialEq, Debug, Clone, Copy, Eq, Hash, PartialOrd, Ord)]
 #[repr(u8)]
 pub enum QAPIWriteRequestBlobType {
     Generic = 0,
@@ -84,9 +78,7 @@ impl TryFrom<u8> for QAPIWriteRequestBlobType {
     }
 }
 
-#[derive(
-    Serialize, Deserialize, PartialEq, Debug, Clone, Copy, Eq, Hash, PartialOrd, Ord,
-)]
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone, Copy, Eq, Hash, PartialOrd, Ord)]
 pub struct QEDAPIWriteRequestId {
     pub request_type: QAPIWriteRequestType,
     pub data_type: QAPIWriteRequestBlobType,
@@ -106,7 +98,6 @@ impl KVQSerializable for QEDAPIWriteRequestId {
     }
 }
 
-
 impl QEDAPIWriteRequestId {
     pub fn new(request_type: QAPIWriteRequestType, data_type: QAPIWriteRequestBlobType, realm_id: u32, node_id: u32, time: u64, random: u64) -> Self {
         Self {
@@ -118,19 +109,12 @@ impl QEDAPIWriteRequestId {
             random,
         }
     }
-    
 }
 
-
-
-#[derive(
-    Serialize, Deserialize, PartialEq, Debug, Clone,
-)]
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub struct WithRequestId<T> {
     pub id: QEDAPIWriteRequestId,
     pub payload: T,
 }
 
-impl<T: Copy> Copy for WithRequestId<T> {
-    
-}
+impl<T: Copy> Copy for WithRequestId<T> {}

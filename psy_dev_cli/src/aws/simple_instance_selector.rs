@@ -1,7 +1,8 @@
+use std::collections::HashMap;
+
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-use tracing::{info, debug};
+use tracing::{debug, info};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ServiceType {
@@ -19,7 +20,7 @@ pub enum ServiceType {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum InstanceFamily {
     GeneralPurpose,   // m5/m6i
-    ComputeOptimized, // c5/c6i  
+    ComputeOptimized, // c5/c6i
     MemoryOptimized,  // r5/r6i
     StorageOptimized, // i3/i3en
 }
@@ -98,7 +99,6 @@ impl SimpleInstanceSelector {
                 memory_gb: 64.0,
                 price_per_hour: 0.768,
             },
-
             // C5/C6i 系列 - 计算优化型 (Worker/Processor/Prover)
             SimpleInstance {
                 name: "c5.large".to_string(),
@@ -156,7 +156,6 @@ impl SimpleInstanceSelector {
                 memory_gb: 32.0,
                 price_per_hour: 0.68,
             },
-
             // R5/R6i 系列 - 内存优化型 (Redis)
             SimpleInstance {
                 name: "r5.large".to_string(),
@@ -200,7 +199,6 @@ impl SimpleInstanceSelector {
                 memory_gb: 64.0,
                 price_per_hour: 0.504,
             },
-
             // I3/I3en 系列 - 存储优化型 (ScyllaDB)
             SimpleInstance {
                 name: "i3.large".to_string(),
@@ -259,12 +257,9 @@ impl SimpleInstanceSelector {
         }
     }
 
-    pub fn calculate_recommendation(
-        &self, 
-        requirements: &ServiceGroupRequirements
-    ) -> Result<SimpleInstanceRecommendation> {
+    pub fn calculate_recommendation(&self, requirements: &ServiceGroupRequirements) -> Result<SimpleInstanceRecommendation> {
         let preferred_family = Self::get_preferred_family(requirements.service_type);
-        
+
         // 应用25%余量
         let required_vcpus = (requirements.total_vcpus as f32 * (1.0 + self.resource_margin)).ceil() as u32;
         let required_memory = requirements.total_memory_gb * (1.0 + self.resource_margin);
@@ -278,11 +273,10 @@ impl SimpleInstanceSelector {
         );
 
         // Filter for appropriate instance types (giving priority to specific series)
-        let preferred_instances: Vec<&SimpleInstance> = self.instances.iter()
-            .filter(|instance| instance.family == preferred_family)
-            .collect();
+        let preferred_instances: Vec<&SimpleInstance> = self.instances.iter().filter(|instance| instance.family == preferred_family).collect();
 
-        // If there is no suitable instance for the preferred series, consider all instances
+        // If there is no suitable instance for the preferred series, consider all
+        // instances
         let candidate_instances: Vec<&SimpleInstance> = if preferred_instances.is_empty() {
             self.instances.iter().collect()
         } else {
@@ -291,7 +285,7 @@ impl SimpleInstanceSelector {
 
         // Find the most suitable instance
         let mut best_option: Option<(SimpleInstance, u32, f32)> = None;
-        
+
         for instance in candidate_instances {
             // Calculate how many instances are needed
             let instances_for_cpu = (required_vcpus as f32 / instance.vcpus as f32).ceil() as u32;
@@ -322,12 +316,14 @@ impl SimpleInstanceSelector {
             }
         }
 
-        let (best_instance, instance_count, _) = best_option
-            .ok_or_else(|| anyhow::anyhow!(
-            "Unable to find a suitable instance type for {}: requires {} vCPUs, {:.1} GB memory",                requirements.name,
+        let (best_instance, instance_count, _) = best_option.ok_or_else(|| {
+            anyhow::anyhow!(
+                "Unable to find a suitable instance type for {}: requires {} vCPUs, {:.1} GB memory",
+                requirements.name,
                 required_vcpus,
                 required_memory
-            ))?;
+            )
+        })?;
 
         Ok(SimpleInstanceRecommendation {
             group_name: requirements.name.clone(),
@@ -341,13 +337,9 @@ impl SimpleInstanceSelector {
         })
     }
 
-
-    pub fn calculate_multiple_recommendations(
-        &self,
-        requirements: Vec<ServiceGroupRequirements>
-    ) -> Result<Vec<SimpleInstanceRecommendation>> {
+    pub fn calculate_multiple_recommendations(&self, requirements: Vec<ServiceGroupRequirements>) -> Result<Vec<SimpleInstanceRecommendation>> {
         let mut recommendations = Vec::new();
-        
+
         for req in requirements {
             let recommendation = self.calculate_recommendation(&req)?;
             recommendations.push(recommendation);
@@ -363,7 +355,7 @@ impl SimpleInstanceSelector {
         }
 
         info!("\n=== Instance Recommendation Summary ===");
-        
+
         let mut total_instances = 0;
         let mut total_vcpus = 0;
         let mut total_memory_gb = 0.0;
@@ -371,27 +363,31 @@ impl SimpleInstanceSelector {
 
         // Group statistics by instance type
         let mut instance_counts: HashMap<String, u32> = HashMap::new();
-        
+
         for rec in recommendations {
             info!("\n{} ({:?}):", rec.group_name, rec.service_type);
             info!("  Recommended instance: {} x {}", rec.instance_count, rec.instance_type.name);
             info!("  Total resources: {} vCPUs, {:.1} GB RAM", rec.total_vcpus, rec.total_memory_gb);
             info!("  Cost: ${:.2}/hour, ${:.2}/month", rec.hourly_cost, rec.monthly_cost);
-            
+
             total_instances += rec.instance_count;
             total_vcpus += rec.total_vcpus;
             total_memory_gb += rec.total_memory_gb;
             total_hourly_cost += rec.hourly_cost;
-            
+
             *instance_counts.entry(rec.instance_type.name.clone()).or_insert(0) += rec.instance_count;
         }
-        
+
         info!("\n--- Total ---");
         info!("Total instances: {}", total_instances);
         info!("Total vCPUs: {}", total_vcpus);
         info!("Total memory: {:.1} GB", total_memory_gb);
-        info!("Total cost: ${:.2}/hour, ${:.2}/month", total_hourly_cost, total_hourly_cost * 24.0 * 30.0);
-        
+        info!(
+            "Total cost: ${:.2}/hour, ${:.2}/month",
+            total_hourly_cost,
+            total_hourly_cost * 24.0 * 30.0
+        );
+
         info!("\nInstance type distribution:");
         let mut types: Vec<_> = instance_counts.iter().collect();
         types.sort_by_key(|(name, _)| name.as_str());
@@ -401,11 +397,8 @@ impl SimpleInstanceSelector {
     }
 
     /// Build service group requirements from configuration
-    pub fn build_service_requirements_from_config(
-        config: &crate::subcommand::generate::Config
-    ) -> Vec<ServiceGroupRequirements> {
+    pub fn build_service_requirements_from_config(config: &crate::subcommand::generate::Config) -> Vec<ServiceGroupRequirements> {
         let mut requirements = Vec::new();
-
 
         if let Some(coordinator_req) = Self::build_coordinator_requirements(config) {
             requirements.push(coordinator_req);
@@ -436,13 +429,10 @@ impl SimpleInstanceSelector {
             requirements.push(tikv_req);
         }
 
-
         requirements
     }
 
-    fn build_coordinator_requirements(
-        config: &crate::subcommand::generate::Config
-    ) -> Option<ServiceGroupRequirements> {
+    fn build_coordinator_requirements(config: &crate::subcommand::generate::Config) -> Option<ServiceGroupRequirements> {
         let coordinator = &config.nodes.coordinator;
         let mut total_vcpus = 0;
         let mut total_memory_gb = 0.0;
@@ -453,30 +443,22 @@ impl SimpleInstanceSelector {
             if let Some(aws_config) = &coordinator.processor.aws {
                 // Get task count based on deployment type
                 let task_count = match &aws_config.deployment_type {
-                    Some(crate::subcommand::generate::DeploymentType::ECS) => {
-                        aws_config.ecs.as_ref().map(|ecs| ecs.task_count).unwrap_or(1)
-                    },
-                    Some(crate::subcommand::generate::DeploymentType::EC2) => {
-                        aws_config.ec2.as_ref().map(|ec2| ec2.desired_instances).unwrap_or(1)
-                    },
-                    _ => 1
+                    Some(crate::subcommand::generate::DeploymentType::ECS) => aws_config.ecs.as_ref().map(|ecs| ecs.task_count).unwrap_or(1),
+                    Some(crate::subcommand::generate::DeploymentType::EC2) => aws_config.ec2.as_ref().map(|ec2| ec2.desired_instances).unwrap_or(1),
+                    _ => 1,
                 };
                 total_vcpus += aws_config.cpu * task_count / 1024; // Convert to vCPUs
-                total_memory_gb += aws_config.memory as f32 * task_count as f32 / 1024.0; // Convert to GB
+                total_memory_gb += aws_config.memory as f32 * task_count as f32 / 1024.0;
+                // Convert to GB
             }
         }
-
 
         if coordinator.edge.enabled {
             if let Some(aws_config) = &coordinator.edge.aws {
                 let task_count = match &aws_config.deployment_type {
-                    Some(crate::subcommand::generate::DeploymentType::ECS) => {
-                        aws_config.ecs.as_ref().map(|ecs| ecs.task_count).unwrap_or(1)
-                    },
-                    Some(crate::subcommand::generate::DeploymentType::EC2) => {
-                        aws_config.ec2.as_ref().map(|ec2| ec2.desired_instances).unwrap_or(1)
-                    },
-                    _ => 1
+                    Some(crate::subcommand::generate::DeploymentType::ECS) => aws_config.ecs.as_ref().map(|ecs| ecs.task_count).unwrap_or(1),
+                    Some(crate::subcommand::generate::DeploymentType::EC2) => aws_config.ec2.as_ref().map(|ec2| ec2.desired_instances).unwrap_or(1),
+                    _ => 1,
                 };
                 total_vcpus += aws_config.cpu * task_count / 1024;
                 total_memory_gb += aws_config.memory as f32 * task_count as f32 / 1024.0;
@@ -488,13 +470,11 @@ impl SimpleInstanceSelector {
             if watcher.enabled {
                 if let Some(aws_config) = &watcher.aws {
                     let task_count = match &aws_config.deployment_type {
-                        Some(crate::subcommand::generate::DeploymentType::ECS) => {
-                            aws_config.ecs.as_ref().map(|ecs| ecs.task_count).unwrap_or(1)
-                        },
+                        Some(crate::subcommand::generate::DeploymentType::ECS) => aws_config.ecs.as_ref().map(|ecs| ecs.task_count).unwrap_or(1),
                         Some(crate::subcommand::generate::DeploymentType::EC2) => {
                             aws_config.ec2.as_ref().map(|ec2| ec2.desired_instances).unwrap_or(1)
-                        },
-                        _ => 1
+                        }
+                        _ => 1,
                     };
                     total_vcpus += aws_config.cpu * task_count / 1024;
                     total_memory_gb += aws_config.memory as f32 * task_count as f32 / 1024.0;
@@ -520,7 +500,7 @@ impl SimpleInstanceSelector {
 
     fn build_realm_requirements(
         config: &crate::subcommand::generate::Config,
-        realm: &crate::subcommand::generate::RealmNode
+        realm: &crate::subcommand::generate::RealmNode,
     ) -> Option<ServiceGroupRequirements> {
         let mut total_vcpus = 0;
         let mut total_memory_gb = 0.0;
@@ -529,30 +509,21 @@ impl SimpleInstanceSelector {
         if realm.processor.enabled {
             if let Some(aws_config) = &realm.processor.aws {
                 let task_count = match &aws_config.deployment_type {
-                    Some(crate::subcommand::generate::DeploymentType::ECS) => {
-                        aws_config.ecs.as_ref().map(|ecs| ecs.task_count).unwrap_or(1)
-                    },
-                    Some(crate::subcommand::generate::DeploymentType::EC2) => {
-                        aws_config.ec2.as_ref().map(|ec2| ec2.desired_instances).unwrap_or(1)
-                    },
-                    _ => 1
+                    Some(crate::subcommand::generate::DeploymentType::ECS) => aws_config.ecs.as_ref().map(|ecs| ecs.task_count).unwrap_or(1),
+                    Some(crate::subcommand::generate::DeploymentType::EC2) => aws_config.ec2.as_ref().map(|ec2| ec2.desired_instances).unwrap_or(1),
+                    _ => 1,
                 };
                 total_vcpus += aws_config.cpu * task_count / 1024;
                 total_memory_gb += aws_config.memory as f32 * task_count as f32 / 1024.0;
             }
         }
 
-
         if realm.edge.enabled {
             if let Some(aws_config) = &realm.edge.aws {
                 let task_count = match &aws_config.deployment_type {
-                    Some(crate::subcommand::generate::DeploymentType::ECS) => {
-                        aws_config.ecs.as_ref().map(|ecs| ecs.task_count).unwrap_or(1)
-                    },
-                    Some(crate::subcommand::generate::DeploymentType::EC2) => {
-                        aws_config.ec2.as_ref().map(|ec2| ec2.desired_instances).unwrap_or(1)
-                    },
-                    _ => 1
+                    Some(crate::subcommand::generate::DeploymentType::ECS) => aws_config.ecs.as_ref().map(|ecs| ecs.task_count).unwrap_or(1),
+                    Some(crate::subcommand::generate::DeploymentType::EC2) => aws_config.ec2.as_ref().map(|ec2| ec2.desired_instances).unwrap_or(1),
+                    _ => 1,
                 };
                 total_vcpus += aws_config.cpu * task_count / 1024;
                 total_memory_gb += aws_config.memory as f32 * task_count as f32 / 1024.0;
@@ -563,13 +534,11 @@ impl SimpleInstanceSelector {
             if watcher.enabled {
                 if let Some(aws_config) = &watcher.aws {
                     let task_count = match &aws_config.deployment_type {
-                        Some(crate::subcommand::generate::DeploymentType::ECS) => {
-                            aws_config.ecs.as_ref().map(|ecs| ecs.task_count).unwrap_or(1)
-                        },
+                        Some(crate::subcommand::generate::DeploymentType::ECS) => aws_config.ecs.as_ref().map(|ecs| ecs.task_count).unwrap_or(1),
                         Some(crate::subcommand::generate::DeploymentType::EC2) => {
                             aws_config.ec2.as_ref().map(|ec2| ec2.desired_instances).unwrap_or(1)
-                        },
-                        _ => 1
+                        }
+                        _ => 1,
                     };
                     total_vcpus += aws_config.cpu * task_count / 1024;
                     total_memory_gb += aws_config.memory as f32 * task_count as f32 / 1024.0;
@@ -593,9 +562,7 @@ impl SimpleInstanceSelector {
         }
     }
 
-    fn build_redis_requirements(
-        config: &crate::subcommand::generate::Config
-    ) -> Option<ServiceGroupRequirements> {
+    fn build_redis_requirements(config: &crate::subcommand::generate::Config) -> Option<ServiceGroupRequirements> {
         let mut total_vcpus = 0;
         let mut total_memory_gb = 0.0;
         let mut instance_count = 0;
@@ -603,21 +570,6 @@ impl SimpleInstanceSelector {
         // Check coordinator Redis
         if let Some(redis) = &config.nodes.coordinator.redis {
             if let Some(redis_aws) = &redis.aws {
-            if let Some(crate::subcommand::generate::RedisDeploymentType::EC2) = &redis_aws.deployment_type {
-                if let (Some(cpu), Some(memory), Some(ec2)) = (&redis_aws.cpu, &redis_aws.memory, &redis_aws.ec2) {
-                    let instances = ec2.desired_instances;
-                    total_vcpus += cpu * instances / 1024;
-                    total_memory_gb += *memory as f32 * instances as f32 / 1024.0;
-                    instance_count += instances;
-                }
-            }
-            }
-        }
-
-        // Check realm Redis
-        for realm in &config.nodes.realms {
-            if let Some(redis) = &realm.redis {
-                if let Some(redis_aws) = &redis.aws {
                 if let Some(crate::subcommand::generate::RedisDeploymentType::EC2) = &redis_aws.deployment_type {
                     if let (Some(cpu), Some(memory), Some(ec2)) = (&redis_aws.cpu, &redis_aws.memory, &redis_aws.ec2) {
                         let instances = ec2.desired_instances;
@@ -626,6 +578,21 @@ impl SimpleInstanceSelector {
                         instance_count += instances;
                     }
                 }
+            }
+        }
+
+        // Check realm Redis
+        for realm in &config.nodes.realms {
+            if let Some(redis) = &realm.redis {
+                if let Some(redis_aws) = &redis.aws {
+                    if let Some(crate::subcommand::generate::RedisDeploymentType::EC2) = &redis_aws.deployment_type {
+                        if let (Some(cpu), Some(memory), Some(ec2)) = (&redis_aws.cpu, &redis_aws.memory, &redis_aws.ec2) {
+                            let instances = ec2.desired_instances;
+                            total_vcpus += cpu * instances / 1024;
+                            total_memory_gb += *memory as f32 * instances as f32 / 1024.0;
+                            instance_count += instances;
+                        }
+                    }
                 }
             }
         }
@@ -642,29 +609,21 @@ impl SimpleInstanceSelector {
             None
         }
     }
-    fn build_independent_workers_requirements(
-    config: &crate::subcommand::generate::Config
-    ) -> Option<ServiceGroupRequirements> {
+    fn build_independent_workers_requirements(config: &crate::subcommand::generate::Config) -> Option<ServiceGroupRequirements> {
         if let Some(workers) = &config.nodes.workers {
             if workers.enabled {
                 if let Some(aws_config) = &workers.aws {
                     let task_count = match &aws_config.deployment_type {
-                        Some(crate::subcommand::generate::DeploymentType::ECS) => {
-                            aws_config.ecs.as_ref()
-                                .map(|ecs| ecs.task_count)
-                                .unwrap_or(3)
-                        },
+                        Some(crate::subcommand::generate::DeploymentType::ECS) => aws_config.ecs.as_ref().map(|ecs| ecs.task_count).unwrap_or(3),
                         Some(crate::subcommand::generate::DeploymentType::EC2) => {
-                            aws_config.ec2.as_ref()
-                                .map(|ec2| ec2.desired_instances)
-                                .unwrap_or(3)
-                        },
-                        _ => 3  // Default to 3 tasks
+                            aws_config.ec2.as_ref().map(|ec2| ec2.desired_instances).unwrap_or(3)
+                        }
+                        _ => 3, // Default to 3 tasks
                     };
-                    
+
                     let total_vcpus = aws_config.cpu * task_count / 1024;
                     let total_memory_gb = aws_config.memory as f32 * task_count as f32 / 1024.0;
-                    
+
                     if total_vcpus > 0 {
                         return Some(ServiceGroupRequirements {
                             name: "Workers".to_string(),
@@ -680,21 +639,17 @@ impl SimpleInstanceSelector {
         None
     }
 
-    fn build_api_service_requirements(
-        config: &crate::subcommand::generate::Config
-    ) -> Option<ServiceGroupRequirements> {
+    fn build_api_service_requirements(config: &crate::subcommand::generate::Config) -> Option<ServiceGroupRequirements> {
         if let Some(global_services) = &config.global_api_services {
             if let Some(api_service) = &global_services.api_service {
                 if api_service.enabled {
                     if let Some(aws_config) = &api_service.aws {
                         let task_count = match &aws_config.deployment_type {
-                            Some(crate::subcommand::generate::DeploymentType::ECS) => {
-                                aws_config.ecs.as_ref().map(|ecs| ecs.task_count).unwrap_or(1)
-                            },
+                            Some(crate::subcommand::generate::DeploymentType::ECS) => aws_config.ecs.as_ref().map(|ecs| ecs.task_count).unwrap_or(1),
                             Some(crate::subcommand::generate::DeploymentType::EC2) => {
                                 aws_config.ec2.as_ref().map(|ec2| ec2.desired_instances).unwrap_or(1)
-                            },
-                            _ => 1
+                            }
+                            _ => 1,
                         };
 
                         let total_vcpus = aws_config.cpu * task_count / 1024;
@@ -716,14 +671,14 @@ impl SimpleInstanceSelector {
         None
     }
 
-    fn build_tikv_requirements(
-        config: &crate::subcommand::generate::Config
-    ) -> Option<ServiceGroupRequirements> {
+    fn build_tikv_requirements(config: &crate::subcommand::generate::Config) -> Option<ServiceGroupRequirements> {
         // Check if any node is using TiKV
-        let coordinator_uses_tikv = config.nodes.coordinator.backend.as_ref()
-            .map(|b| b.database == "tikv").unwrap_or(false);
-        let realm_uses_tikv = config.nodes.realms.iter().any(|r|
-            r.backend.as_ref().map(|b| b.database == "tikv").unwrap_or(false));
+        let coordinator_uses_tikv = config.nodes.coordinator.backend.as_ref().map(|b| b.database == "tikv").unwrap_or(false);
+        let realm_uses_tikv = config
+            .nodes
+            .realms
+            .iter()
+            .any(|r| r.backend.as_ref().map(|b| b.database == "tikv").unwrap_or(false));
 
         if coordinator_uses_tikv || realm_uses_tikv {
             // Get TiKV configuration from coordinator (assume unified TiKV cluster)
@@ -766,19 +721,40 @@ mod tests {
 
     #[test]
     fn test_service_type_mapping() {
-        assert_eq!(SimpleInstanceSelector::get_preferred_family(ServiceType::Edge), InstanceFamily::GeneralPurpose);
-        assert_eq!(SimpleInstanceSelector::get_preferred_family(ServiceType::Worker), InstanceFamily::ComputeOptimized);
-        assert_eq!(SimpleInstanceSelector::get_preferred_family(ServiceType::Redis), InstanceFamily::MemoryOptimized);
-        assert_eq!(SimpleInstanceSelector::get_preferred_family(ServiceType::ScyllaDB), InstanceFamily::StorageOptimized);
-        assert_eq!(SimpleInstanceSelector::get_preferred_family(ServiceType::Watcher), InstanceFamily::GeneralPurpose);
-        assert_eq!(SimpleInstanceSelector::get_preferred_family(ServiceType::ApiService), InstanceFamily::GeneralPurpose);
-        assert_eq!(SimpleInstanceSelector::get_preferred_family(ServiceType::TiKV), InstanceFamily::StorageOptimized);
+        assert_eq!(
+            SimpleInstanceSelector::get_preferred_family(ServiceType::Edge),
+            InstanceFamily::GeneralPurpose
+        );
+        assert_eq!(
+            SimpleInstanceSelector::get_preferred_family(ServiceType::Worker),
+            InstanceFamily::ComputeOptimized
+        );
+        assert_eq!(
+            SimpleInstanceSelector::get_preferred_family(ServiceType::Redis),
+            InstanceFamily::MemoryOptimized
+        );
+        assert_eq!(
+            SimpleInstanceSelector::get_preferred_family(ServiceType::ScyllaDB),
+            InstanceFamily::StorageOptimized
+        );
+        assert_eq!(
+            SimpleInstanceSelector::get_preferred_family(ServiceType::Watcher),
+            InstanceFamily::GeneralPurpose
+        );
+        assert_eq!(
+            SimpleInstanceSelector::get_preferred_family(ServiceType::ApiService),
+            InstanceFamily::GeneralPurpose
+        );
+        assert_eq!(
+            SimpleInstanceSelector::get_preferred_family(ServiceType::TiKV),
+            InstanceFamily::StorageOptimized
+        );
     }
 
     #[test]
     fn test_instance_recommendation() {
         let selector = SimpleInstanceSelector::new();
-        
+
         let requirements = ServiceGroupRequirements {
             name: "test-group".to_string(),
             service_type: ServiceType::Worker,
@@ -789,7 +765,8 @@ mod tests {
 
         let recommendation = selector.calculate_recommendation(&requirements).unwrap();
 
-        // Verify that the recommendation result contains sufficient resources (including 25% margin)
+        // Verify that the recommendation result contains sufficient resources
+        // (including 25% margin)
         assert!(recommendation.total_vcpus >= 5); // 4 * 1.25 = 5
         assert!(recommendation.total_memory_gb >= 10.0); // 8.0 * 1.25 = 10.0
         assert_eq!(recommendation.service_type, ServiceType::Worker);

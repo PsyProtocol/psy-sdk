@@ -1,43 +1,48 @@
+use std::{collections::HashMap, fs, marker::PhantomData, sync::Arc};
+
 use plonky2::{
-    field::{goldilocks_field::GoldilocksField, types::PrimeField64}, hash::hash_types::{HashOut, RichField}, plonk::{
+    field::{goldilocks_field::GoldilocksField, types::PrimeField64},
+    hash::hash_types::{HashOut, RichField},
+    plonk::{
         circuit_data::VerifierOnlyCircuitData,
         config::{AlgebraicHasher, GenericConfig},
         proof::ProofWithPublicInputs,
     },
 };
-use psy_common_circuit::{circuits::zk_signature3::core::QEDBasicZKSignatureInnerCircuit, treeprover::qrecursion::standard::manager::portable::circuits::{
-    PortableQTreeRecursionCircuitsDataTrait, PortableQTreeRecursionCircuitsProveTrait,
-    PortableQTreeRecursionCircuitsTrait,
-}};
-use psy_core::{job::id::{QProvingJobDataID, VariableHeightRewardMerkleProof}, traits::to_qfelts::ToQFelts};
-use psy_crypto::{
-    common::witnesses::qrecursion::proof_data::{
-        AggProofRecord, SimpleQTreeRecursionManagerInclusionProofs,
+use psy_common_circuit::{
+    circuits::zk_signature3::core::QEDBasicZKSignatureInnerCircuit,
+    treeprover::qrecursion::standard::manager::portable::circuits::{
+        PortableQTreeRecursionCircuitsDataTrait, PortableQTreeRecursionCircuitsProveTrait, PortableQTreeRecursionCircuitsTrait,
     },
-    signature::secp256k1::core::QEDCompressedSecp256K1Signature,
+};
+use psy_core::{
+    job::id::{QProvingJobDataID, VariableHeightRewardMerkleProof},
+    traits::to_qfelts::ToQFelts,
 };
 use psy_crypto::{
     common::witnesses::qrecursion::{
-        header::QRecursionAggStandardHeader, proof_data::QStandardBinaryTreeCircuitType,
+        header::QRecursionAggStandardHeader,
+        proof_data::{AggProofRecord, QStandardBinaryTreeCircuitType, SimpleQTreeRecursionManagerInclusionProofs},
     },
     hash::{
         merkle::core::{DeltaMerkleProofCore, MerkleProofCore},
         traits::{hasher::MerkleZeroHasher, qhashable::QFieldHashable},
     },
+    signature::secp256k1::core::QEDCompressedSecp256K1Signature,
 };
 use psy_data::{
-    config::store_config::{QEDFelt, QEDHasher}, qdata::{checkpoint::QEDL2BlockState, contract::ContractCodeDefinition, user}, traits::qdatastore::{qmetadata::QMetaDataStoreReaderSync, qtreedata::QTreeDataStoreReaderSync}, ups::{
+    config::store_config::{QEDFelt, QEDHasher},
+    qdata::{checkpoint::QEDL2BlockState, contract::ContractCodeDefinition, user},
+    traits::qdatastore::{qmetadata::QMetaDataStoreReaderSync, qtreedata::QTreeDataStoreReaderSync},
+    ups::{
         start_step::UPSStartStepInput,
-        ups_cfc_standard_step::{
-            UPSCFCDeferredTransactionCircuitInput, UPSCFCStandardTransactionCircuitInput,
-        },
+        ups_cfc_standard_step::{UPSCFCDeferredTransactionCircuitInput, UPSCFCStandardTransactionCircuitInput},
         ups_end_cap::UPSEndCapFromProofTreeGadgetInput,
-    }
+    },
 };
 use psy_exec::vm::cfc_input::DapenContractFunctionCircuitInput;
 use psy_store::controllers::local::session_info::SessionCircuitInfoStore;
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, fs, marker::PhantomData, sync::Arc};
 
 #[derive(Debug, Clone, Deserialize, Serialize, Hash, Eq, PartialEq)]
 pub enum JobLocation {
@@ -51,37 +56,37 @@ pub struct JobInfo {
     pub location: JobLocation,
 }
 
-use crate::{local::request::{
-    QGetContractMethodCommonDataRPCRequest, QGetMethodIdRPCRequest, QGetTxStatusRPCRequest, QL2BlockStateRPCRequest, QLatestL2BlockStateRPCRequest, QLeftAggRightLeafRpcRequestV2, QLeftLeafRightAggRpcRequestV2, QProveContractCallRPCRequest, QProveUpsStartRPCRequest, QRegisterCircuitsRPCRequest, QRegisterSoftwareDefinedCircuitRPCRequest, QSecpSignatureProofRPCRequest, QSignatureMinifierProofRPCRequest, QSignatureProofRPCRequest, QSingleLeafRpcRequestV2, QSoftwareDefinedSignatureProofRPCRequest, QTwoAggRpcRequsetV2, QTwoLeafRpcRequestV2, QUpsCfcDeferredTxRPCRequest, QUpsCfcStandardTxRPCRequest, QUpsEndCapRPCRequestV2, QUserSubTreeMerkleProofRPCRequest, RequestParamsV2
-}, session::TxStatus};
-use crate::wallet::software_defined_circuit::{
-    SoftwareDefinedSignatureInput, SoftwareDefinedSignatureWitnessInput,
-};
-
-use super::request::{
-    Id, QRegisterUserRPCRequest, RequestParams, ResponseResult, RpcRequest, RpcResponse, Version,
-};
-use serde_json;
-
 use std::result::Result::Ok;
-// #[cfg(not(target_arch = "wasm32"))]
-use rand::Rng;
-
-// #[cfg(not(target_arch = "wasm32"))]
-// use reqwest::blocking::Client;
-
-// #[cfg(target_arch = "wasm32")]
-use reqwest::Client;
-
-use super::request::{
-    QAddWithdrawalRPCRequest, QClaimDepositRPCRequest, QDeployContractRPCRequest,
-    QGetUserIdRPCRequest, QSubmitEndCapRPCRequest, QSubmitGutaRPCRequest, QTokenTransferRPCRequest,
-};
 
 use psy_core::{
     config::network_constants::REALM_USER_TREE_HEIGHT,
     data::{alt::AltVerifierOnlyCircuitData, qhashout::QHashOut},
     ups::circuits::LocalCircuitType,
+};
+// #[cfg(not(target_arch = "wasm32"))]
+use rand::Rng;
+// #[cfg(not(target_arch = "wasm32"))]
+// use reqwest::blocking::Client;
+
+// #[cfg(target_arch = "wasm32")]
+use reqwest::Client;
+use serde_json;
+
+use super::request::{
+    Id, QAddWithdrawalRPCRequest, QClaimDepositRPCRequest, QDeployContractRPCRequest, QGetUserIdRPCRequest, QRegisterUserRPCRequest,
+    QSubmitEndCapRPCRequest, QSubmitGutaRPCRequest, QTokenTransferRPCRequest, RequestParams, ResponseResult, RpcRequest, RpcResponse, Version,
+};
+use crate::{
+    local::request::{
+        QGetContractMethodCommonDataRPCRequest, QGetMethodIdRPCRequest, QGetTxStatusRPCRequest, QL2BlockStateRPCRequest,
+        QLatestL2BlockStateRPCRequest, QLeftAggRightLeafRpcRequestV2, QLeftLeafRightAggRpcRequestV2, QProveContractCallRPCRequest,
+        QProveUpsStartRPCRequest, QRegisterCircuitsRPCRequest, QRegisterSoftwareDefinedCircuitRPCRequest, QSecpSignatureProofRPCRequest,
+        QSignatureMinifierProofRPCRequest, QSignatureProofRPCRequest, QSingleLeafRpcRequestV2, QSoftwareDefinedSignatureProofRPCRequest,
+        QTwoAggRpcRequsetV2, QTwoLeafRpcRequestV2, QUpsCfcDeferredTxRPCRequest, QUpsCfcStandardTxRPCRequest, QUpsEndCapRPCRequestV2,
+        QUserSubTreeMerkleProofRPCRequest, RequestParamsV2,
+    },
+    session::TxStatus,
+    wallet::software_defined_circuit::{SoftwareDefinedSignatureInput, SoftwareDefinedSignatureWitnessInput},
 };
 
 #[derive(Debug, Clone)]
@@ -102,10 +107,7 @@ impl RpcProvider {
     }
 
     pub fn new_with_config(config: &RpcConfig) -> anyhow::Result<Self> {
-        tracing::info!(
-            "start rpc provider with config: {}",
-            serde_json::to_string_pretty(&config)?
-        );
+        tracing::info!("start rpc provider with config: {}", serde_json::to_string_pretty(&config)?);
         assert!(config.realm_configs.len() > 0);
         assert!(config.coordinator_configs.len() > 0);
         let mut realm_configs = HashMap::new();
@@ -115,14 +117,10 @@ impl RpcProvider {
             assert!(realm_config.rpc_url.len() > 0);
             realm_configs.insert(realm_config.id, realm_config.rpc_url.clone());
         });
-        config
-            .coordinator_configs
-            .iter()
-            .for_each(|coordinator_config| {
-                assert!(coordinator_config.rpc_url.len() > 0);
-                coordinator_configs
-                    .insert(coordinator_config.id, coordinator_config.rpc_url.clone());
-            });
+        config.coordinator_configs.iter().for_each(|coordinator_config| {
+            assert!(coordinator_config.rpc_url.len() > 0);
+            coordinator_configs.insert(coordinator_config.id, coordinator_config.rpc_url.clone());
+        });
 
         Ok(Self {
             client: Arc::new(Client::new()),
@@ -154,8 +152,8 @@ impl RpcProvider {
 //                 tracing::info!("{:?}", s);
 //                 Ok(())
 //             }
-//             ResponseResult::Error(e) => Err(anyhow::format_err!("qed rpc call failed `{:?}`", e)),
-//         }
+//             ResponseResult::Error(e) => Err(anyhow::format_err!("qed rpc call
+// failed `{:?}`", e)),         }
 //     }};
 // }
 
@@ -169,21 +167,14 @@ macro_rules! qed_rpc_call {
                 request: $rpc_params,
                 id: Id::Number(1),
             };
-            let response = $instance
-                .client
-                .post($rpc_url)
-                .json(&request)
-                .send()
-                .await?;
+            let response = $instance.client.post($rpc_url).json(&request).send().await?;
             let json_response: RpcResponse<String> = response.json().await?;
             match json_response.result {
                 ResponseResult::Success(s) => {
                     tracing::info!("{:?}", s);
                     Ok(())
                 }
-                ResponseResult::Error(e) => {
-                    Err(anyhow::format_err!("qed rpc call failed `{:?}`", e))
-                }
+                ResponseResult::Error(e) => Err(anyhow::format_err!("qed rpc call failed `{:?}`", e)),
             }
         }
         .await
@@ -218,24 +209,25 @@ macro_rules! qed_rpc_call {
 //                     })
 //                     .send()
 //                     .await
-//                     .map_err(|e| anyhow::anyhow!("qed rpc call failed: {}", e));
+//                     .map_err(|e| anyhow::anyhow!("qed rpc call failed: {}",
+// e));
 
 //                 match response {
 //                     Ok(response) => {
 //                         match response.json::<RpcResponse<String>>().await {
 //                             Ok(json_response) => Ok(()),
-//                             Err(e) => Err(anyhow::anyhow!("parse reponse failed: {}", e)),
-//                         }
+//                             Err(e) => Err(anyhow::anyhow!("parse reponse
+// failed: {}", e)),                         }
 //                     }
-//                     Err(e) => Err(anyhow::anyhow!("qed rpc call failed: {}", e)),
-//                 }
+//                     Err(e) => Err(anyhow::anyhow!("qed rpc call failed: {}",
+// e)),                 }
 //             };
 
 //             let _ = tx.send(result);
 //         });
 
-//         rx.recv().map_err(|e| anyhow::anyhow!("channel reception failed: {}", e))?
-//     }};
+//         rx.recv().map_err(|e| anyhow::anyhow!("channel reception failed: {}",
+// e))?     }};
 // }
 
 // #[cfg(any(not(target_arch = "wasm32"), feature = "is_sync"))]
@@ -310,17 +302,18 @@ macro_rules! qed_rpc_call_back {
 //                     })
 //                     .send()
 //                     .await
-//                     .map_err(|e| anyhow::anyhow!("qed rpc call failed: {}", e));
+//                     .map_err(|e| anyhow::anyhow!("qed rpc call failed: {}",
+// e));
 
 //                 match response {
 //                     Ok(response) => {
 //                         match response.json::<RpcResponse<$ret_ty>>().await {
 //                             Ok(json_response) => Ok(json_response),
-//                             Err(e) => Err(anyhow::anyhow!("parse reponse failed: {}", e)),
-//                         }
+//                             Err(e) => Err(anyhow::anyhow!("parse reponse
+// failed: {}", e)),                         }
 //                     }
-//                     Err(e) => Err(anyhow::anyhow!("qed rpc call failed: {}", e)),
-//                 }
+//                     Err(e) => Err(anyhow::anyhow!("qed rpc call failed: {}",
+// e)),                 }
 //             };
 
 //             let _ = tx.send(result);
@@ -337,42 +330,23 @@ macro_rules! qed_rpc_call_back {
 #[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
 #[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
 pub trait QUserRpcProvider {
-    async fn register_user<F: RichField>(
-        &self,
-        req: QRegisterUserRPCRequest<F>,
-    ) -> anyhow::Result<()>;
+    async fn register_user<F: RichField>(&self, req: QRegisterUserRPCRequest<F>) -> anyhow::Result<()>;
     async fn produce_block<F: RichField>(&self) -> anyhow::Result<()>;
-    async fn add_withdrawal<F: RichField>(
-        &self,
-        req: QAddWithdrawalRPCRequest,
-    ) -> anyhow::Result<()>;
+    async fn add_withdrawal<F: RichField>(&self, req: QAddWithdrawalRPCRequest) -> anyhow::Result<()>;
 
-    async fn claim_deposit<F: RichField>(&self, req: QClaimDepositRPCRequest)
-        -> anyhow::Result<()>;
+    async fn claim_deposit<F: RichField>(&self, req: QClaimDepositRPCRequest) -> anyhow::Result<()>;
 
-    async fn token_transfer<F: RichField>(
-        &self,
-        req: QTokenTransferRPCRequest,
-    ) -> anyhow::Result<()>;
+    async fn token_transfer<F: RichField>(&self, req: QTokenTransferRPCRequest) -> anyhow::Result<()>;
 
-    async fn deploy_contract<F: RichField>(
-        &self,
-        req: QDeployContractRPCRequest<F>,
-    ) -> anyhow::Result<()>;
+    async fn deploy_contract<F: RichField>(&self, req: QDeployContractRPCRequest<F>) -> anyhow::Result<()>;
 
-    async fn submit_end_cap_proof<F: RichField>(
-        &self,
-        req: QSubmitEndCapRPCRequest<F>,
-    ) -> anyhow::Result<()>;
+    async fn submit_end_cap_proof<F: RichField>(&self, req: QSubmitEndCapRPCRequest<F>) -> anyhow::Result<()>;
 }
 
 #[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
 #[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
 impl QUserRpcProvider for RpcProvider {
-    async fn register_user<F: RichField>(
-        &self,
-        req: QRegisterUserRPCRequest<F>,
-    ) -> anyhow::Result<()> {
+    async fn register_user<F: RichField>(&self, req: QRegisterUserRPCRequest<F>) -> anyhow::Result<()> {
         tracing::info!("register user: {:?}", req);
         let url = self.get_coordinator_url()?;
         qed_rpc_call!(self, url, RequestParams::<F>::RegisterUser(req))
@@ -382,39 +356,24 @@ impl QUserRpcProvider for RpcProvider {
         let url = self.get_coordinator_url()?;
         qed_rpc_call!(self, url, RequestParams::<F>::ProduceBlock)
     }
-    async fn add_withdrawal<F: RichField>(
-        &self,
-        req: QAddWithdrawalRPCRequest,
-    ) -> anyhow::Result<()> {
+    async fn add_withdrawal<F: RichField>(&self, req: QAddWithdrawalRPCRequest) -> anyhow::Result<()> {
         unimplemented!()
     }
 
-    async fn claim_deposit<F: RichField>(
-        &self,
-        req: QClaimDepositRPCRequest,
-    ) -> anyhow::Result<()> {
+    async fn claim_deposit<F: RichField>(&self, req: QClaimDepositRPCRequest) -> anyhow::Result<()> {
         unimplemented!()
     }
 
-    async fn token_transfer<F: RichField>(
-        &self,
-        req: QTokenTransferRPCRequest,
-    ) -> anyhow::Result<()> {
+    async fn token_transfer<F: RichField>(&self, req: QTokenTransferRPCRequest) -> anyhow::Result<()> {
         unimplemented!()
     }
 
-    async fn deploy_contract<F: RichField>(
-        &self,
-        req: QDeployContractRPCRequest<F>,
-    ) -> anyhow::Result<()> {
+    async fn deploy_contract<F: RichField>(&self, req: QDeployContractRPCRequest<F>) -> anyhow::Result<()> {
         let url = self.get_coordinator_url()?;
         qed_rpc_call!(self, url, RequestParams::<F>::DeployContract(req))
     }
 
-    async fn submit_end_cap_proof<F: RichField>(
-        &self,
-        req: QSubmitEndCapRPCRequest<F>,
-    ) -> anyhow::Result<()> {
+    async fn submit_end_cap_proof<F: RichField>(&self, req: QSubmitEndCapRPCRequest<F>) -> anyhow::Result<()> {
         let rpc_url = self.get_realm_url(self.current_user_id)?;
         qed_rpc_call!(self, rpc_url, RequestParams::<F>::SubmitEndCap(req))
     }
@@ -426,12 +385,7 @@ impl RpcProvider {
     pub async fn get_user_id<F: RichField>(&self, public_key: QHashOut<F>) -> anyhow::Result<u64> {
         tracing::info!("user: {}", public_key);
         let url = self.get_coordinator_url()?;
-        let response = qed_rpc_call_back!(
-            self,
-            url,
-            RequestParams::<F>::GetUserId(QGetUserIdRPCRequest { public_key }),
-            u64
-        );
+        let response = qed_rpc_call_back!(self, url, RequestParams::<F>::GetUserId(QGetUserIdRPCRequest { public_key }), u64);
         match response.result {
             ResponseResult::Success(user_id) => {
                 tracing::info!("get user id: {:?}", user_id);
@@ -441,9 +395,7 @@ impl RpcProvider {
         }
     }
 
-    pub async fn get_realm_latest_l2_block_state(
-        &self,
-    ) -> anyhow::Result<psy_data::qdata::checkpoint::QEDL2BlockState> {
+    pub async fn get_realm_latest_l2_block_state(&self) -> anyhow::Result<psy_data::qdata::checkpoint::QEDL2BlockState> {
         tracing::info!("Fetching latest realm L2 block state");
         let rpc_url = self.get_realm_url(self.current_user_id)?;
         let input = QLatestL2BlockStateRPCRequest {};
@@ -463,27 +415,16 @@ impl RpcProvider {
             }
             ResponseResult::Error(e) => {
                 tracing::error!("RPC call failed: {:?}", e);
-                Err(anyhow::format_err!(
-                    "get_realm_latest_l2_block_state rpc call failed `{:?}`",
-                    e
-                ))
+                Err(anyhow::format_err!("get_realm_latest_l2_block_state rpc call failed `{:?}`", e))
             }
         }
     }
 
-    pub async fn get_realm_l2_block_state(
-        &self,
-        checkpoint_id: u64,
-    ) -> anyhow::Result<psy_data::qdata::checkpoint::QEDL2BlockState> {
+    pub async fn get_realm_l2_block_state(&self, checkpoint_id: u64) -> anyhow::Result<psy_data::qdata::checkpoint::QEDL2BlockState> {
         tracing::info!("Fetching realm L2 block state at checkpoint {}", checkpoint_id);
         let rpc_url = self.get_realm_url(self.current_user_id)?;
         let input = QL2BlockStateRPCRequest { checkpoint_id };
-        let response = qed_rpc_call_back!(
-            self,
-            rpc_url,
-            RequestParams::<GoldilocksField>::GetL2BlockState(input),
-            QEDL2BlockState
-        );
+        let response = qed_rpc_call_back!(self, rpc_url, RequestParams::<GoldilocksField>::GetL2BlockState(input), QEDL2BlockState);
         match response.result {
             ResponseResult::Success(block_state) => {
                 tracing::debug!(
@@ -494,10 +435,7 @@ impl RpcProvider {
             }
             ResponseResult::Error(e) => {
                 tracing::error!("RPC call failed: {:?}", e);
-                Err(anyhow::format_err!(
-                    "get_realm_l2_block_state rpc call failed `{:?}`",
-                    e
-                ))
+                Err(anyhow::format_err!("get_realm_l2_block_state rpc call failed `{:?}`", e))
             }
         }
     }
@@ -536,19 +474,12 @@ impl RpcProvider {
             }
             ResponseResult::Error(e) => {
                 tracing::error!("RPC call failed: {:?}", e);
-                Err(anyhow::format_err!(
-                    "get_user_sub_tree_merkle_proof rpc call failed `{:?}`",
-                    e
-                ))
+                Err(anyhow::format_err!("get_user_sub_tree_merkle_proof rpc call failed `{:?}`", e))
             }
         }
     }
 
-    pub async fn get_job_proofs(
-        &self,
-        job_infos: Vec<JobInfo>,
-    ) -> anyhow::Result<Vec<(QProvingJobDataID, VariableHeightRewardMerkleProof)>> {
-
+    pub async fn get_job_proofs(&self, job_infos: Vec<JobInfo>) -> anyhow::Result<Vec<(QProvingJobDataID, VariableHeightRewardMerkleProof)>> {
         let mut jobs_by_checkpoint: HashMap<u64, HashMap<JobLocation, Vec<JobInfo>>> = HashMap::new();
 
         for job_info in job_infos {
@@ -588,22 +519,13 @@ impl RpcProvider {
                     "id": 1
                 });
 
-                let response = self
-                    .client
-                    .post(url)
-                    .json(&request)
-                    .send()
-                    .await?
-                    .json::<serde_json::Value>()
-                    .await?;
+                let response = self.client.post(url).json(&request).send().await?.json::<serde_json::Value>().await?;
 
                 if let Some(error) = response.get("error") {
                     return Err(anyhow::format_err!("RPC error: {:?}", error));
                 }
 
-                let result = response
-                    .get("result")
-                    .ok_or(anyhow::format_err!("Missing result in RPC response"))?;
+                let result = response.get("result").ok_or(anyhow::format_err!("Missing result in RPC response"))?;
 
                 let proofs: Vec<(VariableHeightRewardMerkleProof, QProvingJobDataID)> = serde_json::from_value(result.clone())?;
 
@@ -627,13 +549,21 @@ impl RpcProvider {
         let amount_claimed_slot_index = amount_claimed_index % 4;
         let user_total_sent = self
             .get_user_contract_state_tree_leaf_hash(checkpoint_id, claim_user_id, contract_id, height, sender_total_sent_slot)
-            .await?.to_qfelts()[(sender_total_sent_slot_index) as usize].to_canonical_u64();
+            .await?
+            .to_qfelts()[(sender_total_sent_slot_index) as usize]
+            .to_canonical_u64();
         let amount_claimed = self
             .get_user_contract_state_tree_leaf_hash(checkpoint_id, user_id, contract_id, height, amount_claimed_slot)
-            .await?.to_qfelts()[(amount_claimed_slot_index) as usize].to_canonical_u64();
+            .await?
+            .to_qfelts()[(amount_claimed_slot_index) as usize]
+            .to_canonical_u64();
 
         if amount_claimed > user_total_sent {
-            return Err(anyhow::format_err!("amount claimed {} is greater than user total sent {}", amount_claimed, user_total_sent));
+            return Err(anyhow::format_err!(
+                "amount claimed {} is greater than user total sent {}",
+                amount_claimed,
+                user_total_sent
+            ));
         }
 
         Ok(user_total_sent - amount_claimed)
@@ -644,27 +574,12 @@ impl RpcProvider {
         Ok(user_leaf_data.qfhash::<QEDHasher>() == tx_hash)
     }
 
-    pub async fn get_tx_status(
-        &self,
-        user_id: u64,
-        nonce: u64,
-    ) -> anyhow::Result<TxStatus> {
-        tracing::info!(
-            "Fetching tx status user_id: {}, nonce: {}",
-            user_id, nonce
-        );
+    pub async fn get_tx_status(&self, user_id: u64, nonce: u64) -> anyhow::Result<TxStatus> {
+        tracing::info!("Fetching tx status user_id: {}, nonce: {}", user_id, nonce);
         let rpc_url = self.get_realm_url(user_id)?;
 
-        let input = QGetTxStatusRPCRequest {
-            user_id,
-            nonce,
-        };
-        let response = qed_rpc_call_back!(
-            self,
-            rpc_url,
-            RequestParams::<QEDFelt>::GetTxStatus(input),
-            TxStatus
-        );
+        let input = QGetTxStatusRPCRequest { user_id, nonce };
+        let response = qed_rpc_call_back!(self, rpc_url, RequestParams::<QEDFelt>::GetTxStatus(input), TxStatus);
         match response.result {
             ResponseResult::Success(status) => {
                 tracing::info!(
@@ -677,10 +592,7 @@ impl RpcProvider {
             }
             ResponseResult::Error(e) => {
                 tracing::error!("RPC call failed: {:?}", e);
-                Err(anyhow::format_err!(
-                    "get_tx_status rpc call failed `{:?}`",
-                    e
-                ))
+                Err(anyhow::format_err!("get_tx_status rpc call failed `{:?}`", e))
             }
         }
     }
@@ -696,20 +608,17 @@ impl RpcProvider {
         let realm_urls = self
             .realm_configs
             .get(&realm_id)
-            .ok_or(anyhow::format_err!(
-                "realm id `{}` not found, please check the config",
-                realm_id
-            ))?;
+            .ok_or(anyhow::format_err!("realm id `{}` not found, please check the config", realm_id))?;
         let random_index = rand::thread_rng().gen_range(0..realm_urls.len());
 
         Ok(&realm_urls[random_index])
     }
 
     pub fn get_coordinator_url(&self) -> anyhow::Result<&String> {
-        let coordinator_urls = self.coordinator_configs.get(&0).ok_or(anyhow::format_err!(
-            "coordinator id `{}` not found, please check the config",
-            0
-        ))?;
+        let coordinator_urls = self
+            .coordinator_configs
+            .get(&0)
+            .ok_or(anyhow::format_err!("coordinator id `{}` not found, please check the config", 0))?;
         let random_index = rand::thread_rng().gen_range(0..coordinator_urls.len());
         Ok(&coordinator_urls[random_index])
     }
@@ -780,20 +689,12 @@ pub struct CoordinatorConfig {
 #[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
 pub trait UPSCircuitManagerTrait<C: GenericConfig<D>, const D: usize>: PortableQTreeRecursionCircuitsTrait<C, D>
 where
-    C::Hasher:
-        AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasher<QHashOut<C::F>>,
+    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasher<QHashOut<C::F>>,
 {
     async fn register_info(&self, info_store: &mut SessionCircuitInfoStore<C::F>);
-    async fn prove_ups_start(
-        &self,
-        input: &UPSStartStepInput<C::F>,
-    ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>>;
+    async fn prove_ups_start(&self, input: &UPSStartStepInput<C::F>) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>>;
 
-    async fn register_contract_circuits(
-        &self,
-        contract_id: u64,
-        contract_code: &ContractCodeDefinition,
-    ) -> anyhow::Result<()>;
+    async fn register_contract_circuits(&self, contract_id: u64, contract_code: &ContractCodeDefinition) -> anyhow::Result<()>;
 
     async fn get_method_id(&self, contract_id: u64, method_name: String) -> anyhow::Result<u64>;
 
@@ -820,21 +721,11 @@ where
         input: &UPSCFCDeferredTransactionCircuitInput<C::F>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>>;
 
-    async fn prove_zk_sign(
-        &self,
-        private_key: QHashOut<C::F>,
-        sig_hash: QHashOut<C::F>,
-    ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>>;
+    async fn prove_zk_sign(&self, private_key: QHashOut<C::F>, sig_hash: QHashOut<C::F>) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>>;
 
-    async fn prove_secp_sign(
-        &self,
-        signature: QEDCompressedSecp256K1Signature,
-    ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>>;
+    async fn prove_secp_sign(&self, signature: QEDCompressedSecp256K1Signature) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>>;
 
-    async fn register_software_defined_circuit(
-        &self,
-        input: SoftwareDefinedSignatureInput,
-    ) -> anyhow::Result<QHashOut<C::F>>;
+    async fn register_software_defined_circuit(&self, input: SoftwareDefinedSignatureInput) -> anyhow::Result<QHashOut<C::F>>;
 
     async fn prove_software_defined_sign(
         &self,
@@ -850,7 +741,8 @@ where
     //     sig_hash: QHashOut<C::F>,
     // ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>>;
 
-    // async fn finalize_tree(&self) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>>;
+    // async fn finalize_tree(&self) -> anyhow::Result<ProofWithPublicInputs<C::F,
+    // C, D>>;
 
     async fn prove_ups_end_cap(
         &self,
@@ -861,27 +753,19 @@ where
 
     async fn ups_start_circuit_fingerprint(&self) -> anyhow::Result<QHashOut<C::F>>;
 
-    async fn ups_start_circuit_verifier_config(
-        &self,
-    ) -> anyhow::Result<VerifierOnlyCircuitData<C, D>>;
+    async fn ups_start_circuit_verifier_config(&self) -> anyhow::Result<VerifierOnlyCircuitData<C, D>>;
 
     async fn ups_cfc_standard_tx_circuit_fingerprint(&self) -> anyhow::Result<QHashOut<C::F>>;
 
-    async fn ups_cfc_standard_tx_circuit_verifier_config(
-        &self,
-    ) -> anyhow::Result<VerifierOnlyCircuitData<C, D>>;
+    async fn ups_cfc_standard_tx_circuit_verifier_config(&self) -> anyhow::Result<VerifierOnlyCircuitData<C, D>>;
 
     async fn ups_cfc_deferred_tx_circuit_fingerprint(&self) -> anyhow::Result<QHashOut<C::F>>;
 
-    async fn ups_cfc_deferred_tx_circuit_verifier_config(
-        &self,
-    ) -> anyhow::Result<VerifierOnlyCircuitData<C, D>>;
+    async fn ups_cfc_deferred_tx_circuit_verifier_config(&self) -> anyhow::Result<VerifierOnlyCircuitData<C, D>>;
 
     async fn ups_end_cap_circuit_fingerprint(&self) -> anyhow::Result<QHashOut<C::F>>;
 
-    async fn ups_end_cap_circuit_verifier_config(
-        &self,
-    ) -> anyhow::Result<VerifierOnlyCircuitData<C, D>>;
+    async fn ups_end_cap_circuit_verifier_config(&self) -> anyhow::Result<VerifierOnlyCircuitData<C, D>>;
 
     async fn ups_circuit_whitelist_root(&self) -> anyhow::Result<QHashOut<C::F>>;
 
@@ -905,19 +789,12 @@ where
         (**self).register_info(info_store).await
     }
 
-    async fn prove_ups_start(
-        &self,
-        input: &UPSStartStepInput<C::F>,
-    ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
+    async fn prove_ups_start(&self, input: &UPSStartStepInput<C::F>) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         (**self).prove_ups_start(input).await
     }
 
-    async fn register_contract_circuits(
-        &self,
-        contract_id: u64,
-        contract_code: &ContractCodeDefinition,
-    ) -> anyhow::Result<()> {
-        (** self).register_contract_circuits(contract_id, contract_code).await
+    async fn register_contract_circuits(&self, contract_id: u64, contract_code: &ContractCodeDefinition) -> anyhow::Result<()> {
+        (**self).register_contract_circuits(contract_id, contract_code).await
     }
 
     async fn get_method_id(&self, contract_id: u64, method_name: String) -> anyhow::Result<u64> {
@@ -929,7 +806,7 @@ where
         contract_id: u64,
         method_id: u32,
     ) -> anyhow::Result<(QHashOut<C::F>, VerifierOnlyCircuitData<C, D>)> {
-        (** self).get_contract_method_common_data(contract_id, method_id).await
+        (**self).get_contract_method_common_data(contract_id, method_id).await
     }
 
     async fn prove_contract_call(
@@ -945,7 +822,7 @@ where
         &self,
         input: &UPSCFCStandardTransactionCircuitInput<C::F>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
-        (** self).prove_ups_cfc_standard_tx(input).await
+        (**self).prove_ups_cfc_standard_tx(input).await
     }
 
     async fn prove_ups_cfc_deferred_tx(
@@ -955,26 +832,16 @@ where
         (**self).prove_ups_cfc_deferred_tx(input).await
     }
 
-    async fn prove_zk_sign(
-        &self,
-        private_key: QHashOut<C::F>,
-        sig_hash: QHashOut<C::F>,
-    ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
-        (** self).prove_zk_sign(private_key, sig_hash).await
+    async fn prove_zk_sign(&self, private_key: QHashOut<C::F>, sig_hash: QHashOut<C::F>) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
+        (**self).prove_zk_sign(private_key, sig_hash).await
     }
 
-    async fn prove_secp_sign(
-        &self,
-        signature: QEDCompressedSecp256K1Signature,
-    ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
+    async fn prove_secp_sign(&self, signature: QEDCompressedSecp256K1Signature) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         (**self).prove_secp_sign(signature).await
     }
 
-    async fn register_software_defined_circuit(
-        &self,
-        input: SoftwareDefinedSignatureInput,
-    ) -> anyhow::Result<QHashOut<C::F>> {
-        (** self).register_software_defined_circuit(input).await
+    async fn register_software_defined_circuit(&self, input: SoftwareDefinedSignatureInput) -> anyhow::Result<QHashOut<C::F>> {
+        (**self).register_software_defined_circuit(input).await
     }
 
     async fn prove_software_defined_sign(
@@ -993,47 +860,41 @@ where
         end_cap_from_proof_tree_input: &UPSEndCapFromProofTreeGadgetInput<C::F>,
         agg_proof_record: &AggProofRecord<C, D>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
-        (** self).prove_ups_end_cap(circuit_info, end_cap_from_proof_tree_input, agg_proof_record).await
+        (**self)
+            .prove_ups_end_cap(circuit_info, end_cap_from_proof_tree_input, agg_proof_record)
+            .await
     }
 
     async fn ups_start_circuit_fingerprint(&self) -> anyhow::Result<QHashOut<C::F>> {
         (**self).ups_start_circuit_fingerprint().await
     }
 
-    async fn ups_start_circuit_verifier_config(
-        &self,
-    ) -> anyhow::Result<VerifierOnlyCircuitData<C, D>> {
-        (** self).ups_start_circuit_verifier_config().await
+    async fn ups_start_circuit_verifier_config(&self) -> anyhow::Result<VerifierOnlyCircuitData<C, D>> {
+        (**self).ups_start_circuit_verifier_config().await
     }
 
     async fn ups_cfc_standard_tx_circuit_fingerprint(&self) -> anyhow::Result<QHashOut<C::F>> {
         (**self).ups_cfc_standard_tx_circuit_fingerprint().await
     }
 
-    async fn ups_cfc_standard_tx_circuit_verifier_config(
-        &self,
-    ) -> anyhow::Result<VerifierOnlyCircuitData<C, D>> {
-        (** self).ups_cfc_standard_tx_circuit_verifier_config().await
+    async fn ups_cfc_standard_tx_circuit_verifier_config(&self) -> anyhow::Result<VerifierOnlyCircuitData<C, D>> {
+        (**self).ups_cfc_standard_tx_circuit_verifier_config().await
     }
 
     async fn ups_cfc_deferred_tx_circuit_fingerprint(&self) -> anyhow::Result<QHashOut<C::F>> {
         (**self).ups_cfc_deferred_tx_circuit_fingerprint().await
     }
 
-    async fn ups_cfc_deferred_tx_circuit_verifier_config(
-        &self,
-    ) -> anyhow::Result<VerifierOnlyCircuitData<C, D>> {
-        (** self).ups_cfc_deferred_tx_circuit_verifier_config().await
+    async fn ups_cfc_deferred_tx_circuit_verifier_config(&self) -> anyhow::Result<VerifierOnlyCircuitData<C, D>> {
+        (**self).ups_cfc_deferred_tx_circuit_verifier_config().await
     }
 
     async fn ups_end_cap_circuit_fingerprint(&self) -> anyhow::Result<QHashOut<C::F>> {
         (**self).ups_end_cap_circuit_fingerprint().await
     }
 
-    async fn ups_end_cap_circuit_verifier_config(
-        &self,
-    ) -> anyhow::Result<VerifierOnlyCircuitData<C, D>> {
-        (** self).ups_end_cap_circuit_verifier_config().await
+    async fn ups_end_cap_circuit_verifier_config(&self) -> anyhow::Result<VerifierOnlyCircuitData<C, D>> {
+        (**self).ups_end_cap_circuit_verifier_config().await
     }
 
     async fn ups_circuit_whitelist_root(&self) -> anyhow::Result<QHashOut<C::F>> {
@@ -1041,7 +902,7 @@ where
     }
 
     async fn zk_circuit_fingerprint(&self) -> anyhow::Result<QHashOut<C::F>> {
-        (** self).zk_circuit_fingerprint().await
+        (**self).zk_circuit_fingerprint().await
     }
 
     async fn zk_circuit_verifier_config(&self) -> anyhow::Result<VerifierOnlyCircuitData<C, D>> {
@@ -1049,7 +910,7 @@ where
     }
 
     async fn secp_circuit_fingerprint(&self) -> anyhow::Result<QHashOut<C::F>> {
-        (** self).secp_circuit_fingerprint().await
+        (**self).secp_circuit_fingerprint().await
     }
 
     async fn secp_circuit_verifier_config(&self) -> anyhow::Result<VerifierOnlyCircuitData<C, D>> {
@@ -1060,7 +921,7 @@ where
 #[derive(Clone, Debug)]
 pub struct ProveProxyRpcProvider<C: GenericConfig<D> + 'static, const D: usize>
 where
-    C::Hasher:AlgebraicHasher<C::F>,
+    C::Hasher: AlgebraicHasher<C::F>,
 {
     pub client: Arc<Client>,
     pub proof_proxy_url: String,
@@ -1108,7 +969,7 @@ pub struct LocalCommonCircuitsData<F: RichField> {
 #[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
 impl<C: GenericConfig<D> + 'static, const D: usize> ProveProxyRpcProvider<C, D>
 where
-    C::Hasher:AlgebraicHasher<C::F>,
+    C::Hasher: AlgebraicHasher<C::F>,
 {
     pub async fn new_with_config(proof_proxy_url: String) -> anyhow::Result<Self> {
         let client = Client::new();
@@ -1141,9 +1002,7 @@ where
                 tracing::info!("get common_circuits_data");
                 serde_json::from_str(&common_circuits_data)?
             }
-            ResponseResult::Error(e) => {
-                return Err(anyhow::format_err!("rpc call failed `{:?}`", e))
-            }
+            ResponseResult::Error(e) => return Err(anyhow::format_err!("rpc call failed `{:?}`", e)),
         };
         // let common_circuits_data = "";
         // let common_circuits_data = serde_json::from_str(&common_circuits_data)?;
@@ -1162,8 +1021,7 @@ where
 #[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
 impl<C: GenericConfig<D> + 'static, const D: usize> UPSCircuitManagerTrait<C, D> for ProveProxyRpcProvider<C, D>
 where
-    C::Hasher:
-        AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasher<QHashOut<C::F>>,
+    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasher<QHashOut<C::F>>,
 {
     async fn register_info(&self, info_store: &mut SessionCircuitInfoStore<C::F>) {
         info_store.register_circuit(
@@ -1174,34 +1032,22 @@ where
         info_store.register_circuit(
             LocalCircuitType::UPSCFCStandard.into(),
             self.common_circuits_data.ups_cfc_standard_tx.fingerprint,
-            self.common_circuits_data
-                .ups_cfc_standard_tx
-                .verifier_config
-                .clone(),
+            self.common_circuits_data.ups_cfc_standard_tx.verifier_config.clone(),
         );
         info_store.register_circuit(
             LocalCircuitType::UPSCFCDeferred.into(),
             self.common_circuits_data.ups_cfc_deferred_tx.fingerprint,
-            self.common_circuits_data
-                .ups_cfc_deferred_tx
-                .verifier_config
-                .clone(),
+            self.common_circuits_data.ups_cfc_deferred_tx.verifier_config.clone(),
         );
         info_store.register_circuit(
             LocalCircuitType::UPSEndCap.into(),
             self.common_circuits_data.ups_end_cap.fingerprint,
-            self.common_circuits_data
-                .ups_end_cap
-                .verifier_config
-                .clone(),
+            self.common_circuits_data.ups_end_cap.verifier_config.clone(),
         );
         info_store.register_circuit(
             LocalCircuitType::UPSEndCap.into(),
             self.common_circuits_data.ups_end_cap.fingerprint,
-            self.common_circuits_data
-                .ups_end_cap
-                .verifier_config
-                .clone(),
+            self.common_circuits_data.ups_end_cap.verifier_config.clone(),
         );
 
         info_store.register_whitelist_merkle_proof(
@@ -1210,60 +1056,37 @@ where
         );
         info_store.register_whitelist_merkle_proof(
             LocalCircuitType::UPSCFCStandard.into(),
-            self.common_circuits_data
-                .ups_cfc_standard_tx_whitelist_proof
-                .clone(),
+            self.common_circuits_data.ups_cfc_standard_tx_whitelist_proof.clone(),
         );
         info_store.register_whitelist_merkle_proof(
             LocalCircuitType::UPSCFCDeferred.into(),
-            self.common_circuits_data
-                .ups_cfc_deferred_tx_whitelist_proof
-                .clone(),
+            self.common_circuits_data.ups_cfc_deferred_tx_whitelist_proof.clone(),
         );
 
         info_store.register_circuit(
             LocalCircuitType::PTAggSingle.into(),
             self.common_circuits_data.single_leaf_circuit.fingerprint,
-            self.common_circuits_data
-                .single_leaf_circuit
-                .verifier_config
-                .clone(),
+            self.common_circuits_data.single_leaf_circuit.verifier_config.clone(),
         );
         info_store.register_circuit(
             LocalCircuitType::PTAggTwoLeaf.into(),
             self.common_circuits_data.two_leaf_circuit.fingerprint,
-            self.common_circuits_data
-                .two_leaf_circuit
-                .verifier_config
-                .clone(),
+            self.common_circuits_data.two_leaf_circuit.verifier_config.clone(),
         );
         info_store.register_circuit(
             LocalCircuitType::PTAggTwoAgg.into(),
             self.common_circuits_data.two_agg_circuit.fingerprint,
-            self.common_circuits_data
-                .two_agg_circuit
-                .verifier_config
-                .clone(),
+            self.common_circuits_data.two_agg_circuit.verifier_config.clone(),
         );
         info_store.register_circuit(
             LocalCircuitType::PTAggLeftAggRightLeaf.into(),
-            self.common_circuits_data
-                .left_agg_right_leaf_circuit
-                .fingerprint,
-            self.common_circuits_data
-                .left_agg_right_leaf_circuit
-                .verifier_config
-                .clone(),
+            self.common_circuits_data.left_agg_right_leaf_circuit.fingerprint,
+            self.common_circuits_data.left_agg_right_leaf_circuit.verifier_config.clone(),
         );
         info_store.register_circuit(
             LocalCircuitType::PTAggLeftLeafRightAgg.into(),
-            self.common_circuits_data
-                .left_leaf_right_agg_circuit
-                .fingerprint,
-            self.common_circuits_data
-                .left_leaf_right_agg_circuit
-                .verifier_config
-                .clone(),
+            self.common_circuits_data.left_leaf_right_agg_circuit.fingerprint,
+            self.common_circuits_data.left_leaf_right_agg_circuit.verifier_config.clone(),
         );
 
         info_store.register_whitelist_merkle_proof(
@@ -1275,17 +1098,11 @@ where
         );
         info_store.register_whitelist_merkle_proof(
             LocalCircuitType::PTAggTwoLeaf.into(),
-            self.common_circuits_data
-                .circuit_inclusion_proofs
-                .two_leaf_circuit_merkle_proof
-                .clone(),
+            self.common_circuits_data.circuit_inclusion_proofs.two_leaf_circuit_merkle_proof.clone(),
         );
         info_store.register_whitelist_merkle_proof(
             LocalCircuitType::PTAggTwoAgg.into(),
-            self.common_circuits_data
-                .circuit_inclusion_proofs
-                .two_agg_circuit_merkle_proof
-                .clone(),
+            self.common_circuits_data.circuit_inclusion_proofs.two_agg_circuit_merkle_proof.clone(),
         );
         info_store.register_whitelist_merkle_proof(
             LocalCircuitType::PTAggLeftAggRightLeaf.into(),
@@ -1303,10 +1120,7 @@ where
         );
     }
 
-    async fn prove_ups_start(
-        &self,
-        input: &UPSStartStepInput<C::F>,
-    ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
+    async fn prove_ups_start(&self, input: &UPSStartStepInput<C::F>) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         tracing::info!("prove ups start: {}", serde_json::to_string_pretty(&input)?);
         let response = qed_rpc_call_back!(
             self,
@@ -1318,21 +1132,14 @@ where
         );
         match response.result {
             ResponseResult::Success(proof) => {
-                tracing::info!(
-                    "get proof: {}",
-                    serde_json::to_string_pretty(&proof.public_inputs)?
-                );
+                tracing::info!("get proof: {}", serde_json::to_string_pretty(&proof.public_inputs)?);
                 Ok(proof)
             }
             ResponseResult::Error(e) => Err(anyhow::format_err!("rpc call failed `{:?}`", e)),
         }
     }
 
-    async fn register_contract_circuits(
-        &self,
-        contract_id: u64,
-        contract_code: &ContractCodeDefinition,
-    ) -> anyhow::Result<()> {
+    async fn register_contract_circuits(&self, contract_id: u64, contract_code: &ContractCodeDefinition) -> anyhow::Result<()> {
         tracing::info!("register contract {} circuits", contract_id);
         let response = qed_rpc_call_back!(
             self,
@@ -1354,10 +1161,7 @@ where
         let response = qed_rpc_call_back!(
             self,
             &self.proof_proxy_url,
-            RequestParams::<C::F>::GetMethodId(QGetMethodIdRPCRequest {
-                contract_id,
-                method_name,
-            }),
+            RequestParams::<C::F>::GetMethodId(QGetMethodIdRPCRequest { contract_id, method_name }),
             u64
         );
         match response.result {
@@ -1374,20 +1178,11 @@ where
         contract_id: u64,
         method_id: u32,
     ) -> anyhow::Result<(QHashOut<C::F>, VerifierOnlyCircuitData<C, D>)> {
-        tracing::info!(
-            "get method `{}` common data of contract {}",
-            method_id,
-            contract_id
-        );
+        tracing::info!("get method `{}` common data of contract {}", method_id, contract_id);
         let response = qed_rpc_call_back!(
             self,
             &self.proof_proxy_url,
-            RequestParams::<C::F>::GetContractMethodCommonData(
-                QGetContractMethodCommonDataRPCRequest {
-                    contract_id,
-                    method_id,
-                }
-            ),
+            RequestParams::<C::F>::GetContractMethodCommonData(QGetContractMethodCommonDataRPCRequest { contract_id, method_id }),
             QCommonCircuitData<C::F>
         );
         match response.result {
@@ -1411,10 +1206,7 @@ where
         method_id: u32,
         input: &DapenContractFunctionCircuitInput<C::F>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
-        tracing::info!(
-            "prove contract call: {}",
-            serde_json::to_string_pretty(&input)?
-        );
+        tracing::info!("prove contract call: {}", serde_json::to_string_pretty(&input)?);
         let response = qed_rpc_call_back!(
             self,
             &self.proof_proxy_url,
@@ -1427,10 +1219,7 @@ where
         );
         match response.result {
             ResponseResult::Success(proof) => {
-                tracing::info!(
-                    "get proof: {}",
-                    serde_json::to_string_pretty(&proof.public_inputs)?
-                );
+                tracing::info!("get proof: {}", serde_json::to_string_pretty(&proof.public_inputs)?);
                 Ok(proof)
             }
             ResponseResult::Error(e) => Err(anyhow::format_err!("rpc call failed `{:?}`", e)),
@@ -1441,10 +1230,7 @@ where
         &self,
         input: &UPSCFCStandardTransactionCircuitInput<C::F>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
-        tracing::info!(
-            "prove ups cfc standard tx: {}",
-            serde_json::to_string_pretty(&input)?
-        );
+        tracing::info!("prove ups cfc standard tx: {}", serde_json::to_string_pretty(&input)?);
         let response = qed_rpc_call_back!(
             self,
             &self.proof_proxy_url,
@@ -1455,10 +1241,7 @@ where
         );
         match response.result {
             ResponseResult::Success(proof) => {
-                tracing::info!(
-                    "get proof: {}",
-                    serde_json::to_string_pretty(&proof.public_inputs)?
-                );
+                tracing::info!("get proof: {}", serde_json::to_string_pretty(&proof.public_inputs)?);
                 Ok(proof)
             }
             ResponseResult::Error(e) => Err(anyhow::format_err!("rpc call failed `{:?}`", e)),
@@ -1469,10 +1252,7 @@ where
         &self,
         input: &UPSCFCDeferredTransactionCircuitInput<C::F>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
-        tracing::info!(
-            "prove ups cfc deferred tx: {}",
-            serde_json::to_string_pretty(&input)?
-        );
+        tracing::info!("prove ups cfc deferred tx: {}", serde_json::to_string_pretty(&input)?);
         let response = qed_rpc_call_back!(
             self,
             &self.proof_proxy_url,
@@ -1483,21 +1263,14 @@ where
         );
         match response.result {
             ResponseResult::Success(proof) => {
-                tracing::info!(
-                    "get proof: {}",
-                    serde_json::to_string_pretty(&proof.public_inputs)?
-                );
+                tracing::info!("get proof: {}", serde_json::to_string_pretty(&proof.public_inputs)?);
                 Ok(proof)
             }
             ResponseResult::Error(e) => Err(anyhow::format_err!("rpc call failed `{:?}`", e)),
         }
     }
 
-    async fn prove_zk_sign(
-        &self,
-        private_key: QHashOut<C::F>,
-        sig_hash: QHashOut<C::F>,
-    ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
+    async fn prove_zk_sign(&self, private_key: QHashOut<C::F>, sig_hash: QHashOut<C::F>) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         tracing::info!("prove_zk_sign: {}", sig_hash.to_string());
         let inner_proof = self.zk_sign_inner_circuit.prove_base(private_key, sig_hash)?;
         let inner_proof_str = serde_json::to_string(&inner_proof)?;
@@ -1512,24 +1285,15 @@ where
         );
         match response.result {
             ResponseResult::Success(proof) => {
-                tracing::info!(
-                    "get proof: {}",
-                    serde_json::to_string_pretty(&proof.public_inputs)?
-                );
+                tracing::info!("get proof: {}", serde_json::to_string_pretty(&proof.public_inputs)?);
                 Ok(proof)
             }
             ResponseResult::Error(e) => Err(anyhow::format_err!("rpc call failed `{:?}`", e)),
         }
     }
 
-    async fn prove_secp_sign(
-        &self,
-        signature: QEDCompressedSecp256K1Signature,
-    ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
-        tracing::info!(
-            "prove_secp_sign: {}",
-            serde_json::to_string_pretty(&signature)?
-        );
+    async fn prove_secp_sign(&self, signature: QEDCompressedSecp256K1Signature) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
+        tracing::info!("prove_secp_sign: {}", serde_json::to_string_pretty(&signature)?);
         let response = qed_rpc_call_back!(
             self,
             &self.proof_proxy_url,
@@ -1540,20 +1304,14 @@ where
         );
         match response.result {
             ResponseResult::Success(proof) => {
-                tracing::info!(
-                    "get proof: {}",
-                    serde_json::to_string_pretty(&proof.public_inputs)?
-                );
+                tracing::info!("get proof: {}", serde_json::to_string_pretty(&proof.public_inputs)?);
                 Ok(proof)
             }
             ResponseResult::Error(e) => Err(anyhow::format_err!("rpc call failed `{:?}`", e)),
         }
     }
 
-    async fn register_software_defined_circuit(
-        &self,
-        input: SoftwareDefinedSignatureInput,
-    ) -> anyhow::Result<QHashOut<C::F>> {
+    async fn register_software_defined_circuit(&self, input: SoftwareDefinedSignatureInput) -> anyhow::Result<QHashOut<C::F>> {
         tracing::info!("register_software_defined_circuit: ");
         let input = match input {
             SoftwareDefinedSignatureInput::QED(input) => input,
@@ -1562,9 +1320,7 @@ where
         let response = qed_rpc_call_back!(
             self,
             &self.proof_proxy_url,
-            RequestParams::<C::F>::RegisterSoftwareDefinedCircuit(
-                QRegisterSoftwareDefinedCircuitRPCRequest { input }
-            ),
+            RequestParams::<C::F>::RegisterSoftwareDefinedCircuit(QRegisterSoftwareDefinedCircuitRPCRequest { input }),
             QHashOut<C::F>
         );
         match response.result {
@@ -1601,10 +1357,7 @@ where
         );
         match response.result {
             ResponseResult::Success(proof) => {
-                tracing::info!(
-                    "get proof: {}",
-                    serde_json::to_string_pretty(&proof.public_inputs)?
-                );
+                tracing::info!("get proof: {}", serde_json::to_string_pretty(&proof.public_inputs)?);
                 Ok(proof)
             }
             ResponseResult::Error(e) => Err(anyhow::format_err!("rpc call failed `{:?}`", e)),
@@ -1617,10 +1370,7 @@ where
         end_cap_from_proof_tree_input: &UPSEndCapFromProofTreeGadgetInput<C::F>,
         agg_proof_record: &AggProofRecord<C, D>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
-        tracing::info!(
-            "prove ups end cap: {}",
-            serde_json::to_string_pretty(&end_cap_from_proof_tree_input)?
-        );
+        tracing::info!("prove ups end cap: {}", serde_json::to_string_pretty(&end_cap_from_proof_tree_input)?);
         let response = qed_rpc_call_back!(
             self,
             &self.proof_proxy_url,
@@ -1635,10 +1385,7 @@ where
         );
         match response.result {
             ResponseResult::Success(proof) => {
-                tracing::info!(
-                    "get proof: {}",
-                    serde_json::to_string_pretty(&proof.public_inputs)?
-                );
+                tracing::info!("get proof: {}", serde_json::to_string_pretty(&proof.public_inputs)?);
                 Ok(proof)
             }
             ResponseResult::Error(e) => Err(anyhow::format_err!("rpc call failed `{:?}`", e)),
@@ -1649,39 +1396,23 @@ where
         Ok(self.common_circuits_data.ups_start.fingerprint)
     }
 
-    async fn ups_start_circuit_verifier_config(
-        &self,
-    ) -> anyhow::Result<VerifierOnlyCircuitData<C, D>> {
-        Ok(self
-            .common_circuits_data
-            .ups_start
-            .verifier_config
-            .clone()
-            .to_verifier_data())
+    async fn ups_start_circuit_verifier_config(&self) -> anyhow::Result<VerifierOnlyCircuitData<C, D>> {
+        Ok(self.common_circuits_data.ups_start.verifier_config.clone().to_verifier_data())
     }
 
     async fn ups_cfc_standard_tx_circuit_fingerprint(&self) -> anyhow::Result<QHashOut<C::F>> {
         Ok(self.common_circuits_data.ups_cfc_standard_tx.fingerprint)
     }
 
-    async fn ups_cfc_standard_tx_circuit_verifier_config(
-        &self,
-    ) -> anyhow::Result<VerifierOnlyCircuitData<C, D>> {
-        Ok(self
-            .common_circuits_data
-            .ups_cfc_standard_tx
-            .verifier_config
-            .clone()
-            .to_verifier_data())
+    async fn ups_cfc_standard_tx_circuit_verifier_config(&self) -> anyhow::Result<VerifierOnlyCircuitData<C, D>> {
+        Ok(self.common_circuits_data.ups_cfc_standard_tx.verifier_config.clone().to_verifier_data())
     }
 
     async fn ups_cfc_deferred_tx_circuit_fingerprint(&self) -> anyhow::Result<QHashOut<C::F>> {
         Ok(self.common_circuits_data.ups_cfc_deferred_tx.fingerprint)
     }
 
-    async fn ups_cfc_deferred_tx_circuit_verifier_config(
-        &self,
-    ) -> anyhow::Result<VerifierOnlyCircuitData<C, D>> {
+    async fn ups_cfc_deferred_tx_circuit_verifier_config(&self) -> anyhow::Result<VerifierOnlyCircuitData<C, D>> {
         Ok(self
             .common_circuits_data
             .ups_cfc_deferred_tx
@@ -1694,14 +1425,8 @@ where
         Ok(self.common_circuits_data.ups_end_cap.fingerprint)
     }
 
-    async fn ups_end_cap_circuit_verifier_config(
-        &self,
-    ) -> anyhow::Result<VerifierOnlyCircuitData<C, D>> {
-        Ok(self
-            .common_circuits_data
-            .ups_end_cap
-            .verifier_config
-            .to_verifier_data())
+    async fn ups_end_cap_circuit_verifier_config(&self) -> anyhow::Result<VerifierOnlyCircuitData<C, D>> {
+        Ok(self.common_circuits_data.ups_end_cap.verifier_config.to_verifier_data())
     }
 
     async fn ups_circuit_whitelist_root(&self) -> anyhow::Result<QHashOut<C::F>> {
@@ -1713,12 +1438,7 @@ where
     }
 
     async fn zk_circuit_verifier_config(&self) -> anyhow::Result<VerifierOnlyCircuitData<C, D>> {
-        Ok(self
-            .common_circuits_data
-            .zk_circuit
-            .verifier_config
-            .clone()
-            .to_verifier_data())
+        Ok(self.common_circuits_data.zk_circuit.verifier_config.clone().to_verifier_data())
     }
 
     async fn secp_circuit_fingerprint(&self) -> anyhow::Result<QHashOut<C::F>> {
@@ -1726,22 +1446,15 @@ where
     }
 
     async fn secp_circuit_verifier_config(&self) -> anyhow::Result<VerifierOnlyCircuitData<C, D>> {
-        Ok(self
-            .common_circuits_data
-            .secp_circuit
-            .verifier_config
-            .clone()
-            .to_verifier_data())
+        Ok(self.common_circuits_data.secp_circuit.verifier_config.clone().to_verifier_data())
     }
 }
 
 #[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
 #[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
-impl<C: GenericConfig<D>, const D: usize> PortableQTreeRecursionCircuitsDataTrait<C, D>
-    for ProveProxyRpcProvider<C, D>
+impl<C: GenericConfig<D>, const D: usize> PortableQTreeRecursionCircuitsDataTrait<C, D> for ProveProxyRpcProvider<C, D>
 where
-    C::Hasher:
-        AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasher<QHashOut<C::F>>,
+    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasher<QHashOut<C::F>>,
 {
     async fn single_leaf_circuit_fingerprint(&self) -> QHashOut<C::F> {
         self.common_circuits_data.single_leaf_circuit.fingerprint
@@ -1753,35 +1466,19 @@ where
         self.common_circuits_data.two_agg_circuit.fingerprint
     }
     async fn left_leaf_right_agg_circuit_fingerprint(&self) -> QHashOut<C::F> {
-        self.common_circuits_data
-            .left_leaf_right_agg_circuit
-            .fingerprint
+        self.common_circuits_data.left_leaf_right_agg_circuit.fingerprint
     }
     async fn left_agg_right_leaf_circuit_fingerprint(&self) -> QHashOut<C::F> {
-        self.common_circuits_data
-            .left_agg_right_leaf_circuit
-            .fingerprint
+        self.common_circuits_data.left_agg_right_leaf_circuit.fingerprint
     }
     async fn single_leaf_circuit_verifier_config(&self) -> VerifierOnlyCircuitData<C, D> {
-        self.common_circuits_data
-            .single_leaf_circuit
-            .verifier_config
-            .clone()
-            .to_verifier_data()
+        self.common_circuits_data.single_leaf_circuit.verifier_config.clone().to_verifier_data()
     }
     async fn two_leaf_circuit_verifier_config(&self) -> VerifierOnlyCircuitData<C, D> {
-        self.common_circuits_data
-            .two_leaf_circuit
-            .verifier_config
-            .clone()
-            .to_verifier_data()
+        self.common_circuits_data.two_leaf_circuit.verifier_config.clone().to_verifier_data()
     }
     async fn two_agg_circuit_verifier_config(&self) -> VerifierOnlyCircuitData<C, D> {
-        self.common_circuits_data
-            .two_agg_circuit
-            .verifier_config
-            .clone()
-            .to_verifier_data()
+        self.common_circuits_data.two_agg_circuit.verifier_config.clone().to_verifier_data()
     }
     async fn left_leaf_right_agg_circuit_verifier_config(&self) -> VerifierOnlyCircuitData<C, D> {
         self.common_circuits_data
@@ -1801,38 +1498,18 @@ where
 
 #[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
 #[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
-impl<C: GenericConfig<D> + 'static, const D: usize> PortableQTreeRecursionCircuitsProveTrait<C, D>
-    for ProveProxyRpcProvider<C, D>
+impl<C: GenericConfig<D> + 'static, const D: usize> PortableQTreeRecursionCircuitsProveTrait<C, D> for ProveProxyRpcProvider<C, D>
 where
-    C::Hasher:
-        AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasher<QHashOut<C::F>>,
+    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasher<QHashOut<C::F>>,
 {
-    async fn get_verifier_data_by_type(
-        &self,
-        circuit_type: QStandardBinaryTreeCircuitType,
-    ) -> VerifierOnlyCircuitData<C, D> {
+    async fn get_verifier_data_by_type(&self, circuit_type: QStandardBinaryTreeCircuitType) -> VerifierOnlyCircuitData<C, D> {
         match circuit_type {
             QStandardBinaryTreeCircuitType::None => {
                 panic!("tried to get verifier data for a circuit with type None")
             }
-            QStandardBinaryTreeCircuitType::SingleLeaf => self
-                .common_circuits_data
-                .single_leaf_circuit
-                .verifier_config
-                .clone()
-                .to_verifier_data(),
-            QStandardBinaryTreeCircuitType::TwoLeaf => self
-                .common_circuits_data
-                .two_leaf_circuit
-                .verifier_config
-                .clone()
-                .to_verifier_data(),
-            QStandardBinaryTreeCircuitType::TwoAgg => self
-                .common_circuits_data
-                .two_agg_circuit
-                .verifier_config
-                .clone()
-                .to_verifier_data(),
+            QStandardBinaryTreeCircuitType::SingleLeaf => self.common_circuits_data.single_leaf_circuit.verifier_config.clone().to_verifier_data(),
+            QStandardBinaryTreeCircuitType::TwoLeaf => self.common_circuits_data.two_leaf_circuit.verifier_config.clone().to_verifier_data(),
+            QStandardBinaryTreeCircuitType::TwoAgg => self.common_circuits_data.two_agg_circuit.verifier_config.clone().to_verifier_data(),
             QStandardBinaryTreeCircuitType::LeftLeafRightAgg => self
                 .common_circuits_data
                 .left_leaf_right_agg_circuit
@@ -1875,10 +1552,7 @@ where
         );
         match response.result {
             ResponseResult::Success(proof) => {
-                tracing::info!(
-                    "get proof: {}",
-                    serde_json::to_string_pretty(&proof.public_inputs)?
-                );
+                tracing::info!("get proof: {}", serde_json::to_string_pretty(&proof.public_inputs)?);
                 Ok(proof)
             }
             ResponseResult::Error(e) => Err(anyhow::format_err!("rpc call failed `{:?}`", e)),
@@ -1894,10 +1568,7 @@ where
         right_proof: &ProofWithPublicInputs<C::F, C, D>,
         right_verifier_data: &VerifierOnlyCircuitData<C, D>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
-        tracing::info!(
-            "prove two leaf circuit: {}",
-            serde_json::to_string_pretty(&agg_circuit_whitelist_root)?
-        );
+        tracing::info!("prove two leaf circuit: {}", serde_json::to_string_pretty(&agg_circuit_whitelist_root)?);
         let response = qed_rpc_call_back!(
             self,
             &self.proof_proxy_url,
@@ -1914,10 +1585,7 @@ where
         );
         match response.result {
             ResponseResult::Success(proof) => {
-                tracing::info!(
-                    "get proof: {}",
-                    serde_json::to_string_pretty(&proof.public_inputs)?
-                );
+                tracing::info!("get proof: {}", serde_json::to_string_pretty(&proof.public_inputs)?);
                 Ok(proof)
             }
             ResponseResult::Error(e) => Err(anyhow::format_err!("rpc call failed `{:?}`", e)),
@@ -1952,10 +1620,7 @@ where
         );
         match response.result {
             ResponseResult::Success(proof) => {
-                tracing::info!(
-                    "get proof: {}",
-                    serde_json::to_string_pretty(&proof.public_inputs)?
-                );
+                tracing::info!("get proof: {}", serde_json::to_string_pretty(&proof.public_inputs)?);
                 Ok(proof)
             }
             ResponseResult::Error(e) => Err(anyhow::format_err!("rpc call failed `{:?}`", e)),
@@ -1988,10 +1653,7 @@ where
         );
         match response.result {
             ResponseResult::Success(proof) => {
-                tracing::info!(
-                    "get proof: {}",
-                    serde_json::to_string_pretty(&proof.public_inputs)?
-                );
+                tracing::info!("get proof: {}", serde_json::to_string_pretty(&proof.public_inputs)?);
                 Ok(proof)
             }
             ResponseResult::Error(e) => Err(anyhow::format_err!("rpc call failed `{:?}`", e)),
@@ -2024,10 +1686,7 @@ where
         );
         match response.result {
             ResponseResult::Success(proof) => {
-                tracing::info!(
-                    "get proof: {}",
-                    serde_json::to_string_pretty(&proof.public_inputs)?
-                );
+                tracing::info!("get proof: {}", serde_json::to_string_pretty(&proof.public_inputs)?);
                 Ok(proof)
             }
             ResponseResult::Error(e) => Err(anyhow::format_err!("rpc call failed `{:?}`", e)),
@@ -2037,11 +1696,9 @@ where
 
 #[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
 #[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
-impl<C: GenericConfig<D> + 'static, const D: usize> PortableQTreeRecursionCircuitsTrait<C, D>
-    for ProveProxyRpcProvider<C, D>
+impl<C: GenericConfig<D> + 'static, const D: usize> PortableQTreeRecursionCircuitsTrait<C, D> for ProveProxyRpcProvider<C, D>
 where
-    C::Hasher:
-        AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasher<QHashOut<C::F>>,
+    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasher<QHashOut<C::F>>,
 {
     async fn circuit_inclusion_proofs(&self) -> &SimpleQTreeRecursionManagerInclusionProofs<C::F> {
         &self.common_circuits_data.circuit_inclusion_proofs

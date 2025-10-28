@@ -1,12 +1,21 @@
-use crate::crypto::bn254::field::extension::quadratic::QuadraticExtension;
-use crate::crypto::bn254::field::extension::sextic::SexticExtension;
-use crate::crypto::bn254::field::bn128_base::Bn128Base;
-use crate::crypto::bn254::gadgets::nonnative_fp2::{CircuitBuilderNonNativeExt2, NonNativeTargetExt2};
-use plonky2::hash::hash_types::RichField;
-use plonky2::plonk::circuit_builder::CircuitBuilder;
-use plonky2::field::extension::Extendable;
-use plonky2::field::types::{Field, PrimeField, Sample};
 use std::marker::PhantomData;
+
+use plonky2::{
+    field::{
+        extension::Extendable,
+        types::{Field, PrimeField, Sample},
+    },
+    hash::hash_types::RichField,
+    plonk::circuit_builder::CircuitBuilder,
+};
+
+use crate::crypto::bn254::{
+    field::{
+        bn128_base::Bn128Base,
+        extension::{quadratic::QuadraticExtension, sextic::SexticExtension},
+    },
+    gadgets::nonnative_fp2::{CircuitBuilderNonNativeExt2, NonNativeTargetExt2},
+};
 
 #[derive(Clone, Debug)]
 pub struct NonNativeTargetExt6<FF: Field> {
@@ -16,26 +25,14 @@ pub struct NonNativeTargetExt6<FF: Field> {
     pub(crate) _phantom: PhantomData<FF>,
 }
 
-
 pub trait CircuitBuilderNonNativeExt6<F: RichField + Extendable<D>, const D: usize> {
-    fn zero_nonnative_ext6<FF: PrimeField + Extendable<6> + Extendable<2>>(
-        &mut self,
-    ) -> NonNativeTargetExt6<FF>;
+    fn zero_nonnative_ext6<FF: PrimeField + Extendable<6> + Extendable<2>>(&mut self) -> NonNativeTargetExt6<FF>;
 
-    fn constant_nonnative_ext6<FF: PrimeField + Extendable<6> + Extendable<2>>(
-        &mut self,
-        x: SexticExtension<FF>,
-    ) -> NonNativeTargetExt6<FF>;
+    fn constant_nonnative_ext6<FF: PrimeField + Extendable<6> + Extendable<2>>(&mut self, x: SexticExtension<FF>) -> NonNativeTargetExt6<FF>;
 
-    fn connect_nonnative_ext6<FF: Field + Extendable<6> + Extendable<2>>(
-        &mut self,
-        lhs: &NonNativeTargetExt6<FF>,
-        rhs: &NonNativeTargetExt6<FF>,
-    );
+    fn connect_nonnative_ext6<FF: Field + Extendable<6> + Extendable<2>>(&mut self, lhs: &NonNativeTargetExt6<FF>, rhs: &NonNativeTargetExt6<FF>);
 
-    fn add_virtual_nonnative_ext6_target<FF: Field + Extendable<6> + Extendable<2>>(
-        &mut self,
-    ) -> NonNativeTargetExt6<FF>;
+    fn add_virtual_nonnative_ext6_target<FF: Field + Extendable<6> + Extendable<2>>(&mut self) -> NonNativeTargetExt6<FF>;
 
     fn add_nonnative_ext6<FF: PrimeField + Extendable<6> + Extendable<2>>(
         &mut self,
@@ -55,25 +52,16 @@ pub trait CircuitBuilderNonNativeExt6<F: RichField + Extendable<D>, const D: usi
         b: &NonNativeTargetExt6<FF>,
     ) -> NonNativeTargetExt6<FF>;
 
-    fn neg_nonnative_ext6<FF: PrimeField + Extendable<6> + Extendable<2>>(
-        &mut self,
-        x: &NonNativeTargetExt6<FF>,
-    ) -> NonNativeTargetExt6<FF>;
+    fn neg_nonnative_ext6<FF: PrimeField + Extendable<6> + Extendable<2>>(&mut self, x: &NonNativeTargetExt6<FF>) -> NonNativeTargetExt6<FF>;
 
-    fn inv_nonnative_ext6<FF: PrimeField + Extendable<6> + Extendable<2>>(
-        &mut self,
-        x: &NonNativeTargetExt6<FF>,
-    ) -> NonNativeTargetExt6<FF>;
+    fn inv_nonnative_ext6<FF: PrimeField + Extendable<6> + Extendable<2>>(&mut self, x: &NonNativeTargetExt6<FF>) -> NonNativeTargetExt6<FF>;
 
     fn mul_by_nonresidue_nonnative_ext6<FF: PrimeField + Extendable<6> + Extendable<2>>(
         &mut self,
         x: &NonNativeTargetExt6<FF>,
     ) -> NonNativeTargetExt6<FF>;
 
-    fn squared_nonnative_ext6<FF: PrimeField + Extendable<6> + Extendable<2>>(
-        &mut self,
-        x: &NonNativeTargetExt6<FF>,
-    ) -> NonNativeTargetExt6<FF>;
+    fn squared_nonnative_ext6<FF: PrimeField + Extendable<6> + Extendable<2>>(&mut self, x: &NonNativeTargetExt6<FF>) -> NonNativeTargetExt6<FF>;
 
     fn frobenius_map_nonnative_ext6<FF: PrimeField + Extendable<6> + Extendable<2>>(
         &mut self,
@@ -81,15 +69,9 @@ pub trait CircuitBuilderNonNativeExt6<F: RichField + Extendable<D>, const D: usi
         power: usize,
     ) -> NonNativeTargetExt6<FF>;
 
-    fn frobenius_coeffs_c1_nonnative_ext6<FF: PrimeField + Extendable<6> + Extendable<2>>(
-        &mut self,
-        n: usize,
-    ) -> NonNativeTargetExt2<FF>;
+    fn frobenius_coeffs_c1_nonnative_ext6<FF: PrimeField + Extendable<6> + Extendable<2>>(&mut self, n: usize) -> NonNativeTargetExt2<FF>;
 
-    fn frobenius_coeffs_c2_nonnative_ext6<FF: PrimeField + Extendable<6> + Extendable<2>>(
-        &mut self,
-        n: usize,
-    ) -> NonNativeTargetExt2<FF>;
+    fn frobenius_coeffs_c2_nonnative_ext6<FF: PrimeField + Extendable<6> + Extendable<2>>(&mut self, n: usize) -> NonNativeTargetExt2<FF>;
 
     fn scale_nonnative_ext6<FF: PrimeField + Extendable<6> + Extendable<2>>(
         &mut self,
@@ -102,49 +84,29 @@ pub trait CircuitBuilderNonNativeExt6<F: RichField + Extendable<D>, const D: usi
         x: &NonNativeTargetExt6<FF>,
         y: &NonNativeTargetExt6<FF>,
     ) -> plonky2::iop::target::BoolTarget;
-
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderNonNativeExt6<F, D>
-    for CircuitBuilder<F, D>
-{
-    fn zero_nonnative_ext6<FF: PrimeField + Extendable<6> + Extendable<2>>(
-        &mut self,
-    ) -> NonNativeTargetExt6<FF> {
+impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderNonNativeExt6<F, D> for CircuitBuilder<F, D> {
+    fn zero_nonnative_ext6<FF: PrimeField + Extendable<6> + Extendable<2>>(&mut self) -> NonNativeTargetExt6<FF> {
         self.constant_nonnative_ext6(SexticExtension::ZERO)
     }
 
-    fn constant_nonnative_ext6<FF: PrimeField + Extendable<6> + Extendable<2>>(
-        &mut self,
-        x: SexticExtension<FF>,
-    ) -> NonNativeTargetExt6<FF> {
+    fn constant_nonnative_ext6<FF: PrimeField + Extendable<6> + Extendable<2>>(&mut self, x: SexticExtension<FF>) -> NonNativeTargetExt6<FF> {
         NonNativeTargetExt6 {
-            c0: self.constant_nonnative_ext2(QuadraticExtension(
-                [x.0[0], x.0[1]],
-            )),
-            c1: self.constant_nonnative_ext2(QuadraticExtension(
-                [x.0[2], x.0[3]],
-            )),
-            c2: self.constant_nonnative_ext2(QuadraticExtension(
-                [x.0[4], x.0[5]],
-            )),
+            c0: self.constant_nonnative_ext2(QuadraticExtension([x.0[0], x.0[1]])),
+            c1: self.constant_nonnative_ext2(QuadraticExtension([x.0[2], x.0[3]])),
+            c2: self.constant_nonnative_ext2(QuadraticExtension([x.0[4], x.0[5]])),
             _phantom: PhantomData,
         }
     }
 
-    fn connect_nonnative_ext6<FF: Field + Extendable<6> + Extendable<2>>(
-        &mut self,
-        lhs: &NonNativeTargetExt6<FF>,
-        rhs: &NonNativeTargetExt6<FF>,
-    ) {
+    fn connect_nonnative_ext6<FF: Field + Extendable<6> + Extendable<2>>(&mut self, lhs: &NonNativeTargetExt6<FF>, rhs: &NonNativeTargetExt6<FF>) {
         self.connect_nonnative_ext2(&rhs.c0, &lhs.c0);
         self.connect_nonnative_ext2(&rhs.c1, &lhs.c1);
         self.connect_nonnative_ext2(&rhs.c2, &lhs.c2);
     }
 
-    fn add_virtual_nonnative_ext6_target<FF: Field + Extendable<6> + Extendable<2>>(
-        &mut self,
-    ) -> NonNativeTargetExt6<FF> {
+    fn add_virtual_nonnative_ext6_target<FF: Field + Extendable<6> + Extendable<2>>(&mut self) -> NonNativeTargetExt6<FF> {
         let c0 = self.add_virtual_nonnative_ext2_target();
         let c1 = self.add_virtual_nonnative_ext2_target();
         let c2 = self.add_virtual_nonnative_ext2_target();
@@ -230,10 +192,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderNonNativeExt6<F
         }
     }
 
-    fn neg_nonnative_ext6<FF: PrimeField + Extendable<6> + Extendable<2>>(
-        &mut self,
-        x: &NonNativeTargetExt6<FF>,
-    ) -> NonNativeTargetExt6<FF> {
+    fn neg_nonnative_ext6<FF: PrimeField + Extendable<6> + Extendable<2>>(&mut self, x: &NonNativeTargetExt6<FF>) -> NonNativeTargetExt6<FF> {
         NonNativeTargetExt6 {
             c0: self.neg_nonnative_ext2(&x.c0),
             c1: self.neg_nonnative_ext2(&x.c1),
@@ -242,10 +201,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderNonNativeExt6<F
         }
     }
 
-    fn inv_nonnative_ext6<FF: PrimeField + Extendable<6> + Extendable<2>>(
-        &mut self,
-        x: &NonNativeTargetExt6<FF>,
-    ) -> NonNativeTargetExt6<FF> {
+    fn inv_nonnative_ext6<FF: PrimeField + Extendable<6> + Extendable<2>>(&mut self, x: &NonNativeTargetExt6<FF>) -> NonNativeTargetExt6<FF> {
         let mut c0 = self.squared_nonnative_ext2(&x.c0);
         let x2_mul_nonresidue = self.mul_by_nonresidue_nonnative_ext2(&x.c2);
         let x1_mul_x2_mul_nonresidue = self.mul_nonnative_ext2(&x.c1, &x2_mul_nonresidue);
@@ -288,10 +244,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderNonNativeExt6<F
         }
     }
 
-    fn squared_nonnative_ext6<FF: PrimeField + Extendable<6> + Extendable<2>>(
-        &mut self,
-        x: &NonNativeTargetExt6<FF>,
-    ) -> NonNativeTargetExt6<FF> {
+    fn squared_nonnative_ext6<FF: PrimeField + Extendable<6> + Extendable<2>>(&mut self, x: &NonNativeTargetExt6<FF>) -> NonNativeTargetExt6<FF> {
         let s0 = self.squared_nonnative_ext2(&x.c0);
         let ab = self.mul_nonnative_ext2(&x.c0, &x.c1);
         let s1 = self.add_nonnative_ext2(&ab, &ab);
@@ -337,13 +290,11 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderNonNativeExt6<F
         }
     }
 
-    fn frobenius_coeffs_c1_nonnative_ext6<FF: PrimeField + Extendable<6> + Extendable<2>>(
-        &mut self,
-        n: usize,
-    ) -> NonNativeTargetExt2<FF> {
-        use crate::crypto::bn254::field::bn128_extension::Bn128ExtConstants;
+    fn frobenius_coeffs_c1_nonnative_ext6<FF: PrimeField + Extendable<6> + Extendable<2>>(&mut self, n: usize) -> NonNativeTargetExt2<FF> {
         use std::any::TypeId;
-        
+
+        use crate::crypto::bn254::field::bn128_extension::Bn128ExtConstants;
+
         if TypeId::of::<FF>() == TypeId::of::<Bn128Base>() {
             match n % 6 {
                 0 => self.constant_nonnative_ext2(QuadraticExtension([FF::ONE, FF::ZERO])),
@@ -365,20 +316,18 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderNonNativeExt6<F
                     let ff_coeff5 = unsafe { std::mem::transmute_copy::<Bn128Base, FF>(&coeffs[5]) };
                     self.constant_nonnative_ext2(QuadraticExtension([ff_coeff4, ff_coeff5]))
                 }
-                _ => unreachable!()
+                _ => unreachable!(),
             }
         } else {
             panic!("frobenius_coeffs_c1_nonnative_ext6 only supports Bn128Base")
         }
     }
 
-    fn frobenius_coeffs_c2_nonnative_ext6<FF: PrimeField + Extendable<6> + Extendable<2>>(
-        &mut self,
-        n: usize,
-    ) -> NonNativeTargetExt2<FF> {
-        use crate::crypto::bn254::field::bn128_extension::Bn128ExtConstants;
+    fn frobenius_coeffs_c2_nonnative_ext6<FF: PrimeField + Extendable<6> + Extendable<2>>(&mut self, n: usize) -> NonNativeTargetExt2<FF> {
         use std::any::TypeId;
-        
+
+        use crate::crypto::bn254::field::bn128_extension::Bn128ExtConstants;
+
         if TypeId::of::<FF>() == TypeId::of::<Bn128Base>() {
             match n % 6 {
                 0 => self.constant_nonnative_ext2(QuadraticExtension([FF::ONE, FF::ZERO])),
@@ -400,7 +349,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderNonNativeExt6<F
                     let ff_coeff5 = unsafe { std::mem::transmute_copy::<Bn128Base, FF>(&coeffs[5]) };
                     self.constant_nonnative_ext2(QuadraticExtension([ff_coeff4, ff_coeff5]))
                 }
-                _ => unreachable!()
+                _ => unreachable!(),
             }
         } else {
             panic!("frobenius_coeffs_c2_nonnative_ext6 only supports Bn128Base")
@@ -428,30 +377,31 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderNonNativeExt6<F
         let c0_equal = self.is_equal_ext2(&x.c0, &y.c0);
         let c1_equal = self.is_equal_ext2(&x.c1, &y.c1);
         let c2_equal = self.is_equal_ext2(&x.c2, &y.c2);
-        
+
         let c01_equal = self.and(c0_equal, c1_equal);
         self.and(c01_equal, c2_equal)
     }
-
 }
 
 #[cfg(test)]
 mod tests {
+    use plonky2::{
+        field::{extension::FieldExtension, types::Field},
+        fri::{reduction_strategies::FriReductionStrategy, FriConfig},
+        iop::witness::PartialWitness,
+        plonk::{
+            circuit_builder::CircuitBuilder,
+            circuit_data::CircuitConfig,
+            config::{GenericConfig, PoseidonGoldilocksConfig},
+        },
+    };
+
     use super::*;
-    use crate::crypto::bn254::field::bn128_base::Bn128Base;
-    use crate::crypto::bn254::field::extension::sextic::SexticExtension;
-    use plonky2::iop::witness::PartialWitness;
-    use plonky2::plonk::circuit_builder::CircuitBuilder;
-    use plonky2::plonk::circuit_data::CircuitConfig;
-    use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
-    use plonky2::field::types::Field;
-    use plonky2::fri::reduction_strategies::FriReductionStrategy;
-    use plonky2::fri::FriConfig;
-    use plonky2::field::extension::FieldExtension;
-    
+    use crate::crypto::bn254::field::{bn128_base::Bn128Base, extension::sextic::SexticExtension};
+
     fn pairing_config() -> CircuitConfig {
         CircuitConfig {
-            num_wires: 340,  // NonnativeMulGate requires 334 wires
+            num_wires: 340, // NonnativeMulGate requires 334 wires
             num_routed_wires: 80,
             num_constants: 2,
             use_base_arithmetic_gate: true,
@@ -513,7 +463,7 @@ mod tests {
         let x = builder.constant_nonnative_ext6(x_ff);
         let y = builder.constant_nonnative_ext6(y_ff);
         let diff = builder.sub_nonnative_ext6(&x, &y);
-        
+
         let diff_expected = builder.constant_nonnative_ext6(diff_ff);
         builder.connect_nonnative_ext6(&diff, &diff_expected);
 
@@ -529,7 +479,7 @@ mod tests {
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;
-        
+
         // Use specific values instead of random to avoid non-deterministic failures
         let x_ff = FF::ONE;
         let y_ff = FF::from_basefield_array([
@@ -588,7 +538,7 @@ mod tests {
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;
-        
+
         // Use specific non-zero value to avoid randomness issues
         let x_ff = FF::from_basefield_array([
             Bn128Base::from_canonical_u64(3),
@@ -605,7 +555,7 @@ mod tests {
 
         let x = builder.constant_nonnative_ext6(x_ff);
         let inv_x = builder.inv_nonnative_ext6(&x);
-        
+
         let inv_x_expected = builder.constant_nonnative_ext6(inv_x_ff);
         builder.connect_nonnative_ext6(&inv_x, &inv_x_expected);
 
@@ -621,7 +571,7 @@ mod tests {
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;
-        
+
         // Use specific value to avoid randomness issues
         let x_ff = FF::from_basefield_array([
             Bn128Base::from_canonical_u64(2),
@@ -651,7 +601,7 @@ mod tests {
     #[test]
     fn test_frobenius_coeffs_verification() -> anyhow::Result<()> {
         use crate::crypto::bn254::field::bn128_extension::Bn128ExtConstants;
-        
+
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;
@@ -665,7 +615,7 @@ mod tests {
         let expected_c1_1 = builder.constant_nonnative_ext2(QuadraticExtension([expected_coeffs[0], expected_coeffs[1]]));
         builder.connect_nonnative_ext2(&coeff_c1_1, &expected_c1_1);
 
-        // Test frobenius_coeffs_c2 for n=1  
+        // Test frobenius_coeffs_c2 for n=1
         let coeff_c2_1 = builder.frobenius_coeffs_c2_nonnative_ext6::<Bn128Base>(1);
         let expected_coeffs_c2 = <Bn128Base as Bn128ExtConstants>::FROBENIUS_COEFFS_EXT6_C2;
         let expected_c2_1 = builder.constant_nonnative_ext2(QuadraticExtension([expected_coeffs_c2[0], expected_coeffs_c2[1]]));
@@ -675,7 +625,7 @@ mod tests {
         let pw = PartialWitness::new();
         let proof = data.prove(pw).unwrap();
         data.verify(proof)?;
-        
+
         println!("✅ Frobenius coefficients verification test passed!");
         Ok(())
     }

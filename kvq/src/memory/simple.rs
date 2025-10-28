@@ -1,10 +1,8 @@
-use std::collections::BTreeMap;
-use std::ops::Bound::Included;
-use std::sync::Arc;
-use parking_lot::RwLock; 
+use std::{collections::BTreeMap, ops::Bound::Included, sync::Arc};
 
-use crate::traits::KVQBinaryStore;
-use crate::traits::KVQPair;
+use parking_lot::RwLock;
+
+use crate::traits::{KVQBinaryStore, KVQPair};
 
 #[derive(Debug, Clone)]
 pub struct KVQSimpleMemoryBackingStore {
@@ -40,9 +38,7 @@ impl KVQBinaryStore for KVQSimpleMemoryBackingStore {
 
     fn get_leq(&self, key: &Vec<u8>, fuzzy_bytes: usize) -> anyhow::Result<Option<Vec<u8>>> {
         if fuzzy_bytes > key.len() {
-            return Err(anyhow::anyhow!(
-                "Fuzzy bytes must be less than or equal to key length"
-            ));
+            return Err(anyhow::anyhow!("Fuzzy bytes must be less than or equal to key length"));
         }
 
         let map = self.map.read();
@@ -60,9 +56,7 @@ impl KVQBinaryStore for KVQSimpleMemoryBackingStore {
                 base_key[key_len - i - 1] = 0;
             }
 
-            let rq = map
-                .range((Included(base_key), Included(key.clone())))
-                .next_back();
+            let rq = map.range((Included(base_key), Included(key.clone()))).next_back();
 
             if let Some((_, p)) = rq {
                 Ok(Some(p.to_owned()))
@@ -72,15 +66,9 @@ impl KVQBinaryStore for KVQSimpleMemoryBackingStore {
         }
     }
 
-    fn get_leq_kv(
-        &self,
-        key: &Vec<u8>,
-        fuzzy_bytes: usize,
-    ) -> anyhow::Result<Option<KVQPair<Vec<u8>, Vec<u8>>>> {
+    fn get_leq_kv(&self, key: &Vec<u8>, fuzzy_bytes: usize) -> anyhow::Result<Option<KVQPair<Vec<u8>, Vec<u8>>>> {
         if fuzzy_bytes > key.len() {
-            return Err(anyhow::anyhow!(
-                "Fuzzy bytes must be less than or equal to key length"
-            ));
+            return Err(anyhow::anyhow!("Fuzzy bytes must be less than or equal to key length"));
         }
 
         let map = self.map.read();
@@ -101,9 +89,7 @@ impl KVQBinaryStore for KVQSimpleMemoryBackingStore {
                 base_key[key_len - i - 1] = 0;
             }
 
-            let rq = map
-                .range((Included(base_key), Included(key.clone())))
-                .next_back();
+            let rq = map.range((Included(base_key), Included(key.clone()))).next_back();
 
             if let Some((k, v)) = rq {
                 Ok(Some(KVQPair {
@@ -116,11 +102,7 @@ impl KVQBinaryStore for KVQSimpleMemoryBackingStore {
         }
     }
 
-    fn get_many_leq(
-        &self,
-        keys: &[Vec<u8>],
-        fuzzy_bytes: usize,
-    ) -> anyhow::Result<Vec<Option<Vec<u8>>>> {
+    fn get_many_leq(&self, keys: &[Vec<u8>], fuzzy_bytes: usize) -> anyhow::Result<Vec<Option<Vec<u8>>>> {
         let mut results: Vec<Option<Vec<u8>>> = Vec::with_capacity(keys.len());
         for k in keys {
             let r = self.get_leq(k, fuzzy_bytes)?;
@@ -129,11 +111,7 @@ impl KVQBinaryStore for KVQSimpleMemoryBackingStore {
         Ok(results)
     }
 
-    fn get_many_leq_kv(
-        &self,
-        keys: &[Vec<u8>],
-        fuzzy_bytes: usize,
-    ) -> anyhow::Result<Vec<Option<KVQPair<Vec<u8>, Vec<u8>>>>> {
+    fn get_many_leq_kv(&self, keys: &[Vec<u8>], fuzzy_bytes: usize) -> anyhow::Result<Vec<Option<KVQPair<Vec<u8>, Vec<u8>>>>> {
         let mut results: Vec<Option<KVQPair<Vec<u8>, Vec<u8>>>> = Vec::with_capacity(keys.len());
         for k in keys {
             let r = self.get_leq_kv(k, fuzzy_bytes)?;
@@ -198,9 +176,7 @@ impl KVQBinaryStore for KVQSimpleMemoryBackingStore {
         let mut base_key = key.to_vec();
         let key_len = base_key.len();
         if fuzzy_bytes > key_len {
-            return Err(anyhow::anyhow!(
-                "Fuzzy bytes must be less than or equal to key length"
-            ));
+            return Err(anyhow::anyhow!("Fuzzy bytes must be less than or equal to key length"));
         }
 
         for i in 0..fuzzy_bytes {
@@ -228,10 +204,7 @@ impl KVQBinaryStore for KVQSimpleMemoryBackingStore {
         Ok(())
     }
 
-    fn set_many_ref<'a>(
-        &self,
-        items: &[KVQPair<&'a Vec<u8>, &'a Vec<u8>>],
-    ) -> anyhow::Result<()> {
+    fn set_many_ref<'a>(&self, items: &[KVQPair<&'a Vec<u8>, &'a Vec<u8>>]) -> anyhow::Result<()> {
         let mut map = self.map.write();
         for item in items {
             map.insert(item.key.clone(), item.value.clone());
@@ -279,4 +252,3 @@ impl KVQBinaryStore for KVQSimpleMemoryBackingStore {
         }
     }
 }
-

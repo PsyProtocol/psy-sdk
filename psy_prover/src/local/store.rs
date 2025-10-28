@@ -8,9 +8,7 @@ pub struct UserProverWorkerStore {
 }
 impl UserProverWorkerStore {
     pub fn new() -> Self {
-        Self {
-            results: HashMap::new(),
-        }
+        Self { results: HashMap::new() }
     }
     pub fn get_result(&self, key: &Hash256) -> Option<&Vec<u8>> {
         self.results.get(key)

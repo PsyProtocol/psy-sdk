@@ -18,10 +18,7 @@ impl KVQSerializable for StagingCheckpointInfo {
 }
 
 impl StagingCheckpointInfo {
-    pub fn new(
-        local_checkpoint_id: u64,
-        canonical_checkpoint_id: u64,
-    ) -> Self {
+    pub fn new(local_checkpoint_id: u64, canonical_checkpoint_id: u64) -> Self {
         Self {
             local_checkpoint_id,
             canonical_checkpoint_id,

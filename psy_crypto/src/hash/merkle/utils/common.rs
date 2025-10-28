@@ -14,7 +14,7 @@ impl PartialOrd for SimpleMerkleNodeKey {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         if self.level != other.level {
             self.level.partial_cmp(&other.level)
-        }else{
+        } else {
             self.index.partial_cmp(&other.index)
         }
     }
@@ -58,11 +58,10 @@ impl SimpleMerkleNodeKey {
     pub fn is_direct_path_related(&self, other: &SimpleMerkleNodeKey) -> bool {
         if other.level == self.level {
             self.index == other.index
-        }else if other.level < self.level {
+        } else if other.level < self.level {
             // opt?: (self.index>>(self.level-other.level)) == other.index
             self.parent_at_level(other.level).index == other.index
-
-        }else{
+        } else {
             other.parent_at_level(self.level).index == self.index
         }
     }
@@ -163,10 +162,7 @@ impl KVQSerializable for SimpleMerkleNodeKey {
                 index: u64::from_be_bytes(bytes[1..9].try_into().unwrap()),
             })
         } else {
-            anyhow::bail!(
-                "error deserializing SimpleMerkleNodeKey, expected 9 bytes, got {}",
-                bytes.len()
-            );
+            anyhow::bail!("error deserializing SimpleMerkleNodeKey, expected 9 bytes, got {}", bytes.len());
         }
     }
 }
@@ -195,9 +191,9 @@ impl<Hash: PartialOrd> PartialOrd for SimpleMerkleNode<Hash> {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         if self.key.level != other.key.level {
             self.key.level.partial_cmp(&other.key.level)
-        }else if self.key.index != other.key.index {
+        } else if self.key.index != other.key.index {
             self.key.index.partial_cmp(&other.key.index)
-        }else {
+        } else {
             self.value.partial_cmp(&other.value)
         }
     }
@@ -206,8 +202,7 @@ pub type QMerkleNode<F> = SimpleMerkleNode<QHashOut<F>>;
 
 impl<F: RichField> KVQSerializable for QMerkleNode<F> {
     fn to_bytes(&self) -> anyhow::Result<Vec<u8>> {
-        
-        let mut result = Vec::with_capacity(41);// 1 + 8 + 8*4 = 41
+        let mut result = Vec::with_capacity(41); // 1 + 8 + 8*4 = 41
         result.push(self.key.level);
         result.extend_from_slice(&u64::to_be_bytes(self.key.index));
         result.extend_from_slice(&u64::to_be_bytes(self.value.0.elements[0].to_canonical_u64()));
@@ -216,15 +211,14 @@ impl<F: RichField> KVQSerializable for QMerkleNode<F> {
         result.extend_from_slice(&u64::to_be_bytes(self.value.0.elements[3].to_canonical_u64()));
 
         Ok(result)
-        
     }
 
     fn from_bytes(bytes: &[u8]) -> anyhow::Result<Self> {
         if bytes.len() == 41 {
             Ok(Self {
-                key: SimpleMerkleNodeKey{
-                level: bytes[0],
-                index: u64::from_be_bytes(bytes[1..9].try_into().unwrap()),
+                key: SimpleMerkleNodeKey {
+                    level: bytes[0],
+                    index: u64::from_be_bytes(bytes[1..9].try_into().unwrap()),
                 },
                 value: QHashOut(HashOut {
                     elements: [
@@ -232,14 +226,11 @@ impl<F: RichField> KVQSerializable for QMerkleNode<F> {
                         F::from_noncanonical_u64(u64::from_be_bytes(bytes[17..25].try_into().unwrap())),
                         F::from_noncanonical_u64(u64::from_be_bytes(bytes[25..33].try_into().unwrap())),
                         F::from_noncanonical_u64(u64::from_be_bytes(bytes[33..41].try_into().unwrap())),
-                    ]
-                })
+                    ],
+                }),
             })
         } else {
-            anyhow::bail!(
-                "error deserializing SimpleMerkleNode, expected 41 bytes, got {}",
-                bytes.len()
-            );
+            anyhow::bail!("error deserializing SimpleMerkleNode, expected 41 bytes, got {}", bytes.len());
         }
     }
 }

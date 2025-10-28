@@ -1,62 +1,85 @@
-use super::error::RpcError;
-use super::rpc::RealmEdgeRpcServer;
-use crate::common::jobs::{JobSchedulerRpcServer, MESSAGE_CLAIM_JOB};
-use crate::realm::state::edge::RealmEdgeContext;
-use crate::realm::{C, D, F, H};
-use crate::watcher::current_timestamp_mills;
-use async_trait::async_trait;
-use jsonrpsee::core::{client::ClientT, RpcResult};
-use jsonrpsee::http_client::{HttpClient, HttpClientBuilder};
-use jsonrpsee::rpc_params;
-use plonky2::plonk::config::PoseidonGoldilocksConfig;
-use plonky2::{field::types::PrimeField64, plonk::proof::ProofWithPublicInputs};
-use plonky2::field::types::Field;
-use psy_core::job::history_queue::CheckpointHistoryQueueConsumerAsyncImm;
-use psy_core::data::qhashout::QHashOut;
-use psy_core::job::worker_queue::WorkerEventReceiverAsyncImm;
-use psy_core::job::{
-    drain_queue::CheckpointDrainQueueEmitterAsyncImm,
-    id::{ProvingJobCircuitType, QJobTopic, QProvingJobDataID, VariableHeightRewardMerkleProof},
-    traits::QProofStoreAsyncImm,
-};
-use psy_crypto::hash::merkle::core::{DeltaMerkleProofCore, MerkleProofCore, compute_historical_and_current_merkle_roots_core_gt};
-use psy_data::config::store_config::{QEDFelt, QEDHash, QEDHasher, QEDProof};
-use psy_data::guta::end_cap_input::SubmitUserEndCapNonProofInput;
-use psy_data::qdata::checkpoint::{
-    QEDCheckpointGlobalStateRoots, QEDCheckpointLeaf, QEDL2BlockState,
-};
-use psy_data::qdata::user::QEDUserLeaf;
-use psy_prover::session::TxStatus;
-use psy_store::node::realm::QEDRealmStoreReaderAsync;
-use psy_store::queue::ProofStoreRedisAsync;
-use std::sync::Arc;
-use std::time::Duration;
+use std::{sync::Arc, time::Duration};
+
 use anyhow::{anyhow, bail, ensure};
-use jsonrpsee::types::{ErrorCode, ErrorObject};
-use plonky2::field::goldilocks_field::GoldilocksField;
-use tracing::{debug, error, info, warn};
-use psy_core::config::network_constants::{GLOBAL_CONTRACT_TREE_HEIGHT, GLOBAL_USER_TREE_HEIGHT};
-use psy_core::job::id::ProvingJobDataType;
-use psy_crypto::hash::traits::hasher::{MerkleHasher, MerkleZeroHasher, PoseidonHasher};
-use psy_crypto::hash::traits::qhashable::QFieldHashable;
-use psy_data::guta::api::{QEDContractStateUpdateHistory, SimpleContractHeightCache, UserEndCapNonProofCoreInputQueueItem};
-use psy_data::guta::proof_input::VerifyEndCapSimpleStandardInput;
-use psy_prover::wallet::secp_sign::SignedRequest;
-use psy_store::queue::task_queue::{QProvingTaskStore, QProvingTaskStoreImpl, JobValidationStatus, QJob, current_timestamp_millis};
-use crate::coordinator::edge::ProofStore;
+use async_trait::async_trait;
+use jsonrpsee::{
+    core::{client::ClientT, RpcResult},
+    http_client::{HttpClient, HttpClientBuilder},
+    rpc_params,
+    types::{ErrorCode, ErrorObject},
+};
+use plonky2::{
+    field::{
+        goldilocks_field::GoldilocksField,
+        types::{Field, PrimeField64},
+    },
+    plonk::{config::PoseidonGoldilocksConfig, proof::ProofWithPublicInputs},
+};
+use psy_core::{
+    config::network_constants::{GLOBAL_CONTRACT_TREE_HEIGHT, GLOBAL_USER_TREE_HEIGHT},
+    data::qhashout::QHashOut,
+    job::{
+        drain_queue::CheckpointDrainQueueEmitterAsyncImm,
+        history_queue::CheckpointHistoryQueueConsumerAsyncImm,
+        id::{ProvingJobCircuitType, ProvingJobDataType, QJobTopic, QProvingJobDataID, VariableHeightRewardMerkleProof},
+        traits::QProofStoreAsyncImm,
+        worker_queue::WorkerEventReceiverAsyncImm,
+    },
+};
+use psy_crypto::hash::{
+    merkle::core::{compute_historical_and_current_merkle_roots_core_gt, DeltaMerkleProofCore, MerkleProofCore},
+    traits::{
+        hasher::{MerkleHasher, MerkleZeroHasher, PoseidonHasher},
+        qhashable::QFieldHashable,
+    },
+};
+use psy_data::{
+    config::store_config::{QEDFelt, QEDHash, QEDHasher, QEDProof},
+    guta::{
+        api::{QEDContractStateUpdateHistory, SimpleContractHeightCache, UserEndCapNonProofCoreInputQueueItem},
+        end_cap_input::SubmitUserEndCapNonProofInput,
+        proof_input::VerifyEndCapSimpleStandardInput,
+    },
+    qdata::{
+        checkpoint::{QEDCheckpointGlobalStateRoots, QEDCheckpointLeaf, QEDL2BlockState},
+        user::QEDUserLeaf,
+    },
+};
 use psy_network_circuit::verify_witness::verify_witness_and_proof;
-use crate::common::whitelist::{WhiteList, WhiteListCache};
-use crate::common_v2::traits::realm::{RealmEdgeContractStateTreeUpdate, RealmEdgeStateHelper, RealmEdgeUserContractTreeUpdate, RealmEdgeUserUpdateSubmission, SimpleTreeUpdateBuilder, UniqueQueueId};
-use crate::realm::state::edge_queue_helper::RealmEdgeQueueHelper;
-use crate::watcher::events::{JobCompletedEvent, JobStartedEvent, WatcherMessage};
-use crate::watcher::watcher_client::WatcherClient;
+use psy_prover::{session::TxStatus, wallet::secp_sign::SignedRequest};
+use psy_store::{
+    node::realm::QEDRealmStoreReaderAsync,
+    queue::{
+        task_queue::{current_timestamp_millis, JobValidationStatus, QJob, QProvingTaskStore, QProvingTaskStoreImpl},
+        ProofStoreRedisAsync,
+    },
+};
+use tracing::{debug, error, info, warn};
+
+use super::{error::RpcError, rpc::RealmEdgeRpcServer};
+use crate::{
+    common::{
+        jobs::{JobSchedulerRpcServer, MESSAGE_CLAIM_JOB},
+        whitelist::{WhiteList, WhiteListCache},
+    },
+    common_v2::traits::realm::{
+        RealmEdgeContractStateTreeUpdate, RealmEdgeStateHelper, RealmEdgeUserContractTreeUpdate, RealmEdgeUserUpdateSubmission,
+        SimpleTreeUpdateBuilder, UniqueQueueId,
+    },
+    coordinator::edge::ProofStore,
+    realm::{
+        state::{edge::RealmEdgeContext, edge_queue_helper::RealmEdgeQueueHelper},
+        C, D, F, H,
+    },
+    watcher::{
+        current_timestamp_mills,
+        events::{JobCompletedEvent, JobStartedEvent, WatcherMessage},
+        watcher_client::WatcherClient,
+    },
+};
 
 #[derive(Clone)]
-pub struct RealmEdgeHandler<
-    SR: QEDRealmStoreReaderAsync<F> + Sync,
-    DQ: CheckpointDrainQueueEmitterAsyncImm,
-    PS: QProofStoreAsyncImm,
-> {
+pub struct RealmEdgeHandler<SR: QEDRealmStoreReaderAsync<F> + Sync, DQ: CheckpointDrainQueueEmitterAsyncImm, PS: QProofStoreAsyncImm> {
     ctx: RealmEdgeContext<SR, DQ, PS>,
     job_notify_queue: Arc<ProofStoreRedisAsync>,
     task_store: Arc<QProvingTaskStoreImpl>,
@@ -81,8 +104,7 @@ where
         coordinator_addr: &str,
         edge_queue_helper: Arc<RealmEdgeQueueHelper<F>>,
     ) -> Result<Self, anyhow::Error> {
-        let coordinator_client = HttpClientBuilder::default()
-            .build(coordinator_addr)?;
+        let coordinator_client = HttpClientBuilder::default().build(coordinator_addr)?;
         Ok(Self {
             ctx,
             job_notify_queue,
@@ -127,9 +149,9 @@ where
 
         contract_updates.windows(2).enumerate().try_for_each(|(i, pair)| {
             ensure!(
-                pair[0].user_contract_tree_update_proof.new_root ==
-                pair[1].user_contract_tree_update_proof.old_root,
-                "Contract update chain broken at index {}: discontinuous roots", i + 1
+                pair[0].user_contract_tree_update_proof.new_root == pair[1].user_contract_tree_update_proof.old_root,
+                "Contract update chain broken at index {}: discontinuous roots",
+                i + 1
             );
             Ok(())
         })
@@ -139,7 +161,7 @@ where
         &self,
         user_ec_input: &SubmitUserEndCapNonProofInput<F>,
         checkpoint_id: u64,
-        user_id: u64
+        user_id: u64,
     ) -> anyhow::Result<RealmEdgeUserUpdateSubmission<F>> {
         // ensure!(
         //     user_ec_input.core.checkpoint_id.to_canonical_u64() == checkpoint_id,
@@ -149,12 +171,14 @@ where
         // );
         let endcap_checkpoint_id = user_ec_input.core.checkpoint_id.to_canonical_u64();
         if endcap_checkpoint_id != checkpoint_id {
-            tracing::warn!("user cap checkpoint is behind current checkpoint: {} != {}", endcap_checkpoint_id, checkpoint_id);
+            tracing::warn!(
+                "user cap checkpoint is behind current checkpoint: {} != {}",
+                endcap_checkpoint_id,
+                checkpoint_id
+            );
         }
 
-        let old_user_leaf = self.ctx.store_reader
-            .get_user_leaf_data(checkpoint_id, user_id)
-            .await?;
+        let old_user_leaf = self.ctx.store_reader.get_user_leaf_data(checkpoint_id, user_id).await?;
 
         let old_leaf_hash = old_user_leaf.qfhash::<QEDHasher>();
         ensure!(
@@ -175,14 +199,12 @@ where
             "User ID mismatch in new leaf"
         );
 
-        //note: The checkpoint_id here is not used by the outside world and can be passed in any value
-        let cst_update = user_ec_input
-            .verify_and_generate_cst_updates::<QEDHasher>(
-                checkpoint_id,
-                old_user_leaf.user_state_tree_root
-            )?;
+        //note: The checkpoint_id here is not used by the outside world and can be
+        // passed in any value
+        let cst_update = user_ec_input.verify_and_generate_cst_updates::<QEDHasher>(checkpoint_id, old_user_leaf.user_state_tree_root)?;
 
-        let contract_state_updates = cst_update.updates
+        let contract_state_updates = cst_update
+            .updates
             .iter()
             .map(|delta| RealmEdgeContractStateTreeUpdate {
                 user_id,
@@ -193,7 +215,8 @@ where
             })
             .collect();
 
-        let user_contract_updates = cst_update.uct_updates
+        let user_contract_updates = cst_update
+            .uct_updates
             .iter()
             .map(|update| RealmEdgeUserContractTreeUpdate {
                 user_id,
@@ -203,7 +226,9 @@ where
             })
             .collect();
 
-        let checkpoint_proof = self.ctx.store_reader
+        let checkpoint_proof = self
+            .ctx
+            .store_reader
             .get_checkpoint_tree_merkle_proof(checkpoint_id, endcap_checkpoint_id)
             .await?;
 
@@ -251,15 +276,19 @@ where
     ) -> anyhow::Result<String> {
         let user_id = user_ec_input.core.state_transition.user_id.to_canonical_u64();
 
-        //Step1: The realm edge fetches the unique shared checkpoint id which includes a checkpoint_id AND a 128bit uuid
+        //Step1: The realm edge fetches the unique shared checkpoint id which includes
+        // a checkpoint_id AND a 128bit uuid
         let unique_checkpoint = self.get_shared_checkpoint_id().await?;
         debug!("checkpoint={:?} user={}", unique_checkpoint, user_id);
 
-        //Step2: The realm edge checks if the user has submitted a proof for this UNIQUE checkpoint id before,
-        // if not, it stores a random number for the UNIQUE checkpoint id in redis or similar
+        //Step2: The realm edge checks if the user has submitted a proof for this
+        // UNIQUE checkpoint id before, if not, it stores a random number for
+        // the UNIQUE checkpoint id in redis or similar
         ensure!(
             !self.queue_helper.has_user_submitted(unique_checkpoint, user_id).await?,
-            "User {} already submitted for checkpoint {:?}", user_id, unique_checkpoint
+            "User {} already submitted for checkpoint {:?}",
+            user_id,
+            unique_checkpoint
         );
 
         let random_lock = rand::random::<u128>();
@@ -285,12 +314,12 @@ where
             let end_cap_checkpoint = user_ec_input.core.checkpoint_id.to_canonical_u64();
             ensure!(
                 end_cap_checkpoint <= current_checkpoint,
-                "Future checkpoint: {} > {}", end_cap_checkpoint, current_checkpoint
+                "Future checkpoint: {} > {}",
+                end_cap_checkpoint,
+                current_checkpoint
             );
 
-            let user_leaf = self.ctx.store_reader
-                .get_user_leaf_data(current_checkpoint, user_id)
-                .await?;
+            let user_leaf = self.ctx.store_reader.get_user_leaf_data(current_checkpoint, user_id).await?;
 
             ensure!(
                 user_leaf.qfhash::<QEDHasher>() == user_ec_input.core.state_transition.start_user_leaf_hash,
@@ -298,18 +327,14 @@ where
             );
 
             ensure!(
-                user_leaf.last_checkpoint_id.to_canonical_u64() <= end_cap_checkpoint &&
-                user_leaf.nonce.to_canonical_u64() <= user_ec_input.core.new_user_leaf.nonce.to_canonical_u64(),
+                user_leaf.last_checkpoint_id.to_canonical_u64() <= end_cap_checkpoint
+                    && user_leaf.nonce.to_canonical_u64() <= user_ec_input.core.new_user_leaf.nonce.to_canonical_u64(),
                 "Invalid state progression"
             );
 
             self.ctx.verify_proof_of_type(ProvingJobCircuitType::UserEndCap, &proof)?;
 
-            let submission = self.build_submission_from_end_cap(
-                &user_ec_input,
-                current_checkpoint,
-                user_id,
-            ).await?;
+            let submission = self.build_submission_from_end_cap(&user_ec_input, current_checkpoint, user_id).await?;
 
             self.validate_contract_updates(
                 &user_ec_input.contract_state_updates,
@@ -318,12 +343,14 @@ where
             )?;
 
             Ok::<_, anyhow::Error>((submission, end_cap_checkpoint, current_checkpoint))
-        })().await;
+        })()
+        .await;
 
         let (submission, end_cap_checkpoint, current_checkpoint) = validation_result?;
 
-        //Step4: The realm edge fetches the random number for the UNIQUE checkpoint id and user,
-        // and makes sure it equals the previous random number generated (to ensure no weird race conditions with multiple submissions)
+        //Step4: The realm edge fetches the random number for the UNIQUE checkpoint id
+        // and user, and makes sure it equals the previous random number
+        // generated (to ensure no weird race conditions with multiple submissions)
         ensure!(
             self.has_submitted_end_cap_for_checkpoint(random_lock, user_id).await?,
             "Random lock verification failed"
@@ -333,17 +360,14 @@ where
         let proof_id = submission.proof_id;
         self.put_proof_id(proof_id, proof.into()).await?;
 
-        //Step6: The realm edge pushes the RealmEdgeUserUpdateSubmission to a queue or similar that is tied to the UniqueCheckpointId (both checkpoint_id and uuid)
+        //Step6: The realm edge pushes the RealmEdgeUserUpdateSubmission to a queue or
+        // similar that is tied to the UniqueCheckpointId (both checkpoint_id and uuid)
         self.queue_helper
             .enqueue_submission(unique_checkpoint, submission)
             .await
-            .map_err(|e| {
-                anyhow::anyhow!("Failed to enqueue submission: {}", e)
-            })?;
+            .map_err(|e| anyhow::anyhow!("Failed to enqueue submission: {}", e))?;
 
-        self.queue_helper
-            .mark_user_submitted(unique_checkpoint, user_id)
-            .await?;
+        self.queue_helper.mark_user_submitted(unique_checkpoint, user_id).await?;
 
         info!("✅ User {} proof accepted for checkpoint {:?}", user_id, unique_checkpoint);
 
@@ -352,7 +376,6 @@ where
             unique_checkpoint, user_id, random_lock
         ))
     }
-
 }
 
 #[async_trait]
@@ -366,11 +389,7 @@ where
         Ok(self.ctx.includes_user_id(user_id))
     }
 
-    async fn submit_user_end_cap(
-        &self,
-        user_ec_input: SubmitUserEndCapNonProofInput<F>,
-        proof: ProofWithPublicInputs<F, C, D>,
-    ) -> RpcResult<String> {
+    async fn submit_user_end_cap(&self, user_ec_input: SubmitUserEndCapNonProofInput<F>, proof: ProofWithPublicInputs<F, C, D>) -> RpcResult<String> {
         Ok(self
             .ctx
             .handle_recv_end_cap_from_user(user_ec_input, &proof)
@@ -379,22 +398,11 @@ where
             .map_err(RpcError::Anyhow)?)
     }
 
-    async fn get_tx_status(
-        &self,
-        user_id: u64,
-        nonce: u64,
-    ) -> RpcResult<TxStatus> {
-        Ok(self
-            .ctx
-            .get_tx_status(user_id, nonce)
-            .await
-            .map_err(RpcError::Anyhow)?)
+    async fn get_tx_status(&self, user_id: u64, nonce: u64) -> RpcResult<TxStatus> {
+        Ok(self.ctx.get_tx_status(user_id, nonce).await.map_err(RpcError::Anyhow)?)
     }
 
-    async fn get_checkpoint_leaf_data(
-        &self,
-        checkpoint_id: u64,
-    ) -> RpcResult<QEDCheckpointLeaf<F>> {
+    async fn get_checkpoint_leaf_data(&self, checkpoint_id: u64) -> RpcResult<QEDCheckpointLeaf<F>> {
         Ok(self
             .ctx
             .store_reader
@@ -403,10 +411,7 @@ where
             .map_err(RpcError::Anyhow)?)
     }
 
-    async fn get_checkpoint_leaf_data_f(
-        &self,
-        checkpoint_id: F,
-    ) -> RpcResult<QEDCheckpointLeaf<F>> {
+    async fn get_checkpoint_leaf_data_f(&self, checkpoint_id: F) -> RpcResult<QEDCheckpointLeaf<F>> {
         Ok(self
             .ctx
             .store_reader
@@ -416,21 +421,11 @@ where
     }
 
     async fn get_latest_l2_block_state(&self) -> RpcResult<QEDL2BlockState> {
-        Ok(self
-            .ctx
-            .store_reader
-            .get_latest_l2_block_state()
-            .await
-            .map_err(RpcError::Anyhow)?)
+        Ok(self.ctx.store_reader.get_latest_l2_block_state().await.map_err(RpcError::Anyhow)?)
     }
 
     async fn get_l2_block_state(&self, checkpoint_id: u64) -> RpcResult<QEDL2BlockState> {
-        Ok(self
-            .ctx
-            .store_reader
-            .get_l2_block_state(checkpoint_id)
-            .await
-            .map_err(RpcError::Anyhow)?)
+        Ok(self.ctx.store_reader.get_l2_block_state(checkpoint_id).await.map_err(RpcError::Anyhow)?)
     }
 
     async fn get_l2_block_state_f(&self, checkpoint_id: F) -> RpcResult<QEDL2BlockState> {
@@ -452,12 +447,7 @@ where
     }
 
     async fn get_latest_checkpoint_tree_root(&self) -> RpcResult<QHashOut<F>> {
-        Ok(self
-            .ctx
-            .store_reader
-            .get_latest_checkpoint_tree_root()
-            .await
-            .map_err(RpcError::Anyhow)?)
+        Ok(self.ctx.store_reader.get_latest_checkpoint_tree_root().await.map_err(RpcError::Anyhow)?)
     }
 
     async fn get_checkpoint_tree_root(&self, checkpoint_id: u64) -> RpcResult<QHashOut<F>> {
@@ -478,11 +468,7 @@ where
             .map_err(RpcError::Anyhow)?)
     }
 
-    async fn get_checkpoint_tree_leaf_hash(
-        &self,
-        checkpoint_id: u64,
-        leaf_checkpoint_id: u64,
-    ) -> RpcResult<QHashOut<F>> {
+    async fn get_checkpoint_tree_leaf_hash(&self, checkpoint_id: u64, leaf_checkpoint_id: u64) -> RpcResult<QHashOut<F>> {
         Ok(self
             .ctx
             .store_reader
@@ -491,27 +477,16 @@ where
             .map_err(RpcError::Anyhow)?)
     }
 
-    async fn get_checkpoint_tree_leaf_hash_f(
-        &self,
-        checkpoint_id: F,
-        leaf_checkpoint_id: F,
-    ) -> RpcResult<QHashOut<F>> {
+    async fn get_checkpoint_tree_leaf_hash_f(&self, checkpoint_id: F, leaf_checkpoint_id: F) -> RpcResult<QHashOut<F>> {
         Ok(self
             .ctx
             .store_reader
-            .get_checkpoint_tree_leaf_hash(
-                checkpoint_id.to_canonical_u64(),
-                leaf_checkpoint_id.to_canonical_u64(),
-            )
+            .get_checkpoint_tree_leaf_hash(checkpoint_id.to_canonical_u64(), leaf_checkpoint_id.to_canonical_u64())
             .await
             .map_err(RpcError::Anyhow)?)
     }
 
-    async fn get_checkpoint_tree_merkle_proof(
-        &self,
-        checkpoint_id: u64,
-        leaf_checkpoint_id: u64,
-    ) -> RpcResult<MerkleProofCore<QHashOut<F>>> {
+    async fn get_checkpoint_tree_merkle_proof(&self, checkpoint_id: u64, leaf_checkpoint_id: u64) -> RpcResult<MerkleProofCore<QHashOut<F>>> {
         Ok(self
             .ctx
             .store_reader
@@ -520,25 +495,15 @@ where
             .map_err(RpcError::Anyhow)?)
     }
 
-    async fn get_checkpoint_tree_merkle_proof_f(
-        &self,
-        checkpoint_id: F,
-        leaf_checkpoint_id: F,
-    ) -> RpcResult<MerkleProofCore<QHashOut<F>>> {
+    async fn get_checkpoint_tree_merkle_proof_f(&self, checkpoint_id: F, leaf_checkpoint_id: F) -> RpcResult<MerkleProofCore<QHashOut<F>>> {
         Ok(self
             .ctx
             .store_reader
-            .get_checkpoint_tree_merkle_proof(
-                checkpoint_id.to_canonical_u64(),
-                leaf_checkpoint_id.to_canonical_u64(),
-            )
+            .get_checkpoint_tree_merkle_proof(checkpoint_id.to_canonical_u64(), leaf_checkpoint_id.to_canonical_u64())
             .await
             .map_err(RpcError::Anyhow)?)
     }
-    async fn get_checkpoint_global_state_roots(
-        &self,
-        checkpoint_id: u64,
-    ) -> RpcResult<QEDCheckpointGlobalStateRoots<F>> {
+    async fn get_checkpoint_global_state_roots(&self, checkpoint_id: u64) -> RpcResult<QEDCheckpointGlobalStateRoots<F>> {
         Ok(self
             .ctx
             .store_reader
@@ -547,11 +512,7 @@ where
             .map_err(RpcError::Anyhow)?)
     }
 
-    async fn get_user_leaf_data(
-        &self,
-        checkpoint_id: u64,
-        user_id: u64,
-    ) -> RpcResult<QEDUserLeaf<F>> {
+    async fn get_user_leaf_data(&self, checkpoint_id: u64, user_id: u64) -> RpcResult<QEDUserLeaf<F>> {
         Ok(self
             .ctx
             .store_reader
@@ -560,11 +521,7 @@ where
             .map_err(RpcError::Anyhow)?)
     }
 
-    async fn get_user_leaf_data_f(
-        &self,
-        checkpoint_id: F,
-        user_id: F,
-    ) -> RpcResult<QEDUserLeaf<F>> {
+    async fn get_user_leaf_data_f(&self, checkpoint_id: F, user_id: F) -> RpcResult<QEDUserLeaf<F>> {
         Ok(self
             .ctx
             .store_reader
@@ -573,12 +530,7 @@ where
             .map_err(RpcError::Anyhow)?)
     }
 
-    async fn get_user_contract_state_tree_root(
-        &self,
-        checkpoint_id: u64,
-        user_id: u64,
-        contract_id: u32,
-    ) -> RpcResult<QHashOut<F>> {
+    async fn get_user_contract_state_tree_root(&self, checkpoint_id: u64, user_id: u64, contract_id: u32) -> RpcResult<QHashOut<F>> {
         Ok(self
             .ctx
             .store_reader
@@ -587,12 +539,7 @@ where
             .map_err(RpcError::Anyhow)?)
     }
 
-    async fn get_user_contract_state_tree_root_f(
-        &self,
-        checkpoint_id: F,
-        user_id: F,
-        contract_id: F,
-    ) -> RpcResult<QHashOut<F>> {
+    async fn get_user_contract_state_tree_root_f(&self, checkpoint_id: F, user_id: F, contract_id: F) -> RpcResult<QHashOut<F>> {
         Ok(self
             .ctx
             .store_reader
@@ -616,13 +563,7 @@ where
         Ok(self
             .ctx
             .store_reader
-            .get_user_contract_state_tree_leaf_hash(
-                checkpoint_id,
-                user_id,
-                contract_id,
-                height,
-                leaf_id,
-            )
+            .get_user_contract_state_tree_leaf_hash(checkpoint_id, user_id, contract_id, height, leaf_id)
             .await
             .map_err(RpcError::Anyhow)?)
     }
@@ -638,13 +579,7 @@ where
         Ok(self
             .ctx
             .store_reader
-            .get_user_contract_state_tree_leaf_hash_f(
-                checkpoint_id,
-                user_id,
-                contract_id,
-                height,
-                leaf_id,
-            )
+            .get_user_contract_state_tree_leaf_hash_f(checkpoint_id, user_id, contract_id, height, leaf_id)
             .await
             .map_err(RpcError::Anyhow)?)
     }
@@ -660,13 +595,7 @@ where
         Ok(self
             .ctx
             .store_reader
-            .get_user_contract_state_tree_merkle_proof(
-                checkpoint_id,
-                user_id,
-                contract_id,
-                height,
-                leaf_id,
-            )
+            .get_user_contract_state_tree_merkle_proof(checkpoint_id, user_id, contract_id, height, leaf_id)
             .await
             .map_err(RpcError::Anyhow)?)
     }
@@ -682,22 +611,12 @@ where
         Ok(self
             .ctx
             .store_reader
-            .get_user_contract_state_tree_merkle_proof_f(
-                checkpoint_id,
-                user_id,
-                contract_id,
-                height,
-                leaf_id,
-            )
+            .get_user_contract_state_tree_merkle_proof_f(checkpoint_id, user_id, contract_id, height, leaf_id)
             .await
             .map_err(RpcError::Anyhow)?)
     }
 
-    async fn get_user_contract_tree_root(
-        &self,
-        checkpoint_id: u64,
-        user_id: u64,
-    ) -> RpcResult<QHashOut<F>> {
+    async fn get_user_contract_tree_root(&self, checkpoint_id: u64, user_id: u64) -> RpcResult<QHashOut<F>> {
         Ok(self
             .ctx
             .store_reader
@@ -706,28 +625,16 @@ where
             .map_err(RpcError::Anyhow)?)
     }
 
-    async fn get_user_contract_tree_root_f(
-        &self,
-        checkpoint_id: F,
-        user_id: F,
-    ) -> RpcResult<QHashOut<F>> {
+    async fn get_user_contract_tree_root_f(&self, checkpoint_id: F, user_id: F) -> RpcResult<QHashOut<F>> {
         Ok(self
             .ctx
             .store_reader
-            .get_user_contract_tree_root(
-                checkpoint_id.to_canonical_u64(),
-                user_id.to_canonical_u64(),
-            )
+            .get_user_contract_tree_root(checkpoint_id.to_canonical_u64(), user_id.to_canonical_u64())
             .await
             .map_err(RpcError::Anyhow)?)
     }
 
-    async fn get_user_contract_tree_leaf_hash(
-        &self,
-        checkpoint_id: u64,
-        user_id: u64,
-        contract_id: u32,
-    ) -> RpcResult<QHashOut<F>> {
+    async fn get_user_contract_tree_leaf_hash(&self, checkpoint_id: u64, user_id: u64, contract_id: u32) -> RpcResult<QHashOut<F>> {
         Ok(self
             .ctx
             .store_reader
@@ -736,12 +643,7 @@ where
             .map_err(RpcError::Anyhow)?)
     }
 
-    async fn get_user_contract_tree_leaf_hash_f(
-        &self,
-        checkpoint_id: F,
-        user_id: F,
-        contract_id: F,
-    ) -> RpcResult<QHashOut<F>> {
+    async fn get_user_contract_tree_leaf_hash_f(&self, checkpoint_id: F, user_id: F, contract_id: F) -> RpcResult<QHashOut<F>> {
         Ok(self
             .ctx
             .store_reader
@@ -764,12 +666,7 @@ where
             .map_err(RpcError::Anyhow)?)
     }
 
-    async fn get_user_contract_tree_merkle_proof_f(
-        &self,
-        checkpoint_id: F,
-        user_id: F,
-        contract_id: F,
-    ) -> RpcResult<MerkleProofCore<QHashOut<F>>> {
+    async fn get_user_contract_tree_merkle_proof_f(&self, checkpoint_id: F, user_id: F, contract_id: F) -> RpcResult<MerkleProofCore<QHashOut<F>>> {
         Ok(self
             .ctx
             .store_reader
@@ -779,12 +676,7 @@ where
     }
 
     async fn get_user_tree_root(&self, checkpoint_id: u64) -> RpcResult<QHashOut<F>> {
-        Ok(self
-            .ctx
-            .store_reader
-            .get_user_tree_root(checkpoint_id)
-            .await
-            .map_err(RpcError::Anyhow)?)
+        Ok(self.ctx.store_reader.get_user_tree_root(checkpoint_id).await.map_err(RpcError::Anyhow)?)
     }
 
     async fn get_user_tree_root_f(&self, checkpoint_id: F) -> RpcResult<QHashOut<F>> {
@@ -796,11 +688,7 @@ where
             .map_err(RpcError::Anyhow)?)
     }
 
-    async fn get_user_tree_leaf_hash(
-        &self,
-        checkpoint_id: u64,
-        user_id: u64,
-    ) -> RpcResult<QHashOut<F>> {
+    async fn get_user_tree_leaf_hash(&self, checkpoint_id: u64, user_id: u64) -> RpcResult<QHashOut<F>> {
         Ok(self
             .ctx
             .store_reader
@@ -809,11 +697,7 @@ where
             .map_err(RpcError::Anyhow)?)
     }
 
-    async fn get_user_tree_leaf_hash_f(
-        &self,
-        checkpoint_id: F,
-        user_id: F,
-    ) -> RpcResult<QHashOut<F>> {
+    async fn get_user_tree_leaf_hash_f(&self, checkpoint_id: F, user_id: F) -> RpcResult<QHashOut<F>> {
         Ok(self
             .ctx
             .store_reader
@@ -822,12 +706,7 @@ where
             .map_err(RpcError::Anyhow)?)
     }
 
-    async fn get_user_bottom_tree_merkle_proof(
-        &self,
-        root_level: u8,
-        checkpoint_id: u64,
-        user_id: u64,
-    ) -> RpcResult<MerkleProofCore<QHashOut<F>>> {
+    async fn get_user_bottom_tree_merkle_proof(&self, root_level: u8, checkpoint_id: u64, user_id: u64) -> RpcResult<MerkleProofCore<QHashOut<F>>> {
         Ok(self
             .ctx
             .store_reader
@@ -836,20 +715,11 @@ where
             .map_err(RpcError::Anyhow)?)
     }
 
-    async fn get_user_bottom_tree_merkle_proof_f(
-        &self,
-        root_level: u8,
-        checkpoint_id: F,
-        user_id: F,
-    ) -> RpcResult<MerkleProofCore<QHashOut<F>>> {
+    async fn get_user_bottom_tree_merkle_proof_f(&self, root_level: u8, checkpoint_id: F, user_id: F) -> RpcResult<MerkleProofCore<QHashOut<F>>> {
         Ok(self
             .ctx
             .store_reader
-            .get_user_bottom_tree_merkle_proof(
-                root_level,
-                checkpoint_id.to_canonical_u64(),
-                user_id.to_canonical_u64(),
-            )
+            .get_user_bottom_tree_merkle_proof(root_level, checkpoint_id.to_canonical_u64(), user_id.to_canonical_u64())
             .await
             .map_err(RpcError::Anyhow)?)
     }
@@ -879,26 +749,13 @@ where
         Ok(self
             .ctx
             .store_reader
-            .get_user_sub_tree_merkle_proof(
-                checkpoint_id.to_canonical_u64(),
-                root_level,
-                leaf_level,
-                leaf_index.to_canonical_u64(),
-            )
+            .get_user_sub_tree_merkle_proof(checkpoint_id.to_canonical_u64(), root_level, leaf_level, leaf_index.to_canonical_u64())
             .await
             .map_err(RpcError::Anyhow)?)
     }
 
-    async fn get_user_tree_merkle_proof(
-        &self,
-        checkpoint_id: u64,
-        user_id: u64,
-    ) -> RpcResult<MerkleProofCore<QHashOut<F>>> {
-        tracing::info!(
-            "get_user_tree_merkle_proof: checkpoint_id={}, user_id={}",
-            checkpoint_id,
-            user_id
-        );
+    async fn get_user_tree_merkle_proof(&self, checkpoint_id: u64, user_id: u64) -> RpcResult<MerkleProofCore<QHashOut<F>>> {
+        tracing::info!("get_user_tree_merkle_proof: checkpoint_id={}, user_id={}", checkpoint_id, user_id);
         Ok(self
             .ctx
             .store_reader
@@ -906,7 +763,6 @@ where
             .await
             .map_err(RpcError::Anyhow)?)
     }
-
 
     async fn generate_batch_variable_height_reward_proofs(
         &self,
@@ -922,30 +778,25 @@ where
             let candidate_checkpoint_id = checkpoint_id + offset;
 
             if let Ok(graph) = self.task_store.load_job_dependency_graph(candidate_checkpoint_id).await {
-                let all_jobs_found = job_ids.iter().all(|job_id| {
-                    match job_id.circuit_type {
-                        ProvingJobCircuitType::AppendUserRegistrationTree |
-                        ProvingJobCircuitType::AppendUserRegistrationTreeAggregate |
-                        ProvingJobCircuitType::DummyAppendUserRegistrationTreeAggregate => {
-                            graph.user_registrations_graph.has_node(job_id)
-                        }
-                        ProvingJobCircuitType::BatchDeployContracts |
-                        ProvingJobCircuitType::BatchDeployContractsAggregate |
-                        ProvingJobCircuitType::DummyBatchDeployContractsAggregate => {
-                            graph.deploy_contracts_graph.has_node(job_id)
-                        }
-                        ProvingJobCircuitType::GUTARegisterUsers |
-                        ProvingJobCircuitType::GUTAOnlyRegisterUsers |
-                        ProvingJobCircuitType::GUTATwoGUTA | ProvingJobCircuitType::GUTANoChange |
-                        ProvingJobCircuitType::GUTASingleEndCap | ProvingJobCircuitType::GUTATwoEndCap |
-                        ProvingJobCircuitType::GUTALeftEndCapRightGUTA | ProvingJobCircuitType::GUTALeftGUTARightEndCap |
-                        ProvingJobCircuitType::GUTATwoGUTAWithCheckpointUpgrade  |
-                        ProvingJobCircuitType::GUTAVerifyToCapWithCheckpointUpgrade |
-                        ProvingJobCircuitType::GUTAVerifyToCap => {
-                            graph.guta_graph.has_node(job_id)
-                        }
-                        _ => false
-                    }
+                let all_jobs_found = job_ids.iter().all(|job_id| match job_id.circuit_type {
+                    ProvingJobCircuitType::AppendUserRegistrationTree
+                    | ProvingJobCircuitType::AppendUserRegistrationTreeAggregate
+                    | ProvingJobCircuitType::DummyAppendUserRegistrationTreeAggregate => graph.user_registrations_graph.has_node(job_id),
+                    ProvingJobCircuitType::BatchDeployContracts
+                    | ProvingJobCircuitType::BatchDeployContractsAggregate
+                    | ProvingJobCircuitType::DummyBatchDeployContractsAggregate => graph.deploy_contracts_graph.has_node(job_id),
+                    ProvingJobCircuitType::GUTARegisterUsers
+                    | ProvingJobCircuitType::GUTAOnlyRegisterUsers
+                    | ProvingJobCircuitType::GUTATwoGUTA
+                    | ProvingJobCircuitType::GUTANoChange
+                    | ProvingJobCircuitType::GUTASingleEndCap
+                    | ProvingJobCircuitType::GUTATwoEndCap
+                    | ProvingJobCircuitType::GUTALeftEndCapRightGUTA
+                    | ProvingJobCircuitType::GUTALeftGUTARightEndCap
+                    | ProvingJobCircuitType::GUTATwoGUTAWithCheckpointUpgrade
+                    | ProvingJobCircuitType::GUTAVerifyToCapWithCheckpointUpgrade
+                    | ProvingJobCircuitType::GUTAVerifyToCap => graph.guta_graph.has_node(job_id),
+                    _ => false,
                 });
                 if all_jobs_found {
                     actual_checkpoint_id = candidate_checkpoint_id;
@@ -955,29 +806,42 @@ where
             }
         }
 
-        let graph = job_graph.ok_or_else(|| ErrorObject::owned(
-            jsonrpsee::types::ErrorCode::InvalidParams.code(),
-            format!("Jobs not found in checkpoints {} to {}", checkpoint_id, checkpoint_id + 4),
-            None::<()>,
-        ))?;
-
+        let graph = job_graph.ok_or_else(|| {
+            ErrorObject::owned(
+                jsonrpsee::types::ErrorCode::InvalidParams.code(),
+                format!("Jobs not found in checkpoints {} to {}", checkpoint_id, checkpoint_id + 4),
+                None::<()>,
+            )
+        })?;
 
         let mut proofs = Vec::new();
 
         for job_id in job_ids {
             debug!("job_id: {}", job_id.to_hex_string());
-            match graph.generate_variable_height_reward_proof(job_id, self.ctx.realm_config.realm_id, &*self.ctx.proof_store).await {
+            match graph
+                .generate_variable_height_reward_proof(job_id, self.ctx.realm_config.realm_id, &*self.ctx.proof_store)
+                .await
+            {
                 Ok((realm_proof, root_job_id)) => {
-                    debug!("realm proof: {}, root_job_id: {}", serde_json::to_string_pretty(&realm_proof).unwrap(), root_job_id.to_hex_string());
-                    let coordinator_proofs = self.coordinator_client
+                    debug!(
+                        "realm proof: {}, root_job_id: {}",
+                        serde_json::to_string_pretty(&realm_proof).unwrap(),
+                        root_job_id.to_hex_string()
+                    );
+                    let coordinator_proofs = self
+                        .coordinator_client
                         .request::<Vec<(VariableHeightRewardMerkleProof, QProvingJobDataID)>, _>(
                             "qed_generate_batch_variable_height_reward_proofs",
-                            jsonrpsee::rpc_params![checkpoint_id, vec![root_job_id]]
-                        ).await.map_err(|e| ErrorObject::owned(
-                            jsonrpsee::types::ErrorCode::InternalError.code(),
-                            format!("Failed to get coordinator proof: {}", e),
-                            None::<()>,
-                        ))?;
+                            jsonrpsee::rpc_params![checkpoint_id, vec![root_job_id]],
+                        )
+                        .await
+                        .map_err(|e| {
+                            ErrorObject::owned(
+                                jsonrpsee::types::ErrorCode::InternalError.code(),
+                                format!("Failed to get coordinator proof: {}", e),
+                                None::<()>,
+                            )
+                        })?;
 
                     if coordinator_proofs.is_empty() {
                         return Err(ErrorObject::owned(
@@ -988,37 +852,43 @@ where
                     }
 
                     let (coordinator_proof, root_job_id) = coordinator_proofs.into_iter().next().unwrap();
-                    debug!("coordinator proof: {}, root_job_id: {}", serde_json::to_string_pretty(&coordinator_proof).unwrap(), root_job_id.to_hex_string());
+                    debug!(
+                        "coordinator proof: {}, root_job_id: {}",
+                        serde_json::to_string_pretty(&coordinator_proof).unwrap(),
+                        root_job_id.to_hex_string()
+                    );
                     let combined_proof = realm_proof.combine_with(coordinator_proof);
                     debug!("combined proof: {}", serde_json::to_string_pretty(&combined_proof).unwrap());
 
                     let (computed_root, _) = combined_proof.compute_root_and_nullifier_index();
 
-                    let checkpoint_leaf = self.ctx.store_reader
-                        .get_checkpoint_leaf_data(root_job_id.goal_id)
-                        .await
-                        .map_err(|e| ErrorObject::owned(
+                    let checkpoint_leaf = self.ctx.store_reader.get_checkpoint_leaf_data(root_job_id.goal_id).await.map_err(|e| {
+                        ErrorObject::owned(
                             jsonrpsee::types::ErrorCode::InternalError.code(),
                             format!("Failed to get checkpoint data for {}: {}", root_job_id.goal_id, e),
                             None::<()>,
-                        ))?;
+                        )
+                    })?;
                     let expected_root = match job_id.circuit_type {
-                        ProvingJobCircuitType::AppendUserRegistrationTree |
-                        ProvingJobCircuitType::AppendUserRegistrationTreeAggregate |
-                        ProvingJobCircuitType::DummyAppendUserRegistrationTreeAggregate => {
+                        ProvingJobCircuitType::AppendUserRegistrationTree
+                        | ProvingJobCircuitType::AppendUserRegistrationTreeAggregate
+                        | ProvingJobCircuitType::DummyAppendUserRegistrationTreeAggregate => {
                             checkpoint_leaf.stats.pm_rewards_commitment.register_users_root
                         }
-                        ProvingJobCircuitType::GUTARegisterUsers |
-                        ProvingJobCircuitType::GUTAOnlyRegisterUsers |
-                        ProvingJobCircuitType::GUTATwoGUTA | ProvingJobCircuitType::GUTANoChange | ProvingJobCircuitType::GUTASingleEndCap |
-                        ProvingJobCircuitType::GUTATwoEndCap | ProvingJobCircuitType::GUTALeftEndCapRightGUTA |
-                        ProvingJobCircuitType::GUTATwoGUTAWithCheckpointUpgrade | ProvingJobCircuitType::GUTAVerifyToCapWithCheckpointUpgrade |
-                        ProvingJobCircuitType::GUTALeftGUTARightEndCap | ProvingJobCircuitType::GUTAVerifyToCap => {
-                            checkpoint_leaf.stats.pm_rewards_commitment.gutas_root
-                        }
-                        ProvingJobCircuitType::BatchDeployContracts |
-                        ProvingJobCircuitType::BatchDeployContractsAggregate |
-                        ProvingJobCircuitType::DummyBatchDeployContractsAggregate => {
+                        ProvingJobCircuitType::GUTARegisterUsers
+                        | ProvingJobCircuitType::GUTAOnlyRegisterUsers
+                        | ProvingJobCircuitType::GUTATwoGUTA
+                        | ProvingJobCircuitType::GUTANoChange
+                        | ProvingJobCircuitType::GUTASingleEndCap
+                        | ProvingJobCircuitType::GUTATwoEndCap
+                        | ProvingJobCircuitType::GUTALeftEndCapRightGUTA
+                        | ProvingJobCircuitType::GUTATwoGUTAWithCheckpointUpgrade
+                        | ProvingJobCircuitType::GUTAVerifyToCapWithCheckpointUpgrade
+                        | ProvingJobCircuitType::GUTALeftGUTARightEndCap
+                        | ProvingJobCircuitType::GUTAVerifyToCap => checkpoint_leaf.stats.pm_rewards_commitment.gutas_root,
+                        ProvingJobCircuitType::BatchDeployContracts
+                        | ProvingJobCircuitType::BatchDeployContractsAggregate
+                        | ProvingJobCircuitType::DummyBatchDeployContractsAggregate => {
                             checkpoint_leaf.stats.pm_rewards_commitment.deploy_contracts_root
                         }
                         _ => {
@@ -1033,7 +903,9 @@ where
                     if computed_root != expected_root {
                         tracing::warn!(
                             "Root mismatch for job({}): expected {}, got {}",
-                            job_id.to_hex_string(), expected_root, computed_root
+                            job_id.to_hex_string(),
+                            expected_root,
+                            computed_root
                         );
                     }
 
@@ -1054,12 +926,13 @@ where
     }
 
     async fn get_graphviz(&self, checkpoint_id: u64) -> RpcResult<String> {
-        let graph = self.task_store.load_job_dependency_graph(checkpoint_id).await
-            .map_err(|e| ErrorObject::owned(
+        let graph = self.task_store.load_job_dependency_graph(checkpoint_id).await.map_err(|e| {
+            ErrorObject::owned(
                 jsonrpsee::types::ErrorCode::InternalError.code(),
                 format!("Failed to load job dependency graph: {}", e),
                 None::<()>,
-            ))?;
+            )
+        })?;
         let graphviz_content = graph.get_graphviz();
         Ok(graphviz_content)
     }
@@ -1073,9 +946,9 @@ where
     PS: QProofStoreAsyncImm + Sync + Send + 'static,
 {
     async fn get_pending_job(&self, signed: SignedRequest<QEDHash>) -> RpcResult<Option<QJob>> {
-        self.whitelist_cache.verify_request(&signed, &MESSAGE_CLAIM_JOB.to_string(), Some(Duration::from_secs(30))).map_err(|e|
-            RpcError::Anyhow(e.into())
-        )?;
+        self.whitelist_cache
+            .verify_request(&signed, &MESSAGE_CLAIM_JOB.to_string(), Some(Duration::from_secs(30)))
+            .map_err(|e| RpcError::Anyhow(e.into()))?;
 
         let worker_id = signed.worker_public_key.to_string();
         let j = match self.task_store.acquire_job(&worker_id).await {
@@ -1108,10 +981,8 @@ where
                 }
 
                 Ok(Some(job))
-            },
-            _ => {
-                Ok(None)
             }
+            _ => Ok(None),
         }
     }
 
@@ -1127,29 +998,22 @@ where
     }
 
     async fn get_bytes_by_id(&self, job_id: QProvingJobDataID) -> RpcResult<Vec<u8>> {
-        let bytes = self
-            .ctx
-            .proof_store
-            .get_bytes_by_id(job_id)
-            .await
-            .map_err(RpcError::Anyhow)?;
+        let bytes = self.ctx.proof_store.get_bytes_by_id(job_id).await.map_err(RpcError::Anyhow)?;
         Ok(bytes)
     }
 
-    async fn set_proof_by_id(
-        &self,
-        job: QJob,
-        proof: QEDProof,
-        signed: SignedRequest<QEDHash>,
-    ) -> RpcResult<()> {
+    async fn set_proof_by_id(&self, job: QJob, proof: QEDProof, signed: SignedRequest<QEDHash>) -> RpcResult<()> {
         // Verify signature and whitelist
-        self.whitelist_cache.verify_request(&signed, &proof, Some(Duration::from_secs(300))).map_err(|e|
-            RpcError::Anyhow(e.into())
-        )?;
+        self.whitelist_cache
+            .verify_request(&signed, &proof, Some(Duration::from_secs(300)))
+            .map_err(|e| RpcError::Anyhow(e.into()))?;
 
         let job_id = job.job_id;
         // CRITICAL: Validate job ownership before processing proof
-        let validation_status = self.task_store.validate_and_extend_job(&job).await
+        let validation_status = self
+            .task_store
+            .validate_and_extend_job(&job)
+            .await
             .map_err(|e| RpcError::Anyhow(anyhow!("Failed to validate job: {}", e)))?;
 
         match validation_status {
@@ -1164,30 +1028,25 @@ where
             }
             JobValidationStatus::WrongLayer { expected, provided } => {
                 error!(
-                "⚠️ Worker submitted job {:?} for wrong layer: expected {}, got {}",
-                job_id, expected, provided
-            );
+                    "⚠️ Worker submitted job {:?} for wrong layer: expected {}, got {}",
+                    job_id, expected, provided
+                );
                 self.log_suspicious_activity(&job, "wrong_layer").await;
                 return Err(crate::coordinator::edge::error::RpcError::Anyhow(anyhow!(
                     "Invalid submission: wrong layer (expected {}, got {})",
-                    expected, provided
+                    expected,
+                    provided
                 )));
             }
             JobValidationStatus::MessageNotFound => {
-                error!(
-                    "⚠️ Worker submitted proof for non-existent job {:?}, msg_id: {}",
-                    job_id, job.msg_id
-                );
+                error!("⚠️ Worker submitted proof for non-existent job {:?}, msg_id: {}", job_id, job.msg_id);
                 self.log_suspicious_activity(&job, "message_not_found").await;
                 return Err(crate::coordinator::edge::error::RpcError::Anyhow(anyhow!(
                     "Invalid submission: job not found"
                 )));
             }
             JobValidationStatus::MessageNotHidden => {
-                error!(
-                    "⚠️ Worker submitted proof for non-hidden job {:?}, msg_id: {}",
-                    job_id, job.msg_id
-                );
+                error!("⚠️ Worker submitted proof for non-hidden job {:?}, msg_id: {}", job_id, job.msg_id);
                 self.log_suspicious_activity(&job, "message_not_hidden").await;
                 return Err(crate::coordinator::edge::error::RpcError::Anyhow(anyhow!(
                     "Invalid submission: job not being processed"
@@ -1199,19 +1058,12 @@ where
 
         crate::common::log_proof_details("Realm", job_id, &proof);
 
-        verify_witness_and_proof(
-            &self.ctx.proof_verifier,
-            job_id,
-            self.ctx.proof_store.as_ref(),
-            &proof,
-        ).await.map_err(|e| RpcError::Anyhow(e.into()))?;
+        verify_witness_and_proof(&self.ctx.proof_verifier, job_id, self.ctx.proof_store.as_ref(), &proof)
+            .await
+            .map_err(|e| RpcError::Anyhow(e.into()))?;
 
         let output_id = job_id.get_output_id();
-        self.ctx
-            .proof_store
-            .set_proof_by_id(output_id, &proof)
-            .await
-            .map_err(RpcError::Anyhow)?;
+        self.ctx.proof_store.set_proof_by_id(output_id, &proof).await.map_err(RpcError::Anyhow)?;
 
         // remove the job from the current task, no matter if proof is None or Some
         let worker_id = signed.worker_public_key.to_string();
@@ -1219,7 +1071,6 @@ where
         Ok(())
     }
 }
-
 
 impl<SR, DQ, PS> RealmEdgeHandler<SR, DQ, PS>
 where
@@ -1235,10 +1086,10 @@ where
             Ok(status) => {
                 info!("Job completed successfully: {:?}", job_id);
                 status
-            },
+            }
             Err(e) => {
                 error!("Error acknowledging job completion: {:?}", e);
-                return Err(e.into())
+                return Err(e.into());
             }
         };
 
@@ -1262,9 +1113,7 @@ where
 
         if job_id.is_notify_complete() {
             info!("Notifying core goal completed: {:?}", job_id);
-            self.job_notify_queue
-                .notify_core_goal_completed_imm(job_id)
-                .await?;
+            self.job_notify_queue.notify_core_goal_completed_imm(job_id).await?;
         }
 
         Ok(())
@@ -1286,11 +1135,7 @@ where
         let key = format!("{}_{}", shared_checkpoint.uuid, user_id);
         let value = self.queue_helper.get_key(&key).await;
         if let Ok(stored_queue_uuid) = value {
-            return if stored_queue_uuid == queue_uuid {
-                Ok(true)
-            } else {
-                Ok(false)
-            }
+            return if stored_queue_uuid == queue_uuid { Ok(true) } else { Ok(false) };
         }
 
         Ok(false)
@@ -1307,7 +1152,8 @@ where
     async fn put_proof_id(&self, job_id: QProvingJobDataID, proof: QEDProof) -> anyhow::Result<()> {
         self.ctx.proof_store.set_proof_by_id(job_id, &proof).await?;
 
-        debug!("Stored proof for job {} in realm {}",
+        debug!(
+            "Stored proof for job {} in realm {}",
             job_id.to_hex_string(),
             self.ctx.realm_config.realm_id
         );
@@ -1315,4 +1161,3 @@ where
         Ok(())
     }
 }
-

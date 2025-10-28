@@ -1,8 +1,14 @@
 use std::marker::PhantomData;
 
-use psy_vm::dpn::{eval::exec_eval::exec_eval_simple, ops::{context_trait::{ContextFelt, DPNContext}, exec_context::QExecContext, sym_felt::SymFeltRef}};
+use psy_vm::dpn::{
+    eval::exec_eval::exec_eval_simple,
+    ops::{
+        context_trait::{ContextFelt, DPNContext},
+        exec_context::QExecContext,
+        sym_felt::SymFeltRef,
+    },
+};
 use psylang_macros::qcontract;
-
 
 pub struct ExampleContract2<F: ContextFelt, C: DPNContext<F>> {
     _phantom: PhantomData<(F, C)>,
@@ -10,9 +16,7 @@ pub struct ExampleContract2<F: ContextFelt, C: DPNContext<F>> {
 
 impl<F: ContextFelt, C: DPNContext<F>> ExampleContract2<F, C> {
     pub fn new() -> ExampleContract2<F, C> {
-        ExampleContract2 {
-            _phantom: PhantomData,
-        }
+        ExampleContract2 { _phantom: PhantomData }
     }
     pub fn inc_counter_small(&mut self, ctx: &mut C, a: F, b: F) -> F {
         let k = {
@@ -47,7 +51,6 @@ impl<F: ContextFelt, C: DPNContext<F>> ExampleContract2<F, C> {
     }
 }
 
-
 type F = SymFeltRef;
 pub struct ExampleContract3C<C: DPNContext<F>> {
     _phantom: PhantomData<C>,
@@ -55,12 +58,10 @@ pub struct ExampleContract3C<C: DPNContext<F>> {
 
 impl<C: DPNContext<F>> ExampleContract3C<C> {
     pub fn new() -> ExampleContract3C<C> {
-        ExampleContract3C {
-            _phantom: PhantomData,
-        }
+        ExampleContract3C { _phantom: PhantomData }
     }
-    pub fn inc_counter_small(&mut self, ctx: &mut C, a: F, b: F) -> F{
-        let k = (a*2)+4*b-1*2;
+    pub fn inc_counter_small(&mut self, ctx: &mut C, a: F, b: F) -> F {
+        let k = (a * 2) + 4 * b - 1 * 2;
         let z = k + a;
         ctx.assert_true((z > 3).into(), "z must be gt than 3");
         z
@@ -69,20 +70,18 @@ impl<C: DPNContext<F>> ExampleContract3C<C> {
 pub struct ExampleContract3D<C: DPNContext<F>> {
     _phantom: PhantomData<C>,
 }
-impl <C: DPNContext<F>> ExampleContract3D<C> {
+impl<C: DPNContext<F>> ExampleContract3D<C> {
     pub fn new() -> ExampleContract3D<C> {
-        ExampleContract3D {
-            _phantom: PhantomData,
-        }
+        ExampleContract3D { _phantom: PhantomData }
     }
 }
 #[qcontract]
 impl<C: DPNContext<F>> ExampleContract3D<C> {
-    pub fn inc_counter_small(&mut self, ctx: &mut C, a: F, b: F) -> F{
-        let k = (a*2)+4*b-1*2;
+    pub fn inc_counter_small(&mut self, ctx: &mut C, a: F, b: F) -> F {
+        let k = (a * 2) + 4 * b - 1 * 2;
         let z = k + a;
-        
-        ctx.assert_true(z>3, "z must be gt than 3");
+
+        ctx.assert_true(z > 3, "z must be gt than 3");
         z
     }
 }
@@ -101,15 +100,15 @@ pub fn test_it_3v2() {
     let a = ctx.add_input();
     let b = ctx.add_input();
     let z = contract.inc_counter_small(&mut ctx, a, b);
-    let result = exec_eval_simple(vec![2,3], &ctx, Some(vec![z]));
-
+    let result = exec_eval_simple(vec![2, 3], &ctx, Some(vec![z]));
 
     assert_eq!(result[0], 16);
 }
 #[cfg(test)]
 mod test {
-    use super::*;
     use psy_vm::dpn::{ops::exec_context::QExecContext, runtime_felt::runtime_context::QRuntimeContext};
+
+    use super::*;
 
     #[test]
     fn test_example_contract3() {
@@ -131,7 +130,7 @@ mod test {
         assert_eq!(z.get_u64(), 16);
     }
     #[test]
-    fn test_sym_1(){
+    fn test_sym_1() {
         test_it_3v2();
     }
 }

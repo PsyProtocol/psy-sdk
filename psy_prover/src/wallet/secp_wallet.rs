@@ -1,5 +1,7 @@
 #![cfg(not(target_arch = "wasm32"))]
 
+use std::{collections::HashMap, fmt, fs, path::Path};
+
 use alloy_primitives::{Address, B256};
 use alloy_signer::{Signer, SignerSync};
 use alloy_signer_local::{
@@ -11,15 +13,15 @@ use k256::{
     ecdsa::SigningKey,
     sha2::{Digest, Sha256},
 };
-use plonky2::field::goldilocks_field::GoldilocksField;
-use plonky2::hash::poseidon::PoseidonPermutation;
-use psy_core::data::{qhashout::QHashOut, secp256k1::CompressedPublicKey};
+use plonky2::{field::goldilocks_field::GoldilocksField, hash::poseidon::PoseidonPermutation};
+use psy_core::{
+    config::network_constants::QED_NETWORK_MAGIC_REGTEST,
+    data::{qhashout::QHashOut, secp256k1::CompressedPublicKey},
+};
 use psy_crypto::signature::zk::data::ZKPublicKeyInfo;
 use serde::Serialize;
-use std::{collections::HashMap, fmt, fs, path::Path};
 
 use crate::wallet::secp_sign::SignedRequest;
-use psy_core::config::network_constants::QED_NETWORK_MAGIC_REGTEST;
 
 pub struct WalletConfig {
     pub default_keystore_dir: Option<String>,
@@ -29,8 +31,7 @@ pub struct WalletConfig {
 impl Default for WalletConfig {
     fn default() -> Self {
         Self {
-            default_keystore_dir: dirs::home_dir()
-                .map(|h| h.join(".psy/keystore").to_string_lossy().into_owned()),
+            default_keystore_dir: dirs::home_dir().map(|h| h.join(".psy/keystore").to_string_lossy().into_owned()),
             default_password: None,
         }
     }
@@ -58,8 +59,7 @@ impl Wallet {
         let mut key_array = [0u8; 32];
         key_array.copy_from_slice(key);
 
-        let signing_key =
-            SigningKey::from_bytes(&key_array.into()).context("Invalid private key")?;
+        let signing_key = SigningKey::from_bytes(&key_array.into()).context("Invalid private key")?;
 
         Self::from_signer(PrivateKeySigner::from_signing_key(signing_key))
     }
@@ -94,8 +94,7 @@ impl Wallet {
         validate_word_count(word_count)?;
 
         let mut rng = rand::thread_rng();
-        let mnemonic = Mnemonic::<English>::new_with_count(&mut rng, word_count)
-            .context("Failed to generate mnemonic")?;
+        let mnemonic = Mnemonic::<English>::new_with_count(&mut rng, word_count).context("Failed to generate mnemonic")?;
 
         Ok(mnemonic.to_phrase())
     }
@@ -147,10 +146,7 @@ impl Wallet {
 
         // Validate public key length
         if public_key.len() != 64 && public_key.len() != 65 {
-            return Err(anyhow!(
-                "Invalid public key length: expected 64 or 65 bytes, got {}",
-                public_key.len()
-            ));
+            return Err(anyhow!("Invalid public key length: expected 64 or 65 bytes, got {}", public_key.len()));
         }
 
         // Handle both compressed and uncompressed formats
@@ -174,10 +170,7 @@ impl Wallet {
         Ok(Address::from(address_bytes))
     }
 
-    pub fn sign_eip712<T: crate::wallet::secp_sign::Eip712Signable>(
-        &self,
-        data: T,
-    ) -> Result<SignedRequest<T>> {
+    pub fn sign_eip712<T: crate::wallet::secp_sign::Eip712Signable>(&self, data: T) -> Result<SignedRequest<T>> {
         SignedRequest::new(self, data)
     }
 
@@ -210,14 +203,8 @@ impl Wallet {
 
         let (dir, name) = split_path(path);
 
-        let (_, uuid) = PrivateKeySigner::encrypt_keystore(
-            dir.clone(),
-            &mut rng,
-            private_key,
-            password,
-            name.as_deref(),
-        )
-        .context("Failed to encrypt keystore")?;
+        let (_, uuid) = PrivateKeySigner::encrypt_keystore(dir.clone(), &mut rng, private_key, password, name.as_deref())
+            .context("Failed to encrypt keystore")?;
 
         let final_path = build_keystore_path(&dir, name.as_deref(), &uuid);
 
@@ -225,11 +212,7 @@ impl Wallet {
         Ok(())
     }
 
-    pub fn load(
-        private_key: Option<&str>,
-        keystore_path: Option<&Path>,
-        password: Option<&str>,
-    ) -> Result<Self> {
+    pub fn load(private_key: Option<&str>, keystore_path: Option<&Path>, password: Option<&str>) -> Result<Self> {
         if let Some(pk) = private_key {
             return Self::from_hex(pk);
         }
@@ -314,12 +297,7 @@ impl Wallet {
         let accounts = fs::read_dir(keystore_dir)?
             .filter_map(Result::ok)
             .filter(|e| e.path().is_file())
-            .filter_map(|e| {
-                e.path()
-                    .file_name()
-                    .and_then(|n| n.to_str())
-                    .map(String::from)
-            })
+            .filter_map(|e| e.path().file_name().and_then(|n| n.to_str()).map(String::from))
             .collect();
 
         Ok(accounts)
@@ -403,10 +381,7 @@ fn compress_public_key(public_key: &[u8]) -> Result<CompressedPublicKey> {
 }
 
 fn compute_wallet_id(compressed: CompressedPublicKey) -> QHashOut<GoldilocksField> {
-    crate::wallet::utils::hash_no_pad_compressed_public_key::<
-        GoldilocksField,
-        PoseidonPermutation<GoldilocksField>,
-    >(compressed)
+    crate::wallet::utils::hash_no_pad_compressed_public_key::<GoldilocksField, PoseidonPermutation<GoldilocksField>>(compressed)
 }
 
 fn create_vanity_matcher(prefix: Option<&str>, suffix: Option<&str>) -> impl Fn(&Address) -> bool {
@@ -415,8 +390,7 @@ fn create_vanity_matcher(prefix: Option<&str>, suffix: Option<&str>) -> impl Fn(
 
     move |addr: &Address| {
         let hex = hex::encode(addr.as_slice());
-        prefix.as_ref().map_or(true, |p| hex.starts_with(p))
-            && suffix.as_ref().map_or(true, |s| hex.ends_with(s))
+        prefix.as_ref().map_or(true, |p| hex.starts_with(p)) && suffix.as_ref().map_or(true, |s| hex.ends_with(s))
     }
 }
 
@@ -450,9 +424,11 @@ fn resolve_keystore_dir(dir: Option<&Path>) -> Result<std::path::PathBuf> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use std::path::PathBuf;
+
     use tempfile::tempdir;
+
+    use super::*;
 
     #[test]
     fn test_wallet_creation() {
@@ -613,19 +589,11 @@ mod tests {
 
         // Test loading with private key (priority 1)
         let private_key = original_wallet.private_key_hex();
-        let loaded_from_key = Wallet::load(
-            Some(&private_key),
-            None,
-            None
-        ).unwrap();
+        let loaded_from_key = Wallet::load(Some(&private_key), None, None).unwrap();
         assert_eq!(original_wallet.address(), loaded_from_key.address());
 
         // Test loading with keystore path (priority 2)
-        let loaded_from_keystore = Wallet::load(
-            None,
-            Some(&wallet_path),
-            Some(password)
-        ).unwrap();
+        let loaded_from_keystore = Wallet::load(None, Some(&wallet_path), Some(password)).unwrap();
         assert_eq!(original_wallet.address(), loaded_from_keystore.address());
     }
 

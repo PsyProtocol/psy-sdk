@@ -5,9 +5,8 @@ use plonky2::{
     plonk::circuit_builder::CircuitBuilder,
 };
 
-use crate::u32::multiple_comparison::list_lte_circuit;
-
 use super::core::CircuitBuilderHelpersCore;
+use crate::u32::multiple_comparison::list_lte_circuit;
 
 pub trait CircuitBuilderComparison<F: RichField + Extendable<D>, const D: usize> {
     fn is_less_than_or_equal(&mut self, num_bits: usize, x: Target, y: Target) -> BoolTarget;
@@ -19,16 +18,8 @@ pub trait CircuitBuilderComparison<F: RichField + Extendable<D>, const D: usize>
     fn is_not_equal_bool(&mut self, x: BoolTarget, y: BoolTarget) -> BoolTarget;
     fn is_zero(&mut self, x: Target) -> BoolTarget;
     fn is_equal_to_u64(&mut self, x: Target, value: u64) -> BoolTarget;
-    fn is_equal_hash(
-        &mut self,
-        true_value: HashOutTarget,
-        false_value: HashOutTarget,
-    ) -> BoolTarget;
-    fn is_not_equal_hash(
-        &mut self,
-        true_value: HashOutTarget,
-        false_value: HashOutTarget,
-    ) -> BoolTarget;
+    fn is_equal_hash(&mut self, true_value: HashOutTarget, false_value: HashOutTarget) -> BoolTarget;
+    fn is_not_equal_hash(&mut self, true_value: HashOutTarget, false_value: HashOutTarget) -> BoolTarget;
     fn is_zero_hash(&mut self, x: HashOutTarget) -> BoolTarget;
     fn is_not_zero(&mut self, x: Target) -> BoolTarget;
 
@@ -43,9 +34,7 @@ pub trait CircuitBuilderComparison<F: RichField + Extendable<D>, const D: usize>
     fn assert_non_zero(&mut self, x: Target);
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderComparison<F, D>
-    for CircuitBuilder<F, D>
-{
+impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderComparison<F, D> for CircuitBuilder<F, D> {
     fn is_less_than_or_equal(&mut self, num_bits: usize, x: Target, y: Target) -> BoolTarget {
         //list_lte_circuit(self, vec![x], vec![y], num_bits)
         self.is_less_than_or_equal_split(num_bits, x, y)
@@ -104,11 +93,10 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderComparison<F, D
         self.connect(is_eq.target, zero);
     }
 
-
     fn is_less_than_or_equal_split(&mut self, num_bits: usize, x: Target, y: Target) -> BoolTarget {
         if num_bits <= 32 {
             list_lte_circuit(self, vec![x], vec![y], num_bits)
-        }else{
+        } else {
             // x_low = x & 0xffffffff, x_high = x >> 32
             let (x_low_target, x_high_target) = self.split_low_high(x, 32, 64);
             // y_low = x & 0xffffffff, y_high = y >> 32
@@ -148,7 +136,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderComparison<F, D
     fn is_zero(&mut self, x: Target) -> BoolTarget {
         let zero = self.zero();
         self.is_equal(x, zero)
-
     }
 
     fn is_not_zero(&mut self, x: Target) -> BoolTarget {
@@ -165,10 +152,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderComparison<F, D
         let is_elem_01_zero = self.and(is_elem_0_zero, is_elem_1_zero);
         let is_elem_23_zero = self.and(is_elem_2_zero, is_elem_3_zero);
 
-
-
         self.and(is_elem_01_zero, is_elem_23_zero)
-
     }
 
     fn ensure_not_equal_bool(&mut self, x: BoolTarget, y: BoolTarget) {
@@ -187,7 +171,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderComparison<F, D
     fn is_equal_to_u64(&mut self, x: Target, value: u64) -> BoolTarget {
         if value == 0 {
             self.is_zero(x)
-        }else{
+        } else {
             let constant_u64 = self.constant_u64(value);
             self.is_equal(x, constant_u64)
         }
@@ -206,7 +190,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderComparison<F, D
         let is_equal = self.is_equal_hash(x, y);
         self.not(is_equal)
     }
-
 
     fn assert_zero_hash(&mut self, hash: HashOutTarget) {
         self.assert_zero(hash.elements[0]);

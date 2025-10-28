@@ -1,11 +1,14 @@
-use std::marker::PhantomData;
-use std::sync::Arc;
+use std::{marker::PhantomData, sync::Arc};
+
+use anyhow::Result;
 use async_trait::async_trait;
 use plonky2::hash::hash_types::RichField;
 use psy_store::queue::{QueueId, QueueStats, RsmqQueue};
-use crate::common_v2::traits::realm::{RealmEdgeUserUpdateSubmission, UniqueQueueId};
-use crate::realm::state::queue_traits::EdgeSubmissionQueue;
-use anyhow::Result;
+
+use crate::{
+    common_v2::traits::realm::{RealmEdgeUserUpdateSubmission, UniqueQueueId},
+    realm::state::queue_traits::EdgeSubmissionQueue,
+};
 pub struct SubmissionQueue<F: RichField> {
     queue: Arc<RsmqQueue>,
     realm_id: u32,
@@ -23,10 +26,7 @@ impl<F: RichField> SubmissionQueue<F> {
 
     fn get_queue_id(&self, checkpoint: &UniqueQueueId) -> QueueId {
         QueueId::WorkerEvent {
-            queue_biz_key: format!("realm_{}:uuid_{}",
-                                   self.realm_id,
-                                   checkpoint.uuid
-            ),
+            queue_biz_key: format!("realm_{}:uuid_{}", self.realm_id, checkpoint.uuid),
         }
     }
 }
@@ -78,11 +78,10 @@ impl<F: RichField + Send + Sync + 'static> EdgeSubmissionQueue<F> for Submission
         let mut msg_ids = Vec::new();
 
         // Receive messages with short visibility timeout
-        while let Some((msg, id)) = self.queue
-            .receive_object_with_id::<RealmEdgeUserUpdateSubmission<F>>(
-                &queue_id,
-                Some(std::time::Duration::from_secs(1))
-            ).await?
+        while let Some((msg, id)) = self
+            .queue
+            .receive_object_with_id::<RealmEdgeUserUpdateSubmission<F>>(&queue_id, Some(std::time::Duration::from_secs(1)))
+            .await?
         {
             submissions.push(msg);
             msg_ids.push(id);
@@ -90,11 +89,10 @@ impl<F: RichField + Send + Sync + 'static> EdgeSubmissionQueue<F> for Submission
 
         // Immediately reset visibility to make messages available again
         for msg_id in msg_ids {
-            let _ = self.queue.change_message_visibility(
-                &queue_id,
-                &msg_id,
-                std::time::Duration::from_secs(0)
-            ).await;
+            let _ = self
+                .queue
+                .change_message_visibility(&queue_id, &msg_id, std::time::Duration::from_secs(0))
+                .await;
         }
 
         Ok(submissions)
@@ -114,7 +112,6 @@ impl<F: RichField + Send + Sync + 'static> EdgeSubmissionQueue<F> for Submission
         let queue_id = self.get_queue_id(checkpoint);
         let stats = self.queue.get_queue_stats(&queue_id).await?;
         Ok(stats)
-
     }
 
     async fn has_messages(&self, checkpoint: &UniqueQueueId) -> Result<bool> {
@@ -125,6 +122,5 @@ impl<F: RichField + Send + Sync + 'static> EdgeSubmissionQueue<F> for Submission
     async fn get_message_count(&self, checkpoint: &UniqueQueueId) -> Result<u64> {
         let stats = self.get_queue_stats(checkpoint).await?;
         Ok(stats.total_messages)
-
     }
 }

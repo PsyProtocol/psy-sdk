@@ -1,8 +1,10 @@
 use chrono::Utc;
 use sqlx::PgPool;
 
-use crate::models::{GlobalRealmStats, RealmStats, WorkerStats};
-use crate::Result;
+use crate::{
+    models::{GlobalRealmStats, RealmStats, WorkerStats},
+    Result,
+};
 
 pub struct RealmStatsRepository;
 pub struct WorkerStatsRepository;
@@ -187,9 +189,7 @@ impl WorkerStatsRepository {
         .fetch_optional(pool)
         .await?;
 
-        let username = username_row
-            .and_then(|row| row.twitter_handle)
-            .filter(|s| !s.is_empty());
+        let username = username_row.and_then(|row| row.twitter_handle).filter(|s| !s.is_empty());
 
         // Get processing tasks count grouped by realm_id
         let processing_tasks_rows = sqlx::query!(
@@ -273,7 +273,8 @@ impl WorkerStatsRepository {
         let total_failed = total_completion_stats_row.total_failed.unwrap_or(0);
 
         // Calculate total rewards in the last 24 hours
-        // Only count rewards for GenerateStandardProof jobs (topic = 0) with COMPLETED status
+        // Only count rewards for GenerateStandardProof jobs (topic = 0) with COMPLETED
+        // status
         const REWARD_PER_PROOF: i64 = 5_000_000_000; // 5*10^9 psy
         const TOPIC_GENERATE_STANDARD_PROOF: i16 = 0;
 
@@ -346,8 +347,7 @@ impl WorkerStatsRepository {
         .fetch_optional(pool)
         .await?;
 
-        let last_completed_block_height =
-            last_completed_block_height_row.map(|row| row.block_height);
+        let last_completed_block_height = last_completed_block_height_row.map(|row| row.block_height);
 
         Ok(WorkerStats {
             public_key: worker_public_key.to_string(),

@@ -10,7 +10,7 @@ pub const PM_JOBS_COMPLETED_STATS_SIZE: usize = 3;
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
 pub struct PMJobsCompletedStats<F: RichField> {
     pub deploy_contracts_completed: F,
-    pub register_users_completed: F, 
+    pub register_users_completed: F,
     pub gutas_completed: F,
 }
 
@@ -68,20 +68,20 @@ impl<F: RichField> QFeltSized for PMJobsCompletedStats<F> {
 
 impl<F: RichField> ToQFelts<F> for PMJobsCompletedStats<F> {
     fn to_qfelts(&self) -> Vec<F> {
-        vec![
-            self.deploy_contracts_completed,
-            self.register_users_completed,
-            self.gutas_completed,
-        ]
+        vec![self.deploy_contracts_completed, self.register_users_completed, self.gutas_completed]
     }
 
     fn from_qfelts(felts: &[F]) -> Self {
         if felts.len() != PM_JOBS_COMPLETED_STATS_SIZE {
-            panic!("Invalid number of elements for PMJobsCompletedStats, expected {} got {}", PM_JOBS_COMPLETED_STATS_SIZE, felts.len());
+            panic!(
+                "Invalid number of elements for PMJobsCompletedStats, expected {} got {}",
+                PM_JOBS_COMPLETED_STATS_SIZE,
+                felts.len()
+            );
         }
         PMJobsCompletedStats {
             deploy_contracts_completed: felts[0],
-            register_users_completed: felts[1], 
+            register_users_completed: felts[1],
             gutas_completed: felts[2],
         }
     }

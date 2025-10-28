@@ -1,11 +1,15 @@
-use crate::cli::{resolve_crate_path_graph, save_build_artifact_to_file};
-use crate::errors::Result;
+use std::path::PathBuf;
+
 use clap::Args;
 use psy_abi::AbiExtractor;
-use psy_package::Workspace;
 use psy_interpreter::Interpreter;
+use psy_package::Workspace;
 use psy_vm::dpn::ops::{exec_context::QExecContext, sym_felt::SymFeltRef};
-use std::path::PathBuf;
+
+use crate::{
+    cli::{resolve_crate_path_graph, save_build_artifact_to_file},
+    errors::Result,
+};
 
 /// Generate ABI (Application Binary Interface) file for the contract
 #[derive(Debug, Clone, Args)]
@@ -39,21 +43,20 @@ pub(crate) fn run(args: GenerateAbiCommand, workspace: Workspace) -> Result<()> 
     let extractor = AbiExtractor::new(args.contract_name.clone());
 
     // Extract spec-compliant ABI from the program
-    // SAFETY: We're extending the lifetime to 'static for the duration of this function call only.
-    // This is safe because we own the program and it lives for the entire duration of this function.
+    // SAFETY: We're extending the lifetime to 'static for the duration of this
+    // function call only. This is safe because we own the program and it lives
+    // for the entire duration of this function.
     let program_ptr: *mut _ = &mut ctx.program;
     let spec_abi = unsafe {
-        let static_program = &mut *(program_ptr
-            as *mut psy_ast::Program<psy_vm::dpn::ops::sym_felt::SymFeltRef>);
+        let static_program = &mut *(program_ptr as *mut psy_ast::Program<psy_vm::dpn::ops::sym_felt::SymFeltRef>);
         extractor.extract_spec_compliant_abi(static_program)?
     };
 
     // Determine output directory
-    let output_dir = args
-        .output_dir
-        .unwrap_or_else(|| workspace.target_dir.clone());
+    let output_dir = args.output_dir.unwrap_or_else(|| workspace.target_dir.clone());
 
-    // Generate the ABI file name (without extension, save_build_artifact_to_file adds .json)
+    // Generate the ABI file name (without extension, save_build_artifact_to_file
+    // adds .json)
     let abi_filename = format!("{}.abi", args.contract_name);
 
     // Save ABI to file in target directory

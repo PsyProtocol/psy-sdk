@@ -1,14 +1,26 @@
-use plonky2::{field::extension::Extendable, hash::hash_types::{HashOut, HashOutTarget, RichField}, iop::witness::Witness, plonk::{circuit_builder::CircuitBuilder, circuit_data::{CommonCircuitData, VerifierOnlyCircuitData}, config::{AlgebraicHasher, GenericConfig}, proof::ProofWithPublicInputs}};
+use plonky2::{
+    field::extension::Extendable,
+    hash::hash_types::{HashOut, HashOutTarget, RichField},
+    iop::witness::Witness,
+    plonk::{
+        circuit_builder::CircuitBuilder,
+        circuit_data::{CommonCircuitData, VerifierOnlyCircuitData},
+        config::{AlgebraicHasher, GenericConfig},
+        proof::ProofWithPublicInputs,
+    },
+};
 use psy_common_circuit::treeprover::subtree::gadgets::subtree_core::SubTreeNodeStateTransitionGadget;
 use psy_core::{config::network_constants::get_default_worker_public_key, data::qhashout::QHashOut};
 use psy_crypto::hash::{merkle::core::MerkleProofCore, traits::hasher::MerkleZeroHasher};
-use psy_data::{guta::{header::GlobalUserTreeAggregatorHeader, proof_input::GUTARegisterUserFullInput}, qdata::user::QEDUserLeaf};
+use psy_data::{
+    guta::{header::GlobalUserTreeAggregatorHeader, proof_input::GUTARegisterUserFullInput},
+    qdata::user::QEDUserLeaf,
+};
 
-use super::{guta_header::GlobalUserTreeAggregatorHeaderGadget, guta_register_users::GUTARegisterUsersGadget, helpers::ToGUTAHeader, verify_guta_proof_to_line::VerifyGUTAProofToLineGadget};
-
-
-
-
+use super::{
+    guta_header::GlobalUserTreeAggregatorHeaderGadget, guta_register_users::GUTARegisterUsersGadget, helpers::ToGUTAHeader,
+    verify_guta_proof_to_line::VerifyGUTAProofToLineGadget,
+};
 
 #[derive(Clone, Debug)]
 pub struct GUTARegisterUsersBatchGadget<const D: usize> {
@@ -20,7 +32,6 @@ pub struct GUTARegisterUsersBatchGadget<const D: usize> {
 }
 
 impl<const D: usize> GUTARegisterUsersBatchGadget<D> {
-
     pub fn add_virtual_to<C: GenericConfig<D, F = F>, F: RichField + Extendable<D>>(
         builder: &mut CircuitBuilder<F, D>,
         proof_common_data: &CommonCircuitData<F, D>,
@@ -31,10 +42,12 @@ impl<const D: usize> GUTARegisterUsersBatchGadget<D> {
         max_users: usize,
     ) -> Self
     where
-        <C as GenericConfig<D>>::Hasher: MerkleZeroHasher<HashOut<F>> +AlgebraicHasher<F>,
+        <C as GenericConfig<D>>::Hasher: MerkleZeroHasher<HashOut<F>> + AlgebraicHasher<F>,
     {
-
-        assert!(global_user_tree_realm_height <= global_user_tree_height, "global_user_tree_realm_height cannot be taller than global_user_tree_height");
+        assert!(
+            global_user_tree_realm_height <= global_user_tree_height,
+            "global_user_tree_realm_height cannot be taller than global_user_tree_height"
+        );
         let verify_to_line_gadget = VerifyGUTAProofToLineGadget::<D>::add_virtual_to::<C, F>(
             builder,
             proof_common_data,
@@ -48,28 +61,18 @@ impl<const D: usize> GUTARegisterUsersBatchGadget<D> {
             global_user_tree_height,
             default_user_state_tree_root,
             None,
-            max_users
+            max_users,
         );
 
         let line_guta_header = verify_to_line_gadget.get_guta_header_line();
         let line_state_transition = line_guta_header.state_transition;
         let register_users_state_transiton = register_users_gadget.get_state_transition();
 
-        builder.connect(
-            line_state_transition.node_index,
-            register_users_state_transiton.node_index,
-        );
-        builder.connect(
-            line_state_transition.node_level,
-            register_users_state_transiton.node_level,
-        );
-        builder.connect_hashes(
-            line_state_transition.new_node_value,
-            register_users_state_transiton.old_node_value,
-        );
+        builder.connect(line_state_transition.node_index, register_users_state_transiton.node_index);
+        builder.connect(line_state_transition.node_level, register_users_state_transiton.node_level);
+        builder.connect_hashes(line_state_transition.new_node_value, register_users_state_transiton.old_node_value);
 
-
-        let new_guta_header = GlobalUserTreeAggregatorHeaderGadget{
+        let new_guta_header = GlobalUserTreeAggregatorHeaderGadget {
             guta_circuit_whitelist: line_guta_header.guta_circuit_whitelist,
             checkpoint_tree_root: line_guta_header.checkpoint_tree_root,
             state_transition: SubTreeNodeStateTransitionGadget {
@@ -80,7 +83,6 @@ impl<const D: usize> GUTARegisterUsersBatchGadget<D> {
             },
             stats: line_guta_header.stats,
         };
-
 
         Self {
             new_guta_header,
@@ -99,24 +101,32 @@ impl<const D: usize> GUTARegisterUsersBatchGadget<D> {
         top_line_siblings: &[QHashOut<F>],
         guta_register_user_inputs: &[GUTARegisterUserFullInput<F>],
         default_user_state_tree_root: QHashOut<F>,
-    ) -> anyhow::Result<()> where
-    <C as GenericConfig<D>>::Hasher:AlgebraicHasher<F>, {
-        self.verify_to_line_gadget.set_witness(witness, guta_whitelist_merkle_proof, guta_proof_header, proof, verifier_data, top_line_siblings)?;
+    ) -> anyhow::Result<()>
+    where
+        <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
+    {
+        self.verify_to_line_gadget.set_witness(
+            witness,
+            guta_whitelist_merkle_proof,
+            guta_proof_header,
+            proof,
+            verifier_data,
+            top_line_siblings,
+        )?;
         let dummy_public_key = get_default_worker_public_key();
         let dummy_user_leaf_hash = QEDUserLeaf::new_user_default(F::ZERO, dummy_public_key, default_user_state_tree_root).alghash::<C::Hasher>();
 
-        self.register_users_gadget.set_witness_params(
-            witness,
-            guta_register_user_inputs,
-            dummy_public_key,
-            dummy_user_leaf_hash,
-        )
+        self.register_users_gadget
+            .set_witness_params(witness, guta_register_user_inputs, dummy_public_key, dummy_user_leaf_hash)
     }
-
 }
 
-impl <const D: usize> ToGUTAHeader<D> for GUTARegisterUsersBatchGadget<D> {
-    fn get_guta_header<H: AlgebraicHasher<F>, F: RichField + Extendable<D>>(&self, _builder: &mut CircuitBuilder<F, D>, _default_guta_circuit_whitelist: HashOutTarget) -> GlobalUserTreeAggregatorHeaderGadget {
+impl<const D: usize> ToGUTAHeader<D> for GUTARegisterUsersBatchGadget<D> {
+    fn get_guta_header<H: AlgebraicHasher<F>, F: RichField + Extendable<D>>(
+        &self,
+        _builder: &mut CircuitBuilder<F, D>,
+        _default_guta_circuit_whitelist: HashOutTarget,
+    ) -> GlobalUserTreeAggregatorHeaderGadget {
         self.new_guta_header
     }
 }

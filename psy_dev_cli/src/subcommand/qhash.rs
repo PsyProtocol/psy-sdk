@@ -1,9 +1,9 @@
-use clap::{Args, Subcommand};
-use psy_core::data::qhashout::QHashOut;
-use plonky2::field::goldilocks_field::GoldilocksField;
-use psy_data::config::store_config::QEDHasher;
-use psy_crypto::hash::traits::hasher::FieldQHasher;
 use anyhow::Result;
+use clap::{Args, Subcommand};
+use plonky2::field::goldilocks_field::GoldilocksField;
+use psy_core::data::qhashout::QHashOut;
+use psy_crypto::hash::traits::hasher::FieldQHasher;
+use psy_data::config::store_config::QEDHasher;
 
 type F = GoldilocksField;
 
@@ -71,11 +71,9 @@ pub fn run(args: QHashArgs) -> Result<()> {
         QHashCommands::FromString { value } => {
             let hash = QHashOut::<F>::from_string_or_panic(&value);
             println!("Hash: {}", hash.to_string());
-            println!("Elements: [{}, {}, {}, {}]",
-                hash.0.elements[0].0,
-                hash.0.elements[1].0,
-                hash.0.elements[2].0,
-                hash.0.elements[3].0
+            println!(
+                "Elements: [{}, {}, {}, {}]",
+                hash.0.elements[0].0, hash.0.elements[1].0, hash.0.elements[2].0, hash.0.elements[3].0
             );
             Ok(())
         }
@@ -83,23 +81,16 @@ pub fn run(args: QHashArgs) -> Result<()> {
         QHashCommands::FromValues { a, b, c, d } => {
             let hash = QHashOut::<F>::from_values(a, b, c, d);
             println!("Hash: {}", hash.to_string());
-            println!("Elements: [{}, {}, {}, {}]",
-                hash.0.elements[0].0,
-                hash.0.elements[1].0,
-                hash.0.elements[2].0,
-                hash.0.elements[3].0
+            println!(
+                "Elements: [{}, {}, {}, {}]",
+                hash.0.elements[0].0, hash.0.elements[1].0, hash.0.elements[2].0, hash.0.elements[3].0
             );
             Ok(())
         }
 
         QHashCommands::Hash { value } => {
             let input = QHashOut::<F>::from_string_or_panic(&value);
-            let output = QEDHasher::q_hash_many(&[
-                input.0.elements[0],
-                input.0.elements[1],
-                input.0.elements[2],
-                input.0.elements[3],
-            ]);
+            let output = QEDHasher::q_hash_many(&[input.0.elements[0], input.0.elements[1], input.0.elements[2], input.0.elements[3]]);
             println!("{}", output.to_string());
             Ok(())
         }
@@ -138,11 +129,9 @@ pub fn run(args: QHashArgs) -> Result<()> {
             let empty_tree = SimpleMerkleTree::<QEDHasher, QHashOut<F>>::new(height);
             let zero_hash = empty_tree.get_root();
             println!("Zero hash for height {}: {}", height, zero_hash.to_string());
-            println!("Elements: [{}, {}, {}, {}]",
-                zero_hash.0.elements[0].0,
-                zero_hash.0.elements[1].0,
-                zero_hash.0.elements[2].0,
-                zero_hash.0.elements[3].0
+            println!(
+                "Elements: [{}, {}, {}, {}]",
+                zero_hash.0.elements[0].0, zero_hash.0.elements[1].0, zero_hash.0.elements[2].0, zero_hash.0.elements[3].0
             );
             Ok(())
         }

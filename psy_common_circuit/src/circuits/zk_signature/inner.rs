@@ -12,17 +12,15 @@ use plonky2::{
 use psy_core::data::qhashout::QHashOut;
 use psy_crypto::{hash::traits::hasher::MerkleZeroHasher, signature::zk::wallet::PRIVATE_KEY_CONSTANTS};
 
-use crate::{
-    builder::hash::core::CircuitBuilderHashCore, proof_minifier::pm_chain::QEDProofMinifierChain,
-};
-
 use super::{
-    super::traits::qstandard::{provable::QStandardCircuitProvable, QStandardCircuit}, ZKSignatureCircuitInput,
+    super::traits::qstandard::{provable::QStandardCircuitProvable, QStandardCircuit},
+    ZKSignatureCircuitInput,
 };
+use crate::{builder::hash::core::CircuitBuilderHashCore, proof_minifier::pm_chain::QEDProofMinifierChain};
 #[derive(Debug)]
 pub struct ZKSignatureCircuitInner<C: GenericConfig<D>, const D: usize>
 where
-    C::Hasher:AlgebraicHasher<C::F>,
+    C::Hasher: AlgebraicHasher<C::F>,
 {
     pub private_key: HashOutTarget,
     pub action_hash: HashOutTarget,
@@ -33,7 +31,7 @@ where
 }
 impl<C: GenericConfig<D>, const D: usize> Clone for ZKSignatureCircuitInner<C, D>
 where
-    C::Hasher:AlgebraicHasher<C::F>,
+    C::Hasher: AlgebraicHasher<C::F>,
 {
     fn clone(&self) -> Self {
         Self::new()
@@ -41,7 +39,7 @@ where
 }
 impl<C: GenericConfig<D>, const D: usize> ZKSignatureCircuitInner<C, D>
 where
-    C::Hasher:AlgebraicHasher<C::F>,
+    C::Hasher: AlgebraicHasher<C::F>,
 {
     pub fn new() -> Self {
         //let public_key = SimpleL2PrivateKey::new(private_key).get_public_key();
@@ -90,11 +88,7 @@ where
         builder.register_public_inputs(&combined_hash.elements);
         let circuit_data = builder.build::<C>();
 
-        let minifier_chain = QEDProofMinifierChain::<D, C::F, C>::new(
-            &circuit_data.verifier_only,
-            &circuit_data.common,
-            2,
-        );
+        let minifier_chain = QEDProofMinifierChain::<D, C::F, C>::new(&circuit_data.verifier_only, &circuit_data.common, 2);
         let fingerprint = QHashOut(minifier_chain.get_fingerprint());
         Self {
             private_key,
@@ -104,11 +98,7 @@ where
             fingerprint,
         }
     }
-    pub fn prove_base(
-        &self,
-        private_key: QHashOut<C::F>,
-        action_hash: QHashOut<C::F>,
-    ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
+    pub fn prove_base(&self, private_key: QHashOut<C::F>, action_hash: QHashOut<C::F>) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         let mut pw = PartialWitness::new();
         pw.set_hash_target(self.private_key, private_key.0)?;
         pw.set_hash_target(self.action_hash, action_hash.0)?;
@@ -118,7 +108,7 @@ where
 }
 impl<C: GenericConfig<D>, const D: usize> QStandardCircuit<C, D> for ZKSignatureCircuitInner<C, D>
 where
-    C::Hasher:AlgebraicHasher<C::F>,
+    C::Hasher: AlgebraicHasher<C::F>,
 {
     fn get_fingerprint(&self) -> QHashOut<C::F> {
         self.fingerprint
@@ -132,15 +122,11 @@ where
         self.minifier_chain.get_common_data()
     }
 }
-impl<C: GenericConfig<D>, const D: usize>
-    QStandardCircuitProvable<ZKSignatureCircuitInput<C::F>, C, D> for ZKSignatureCircuitInner<C, D>
+impl<C: GenericConfig<D>, const D: usize> QStandardCircuitProvable<ZKSignatureCircuitInput<C::F>, C, D> for ZKSignatureCircuitInner<C, D>
 where
-    C::Hasher:AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>>,
+    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>>,
 {
-    fn prove_standard(
-        &self,
-        input: &ZKSignatureCircuitInput<C::F>,
-    ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
+    fn prove_standard(&self, input: &ZKSignatureCircuitInput<C::F>) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         self.prove_base(input.private_key, input.action_hash)
     }
 }

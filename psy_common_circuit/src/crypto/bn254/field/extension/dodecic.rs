@@ -1,12 +1,15 @@
-use core::fmt::{self, Debug, Display, Formatter};
-use core::iter::{Product, Sum};
-use core::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
+use core::{
+    fmt::{self, Debug, Display, Formatter},
+    iter::{Product, Sum},
+    ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign},
+};
 
 use num::bigint::BigUint;
+use plonky2::field::{
+    extension::{Extendable, FieldExtension, Frobenius, OEF},
+    types::{Field, PrimeField, Sample},
+};
 use serde::{Deserialize, Serialize};
-
-use plonky2::field::extension::{Extendable, FieldExtension, Frobenius, OEF};
-use plonky2::field::types::{Field, PrimeField, Sample};
 
 use super::sextic::SexticExtension;
 
@@ -156,12 +159,8 @@ impl<F: Extendable<12> + Extendable<6> + Extendable<2> + PrimeField> DodecicExte
             return None;
         }
 
-        let c0 = SexticExtension([
-            self.0[0], self.0[1], self.0[2], self.0[3], self.0[4], self.0[5],
-        ]);
-        let c1 = SexticExtension([
-            self.0[6], self.0[7], self.0[8], self.0[9], self.0[10], self.0[11],
-        ]);
+        let c0 = SexticExtension([self.0[0], self.0[1], self.0[2], self.0[3], self.0[4], self.0[5]]);
+        let c1 = SexticExtension([self.0[6], self.0[7], self.0[8], self.0[9], self.0[10], self.0[11]]);
 
         let c0_squared = c0 * c0;
         let c1_squared_mul_by_nonresidue = (c1 * c1).mul_by_nonresidue();
@@ -171,8 +170,7 @@ impl<F: Extendable<12> + Extendable<6> + Extendable<2> + PrimeField> DodecicExte
         let r1 = -(c1 * t);
 
         Some(DodecicExtension([
-            r0.0[0], r0.0[1], r0.0[2], r0.0[3], r0.0[4], r0.0[5], 
-            r1.0[0], r1.0[1], r1.0[2], r1.0[3], r1.0[4], r1.0[5],
+            r0.0[0], r0.0[1], r0.0[2], r0.0[3], r0.0[4], r0.0[5], r1.0[0], r1.0[1], r1.0[2], r1.0[3], r1.0[4], r1.0[5],
         ]))
     }
 
@@ -197,9 +195,7 @@ impl<F: Extendable<12> + Extendable<6> + Extendable<2> + PrimeField> DodecicExte
     }
 
     pub fn multiplicative_group_factors() -> Vec<(BigUint, usize)> {
-        vec![
-            (BigUint::from(2u32), F::TWO_ADICITY),
-        ]
+        vec![(BigUint::from(2u32), F::TWO_ADICITY)]
     }
 }
 
@@ -209,9 +205,18 @@ impl<F: Extendable<12> + Extendable<6> + Extendable<2> + PrimeField> Sample for 
         R: rand::RngCore + ?Sized,
     {
         Self([
-            F::sample(rng), F::sample(rng), F::sample(rng), F::sample(rng),
-            F::sample(rng), F::sample(rng), F::sample(rng), F::sample(rng),
-            F::sample(rng), F::sample(rng), F::sample(rng), F::sample(rng),
+            F::sample(rng),
+            F::sample(rng),
+            F::sample(rng),
+            F::sample(rng),
+            F::sample(rng),
+            F::sample(rng),
+            F::sample(rng),
+            F::sample(rng),
+            F::sample(rng),
+            F::sample(rng),
+            F::sample(rng),
+            F::sample(rng),
         ])
     }
 }
@@ -223,20 +228,59 @@ impl<F: Extendable<12> + Extendable<6> + Extendable<2> + PrimeField> Field for D
     const NEG_ONE: Self = Self::NEG_ONE;
     const TWO_ADICITY: usize = F::TWO_ADICITY;
     const CHARACTERISTIC_TWO_ADICITY: usize = F::CHARACTERISTIC_TWO_ADICITY;
-    const MULTIPLICATIVE_GROUP_GENERATOR: Self = Self([F::MULTIPLICATIVE_GROUP_GENERATOR, F::ZERO, F::ZERO, F::ZERO, F::ZERO, F::ZERO, F::ZERO, F::ZERO, F::ZERO, F::ZERO, F::ZERO, F::ZERO]);
-    const POWER_OF_TWO_GENERATOR: Self = Self([F::POWER_OF_TWO_GENERATOR, F::ZERO, F::ZERO, F::ZERO, F::ZERO, F::ZERO, F::ZERO, F::ZERO, F::ZERO, F::ZERO, F::ZERO, F::ZERO]);
+    const MULTIPLICATIVE_GROUP_GENERATOR: Self = Self([
+        F::MULTIPLICATIVE_GROUP_GENERATOR,
+        F::ZERO,
+        F::ZERO,
+        F::ZERO,
+        F::ZERO,
+        F::ZERO,
+        F::ZERO,
+        F::ZERO,
+        F::ZERO,
+        F::ZERO,
+        F::ZERO,
+        F::ZERO,
+    ]);
+    const POWER_OF_TWO_GENERATOR: Self = Self([
+        F::POWER_OF_TWO_GENERATOR,
+        F::ZERO,
+        F::ZERO,
+        F::ZERO,
+        F::ZERO,
+        F::ZERO,
+        F::ZERO,
+        F::ZERO,
+        F::ZERO,
+        F::ZERO,
+        F::ZERO,
+        F::ZERO,
+    ]);
     const BITS: usize = F::BITS * 12;
-    
+
     fn try_inverse(&self) -> Option<Self> {
         self.try_inverse()
     }
-    
+
     fn from_noncanonical_biguint(n: BigUint) -> Self {
         Self::from_noncanonical_biguint(n)
     }
-    
+
     fn from_canonical_u64(n: u64) -> Self {
-        Self([F::from_canonical_u64(n), F::ZERO, F::ZERO, F::ZERO, F::ZERO, F::ZERO, F::ZERO, F::ZERO, F::ZERO, F::ZERO, F::ZERO, F::ZERO])
+        Self([
+            F::from_canonical_u64(n),
+            F::ZERO,
+            F::ZERO,
+            F::ZERO,
+            F::ZERO,
+            F::ZERO,
+            F::ZERO,
+            F::ZERO,
+            F::ZERO,
+            F::ZERO,
+            F::ZERO,
+            F::ZERO,
+        ])
     }
 
     fn from_noncanonical_u64(n: u64) -> Self {
@@ -244,21 +288,46 @@ impl<F: Extendable<12> + Extendable<6> + Extendable<2> + PrimeField> Field for D
     }
 
     fn from_noncanonical_i64(n: i64) -> Self {
-        Self([F::from_noncanonical_i64(n), F::ZERO, F::ZERO, F::ZERO, F::ZERO, F::ZERO, F::ZERO, F::ZERO, F::ZERO, F::ZERO, F::ZERO, F::ZERO])
+        Self([
+            F::from_noncanonical_i64(n),
+            F::ZERO,
+            F::ZERO,
+            F::ZERO,
+            F::ZERO,
+            F::ZERO,
+            F::ZERO,
+            F::ZERO,
+            F::ZERO,
+            F::ZERO,
+            F::ZERO,
+            F::ZERO,
+        ])
     }
-    
+
     fn from_noncanonical_u128(n: u128) -> Self {
-        Self([F::from_noncanonical_u128(n), F::ZERO, F::ZERO, F::ZERO, F::ZERO, F::ZERO, F::ZERO, F::ZERO, F::ZERO, F::ZERO, F::ZERO, F::ZERO])
+        Self([
+            F::from_noncanonical_u128(n),
+            F::ZERO,
+            F::ZERO,
+            F::ZERO,
+            F::ZERO,
+            F::ZERO,
+            F::ZERO,
+            F::ZERO,
+            F::ZERO,
+            F::ZERO,
+            F::ZERO,
+            F::ZERO,
+        ])
     }
-    
+
     fn order() -> BigUint {
         F::order()
     }
-    
+
     fn characteristic() -> BigUint {
         F::characteristic()
     }
-    
 }
 
 impl<F: Extendable<12> + Extendable<6> + Extendable<2> + PrimeField> Display for DodecicExtension<F> {
@@ -266,9 +335,7 @@ impl<F: Extendable<12> + Extendable<6> + Extendable<2> + PrimeField> Display for
         write!(
             f,
             "{} + {}*w + {}*w^2 + {}*w^3 + {}*w^4 + {}*w^5 + {}*w^6 + {}*w^7 + {}*w^8 + {}*w^9 + {}*w^10 + {}*w^11",
-            self.0[0], self.0[1], self.0[2], self.0[3], self.0[4],
-            self.0[5], self.0[6], self.0[7], self.0[8], self.0[9],
-            self.0[10], self.0[11]
+            self.0[0], self.0[1], self.0[2], self.0[3], self.0[4], self.0[5], self.0[6], self.0[7], self.0[8], self.0[9], self.0[10], self.0[11]
         )
     }
 }
@@ -364,12 +431,8 @@ impl<F: Extendable<12> + Extendable<6> + Extendable<2> + PrimeField> Mul for Dod
     type Output = Self;
 
     fn mul(self, rhs: Self) -> Self {
-        let l0 = SexticExtension([
-            self.0[0], self.0[1], self.0[2], self.0[3], self.0[4], self.0[5],
-        ]);
-        let l1 = SexticExtension([
-            self.0[6], self.0[7], self.0[8], self.0[9], self.0[10], self.0[11],
-        ]);
+        let l0 = SexticExtension([self.0[0], self.0[1], self.0[2], self.0[3], self.0[4], self.0[5]]);
+        let l1 = SexticExtension([self.0[6], self.0[7], self.0[8], self.0[9], self.0[10], self.0[11]]);
         let r0 = SexticExtension([rhs.0[0], rhs.0[1], rhs.0[2], rhs.0[3], rhs.0[4], rhs.0[5]]);
         let r1 = SexticExtension([rhs.0[6], rhs.0[7], rhs.0[8], rhs.0[9], rhs.0[10], rhs.0[11]]);
 
@@ -380,8 +443,7 @@ impl<F: Extendable<12> + Extendable<6> + Extendable<2> + PrimeField> Mul for Dod
         let c1 = (l0 + l1) * (r0 + r1) - aa - bb;
 
         Self([
-            c0.0[0], c0.0[1], c0.0[2], c0.0[3], c0.0[4], c0.0[5], 
-            c1.0[0], c1.0[1], c1.0[2], c1.0[3], c1.0[4], c1.0[5],
+            c0.0[0], c0.0[1], c0.0[2], c0.0[3], c0.0[4], c0.0[5], c1.0[0], c1.0[1], c1.0[2], c1.0[3], c1.0[4], c1.0[5],
         ])
     }
 }

@@ -1,50 +1,70 @@
-use std::{sync::Arc, time::Instant};
-use std::time::Duration;
+use std::{
+    sync::Arc,
+    time::{Duration, Instant},
+};
+
 use anyhow::{bail, ensure};
 use kvq::traits::KVQPair;
 use plonky2::{
-    field::
-        types::{Field, PrimeField64}
-    ,
+    field::types::{Field, PrimeField64},
     plonk::{config::PoseidonGoldilocksConfig, proof::ProofWithPublicInputs},
 };
 use psy_core::{
-    config::network_constants::{COORDINATOR_USER_TREE_HEIGHT, COORD_API_GUTA_FROM_REALMS_CHANNEL_ID, CST_USER_UPDATE_CHANNEL_ID, DEFAULT_USER_STATE_TREE_ROOT, GLOBAL_USER_TREE_HEIGHT, REALM_API_GUTA_FROM_USER_CHANNEL_ID, REALM_API_UPDATE_CONTRACT_STATE_TREE_CHANNEL_ID, REALM_USER_TREE_HEIGHT},
+    config::network_constants::{
+        COORDINATOR_USER_TREE_HEIGHT, COORD_API_GUTA_FROM_REALMS_CHANNEL_ID, CST_USER_UPDATE_CHANNEL_ID, DEFAULT_USER_STATE_TREE_ROOT,
+        GLOBAL_USER_TREE_HEIGHT, REALM_API_GUTA_FROM_USER_CHANNEL_ID, REALM_API_UPDATE_CONTRACT_STATE_TREE_CHANNEL_ID, REALM_USER_TREE_HEIGHT,
+    },
     data::qhashout::QHashOut,
     job::{
         drain_queue::CheckpointDrainQueueConsumerAsyncImm,
         history_queue::CheckpointHistoryQueueConsumerAsyncImm,
-        id::{QProvingTask, ProvingJobCircuitType, ProvingJobDataType, QJobTopic, QProvingJobDataID},
+        id::{ProvingJobCircuitType, ProvingJobDataType, QJobTopic, QProvingJobDataID, QProvingTask},
         traits::{QProofStoreAsyncImm, QProofStoreReaderAsync, QProofStoreWriterAsyncImm},
         worker_queue::WorkerEventTransmitterAsyncImm,
     },
     utils::graph::BidirectionalGraph,
 };
 use psy_crypto::{
-    common::{cached_circuit_library::get_cached_circuit_library, circuit_library::CircuitInfoLibraryCore, generic_circuit_verifier::GenericCircuitVerifier, user_id::get_user_id_from_registration_id},
-    hash::{merkle::{
-            core::{DeltaMerkleProofCore, MerkleProofCore, compute_historical_and_current_merkle_roots_core_gt},
+    common::{
+        cached_circuit_library::get_cached_circuit_library, circuit_library::CircuitInfoLibraryCore,
+        generic_circuit_verifier::GenericCircuitVerifier, user_id::get_user_id_from_registration_id,
+    },
+    hash::{
+        merkle::{
+            core::{compute_historical_and_current_merkle_roots_core_gt, DeltaMerkleProofCore, MerkleProofCore},
             treeprover::{data::CircuitInputWithDependencies, subtree::SubTreeNodeStateTransition},
             utils::common::{QMerkleNode, SimpleMerkleNodeKey},
-        }, traits::qhashable::QFieldHashable}
+        },
+        traits::qhashable::QFieldHashable,
+    },
 };
 use psy_data::{
+    config::store_config::{QCheckpointSyncInfoCompact, QEDFelt, QEDHasher},
     guta::{
-        api::{GUTARealmCheckpointResult, UserEndCapNonProofCoreInputQueueItem}, header::GlobalUserTreeAggregatorHeader, proof_input::{
-            GUTANoChangeFullInput, GUTAOnlyRegisterUsersInput, GUTARegisterUserFullInput, VerifyEndCapSimpleStandardInput, VerifyGUTARegisterUsersCircuitInputSimple, VerifyGUTAToCapCircuitInputSimple, VerifyLeftEndCapRightGUTAInputSimple, VerifyLeftGUTARightEndCapInputSimple, VerifySingleEndCapInput, VerifyTwoEndCapCircuitInput, VerifyTwoGUTAProofGadgetStandardInputSimple
-        }, stats::GUTAStats
+        api::{GUTARealmCheckpointResult, UserEndCapNonProofCoreInputQueueItem},
+        header::GlobalUserTreeAggregatorHeader,
+        proof_input::{
+            GUTANoChangeFullInput, GUTAOnlyRegisterUsersInput, GUTARegisterUserFullInput, VerifyEndCapSimpleStandardInput,
+            VerifyGUTARegisterUsersCircuitInputSimple, VerifyGUTAToCapCircuitInputSimple, VerifyLeftEndCapRightGUTAInputSimple,
+            VerifyLeftGUTARightEndCapInputSimple, VerifySingleEndCapInput, VerifyTwoEndCapCircuitInput, VerifyTwoGUTAProofGadgetStandardInputSimple,
+        },
+        stats::GUTAStats,
     },
     qdata::{checkpoint::QEDCheckpointLeafCompactWithStateRoots, user::QEDUserLeaf},
     qstore::uct_merkle_nodes::CSTUserUpdate,
 };
-use psy_data::config::store_config::{QCheckpointSyncInfoCompact, QEDFelt, QEDHasher};
 use psy_store::{
     node::realm::{QEDRealmStoreReaderAsync, QEDRealmStoreWriterAsyncImm},
-    queue::{task_queue::QProvingTaskStore, QPendingUserStoreAsyncImm, redis_queue::{CheckpointDrainQueueConsumerAsyncImmWithPosition, MAX_CHECKPOINT_COUNT}},
+    queue::{
+        redis_queue::{CheckpointDrainQueueConsumerAsyncImmWithPosition, MAX_CHECKPOINT_COUNT},
+        task_queue::QProvingTaskStore,
+        QPendingUserStoreAsyncImm,
+    },
+    store::journal::Journal,
 };
 use serde::{Deserialize, Serialize};
 use tracing::{debug, error, info, trace};
-use psy_store::store::journal::Journal;
+
 use crate::common::slot::SLOT_SIZE;
 
 type F = QEDFelt;
@@ -66,7 +86,6 @@ pub struct RealmConfig {
 }
 
 impl RealmConfig {
-
     pub fn get_standard(realm_id: u32) -> Self {
         let library = get_cached_circuit_library::<F>();
 
@@ -78,10 +97,7 @@ impl RealmConfig {
             realm_root_level,
             guta_channel_id: REALM_API_GUTA_FROM_USER_CHANNEL_ID + realm_id as u64,
             guta_circuit_whitelist: library
-                .get_group_inclusion_proof(
-                    ProvingJobCircuitType::GUTATwoGUTA,
-                    ProvingJobCircuitType::GUTATwoGUTA,
-                )
+                .get_group_inclusion_proof(ProvingJobCircuitType::GUTATwoGUTA, ProvingJobCircuitType::GUTATwoGUTA)
                 .unwrap()
                 .root,
             realm_id,
@@ -151,26 +167,17 @@ impl<
         })
     }
 
-    fn verify_proof_of_type(
-        &self,
-        circuit_type: ProvingJobCircuitType,
-        proof: &ProofWithPublicInputs<F, C, D>,
-    ) -> anyhow::Result<()> {
-        self.proof_verifier
-            .verify_proof_of_type(circuit_type, proof)
+    fn verify_proof_of_type(&self, circuit_type: ProvingJobCircuitType, proof: &ProofWithPublicInputs<F, C, D>) -> anyhow::Result<()> {
+        self.proof_verifier.verify_proof_of_type(circuit_type, proof)
     }
 
-    pub async fn handle_checkpoint_sync(
-        &self,
-        input: QCheckpointSyncInfoCompact,
-    ) -> anyhow::Result<()> {
+    pub async fn handle_checkpoint_sync(&self, input: QCheckpointSyncInfoCompact) -> anyhow::Result<()> {
         let dmps = input.get_registered_user_merkle_proofs::<QEDHasher>();
-        self.store
-            .injest_checkpoint_sync_data_imm(input.to_sync_info::<QEDHasher>())
-            .await?;
+        self.store.injest_checkpoint_sync_data_imm(input.to_sync_info::<QEDHasher>()).await?;
 
         // Filter users that belong to this realm
-        let realm_users: Vec<_> = dmps.into_iter()
+        let realm_users: Vec<_> = dmps
+            .into_iter()
             .filter(|x| {
                 let real_id = get_user_id_from_registration_id(x.index);
                 self.realm_config.includes_user_id(real_id)
@@ -185,18 +192,12 @@ impl<
         Ok(())
     }
 
-    async fn handle_guta_state_updates_from_users(
-        &self,
-        checkpoint_id: u64,
-    ) -> anyhow::Result<()> {
+    async fn handle_guta_state_updates_from_users(&self, checkpoint_id: u64) -> anyhow::Result<()> {
         // Use position-based consumption for CST updates
         let (updates, consumption_state) = self
             .checkpoint_queue
-            .peek_with_position::<CSTUserUpdate<QHashOut<F>>>(
-                self.max_processed_end_caps_per_block,
-                CST_USER_UPDATE_CHANNEL_ID,
-                checkpoint_id,
-        ).await?;
+            .peek_with_position::<CSTUserUpdate<QHashOut<F>>>(self.max_processed_end_caps_per_block, CST_USER_UPDATE_CHANNEL_ID, checkpoint_id)
+            .await?;
 
         debug!(checkpoint_id = checkpoint_id, updates_count = updates.len(), "Checkpoint updates");
 
@@ -226,14 +227,11 @@ impl<
                 COORDINATOR_USER_TREE_HEIGHT,
                 checkpoint_id,
                 (guta.state_transition.node_index.to_canonical_u64())
-                    << ((GLOBAL_USER_TREE_HEIGHT as u64
-                        - guta.state_transition.node_level.to_canonical_u64())
-                        as u64),
+                    << ((GLOBAL_USER_TREE_HEIGHT as u64 - guta.state_transition.node_level.to_canonical_u64()) as u64),
             )
             .await?;
 
-        let top_line_siblings_len = guta.state_transition.node_level.to_canonical_u64() as usize
-            - COORDINATOR_USER_TREE_HEIGHT as usize;
+        let top_line_siblings_len = guta.state_transition.node_level.to_canonical_u64() as usize - COORDINATOR_USER_TREE_HEIGHT as usize;
 
         let good_sibs = bp.siblings[(bp.siblings.len() - top_line_siblings_len)..].to_vec();
 
@@ -269,18 +267,12 @@ impl<
                 tracing::debug!("Processing empty jobs and users");
                 let last_checkpoint_id = checkpoint_id.saturating_sub(1);
                 tracing::debug!(checkpoint_id = checkpoint_id, last_checkpoint_id = last_checkpoint_id, "Checkpoint IDs");
-                let roots = self
-                    .store
-                    .get_checkpoint_global_state_roots(last_checkpoint_id)
-                    .await?;
+                let roots = self.store.get_checkpoint_global_state_roots(last_checkpoint_id).await?;
                 let checkpoint_tree_proof = self
                     .store
                     .get_checkpoint_tree_merkle_proof(last_checkpoint_id, last_checkpoint_id)
                     .await?;
-                let checkpoint_leaf = self
-                    .store
-                    .get_checkpoint_leaf_data(last_checkpoint_id)
-                    .await?;
+                let checkpoint_leaf = self.store.get_checkpoint_leaf_data(last_checkpoint_id).await?;
                 let input = GUTANoChangeFullInput {
                     checkpoint_tree_proof,
                     checkpoint_leaf: QEDCheckpointLeafCompactWithStateRoots {
@@ -303,10 +295,7 @@ impl<
                 );
 
                 self.proof_store
-                    .set_bytes_by_id(
-                        w_id,
-                        &bincode::serialize(&input).map_err(|e| anyhow::anyhow!("{:?}", e))?,
-                    )
+                    .set_bytes_by_id(w_id, &bincode::serialize(&input).map_err(|e| anyhow::anyhow!("{:?}", e))?)
                     .await?;
 
                 guta_graph.add_node(w_id.get_output_id());
@@ -318,12 +307,7 @@ impl<
                     guta_circuit_whitelist: guta.guta_circuit_whitelist,
                     state_transition: SubTreeNodeStateTransition {
                         old_node_value: regs[0].global_user_tree_update_proof.old_root,
-                        new_node_value: regs
-                            .last()
-                            .as_ref()
-                            .unwrap()
-                            .global_user_tree_update_proof
-                            .new_root,
+                        new_node_value: regs.last().as_ref().unwrap().global_user_tree_update_proof.new_root,
                         node_index: F::from_canonical_u32(self.realm_config.realm_id),
                         node_level: F::from_canonical_u8(COORDINATOR_USER_TREE_HEIGHT),
                     },
@@ -347,10 +331,7 @@ impl<
                 );
 
                 self.proof_store
-                    .set_bytes_by_id(
-                        w_id,
-                        &bincode::serialize(&w).map_err(|e| anyhow::anyhow!("{:?}", e))?,
-                    )
+                    .set_bytes_by_id(w_id, &bincode::serialize(&w).map_err(|e| anyhow::anyhow!("{:?}", e))?)
                     .await?;
 
                 guta_graph.add_node(w_id.get_output_id());
@@ -396,10 +377,7 @@ impl<
                 };
 
                 self.proof_store
-                    .set_bytes_by_id(
-                        w_id,
-                        &bincode::serialize(&w).map_err(|e| anyhow::anyhow!("{:?}", e))?,
-                    )
+                    .set_bytes_by_id(w_id, &bincode::serialize(&w).map_err(|e| anyhow::anyhow!("{:?}", e))?)
                     .await?;
 
                 let mut n_jobs = jobs;
@@ -438,13 +416,7 @@ impl<
 
         let ww = CircuitInputWithDependencies::<VerifyGUTARegisterUsersCircuitInputSimple<F>> {
             input,
-            dependencies: vec![jobs
-                .last()
-                .as_ref()
-                .unwrap()
-                .last()
-                .unwrap()
-                .get_output_id()],
+            dependencies: vec![jobs.last().as_ref().unwrap().last().unwrap().get_output_id()],
         };
 
         let ww_id = QProvingJobDataID::new(
@@ -462,10 +434,7 @@ impl<
         guta_graph.add_edge(ww_id.get_output_id(), ww.dependencies[0]);
 
         self.proof_store
-            .set_bytes_by_id(
-                ww_id,
-                &bincode::serialize(&ww).map_err(|e| anyhow::anyhow!("{:?}", e))?,
-            )
+            .set_bytes_by_id(ww_id, &bincode::serialize(&ww).map_err(|e| anyhow::anyhow!("{:?}", e))?)
             .await?;
 
         let n_guta = GlobalUserTreeAggregatorHeader {
@@ -473,12 +442,7 @@ impl<
             checkpoint_tree_root: new_g.checkpoint_tree_root,
             state_transition: SubTreeNodeStateTransition {
                 old_node_value: new_g.state_transition.old_node_value,
-                new_node_value: regs
-                                .last()
-                                .as_ref()
-                                .unwrap()
-                                .global_user_tree_update_proof
-                                .new_root,
+                new_node_value: regs.last().as_ref().unwrap().global_user_tree_update_proof.new_root,
                 node_index: new_g.state_transition.node_index,
                 node_level: new_g.state_transition.node_level,
             },
@@ -514,17 +478,26 @@ impl<
     )> {
         self.handle_guta_state_updates_from_users(checkpoint_id).await?;
 
-        let (mut guta_queue_items, _consumption_state) = self.checkpoint_queue.peek_with_position::<UserEndCapNonProofCoreInputQueueItem<F>>(
-            self.max_processed_end_caps_per_block,
-            self.realm_config.guta_channel_id,
-            checkpoint_id,
-        ).await?;
+        let (mut guta_queue_items, _consumption_state) = self
+            .checkpoint_queue
+            .peek_with_position::<UserEndCapNonProofCoreInputQueueItem<F>>(
+                self.max_processed_end_caps_per_block,
+                self.realm_config.guta_channel_id,
+                checkpoint_id,
+            )
+            .await?;
         debug!(guta_queue_items = %serde_json::to_string_pretty(&guta_queue_items)?, "GUTA queue items for aggregation");
 
         let real_checkpoint_id = checkpoint_id.saturating_sub(1);
         let checkpoint_tree_root = self.store.get_checkpoint_tree_root(real_checkpoint_id).await?;
 
-        guta_queue_items.sort_by(|a, b| a.input.new_user_leaf.user_id.to_canonical_u64().cmp(&b.input.new_user_leaf.user_id.to_canonical_u64()));
+        guta_queue_items.sort_by(|a, b| {
+            a.input
+                .new_user_leaf
+                .user_id
+                .to_canonical_u64()
+                .cmp(&b.input.new_user_leaf.user_id.to_canonical_u64())
+        });
         tracing::debug!("sorted guta_queue_items: {}", serde_json::to_string_pretty(&guta_queue_items)?);
         guta_queue_items.dedup_by_key(|item| item.input.new_user_leaf.user_id.to_canonical_u64());
 
@@ -538,14 +511,17 @@ impl<
                     checkpoint_tree_root
                 );
 
-                match self.store.get_checkpoint_tree_merkle_proof(
-                    real_checkpoint_id,
-                    guta_queue_item.input.checkpoint_id.to_canonical_u64()
-                ).await {
+                match self
+                    .store
+                    .get_checkpoint_tree_merkle_proof(real_checkpoint_id, guta_queue_item.input.checkpoint_id.to_canonical_u64())
+                    .await
+                {
                     Ok(checkpoint_tree_proof) => {
-                        let (historical_root, current_root) = compute_historical_and_current_merkle_roots_core_gt::<QHashOut<F>, QEDHasher>(&checkpoint_tree_proof);
+                        let (historical_root, current_root) =
+                            compute_historical_and_current_merkle_roots_core_gt::<QHashOut<F>, QEDHasher>(&checkpoint_tree_proof);
 
-                        if current_root != checkpoint_tree_root || historical_root != guta_queue_item.input.state_transition.checkpoint_tree_root_hash {
+                        if current_root != checkpoint_tree_root || historical_root != guta_queue_item.input.state_transition.checkpoint_tree_root_hash
+                        {
                             tracing::warn!("⚠️ Invalid endcap checkpoint tree proof");
                             continue;
                         }
@@ -559,10 +535,11 @@ impl<
                 }
             }
 
-            match self.store.get_user_leaf_data(
-                real_checkpoint_id,
-                guta_queue_item.input.new_user_leaf.user_id.to_canonical_u64()
-            ).await {
+            match self
+                .store
+                .get_user_leaf_data(real_checkpoint_id, guta_queue_item.input.new_user_leaf.user_id.to_canonical_u64())
+                .await
+            {
                 Ok(latest_user_leaf_data) => {
                     let latest_user_leaf_hash = latest_user_leaf_data.qfhash::<QEDHasher>();
                     if latest_user_leaf_hash != guta_queue_item.input.state_transition.start_user_leaf_hash {
@@ -587,13 +564,14 @@ impl<
 
         if guta_queue_items.len() == 0 {
             debug!("No GUTA queue items to aggregate");
-            // let checkpoint_tree_root = self.store.get_latest_checkpoint_tree_root().await?;
+            // let checkpoint_tree_root =
+            // self.store.get_latest_checkpoint_tree_root().await?;
             let last_user_tree_root = self
                 .store
                 .get_user_bottom_tree_merkle_proof(
                     self.realm_config.realm_root_level,
                     checkpoint_id,
-                    (self.realm_config.realm_id as u64)<<(REALM_USER_TREE_HEIGHT as u64)
+                    (self.realm_config.realm_id as u64) << (REALM_USER_TREE_HEIGHT as u64),
                 )
                 .await?
                 .root;
@@ -611,16 +589,13 @@ impl<
                     },
                     stats: GUTAStats::default(),
                 },
-                DeltaMerkleProofCore::single_value(
-                    self.realm_config.realm_id as u64,
-                    last_user_tree_root,
-                    last_user_tree_root,
-                ),
+                DeltaMerkleProofCore::single_value(self.realm_config.realm_id as u64, last_user_tree_root, last_user_tree_root),
                 BidirectionalGraph::new(),
             ));
         } else if guta_queue_items.len() == 1 {
             debug!("Single GUTA queue item");
-            let (historical_root, current_root) = compute_historical_and_current_merkle_roots_core_gt::<QHashOut<F>, QEDHasher>(&guta_queue_items[0].checkpoint_tree_proof);
+            let (historical_root, current_root) =
+                compute_historical_and_current_merkle_roots_core_gt::<QHashOut<F>, QEDHasher>(&guta_queue_items[0].checkpoint_tree_proof);
             ensure!(current_root == guta_queue_items[0].checkpoint_tree_proof.root);
             ensure!(current_root == checkpoint_tree_root);
             ensure!(historical_root == guta_queue_items[0].input.state_transition.checkpoint_tree_root_hash);
@@ -628,24 +603,15 @@ impl<
                 input: VerifySingleEndCapInput {
                     guta_circuit_whitelist: self.realm_config.guta_circuit_whitelist,
                     a_end_cap: guta_queue_items[0].get_verify_end_cap_simple_input(),
-                    start_user_leaf_hash: guta_queue_items[0]
-                        .input
-                        .state_transition
-                        .start_user_leaf_hash,
-                    end_user_leaf_hash: guta_queue_items[0]
-                        .input
-                        .state_transition
-                        .end_user_leaf_hash,
+                    start_user_leaf_hash: guta_queue_items[0].input.state_transition.start_user_leaf_hash,
+                    end_user_leaf_hash: guta_queue_items[0].input.state_transition.end_user_leaf_hash,
                     user_id: guta_queue_items[0].input.state_transition.user_id,
                 },
                 dependencies: vec![guta_queue_items[0].proof_id.get_output_id()],
             };
             single.input.check_witness()?;
             self.store
-                .injest_user_leaves_batch_imm(
-                    checkpoint_id,
-                    &[guta_queue_items[0].input.new_user_leaf],
-                )
+                .injest_user_leaves_batch_imm(checkpoint_id, &[guta_queue_items[0].input.new_user_leaf])
                 .await?;
             let r = self
                 .store
@@ -654,17 +620,10 @@ impl<
                     COORDINATOR_USER_TREE_HEIGHT,
                     &[QMerkleNode {
                         key: SimpleMerkleNodeKey {
-                            index: guta_queue_items[0]
-                                .input
-                                .state_transition
-                                .user_id
-                                .to_canonical_u64(),
+                            index: guta_queue_items[0].input.state_transition.user_id.to_canonical_u64(),
                             level: GLOBAL_USER_TREE_HEIGHT,
                         },
-                        value: guta_queue_items[0]
-                            .input
-                            .state_transition
-                            .end_user_leaf_hash,
+                        value: guta_queue_items[0].input.state_transition.end_user_leaf_hash,
                     }],
                 )
                 .await?;
@@ -688,12 +647,7 @@ impl<
             self.proof_store
                 .set_bytes_by_id(id.get_input_witness_id(), &bincode::serialize(&single)?)
                 .await?;
-            return Ok((
-                vec![vec![id]],
-                single.input.get_new_guta_header(),
-                r.link_proof,
-                graph,
-            ));
+            return Ok((vec![vec![id]], single.input.get_new_guta_header(), r.link_proof, graph));
         }
 
         let mnu = guta_queue_items
@@ -708,13 +662,7 @@ impl<
             .collect::<Vec<_>>();
 
         self.store
-            .injest_user_leaves_batch_imm(
-                checkpoint_id,
-                &guta_queue_items
-                    .iter()
-                    .map(|x| x.input.new_user_leaf)
-                    .collect::<Vec<_>>(),
-            )
+            .injest_user_leaves_batch_imm(checkpoint_id, &guta_queue_items.iter().map(|x| x.input.new_user_leaf).collect::<Vec<_>>())
             .await?;
 
         let res = self
@@ -822,10 +770,7 @@ impl<
                         stats_a: l_stats,
                         nca_proof: res.nca_proofs[i].to_partial(),
                     },
-                    dependencies: vec![
-                        l_proof_id.get_output_id(),
-                        right_endcap.proof_id.get_output_id(),
-                    ],
+                    dependencies: vec![l_proof_id.get_output_id(), right_endcap.proof_id.get_output_id()],
                 };
                 x.input.check_witness()?;
                 let w_id = QProvingJobDataID::new(
@@ -859,10 +804,7 @@ impl<
                         stats_b: r_stats,
                         nca_proof: res.nca_proofs[i].to_partial(),
                     },
-                    dependencies: vec![
-                        left_endcap.proof_id.get_output_id(),
-                        r_proof_id.get_output_id(),
-                    ],
+                    dependencies: vec![left_endcap.proof_id.get_output_id(), r_proof_id.get_output_id()],
                 };
                 x.input.check_witness()?;
                 let w_id = QProvingJobDataID::new(
@@ -887,7 +829,10 @@ impl<
             }
         }
 
-        self.proof_store.set_bytes_by_id_batch(&updates).await.map_err(|e| anyhow::anyhow!("set_bytes_by_id_batch: {:?}", e))?;
+        self.proof_store
+            .set_bytes_by_id_batch(&updates)
+            .await
+            .map_err(|e| anyhow::anyhow!("set_bytes_by_id_batch: {:?}", e))?;
 
         let levels = res
             .get_index_levels()
@@ -899,16 +844,10 @@ impl<
             guta_circuit_whitelist: self.realm_config.guta_circuit_whitelist,
             checkpoint_tree_root: checkpoint_tree_root,
             state_transition: SubTreeNodeStateTransition {
-                old_node_value: res.nca_proofs[res.root_proof_index]
-                    .old_nearest_common_ancestor_value,
-                new_node_value: res.nca_proofs[res.root_proof_index]
-                    .new_nearest_common_ancestor_value,
-                node_index: F::from_canonical_u64(
-                    res.nca_proofs[res.root_proof_index].nearest_common_ancestor_index,
-                ),
-                node_level: F::from_canonical_u8(
-                    res.nca_proofs[res.root_proof_index].nearest_common_ancestor_level,
-                ),
+                old_node_value: res.nca_proofs[res.root_proof_index].old_nearest_common_ancestor_value,
+                new_node_value: res.nca_proofs[res.root_proof_index].new_nearest_common_ancestor_value,
+                node_index: F::from_canonical_u64(res.nca_proofs[res.root_proof_index].nearest_common_ancestor_index),
+                node_level: F::from_canonical_u8(res.nca_proofs[res.root_proof_index].nearest_common_ancestor_level),
             },
             stats: combo_stats[res.root_proof_index].1,
         };
@@ -940,29 +879,40 @@ impl<
         self.task_store.clear_task_graph().await?;
 
         let last_l2_blockstate = self.store.get_latest_l2_block_state().await?;
-        self.proof_store.cleanup_old_proofs(last_l2_blockstate.checkpoint_id, MAX_CHECKPOINT_COUNT as u64).await?;
-        let new_checkpoint_id = last_l2_blockstate.checkpoint_id+1;
+        self.proof_store
+            .cleanup_old_proofs(last_l2_blockstate.checkpoint_id, MAX_CHECKPOINT_COUNT as u64)
+            .await?;
+        let new_checkpoint_id = last_l2_blockstate.checkpoint_id + 1;
         info!("🔔 realm processor build block checkpoint_id: {}", new_checkpoint_id);
 
         let has_guta = self.has_pending_guta_tasks(new_checkpoint_id).await?;
 
         // Use position-based consumption for pending users
-        let (mut pending_users, _consumption_state) = self.sync_queue.peek_with_position(if has_guta { 32 } else { 64 }, new_checkpoint_id).await?;
-        let (guta_jobs, guta_transition, guta_dmp, guta_graph) = self.handle_guta_from_users_ensure_no_topline(new_checkpoint_id, slot, &mut pending_users).await?;
+        let (mut pending_users, _consumption_state) = self
+            .sync_queue
+            .peek_with_position(if has_guta { 32 } else { 64 }, new_checkpoint_id)
+            .await?;
+        let (guta_jobs, guta_transition, guta_dmp, guta_graph) = self
+            .handle_guta_from_users_ensure_no_topline(new_checkpoint_id, slot, &mut pending_users)
+            .await?;
 
         tracing::debug!("Generated GUTA jobs: {:#?}", guta_jobs);
         let finished_job = QProvingJobDataID::notify_realm_complete(new_checkpoint_id, slot, self.realm_config.realm_id);
-        let res = GUTARealmCheckpointResult{
+        let res = GUTARealmCheckpointResult {
             checkpoint_id: new_checkpoint_id,
             guta_stats: guta_transition.stats,
             top_line_proof: guta_dmp,
             checkpoint_tree_root: guta_transition.checkpoint_tree_root,
             proof_id: **(guta_jobs.last().as_ref().unwrap().last().as_ref().unwrap()),
         };
-        self.proof_store.set_bytes_by_id(finished_job, &bincode::serialize(&res).map_err(|e| anyhow::anyhow!("{:?}",e))?).await?;
+        self.proof_store
+            .set_bytes_by_id(finished_job, &bincode::serialize(&res).map_err(|e| anyhow::anyhow!("{:?}", e))?)
+            .await?;
 
         let empty_graph = BidirectionalGraph::new();
-        self.task_store.set_job_dependency_graph(empty_graph.clone(), empty_graph, guta_graph).await?;
+        self.task_store
+            .set_job_dependency_graph(empty_graph.clone(), empty_graph, guta_graph)
+            .await?;
         self.plan_jobs(new_checkpoint_id, slot, &guta_jobs, finished_job).await?;
 
         debug!("Processed {} pending users for checkpoint {}", pending_users.len(), new_checkpoint_id);
@@ -971,16 +921,13 @@ impl<
         info!("🐶 Waiting for realm proving jobs");
         let realm_worker_output_job_id = self
             .prover_queue
-            .wait_for_block_proving_jobs_imm(new_checkpoint_id, Some(Duration::from_millis(5*SLOT_SIZE)))
+            .wait_for_block_proving_jobs_imm(new_checkpoint_id, Some(Duration::from_millis(5 * SLOT_SIZE)))
             .await?;
         Ok(realm_worker_output_job_id)
     }
 
     pub async fn has_pending_guta_tasks(&self, checkpoint_id: u64) -> anyhow::Result<bool> {
-        let guta_count = self
-            .checkpoint_queue
-            .cdq_len_imm(self.realm_config.guta_channel_id)
-            .await?;
+        let guta_count = self.checkpoint_queue.cdq_len_imm(self.realm_config.guta_channel_id).await?;
         if guta_count > 0 {
             debug!("Found {} pending GUTA queue items", guta_count);
             return Ok(true);
@@ -997,7 +944,6 @@ impl<
         }
         Ok(false)
     }
-
 
     async fn commit_offset(&self, checkpoint_id: u64) -> anyhow::Result<()> {
         if let Some(state) = self.sync_queue.get_last_peek_offset().await? {

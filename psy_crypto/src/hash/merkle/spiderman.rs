@@ -2,9 +2,8 @@ use kvq::traits::KVQSerializable;
 use plonky2::util::{log2_ceil, log2_strict};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
-use crate::hash::traits::hasher::{MerkleHasher, MerkleLeafHasher, ZeroableHash};
-
 use super::core::{DeltaMerkleProofCore, MerkleProofCore};
+use crate::hash::traits::hasher::{MerkleHasher, MerkleLeafHasher, ZeroableHash};
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
 pub struct SpidermanUpdateProof<Hash: PartialEq + Copy> {
@@ -40,21 +39,14 @@ impl<Hash: PartialEq + Copy + ZeroableHash> SpidermanUpdateProof<Hash> {
 
         let full_tree_height = old_proof_to_inside.siblings.len();
         //let top_line_height = full_tree_height-web_tree_height;
-        let siblings = old_proof_to_inside.siblings
-            [(old_proof_to_inside.siblings.len() - full_tree_height)..]
-            .to_vec();
+        let siblings = old_proof_to_inside.siblings[(old_proof_to_inside.siblings.len() - full_tree_height)..].to_vec();
 
         let computed_old_web_root = H::compute_root_from_leaves(&web_proof_old_leaves).unwrap();
         let computed_new_web_root = H::compute_root_from_leaves(&web_proof_new_leaves).unwrap();
 
         let top_line_index = old_proof_to_inside.index >> (web_tree_height as u64);
 
-        let top_line_proof = DeltaMerkleProofCore::from_params::<H>(
-            top_line_index,
-            computed_old_web_root,
-            computed_new_web_root,
-            siblings,
-        );
+        let top_line_proof = DeltaMerkleProofCore::from_params::<H>(top_line_index, computed_old_web_root, computed_new_web_root, siblings);
 
         Self {
             top_line_proof,
@@ -64,23 +56,14 @@ impl<Hash: PartialEq + Copy + ZeroableHash> SpidermanUpdateProof<Hash> {
     }
 }
 impl<Hash: PartialEq + Copy> SpidermanUpdateProof<Hash> {
-
-    pub fn from_delta_merkle_proofs<H: MerkleHasher<Hash>>(
-        delta_merkle_proofs: &[DeltaMerkleProofCore<Hash>],
-    ) -> Self {
+    pub fn from_delta_merkle_proofs<H: MerkleHasher<Hash>>(delta_merkle_proofs: &[DeltaMerkleProofCore<Hash>]) -> Self {
         let leaves_len = delta_merkle_proofs.len();
         let web_tree_height = log2_strict(leaves_len);
         //let full_tree_height = delta_merkle_proofs[0].siblings.len();
         //let top_line_height = full_tree_height-web_tree_height;
 
-        let old_leaves = delta_merkle_proofs
-            .iter()
-            .map(|x| x.old_value)
-            .collect::<Vec<_>>();
-        let new_leaves = delta_merkle_proofs
-            .iter()
-            .map(|x| x.old_value)
-            .collect::<Vec<_>>();
+        let old_leaves = delta_merkle_proofs.iter().map(|x| x.old_value).collect::<Vec<_>>();
+        let new_leaves = delta_merkle_proofs.iter().map(|x| x.old_value).collect::<Vec<_>>();
 
         let computed_old_web_root = H::compute_root_from_leaves(&old_leaves).unwrap();
         let computed_new_web_root = H::compute_root_from_leaves(&new_leaves).unwrap();
@@ -106,16 +89,10 @@ impl<Hash: PartialEq + Copy> SpidermanUpdateProof<Hash> {
     }
     pub fn verify<H: MerkleHasher<Hash>>(&self) -> bool {
         let leaves_len = self.web_proof_new_leaves.len();
-        if self.web_proof_old_leaves.len() == leaves_len
-            && leaves_len == (1usize << log2_ceil(leaves_len))
-            && self.top_line_proof.verify::<H>()
-        {
-            let computed_old_web_root =
-                H::compute_root_from_leaves(&self.web_proof_old_leaves).unwrap();
+        if self.web_proof_old_leaves.len() == leaves_len && leaves_len == (1usize << log2_ceil(leaves_len)) && self.top_line_proof.verify::<H>() {
+            let computed_old_web_root = H::compute_root_from_leaves(&self.web_proof_old_leaves).unwrap();
             if computed_old_web_root == self.top_line_proof.old_value {
-
-                let computed_new_web_root =
-                    H::compute_root_from_leaves(&self.web_proof_new_leaves).unwrap();
+                let computed_new_web_root = H::compute_root_from_leaves(&self.web_proof_new_leaves).unwrap();
                 if computed_new_web_root == self.top_line_proof.new_value {
                     return true;
                 }
@@ -124,8 +101,6 @@ impl<Hash: PartialEq + Copy> SpidermanUpdateProof<Hash> {
         false
     }
 }
-
-
 
 impl<Hash: PartialEq + Copy + Serialize + DeserializeOwned> KVQSerializable for SpidermanUpdateProof<Hash> {
     fn to_bytes(&self) -> anyhow::Result<Vec<u8>> {

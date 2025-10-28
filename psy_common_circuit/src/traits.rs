@@ -19,41 +19,26 @@ use crate::{
 };
 
 pub trait SwappableTarget {
-    fn swap<F: RichField + Extendable<D>, const D: usize>(
-        builder: &mut CircuitBuilder<F, D>,
-        swap: BoolTarget,
-        left: Self,
-        right: Self,
-    ) -> Self;
+    fn swap<F: RichField + Extendable<D>, const D: usize>(builder: &mut CircuitBuilder<F, D>, swap: BoolTarget, left: Self, right: Self) -> Self;
 }
 pub trait ConnectableTarget {
-    fn connect<F: RichField + Extendable<D>, const D: usize>(
-        &self,
-        builder: &mut CircuitBuilder<F, D>,
-        connect_value: Self,
-    );
+    fn connect<F: RichField + Extendable<D>, const D: usize>(&self, builder: &mut CircuitBuilder<F, D>, connect_value: Self);
 }
 
 pub trait CreatableTarget {
-    fn create_virtual<F: RichField + Extendable<D>, const D: usize>(
-        builder: &mut CircuitBuilder<F, D>,
-    ) -> Self;
+    fn create_virtual<F: RichField + Extendable<D>, const D: usize>(builder: &mut CircuitBuilder<F, D>) -> Self;
 }
 pub trait CreatableWithHasherTarget {
-    fn create_virtual_with_hasher<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
-        builder: &mut CircuitBuilder<F, D>,
-    ) -> Self;
+    fn create_virtual_with_hasher<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(builder: &mut CircuitBuilder<F, D>) -> Self;
 }
 
 impl<T: CreatableTarget> CreatableWithHasherTarget for T {
-    fn create_virtual_with_hasher<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
-        builder: &mut CircuitBuilder<F, D>,
-    ) -> Self {
+    fn create_virtual_with_hasher<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(builder: &mut CircuitBuilder<F, D>) -> Self {
         Self::create_virtual::<F, D>(builder)
     }
 }
 
-/* 
+/*
 pub trait HashableTarget<Hash> {
     fn to_hash_target<F: RichField + Extendable<D>, const D: usize>(
         &self,
@@ -71,7 +56,10 @@ impl<T: Copy> HashableTarget<T> for T {
 }*/
 
 pub trait AlgebraicHashableTarget {
-    fn to_hash_target<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(&self, builder: &mut CircuitBuilder<F, D>) -> HashOutTarget;
+    fn to_hash_target<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
+        &self,
+        builder: &mut CircuitBuilder<F, D>,
+    ) -> HashOutTarget;
 }
 pub trait WitnessValueFor<T, F: RichField, const BIG_ENDIAN: bool = true> {
     fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &T) -> anyhow::Result<()>;
@@ -79,28 +67,17 @@ pub trait WitnessValueFor<T, F: RichField, const BIG_ENDIAN: bool = true> {
 
 // HashOutTarget
 impl CreatableTarget for HashOutTarget {
-    fn create_virtual<F: RichField + Extendable<D>, const D: usize>(
-        builder: &mut CircuitBuilder<F, D>,
-    ) -> Self {
+    fn create_virtual<F: RichField + Extendable<D>, const D: usize>(builder: &mut CircuitBuilder<F, D>) -> Self {
         builder.add_virtual_hash()
     }
 }
 impl ConnectableTarget for HashOutTarget {
-    fn connect<F: RichField + Extendable<D>, const D: usize>(
-        &self,
-        builder: &mut CircuitBuilder<F, D>,
-        connect_value: Self,
-    ) {
+    fn connect<F: RichField + Extendable<D>, const D: usize>(&self, builder: &mut CircuitBuilder<F, D>, connect_value: Self) {
         builder.connect_hashes(*self, connect_value)
     }
 }
 impl SwappableTarget for HashOutTarget {
-    fn swap<F: RichField + Extendable<D>, const D: usize>(
-        builder: &mut CircuitBuilder<F, D>,
-        swap: BoolTarget,
-        left: Self,
-        right: Self,
-    ) -> Self {
+    fn swap<F: RichField + Extendable<D>, const D: usize>(builder: &mut CircuitBuilder<F, D>, swap: BoolTarget, left: Self, right: Self) -> Self {
         builder.select_hash(swap, right, left)
     }
 }
@@ -119,28 +96,17 @@ impl<F: RichField> WitnessValueFor<HashOutTarget, F, true> for QHashOut<F> {
 
 // Target
 impl CreatableTarget for Target {
-    fn create_virtual<F: RichField + Extendable<D>, const D: usize>(
-        builder: &mut CircuitBuilder<F, D>,
-    ) -> Self {
+    fn create_virtual<F: RichField + Extendable<D>, const D: usize>(builder: &mut CircuitBuilder<F, D>) -> Self {
         builder.add_virtual_target()
     }
 }
 impl ConnectableTarget for Target {
-    fn connect<F: RichField + Extendable<D>, const D: usize>(
-        &self,
-        builder: &mut CircuitBuilder<F, D>,
-        connect_value: Self,
-    ) {
+    fn connect<F: RichField + Extendable<D>, const D: usize>(&self, builder: &mut CircuitBuilder<F, D>, connect_value: Self) {
         builder.connect(*self, connect_value)
     }
 }
 impl SwappableTarget for Target {
-    fn swap<F: RichField + Extendable<D>, const D: usize>(
-        builder: &mut CircuitBuilder<F, D>,
-        swap: BoolTarget,
-        left: Self,
-        right: Self,
-    ) -> Self {
+    fn swap<F: RichField + Extendable<D>, const D: usize>(builder: &mut CircuitBuilder<F, D>, swap: BoolTarget, left: Self, right: Self) -> Self {
         builder.select(swap, right, left)
     }
 }
@@ -151,13 +117,13 @@ impl<F: RichField> WitnessValueFor<Target, F, true> for F {
 }
 
 impl<F: RichField> WitnessValueFor<U32Target, F, true> for u32 {
-    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &U32Target)  -> anyhow::Result<()> {
+    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &U32Target) -> anyhow::Result<()> {
         witness.set_u32_target(*target, *self)
     }
 }
 
 impl<F: RichField> WitnessValueFor<BoolTarget, F, true> for bool {
-    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &BoolTarget)  -> anyhow::Result<()> {
+    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &BoolTarget) -> anyhow::Result<()> {
         witness.set_bool_target(*target, *self)
     }
 }
@@ -204,9 +170,7 @@ impl GenericCircuitMerkleHasher<HashOutTarget> for PoseidonHash {
         left: HashOutTarget,
         right: HashOutTarget,
     ) -> HashOutTarget {
-        builder.hash_n_to_hash_no_pad::<PoseidonHash>(
-            [left.elements.to_vec(), right.elements.to_vec()].concat(),
-        )
+        builder.hash_n_to_hash_no_pad::<PoseidonHash>([left.elements.to_vec(), right.elements.to_vec()].concat())
     }
 
     fn two_to_one_swapped<F: QRichField + Extendable<D>, const D: usize>(
@@ -227,14 +191,7 @@ impl GenericCircuitMerkleHasher<HashOutTarget> for PoseidonHash {
         let left = builder.select_hash(swap, left, right);
         let right = builder.select_hash(swap, right, left);
         let marker = builder.one();
-        builder.hash_n_to_hash_no_pad::<PoseidonHash>(
-            [
-                left.elements.to_vec(),
-                right.elements.to_vec(),
-                vec![marker],
-            ]
-            .concat(),
-        )
+        builder.hash_n_to_hash_no_pad::<PoseidonHash>([left.elements.to_vec(), right.elements.to_vec(), vec![marker]].concat())
     }
 }
 
@@ -246,11 +203,5 @@ pub trait FromTargets {
     fn from_targets(targets: &[Target]) -> Self;
 }
 
-pub trait GenericHashTarget:
-    SwappableTarget + ConnectableTarget + CreatableTarget + Clone + Copy + ToTargets
-{
-}
-impl<T: SwappableTarget + ConnectableTarget + CreatableTarget + Clone + Copy + ToTargets>
-    GenericHashTarget for T
-{
-}
+pub trait GenericHashTarget: SwappableTarget + ConnectableTarget + CreatableTarget + Clone + Copy + ToTargets {}
+impl<T: SwappableTarget + ConnectableTarget + CreatableTarget + Clone + Copy + ToTargets> GenericHashTarget for T {}

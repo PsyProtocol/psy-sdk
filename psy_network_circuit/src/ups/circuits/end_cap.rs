@@ -1,17 +1,17 @@
 use plonky2::{
-    hash::hash_types::HashOut, iop::witness::PartialWitness, plonk::{
+    hash::hash_types::HashOut,
+    iop::witness::PartialWitness,
+    plonk::{
         circuit_builder::CircuitBuilder,
         circuit_data::{CircuitConfig, CircuitData, CommonCircuitData, VerifierOnlyCircuitData},
         config::{AlgebraicHasher, GenericConfig},
         proof::ProofWithPublicInputs,
-    }
+    },
 };
 use psy_common_circuit::{
     builder::hash::core::CircuitBuilderHashCore,
     circuits::traits::qstandard::QStandardCircuit,
-    proof_minifier::{
-        pm_chain_dynamic::QEDProofMinifierDynamicChain, pm_core::get_circuit_fingerprint_generic,
-    },
+    proof_minifier::{pm_chain_dynamic::QEDProofMinifierDynamicChain, pm_core::get_circuit_fingerprint_generic},
     treeprover::qrecursion::standard::gadgets::verify_agg_proof::VerifyAggProofGadget,
 };
 use psy_core::{
@@ -20,17 +20,11 @@ use psy_core::{
 };
 use psy_crypto::{
     common::witnesses::qrecursion::header::QRecursionAggStandardHeader,
-    hash::{
-        merkle::
-            core::MerkleProofCore
-        ,
-        traits::hasher::MerkleZeroHasher,
-    },
+    hash::{merkle::core::MerkleProofCore, traits::hasher::MerkleZeroHasher},
 };
 use psy_data::ups::ups_end_cap::UPSEndCapFromProofTreeGadgetInput;
 
 use crate::ups::gadgets::ups_end_cap_tree::UPSEndCapFromProofTreeGadget;
-
 
 #[derive(Debug)]
 pub struct UPSStandardEndCapCircuit<C: GenericConfig<D> + 'static, const D: usize>
@@ -110,33 +104,25 @@ where
         let config = CircuitConfig::standard_recursion_config();
         let mut builder = CircuitBuilder::<C::F, D>::new(config);
 
-        let verify_proof_tree_root_gadget = VerifyAggProofGadget::add_virtual_to::<C, C::F>(
-            &mut builder,
-            proof_tree_agg_common_data,
-            proof_tree_agg_verifier_data_cap_height,
-        );
+        let verify_proof_tree_root_gadget =
+            VerifyAggProofGadget::add_virtual_to::<C, C::F>(&mut builder, proof_tree_agg_common_data, proof_tree_agg_verifier_data_cap_height);
 
-        let known_proof_tree_circuit_whitelist_root_target =
-            builder.constant_qhash(known_proof_tree_circuit_whitelist_root);
+        let known_proof_tree_circuit_whitelist_root_target = builder.constant_qhash(known_proof_tree_circuit_whitelist_root);
 
         // ensure the proof tree is using the correct, unmodified aggregation circuits
         builder.connect_hashes(
             known_proof_tree_circuit_whitelist_root_target,
-            verify_proof_tree_root_gadget
-                .agg_whitelist_merkle_proof
-                .root,
+            verify_proof_tree_root_gadget.agg_whitelist_merkle_proof.root,
         );
 
-        let end_cap_from_proof_tree_gadget =
-            UPSEndCapFromProofTreeGadget::add_virtual_to::<C::Hasher, C::F, D>(
-                &mut builder,
-                ups_session_proof_tree_height,
-                ups_circuit_whitelist_tree_height,
-                network_magic,
-            );
+        let end_cap_from_proof_tree_gadget = UPSEndCapFromProofTreeGadget::add_virtual_to::<C::Hasher, C::F, D>(
+            &mut builder,
+            ups_session_proof_tree_height,
+            ups_circuit_whitelist_tree_height,
+            network_magic,
+        );
 
-        let known_ups_circuit_whitelist_root_target =
-            builder.constant_qhash(known_ups_circuit_whitelist_root);
+        let known_ups_circuit_whitelist_root_target = builder.constant_qhash(known_ups_circuit_whitelist_root);
 
         // ensure the ups steps are using the correct ups circuit whitelist root
         builder.connect_hashes(
@@ -147,13 +133,13 @@ where
         );
 
         // ensure the proof tree proof's root matches the ups gadget's root
-        tracing::debug!("🏗️ EndCap Circuit Constraint 1 - proof tree root match: agg_end={:?}, current={:?}",
+        tracing::debug!(
+            "🏗️ EndCap Circuit Constraint 1 - proof tree root match: agg_end={:?}, current={:?}",
             verify_proof_tree_root_gadget.agg_proof_header_gadget.state_transition_end,
-            end_cap_from_proof_tree_gadget.current_proof_tree_root);
+            end_cap_from_proof_tree_gadget.current_proof_tree_root
+        );
         builder.connect_hashes(
-            verify_proof_tree_root_gadget
-                .agg_proof_header_gadget
-                .state_transition_end,
+            verify_proof_tree_root_gadget.agg_proof_header_gadget.state_transition_end,
             end_cap_from_proof_tree_gadget.current_proof_tree_root,
         );
 
@@ -166,11 +152,13 @@ where
             .guta_stats
             .to_hash::<C::Hasher, C::F, D>(&mut builder);
 
-        tracing::debug!("🏗️ EndCap Circuit Public Inputs - state_transition_hash={:?}, guta_stats_hash={:?}",
-            state_transition_pi_hash, guta_stats_pi_hash);
+        tracing::debug!(
+            "🏗️ EndCap Circuit Public Inputs - state_transition_hash={:?}, guta_stats_hash={:?}",
+            state_transition_pi_hash,
+            guta_stats_pi_hash
+        );
 
-        let public_inputs_hash =
-            builder.hash_two_to_one::<C::Hasher>(state_transition_pi_hash, guta_stats_pi_hash);
+        let public_inputs_hash = builder.hash_two_to_one::<C::Hasher>(state_transition_pi_hash, guta_stats_pi_hash);
 
         tracing::debug!("🏗️ EndCap Circuit Final Public Inputs Hash: {:?}", public_inputs_hash);
 
@@ -178,18 +166,14 @@ where
 
         let base_circuit_data = builder.build::<C>();
 
-        let base_fingerprint = QHashOut(get_circuit_fingerprint_generic(
-            &base_circuit_data.verifier_only,
-        ));
+        let base_fingerprint = QHashOut(get_circuit_fingerprint_generic(&base_circuit_data.verifier_only));
 
         let minifier_chain = if has_minifier {
-            Some(
-                QEDProofMinifierDynamicChain::<D, C::F, C>::new_with_dynamic_constant_verifier(
-                    &base_circuit_data.verifier_only,
-                    &base_circuit_data.common,
-                    &[false, false],
-                ),
-            )
+            Some(QEDProofMinifierDynamicChain::<D, C::F, C>::new_with_dynamic_constant_verifier(
+                &base_circuit_data.verifier_only,
+                &base_circuit_data.common,
+                &[false, false],
+            ))
         } else {
             None
         };
@@ -214,8 +198,7 @@ where
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         let mut pw = PartialWitness::<C::F>::new();
 
-        self.end_cap_from_proof_tree_gadget
-            .set_witness(&mut pw, end_cap_from_proof_tree_input)?;
+        self.end_cap_from_proof_tree_gadget.set_witness(&mut pw, end_cap_from_proof_tree_input)?;
         self.verify_proof_tree_root_gadget.set_witness(
             &mut pw,
             agg_whitelist_merkle_proof,
@@ -254,16 +237,15 @@ where
         }
     }
 
-    pub fn verify_proof(&self, proof_with_pis: ProofWithPublicInputs<C::F, C, D>,) -> anyhow::Result<()> {
+    pub fn verify_proof(&self, proof_with_pis: ProofWithPublicInputs<C::F, C, D>) -> anyhow::Result<()> {
         if self.is_minifier_enabled() {
             self.minifier_chain.as_ref().unwrap().verify(proof_with_pis)
-        }else{
+        } else {
             self.base_circuit_data.verify(proof_with_pis)
         }
     }
 }
-impl<C: GenericConfig<D> + 'static, const D: usize> QStandardCircuit<C, D>
-    for UPSStandardEndCapCircuit<C, D>
+impl<C: GenericConfig<D> + 'static, const D: usize> QStandardCircuit<C, D> for UPSStandardEndCapCircuit<C, D>
 where
     C::Hasher: AlgebraicHasher<C::F>,
 {

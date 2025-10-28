@@ -1,6 +1,6 @@
+mod multicall;
 mod transfer;
 mod transfer_multi;
-mod multicall;
 
 use std::{
     path::Path,
@@ -11,21 +11,18 @@ use std::{
 use anyhow::Result;
 use plonky2::field::goldilocks_field::GoldilocksField;
 use psy_data::traits::qdatastore::qmetadata::QMetaDataStoreReaderSync;
+use psy_node::common::slot::{LocalClock, Slot, SLOT_SIZE};
 use psy_prover::{
-    local::provider::{QUserRpcProvider, RpcConfig},
+    local::provider::{QUserRpcProvider, RpcConfig, RpcProvider},
     session::WalletSession,
 };
 use tracing::{error, info};
-use psy_node::common::slot::{SLOT_SIZE, LocalClock, Slot};
-use psy_prover::local::provider::RpcProvider;
+
 use crate::subcommand::StressTestArgs;
 type F = GoldilocksField;
 
 pub async fn run(args: StressTestArgs) -> Result<()> {
-    info!(
-        "🚀 Starting stress test with {} concurrent tasks",
-        args.concurrent_tasks
-    );
+    info!("🚀 Starting stress test with {} concurrent tasks", args.concurrent_tasks);
 
     match args.task_type.as_str() {
         "transfer" => transfer::run(args).await,
@@ -39,7 +36,8 @@ pub async fn run(args: StressTestArgs) -> Result<()> {
 }
 
 pub(crate) fn load_rpc_config(config_path: &str) -> Result<RpcConfig> {
-    // Try to find config file in current directory or relative to executable location
+    // Try to find config file in current directory or relative to executable
+    // location
     let config_file_path = if Path::new(config_path).exists() {
         Path::new(config_path).to_path_buf()
     } else {
@@ -64,11 +62,9 @@ pub(crate) fn load_rpc_config(config_path: &str) -> Result<RpcConfig> {
 }
 
 pub(crate) async fn wait_for_new_block(st_provider: &RpcProvider, offset: u64) -> Result<bool> {
-    let mut start_checkpoint = st_provider
-        .get_latest_l2_block_state().await?
-        .checkpoint_id;
+    let mut start_checkpoint = st_provider.get_latest_l2_block_state().await?.checkpoint_id;
     info!("current checkpoint: {}", start_checkpoint);
-    let local_clock = LocalClock{};
+    let local_clock = LocalClock {};
     let timeout_duration = Duration::from_millis(10 * offset * SLOT_SIZE);
     let interval = Duration::from_millis(2 * SLOT_SIZE);
     let start_time = Instant::now();
@@ -76,16 +72,11 @@ pub(crate) async fn wait_for_new_block(st_provider: &RpcProvider, offset: u64) -
     loop {
         let slot = local_clock.get_current_slot();
         thread::sleep(interval);
-        let last_checkpoint = st_provider
-            .get_latest_l2_block_state().await?
-            .checkpoint_id;
+        let last_checkpoint = st_provider.get_latest_l2_block_state().await?.checkpoint_id;
         info!("get latest checkpoint: {}", last_checkpoint);
         let duration = start_time.elapsed();
         if last_checkpoint >= start_checkpoint + offset {
-            info!(
-                "🔄 Wait {} seconds for finalizing block",
-                duration.as_secs()
-            );
+            info!("🔄 Wait {} seconds for finalizing block", duration.as_secs());
             return Ok(true);
         }
         let latest_slot = local_clock.get_current_slot();

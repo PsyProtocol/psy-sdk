@@ -1,15 +1,3 @@
-use crate::node::coordinator::{QEDCoordinatorStoreReaderAsync, QEDCoordinatorStoreWriterAsyncImm};
-use psy_data::{
-    config::store_config::{CheckpointSyncInfoTableStore, QEDHasher, UserTreeStore},
-    models::{
-        checkpoint::sync_info::QEDCheckpointSyncInfoModelCore,
-        kvq_merkle::model::KVQFixedConfigMerkleTreeModelCore,
-    },
-    traits::qdatastore::{
-        qmetadata::QMetaDataStoreWriterSync, qtreedata::QTreeDataStoreWriterSync,
-    },
-};
-
 use async_trait::async_trait;
 use kvq::traits::KVQBinaryStore;
 use plonky2::field::goldilocks_field::GoldilocksField;
@@ -23,22 +11,26 @@ use psy_crypto::hash::{
     traits::qhashable::QFieldHashable,
 };
 use psy_data::{
+    config::store_config::{CheckpointSyncInfoTableStore, QEDHasher, UserTreeStore},
+    models::{
+        checkpoint::sync_info::QEDCheckpointSyncInfoModelCore, kvq_merkle::model::KVQFixedConfigMerkleTreeModelCore,
+        realm_status::RealmStatusModelCore,
+    },
     qdata::{
         checkpoint::{QEDCheckpointLeaf, QEDCheckpointLeafStats, QEDL2BlockState},
         contract::{ContractCodeDefinition, QEDContractLeaf},
         realm_status::BasicRealmStatus,
     },
     qsync::coordinator::QEDCheckpointSyncInfoCompact,
+    traits::qdatastore::{qmetadata::QMetaDataStoreWriterSync, qtreedata::QTreeDataStoreWriterSync},
 };
-use psy_data::models::realm_status::RealmStatusModelCore;
 
 use super::InitializeParams;
+use crate::node::coordinator::{QEDCoordinatorStoreReaderAsync, QEDCoordinatorStoreWriterAsyncImm};
 
 type F = GoldilocksField;
 #[async_trait]
-impl<T: KVQBinaryStore + QEDCoordinatorStoreReaderAsync<F>> QEDCoordinatorStoreWriterAsyncImm<F>
-    for T
-{
+impl<T: KVQBinaryStore + QEDCoordinatorStoreReaderAsync<F>> QEDCoordinatorStoreWriterAsyncImm<F> for T {
     async fn batch_append_contract_tree_imm(
         &self,
         checkpoint_id: u64,
@@ -46,13 +38,7 @@ impl<T: KVQBinaryStore + QEDCoordinatorStoreReaderAsync<F>> QEDCoordinatorStoreW
         sub_tree_height: u8,
         leaf_hashes: &[QHashOut<F>],
     ) -> anyhow::Result<(Vec<usize>, Vec<SpidermanUpdateProof<QHashOut<F>>>)> {
-        <Self as QTreeDataStoreWriterSync<F>>::batch_append_contract_tree(
-            self,
-            checkpoint_id,
-            start_leaf_index,
-            sub_tree_height,
-            leaf_hashes,
-        )
+        <Self as QTreeDataStoreWriterSync<F>>::batch_append_contract_tree(self, checkpoint_id, start_leaf_index, sub_tree_height, leaf_hashes)
     }
     async fn batch_append_user_registration_tree_imm(
         &self,
@@ -83,12 +69,7 @@ impl<T: KVQBinaryStore + QEDCoordinatorStoreReaderAsync<F>> QEDCoordinatorStoreW
         deposit_id: u64,
         leaf_hash: QHashOut<F>,
     ) -> anyhow::Result<DeltaMerkleProofCore<QHashOut<F>>> {
-        <Self as QTreeDataStoreWriterSync<F>>::set_deposit_tree_leaf_hash(
-            self,
-            checkpoint_id,
-            deposit_id,
-            leaf_hash,
-        )
+        <Self as QTreeDataStoreWriterSync<F>>::set_deposit_tree_leaf_hash(self, checkpoint_id, deposit_id, leaf_hash)
     }
     async fn set_withdrawal_tree_leaf_hash_imm(
         &self,
@@ -96,25 +77,10 @@ impl<T: KVQBinaryStore + QEDCoordinatorStoreReaderAsync<F>> QEDCoordinatorStoreW
         withdrawal_id: u64,
         leaf_hash: QHashOut<F>,
     ) -> anyhow::Result<DeltaMerkleProofCore<QHashOut<F>>> {
-        <Self as QTreeDataStoreWriterSync<F>>::set_withdrawal_tree_leaf_hash(
-            self,
-            checkpoint_id,
-            withdrawal_id,
-            leaf_hash,
-        )
+        <Self as QTreeDataStoreWriterSync<F>>::set_withdrawal_tree_leaf_hash(self, checkpoint_id, withdrawal_id, leaf_hash)
     }
-    async fn set_contract_function_whitelist_imm(
-        &self,
-        checkpoint_id: u64,
-        contract_id: u64,
-        leaves: &[QHashOut<F>],
-    ) -> anyhow::Result<QHashOut<F>> {
-        <Self as QTreeDataStoreWriterSync<F>>::set_contract_function_whitelist(
-            self,
-            checkpoint_id,
-            contract_id,
-            leaves,
-        )
+    async fn set_contract_function_whitelist_imm(&self, checkpoint_id: u64, contract_id: u64, leaves: &[QHashOut<F>]) -> anyhow::Result<QHashOut<F>> {
+        <Self as QTreeDataStoreWriterSync<F>>::set_contract_function_whitelist(self, checkpoint_id, contract_id, leaves)
     }
     async fn set_contract_tree_leaf_hash_imm(
         &self,
@@ -122,47 +88,20 @@ impl<T: KVQBinaryStore + QEDCoordinatorStoreReaderAsync<F>> QEDCoordinatorStoreW
         contract_id: u64,
         leaf_hash: QHashOut<F>,
     ) -> anyhow::Result<DeltaMerkleProofCore<QHashOut<F>>> {
-        <Self as QTreeDataStoreWriterSync<F>>::set_contract_tree_leaf_hash(
-            self,
-            checkpoint_id,
-            contract_id,
-            leaf_hash,
-        )
+        <Self as QTreeDataStoreWriterSync<F>>::set_contract_tree_leaf_hash(self, checkpoint_id, contract_id, leaf_hash)
     }
     async fn set_checkpoint_tree_leaf_hash_imm(
         &self,
         checkpoint_id: u64,
         leaf_hash: QHashOut<F>,
     ) -> anyhow::Result<DeltaMerkleProofCore<QHashOut<F>>> {
-        <Self as QTreeDataStoreWriterSync<F>>::set_checkpoint_tree_leaf_hash(
-            self,
-            checkpoint_id,
-            leaf_hash,
-        )
+        <Self as QTreeDataStoreWriterSync<F>>::set_checkpoint_tree_leaf_hash(self, checkpoint_id, leaf_hash)
     }
-    async fn set_contract_leaf_data_imm(
-        &self,
-        checkpoint_id: u64,
-        contract_id: u64,
-        leaf_data: &QEDContractLeaf<F>,
-    ) -> anyhow::Result<()> {
-        <Self as QMetaDataStoreWriterSync<F>>::set_contract_leaf_data(
-            self,
-            checkpoint_id,
-            contract_id,
-            leaf_data,
-        )
+    async fn set_contract_leaf_data_imm(&self, checkpoint_id: u64, contract_id: u64, leaf_data: &QEDContractLeaf<F>) -> anyhow::Result<()> {
+        <Self as QMetaDataStoreWriterSync<F>>::set_contract_leaf_data(self, checkpoint_id, contract_id, leaf_data)
     }
-    async fn set_checkpoint_leaf_data_imm(
-        &self,
-        checkpoint_id: u64,
-        leaf_data: &QEDCheckpointLeaf<F>,
-    ) -> anyhow::Result<()> {
-        <Self as QMetaDataStoreWriterSync<F>>::set_checkpoint_leaf_data(
-            self,
-            checkpoint_id,
-            leaf_data,
-        )
+    async fn set_checkpoint_leaf_data_imm(&self, checkpoint_id: u64, leaf_data: &QEDCheckpointLeaf<F>) -> anyhow::Result<()> {
+        <Self as QMetaDataStoreWriterSync<F>>::set_checkpoint_leaf_data(self, checkpoint_id, leaf_data)
     }
     async fn set_contract_code_definition_imm(
         &self,
@@ -170,20 +109,12 @@ impl<T: KVQBinaryStore + QEDCoordinatorStoreReaderAsync<F>> QEDCoordinatorStoreW
         contract_id: u64,
         definition: &ContractCodeDefinition,
     ) -> anyhow::Result<()> {
-        <Self as QMetaDataStoreWriterSync<F>>::set_contract_code_definition(
-            self,
-            checkpoint_id,
-            contract_id,
-            definition,
-        )
+        <Self as QMetaDataStoreWriterSync<F>>::set_contract_code_definition(self, checkpoint_id, contract_id, definition)
     }
     async fn set_l2_block_state_imm(&self, block_state: &QEDL2BlockState) -> anyhow::Result<()> {
         <Self as QMetaDataStoreWriterSync<F>>::set_l2_block_state(self, block_state)
     }
-    async fn set_checkpoint_sync_info_imm(
-        &self,
-        sync_info: QEDCheckpointSyncInfoCompact<F>,
-    ) -> anyhow::Result<()> {
+    async fn set_checkpoint_sync_info_imm(&self, sync_info: QEDCheckpointSyncInfoCompact<F>) -> anyhow::Result<()> {
         CheckpointSyncInfoTableStore::<Self>::set_checkpoint_sync_info(self, sync_info)
     }
 
@@ -231,8 +162,7 @@ impl<T: KVQBinaryStore + QEDCoordinatorStoreReaderAsync<F>> QEDCoordinatorStoreW
             };
 
             self.set_l2_block_state_imm(&genesis_l2_block_state).await?;
-            self.set_checkpoint_leaf_data_imm(0, &genesis_checkpoint_leaf)
-                .await?;
+            self.set_checkpoint_leaf_data_imm(0, &genesis_checkpoint_leaf).await?;
             let r = self
                 .set_checkpoint_tree_leaf_hash_imm(0, genesis_checkpoint_leaf.qfhash::<QEDHasher>())
                 .await?;
@@ -253,12 +183,8 @@ impl<T: KVQBinaryStore + QEDCoordinatorStoreReaderAsync<F>> QEDCoordinatorStoreW
         }
     }
 
-    async fn set_user_public_key_records(
-        &self,
-        records: &[psy_data::qdata::user_public_key::QEDUserPublicKeyRecord<F>],
-    ) -> anyhow::Result<()> {
-        use psy_data::config::store_config::UserPublicKeyTableStore;
-        use psy_data::models::checkpoint::user_public_keys::QEDUserPublicKeyHelperModelCore;
+    async fn set_user_public_key_records(&self, records: &[psy_data::qdata::user_public_key::QEDUserPublicKeyRecord<F>]) -> anyhow::Result<()> {
+        use psy_data::{config::store_config::UserPublicKeyTableStore, models::checkpoint::user_public_keys::QEDUserPublicKeyHelperModelCore};
 
         UserPublicKeyTableStore::<Self>::set_user_public_key_records(self, records)
     }

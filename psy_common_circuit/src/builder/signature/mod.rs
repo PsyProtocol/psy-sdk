@@ -27,18 +27,13 @@ impl<T: Witness<F>, F: PrimeField64> WitnessSignatureHelpers<F> for T {
         );
         self.set_target(targets[0], F::from_canonical_u8(public_key_bytes[0]))?;
         for i in 0..8 {
-            self.set_target(
-                targets[i + 1],
-                F::from_canonical_u32(read_u32_le_at(public_key_bytes, 1 + i * 4)),
-            )?;
+            self.set_target(targets[i + 1], F::from_canonical_u32(read_u32_le_at(public_key_bytes, 1 + i * 4)))?;
         }
         Ok(())
     }
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderSignatureHelpers<F, D>
-    for CircuitBuilder<F, D>
-{
+impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderSignatureHelpers<F, D> for CircuitBuilder<F, D> {
     fn bytes33_to_public_key(&mut self, value: &[Target]) -> [Target; 9] {
         let t256 = F::from_canonical_u32(256);
 

@@ -1,6 +1,9 @@
-use serde::de::{self, Visitor};
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::fmt;
+
+use serde::{
+    de::{self, Visitor},
+    Deserialize, Deserializer, Serialize, Serializer,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Ord, PartialOrd)]
 pub struct CompressedPublicKey(pub [u8; 33]);
@@ -42,9 +45,7 @@ impl<'de> Visitor<'de> for ByteArrayVisitor {
     {
         let mut arr = [0u8; 33];
         for (i, place) in arr.iter_mut().enumerate() {
-            *place = seq
-                .next_element()?
-                .ok_or_else(|| de::Error::invalid_length(i, &self))?;
+            *place = seq.next_element()?.ok_or_else(|| de::Error::invalid_length(i, &self))?;
         }
         Ok(arr)
     }
@@ -55,9 +56,7 @@ impl<'de> Deserialize<'de> for CompressedPublicKey {
     where
         D: Deserializer<'de>,
     {
-        Ok(CompressedPublicKey(
-            deserializer.deserialize_bytes(ByteArrayVisitor)?,
-        ))
+        Ok(CompressedPublicKey(deserializer.deserialize_bytes(ByteArrayVisitor)?))
     }
 }
 impl CompressedPublicKey {
@@ -86,25 +85,17 @@ pub fn bytes_to_u32_vec_be(bytes: &[u8]) -> Vec<u32> {
         .collect()
 }
 pub fn u32_vec_to_bytes_be(u32s: &[u32]) -> Vec<u8> {
-    u32s.iter()
-        .flat_map(|&u| u.to_be_bytes().to_vec())
-        .collect()
+    u32s.iter().flat_map(|&u| u.to_be_bytes().to_vec()).collect()
 }
 
 #[inline]
 pub fn read_u32_be_at(array: &[u8], index: usize) -> u32 {
-    ((array[index] as u32) << 24)
-        + ((array[index + 1] as u32) << 16)
-        + ((array[index + 2] as u32) << 8)
-        + (array[index + 3] as u32)
+    ((array[index] as u32) << 24) + ((array[index + 1] as u32) << 16) + ((array[index + 2] as u32) << 8) + (array[index + 3] as u32)
 }
 
 #[inline]
 pub fn read_u32_le_at(array: &[u8], index: usize) -> u32 {
-    ((array[index + 3] as u32) << 24)
-        + ((array[index + 2] as u32) << 16)
-        + ((array[index + 1] as u32) << 8)
-        + (array[index] as u32)
+    ((array[index + 3] as u32) << 24) + ((array[index + 2] as u32) << 16) + ((array[index + 1] as u32) << 8) + (array[index] as u32)
 }
 
 pub fn read_u48_from_bytes_le(bytes: &[u8], offset: usize) -> u64 {

@@ -1,10 +1,11 @@
 use std::path::PathBuf;
 
-use crate::package::CrateName;
 use thiserror::Error;
 
-/// Errors covering situations where a package is either missing, malformed or does not pass semver
-/// validation checks.
+use crate::package::CrateName;
+
+/// Errors covering situations where a package is either missing, malformed or
+/// does not pass semver validation checks.
 #[derive(Debug, Error)]
 pub enum ManifestError {
     /// Package doesn't have a manifest file
@@ -62,9 +63,7 @@ pub enum ManifestError {
 #[allow(clippy::enum_variant_names)]
 #[derive(Error, Debug, PartialEq, Eq, Clone)]
 pub enum SemverError {
-    #[error(
-        "Invalid value for `compiler_version` in package {package_name}. Requirements may only refer to full releases"
-    )]
+    #[error("Invalid value for `compiler_version` in package {package_name}. Requirements may only refer to full releases")]
     InvalidCompilerVersionRequirement {
         package_name: CrateName,
         required_compiler_version: String,
@@ -77,12 +76,8 @@ pub enum SemverError {
         required_compiler_version: String,
         compiler_version_found: String,
     },
-    #[error(
-        "Could not parse the required compiler version for package {package_name} in Dargo.toml. Error: {error}"
-    )]
+    #[error("Could not parse the required compiler version for package {package_name} in Dargo.toml. Error: {error}")]
     CouldNotParseRequiredVersion { package_name: String, error: String },
-    #[error(
-        "Could not parse the package version for package {package_name} in Dargo.toml. Error: {error}"
-    )]
+    #[error("Could not parse the package version for package {package_name} in Dargo.toml. Error: {error}")]
     CouldNotParsePackageVersion { package_name: String, error: String },
 }

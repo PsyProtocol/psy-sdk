@@ -1,9 +1,12 @@
-use std::sync::Arc;
-use std::time::{Duration, Instant};
-use tokio::sync::RwLock;
-use redis::{aio::MultiplexedConnection, AsyncCommands};
+use std::{
+    sync::Arc,
+    time::{Duration, Instant},
+};
+
 use anyhow::Result;
+use redis::{aio::MultiplexedConnection, AsyncCommands};
 use serde::{Deserialize, Serialize};
+use tokio::sync::RwLock;
 
 #[derive(Debug, Clone)]
 pub struct ConnectionState {
@@ -29,10 +32,7 @@ impl ConnectionState {
 
     fn next_attempt(&mut self) {
         self.last_attempt = Some(Instant::now());
-        self.backoff_duration = std::cmp::min(
-            self.backoff_duration * 2,
-            Duration::from_secs(30)
-        );
+        self.backoff_duration = std::cmp::min(self.backoff_duration * 2, Duration::from_secs(30));
     }
 
     fn should_wait(&self) -> Option<Duration> {
@@ -91,7 +91,6 @@ impl ResilientRedisConnection {
             state: Arc::new(RwLock::new(state)),
             redis_url: redis_url.to_string(),
         };
-
 
         Ok(resilient_conn)
     }
@@ -182,38 +181,30 @@ impl ResilientRedisConnection {
 
             self.execute(move |mut conn| {
                 let name = client_name.clone();
-                async move {
-                    redis::cmd("CLIENT")
-                        .arg("SETNAME")
-                        .arg(&name)
-                        .query_async::<String>(&mut conn)
-                        .await
-                }
-            }).await?;
+                async move { redis::cmd("CLIENT").arg("SETNAME").arg(&name).query_async::<String>(&mut conn).await }
+            })
+            .await?;
         }
         Ok(())
     }
 
-
     fn is_connection_error(&self, error: &redis::RedisError) -> bool {
-        matches!(error.kind(),
-            redis::ErrorKind::IoError |
-            redis::ErrorKind::ExtensionError |
-            redis::ErrorKind::ReadOnly
+        matches!(
+            error.kind(),
+            redis::ErrorKind::IoError | redis::ErrorKind::ExtensionError | redis::ErrorKind::ReadOnly
         )
     }
 
     pub async fn get_stats(&self) -> ConnectionStats {
         let state = self.state.read().await;
-        ConnectionStats {
-            connected: state.connected,
-        }
+        ConnectionStats { connected: state.connected }
     }
 
     pub async fn health_check(&self) -> bool {
-        match self.execute(|mut conn| async move {
-            redis::cmd("PING").query_async::<String>(&mut conn).await
-        }).await {
+        match self
+            .execute(|mut conn| async move { redis::cmd("PING").query_async::<String>(&mut conn).await })
+            .await
+        {
             Ok(pong) => pong == "PONG",
             Err(_) => false,
         }
@@ -233,9 +224,7 @@ impl ResilientRedisConnection {
         V: redis::FromRedisValue + Send + 'static,
     {
         let key_clone = key.clone();
-        self.execute(move |mut conn| async move {
-            conn.get(key_clone).await
-        }).await
+        self.execute(move |mut conn| async move { conn.get(key_clone).await }).await
     }
 
     pub async fn set<K, V>(&self, key: K, value: V) -> Result<()>
@@ -245,9 +234,7 @@ impl ResilientRedisConnection {
     {
         let key_clone = key.clone();
         let value_clone = value.clone();
-        self.execute(move |mut conn| async move {
-            conn.set(key_clone, value_clone).await
-        }).await
+        self.execute(move |mut conn| async move { conn.set(key_clone, value_clone).await }).await
     }
 
     pub async fn lpop<K, V>(&self, key: K, count: Option<usize>) -> Result<Option<V>>
@@ -259,7 +246,8 @@ impl ResilientRedisConnection {
         self.execute(move |mut conn| async move {
             let count_param = count.and_then(|c| std::num::NonZeroUsize::new(c));
             conn.lpop(key_clone, count_param).await
-        }).await
+        })
+        .await
     }
 
     pub async fn blpop<K>(&self, key: K, timeout: usize) -> Result<Option<(String, Vec<u8>)>>
@@ -267,13 +255,9 @@ impl ResilientRedisConnection {
         K: redis::ToRedisArgs + Send + Sync + Clone + 'static,
     {
         let key_clone = key.clone();
-        let result = self.execute(move |mut conn| async move {
-            redis::cmd("BLPOP")
-                .arg(key_clone)
-                .arg(timeout)
-                .query_async(&mut conn)
-                .await
-        }).await;
+        let result = self
+            .execute(move |mut conn| async move { redis::cmd("BLPOP").arg(key_clone).arg(timeout).query_async(&mut conn).await })
+            .await;
         if result.is_err() {
             tracing::error!("BLPOP failed: {:?}", result);
         }
@@ -287,9 +271,9 @@ impl ResilientRedisConnection {
     {
         let key_clone = key.clone();
         let value_clone = value.clone();
-        let result = self.execute(move |mut conn| async move {
-            conn.rpush(key_clone, value_clone).await
-        }).await;
+        let result = self
+            .execute(move |mut conn| async move { conn.rpush(key_clone, value_clone).await })
+            .await;
         if result.is_err() {
             tracing::error!("RPUSH failed: {:?}", result);
         }
@@ -304,9 +288,7 @@ impl ResilientRedisConnection {
     {
         let key_clone = key.clone();
         let field_clone = field.clone();
-        self.execute(move |mut conn| async move {
-            conn.hget(key_clone, field_clone).await
-        }).await
+        self.execute(move |mut conn| async move { conn.hget(key_clone, field_clone).await }).await
     }
 
     pub async fn hset<K, F, V>(&self, key: K, field: F, value: V) -> Result<bool>
@@ -318,9 +300,8 @@ impl ResilientRedisConnection {
         let key_clone = key.clone();
         let field_clone = field.clone();
         let value_clone = value.clone();
-        self.execute(move |mut conn| async move {
-            conn.hset(key_clone, field_clone, value_clone).await
-        }).await
+        self.execute(move |mut conn| async move { conn.hset(key_clone, field_clone, value_clone).await })
+            .await
     }
 
     pub async fn hset_nx<K, F, V>(&self, key: K, field: F, value: V) -> Result<bool>
@@ -332,9 +313,8 @@ impl ResilientRedisConnection {
         let key_clone = key.clone();
         let field_clone = field.clone();
         let value_clone = value.clone();
-        self.execute(move |mut conn| async move {
-            conn.hset_nx(key_clone, field_clone, value_clone).await
-        }).await
+        self.execute(move |mut conn| async move { conn.hset_nx(key_clone, field_clone, value_clone).await })
+            .await
     }
 
     pub async fn hincr<K, F>(&self, key: K, field: F, delta: i64) -> Result<i64>
@@ -344,9 +324,8 @@ impl ResilientRedisConnection {
     {
         let key_clone = key.clone();
         let field_clone = field.clone();
-        self.execute(move |mut conn| async move {
-            conn.hincr(key_clone, field_clone, delta).await
-        }).await
+        self.execute(move |mut conn| async move { conn.hincr(key_clone, field_clone, delta).await })
+            .await
     }
 
     pub async fn hexists<K, F>(&self, key: K, field: F) -> Result<bool>
@@ -356,11 +335,9 @@ impl ResilientRedisConnection {
     {
         let key_clone = key.clone();
         let field_clone = field.clone();
-        self.execute(move |mut conn| async move {
-            conn.hexists(key_clone, field_clone).await
-        }).await
+        self.execute(move |mut conn| async move { conn.hexists(key_clone, field_clone).await })
+            .await
     }
-
 
     pub async fn sadd<K, V>(&self, key: K, member: V) -> Result<()>
     where
@@ -369,9 +346,8 @@ impl ResilientRedisConnection {
     {
         let key_clone = key.clone();
         let member_clone = member.clone();
-        self.execute(move |mut conn| async move {
-            conn.sadd(key_clone, member_clone).await
-        }).await
+        self.execute(move |mut conn| async move { conn.sadd(key_clone, member_clone).await })
+            .await
     }
 
     pub async fn smembers<K, V>(&self, key: K) -> Result<Vec<V>>
@@ -379,9 +355,7 @@ impl ResilientRedisConnection {
         K: redis::ToRedisArgs + Send + Sync + 'static,
         V: redis::FromRedisValue + Send + 'static,
     {
-        self.execute(move |mut conn| async move {
-            conn.smembers(key).await
-        }).await
+        self.execute(move |mut conn| async move { conn.smembers(key).await }).await
     }
 
     pub async fn srem<K, V>(&self, key: K, members: &[V]) -> Result<()>
@@ -391,9 +365,7 @@ impl ResilientRedisConnection {
     {
         let key_clone = key.clone();
         let members = members.to_vec();
-        self.execute(move |mut conn| async move {
-            conn.srem(key_clone, members).await
-        }).await
+        self.execute(move |mut conn| async move { conn.srem(key_clone, members).await }).await
     }
 
     pub async fn del<K>(&self, key: K) -> Result<()>
@@ -401,9 +373,7 @@ impl ResilientRedisConnection {
         K: redis::ToRedisArgs + Send + Sync + Clone + 'static,
     {
         let key_clone = key.clone();
-        self.execute(move |mut conn| async move {
-            conn.del(key_clone).await
-        }).await
+        self.execute(move |mut conn| async move { conn.del(key_clone).await }).await
     }
 
     pub async fn lrange<K, V>(&self, key: K, start: isize, stop: isize) -> Result<Vec<V>>
@@ -412,9 +382,8 @@ impl ResilientRedisConnection {
         V: redis::FromRedisValue + Send + 'static,
     {
         let key_clone = key.clone();
-        self.execute(move |mut conn| async move {
-            conn.lrange(key_clone, start, stop).await
-        }).await
+        self.execute(move |mut conn| async move { conn.lrange(key_clone, start, stop).await })
+            .await
     }
 
     pub async fn ltrim<K>(&self, key: K, start: isize, stop: isize) -> Result<()>
@@ -422,9 +391,8 @@ impl ResilientRedisConnection {
         K: redis::ToRedisArgs + Send + Sync + Clone + 'static,
     {
         let key_clone = key.clone();
-        self.execute(move |mut conn| async move {
-            conn.ltrim(key_clone, start, stop).await
-        }).await
+        self.execute(move |mut conn| async move { conn.ltrim(key_clone, start, stop).await })
+            .await
     }
 
     pub async fn llen<K>(&self, key: K) -> Result<usize>
@@ -432,9 +400,7 @@ impl ResilientRedisConnection {
         K: redis::ToRedisArgs + Send + Sync + Clone + 'static,
     {
         let key_clone = key.clone();
-        self.execute(move |mut conn| async move {
-            conn.llen(key_clone).await
-        }).await
+        self.execute(move |mut conn| async move { conn.llen(key_clone).await }).await
     }
 
     pub async fn set_ex<K, V>(&self, key: K, value: V, seconds: u64) -> Result<()>
@@ -444,9 +410,8 @@ impl ResilientRedisConnection {
     {
         let key_clone = key.clone();
         let value_clone = value.clone();
-        self.execute(move |mut conn| async move {
-            conn.set_ex(key_clone, value_clone, seconds).await
-        }).await
+        self.execute(move |mut conn| async move { conn.set_ex(key_clone, value_clone, seconds).await })
+            .await
     }
 
     pub async fn execute_cmd<T>(&self, cmd: redis::Cmd) -> Result<T>
@@ -454,15 +419,12 @@ impl ResilientRedisConnection {
         T: redis::FromRedisValue + Send + 'static,
     {
         let cmd = cmd.clone();
-        self.execute(move |mut conn| async move {
-            cmd.query_async(&mut conn).await
-        }).await
+        self.execute(move |mut conn| async move { cmd.query_async(&mut conn).await }).await
     }
 
     pub async fn ping(&self) -> Result<String> {
-        self.execute(|mut conn| async move {
-            redis::cmd("PING").query_async::<String>(&mut conn).await
-        }).await
+        self.execute(|mut conn| async move { redis::cmd("PING").query_async::<String>(&mut conn).await })
+            .await
     }
 
     pub async fn execute_commands(&self, commands: Vec<redis::Cmd>) -> Result<Vec<redis::Value>> {
@@ -473,9 +435,7 @@ impl ResilientRedisConnection {
                 let result = self.execute_cmd(cmd).await?;
                 Ok(vec![result])
             }
-            _ => {
-                self.execute_pipeline(commands).await
-            }
+            _ => self.execute_pipeline(commands).await,
         }
     }
 
@@ -486,7 +446,8 @@ impl ResilientRedisConnection {
                 pipeline.add_command(cmd);
             }
             pipeline.query_async(&mut conn).await
-        }).await
+        })
+        .await
     }
 
     pub async fn execute_transaction(&self, commands: Vec<redis::Cmd>) -> Result<Vec<redis::Value>> {
@@ -497,7 +458,8 @@ impl ResilientRedisConnection {
                 pipeline.add_command(cmd);
             }
             pipeline.query_async(&mut conn).await
-        }).await
+        })
+        .await
     }
 
     pub fn cmd_builder(&self) -> CommandBuilder {
@@ -511,9 +473,7 @@ pub struct CommandBuilder {
 
 impl CommandBuilder {
     pub fn new() -> Self {
-        Self {
-            commands: Vec::new(),
-        }
+        Self { commands: Vec::new() }
     }
 
     pub fn set<K, V>(mut self, key: K, value: V) -> Self
@@ -662,8 +622,6 @@ impl CommandBuilder {
 
 impl std::fmt::Debug for ResilientRedisConnection {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("ResilientRedisConnection")
-            .field("redis_url", &self.redis_url)
-            .finish()
+        f.debug_struct("ResilientRedisConnection").field("redis_url", &self.redis_url).finish()
     }
 }

@@ -53,10 +53,7 @@ pub enum Error {
     #[error("invalid token")]
     InvalidToken { location: Location },
     #[error("unrecognized eof")]
-    UnrecognizedEof {
-        expected: Vec<String>,
-        location: Location,
-    },
+    UnrecognizedEof { expected: Vec<String>, location: Location },
     #[error("unrecognized token")]
     UnrecognizedToken {
         token: String,
@@ -68,20 +65,15 @@ pub enum Error {
 }
 
 impl Error {
-    pub fn from_lalrpop_error<'input>(
-        error: lalrpop_util::ParseError<usize, Token<'input>, UserError>,
-        file_id: FileId,
-    ) -> Self {
+    pub fn from_lalrpop_error<'input>(error: lalrpop_util::ParseError<usize, Token<'input>, UserError>, file_id: FileId) -> Self {
         match error {
             lalrpop_util::ParseError::InvalidToken { location } => Error::InvalidToken {
                 location: Location::new(file_id, location, location + 1),
             },
-            lalrpop_util::ParseError::UnrecognizedEof { location, expected } => {
-                Error::UnrecognizedEof {
-                    location: Location::new(file_id, location, location + 1),
-                    expected,
-                }
-            }
+            lalrpop_util::ParseError::UnrecognizedEof { location, expected } => Error::UnrecognizedEof {
+                location: Location::new(file_id, location, location + 1),
+                expected,
+            },
             lalrpop_util::ParseError::UnrecognizedToken {
                 token: (start, token, end),
                 expected,
@@ -90,9 +82,7 @@ impl Error {
                 expected: expected,
                 location: Location::new(file_id, start, end),
             },
-            lalrpop_util::ParseError::ExtraToken {
-                token: (start, token, end),
-            } => Error::ExtraToken {
+            lalrpop_util::ParseError::ExtraToken { token: (start, token, end) } => Error::ExtraToken {
                 token: token.to_string(),
                 location: Location::new(file_id, start, end),
             },

@@ -4,7 +4,6 @@ use plonky2::{
 };
 use psy_core::data::{base_types::hash256::Hash256, qhashout::QHashOut};
 use serde::{Deserialize, Serialize};
-
 use serde_with::serde_as;
 
 use crate::signature::secp256k1::core::hash256_to_hashout_u224;
@@ -37,13 +36,7 @@ pub struct QEDClaimDepositAction<F: RichField> {
     nonce: F,
 }
 impl<F: RichField> QEDClaimDepositAction<F> {
-    pub fn new(
-        network_magic: u64,
-        user: u64,
-        nonce: u64,
-        transaction_id: Hash256,
-        amount: u64,
-    ) -> Self {
+    pub fn new(network_magic: u64, user: u64, nonce: u64, transaction_id: Hash256, amount: u64) -> Self {
         let network_magic = F::from_canonical_u64(network_magic);
         let nonce = F::from_canonical_u64(nonce);
         let transaction_hash_224 = hash256_to_hashout_u224(transaction_id);
@@ -73,13 +66,7 @@ pub struct QEDSigAction<F: RichField> {
 const SIG_ACTION_TRANSFER_MAGIC: u64 = 0x45474F44444E4553u64;
 
 impl<F: RichField> QEDSigAction<F> {
-    pub fn new_transfer_action(
-        network_magic: u64,
-        user: u64,
-        nonce: u64,
-        recipient: u64,
-        amount: u64,
-    ) -> Self {
+    pub fn new_transfer_action(network_magic: u64, user: u64, nonce: u64, recipient: u64, amount: u64) -> Self {
         let network_magic = F::from_canonical_u64(network_magic);
         let nonce = F::from_canonical_u64(nonce);
         let recipient = F::from_canonical_u64(recipient);
@@ -184,9 +171,7 @@ pub struct SimpleQEDPrivateKey<F: RichField> {
 
 impl<F: RichField> From<QHashOut<F>> for SimpleQEDPrivateKey<F> {
     fn from(value: QHashOut<F>) -> Self {
-        Self {
-            private_key: value,
-        }
+        Self { private_key: value }
     }
 }
 
@@ -194,14 +179,8 @@ impl<F: RichField> SimpleQEDPrivateKey<F> {
     pub fn new(private_key: QHashOut<F>) -> Self {
         Self { private_key }
     }
-    pub fn get_public_key_for_fingerprint<H: AlgebraicHasher<F>>(
-        &self,
-        fingerprint: QHashOut<F>,
-    ) -> QHashOut<F> {
-        QHashOut(H::two_to_one(
-            fingerprint.0,
-            self.get_public_key_param::<H>().0,
-        ))
+    pub fn get_public_key_for_fingerprint<H: AlgebraicHasher<F>>(&self, fingerprint: QHashOut<F>) -> QHashOut<F> {
+        QHashOut(H::two_to_one(fingerprint.0, self.get_public_key_param::<H>().0))
     }
     pub fn get_public_key_param<H: AlgebraicHasher<F>>(&self) -> QHashOut<F> {
         QHashOut(H::hash_no_pad(&[

@@ -1,16 +1,15 @@
+use std::{ops::Deref, sync::Arc};
+
 use async_trait::async_trait;
-use psy_crypto::common::generic_circuit_verifier::GenericCircuitVerifier;
-use psy_crypto::common::simple_circuit_library::SimpleCircuitLibrary;
-use psy_store::queue::{new_fred_pool, new_redis_async_pool};
-use psy_store::queue::ProofStoreFred;
-use crate::worker::simple_async_coord::SimpleAsyncCoordinatorWorker;
-use crate::worker::simple_async_realm::SimpleAsyncRealmWorker;
-use crate::common::verifier::get_cached_generic_verifier;
-use psy_network_circuit::coordinator::coordinator_helper::QEDCoordinatorCircuitManager;
+use psy_crypto::common::{generic_circuit_verifier::GenericCircuitVerifier, simple_circuit_library::SimpleCircuitLibrary};
 use psy_data::config::store_config::QEDHasher;
-use std::ops::Deref;
-use std::sync::Arc;
-use psy_store::queue::ProofStoreRedisAsync;
+use psy_network_circuit::coordinator::coordinator_helper::QEDCoordinatorCircuitManager;
+use psy_store::queue::{new_fred_pool, new_redis_async_pool, ProofStoreFred, ProofStoreRedisAsync};
+
+use crate::{
+    common::verifier::get_cached_generic_verifier,
+    worker::{simple_async_coord::SimpleAsyncCoordinatorWorker, simple_async_realm::SimpleAsyncRealmWorker},
+};
 
 pub type C = plonky2::plonk::config::PoseidonGoldilocksConfig;
 pub const D: usize = 2;
@@ -26,18 +25,11 @@ pub struct WorkerState {
 }
 
 impl WorkerState {
-    pub async fn new(
-        redis_url: String,
-        pool_size: usize,
-        biz_key: String,
-    ) -> anyhow::Result<Self> {
+    pub async fn new(redis_url: String, pool_size: usize, biz_key: String) -> anyhow::Result<Self> {
         use psy_core::config::network_constants::get_default_worker_public_key;
-        // Create storage and queues  
-        let realm_qps = ProofStoreRedisAsync::new(
-            redis_url.as_str(),
-            biz_key,
-        ).await?;
-        
+        // Create storage and queues
+        let realm_qps = ProofStoreRedisAsync::new(redis_url.as_str(), biz_key).await?;
+
         let proof_verifier = Arc::new(get_cached_generic_verifier::<C, D>());
 
         let coordinator_worker_circuits =
@@ -90,14 +82,7 @@ pub trait Worker {
 #[async_trait]
 impl Worker for RealmWorker {
     async fn run(&self) -> anyhow::Result<()> {
-        SimpleAsyncRealmWorker::run_worker::<
-            _,
-            _,
-            SimpleCircuitLibrary<F>,
-            QEDCoordinatorCircuitManager<C, D>,
-            C,
-            D,
-        >(
+        SimpleAsyncRealmWorker::run_worker::<_, _, SimpleCircuitLibrary<F>, QEDCoordinatorCircuitManager<C, D>, C, D>(
             &self.queue,
             &self.queue,
             &self.coordinator_worker_circuits,
@@ -110,14 +95,7 @@ impl Worker for RealmWorker {
 #[async_trait]
 impl Worker for CoordinatorWorker {
     async fn run(&self) -> anyhow::Result<()> {
-        SimpleAsyncCoordinatorWorker::run_worker::<
-            _,
-            _,
-            SimpleCircuitLibrary<F>,
-            QEDCoordinatorCircuitManager<C, D>,
-            C,
-            D,
-        >(
+        SimpleAsyncCoordinatorWorker::run_worker::<_, _, SimpleCircuitLibrary<F>, QEDCoordinatorCircuitManager<C, D>, C, D>(
             &self.queue,
             &self.queue,
             &self.coordinator_worker_circuits,

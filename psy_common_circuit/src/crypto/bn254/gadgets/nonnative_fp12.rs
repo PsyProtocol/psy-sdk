@@ -1,14 +1,24 @@
-use crate::crypto::bn254::field::extension::dodecic::DodecicExtension;
-use crate::crypto::bn254::field::extension::quadratic::QuadraticExtension;
-use crate::crypto::bn254::field::extension::sextic::SexticExtension;
-use crate::crypto::bn254::field::bn128_base::Bn128Base;
-use crate::crypto::bn254::gadgets::nonnative_fp2::{CircuitBuilderNonNativeExt2, NonNativeTargetExt2};
-use crate::crypto::bn254::gadgets::nonnative_fp6::{CircuitBuilderNonNativeExt6, NonNativeTargetExt6};
-use plonky2::hash::hash_types::RichField;
-use plonky2::plonk::circuit_builder::CircuitBuilder;
-use plonky2::field::extension::Extendable;
-use plonky2::field::types::{Field, PrimeField};
 use std::marker::PhantomData;
+
+use plonky2::{
+    field::{
+        extension::Extendable,
+        types::{Field, PrimeField},
+    },
+    hash::hash_types::RichField,
+    plonk::circuit_builder::CircuitBuilder,
+};
+
+use crate::crypto::bn254::{
+    field::{
+        bn128_base::Bn128Base,
+        extension::{dodecic::DodecicExtension, quadratic::QuadraticExtension, sextic::SexticExtension},
+    },
+    gadgets::{
+        nonnative_fp2::{CircuitBuilderNonNativeExt2, NonNativeTargetExt2},
+        nonnative_fp6::{CircuitBuilderNonNativeExt6, NonNativeTargetExt6},
+    },
+};
 
 const CYCLOTOMIC_POW_LOOP: [u64; 4] = [4965661367192848881, 0, 0, 0];
 
@@ -20,9 +30,7 @@ pub struct NonNativeTargetExt12<FF: Field> {
 }
 
 pub trait CircuitBuilderNonNativeExt12<F: RichField + Extendable<D>, const D: usize> {
-    fn zero_nonnative_ext12<FF: PrimeField + Extendable<12> + Extendable<6> + Extendable<2>>(
-        &mut self,
-    ) -> NonNativeTargetExt12<FF>;
+    fn zero_nonnative_ext12<FF: PrimeField + Extendable<12> + Extendable<6> + Extendable<2>>(&mut self) -> NonNativeTargetExt12<FF>;
 
     fn constant_nonnative_ext12<FF: PrimeField + Extendable<12> + Extendable<6> + Extendable<2>>(
         &mut self,
@@ -35,11 +43,7 @@ pub trait CircuitBuilderNonNativeExt12<F: RichField + Extendable<D>, const D: us
         rhs: &NonNativeTargetExt12<FF>,
     );
 
-    fn add_virtual_nonnative_ext12_target<
-        FF: Field + Extendable<12> + Extendable<6> + Extendable<2>,
-    >(
-        &mut self,
-    ) -> NonNativeTargetExt12<FF>;
+    fn add_virtual_nonnative_ext12_target<FF: Field + Extendable<12> + Extendable<6> + Extendable<2>>(&mut self) -> NonNativeTargetExt12<FF>;
 
     fn add_nonnative_ext12<FF: PrimeField + Extendable<12> + Extendable<6> + Extendable<2>>(
         &mut self,
@@ -82,59 +86,43 @@ pub trait CircuitBuilderNonNativeExt12<F: RichField + Extendable<D>, const D: us
         ell_vv: &NonNativeTargetExt2<FF>,
     ) -> NonNativeTargetExt12<FF>;
 
-    fn final_exponentiation_first_chunk<
-        FF: PrimeField + Extendable<12> + Extendable<6> + Extendable<2>,
-    >(
+    fn final_exponentiation_first_chunk<FF: PrimeField + Extendable<12> + Extendable<6> + Extendable<2>>(
         &mut self,
         x: &NonNativeTargetExt12<FF>,
     ) -> NonNativeTargetExt12<FF>;
 
-    fn final_exponentiation_last_chunk<
-        FF: PrimeField + Extendable<12> + Extendable<6> + Extendable<2>,
-    >(
+    fn final_exponentiation_last_chunk<FF: PrimeField + Extendable<12> + Extendable<6> + Extendable<2>>(
         &mut self,
         x: &NonNativeTargetExt12<FF>,
     ) -> NonNativeTargetExt12<FF>;
 
-    fn unitary_inverse_nonnative_ext12<
-        FF: PrimeField + Extendable<12> + Extendable<6> + Extendable<2>,
-    >(
+    fn unitary_inverse_nonnative_ext12<FF: PrimeField + Extendable<12> + Extendable<6> + Extendable<2>>(
         &mut self,
         x: &NonNativeTargetExt12<FF>,
     ) -> NonNativeTargetExt12<FF>;
 
-    fn frobenius_map_nonnative_ext12<
-        FF: PrimeField + Extendable<12> + Extendable<6> + Extendable<2>,
-    >(
+    fn frobenius_map_nonnative_ext12<FF: PrimeField + Extendable<12> + Extendable<6> + Extendable<2>>(
         &mut self,
         x: &NonNativeTargetExt12<FF>,
         power: usize,
     ) -> NonNativeTargetExt12<FF>;
 
-    fn frobenius_coeffs_c1_nonnative_ext12<
-        FF: PrimeField + Extendable<12> + Extendable<6> + Extendable<2>,
-    >(
+    fn frobenius_coeffs_c1_nonnative_ext12<FF: PrimeField + Extendable<12> + Extendable<6> + Extendable<2>>(
         &mut self,
         power: usize,
     ) -> NonNativeTargetExt2<FF>;
 
-    fn cyclotomic_pow_nonnative_ext12<
-        FF: PrimeField + Extendable<12> + Extendable<6> + Extendable<2>,
-    >(
+    fn cyclotomic_pow_nonnative_ext12<FF: PrimeField + Extendable<12> + Extendable<6> + Extendable<2>>(
         &mut self,
         x: &NonNativeTargetExt12<FF>,
     ) -> NonNativeTargetExt12<FF>;
 
-    fn cyclotomic_squared_nonnative_ext12<
-        FF: PrimeField + Extendable<12> + Extendable<6> + Extendable<2>,
-    >(
+    fn cyclotomic_squared_nonnative_ext12<FF: PrimeField + Extendable<12> + Extendable<6> + Extendable<2>>(
         &mut self,
         x: &NonNativeTargetExt12<FF>,
     ) -> NonNativeTargetExt12<FF>;
 
-    fn exp_by_neg_z_nonnative_ext12<
-        FF: PrimeField + Extendable<12> + Extendable<6> + Extendable<2>,
-    >(
+    fn exp_by_neg_z_nonnative_ext12<FF: PrimeField + Extendable<12> + Extendable<6> + Extendable<2>>(
         &mut self,
         x: &NonNativeTargetExt12<FF>,
     ) -> NonNativeTargetExt12<FF>;
@@ -146,12 +134,8 @@ pub trait CircuitBuilderNonNativeExt12<F: RichField + Extendable<D>, const D: us
     ) -> plonky2::iop::target::BoolTarget;
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderNonNativeExt12<F, D>
-    for CircuitBuilder<F, D>
-{
-    fn zero_nonnative_ext12<FF: PrimeField + Extendable<12> + Extendable<6> + Extendable<2>>(
-        &mut self,
-    ) -> NonNativeTargetExt12<FF> {
+impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderNonNativeExt12<F, D> for CircuitBuilder<F, D> {
+    fn zero_nonnative_ext12<FF: PrimeField + Extendable<12> + Extendable<6> + Extendable<2>>(&mut self) -> NonNativeTargetExt12<FF> {
         self.constant_nonnative_ext12(DodecicExtension::ZERO)
     }
 
@@ -160,12 +144,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderNonNativeExt12<
         x: DodecicExtension<FF>,
     ) -> NonNativeTargetExt12<FF> {
         NonNativeTargetExt12 {
-            c0: self.constant_nonnative_ext6(SexticExtension(
-                [x.0[0], x.0[1], x.0[2], x.0[3], x.0[4], x.0[5]],
-            )),
-            c1: self.constant_nonnative_ext6(SexticExtension(
-                [x.0[6], x.0[7], x.0[8], x.0[9], x.0[10], x.0[11]],
-            )),
+            c0: self.constant_nonnative_ext6(SexticExtension([x.0[0], x.0[1], x.0[2], x.0[3], x.0[4], x.0[5]])),
+            c1: self.constant_nonnative_ext6(SexticExtension([x.0[6], x.0[7], x.0[8], x.0[9], x.0[10], x.0[11]])),
             _phantom: PhantomData,
         }
     }
@@ -179,11 +159,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderNonNativeExt12<
         self.connect_nonnative_ext6(&rhs.c1, &lhs.c1);
     }
 
-    fn add_virtual_nonnative_ext12_target<
-        FF: Field + Extendable<12> + Extendable<6> + Extendable<2>,
-    >(
-        &mut self,
-    ) -> NonNativeTargetExt12<FF> {
+    fn add_virtual_nonnative_ext12_target<FF: Field + Extendable<12> + Extendable<6> + Extendable<2>>(&mut self) -> NonNativeTargetExt12<FF> {
         let c0 = self.add_virtual_nonnative_ext6_target();
         let c1 = self.add_virtual_nonnative_ext6_target();
         NonNativeTargetExt12 {
@@ -279,8 +255,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderNonNativeExt12<
         let a_add_b = self.add_nonnative_ext6(&x.c0, &x.c1);
         let b_mul_nonresidue = self.mul_by_nonresidue_nonnative_ext6(&x.c1);
         let a_add_b_mul_nonresidue = self.add_nonnative_ext6(&x.c0, &b_mul_nonresidue);
-        let a_add_b_mul_nonresidue_mul_a_add_b =
-            self.mul_nonnative_ext6(&a_add_b, &a_add_b_mul_nonresidue);
+        let a_add_b_mul_nonresidue_mul_a_add_b = self.mul_nonnative_ext6(&a_add_b, &a_add_b_mul_nonresidue);
         let ab_mul_nonresidue = self.mul_by_nonresidue_nonnative_ext6(&ab);
         let mut c0 = self.sub_nonnative_ext6(&a_add_b_mul_nonresidue_mul_a_add_b, &ab);
         c0 = self.sub_nonnative_ext6(&c0, &ab_mul_nonresidue);
@@ -386,9 +361,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderNonNativeExt12<
         }
     }
 
-    fn final_exponentiation_first_chunk<
-        FF: PrimeField + Extendable<12> + Extendable<6> + Extendable<2>,
-    >(
+    fn final_exponentiation_first_chunk<FF: PrimeField + Extendable<12> + Extendable<6> + Extendable<2>>(
         &mut self,
         x: &NonNativeTargetExt12<FF>,
     ) -> NonNativeTargetExt12<FF> {
@@ -399,9 +372,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderNonNativeExt12<
         return self.mul_nonnative_ext12(&d, &c);
     }
 
-    fn final_exponentiation_last_chunk<
-        FF: PrimeField + Extendable<12> + Extendable<6> + Extendable<2>,
-    >(
+    fn final_exponentiation_last_chunk<FF: PrimeField + Extendable<12> + Extendable<6> + Extendable<2>>(
         &mut self,
         x: &NonNativeTargetExt12<FF>,
     ) -> NonNativeTargetExt12<FF> {
@@ -436,9 +407,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderNonNativeExt12<
         v
     }
 
-    fn unitary_inverse_nonnative_ext12<
-        FF: PrimeField + Extendable<12> + Extendable<6> + Extendable<2>,
-    >(
+    fn unitary_inverse_nonnative_ext12<FF: PrimeField + Extendable<12> + Extendable<6> + Extendable<2>>(
         &mut self,
         x: &NonNativeTargetExt12<FF>,
     ) -> NonNativeTargetExt12<FF> {
@@ -449,9 +418,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderNonNativeExt12<
         }
     }
 
-    fn frobenius_map_nonnative_ext12<
-        FF: PrimeField + Extendable<12> + Extendable<6> + Extendable<2>,
-    >(
+    fn frobenius_map_nonnative_ext12<FF: PrimeField + Extendable<12> + Extendable<6> + Extendable<2>>(
         &mut self,
         x: &NonNativeTargetExt12<FF>,
         power: usize,
@@ -468,15 +435,14 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderNonNativeExt12<
         }
     }
 
-    fn frobenius_coeffs_c1_nonnative_ext12<
-        FF: PrimeField + Extendable<12> + Extendable<6> + Extendable<2>,
-    >(
+    fn frobenius_coeffs_c1_nonnative_ext12<FF: PrimeField + Extendable<12> + Extendable<6> + Extendable<2>>(
         &mut self,
         power: usize,
     ) -> NonNativeTargetExt2<FF> {
-        use crate::crypto::bn254::field::bn128_extension::Bn128ExtConstants;
         use std::any::TypeId;
-        
+
+        use crate::crypto::bn254::field::bn128_extension::Bn128ExtConstants;
+
         if TypeId::of::<FF>() == TypeId::of::<Bn128Base>() {
             match power % 12 {
                 0 => self.constant_nonnative_ext2(QuadraticExtension([FF::ONE, FF::ZERO])),
@@ -505,9 +471,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderNonNativeExt12<
         }
     }
 
-    fn cyclotomic_pow_nonnative_ext12<
-        FF: PrimeField + Extendable<12> + Extendable<6> + Extendable<2>,
-    >(
+    fn cyclotomic_pow_nonnative_ext12<FF: PrimeField + Extendable<12> + Extendable<6> + Extendable<2>>(
         &mut self,
         x: &NonNativeTargetExt12<FF>,
     ) -> NonNativeTargetExt12<FF> {
@@ -530,9 +494,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderNonNativeExt12<
         res
     }
 
-    fn cyclotomic_squared_nonnative_ext12<
-        FF: PrimeField + Extendable<12> + Extendable<6> + Extendable<2>,
-    >(
+    fn cyclotomic_squared_nonnative_ext12<FF: PrimeField + Extendable<12> + Extendable<6> + Extendable<2>>(
         &mut self,
         x: &NonNativeTargetExt12<FF>,
     ) -> NonNativeTargetExt12<FF> {
@@ -612,9 +574,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderNonNativeExt12<
         }
     }
 
-    fn exp_by_neg_z_nonnative_ext12<
-        FF: PrimeField + Extendable<12> + Extendable<6> + Extendable<2>,
-    >(
+    fn exp_by_neg_z_nonnative_ext12<FF: PrimeField + Extendable<12> + Extendable<6> + Extendable<2>>(
         &mut self,
         x: &NonNativeTargetExt12<FF>,
     ) -> NonNativeTargetExt12<FF> {
@@ -635,17 +595,25 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderNonNativeExt12<
 
 #[cfg(test)]
 mod tests {
-    use crate::crypto::bn254::field::bn128_base::Bn128Base;
-    use crate::crypto::bn254::field::extension::dodecic::DodecicExtension;
-    use crate::crypto::bn254::gadgets::nonnative_fp12::CircuitBuilderNonNativeExt12;
     use anyhow::Result;
-    use plonky2::iop::witness::PartialWitness;
-    use plonky2::plonk::circuit_builder::CircuitBuilder;
-    use plonky2::plonk::circuit_data::CircuitConfig;
-    use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
-    use plonky2::field::ops::Square;
-    use plonky2::field::types::{Field, Sample};
-    use plonky2::field::extension::FieldExtension;
+    use plonky2::{
+        field::{
+            extension::FieldExtension,
+            ops::Square,
+            types::{Field, Sample},
+        },
+        iop::witness::PartialWitness,
+        plonk::{
+            circuit_builder::CircuitBuilder,
+            circuit_data::CircuitConfig,
+            config::{GenericConfig, PoseidonGoldilocksConfig},
+        },
+    };
+
+    use crate::crypto::bn254::{
+        field::{bn128_base::Bn128Base, extension::dodecic::DodecicExtension},
+        gadgets::nonnative_fp12::CircuitBuilderNonNativeExt12,
+    };
 
     #[test]
     fn test_nonnative_ext12_add() -> Result<()> {
@@ -843,10 +811,11 @@ mod tests {
 
     #[test]
     fn test_frobenius_coeffs_ext12_verification() -> Result<()> {
-        use crate::crypto::bn254::field::bn128_extension::Bn128ExtConstants;
-        use crate::crypto::bn254::field::extension::quadratic::QuadraticExtension;
-        use crate::crypto::bn254::gadgets::nonnative_fp2::CircuitBuilderNonNativeExt2;
-        
+        use crate::crypto::bn254::{
+            field::{bn128_extension::Bn128ExtConstants, extension::quadratic::QuadraticExtension},
+            gadgets::nonnative_fp2::CircuitBuilderNonNativeExt2,
+        };
+
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;
@@ -864,7 +833,7 @@ mod tests {
         let coeff_c1_2 = builder.frobenius_coeffs_c1_nonnative_ext12::<Bn128Base>(2);
         let expected_c1_2 = builder.constant_nonnative_ext2(QuadraticExtension([expected_coeffs[2], expected_coeffs[3]]));
         builder.connect_nonnative_ext2(&coeff_c1_2, &expected_c1_2);
-        
+
         // Test for n=3
         let coeff_c1_3 = builder.frobenius_coeffs_c1_nonnative_ext12::<Bn128Base>(3);
         let expected_c1_3 = builder.constant_nonnative_ext2(QuadraticExtension([expected_coeffs[4], expected_coeffs[5]]));
@@ -874,7 +843,7 @@ mod tests {
         let pw = PartialWitness::new();
         let proof = data.prove(pw).unwrap();
         data.verify(proof)?;
-        
+
         println!("✅ Frobenius EXT12 coefficients verification test passed!");
         Ok(())
     }
@@ -895,7 +864,7 @@ mod tests {
 
         let x = builder.constant_nonnative_ext12(x_ff);
         let squared = builder.cyclotomic_squared_nonnative_ext12(&x);
-        
+
         // For x = 1, cyclotomic_squared(1) should equal 1
         let expected = builder.constant_nonnative_ext12(FF::ONE);
         builder.connect_nonnative_ext12(&squared, &expected);
@@ -904,7 +873,7 @@ mod tests {
         let pw = PartialWitness::new();
         let proof = data.prove(pw).unwrap();
         data.verify(proof)?;
-        
+
         println!("✅ Cyclotomic squared verification test passed!");
         Ok(())
     }

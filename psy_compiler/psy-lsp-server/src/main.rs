@@ -1,6 +1,5 @@
-use tower_lsp::{LspService, Server};
-
 use psy_lsp_server::simple::QLspSimple;
+use tower_lsp::{LspService, Server};
 
 #[tokio::main]
 async fn main() {

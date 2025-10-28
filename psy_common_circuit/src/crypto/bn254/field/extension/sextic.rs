@@ -1,17 +1,19 @@
-use core::any::TypeId;
-use core::fmt::{self, Debug, Display, Formatter};
-use core::iter::{Product, Sum};
-use core::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
+use core::{
+    any::TypeId,
+    fmt::{self, Debug, Display, Formatter},
+    iter::{Product, Sum},
+    ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign},
+};
 
 use num::bigint::BigUint;
+use plonky2::field::{
+    extension::{Extendable, FieldExtension, Frobenius, OEF},
+    types::{Field, PrimeField, Sample},
+};
 use serde::{Deserialize, Serialize};
 
-use plonky2::field::extension::{Extendable, FieldExtension, Frobenius, OEF};
-use plonky2::field::types::{Field, PrimeField, Sample};
-
-use crate::crypto::bn254::field::bn128_base::Bn128Base;
-
 use super::quadratic::QuadraticExtension;
+use crate::crypto::bn254::field::bn128_base::Bn128Base;
 
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 #[serde(bound = "")]
@@ -88,7 +90,7 @@ impl<F: Extendable<6> + Extendable<2> + PrimeField> SexticExtension<F> {
         // c2 -> c0 (with multiplication by Fp2's nonresidue)
         // c0 -> c1
         // c1 -> c2
-        
+
         // Check if we're dealing with Bn128Base
         if core::any::TypeId::of::<F>() == core::any::TypeId::of::<Bn128Base>() {
             // We know F is Bn128Base at runtime, so we can safely convert
@@ -96,7 +98,7 @@ impl<F: Extendable<6> + Extendable<2> + PrimeField> SexticExtension<F> {
             let result_bn128 = self_bn128.mul_by_nonresidue_bn128();
             return unsafe { core::mem::transmute_copy(&result_bn128) };
         }
-        
+
         // Generic implementation
         let c0 = QuadraticExtension([self.0[4], self.0[5]]).mul_by_nonresidue();
         Self {
@@ -160,9 +162,7 @@ impl<F: Extendable<6> + Extendable<2> + PrimeField> SexticExtension<F> {
     }
 
     pub fn multiplicative_group_factors() -> Vec<(BigUint, usize)> {
-        vec![
-            (BigUint::from(2u32), F::TWO_ADICITY + 2),
-        ]
+        vec![(BigUint::from(2u32), F::TWO_ADICITY + 2)]
     }
 }
 
@@ -188,8 +188,12 @@ impl<F: Extendable<6> + Extendable<2> + PrimeField> Sample for SexticExtension<F
         R: rand::RngCore + ?Sized,
     {
         Self([
-            F::sample(rng), F::sample(rng), F::sample(rng), 
-            F::sample(rng), F::sample(rng), F::sample(rng),
+            F::sample(rng),
+            F::sample(rng),
+            F::sample(rng),
+            F::sample(rng),
+            F::sample(rng),
+            F::sample(rng),
         ])
     }
 }
@@ -204,15 +208,15 @@ impl<F: Extendable<6> + Extendable<2> + PrimeField> Field for SexticExtension<F>
     const MULTIPLICATIVE_GROUP_GENERATOR: Self = Self([F::MULTIPLICATIVE_GROUP_GENERATOR, F::ZERO, F::ZERO, F::ZERO, F::ZERO, F::ZERO]);
     const POWER_OF_TWO_GENERATOR: Self = Self([F::POWER_OF_TWO_GENERATOR, F::ZERO, F::ZERO, F::ZERO, F::ZERO, F::ZERO]);
     const BITS: usize = F::BITS * 6;
-    
+
     fn try_inverse(&self) -> Option<Self> {
         self.try_inverse()
     }
-    
+
     fn from_noncanonical_biguint(n: BigUint) -> Self {
         Self::from_noncanonical_biguint(n)
     }
-    
+
     fn from_canonical_u64(n: u64) -> Self {
         Self([F::from_canonical_u64(n), F::ZERO, F::ZERO, F::ZERO, F::ZERO, F::ZERO])
     }
@@ -224,19 +228,18 @@ impl<F: Extendable<6> + Extendable<2> + PrimeField> Field for SexticExtension<F>
     fn from_noncanonical_i64(n: i64) -> Self {
         Self([F::from_noncanonical_i64(n), F::ZERO, F::ZERO, F::ZERO, F::ZERO, F::ZERO])
     }
-    
+
     fn from_noncanonical_u128(n: u128) -> Self {
         Self([F::from_noncanonical_u128(n), F::ZERO, F::ZERO, F::ZERO, F::ZERO, F::ZERO])
     }
-    
+
     fn order() -> BigUint {
         F::order()
     }
-    
+
     fn characteristic() -> BigUint {
         F::characteristic()
     }
-    
 }
 
 impl<F: Extendable<6> + Extendable<2> + PrimeField> Display for SexticExtension<F> {
@@ -259,9 +262,7 @@ impl<F: Extendable<6> + Extendable<2> + PrimeField> Neg for SexticExtension<F> {
     type Output = Self;
 
     fn neg(self) -> Self {
-        Self([
-            -self.0[0], -self.0[1], -self.0[2], -self.0[3], -self.0[4], -self.0[5],
-        ])
+        Self([-self.0[0], -self.0[1], -self.0[2], -self.0[3], -self.0[4], -self.0[5]])
     }
 }
 
@@ -380,12 +381,12 @@ impl<F: Extendable<6> + Extendable<2> + PrimeField> Frobenius<6> for SexticExten
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_mul_by_nonresidue_bn128() {
         // Test that mul_by_nonresidue works correctly for Fp6 over Bn128Base
         type Fp6 = SexticExtension<Bn128Base>;
-        
+
         // Create a test element
         let a = Fp6::from_basefield_array([
             Bn128Base::from_canonical_u64(1),
@@ -395,29 +396,29 @@ mod tests {
             Bn128Base::from_canonical_u64(5),
             Bn128Base::from_canonical_u64(6),
         ]);
-        
+
         // Method 1: using the generic mul_by_nonresidue
         let result1 = a.mul_by_nonresidue();
-        
+
         // Method 2: using the specialized mul_by_nonresidue_bn128
         let result2 = a.mul_by_nonresidue_bn128();
-        
+
         // They should give the same result
         assert_eq!(result1, result2, "mul_by_nonresidue and mul_by_nonresidue_bn128 should match");
-        
-        // Also verify the structure: c2 should move to c0 (after multiplication by Fp2's nonresidue)
-        // c0 should move to c1, c1 should move to c2
+
+        // Also verify the structure: c2 should move to c0 (after multiplication by
+        // Fp2's nonresidue) c0 should move to c1, c1 should move to c2
         let c2 = QuadraticExtension([a.0[4], a.0[5]]);
         let c0_expected = c2.mul_by_nonresidue_bn128();
-        
+
         // Extract components
         let result1_c0 = QuadraticExtension([result1.0[0], result1.0[1]]);
         let result1_c1 = QuadraticExtension([result1.0[2], result1.0[3]]);
         let result1_c2 = QuadraticExtension([result1.0[4], result1.0[5]]);
-        
+
         let a_c0 = QuadraticExtension([a.0[0], a.0[1]]);
         let a_c1 = QuadraticExtension([a.0[2], a.0[3]]);
-        
+
         assert_eq!(result1_c0, c0_expected);
         assert_eq!(result1_c1, a_c0);
         assert_eq!(result1_c2, a_c1);

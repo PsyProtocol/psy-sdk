@@ -1,15 +1,18 @@
+use std::{
+    collections::HashMap,
+    fs,
+    io::{BufRead, BufReader},
+    path::{Path, PathBuf},
+    process::{Child, Command, Stdio},
+    sync::{Arc, Mutex},
+    thread,
+};
+
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use std::collections::HashMap;
-use std::fs;
-use std::path::{Path, PathBuf};
-use std::process::{Command, Child, Stdio};
-use std::sync::{Arc, Mutex};
-use std::io::{BufRead, BufReader};
-use std::thread;
-use tracing::{info, warn, error, debug};
 use tokio::time::{sleep, Duration};
+use tracing::{debug, error, info, warn};
 
 /// Process manager to track all spawned processes
 struct ProcessManager {
@@ -85,8 +88,10 @@ impl Drop for ProcessManager {
 }
 
 // Load config.json structure
-use super::generate::{Config, NodesConfig, BackendConfig, RedisConfig, CoordinatorNode, RealmNode, ServiceConfig};
-use super::LaunchArgs;
+use super::{
+    generate::{BackendConfig, Config, CoordinatorNode, NodesConfig, RealmNode, RedisConfig, ServiceConfig},
+    LaunchArgs,
+};
 
 /// Entry point for the launch command
 pub async fn run(args: LaunchArgs) -> Result<()> {
@@ -97,10 +102,8 @@ pub async fn run(args: LaunchArgs) -> Result<()> {
 pub async fn launch(config_path: Option<String>, verbose: bool) -> Result<()> {
     // Load configuration from config.json
     let config_file = config_path.unwrap_or_else(|| "config.json".to_string());
-    let content = fs::read_to_string(&config_file)
-        .with_context(|| format!("Failed to read config file: {}", config_file))?;
-    let config: Config = serde_json::from_str(&content)
-        .with_context(|| "Failed to parse config.json")?;
+    let content = fs::read_to_string(&config_file).with_context(|| format!("Failed to read config file: {}", config_file))?;
+    let config: Config = serde_json::from_str(&content).with_context(|| "Failed to parse config.json")?;
 
     if verbose {
         debug!("Configuration: {:#?}", config);
@@ -136,7 +139,6 @@ pub async fn launch(config_path: Option<String>, verbose: bool) -> Result<()> {
     // Phase 2: Start global services
     info!("🏗️  Phase 5: Starting global services...");
     start_global_services(&config, &manager, &work_dir, &log_dir).await?;
-
 
     info!("✅ All services started successfully!");
     info!("");
@@ -174,14 +176,13 @@ pub async fn launch(config_path: Option<String>, verbose: bool) -> Result<()> {
     Ok(())
 }
 
-async fn start_infrastructure(
-    config: &Config,
-    manager: &ProcessManager,
-    work_dir: &Path,
-    log_dir: &Path,
-) -> Result<()> {
+async fn start_infrastructure(config: &Config, manager: &ProcessManager, work_dir: &Path, log_dir: &Path) -> Result<()> {
     // Extract Redis configuration
-    let coordinator_redis = config.nodes.coordinator.redis.as_ref()
+    let coordinator_redis = config
+        .nodes
+        .coordinator
+        .redis
+        .as_ref()
         .ok_or_else(|| anyhow::anyhow!("No Redis configuration found for coordinator"))?;
     let coordinator_uri = &coordinator_redis.uri;
     let coordinator_port = extract_port(coordinator_uri)?;
@@ -210,10 +211,12 @@ async fn start_infrastructure(
 
     // Start ScyllaDB if needed
     // Check if any node is using scylla
-    let has_scylla = config.nodes.coordinator.backend.as_ref()
-        .map(|b| b.database == "scylla").unwrap_or(false) ||
-        config.nodes.realms.iter().any(|r|
-            r.backend.as_ref().map(|b| b.database == "scylla").unwrap_or(false));
+    let has_scylla = config.nodes.coordinator.backend.as_ref().map(|b| b.database == "scylla").unwrap_or(false)
+        || config
+            .nodes
+            .realms
+            .iter()
+            .any(|r| r.backend.as_ref().map(|b| b.database == "scylla").unwrap_or(false));
 
     if has_scylla {
         start_scylla_docker(config, manager, log_dir)?;
@@ -248,14 +251,13 @@ async fn start_infrastructure(
     Ok(())
 }
 
-async fn start_coordinator(
-    config: &Config,
-    manager: &ProcessManager,
-    work_dir: &Path,
-    log_dir: &Path,
-) -> Result<()> {
+async fn start_coordinator(config: &Config, manager: &ProcessManager, work_dir: &Path, log_dir: &Path) -> Result<()> {
     let binary = get_binary_path()?;
-    let coordinator_redis = config.nodes.coordinator.redis.as_ref()
+    let coordinator_redis = config
+        .nodes
+        .coordinator
+        .redis
+        .as_ref()
         .ok_or_else(|| anyhow::anyhow!("No Redis configuration found for coordinator"))?;
     let redis_uri = &coordinator_redis.uri;
     let node_cfg = &config.nodes.coordinator;
@@ -326,12 +328,7 @@ async fn start_coordinator(
     Ok(())
 }
 
-async fn start_realms(
-    config: &Config,
-    manager: &ProcessManager,
-    work_dir: &Path,
-    log_dir: &Path,
-) -> Result<()> {
+async fn start_realms(config: &Config, manager: &ProcessManager, work_dir: &Path, log_dir: &Path) -> Result<()> {
     let binary = get_binary_path()?;
 
     // Get coordinator URL
@@ -345,7 +342,9 @@ async fn start_realms(
         info!("🌍 Starting realm {}...", realm_node.id);
 
         // Find corresponding Redis config
-        let realm_redis = realm_node.redis.as_ref()
+        let realm_redis = realm_node
+            .redis
+            .as_ref()
             .ok_or_else(|| anyhow::anyhow!("Redis config not found for realm {}", realm_node.id))?;
 
         let redis_uri = &realm_redis.uri;
@@ -431,12 +430,19 @@ async fn start_realms(
 
 fn add_backend_args(cmd: &mut Command, config: &Config, realm_id: Option<u64>) -> Result<()> {
     let backend = if let Some(realm) = realm_id {
-        config.nodes.realms.iter()
+        config
+            .nodes
+            .realms
+            .iter()
             .find(|r| r.id == realm)
             .and_then(|r| r.backend.as_ref())
             .ok_or_else(|| anyhow::anyhow!("No backend configuration found for realm {}", realm))?
     } else {
-        config.nodes.coordinator.backend.as_ref()
+        config
+            .nodes
+            .coordinator
+            .backend
+            .as_ref()
             .ok_or_else(|| anyhow::anyhow!("No backend configuration found for coordinator"))?
     };
 
@@ -476,9 +482,9 @@ fn add_service_args(cmd: &mut Command, service: &ServiceConfig) -> Result<()> {
                 if *b {
                     cmd.arg(&flag)
                 } else {
-                    continue
+                    continue;
                 }
-            },
+            }
             _ => continue,
         };
     }
@@ -521,14 +527,22 @@ fn check_command_exists(cmd: &str) -> bool {
 
 fn start_redis_docker(config: &Config, manager: &ProcessManager, log_dir: &Path) -> Result<()> {
     // Coordinator Redis
-    let coordinator_redis = config.nodes.coordinator.redis.as_ref()
+    let coordinator_redis = config
+        .nodes
+        .coordinator
+        .redis
+        .as_ref()
         .ok_or_else(|| anyhow::anyhow!("No Redis configuration found for coordinator"))?;
     let coordinator_port = extract_port(&coordinator_redis.uri)?;
     let mut cmd = Command::new("docker");
     cmd.args(&[
-        "run", "--rm", "--name", "qed-redis-coordinator",
-        "-p", &format!("{}:6379", coordinator_port),
-        "redis:7-alpine"
+        "run",
+        "--rm",
+        "--name",
+        "qed-redis-coordinator",
+        "-p",
+        &format!("{}:6379", coordinator_port),
+        "redis:7-alpine",
     ]);
     manager.spawn("docker-redis-coordinator".to_string(), cmd, log_dir)?;
 
@@ -538,9 +552,13 @@ fn start_redis_docker(config: &Config, manager: &ProcessManager, log_dir: &Path)
             let port = extract_port(&realm_redis.uri)?;
             let mut cmd = Command::new("docker");
             cmd.args(&[
-                "run", "--rm", "--name", &format!("qed-redis-realm-{}", realm.id),
-                "-p", &format!("{}:6379", port),
-                "redis:7-alpine"
+                "run",
+                "--rm",
+                "--name",
+                &format!("qed-redis-realm-{}", realm.id),
+                "-p",
+                &format!("{}:6379", port),
+                "redis:7-alpine",
             ]);
             manager.spawn(format!("docker-redis-realm-{}", realm.id), cmd, log_dir)?;
         }
@@ -552,11 +570,17 @@ fn start_redis_docker(config: &Config, manager: &ProcessManager, log_dir: &Path)
 fn start_scylla_docker(config: &Config, manager: &ProcessManager, log_dir: &Path) -> Result<()> {
     let mut cmd = Command::new("docker");
     cmd.args(&[
-        "run", "--rm", "--name", "qed-scylladb",
-        "-p", "9042:9042",
+        "run",
+        "--rm",
+        "--name",
+        "qed-scylladb",
+        "-p",
+        "9042:9042",
         "scylladb/scylla:2025.1",
-        "--smp", "2",
-        "--memory", "4G"
+        "--smp",
+        "2",
+        "--memory",
+        "4G",
     ]);
     manager.spawn("docker-scylladb".to_string(), cmd, log_dir)?;
     Ok(())
@@ -564,20 +588,21 @@ fn start_scylla_docker(config: &Config, manager: &ProcessManager, log_dir: &Path
 
 fn create_keyspaces(config: &Config) -> Result<()> {
     let mut keyspaces = vec!["qed_coordinator".to_string()];
-    let realm_keyspaces: Vec<String> = config.nodes.realms.iter()
-        .map(|r| format!("qed_realm_{}", r.id))
-        .collect();
+    let realm_keyspaces: Vec<String> = config.nodes.realms.iter().map(|r| format!("qed_realm_{}", r.id)).collect();
     keyspaces.extend(realm_keyspaces);
 
     for keyspace in &keyspaces {
         info!("Creating keyspace: {}", keyspace);
         let output = Command::new("docker")
             .args(&[
-                "exec", "qed-scylladb", "cqlsh", "-e",
+                "exec",
+                "qed-scylladb",
+                "cqlsh",
+                "-e",
                 &format!(
                     "CREATE KEYSPACE IF NOT EXISTS {} WITH replication = {{'class': 'SimpleStrategy', 'replication_factor': 1}};",
                     keyspace
-                )
+                ),
             ])
             .output()?;
 
@@ -588,12 +613,7 @@ fn create_keyspaces(config: &Config) -> Result<()> {
 
     Ok(())
 }
-async fn start_independent_workers(
-    config: &Config,
-    manager: &ProcessManager,
-    work_dir: &Path,
-    log_dir: &Path,
-) -> Result<()> {
+async fn start_independent_workers(config: &Config, manager: &ProcessManager, work_dir: &Path, log_dir: &Path) -> Result<()> {
     if let Some(workers) = &config.nodes.workers {
         if workers.enabled {
             let binary = get_binary_path()?;
@@ -604,7 +624,9 @@ async fn start_independent_workers(
             ensure_worker_config_file(config, work_dir)?;
 
             // Get task count from AWS config or default to 3
-            let task_count = workers.aws.as_ref()
+            let task_count = workers
+                .aws
+                .as_ref()
                 .and_then(|aws| aws.ecs.as_ref())
                 .map(|ecs| ecs.task_count)
                 .unwrap_or(3);
@@ -630,13 +652,13 @@ async fn start_independent_workers(
                     match value {
                         Value::String(s) => {
                             cmd.arg(s);
-                        },
+                        }
                         Value::Number(n) => {
                             cmd.arg(n.to_string());
-                        },
+                        }
                         Value::Bool(b) => {
                             cmd.arg(b.to_string());
-                        },
+                        }
                         _ => {}
                     }
                 }
@@ -695,12 +717,7 @@ pub fn ensure_worker_config_file(config: &Config, work_dir: &Path) -> Result<()>
     Ok(())
 }
 
-async fn start_global_services(
-    config: &Config,
-    manager: &ProcessManager,
-    work_dir: &Path,
-    log_dir: &Path,
-) -> Result<()> {
+async fn start_global_services(config: &Config, manager: &ProcessManager, work_dir: &Path, log_dir: &Path) -> Result<()> {
     if let Some(global_services) = &config.global_api_services {
         info!("🌐 Starting global services...");
 
@@ -710,10 +727,15 @@ async fn start_global_services(
                 info!("🐘 Starting TimescaleDB...");
                 let mut cmd = Command::new("docker");
                 cmd.args(&[
-                    "run", "--rm", "--name", "qed-timescaledb",
-                    "-p", "5432:5432",
-                    "-e", "POSTGRES_PASSWORD=password",
-                    "timescale/timescaledb:latest-pg17"
+                    "run",
+                    "--rm",
+                    "--name",
+                    "qed-timescaledb",
+                    "-p",
+                    "5432:5432",
+                    "-e",
+                    "POSTGRES_PASSWORD=password",
+                    "timescale/timescaledb:latest-pg17",
                 ]);
                 manager.spawn("docker-timescaledb".to_string(), cmd, log_dir)?;
 
@@ -723,7 +745,8 @@ async fn start_global_services(
                 // Run database migrations
                 info!("🔄 Running database migrations...");
                 let mut migrate_cmd = Command::new("cargo");
-                migrate_cmd.args(&["run", "--bin", "psy_api_services", "--", "migrate"])
+                migrate_cmd
+                    .args(&["run", "--bin", "psy_api_services", "--", "migrate"])
                     .current_dir("./psy_api_services")
                     .env("DATABASE_URL", "postgres://postgres:password@localhost/postgres");
 
@@ -764,8 +787,7 @@ async fn start_global_services(
 fn extract_port(uri: &str) -> Result<u16> {
     let parts: Vec<&str> = uri.split(':').collect();
     if parts.len() >= 3 {
-        parts[2].parse::<u16>()
-            .with_context(|| format!("Failed to parse port from URI: {}", uri))
+        parts[2].parse::<u16>().with_context(|| format!("Failed to parse port from URI: {}", uri))
     } else {
         Err(anyhow::anyhow!("Invalid URI format: {}", uri))
     }
@@ -774,7 +796,8 @@ fn extract_port(uri: &str) -> Result<u16> {
 fn extract_port_from_addr(addr: &str) -> Result<u16> {
     let parts: Vec<&str> = addr.split(':').collect();
     if parts.len() >= 2 {
-        parts[1].parse::<u16>()
+        parts[1]
+            .parse::<u16>()
             .with_context(|| format!("Failed to parse port from address: {}", addr))
     } else {
         Err(anyhow::anyhow!("Invalid address format: {}", addr))
@@ -787,17 +810,12 @@ fn stop_docker_containers() {
         "qed-redis-realm-0",
         "qed-redis-realm-1",
         "qed-scylladb",
-        "qed-timescaledb"
-
+        "qed-timescaledb",
     ];
 
     for container in containers {
-        let _ = Command::new("docker")
-            .args(&["stop", container])
-            .output();
-        let _ = Command::new("docker")
-            .args(&["rm", container])
-            .output();
+        let _ = Command::new("docker").args(&["stop", container]).output();
+        let _ = Command::new("docker").args(&["rm", container]).output();
     }
 }
 
@@ -821,4 +839,3 @@ async fn wait_for_service(host: &str, port: u16, name: &str) -> Result<()> {
         }
     }
 }
-

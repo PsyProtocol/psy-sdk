@@ -39,12 +39,29 @@ where
                 // Check if current token definitely indicates we're NOT in generics
                 let definitely_not_generic = match token {
                     // These tokens clearly indicate we're in expression/statement context
-                    Token::KeywordLet | Token::KeywordIf | Token::KeywordWhile | Token::KeywordFor |
-                    Token::KeywordReturn | Token::KeywordMatch | Token::Assign | Token::Semicolon |
-                    Token::LBrace | Token::OperatorEq | Token::OperatorNeq | Token::OperatorLte |
-                    Token::OperatorGte | Token::OperatorAdd | Token::OperatorSub | Token::OperatorMul |
-                    Token::OperatorDiv | Token::OperatorMod | Token::OperatorAnd | Token::OperatorOr |
-                    Token::U64(_) | Token::U32(_) | Token::Bool(_) => true,
+                    Token::KeywordLet
+                    | Token::KeywordIf
+                    | Token::KeywordWhile
+                    | Token::KeywordFor
+                    | Token::KeywordReturn
+                    | Token::KeywordMatch
+                    | Token::Assign
+                    | Token::Semicolon
+                    | Token::LBrace
+                    | Token::OperatorEq
+                    | Token::OperatorNeq
+                    | Token::OperatorLte
+                    | Token::OperatorGte
+                    | Token::OperatorAdd
+                    | Token::OperatorSub
+                    | Token::OperatorMul
+                    | Token::OperatorDiv
+                    | Token::OperatorMod
+                    | Token::OperatorAnd
+                    | Token::OperatorOr
+                    | Token::U64(_)
+                    | Token::U32(_)
+                    | Token::Bool(_) => true,
                     _ => false,
                 };
 

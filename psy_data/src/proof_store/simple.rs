@@ -2,7 +2,10 @@ use std::collections::HashMap;
 
 use kvq::traits::KVQPair;
 use plonky2::plonk::{config::GenericConfig, proof::ProofWithPublicInputs};
-use psy_core::job::{id::QProvingJobDataID, traits::{QProofStoreReaderAsync, QProofStoreReaderSync, QProofStoreWriterAsyncImm, QProofStoreWriterSync}};
+use psy_core::job::{
+    id::QProvingJobDataID,
+    traits::{QProofStoreReaderAsync, QProofStoreReaderSync, QProofStoreWriterAsyncImm, QProofStoreWriterSync},
+};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -23,30 +26,21 @@ impl SimpleProofStoreMemory {
     pub fn from_serialized_bytes(data: &[u8]) -> anyhow::Result<Self> {
         bincode::deserialize(data).map_err(|err| anyhow::anyhow!("{}", err))
     }
-    pub async fn dump_to_async_store<PS: QProofStoreWriterAsyncImm+QProofStoreReaderAsync>(self, store: &PS) -> anyhow::Result<()> {
-        store.set_bytes_by_id_batch(&self.proofs.into_iter().map(|(key, value)|{
-            KVQPair{
-                key,
-                value,
-            }
-        }).collect::<Vec<_>>()).await?;
+    pub async fn dump_to_async_store<PS: QProofStoreWriterAsyncImm + QProofStoreReaderAsync>(self, store: &PS) -> anyhow::Result<()> {
+        store
+            .set_bytes_by_id_batch(&self.proofs.into_iter().map(|(key, value)| KVQPair { key, value }).collect::<Vec<_>>())
+            .await?;
         Ok(())
     }
 }
 
 impl QProofStoreReaderSync for SimpleProofStoreMemory {
-    fn get_proof_by_id<C: GenericConfig<D>, const D: usize>(
-        &self,
-        id: QProvingJobDataID,
-    ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
+    fn get_proof_by_id<C: GenericConfig<D>, const D: usize>(&self, id: QProvingJobDataID) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         let data = self.proofs.get(&id).ok_or_else(|| {
             anyhow::anyhow!(
                 "Proof not found. Wanted {}, Have: {:?}",
                 hex::encode(id.to_fixed_bytes()),
-                self.proofs
-                    .keys()
-                    .map(|k| hex::encode(k.to_fixed_bytes()))
-                    .collect::<Vec<String>>()
+                self.proofs.keys().map(|k| hex::encode(k.to_fixed_bytes())).collect::<Vec<String>>()
             )
         })?;
         Ok(bincode::deserialize(data)?)
@@ -58,10 +52,7 @@ impl QProofStoreReaderSync for SimpleProofStoreMemory {
                 "Data not found. Wanted {} ({:?}), Have: {:?}",
                 hex::encode(id.to_fixed_bytes()),
                 id,
-                self.proofs
-                    .keys()
-                    .map(|k| hex::encode(k.to_fixed_bytes()))
-                    .collect::<Vec<String>>()
+                self.proofs.keys().map(|k| hex::encode(k.to_fixed_bytes())).collect::<Vec<String>>()
             )
         })?;
         Ok(data.to_vec())
@@ -90,20 +81,12 @@ impl QProofStoreWriterSync for SimpleProofStoreMemory {
         self.proofs.insert(id, data.to_vec());
         Ok(())
     }
-    
-    fn write_next_jobs(
-        &mut self,
-        jobs: &[QProvingJobDataID],
-        next_jobs: &[QProvingJobDataID],
-    ) -> anyhow::Result<()> {
+
+    fn write_next_jobs(&mut self, jobs: &[QProvingJobDataID], next_jobs: &[QProvingJobDataID]) -> anyhow::Result<()> {
         self.write_next_jobs_core(jobs, next_jobs)
     }
-    
-    fn write_multidimensional_jobs(
-        &mut self,
-        jobs_levels: &[Vec<QProvingJobDataID>],
-        next_jobs: &[QProvingJobDataID],
-    ) -> anyhow::Result<()> {
+
+    fn write_multidimensional_jobs(&mut self, jobs_levels: &[Vec<QProvingJobDataID>], next_jobs: &[QProvingJobDataID]) -> anyhow::Result<()> {
         self.write_multidimensional_jobs_core(jobs_levels, next_jobs)
     }
 }

@@ -4,10 +4,7 @@ use psy_core::data::qhashout::QHashOut;
 use psy_crypto::hash::traits::{hasher::FieldQHasher, qhashable::QFieldHashable};
 use serde::{Deserialize, Serialize};
 
-
-#[derive(
-    Serialize, Deserialize, PartialEq, Debug, Clone, Copy, Eq, Hash
-)]
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone, Copy, Eq, Hash)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
 pub struct QEDAPIRegisterUserRequest<F: RichField> {
     pub fingerprint: QHashOut<F>,
@@ -36,12 +33,7 @@ impl<F: RichField> KVQSerializable for QEDAPIRegisterUserRequest<F> {
     }
 }
 
-
-
-
-#[derive(
-    Serialize, Deserialize, PartialEq, Debug, Clone, Copy, Eq, Hash
-)]
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone, Copy, Eq, Hash)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
 pub struct QEDAPIRegisterUserRequestForUserId<F: RichField> {
     pub fingerprint: QHashOut<F>,

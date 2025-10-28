@@ -1,9 +1,8 @@
-use std::fmt::Debug;
-use std::future::Future;
-use std::time::Duration;
+use std::{fmt::Debug, future::Future, time::Duration};
+
 use anyhow::anyhow;
-use tracing::error;
 use psy_data::config::store_config::QEDHasher;
+use tracing::error;
 
 pub type C = plonky2::plonk::config::PoseidonGoldilocksConfig;
 pub const D: usize = 2;
@@ -21,4 +20,3 @@ pub mod state;
 pub use config::*;
 pub use edge::*;
 pub use processor::*;
-

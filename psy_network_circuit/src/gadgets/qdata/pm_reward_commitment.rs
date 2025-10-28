@@ -1,8 +1,15 @@
-use plonky2::{field::extension::Extendable, hash::hash_types::{HashOutTarget, RichField}, iop::{target::Target, witness::{PartialWitness, Witness, WitnessWrite}}, plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher}};
+use plonky2::{
+    field::extension::Extendable,
+    hash::hash_types::{HashOutTarget, RichField},
+    iop::{
+        target::Target,
+        witness::{PartialWitness, Witness, WitnessWrite},
+    },
+    plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher},
+};
 use psy_common_circuit::traits::{AlgebraicHashableTarget, CreatableTarget, FromTargets, ToTargets, WitnessValueFor};
 use psy_core::data::qhashout::QHashOut;
 use psy_data::qdata::pm_reward_commitment::PMRewardCommitment;
-
 
 pub const PM_REWARD_COMMITMENT_TARGET_SIZE: usize = 12; // 3 QHashOut, each with 4 fields
 #[derive(Clone, Debug, PartialEq, Eq, Copy)]
@@ -18,19 +25,20 @@ impl PMRewardCommitmentGadget {
         witness.set_hash_target(self.gutas_root, target.gutas_root.0)?;
         witness.set_hash_target(self.deploy_contracts_root, target.deploy_contracts_root.0)
     }
-    pub fn to_hash<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(&self, builder: &mut CircuitBuilder<F, D>) -> HashOutTarget {
+    pub fn to_hash<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(&self, builder: &mut CircuitBuilder<F, D>) -> HashOutTarget {
         builder.hash_n_to_hash_no_pad::<H>(self.to_targets())
     }
 }
 impl AlgebraicHashableTarget for PMRewardCommitmentGadget {
-    fn to_hash_target<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(&self, builder: &mut CircuitBuilder<F, D>) -> HashOutTarget {
+    fn to_hash_target<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
+        &self,
+        builder: &mut CircuitBuilder<F, D>,
+    ) -> HashOutTarget {
         self.to_hash::<H, F, D>(builder)
     }
 }
 impl CreatableTarget for PMRewardCommitmentGadget {
-    fn create_virtual<F: RichField + Extendable<D>, const D: usize>(
-        builder: &mut CircuitBuilder<F, D>,
-    ) -> Self {
+    fn create_virtual<F: RichField + Extendable<D>, const D: usize>(builder: &mut CircuitBuilder<F, D>) -> Self {
         let register_users_root = builder.add_virtual_hash();
         let gutas_root = builder.add_virtual_hash();
         let deploy_contracts_root = builder.add_virtual_hash();
@@ -53,7 +61,10 @@ impl ToTargets for PMRewardCommitmentGadget {
 impl FromTargets for PMRewardCommitmentGadget {
     fn from_targets(targets: &[Target]) -> Self {
         if targets.len() != 12 {
-            panic!("tried to create PMRewardCommitmentGadget from an array of {} targets, but expected an array of 12 targets", targets.len());
+            panic!(
+                "tried to create PMRewardCommitmentGadget from an array of {} targets, but expected an array of 12 targets",
+                targets.len()
+            );
         }
 
         Self {
@@ -70,7 +81,6 @@ impl FromTargets for PMRewardCommitmentGadget {
     }
 }
 
-
 impl<F: RichField> WitnessValueFor<PMRewardCommitmentGadget, F, true> for PMRewardCommitment<F> {
     fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &PMRewardCommitmentGadget) -> anyhow::Result<()> {
         target.set_witness(witness, self)
@@ -78,7 +88,7 @@ impl<F: RichField> WitnessValueFor<PMRewardCommitmentGadget, F, true> for PMRewa
 }
 
 impl<F: RichField> WitnessValueFor<PMRewardCommitmentGadget, F, false> for PMRewardCommitment<F> {
-    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &PMRewardCommitmentGadget) -> anyhow::Result<()>  {
+    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &PMRewardCommitmentGadget) -> anyhow::Result<()> {
         target.set_witness(witness, self)
     }
 }

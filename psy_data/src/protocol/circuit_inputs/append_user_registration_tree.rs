@@ -1,10 +1,11 @@
 use kvq::traits::KVQSerializable;
 use plonky2::hash::hash_types::RichField;
 use psy_core::data::qhashout::QHashOut;
-use psy_crypto::hash::merkle::{spiderman::SpidermanUpdateProof, treeprover::{AggStateTrackableInput, AggStateTransition}};
+use psy_crypto::hash::merkle::{
+    spiderman::SpidermanUpdateProof,
+    treeprover::{AggStateTrackableInput, AggStateTransition},
+};
 use serde::{Deserialize, Serialize};
-
-
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
@@ -17,7 +18,9 @@ impl<F: RichField> AggStateTrackableInput<F> for QCAppendUserRegistrationTreeCir
     fn get_state_transition(&self) -> AggStateTransition<F> {
         AggStateTransition {
             state_transition_start: self.spiderman_append_proofs[0].top_line_proof.old_root,
-            state_transition_end: self.spiderman_append_proofs[self.spiderman_append_proofs.len()-1].top_line_proof.new_root,
+            state_transition_end: self.spiderman_append_proofs[self.spiderman_append_proofs.len() - 1]
+                .top_line_proof
+                .new_root,
         }
     }
 }

@@ -10,7 +10,6 @@ pub mod realm_processor_v2;
 pub mod watcher;
 pub mod worker;
 
-
 #[derive(Parser)]
 pub struct Cli {
     #[command(subcommand)]

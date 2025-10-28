@@ -1,5 +1,6 @@
-use psy_package::ManifestError;
 use std::path::PathBuf;
+
+use psy_package::ManifestError;
 use thiserror::Error;
 
 pub type Result<T> = std::result::Result<T, CliError>;

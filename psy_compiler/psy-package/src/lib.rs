@@ -9,26 +9,29 @@ pub mod workspace;
 pub use errors::{ManifestError, SemverError};
 pub use files::*;
 pub use package::*;
-pub use workspace::*;
-
 // Individual re-exports for backward compatibility
 pub use package::{CrateName, Dependency, Package, PackageType};
-pub use workspace::Workspace;
+pub use workspace::{Workspace, *};
 
 pub const FILE_EXTENSION: &str = "qed";
 
 // Re-exports for backward compatibility
 pub mod manifest {
-    pub use crate::errors::{ManifestError, SemverError};
-    pub use crate::{resolve_workspace_from_toml, try_clone_std};
+    pub use crate::{
+        errors::{ManifestError, SemverError},
+        resolve_workspace_from_toml, try_clone_std,
+    };
 }
 
 // Main functionality - internal imports
-use crate::git::clone_git_repo;
-use crate::fm::NormalizePath;
+use std::{
+    collections::BTreeMap,
+    path::{Path, PathBuf},
+};
+
 use serde::Deserialize;
-use std::collections::BTreeMap;
-use std::path::{Path, PathBuf};
+
+use crate::{fm::NormalizePath, git::clone_git_repo};
 
 #[derive(Debug, Deserialize, Clone)]
 struct PackageConfig {
@@ -44,17 +47,12 @@ const TAG_LATEST: &str = "latest";
 const STD_FILE: &str = "psy_compiler/psy-std/std.qed";
 
 impl PackageConfig {
-    fn resolve_to_package(
-        &self,
-        root_dir: &Path,
-        processed: &mut Vec<String>,
-    ) -> Result<crate::package::Package, ManifestError> {
+    fn resolve_to_package(&self, root_dir: &Path, processed: &mut Vec<String>) -> Result<crate::package::Package, ManifestError> {
         let name: crate::package::CrateName = if let Some(name) = &self.package.name {
-            name.parse()
-                .map_err(|_| ManifestError::InvalidPackageName {
-                    toml: root_dir.join("Dargo.toml"),
-                    name: name.into(),
-                })?
+            name.parse().map_err(|_| ManifestError::InvalidPackageName {
+                toml: root_dir.join("Dargo.toml"),
+                name: name.into(),
+            })?
         } else {
             return Err(ManifestError::MissingNameField {
                 toml: root_dir.join("Dargo.toml"),
@@ -70,12 +68,10 @@ impl PackageConfig {
 
         let mut dependencies: BTreeMap<crate::package::CrateName, crate::package::Dependency> = BTreeMap::new();
         for (name, dep_config) in self.dependencies.iter() {
-            let name = name
-                .parse()
-                .map_err(|_| ManifestError::InvalidDependencyName {
-                    toml: root_dir.join("Dargo.toml"),
-                    name: name.into(),
-                })?;
+            let name = name.parse().map_err(|_| ManifestError::InvalidDependencyName {
+                toml: root_dir.join("Dargo.toml"),
+                name: name.into(),
+            })?;
             let resolved_dep = dep_config.resolve_to_dependency(root_dir, processed)?;
             dependencies.insert(name, resolved_dep);
         }
@@ -84,15 +80,10 @@ impl PackageConfig {
             Some("lib") => crate::package::PackageType::Library,
             Some("bin") => crate::package::PackageType::Binary,
             Some(invalid) => {
-                return Err(ManifestError::InvalidPackageType(
-                    root_dir.join("Dargo.toml"),
-                    invalid.to_string(),
-                ));
+                return Err(ManifestError::InvalidPackageType(root_dir.join("Dargo.toml"), invalid.to_string()));
             }
             None => {
-                return Err(ManifestError::MissingPackageType(
-                    root_dir.join("Dargo.toml"),
-                ));
+                return Err(ManifestError::MissingPackageType(root_dir.join("Dargo.toml")));
             }
         };
 
@@ -101,14 +92,8 @@ impl PackageConfig {
             custom_entry_path
         } else {
             let default_entry_path = match package_type {
-                crate::package::PackageType::Library => root_dir
-                    .join("src")
-                    .join("lib")
-                    .with_extension(FILE_EXTENSION),
-                crate::package::PackageType::Binary => root_dir
-                    .join("src")
-                    .join("main")
-                    .with_extension(FILE_EXTENSION),
+                crate::package::PackageType::Library => root_dir.join("src").join("lib").with_extension(FILE_EXTENSION),
+                crate::package::PackageType::Binary => root_dir.join("src").join("main").with_extension(FILE_EXTENSION),
             };
             default_entry_path
         };
@@ -167,28 +152,14 @@ struct PackageMetadata {
 #[derive(Debug, Deserialize, Clone)]
 #[serde(untagged)]
 enum DependencyConfig {
-    Github {
-        git: String,
-        tag: String,
-        directory: Option<String>,
-    },
-    Path {
-        path: String,
-    },
+    Github { git: String, tag: String, directory: Option<String> },
+    Path { path: String },
 }
 
 impl DependencyConfig {
-    fn resolve_to_dependency(
-        &self,
-        pkg_root: &Path,
-        processed: &mut Vec<String>,
-    ) -> Result<crate::package::Dependency, ManifestError> {
+    fn resolve_to_dependency(&self, pkg_root: &Path, processed: &mut Vec<String>) -> Result<crate::package::Dependency, ManifestError> {
         let dep = match self {
-            Self::Github {
-                git,
-                tag,
-                directory,
-            } => {
+            Self::Github { git, tag, directory } => {
                 let dir_path = clone_git_repo(git, tag).map_err(ManifestError::GitError)?;
                 let project_path = if let Some(directory) = directory {
                     let internal_path = dir_path.join(directory).normalize();
@@ -235,10 +206,7 @@ pub fn resolve_workspace_from_toml(toml_path: &Path) -> Result<crate::workspace:
     Ok(workspace)
 }
 
-fn resolve_package_from_toml(
-    toml_path: &Path,
-    processed: &mut Vec<String>,
-) -> Result<crate::package::Package, ManifestError> {
+fn resolve_package_from_toml(toml_path: &Path, processed: &mut Vec<String>) -> Result<crate::package::Package, ManifestError> {
     let str_path = toml_path.to_str().expect("ICE - path is empty");
     if processed.contains(&str_path.to_string()) {
         let mut cycle = false;
@@ -259,14 +227,9 @@ fn resolve_package_from_toml(
 
     let dargo_toml = read_toml(toml_path)?;
     let result = match dargo_toml.config {
-        Config::Package { package_config } => {
-            package_config.resolve_to_package(&dargo_toml.root_dir, processed)
-        }
+        Config::Package { package_config } => package_config.resolve_to_package(&dargo_toml.root_dir, processed),
     };
-    let pos = processed
-        .iter()
-        .position(|toml| toml == str_path)
-        .expect("added package must be here");
+    let pos = processed.iter().position(|toml| toml == str_path).expect("added package must be here");
     processed.remove(pos);
     result
 }
@@ -303,8 +266,7 @@ impl TryFrom<&str> for Config {
 
 fn read_toml(toml_path: &Path) -> Result<DargoToml, ManifestError> {
     let toml_path = toml_path.normalize();
-    let toml_as_string = std::fs::read_to_string(&toml_path)
-        .map_err(|_| ManifestError::ReadFailed(toml_path.to_path_buf()))?;
+    let toml_as_string = std::fs::read_to_string(&toml_path).map_err(|_| ManifestError::ReadFailed(toml_path.to_path_buf()))?;
     let root_dir = toml_path.parent().ok_or(ManifestError::MissingParent)?;
     let dargo_toml = DargoToml {
         root_dir: root_dir.to_path_buf(),

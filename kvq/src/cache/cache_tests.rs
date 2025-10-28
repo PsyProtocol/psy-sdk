@@ -1,10 +1,12 @@
 #[cfg(test)]
 mod sync_tests {
-    use crate::cache::sync_cache::KVQBinaryStoreCached;
-    use crate::cache::KVQBinaryStoreCachedTrait;
-    use crate::memory::simple::KVQSimpleMemoryBackingStore;
-    use crate::traits::KVQBinaryStore;
     use std::sync::Arc;
+
+    use crate::{
+        cache::{sync_cache::KVQBinaryStoreCached, KVQBinaryStoreCachedTrait},
+        memory::simple::KVQSimpleMemoryBackingStore,
+        traits::KVQBinaryStore,
+    };
 
     #[test]
     fn test_basic_operations() {
@@ -65,14 +67,20 @@ mod sync_tests {
         backing.set_ref(&vec![5], &vec![50]).unwrap();
 
         let store_result = backing.get_fuzzy_range_leq_kv(&vec![5], 0).unwrap();
-        println!("Store result for fuzzy_bytes=0: {:?}", store_result.iter().map(|kv| &kv.key).collect::<Vec<_>>());
+        println!(
+            "Store result for fuzzy_bytes=0: {:?}",
+            store_result.iter().map(|kv| &kv.key).collect::<Vec<_>>()
+        );
 
         let cache = KVQBinaryStoreCached::new(backing);
         cache.set_ref(&vec![1], &vec![10]).unwrap();
         cache.set_ref(&vec![3], &vec![30]).unwrap();
 
         let result = cache.get_fuzzy_range_leq_kv(&vec![5], 0).unwrap();
-        println!("Cache result for fuzzy_bytes=0: {:?}", result.iter().map(|kv| &kv.key).collect::<Vec<_>>());
+        println!(
+            "Cache result for fuzzy_bytes=0: {:?}",
+            result.iter().map(|kv| &kv.key).collect::<Vec<_>>()
+        );
 
         assert_eq!(result.len(), 1);
         assert_eq!(result[0].key, vec![5]);
@@ -219,12 +227,13 @@ mod sync_tests {
 
 #[cfg(all(test, not(target_arch = "wasm32")))]
 mod async_tests {
-    use crate::cache::async_cache::KVQBinaryStoreCachedAsync;
-    use crate::cache::KVQBinaryStoreCachedTraitAsync;
-    use crate::traits::{KVQBinaryStore, KVQBinaryStoreAsync};
     use std::sync::Arc;
 
     use super::super::test_helpers::test_helpers::AsyncMemoryStore;
+    use crate::{
+        cache::{async_cache::KVQBinaryStoreCachedAsync, KVQBinaryStoreCachedTraitAsync},
+        traits::{KVQBinaryStore, KVQBinaryStoreAsync},
+    };
 
     #[tokio::test]
     async fn test_basic_operations_async() {
@@ -263,10 +272,7 @@ mod async_tests {
 
     #[tokio::test]
     async fn test_get_leq_with_cache_updates_async() {
-        let backing = Arc::new(AsyncMemoryStore::with_data(vec![
-            (vec![1], vec![10]),
-            (vec![5], vec![50]),
-        ]));
+        let backing = Arc::new(AsyncMemoryStore::with_data(vec![(vec![1], vec![10]), (vec![5], vec![50])]));
 
         let cache = KVQBinaryStoreCachedAsync::new(backing);
 

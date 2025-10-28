@@ -1,25 +1,32 @@
-use std::collections::BTreeMap;
-use kvq::traits::{KVQBinaryStoreAsync, KVQPair};
-use std::sync::Arc;
+use std::{collections::BTreeMap, sync::Arc};
+
 use ambassador::Delegate;
 use async_trait::async_trait;
 use auto_impl::auto_impl;
-use kvq::cache::{CacheValueType, KVQBinaryStoreCached, KVQBinaryStoreCachedAsync, KVQBinaryStoreCachedTrait, KVQBinaryStoreCachedTraitAsync};
-use kvq::traits::KVQBinaryStore;
-use kvq::traits::ambassador_impl_KVQBinaryStore;
+use kvq::{
+    cache::{CacheValueType, KVQBinaryStoreCached, KVQBinaryStoreCachedAsync, KVQBinaryStoreCachedTrait, KVQBinaryStoreCachedTraitAsync},
+    traits::{ambassador_impl_KVQBinaryStore, KVQBinaryStore, KVQBinaryStoreAsync, KVQPair},
+};
 
 #[auto_impl(&, Box, Arc)]
 pub trait Journal: KVQBinaryStore {
     fn commit(&self, _checkpoint_id: Option<u64>) -> anyhow::Result<(Vec<KVQPair<Vec<u8>, Vec<u8>>>, Vec<Vec<u8>>)>;
     fn is_committed(&self) -> bool;
     fn rollback(&self, _checkpoint_id: u64) -> anyhow::Result<()>;
-    fn save_snapshot(&self, checkpoint_id: u64) -> anyhow::Result<()>{ Ok(()) }
-    fn restore_snapshot(&self, snapshot: Vec<u8>) -> anyhow::Result<()>{ Ok(()) }
-    fn cleanup_snapshot(&self, checkpoint_id: u64) -> anyhow::Result<()>{ Ok(()) }
-    fn get_snapshot(&self, checkpoint_id: u64) -> anyhow::Result<Option<Vec<u8>>>{ Ok(Option::None) }
+    fn save_snapshot(&self, checkpoint_id: u64) -> anyhow::Result<()> {
+        Ok(())
+    }
+    fn restore_snapshot(&self, snapshot: Vec<u8>) -> anyhow::Result<()> {
+        Ok(())
+    }
+    fn cleanup_snapshot(&self, checkpoint_id: u64) -> anyhow::Result<()> {
+        Ok(())
+    }
+    fn get_snapshot(&self, checkpoint_id: u64) -> anyhow::Result<Option<Vec<u8>>> {
+        Ok(Option::None)
+    }
     fn get_base_store(&self) -> &dyn KVQBinaryStore;
 }
-
 
 #[derive(Clone, Delegate)]
 #[delegate(KVQBinaryStore)]
@@ -31,7 +38,7 @@ pub struct JournalStore<S: KVQBinaryStore> {
 impl<S: KVQBinaryStore> JournalStore<S> {
     pub fn new(store: S) -> Self {
         Self {
-            inner: KVQBinaryStoreCached::new(Arc::new(store))
+            inner: KVQBinaryStoreCached::new(Arc::new(store)),
         }
     }
     fn snapshot_key(&self, checkpoint_id: u64) -> Vec<u8> {
@@ -89,22 +96,29 @@ pub trait JournalAsync: KVQBinaryStoreAsync {
     async fn commit(&self, _checkpoint_id: Option<u64>) -> anyhow::Result<(Vec<KVQPair<Vec<u8>, Vec<u8>>>, Vec<Vec<u8>>)>;
     async fn is_committed(&self) -> bool;
     async fn rollback(&self, _checkpoint_id: u64) -> anyhow::Result<()>;
-    async fn save_snapshot(&self, checkpoint_id: u64) -> anyhow::Result<()>{ Ok(()) }
-    async fn restore_snapshot(&self, snapshot: Vec<u8>) -> anyhow::Result<()>{ Ok(()) }
-    async fn cleanup_snapshot(&self, checkpoint_id: u64) -> anyhow::Result<()>{ Ok(()) }
-    async fn get_snapshot(&self, checkpoint_id: u64) -> anyhow::Result<Option<Vec<u8>>>{ Ok(Option::None) }
+    async fn save_snapshot(&self, checkpoint_id: u64) -> anyhow::Result<()> {
+        Ok(())
+    }
+    async fn restore_snapshot(&self, snapshot: Vec<u8>) -> anyhow::Result<()> {
+        Ok(())
+    }
+    async fn cleanup_snapshot(&self, checkpoint_id: u64) -> anyhow::Result<()> {
+        Ok(())
+    }
+    async fn get_snapshot(&self, checkpoint_id: u64) -> anyhow::Result<Option<Vec<u8>>> {
+        Ok(Option::None)
+    }
     async fn get_base_store(&self) -> &dyn KVQBinaryStoreAsync;
 }
 
-
-pub struct JournalStoreAsync<S: KVQBinaryStoreAsync+ Send + Sync> {
+pub struct JournalStoreAsync<S: KVQBinaryStoreAsync + Send + Sync> {
     inner: KVQBinaryStoreCachedAsync<S>,
 }
 
-impl<S: KVQBinaryStoreAsync+ Send + Sync> JournalStoreAsync<S> {
+impl<S: KVQBinaryStoreAsync + Send + Sync> JournalStoreAsync<S> {
     pub fn new(store: S) -> Self {
         Self {
-            inner: KVQBinaryStoreCachedAsync::new(Arc::new(store))
+            inner: KVQBinaryStoreCachedAsync::new(Arc::new(store)),
         }
     }
 
@@ -186,7 +200,7 @@ impl<S: KVQBinaryStoreAsync + Send + Sync> KVQBinaryStoreAsync for JournalStoreA
 }
 
 #[async_trait]
-impl<S: KVQBinaryStoreAsync+ Send + Sync> JournalAsync for JournalStoreAsync<S> {
+impl<S: KVQBinaryStoreAsync + Send + Sync> JournalAsync for JournalStoreAsync<S> {
     async fn commit(&self, _checkpoint_id: Option<u64>) -> anyhow::Result<(Vec<KVQPair<Vec<u8>, Vec<u8>>>, Vec<Vec<u8>>)> {
         self.inner.flush_simple(_checkpoint_id).await
     }

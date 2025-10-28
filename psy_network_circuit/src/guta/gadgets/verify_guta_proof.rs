@@ -24,7 +24,6 @@ pub struct VerifyGUTAProofGadget<const D: usize> {
     pub verifier_data: VerifierCircuitTarget,
     pub proof_target: ProofWithPublicInputsTarget<D>,
     // end targets requiring witness
-
 }
 
 impl<const D: usize> VerifyGUTAProofGadget<D> {
@@ -34,7 +33,7 @@ impl<const D: usize> VerifyGUTAProofGadget<D> {
         verifier_data_cap_height: usize,
     ) -> Self
     where
-        <C as GenericConfig<D>>::Hasher:AlgebraicHasher<F>,
+        <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
     {
         let verifier_data = builder.add_virtual_verifier_data(verifier_data_cap_height);
         let proof_target = builder.add_virtual_proof_with_pis(proof_common_data);
@@ -43,28 +42,17 @@ impl<const D: usize> VerifyGUTAProofGadget<D> {
 
         let proof_fingerprint = builder.get_circuit_fingerprint::<C::Hasher>(&verifier_data);
 
-
         let guta_whitelist_merkle_proof = MerkleProofGadget::add_virtual_to::<C::Hasher, F, D>(builder, GUTA_CIRCUIT_WHITELIST_TREE_HEIGHT as usize);
-
 
         let guta_proof_header_gadget = GlobalUserTreeAggregatorHeaderGadget::add_virtual_to::<F, D>(builder);
 
         // ensure that the header gadget and merkle proof have the same whitelist root
-        builder.connect_hashes(
-            guta_proof_header_gadget.guta_circuit_whitelist,
-            guta_whitelist_merkle_proof.root
-        );
-
+        builder.connect_hashes(guta_proof_header_gadget.guta_circuit_whitelist, guta_whitelist_merkle_proof.root);
 
         // start: check child proof public inputs
         let expected_proof_public_inputs_hash = guta_proof_header_gadget.to_hash::<C::Hasher, C::F, D>(builder);
 
-
-        assert_eq!(
-            proof_target.public_inputs.len(),
-            15,
-            "GUTA proofs should have 15 public inputs"
-        );
+        assert_eq!(proof_target.public_inputs.len(), 15, "GUTA proofs should have 15 public inputs");
         let proof_public_input_hash = HashOutTarget {
             elements: [
                 proof_target.public_inputs[11],
@@ -75,14 +63,18 @@ impl<const D: usize> VerifyGUTAProofGadget<D> {
         };
 
         tracing::debug!("🎯 GUTA gadget - guta_proof_header_gadget: {:?}", guta_proof_header_gadget);
-        tracing::debug!("🎯 GUTA gadget - expected_proof_public_inputs_hash targets: {:?}", expected_proof_public_inputs_hash.elements);
+        tracing::debug!(
+            "🎯 GUTA gadget - expected_proof_public_inputs_hash targets: {:?}",
+            expected_proof_public_inputs_hash.elements
+        );
         tracing::debug!("🎯 GUTA gadget - proof_public_input_hash targets: {:?}", proof_public_input_hash.elements);
 
         // ensure the whitelist root and state transition is correct for the proof
         builder.connect_hashes(expected_proof_public_inputs_hash, proof_public_input_hash);
         // end: check child proof public inputs
 
-        // ensure the leaf revealed in the whitelist merkle proof is actually the fingerprint of the proof
+        // ensure the leaf revealed in the whitelist merkle proof is actually the
+        // fingerprint of the proof
         builder.connect_hashes(guta_whitelist_merkle_proof.value, proof_fingerprint);
         Self {
             guta_proof_header_gadget,
@@ -99,11 +91,15 @@ impl<const D: usize> VerifyGUTAProofGadget<D> {
         guta_proof_header: &GlobalUserTreeAggregatorHeader<F>,
         proof: &ProofWithPublicInputs<F, C, D>,
         verifier_data: &VerifierOnlyCircuitData<C, D>,
-    ) -> anyhow::Result<()> where
-    <C as GenericConfig<D>>::Hasher:AlgebraicHasher<F>, {
-        tracing::debug!("🎯 Verify GUTA Proof set_witness - guta_proof_header: {}, public_inputs: {}",
+    ) -> anyhow::Result<()>
+    where
+        <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
+    {
+        tracing::debug!(
+            "🎯 Verify GUTA Proof set_witness - guta_proof_header: {}, public_inputs: {}",
             serde_json::to_string_pretty(guta_proof_header).unwrap(),
-            serde_json::to_string_pretty(&proof.public_inputs).unwrap());
+            serde_json::to_string_pretty(&proof.public_inputs).unwrap()
+        );
         self.guta_whitelist_merkle_proof.set_witness_generic(
             witness,
             F::from_noncanonical_u64(guta_whitelist_merkle_proof.index),
@@ -118,7 +114,11 @@ impl<const D: usize> VerifyGUTAProofGadget<D> {
 }
 
 impl<const D: usize> ToGUTAHeader<D> for VerifyGUTAProofGadget<D> {
-    fn get_guta_header<H: AlgebraicHasher<F>, F: RichField + Extendable<D>>(&self, _builder: &mut CircuitBuilder<F, D>, _: HashOutTarget) -> GlobalUserTreeAggregatorHeaderGadget {
+    fn get_guta_header<H: AlgebraicHasher<F>, F: RichField + Extendable<D>>(
+        &self,
+        _builder: &mut CircuitBuilder<F, D>,
+        _: HashOutTarget,
+    ) -> GlobalUserTreeAggregatorHeaderGadget {
         self.guta_proof_header_gadget.to_owned()
     }
 }

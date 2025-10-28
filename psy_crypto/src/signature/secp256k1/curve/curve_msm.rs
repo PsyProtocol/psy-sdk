@@ -1,23 +1,26 @@
 use itertools::Itertools;
 use plonky2::field::types::{Field, PrimeField};
-use plonky2_maybe_rayon::rayon::iter::IntoParallelIterator;
-use plonky2_maybe_rayon::{MaybeParChunks, ParallelIterator};
+use plonky2_maybe_rayon::{rayon::iter::IntoParallelIterator, MaybeParChunks, ParallelIterator};
 
-use super::curve_summation::affine_multisummation_best;
-use super::curve_types::{AffinePoint, Curve, ProjectivePoint};
+use super::{
+    curve_summation::affine_multisummation_best,
+    curve_types::{AffinePoint, Curve, ProjectivePoint},
+};
 
-/// In Yao's method, we compute an affine summation for each digit. In a parallel setting, it would
-/// be easiest to assign individual summations to threads, but this would be sub-optimal because
-/// multi-summations can be more efficient than repeating individual summations (see
-/// `affine_multisummation_best`). Thus we divide digits into large chunks, and assign chunks of
-/// digits to threads. Note that there is a delicate balance here, as large chunks can result in
-/// uneven distributions of work among threads.
+/// In Yao's method, we compute an affine summation for each digit. In a
+/// parallel setting, it would be easiest to assign individual summations to
+/// threads, but this would be sub-optimal because multi-summations can be more
+/// efficient than repeating individual summations (see
+/// `affine_multisummation_best`). Thus we divide digits into large chunks, and
+/// assign chunks of digits to threads. Note that there is a delicate balance
+/// here, as large chunks can result in uneven distributions of work among
+/// threads.
 const DIGITS_PER_CHUNK: usize = 80;
 
 #[derive(Clone, Debug)]
 pub struct MsmPrecomputation<C: Curve> {
-    /// For each generator (in the order they were passed to `msm_precompute`), contains a vector
-    /// of powers, i.e. [(2^w)^i] for i < DIGITS.
+    /// For each generator (in the order they were passed to `msm_precompute`),
+    /// contains a vector of powers, i.e. [(2^w)^i] for i < DIGITS.
     // TODO: Use compressed coordinates here.
     powers_per_generator: Vec<Vec<AffinePoint<C>>>,
 
@@ -25,15 +28,9 @@ pub struct MsmPrecomputation<C: Curve> {
     w: usize,
 }
 
-pub fn msm_precompute<C: Curve>(
-    generators: &[ProjectivePoint<C>],
-    w: usize,
-) -> MsmPrecomputation<C> {
+pub fn msm_precompute<C: Curve>(generators: &[ProjectivePoint<C>], w: usize) -> MsmPrecomputation<C> {
     MsmPrecomputation {
-        powers_per_generator: generators
-            .into_par_iter()
-            .map(|&g| precompute_single_generator(g, w))
-            .collect(),
+        powers_per_generator: generators.into_par_iter().map(|&g| precompute_single_generator(g, w)).collect(),
         w,
     }
 }
@@ -52,30 +49,24 @@ fn precompute_single_generator<C: Curve>(g: ProjectivePoint<C>, w: usize) -> Vec
     ProjectivePoint::batch_to_affine(&powers)
 }
 
-pub fn msm_parallel<C: Curve>(
-    scalars: &[C::ScalarField],
-    generators: &[ProjectivePoint<C>],
-    w: usize,
-) -> ProjectivePoint<C> {
+pub fn msm_parallel<C: Curve>(scalars: &[C::ScalarField], generators: &[ProjectivePoint<C>], w: usize) -> ProjectivePoint<C> {
     let precomputation = msm_precompute(generators, w);
     msm_execute_parallel(&precomputation, scalars)
 }
 
-pub fn msm_execute<C: Curve>(
-    precomputation: &MsmPrecomputation<C>,
-    scalars: &[C::ScalarField],
-) -> ProjectivePoint<C> {
+pub fn msm_execute<C: Curve>(precomputation: &MsmPrecomputation<C>, scalars: &[C::ScalarField]) -> ProjectivePoint<C> {
     assert_eq!(precomputation.powers_per_generator.len(), scalars.len());
     let w = precomputation.w;
     let digits = (C::ScalarField::BITS + w - 1) / w;
     let base = 1 << w;
 
-    // This is a variant of Yao's method, adapted to the multi-scalar setting. Because we use
-    // extremely large windows, the repeated scans in Yao's method could be more expensive than the
-    // actual group operations. To avoid this, we store a multimap from each possible digit to the
-    // positions in which that digit occurs in the scalars. These positions have the form (i, j),
-    // where i is the index of the generator and j is an index into the digits of the scalar
-    // associated with that generator.
+    // This is a variant of Yao's method, adapted to the multi-scalar setting.
+    // Because we use extremely large windows, the repeated scans in Yao's
+    // method could be more expensive than the actual group operations. To avoid
+    // this, we store a multimap from each possible digit to the positions in
+    // which that digit occurs in the scalars. These positions have the form (i, j),
+    // where i is the index of the generator and j is an index into the digits of
+    // the scalar associated with that generator.
     let mut digit_occurrences: Vec<Vec<(usize, usize)>> = Vec::with_capacity(digits);
     for _i in 0..base {
         digit_occurrences.push(Vec::new());
@@ -100,21 +91,19 @@ pub fn msm_execute<C: Curve>(
     y
 }
 
-pub fn msm_execute_parallel<C: Curve>(
-    precomputation: &MsmPrecomputation<C>,
-    scalars: &[C::ScalarField],
-) -> ProjectivePoint<C> {
+pub fn msm_execute_parallel<C: Curve>(precomputation: &MsmPrecomputation<C>, scalars: &[C::ScalarField]) -> ProjectivePoint<C> {
     assert_eq!(precomputation.powers_per_generator.len(), scalars.len());
     let w = precomputation.w;
     let digits = (C::ScalarField::BITS + w - 1) / w;
     let base = 1 << w;
 
-    // This is a variant of Yao's method, adapted to the multi-scalar setting. Because we use
-    // extremely large windows, the repeated scans in Yao's method could be more expensive than the
-    // actual group operations. To avoid this, we store a multimap from each possible digit to the
-    // positions in which that digit occurs in the scalars. These positions have the form (i, j),
-    // where i is the index of the generator and j is an index into the digits of the scalar
-    // associated with that generator.
+    // This is a variant of Yao's method, adapted to the multi-scalar setting.
+    // Because we use extremely large windows, the repeated scans in Yao's
+    // method could be more expensive than the actual group operations. To avoid
+    // this, we store a multimap from each possible digit to the positions in
+    // which that digit occurs in the scalars. These positions have the form (i, j),
+    // where i is the index of the generator and j is an index into the digits of
+    // the scalar associated with that generator.
     let mut digit_occurrences: Vec<Vec<(usize, usize)>> = Vec::with_capacity(digits);
     for _i in 0..base {
         digit_occurrences.push(Vec::new());
@@ -126,7 +115,8 @@ pub fn msm_execute_parallel<C: Curve>(
         }
     }
 
-    // For each digit, we add up the powers associated with all occurrences that digit.
+    // For each digit, we add up the powers associated with all occurrences that
+    // digit.
     let digits: Vec<usize> = (0..base).collect();
     let digit_acc: Vec<ProjectivePoint<C>> = digits
         .par_chunks(DIGITS_PER_CHUNK)
@@ -143,7 +133,8 @@ pub fn msm_execute_parallel<C: Curve>(
             affine_multisummation_best(summations)
         })
         .collect();
-    // tracing::info!("Computing the per-digit summations (in parallel) took {}s", start.elapsed().as_secs_f64());
+    // tracing::info!("Computing the per-digit summations (in parallel) took {}s",
+    // start.elapsed().as_secs_f64());
 
     let mut y = ProjectivePoint::ZERO;
     let mut u = ProjectivePoint::ZERO;
@@ -151,7 +142,8 @@ pub fn msm_execute_parallel<C: Curve>(
         u = u + digit_acc[digit];
         y = y + u;
     }
-    // tracing::info!("Final summation (sequential) {}s", start.elapsed().as_secs_f64());
+    // tracing::info!("Final summation (sequential) {}s",
+    // start.elapsed().as_secs_f64());
     y
 }
 
@@ -190,8 +182,7 @@ mod tests {
     use num::BigUint;
     use plonky2::field::secp256k1_scalar::Secp256K1Scalar;
 
-    use super::super::secp256k1::Secp256K1;
-    use super::*;
+    use super::{super::secp256k1::Secp256K1, *};
 
     #[test]
     fn test_to_digits() {
@@ -238,15 +229,9 @@ mod tests {
         let generator_2 = generator_1 + generator_1;
         let generator_3 = generator_1 + generator_2;
 
-        let scalar_1 = Secp256K1Scalar::from_noncanonical_biguint(BigUint::from_slice(&[
-            11111111, 22222222, 33333333, 44444444,
-        ]));
-        let scalar_2 = Secp256K1Scalar::from_noncanonical_biguint(BigUint::from_slice(&[
-            22222222, 22222222, 33333333, 44444444,
-        ]));
-        let scalar_3 = Secp256K1Scalar::from_noncanonical_biguint(BigUint::from_slice(&[
-            33333333, 22222222, 33333333, 44444444,
-        ]));
+        let scalar_1 = Secp256K1Scalar::from_noncanonical_biguint(BigUint::from_slice(&[11111111, 22222222, 33333333, 44444444]));
+        let scalar_2 = Secp256K1Scalar::from_noncanonical_biguint(BigUint::from_slice(&[22222222, 22222222, 33333333, 44444444]));
+        let scalar_3 = Secp256K1Scalar::from_noncanonical_biguint(BigUint::from_slice(&[33333333, 22222222, 33333333, 44444444]));
 
         let generators = vec![generator_1, generator_2, generator_3];
         let scalars = vec![scalar_1, scalar_2, scalar_3];
@@ -254,9 +239,8 @@ mod tests {
         let precomputation = msm_precompute(&generators, w);
         let result_msm = msm_execute(&precomputation, &scalars);
 
-        let result_naive = Secp256K1::convert(scalar_1) * generator_1
-            + Secp256K1::convert(scalar_2) * generator_2
-            + Secp256K1::convert(scalar_3) * generator_3;
+        let result_naive =
+            Secp256K1::convert(scalar_1) * generator_1 + Secp256K1::convert(scalar_2) * generator_2 + Secp256K1::convert(scalar_3) * generator_3;
 
         assert_eq!(result_msm, result_naive);
     }

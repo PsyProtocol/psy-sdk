@@ -28,18 +28,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     for (i, entry) in array.iter().take(3).enumerate() {
                         if let Some(obj) = entry.as_object() {
                             let rank = obj.get("rank").and_then(|v| v.as_i64()).unwrap_or(0);
-                            let worker_key = obj
-                                .get("worker_public_key")
-                                .and_then(|v| v.as_str())
-                                .unwrap_or("unknown");
-                            let twitter = obj
-                                .get("twitter_username")
-                                .and_then(|v| v.as_str())
-                                .unwrap_or("No Twitter");
-                            let proofs =
-                                obj.get("proofs_24h").and_then(|v| v.as_i64()).unwrap_or(0);
-                            let rewards =
-                                obj.get("rewards_24h").and_then(|v| v.as_i64()).unwrap_or(0);
+                            let worker_key = obj.get("worker_public_key").and_then(|v| v.as_str()).unwrap_or("unknown");
+                            let twitter = obj.get("twitter_username").and_then(|v| v.as_str()).unwrap_or("No Twitter");
+                            let proofs = obj.get("proofs_24h").and_then(|v| v.as_i64()).unwrap_or(0);
+                            let rewards = obj.get("rewards_24h").and_then(|v| v.as_i64()).unwrap_or(0);
 
                             println!(
                                 "  #{}: {} | Twitter: @{} | Proofs: {} | Rewards: {} PSY",
@@ -78,10 +70,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 let json: Value = serde_json::from_str(&body)?;
 
                 if let Some(array) = json.as_array() {
-                    println!(
-                        "✅ Successfully retrieved {} worker entries with limit=10",
-                        array.len()
-                    );
+                    println!("✅ Successfully retrieved {} worker entries with limit=10", array.len());
                 } else {
                     println!("❌ Response is not an array");
                 }

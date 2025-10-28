@@ -1,6 +1,7 @@
 use async_trait::async_trait;
 use plonky2::{
-    field::types::Field, hash::hash_types::{HashOut, HashOutTarget},
+    field::types::Field,
+    hash::hash_types::{HashOut, HashOutTarget},
     iop::witness::{PartialWitness, WitnessWrite},
     plonk::{
         circuit_builder::CircuitBuilder,
@@ -10,11 +11,14 @@ use plonky2::{
     },
 };
 use psy_common_circuit::{
-    builder::{comparison::CircuitBuilderComparison, hash::core::CircuitBuilderHashCore, pad_circuit::{pad_circuit_degree, CircuitBuilderQEDCommonGates}},
-    circuits::traits::qstandard::{
-        QStandardCircuit, QStandardCircuitProvableWithProofStoreAndRefLibraryAsync,
+    builder::{
+        comparison::CircuitBuilderComparison,
+        hash::core::CircuitBuilderHashCore,
+        pad_circuit::{pad_circuit_degree, CircuitBuilderQEDCommonGates},
     },
-    proof_minifier::pm_core::get_circuit_fingerprint_generic, traits::{ToTargets, WitnessValueFor},
+    circuits::traits::qstandard::{QStandardCircuit, QStandardCircuitProvableWithProofStoreAndRefLibraryAsync},
+    proof_minifier::pm_core::get_circuit_fingerprint_generic,
+    traits::{ToTargets, WitnessValueFor},
 };
 use psy_core::{
     data::qhashout::QHashOut,
@@ -32,7 +36,7 @@ use psy_data::{
     qdata::{checkpoint::QEDCheckpointLeafCompactWithStateRoots, pm_jobs_completed_stats::PMJobsCompletedStats},
 };
 
-use crate::{guta::gadgets::guta_no_change_gadget::GUTANoChangeGadget, gadgets::qdata::pm_jobs_completed_stats::PMJobsCompletedStatsGadget};
+use crate::{gadgets::qdata::pm_jobs_completed_stats::PMJobsCompletedStatsGadget, guta::gadgets::guta_no_change_gadget::GUTANoChangeGadget};
 
 #[derive(Debug)]
 pub struct GUTANoChangeCircuit<C: GenericConfig<D>, const D: usize> {
@@ -55,11 +59,7 @@ where
 
         let guta_circuit_whitelist = builder.add_virtual_hash();
 
-        let no_change_gadget = GUTANoChangeGadget::add_virtual_to::<C::Hasher, C::F, D>(
-            &mut builder,
-            guta_circuit_whitelist,
-            checkpoint_tree_height,
-        );
+        let no_change_gadget = GUTANoChangeGadget::add_virtual_to::<C::Hasher, C::F, D>(&mut builder, guta_circuit_whitelist, checkpoint_tree_height);
 
         let worker_public_key = builder.add_virtual_hash();
 
@@ -71,9 +71,7 @@ where
         let one = builder.one();
         let pm_jobs_completed = PMJobsCompletedStatsGadget::new_gutas(&mut builder, one);
 
-        let public_inputs_hash = no_change_gadget
-            .new_guta_header
-            .to_hash::<C::Hasher, C::F, D>(&mut builder);
+        let public_inputs_hash = no_change_gadget.new_guta_header.to_hash::<C::Hasher, C::F, D>(&mut builder);
 
         builder.register_public_inputs(&commitment.elements);
         builder.register_public_inputs(&worker_public_key.elements);
@@ -82,7 +80,8 @@ where
         builder.add_qed_type_c_common_gates();
         pad_circuit_degree(&mut builder, 12);
 
-        //builder.add_gate_to_gate_set(GateRef::new(ConstantGate::new(builder.config.num_constants)));
+        //builder.add_gate_to_gate_set(GateRef::new(ConstantGate::new(builder.config.
+        // num_constants)));
         let circuit_data = builder.build::<C>();
 
         let fingerprint = QHashOut(get_circuit_fingerprint_generic(&circuit_data.verifier_only));
@@ -113,11 +112,8 @@ where
         let jobs_completed_stats = PMJobsCompletedStats::new_gutas(C::F::ONE);
         self.pm_jobs_completed.set_witness(&mut pw, &jobs_completed_stats)?;
 
-        self.no_change_gadget.set_witness_params(
-            &mut pw,
-            checkpoint_tree_proof,
-            checkpoint_leaf,
-        )?;
+        self.no_change_gadget
+            .set_witness_params(&mut pw, checkpoint_tree_proof, checkpoint_leaf)?;
 
         self.circuit_data.prove(pw)
     }
@@ -141,13 +137,8 @@ where
 }
 
 #[async_trait]
-impl<
-        S: QProofStoreReaderAsync + Send + Sync,
-        L: CircuitInfoLibrary<C, D> + Send + Sync,
-        C: GenericConfig<D> + 'static,
-        const D: usize,
-    > QStandardCircuitProvableWithProofStoreAndRefLibraryAsync<S, L, C, D>
-    for GUTANoChangeCircuit<C, D>
+impl<S: QProofStoreReaderAsync + Send + Sync, L: CircuitInfoLibrary<C, D> + Send + Sync, C: GenericConfig<D> + 'static, const D: usize>
+    QStandardCircuitProvableWithProofStoreAndRefLibraryAsync<S, L, C, D> for GUTANoChangeCircuit<C, D>
 where
     C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>>,
 {
@@ -159,22 +150,13 @@ where
         worker_public_key: QHashOut<C::F>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         let r: GUTANoChangeFullInput<C::F> =
-            bincode::deserialize(&store.get_bytes_by_id(job_id.get_input_witness_id()).await?)
-                .map_err(|e| anyhow::anyhow!(e))?;
+            bincode::deserialize(&store.get_bytes_by_id(job_id.get_input_witness_id()).await?).map_err(|e| anyhow::anyhow!(e))?;
 
         let guta_whitelist_root: QHashOut<C::F> = library
-            .get_group_inclusion_proof(
-                ProvingJobCircuitType::GUTATwoGUTA,
-                ProvingJobCircuitType::GUTATwoGUTA,
-            )?
+            .get_group_inclusion_proof(ProvingJobCircuitType::GUTATwoGUTA, ProvingJobCircuitType::GUTATwoGUTA)?
             .root;
 
-        let result = self.prove_base(
-            worker_public_key,
-            guta_whitelist_root,
-            &r.checkpoint_tree_proof,
-            &r.checkpoint_leaf,
-        )?;
+        let result = self.prove_base(worker_public_key, guta_whitelist_root, &r.checkpoint_tree_proof, &r.checkpoint_leaf)?;
 
         Ok(result)
     }

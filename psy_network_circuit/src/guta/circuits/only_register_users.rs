@@ -1,26 +1,45 @@
 use async_trait::async_trait;
 use plonky2::{
-    hash::hash_types::{HashOut, HashOutTarget}, iop::
-        witness::{PartialWitness, WitnessWrite}, plonk::{
+    field::types::Field,
+    hash::hash_types::{HashOut, HashOutTarget},
+    iop::witness::{PartialWitness, WitnessWrite},
+    plonk::{
         circuit_builder::CircuitBuilder,
         circuit_data::{CircuitConfig, CircuitData, CommonCircuitData, VerifierOnlyCircuitData},
         config::{AlgebraicHasher, GenericConfig},
         proof::ProofWithPublicInputs,
-    }, field::types::Field
+    },
 };
 use psy_common_circuit::{
-    builder::{comparison::CircuitBuilderComparison, hash::core::CircuitBuilderHashCore, pad_circuit::{pad_circuit_degree, CircuitBuilderQEDCommonGates}}, circuits::traits::qstandard::{ QStandardCircuit, QStandardCircuitProvableWithProofStoreAndRefLibraryAsync}, proof_minifier::
-        pm_core::get_circuit_fingerprint_generic, traits::ToTargets
+    builder::{
+        comparison::CircuitBuilderComparison,
+        hash::core::CircuitBuilderHashCore,
+        pad_circuit::{pad_circuit_degree, CircuitBuilderQEDCommonGates},
+    },
+    circuits::traits::qstandard::{QStandardCircuit, QStandardCircuitProvableWithProofStoreAndRefLibraryAsync},
+    proof_minifier::pm_core::get_circuit_fingerprint_generic,
+    traits::ToTargets,
 };
-use psy_core::{config::network_constants::{DEFAULT_USER_STATE_TREE_ROOT_U64, GLOBAL_USER_TREE_HEIGHT, REALM_USER_TREE_HEIGHT}, data::qhashout::QHashOut, job::{id::{ProvingJobCircuitType, QProvingJobDataID}, traits::QProofStoreReaderAsync}};
+use psy_core::{
+    config::network_constants::{DEFAULT_USER_STATE_TREE_ROOT_U64, GLOBAL_USER_TREE_HEIGHT, REALM_USER_TREE_HEIGHT},
+    data::qhashout::QHashOut,
+    job::{
+        id::{ProvingJobCircuitType, QProvingJobDataID},
+        traits::QProofStoreReaderAsync,
+    },
+};
 use psy_crypto::{common::circuit_library::CircuitInfoLibrary, hash::traits::hasher::MerkleZeroHasher};
-use psy_data::{guta::proof_input::{GUTAOnlyRegisterUsersInput, GUTARegisterUserFullInput}, qdata::pm_jobs_completed_stats::PMJobsCompletedStats};
+use psy_data::{
+    guta::proof_input::{GUTAOnlyRegisterUsersInput, GUTARegisterUserFullInput},
+    qdata::pm_jobs_completed_stats::PMJobsCompletedStats,
+};
 
-use crate::{guta::gadgets::guta_only_register_users_gadget::GUTAOnlyRegisterUsersGadget, gadgets::qdata::pm_jobs_completed_stats::PMJobsCompletedStatsGadget};
+use crate::{
+    gadgets::qdata::pm_jobs_completed_stats::PMJobsCompletedStatsGadget, guta::gadgets::guta_only_register_users_gadget::GUTAOnlyRegisterUsersGadget,
+};
 
 #[derive(Debug)]
-pub struct GUTAOnlyRegisterUsersCircuit<C: GenericConfig<D>, const D: usize>
-{
+pub struct GUTAOnlyRegisterUsersCircuit<C: GenericConfig<D>, const D: usize> {
     register_batch_gadget: GUTAOnlyRegisterUsersGadget,
     guta_circuit_whitelist: HashOutTarget,
     checkpoint_tree_root: HashOutTarget,
@@ -33,20 +52,14 @@ pub struct GUTAOnlyRegisterUsersCircuit<C: GenericConfig<D>, const D: usize>
 
 impl<C: GenericConfig<D>, const D: usize> GUTAOnlyRegisterUsersCircuit<C, D>
 where
-    C::Hasher:AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> {
-        pub fn new(
-            max_users: usize,
-            global_user_tree_realm_height: usize,
-
-        ) -> Self {
-
-
+    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>>,
+{
+    pub fn new(max_users: usize, global_user_tree_realm_height: usize) -> Self {
         let config = CircuitConfig::standard_recursion_config();
         let mut builder = CircuitBuilder::<C::F, D>::new(config);
 
         let guta_circuit_whitelist = builder.add_virtual_hash();
         let checkpoint_tree_root = builder.add_virtual_hash();
-
 
         let default_user_state_tree_root = QHashOut::from_values(
             DEFAULT_USER_STATE_TREE_ROOT_U64[0],
@@ -54,7 +67,6 @@ where
             DEFAULT_USER_STATE_TREE_ROOT_U64[2],
             DEFAULT_USER_STATE_TREE_ROOT_U64[3],
         );
-
 
         let register_batch_gadget = GUTAOnlyRegisterUsersGadget::add_virtual_to::<C::Hasher, C::F, D>(
             &mut builder,
@@ -78,18 +90,18 @@ where
 
         let public_inputs_hash = register_batch_gadget.new_guta_header.to_hash::<C::Hasher, C::F, D>(&mut builder);
 
-        // Register 15 public inputs: commitment, worker_public_key, pm_jobs_completed_stats, header_hash
+        // Register 15 public inputs: commitment, worker_public_key,
+        // pm_jobs_completed_stats, header_hash
         builder.register_public_inputs(&commitment.elements);
         builder.register_public_inputs(&worker_public_key.elements);
         builder.register_public_inputs(&pm_jobs_completed.to_targets());
         builder.register_public_inputs(&public_inputs_hash.elements);
         builder.add_qed_type_c_common_gates();
-        //builder.add_gate_to_gate_set(GateRef::new(ConstantGate::new(builder.config.num_constants)));
+        //builder.add_gate_to_gate_set(GateRef::new(ConstantGate::new(builder.config.
+        // num_constants)));
         let circuit_data = builder.build::<C>();
 
-        let fingerprint = QHashOut(get_circuit_fingerprint_generic(
-            &circuit_data.verifier_only,
-        ));
+        let fingerprint = QHashOut(get_circuit_fingerprint_generic(&circuit_data.verifier_only));
 
         Self {
             register_batch_gadget,
@@ -112,7 +124,6 @@ where
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         let mut pw = PartialWitness::<C::F>::new();
 
-
         let default_user_state_tree_root = QHashOut::from_values(
             DEFAULT_USER_STATE_TREE_ROOT_U64[0],
             DEFAULT_USER_STATE_TREE_ROOT_U64[1],
@@ -120,25 +131,12 @@ where
             DEFAULT_USER_STATE_TREE_ROOT_U64[3],
         );
 
-        pw.set_hash_target(
-            self.guta_circuit_whitelist,
-            guta_circuit_whitelist_root.0,
-        )?;
-        pw.set_hash_target(
-            self.checkpoint_tree_root,
-            checkpoint_tree_root.0,
-        )?;
-        pw.set_hash_target(
-            self.worker_public_key,
-            worker_public_key.0,
-        )?;
+        pw.set_hash_target(self.guta_circuit_whitelist, guta_circuit_whitelist_root.0)?;
+        pw.set_hash_target(self.checkpoint_tree_root, checkpoint_tree_root.0)?;
+        pw.set_hash_target(self.worker_public_key, worker_public_key.0)?;
 
-
-        self.register_batch_gadget.set_witness_params::<C::Hasher, C::F, D>(
-            &mut pw,
-            guta_register_user_inputs,
-            default_user_state_tree_root,
-        )?;
+        self.register_batch_gadget
+            .set_witness_params::<C::Hasher, C::F, D>(&mut pw, guta_register_user_inputs, default_user_state_tree_root)?;
 
         pw.set_hash_target(self.worker_public_key, worker_public_key.0)?;
 
@@ -150,11 +148,9 @@ where
     }
 }
 
-
-impl<C: GenericConfig<D>, const D: usize> QStandardCircuit<C, D>
-    for GUTAOnlyRegisterUsersCircuit<C, D>
+impl<C: GenericConfig<D>, const D: usize> QStandardCircuit<C, D> for GUTAOnlyRegisterUsersCircuit<C, D>
 where
-    C::Hasher:AlgebraicHasher<C::F>,
+    C::Hasher: AlgebraicHasher<C::F>,
 {
     fn get_fingerprint(&self) -> QHashOut<C::F> {
         self.fingerprint
@@ -169,16 +165,9 @@ where
     }
 }
 
-
-
 #[async_trait]
-impl<
-        S: QProofStoreReaderAsync + Send + Sync,
-        L: CircuitInfoLibrary<C, D> + Send + Sync,
-        C: GenericConfig<D> + 'static,
-        const D: usize,
-    > QStandardCircuitProvableWithProofStoreAndRefLibraryAsync<S, L, C, D>
-    for GUTAOnlyRegisterUsersCircuit<C, D>
+impl<S: QProofStoreReaderAsync + Send + Sync, L: CircuitInfoLibrary<C, D> + Send + Sync, C: GenericConfig<D> + 'static, const D: usize>
+    QStandardCircuitProvableWithProofStoreAndRefLibraryAsync<S, L, C, D> for GUTAOnlyRegisterUsersCircuit<C, D>
 where
     C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>>,
 {
@@ -190,15 +179,13 @@ where
         worker_public_key: QHashOut<C::F>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         let r: GUTAOnlyRegisterUsersInput<C::F> =
-            bincode::deserialize(&store.get_bytes_by_id(job_id.get_input_witness_id()).await?)
-                .map_err(|e| anyhow::anyhow!(e))?;
+            bincode::deserialize(&store.get_bytes_by_id(job_id.get_input_witness_id()).await?).map_err(|e| anyhow::anyhow!(e))?;
 
         tracing::debug!("GUTAOnlyRegisterUsersInput: {}", serde_json::to_string_pretty(&r)?);
 
-
-        let guta_whitelist_root: QHashOut<C::F> =
-            library.get_group_inclusion_proof(ProvingJobCircuitType::GUTATwoGUTA, ProvingJobCircuitType::GUTATwoGUTA)?.root;
-
+        let guta_whitelist_root: QHashOut<C::F> = library
+            .get_group_inclusion_proof(ProvingJobCircuitType::GUTATwoGUTA, ProvingJobCircuitType::GUTATwoGUTA)?
+            .root;
 
         let result = self.prove_base(
             worker_public_key,

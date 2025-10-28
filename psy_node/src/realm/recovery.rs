@@ -53,7 +53,7 @@ impl RealmRecoveryManager {
             store,
             backup_client,
             sync_queue,
-            config_path
+            config_path,
         })
     }
 

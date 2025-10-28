@@ -6,10 +6,7 @@ use plonky2::{
 };
 use psy_core::data::qhashout::QHashOut;
 
-use crate::builder::{
-    comparison::CircuitBuilderComparison, connect::CircuitBuilderConnectHelpers,
-    hash::core::CircuitBuilderHashCore,
-};
+use crate::builder::{comparison::CircuitBuilderComparison, connect::CircuitBuilderConnectHelpers, hash::core::CircuitBuilderHashCore};
 
 #[derive(Debug, Clone)]
 pub struct FullMerkleTreeAppendGadget {
@@ -77,20 +74,10 @@ impl FullMerkleTreeAppendGadget {
         while nodes_in_level > 1 {
             let half = nodes_in_level / 2;
             current_level_old_leaves = (0..half)
-                .map(|i| {
-                    builder.hash_two_to_one::<H>(
-                        current_level_old_leaves[i * 2],
-                        current_level_old_leaves[i * 2 + 1],
-                    )
-                })
+                .map(|i| builder.hash_two_to_one::<H>(current_level_old_leaves[i * 2], current_level_old_leaves[i * 2 + 1]))
                 .collect::<Vec<_>>();
             current_level_new_leaves = (0..half)
-                .map(|i| {
-                    builder.hash_two_to_one::<H>(
-                        current_level_new_leaves[i * 2],
-                        current_level_new_leaves[i * 2 + 1],
-                    )
-                })
+                .map(|i| builder.hash_two_to_one::<H>(current_level_new_leaves[i * 2], current_level_new_leaves[i * 2 + 1]))
                 .collect::<Vec<_>>();
             nodes_in_level = half;
         }
@@ -140,16 +127,19 @@ impl FullMerkleTreeAppendGadget {
 
 #[cfg(test)]
 mod tests {
-    use plonky2::field::types::Field;
-    use plonky2::hash::poseidon::PoseidonHash;
-    use plonky2::iop::witness::PartialWitness;
-    use plonky2::plonk::circuit_builder::CircuitBuilder;
-    use plonky2::plonk::circuit_data::{CircuitConfig, CircuitData};
-    use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
-    use plonky2::plonk::proof::ProofWithPublicInputs;
+    use plonky2::{
+        field::types::Field,
+        hash::poseidon::PoseidonHash,
+        iop::witness::PartialWitness,
+        plonk::{
+            circuit_builder::CircuitBuilder,
+            circuit_data::{CircuitConfig, CircuitData},
+            config::{GenericConfig, PoseidonGoldilocksConfig},
+            proof::ProofWithPublicInputs,
+        },
+    };
     use psy_core::data::qhashout::QHashOut;
     use psy_crypto::hash::merkle::core::compute_partial_merkle_root_from_leaves_algebraic;
-
     use rand::{thread_rng, Rng};
 
     use super::FullMerkleTreeAppendGadget;
@@ -167,35 +157,18 @@ mod tests {
         pub fn new(height: usize) -> Self {
             let config = CircuitConfig::standard_recursion_config();
             let mut builder = CircuitBuilder::<F, D>::new(config);
-            let update_gadget = FullMerkleTreeAppendGadget::add_virtual_to::<PoseidonHash, F, D>(
-                &mut builder,
-                height,
-            );
+            let update_gadget = FullMerkleTreeAppendGadget::add_virtual_to::<PoseidonHash, F, D>(&mut builder, height);
 
             builder.register_public_inputs(&update_gadget.old_root.elements);
             builder.register_public_inputs(&update_gadget.new_root.elements);
-            builder.register_public_inputs(
-                &update_gadget
-                    .added_leaves
-                    .iter()
-                    .map(|x| x.target)
-                    .collect::<Vec<_>>(),
-            );
+            builder.register_public_inputs(&update_gadget.added_leaves.iter().map(|x| x.target).collect::<Vec<_>>());
 
             let circuit_data = builder.build::<C>();
-            Self {
-                update_gadget,
-                circuit_data,
-            }
+            Self { update_gadget, circuit_data }
         }
-        pub fn prove(
-            &self,
-            old_leaves: &[QHashOut<F>],
-            new_leaves: &[QHashOut<F>],
-        ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>> {
+        pub fn prove(&self, old_leaves: &[QHashOut<F>], new_leaves: &[QHashOut<F>]) -> anyhow::Result<ProofWithPublicInputs<F, C, D>> {
             let mut pw = PartialWitness::new();
-            self.update_gadget
-                .set_witness(&mut pw, old_leaves, new_leaves)?;
+            self.update_gadget.set_witness(&mut pw, old_leaves, new_leaves)?;
             self.circuit_data.prove(pw)
         }
     }
@@ -212,26 +185,16 @@ mod tests {
 
     impl FullMerkleTreeAppendTestCase {
         pub fn get_old_root(&self) -> QHashOut<F> {
-            QHashOut(compute_partial_merkle_root_from_leaves_algebraic::<
-                F,
-                PoseidonHash,
-            >(
-                &self.old_leaves.iter().map(|x| x.0).collect::<Vec<_>>()
+            QHashOut(compute_partial_merkle_root_from_leaves_algebraic::<F, PoseidonHash>(
+                &self.old_leaves.iter().map(|x| x.0).collect::<Vec<_>>(),
             ))
         }
         pub fn get_new_root(&self) -> QHashOut<F> {
-            QHashOut(compute_partial_merkle_root_from_leaves_algebraic::<
-                F,
-                PoseidonHash,
-            >(
-                &self.new_leaves.iter().map(|x| x.0).collect::<Vec<_>>()
+            QHashOut(compute_partial_merkle_root_from_leaves_algebraic::<F, PoseidonHash>(
+                &self.new_leaves.iter().map(|x| x.0).collect::<Vec<_>>(),
             ))
         }
-        pub fn gen_valid_for_height(
-            height: usize,
-            start_append_leaf_index: usize,
-            append_count: usize,
-        ) -> Self {
+        pub fn gen_valid_for_height(height: usize, start_append_leaf_index: usize, append_count: usize) -> Self {
             let total_leaves = 1usize << height;
             let mut old_leaves = Vec::with_capacity(total_leaves);
             let mut new_leaves = Vec::with_capacity(total_leaves);
@@ -280,21 +243,13 @@ mod tests {
             new_bad
         }
 
-        pub fn gen_invalid_for_height_with_old_leaf_mutation(
-            height: usize,
-            start_append_leaf_index: usize,
-            append_count: usize,
-        ) -> Self {
-            assert_ne!(
-                append_count, 0,
-                "cannot generate an invalid insertion when append count is 0"
-            );
+        pub fn gen_invalid_for_height_with_old_leaf_mutation(height: usize, start_append_leaf_index: usize, append_count: usize) -> Self {
+            assert_ne!(append_count, 0, "cannot generate an invalid insertion when append count is 0");
             assert_ne!(
                 start_append_leaf_index, 0,
                 "cannot generate an invalid old leaf update when the start index is 0"
             );
-            let mut new_bad =
-                Self::gen_valid_for_height(height, start_append_leaf_index, append_count);
+            let mut new_bad = Self::gen_valid_for_height(height, start_append_leaf_index, append_count);
 
             let mutate_index = thread_rng().gen_range(0..(start_append_leaf_index));
 
@@ -307,17 +262,12 @@ mod tests {
             start_append_leaf_index: usize,
             append_count: usize,
         ) -> Self {
-            assert_ne!(
-                append_count, 0,
-                "cannot generate an invalid insertion when append count is 0"
-            );
+            assert_ne!(append_count, 0, "cannot generate an invalid insertion when append count is 0");
             assert_ne!(
                 start_append_leaf_index, 0,
                 "cannot generate an invalid old leaf update when the start index is 0"
             );
-            let mut new_bad =
-                Self::gen_valid_for_height(height, start_append_leaf_index, append_count)
-                    .make_invalid_with_zero_hash_mutation();
+            let mut new_bad = Self::gen_valid_for_height(height, start_append_leaf_index, append_count).make_invalid_with_zero_hash_mutation();
 
             let mutate_index = thread_rng().gen_range(0..(start_append_leaf_index));
 
@@ -338,10 +288,7 @@ mod tests {
                 anyhow::bail!("incorrect new root");
             }
 
-            let proof_added_leaves = public_inputs[8..]
-                .iter()
-                .map(|x| !x.is_zero())
-                .collect::<Vec<_>>();
+            let proof_added_leaves = public_inputs[8..].iter().map(|x| !x.is_zero()).collect::<Vec<_>>();
             if self.added_leaves != proof_added_leaves {
                 anyhow::bail!("incorrect added_leaves");
             }
@@ -358,15 +305,8 @@ mod tests {
         // prove valids
         for start_leaf_ind in 0..(total_leaves + 1) {
             for append_count in 0..(total_leaves - start_leaf_ind + 1) {
-                let tc = FullMerkleTreeAppendTestCase::gen_valid_for_height(
-                    height,
-                    start_leaf_ind,
-                    append_count,
-                );
-                let public_inputs = circuit
-                    .prove(&tc.old_leaves, &tc.new_leaves)
-                    .unwrap()
-                    .public_inputs;
+                let tc = FullMerkleTreeAppendTestCase::gen_valid_for_height(height, start_leaf_ind, append_count);
+                let public_inputs = circuit.prove(&tc.old_leaves, &tc.new_leaves).unwrap().public_inputs;
                 tc.check_against_public_inputs(&public_inputs).unwrap();
 
                 if append_count != 0 {
@@ -374,18 +314,30 @@ mod tests {
                         let zh_tc = tc.make_invalid_with_zero_hash_mutation();
                         let proof_result = circuit.prove(&zh_tc.old_leaves, &zh_tc.new_leaves);
 
-                        assert!(proof_result.is_err(), "expected proving to fail after inserting an invalid zero hash mutation, circuit/gadget is underconstrained");
+                        assert!(
+                            proof_result.is_err(),
+                            "expected proving to fail after inserting an invalid zero hash mutation, circuit/gadget is underconstrained"
+                        );
                     }
                     if start_leaf_ind != 0 {
                         let ol_tc = FullMerkleTreeAppendTestCase::gen_invalid_for_height_with_old_leaf_mutation(height, start_leaf_ind, append_count);
                         let proof_result = circuit.prove(&ol_tc.old_leaves, &ol_tc.new_leaves);
-                        assert!(proof_result.is_err(), "expected proving to fail after updating an old leaf, circuit/gadget is underconstrained");
+                        assert!(
+                            proof_result.is_err(),
+                            "expected proving to fail after updating an old leaf, circuit/gadget is underconstrained"
+                        );
 
                         if append_count > 1 {
-                            let ol_zh_tc = FullMerkleTreeAppendTestCase::gen_invalid_for_height_with_old_leaf_mutation_and_zero_hash(height, start_leaf_ind, append_count);
-                            let proof_result =
-                                circuit.prove(&ol_zh_tc.old_leaves, &ol_zh_tc.new_leaves);
-                            assert!(proof_result.is_err(), "expected proving to fail after updating an old leaf and inserting a zero_hash, circuit/gadget is underconstrained");
+                            let ol_zh_tc = FullMerkleTreeAppendTestCase::gen_invalid_for_height_with_old_leaf_mutation_and_zero_hash(
+                                height,
+                                start_leaf_ind,
+                                append_count,
+                            );
+                            let proof_result = circuit.prove(&ol_zh_tc.old_leaves, &ol_zh_tc.new_leaves);
+                            assert!(
+                                proof_result.is_err(),
+                                "expected proving to fail after updating an old leaf and inserting a zero_hash, circuit/gadget is underconstrained"
+                            );
                         }
                     }
                 }
@@ -393,10 +345,7 @@ mod tests {
         }
     }
 
-    fn test_working_merkle_tree_append_circuit_for_height_random_max_count(
-        height: usize,
-        max_count: usize,
-    ) {
+    fn test_working_merkle_tree_append_circuit_for_height_random_max_count(height: usize, max_count: usize) {
         let circuit = TestFullMerkleTreeAppendCircuit::new(height);
         let total_leaves = 1usize << height;
 
@@ -405,16 +354,9 @@ mod tests {
             let append_count = thread_rng().gen_range(0..(total_leaves - start_leaf_ind + 1));
 
             //let mut timer = DebugTimer::new("full_merkle_append_prover");
-            let tc = FullMerkleTreeAppendTestCase::gen_valid_for_height(
-                height,
-                start_leaf_ind,
-                append_count,
-            );
+            let tc = FullMerkleTreeAppendTestCase::gen_valid_for_height(height, start_leaf_ind, append_count);
             //timer.lap("generated witness");
-            let public_inputs = circuit
-                .prove(&tc.old_leaves, &tc.new_leaves)
-                .unwrap()
-                .public_inputs;
+            let public_inputs = circuit.prove(&tc.old_leaves, &tc.new_leaves).unwrap().public_inputs;
             //timer.lap("proved");
             tc.check_against_public_inputs(&public_inputs).unwrap();
 
@@ -423,23 +365,30 @@ mod tests {
                     let zh_tc = tc.make_invalid_with_zero_hash_mutation();
                     let proof_result = circuit.prove(&zh_tc.old_leaves, &zh_tc.new_leaves);
 
-                    assert!(proof_result.is_err(), "expected proving to fail after inserting an invalid zero hash mutation, circuit/gadget is underconstrained");
+                    assert!(
+                        proof_result.is_err(),
+                        "expected proving to fail after inserting an invalid zero hash mutation, circuit/gadget is underconstrained"
+                    );
                 }
                 if start_leaf_ind != 0 {
-                    let ol_tc =
-                        FullMerkleTreeAppendTestCase::gen_invalid_for_height_with_old_leaf_mutation(
+                    let ol_tc = FullMerkleTreeAppendTestCase::gen_invalid_for_height_with_old_leaf_mutation(height, start_leaf_ind, append_count);
+                    let proof_result = circuit.prove(&ol_tc.old_leaves, &ol_tc.new_leaves);
+                    assert!(
+                        proof_result.is_err(),
+                        "expected proving to fail after updating an old leaf, circuit/gadget is underconstrained"
+                    );
+
+                    if append_count > 1 {
+                        let ol_zh_tc = FullMerkleTreeAppendTestCase::gen_invalid_for_height_with_old_leaf_mutation_and_zero_hash(
                             height,
                             start_leaf_ind,
                             append_count,
                         );
-                    let proof_result = circuit.prove(&ol_tc.old_leaves, &ol_tc.new_leaves);
-                    assert!(proof_result.is_err(), "expected proving to fail after updating an old leaf, circuit/gadget is underconstrained");
-
-                    if append_count > 1 {
-                        let ol_zh_tc = FullMerkleTreeAppendTestCase::gen_invalid_for_height_with_old_leaf_mutation_and_zero_hash(height, start_leaf_ind, append_count);
-                        let proof_result =
-                            circuit.prove(&ol_zh_tc.old_leaves, &ol_zh_tc.new_leaves);
-                        assert!(proof_result.is_err(), "expected proving to fail after updating an old leaf and inserting a zero_hash, circuit/gadget is underconstrained");
+                        let proof_result = circuit.prove(&ol_zh_tc.old_leaves, &ol_zh_tc.new_leaves);
+                        assert!(
+                            proof_result.is_err(),
+                            "expected proving to fail after updating an old leaf and inserting a zero_hash, circuit/gadget is underconstrained"
+                        );
                     }
                 }
             }
@@ -454,7 +403,7 @@ mod tests {
 
     #[test]
     fn test_full_merkle_tree_append_fuzz_large_trees() {
-        for height in 6..=9{
+        for height in 6..=9 {
             test_working_merkle_tree_append_circuit_for_height_random_max_count(height, 16);
         }
     }

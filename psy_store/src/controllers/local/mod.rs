@@ -1,19 +1,21 @@
 pub mod proving_session;
-pub mod session_store;
 pub mod session_info;
+pub mod session_store;
 pub mod state_tracker;
 
 use anyhow::Result;
+use kvq::memory::simple::KVQSimpleMemoryBackingStore;
+use plonky2::field::types::Field;
+use psy_core::config::network_constants::GLOBAL_USER_TREE_HEIGHT;
 #[cfg(not(target_arch = "wasm32"))]
 use psy_data::qblock::process::simple::SimpleBlockProcessor;
-use psy_data::qblock::cmds::register_user::QBCRegisterUser;
-use psy_data::qblock::cmds::deploy_contract::QBCDeployContract;
-use psy_data::config::store_config::QEDFelt;
-use kvq::memory::simple::KVQSimpleMemoryBackingStore;
+use psy_data::{
+    config::store_config::QEDFelt,
+    qblock::cmds::{deploy_contract::QBCDeployContract, register_user::QBCRegisterUser},
+    traits::qdatastore::qmetadata::{QMetaDataStoreReaderSync, QMetaDataStoreWriterSync},
+};
+
 use crate::controllers::local::proving_session::QEDLocalProvingSessionStore;
-use psy_data::traits::qdatastore::qmetadata::{QMetaDataStoreReaderSync, QMetaDataStoreWriterSync};
-use psy_core::config::network_constants::GLOBAL_USER_TREE_HEIGHT;
-use plonky2::field::types::Field;
 
 #[cfg(all(not(target_arch = "wasm32")))]
 pub async fn prepare_environment_with_real_contract(
@@ -28,11 +30,7 @@ pub async fn prepare_environment_with_real_contract(
     let store = KVQSimpleMemoryBackingStore::new();
     store.initialize_store(None).await?;
 
-    let final_store = SimpleBlockProcessor::prepare_environment_with_real_contract(
-        register_users,
-        deploy_contracts,
-        store,
-    ).await?;
+    let final_store = SimpleBlockProcessor::prepare_environment_with_real_contract(register_users, deploy_contracts, store).await?;
 
     let latest_l2_block_state = final_store.get_latest_l2_block_state().await?;
     let final_user_id = QEDFelt::from_canonical_u64(user_id.unwrap_or(5));

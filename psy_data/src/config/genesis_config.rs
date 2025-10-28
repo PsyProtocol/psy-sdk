@@ -1,8 +1,8 @@
+use indexmap::IndexMap;
 use plonky2::hash::hash_types::RichField;
 use psy_core::data::qhashout::QHashOut;
 use psy_crypto::signature::zk::data::ZKPublicKeyInfo;
 use serde::{Deserialize, Serialize};
-use indexmap::IndexMap;
 
 use crate::qblock::cmds::register_user::QBCRegisterUser;
 
@@ -47,11 +47,11 @@ impl<F: RichField> GenesisConfig<F> {
     pub fn from_path(config_path: &str) -> anyhow::Result<Option<Self>> {
         match std::fs::read_to_string(config_path) {
             Ok(config_content) => {
-        let config_value: serde_json::Value = serde_json::from_str(&config_content)?;
-        if let Some(genesis_obj) = config_value.get("genesis") {
-            let genesis_config = Self::from_json(&serde_json::to_string(genesis_obj)?)?;
+                let config_value: serde_json::Value = serde_json::from_str(&config_content)?;
+                if let Some(genesis_obj) = config_value.get("genesis") {
+                    let genesis_config = Self::from_json(&serde_json::to_string(genesis_obj)?)?;
                     Ok(Some(genesis_config))
-        } else {
+                } else {
                     Ok(None)
                 }
             }
@@ -60,29 +60,18 @@ impl<F: RichField> GenesisConfig<F> {
     }
 
     pub fn get_precompile_paths(&self) -> Vec<String> {
-        self.precompiles
-            .iter()
-            .map(|config| config.path.clone())
-            .collect()
+        self.precompiles.iter().map(|config| config.path.clone()).collect()
     }
 
     pub fn get_precompile_configs(&self) -> &[ContractConfig<F>] {
         &self.precompiles
     }
 
-    pub fn get_contract_user_state(
-        &self,
-        contract_id: u64,
-        user_id: u64,
-    ) -> Option<&GenesisUserContractState<F>> {
-        self.contracts
-            .get(&contract_id)
-            .and_then(|users| users.get(&user_id))
+    pub fn get_contract_user_state(&self, contract_id: u64, user_id: u64) -> Option<&GenesisUserContractState<F>> {
+        self.contracts.get(&contract_id).and_then(|users| users.get(&user_id))
     }
 
-    pub fn get_all_contracts(
-        &self,
-    ) -> &IndexMap<u64, IndexMap<u64, GenesisUserContractState<F>>> {
+    pub fn get_all_contracts(&self) -> &IndexMap<u64, IndexMap<u64, GenesisUserContractState<F>>> {
         &self.contracts
     }
 
@@ -101,8 +90,9 @@ impl<F: RichField> GenesisConfig<F> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use plonky2::field::{goldilocks_field::GoldilocksField, types::Field};
+
+    use super::*;
 
     #[test]
     fn test_genesis_config_parsing() {

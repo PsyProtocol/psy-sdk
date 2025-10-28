@@ -1,6 +1,8 @@
-use crate::{Error, TransactionKind};
-use derive_more::{Deref, DerefMut};
 use std::{borrow::Cow, slice};
+
+use derive_more::{Deref, DerefMut};
+
+use crate::{Error, TransactionKind};
 
 /// Implement this to be able to decode data values
 pub trait TableObject: Sized {
@@ -13,10 +15,7 @@ pub trait TableObject: Sized {
     ///
     /// This should only in the context of an MDBX transaction.
     #[doc(hidden)]
-    unsafe fn decode_val<K: TransactionKind>(
-        _: *const ffi::MDBX_txn,
-        data_val: ffi::MDBX_val,
-    ) -> Result<Self, Error> {
+    unsafe fn decode_val<K: TransactionKind>(_: *const ffi::MDBX_txn, data_val: ffi::MDBX_val) -> Result<Self, Error> {
         let s = slice::from_raw_parts(data_val.iov_base as *const u8, data_val.iov_len);
         Self::decode(s)
     }
@@ -28,10 +27,7 @@ impl TableObject for Cow<'_, [u8]> {
     }
 
     #[doc(hidden)]
-    unsafe fn decode_val<K: TransactionKind>(
-        _txn: *const ffi::MDBX_txn,
-        data_val: ffi::MDBX_val,
-    ) -> Result<Self, Error> {
+    unsafe fn decode_val<K: TransactionKind>(_txn: *const ffi::MDBX_txn, data_val: ffi::MDBX_val) -> Result<Self, Error> {
         let s = slice::from_raw_parts(data_val.iov_base as *const u8, data_val.iov_len);
 
         #[cfg(feature = "return-borrowed")]
@@ -41,8 +37,7 @@ impl TableObject for Cow<'_, [u8]> {
 
         #[cfg(not(feature = "return-borrowed"))]
         {
-            let is_dirty = (!K::IS_READ_ONLY) &&
-                crate::error::mdbx_result(ffi::mdbx_is_dirty(_txn, data_val.iov_base))?;
+            let is_dirty = (!K::IS_READ_ONLY) && crate::error::mdbx_result(ffi::mdbx_is_dirty(_txn, data_val.iov_base))?;
 
             Ok(if is_dirty { Cow::Owned(s.to_vec()) } else { Cow::Borrowed(s) })
         }
@@ -60,10 +55,7 @@ impl TableObject for () {
         Ok(())
     }
 
-    unsafe fn decode_val<K: TransactionKind>(
-        _: *const ffi::MDBX_txn,
-        _: ffi::MDBX_val,
-    ) -> Result<Self, Error> {
+    unsafe fn decode_val<K: TransactionKind>(_: *const ffi::MDBX_txn, _: ffi::MDBX_val) -> Result<Self, Error> {
         Ok(())
     }
 }
@@ -81,7 +73,7 @@ impl TableObject for ObjectLength {
 impl<const LEN: usize> TableObject for [u8; LEN] {
     fn decode(data_val: &[u8]) -> Result<Self, Error> {
         if data_val.len() != LEN {
-            return Err(Error::DecodeErrorLenDiff)
+            return Err(Error::DecodeErrorLenDiff);
         }
         let mut a = [0; LEN];
         a[..].copy_from_slice(data_val);

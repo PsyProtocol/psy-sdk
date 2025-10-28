@@ -1,26 +1,49 @@
 use async_trait::async_trait;
 use plonky2::{
-    field::types::Field, hash::hash_types::{HashOut, HashOutTarget}, iop::
-        witness::{PartialWitness, WitnessWrite}, plonk::{
+    field::types::Field,
+    hash::hash_types::{HashOut, HashOutTarget},
+    iop::witness::{PartialWitness, WitnessWrite},
+    plonk::{
         circuit_builder::CircuitBuilder,
         circuit_data::{CircuitConfig, CircuitData, CommonCircuitData, VerifierOnlyCircuitData},
         config::{AlgebraicHasher, GenericConfig},
         proof::ProofWithPublicInputs,
-    }
+    },
 };
 use psy_common_circuit::{
-    builder::{comparison::CircuitBuilderComparison, hash::core::CircuitBuilderHashCore, pad_circuit::{pad_circuit_degree, CircuitBuilderQEDCommonGates}}, circuits::traits::qstandard::{provable::QStandardCircuitProvable, QStandardCircuit, QStandardCircuitProvableWithProofStoreAndRefLibraryAsync, QStandardCircuitProvableWithProofStoreSync}, proof_minifier::
-        pm_core::get_circuit_fingerprint_generic, traits::{ToTargets, WitnessValueFor}
+    builder::{
+        comparison::CircuitBuilderComparison,
+        hash::core::CircuitBuilderHashCore,
+        pad_circuit::{pad_circuit_degree, CircuitBuilderQEDCommonGates},
+    },
+    circuits::traits::qstandard::{
+        provable::QStandardCircuitProvable, QStandardCircuit, QStandardCircuitProvableWithProofStoreAndRefLibraryAsync,
+        QStandardCircuitProvableWithProofStoreSync,
+    },
+    proof_minifier::pm_core::get_circuit_fingerprint_generic,
+    traits::{ToTargets, WitnessValueFor},
 };
-use psy_core::{config::network_constants::get_default_worker_public_key, data::qhashout::QHashOut, job::{id::QProvingJobDataID, traits::{QProofStoreReaderAsync, QProofStoreReaderSync}}};
-use psy_crypto::{common::circuit_library::CircuitInfoLibrary, hash::{merkle::spiderman::SpidermanUpdateProof, traits::hasher::MerkleZeroHasher}};
-use psy_data::{protocol::circuit_inputs::deploy_contracts::QCBatchDeployContractsCircuitInput, qdata::{contract::QEDContractLeaf, pm_jobs_completed_stats::PMJobsCompletedStats}};
+use psy_core::{
+    config::network_constants::get_default_worker_public_key,
+    data::qhashout::QHashOut,
+    job::{
+        id::QProvingJobDataID,
+        traits::{QProofStoreReaderAsync, QProofStoreReaderSync},
+    },
+};
+use psy_crypto::{
+    common::circuit_library::CircuitInfoLibrary,
+    hash::{merkle::spiderman::SpidermanUpdateProof, traits::hasher::MerkleZeroHasher},
+};
+use psy_data::{
+    protocol::circuit_inputs::deploy_contracts::QCBatchDeployContractsCircuitInput,
+    qdata::{contract::QEDContractLeaf, pm_jobs_completed_stats::PMJobsCompletedStats},
+};
 
 use crate::{coordinator::gadgets::deploy_contract::BatchDeployContractsGadget, gadgets::qdata::pm_jobs_completed_stats::PMJobsCompletedStatsGadget};
 
 #[derive(Debug)]
-pub struct BatchDeployContractsCircuit<C: GenericConfig<D>, const D: usize>
-{
+pub struct BatchDeployContractsCircuit<C: GenericConfig<D>, const D: usize> {
     pub deploy_contract_batch_gadget: BatchDeployContractsGadget,
     pub deploy_contract_circuit_whitelist: HashOutTarget,
     pub worker_public_key: HashOutTarget,
@@ -33,25 +56,19 @@ pub struct BatchDeployContractsCircuit<C: GenericConfig<D>, const D: usize>
 
 impl<C: GenericConfig<D>, const D: usize> BatchDeployContractsCircuit<C, D>
 where
-    C::Hasher:AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> {
-        pub fn new(
-            contract_tree_height: usize,
-            batch_sub_tree_height: usize,
-        ) -> Self {
+    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>>,
+{
+    pub fn new(contract_tree_height: usize, batch_sub_tree_height: usize) -> Self {
         let config = CircuitConfig::standard_recursion_config();
         let mut builder = CircuitBuilder::<C::F, D>::new(config);
-
 
         let deploy_contract_circuit_whitelist = builder.add_virtual_hash();
         let worker_public_key = builder.add_virtual_hash();
 
         // builder.assert_non_zero_hash(worker_public_key);
 
-        let deploy_contract_batch_gadget = BatchDeployContractsGadget::add_virtual_to::<C::Hasher, C::F, D>(
-            &mut builder,
-            contract_tree_height,
-            batch_sub_tree_height,
-        );
+        let deploy_contract_batch_gadget =
+            BatchDeployContractsGadget::add_virtual_to::<C::Hasher, C::F, D>(&mut builder, contract_tree_height, batch_sub_tree_height);
 
         let state_transition_hash = builder.hash_two_to_one::<C::Hasher>(
             deploy_contract_batch_gadget.spiderman_gadget.old_root,
@@ -74,9 +91,7 @@ where
 
         let circuit_data = builder.build::<C>();
 
-        let fingerprint = QHashOut(get_circuit_fingerprint_generic(
-            &circuit_data.verifier_only,
-        ));
+        let fingerprint = QHashOut(get_circuit_fingerprint_generic(&circuit_data.verifier_only));
 
         Self {
             deploy_contract_circuit_whitelist,
@@ -103,20 +118,14 @@ where
         let jobs_completed_stats = PMJobsCompletedStats::new_deploy_contracts(C::F::ONE);
         self.pm_jobs_completed.set_witness(&mut pw, &jobs_completed_stats);
 
-        self.deploy_contract_batch_gadget.set_witness_params(
-            &mut pw,
-            spiderman_append_proof,
-            contract_leaves,
-        )?;
+        self.deploy_contract_batch_gadget
+            .set_witness_params(&mut pw, spiderman_append_proof, contract_leaves)?;
 
         self.circuit_data.prove(pw)
     }
 }
 
-
-impl<C: GenericConfig<D>, const D: usize> QStandardCircuit<C, D>
-    for BatchDeployContractsCircuit<C, D>
-{
+impl<C: GenericConfig<D>, const D: usize> QStandardCircuit<C, D> for BatchDeployContractsCircuit<C, D> {
     fn get_fingerprint(&self) -> QHashOut<C::F> {
         self.fingerprint
     }
@@ -130,16 +139,12 @@ impl<C: GenericConfig<D>, const D: usize> QStandardCircuit<C, D>
     }
 }
 
-
-impl<C: GenericConfig<D>, const D: usize>
-    QStandardCircuitProvable<QCBatchDeployContractsCircuitInput<C::F>, C, D> for BatchDeployContractsCircuit<C, D>
+impl<C: GenericConfig<D>, const D: usize> QStandardCircuitProvable<QCBatchDeployContractsCircuitInput<C::F>, C, D>
+    for BatchDeployContractsCircuit<C, D>
 where
     C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>>,
 {
-    fn prove_standard(
-        &self,
-        input: &QCBatchDeployContractsCircuitInput<C::F>,
-    ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
+    fn prove_standard(&self, input: &QCBatchDeployContractsCircuitInput<C::F>) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         self.prove_base(
             input.deploy_contract_circuit_whitelist,
             get_default_worker_public_key(),
@@ -150,8 +155,7 @@ where
 }
 
 impl<S: QProofStoreReaderSync, C: GenericConfig<D>, const D: usize>
-    QStandardCircuitProvableWithProofStoreSync<S, QCBatchDeployContractsCircuitInput<C::F>, C, D>
-    for BatchDeployContractsCircuit<C, D>
+    QStandardCircuitProvableWithProofStoreSync<S, QCBatchDeployContractsCircuitInput<C::F>, C, D> for BatchDeployContractsCircuit<C, D>
 where
     C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>>,
 {
@@ -164,16 +168,9 @@ where
     }
 }
 
-
-
 #[async_trait]
-impl<
-        S: QProofStoreReaderAsync + Send + Sync,
-        L: CircuitInfoLibrary<C, D> + Send + Sync,
-        C: GenericConfig<D>,
-        const D: usize,
-    > QStandardCircuitProvableWithProofStoreAndRefLibraryAsync<S, L, C, D>
-    for BatchDeployContractsCircuit<C, D>
+impl<S: QProofStoreReaderAsync + Send + Sync, L: CircuitInfoLibrary<C, D> + Send + Sync, C: GenericConfig<D>, const D: usize>
+    QStandardCircuitProvableWithProofStoreAndRefLibraryAsync<S, L, C, D> for BatchDeployContractsCircuit<C, D>
 where
     C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>>,
 {
@@ -184,8 +181,8 @@ where
         job_id: QProvingJobDataID,
         worker_public_key: QHashOut<C::F>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
-        let input: QCBatchDeployContractsCircuitInput<C::F> = bincode::deserialize(&store.get_bytes_by_id(job_id.get_input_witness_id()).await?)
-                .map_err(|e| anyhow::anyhow!(e))?;
+        let input: QCBatchDeployContractsCircuitInput<C::F> =
+            bincode::deserialize(&store.get_bytes_by_id(job_id.get_input_witness_id()).await?).map_err(|e| anyhow::anyhow!(e))?;
         tracing::debug!("QCBatchDeployContractsCircuitInput: {}", serde_json::to_string_pretty(&input).unwrap());
 
         let result = self.prove_base(

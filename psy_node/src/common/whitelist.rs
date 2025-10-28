@@ -1,3 +1,10 @@
+use std::{
+    fs,
+    path::Path,
+    sync::{Arc, RwLock},
+    time::{Duration, SystemTime, UNIX_EPOCH},
+};
+
 use alloy_primitives::Address;
 use anyhow::Result;
 use indexmap::IndexSet;
@@ -5,12 +12,8 @@ use plonky2::field::goldilocks_field::GoldilocksField;
 use psy_core::data::qhashout::QHashOut;
 use psy_prover::wallet::secp_sign::{Eip712Signable, SignedRequest};
 use serde::{Deserialize, Serialize};
-use std::fs;
-use std::path::Path;
-use std::sync::{Arc, RwLock};
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tokio::task::JoinHandle;
-use tracing::{info, error};
+use tracing::{error, info};
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct WhitelistConfig {
@@ -78,10 +81,7 @@ impl WhiteList {
         }
 
         if !self.is_secp256k1_whitelisted(&request.address) {
-            return Err(anyhow::anyhow!(
-                "Address not whitelisted: {}",
-                request.address
-            ));
+            return Err(anyhow::anyhow!("Address not whitelisted: {}", request.address));
         }
 
         let is_valid = request.verify_hashable(original_data, request.address, expiry_duration)?;

@@ -15,6 +15,7 @@ pub use binary::*;
 pub use block_expr::*;
 pub use call::*;
 pub use cast::*;
+use enum_as_inner::EnumAsInner;
 pub use index::*;
 pub use intrinsic::*;
 pub use lambda::*;
@@ -25,7 +26,6 @@ pub use tuple::*;
 pub use unary::*;
 
 use crate::{ExprId, NodeInfo, NodeType, ValueNode};
-use enum_as_inner::EnumAsInner;
 
 #[derive(Debug, Clone, PartialEq, EnumAsInner)]
 pub enum ExprNode<F: Clone + From<u32>> {

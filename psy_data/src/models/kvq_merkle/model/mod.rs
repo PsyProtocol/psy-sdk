@@ -1,28 +1,18 @@
-use super::key::KVQMerkleNodeKey;
-use kvq::traits::KVQBinaryStore;
-use kvq::traits::KVQSerializable;
-use kvq::traits::KVQStoreAdapter;
-use kvq::traits::KVQStoreAdapterReader;
-use psy_crypto::hash::traits::hasher::MerkleZeroHasherWithMarkedLeaf;
 use std::marker::PhantomData;
+
+use kvq::traits::{KVQBinaryStore, KVQSerializable, KVQStoreAdapter, KVQStoreAdapterReader};
+use psy_crypto::hash::traits::hasher::MerkleZeroHasherWithMarkedLeaf;
+
+use super::key::KVQMerkleNodeKey;
 
 mod core;
 mod fixed_config;
 mod semi_fixed_config;
 
-pub use core::{
-    KVQMerkleTreeModelReaderCore,
-    KVQMerkleTreeModelCore,
-    CHECKPOINT_ID_FUZZY_SIZE
-};
+pub use core::{KVQMerkleTreeModelCore, KVQMerkleTreeModelReaderCore, CHECKPOINT_ID_FUZZY_SIZE};
 
-pub use fixed_config::{
-    KVQFixedConfigMerkleTreeModelReaderCore,
-    KVQFixedConfigMerkleTreeModelCore,
-};
-
+pub use fixed_config::{KVQFixedConfigMerkleTreeModelCore, KVQFixedConfigMerkleTreeModelReaderCore};
 pub use semi_fixed_config::{KVQSemiFixedConfigMerkleTreeModelCore, KVQSemiFixedConfigMerkleTreeModelReaderCore};
-
 
 pub struct KVQMerkleTreeModel<
     const TABLE_TYPE: u16,
@@ -55,8 +45,7 @@ impl<
         Hash: PartialEq + KVQSerializable + Copy,
         Hasher: MerkleZeroHasherWithMarkedLeaf<Hash>,
         KVA: KVQStoreAdapter<S, KVQMerkleNodeKey<TABLE_TYPE>, Hash>,
-    > KVQMerkleTreeModelCore<TABLE_TYPE, MARK_LEAVES, S, KVA, Hash, Hasher>
-    for KVQMerkleTreeModel<TABLE_TYPE, MARK_LEAVES, S, KVA, Hash, Hasher>
+    > KVQMerkleTreeModelCore<TABLE_TYPE, MARK_LEAVES, S, KVA, Hash, Hasher> for KVQMerkleTreeModel<TABLE_TYPE, MARK_LEAVES, S, KVA, Hash, Hasher>
 {
 }
 
@@ -90,18 +79,7 @@ impl<
         Hash: Copy + PartialEq + KVQSerializable,
         Hasher: MerkleZeroHasherWithMarkedLeaf<Hash>,
     > KVQMerkleTreeModelReaderCore<TABLE_TYPE, MARK_LEAVES, S, KVA, Hash, Hasher>
-    for KVQFixedConfigMerkleTreeModel<
-        TREE_ID,
-        TREE_HEIGHT,
-        PRIMARY_ID,
-        SECONDARY_ID,
-        TABLE_TYPE,
-        MARK_LEAVES,
-        S,
-        KVA,
-        Hash,
-        Hasher,
-    >
+    for KVQFixedConfigMerkleTreeModel<TREE_ID, TREE_HEIGHT, PRIMARY_ID, SECONDARY_ID, TABLE_TYPE, MARK_LEAVES, S, KVA, Hash, Hasher>
 {
 }
 impl<
@@ -116,18 +94,7 @@ impl<
         Hash: Copy + PartialEq + KVQSerializable,
         Hasher: MerkleZeroHasherWithMarkedLeaf<Hash>,
     > KVQMerkleTreeModelCore<TABLE_TYPE, MARK_LEAVES, S, KVA, Hash, Hasher>
-    for KVQFixedConfigMerkleTreeModel<
-        TREE_ID,
-        TREE_HEIGHT,
-        PRIMARY_ID,
-        SECONDARY_ID,
-        TABLE_TYPE,
-        MARK_LEAVES,
-        S,
-        KVA,
-        Hash,
-        Hasher,
-    >
+    for KVQFixedConfigMerkleTreeModel<TREE_ID, TREE_HEIGHT, PRIMARY_ID, SECONDARY_ID, TABLE_TYPE, MARK_LEAVES, S, KVA, Hash, Hasher>
 {
 }
 impl<
@@ -141,31 +108,8 @@ impl<
         KVA: KVQStoreAdapterReader<S, KVQMerkleNodeKey<TABLE_TYPE>, Hash>,
         Hash: Copy + PartialEq + KVQSerializable,
         Hasher: MerkleZeroHasherWithMarkedLeaf<Hash>,
-    >
-    KVQFixedConfigMerkleTreeModelReaderCore<
-        TREE_ID,
-        TREE_HEIGHT,
-        PRIMARY_ID,
-        SECONDARY_ID,
-        TABLE_TYPE,
-        MARK_LEAVES,
-        S,
-        KVA,
-        Hash,
-        Hasher,
-    >
-    for KVQFixedConfigMerkleTreeModel<
-        TREE_ID,
-        TREE_HEIGHT,
-        PRIMARY_ID,
-        SECONDARY_ID,
-        TABLE_TYPE,
-        MARK_LEAVES,
-        S,
-        KVA,
-        Hash,
-        Hasher,
-    >
+    > KVQFixedConfigMerkleTreeModelReaderCore<TREE_ID, TREE_HEIGHT, PRIMARY_ID, SECONDARY_ID, TABLE_TYPE, MARK_LEAVES, S, KVA, Hash, Hasher>
+    for KVQFixedConfigMerkleTreeModel<TREE_ID, TREE_HEIGHT, PRIMARY_ID, SECONDARY_ID, TABLE_TYPE, MARK_LEAVES, S, KVA, Hash, Hasher>
 {
 }
 impl<
@@ -179,31 +123,8 @@ impl<
         KVA: KVQStoreAdapter<S, KVQMerkleNodeKey<TABLE_TYPE>, Hash>,
         Hash: Copy + PartialEq + KVQSerializable,
         Hasher: MerkleZeroHasherWithMarkedLeaf<Hash>,
-    >
-    KVQFixedConfigMerkleTreeModelCore<
-        TREE_ID,
-        TREE_HEIGHT,
-        PRIMARY_ID,
-        SECONDARY_ID,
-        TABLE_TYPE,
-        MARK_LEAVES,
-        S,
-        KVA,
-        Hash,
-        Hasher,
-    >
-    for KVQFixedConfigMerkleTreeModel<
-        TREE_ID,
-        TREE_HEIGHT,
-        PRIMARY_ID,
-        SECONDARY_ID,
-        TABLE_TYPE,
-        MARK_LEAVES,
-        S,
-        KVA,
-        Hash,
-        Hasher,
-    >
+    > KVQFixedConfigMerkleTreeModelCore<TREE_ID, TREE_HEIGHT, PRIMARY_ID, SECONDARY_ID, TABLE_TYPE, MARK_LEAVES, S, KVA, Hash, Hasher>
+    for KVQFixedConfigMerkleTreeModel<TREE_ID, TREE_HEIGHT, PRIMARY_ID, SECONDARY_ID, TABLE_TYPE, MARK_LEAVES, S, KVA, Hash, Hasher>
 {
 }
 
@@ -224,7 +145,6 @@ pub struct KVQSemiFixedConfigMerkleTreeModel<
     _kva: PhantomData<KVA>,
 }
 
-
 impl<
         const TREE_ID: u8,
         const TREE_HEIGHT: u8,
@@ -236,17 +156,7 @@ impl<
         Hash: Copy + PartialEq + KVQSerializable,
         Hasher: MerkleZeroHasherWithMarkedLeaf<Hash>,
     > KVQMerkleTreeModelReaderCore<TABLE_TYPE, MARK_LEAVES, S, KVA, Hash, Hasher>
-    for KVQSemiFixedConfigMerkleTreeModel<
-        TREE_ID,
-        TREE_HEIGHT,
-        SECONDARY_ID,
-        TABLE_TYPE,
-        MARK_LEAVES,
-        S,
-        KVA,
-        Hash,
-        Hasher,
-    >
+    for KVQSemiFixedConfigMerkleTreeModel<TREE_ID, TREE_HEIGHT, SECONDARY_ID, TABLE_TYPE, MARK_LEAVES, S, KVA, Hash, Hasher>
 {
 }
 impl<
@@ -260,17 +170,7 @@ impl<
         Hash: Copy + PartialEq + KVQSerializable,
         Hasher: MerkleZeroHasherWithMarkedLeaf<Hash>,
     > KVQMerkleTreeModelCore<TABLE_TYPE, MARK_LEAVES, S, KVA, Hash, Hasher>
-    for KVQSemiFixedConfigMerkleTreeModel<
-        TREE_ID,
-        TREE_HEIGHT,
-        SECONDARY_ID,
-        TABLE_TYPE,
-        MARK_LEAVES,
-        S,
-        KVA,
-        Hash,
-        Hasher,
-    >
+    for KVQSemiFixedConfigMerkleTreeModel<TREE_ID, TREE_HEIGHT, SECONDARY_ID, TABLE_TYPE, MARK_LEAVES, S, KVA, Hash, Hasher>
 {
 }
 impl<
@@ -283,29 +183,8 @@ impl<
         KVA: KVQStoreAdapterReader<S, KVQMerkleNodeKey<TABLE_TYPE>, Hash>,
         Hash: Copy + PartialEq + KVQSerializable,
         Hasher: MerkleZeroHasherWithMarkedLeaf<Hash>,
-    >
-    KVQSemiFixedConfigMerkleTreeModelReaderCore<
-        TREE_ID,
-        TREE_HEIGHT,
-        SECONDARY_ID,
-        TABLE_TYPE,
-        MARK_LEAVES,
-        S,
-        KVA,
-        Hash,
-        Hasher,
-    >
-    for KVQSemiFixedConfigMerkleTreeModel<
-        TREE_ID,
-        TREE_HEIGHT,
-        SECONDARY_ID,
-        TABLE_TYPE,
-        MARK_LEAVES,
-        S,
-        KVA,
-        Hash,
-        Hasher,
-    >
+    > KVQSemiFixedConfigMerkleTreeModelReaderCore<TREE_ID, TREE_HEIGHT, SECONDARY_ID, TABLE_TYPE, MARK_LEAVES, S, KVA, Hash, Hasher>
+    for KVQSemiFixedConfigMerkleTreeModel<TREE_ID, TREE_HEIGHT, SECONDARY_ID, TABLE_TYPE, MARK_LEAVES, S, KVA, Hash, Hasher>
 {
 }
 impl<
@@ -318,28 +197,7 @@ impl<
         KVA: KVQStoreAdapter<S, KVQMerkleNodeKey<TABLE_TYPE>, Hash>,
         Hash: Copy + PartialEq + KVQSerializable,
         Hasher: MerkleZeroHasherWithMarkedLeaf<Hash>,
-    >
-    KVQSemiFixedConfigMerkleTreeModelCore<
-        TREE_ID,
-        TREE_HEIGHT,
-        SECONDARY_ID,
-        TABLE_TYPE,
-        MARK_LEAVES,
-        S,
-        KVA,
-        Hash,
-        Hasher,
-    >
-    for KVQSemiFixedConfigMerkleTreeModel<
-        TREE_ID,
-        TREE_HEIGHT,
-        SECONDARY_ID,
-        TABLE_TYPE,
-        MARK_LEAVES,
-        S,
-        KVA,
-        Hash,
-        Hasher,
-    >
+    > KVQSemiFixedConfigMerkleTreeModelCore<TREE_ID, TREE_HEIGHT, SECONDARY_ID, TABLE_TYPE, MARK_LEAVES, S, KVA, Hash, Hasher>
+    for KVQSemiFixedConfigMerkleTreeModel<TREE_ID, TREE_HEIGHT, SECONDARY_ID, TABLE_TYPE, MARK_LEAVES, S, KVA, Hash, Hasher>
 {
 }

@@ -1,8 +1,11 @@
+use std::{
+    io::{self, Write},
+    path::Path,
+};
+
 use anyhow::Result;
 use psy_prover::wallet::secp_wallet::Wallet;
 use rpassword::read_password;
-use std::io::{self, Write};
-use std::path::Path;
 use tracing::info;
 
 use super::args::{WalletArgs, WalletCommands};
@@ -39,11 +42,7 @@ pub fn run(args: WalletArgs) -> Result<()> {
             keystore_path,
             password,
         } => {
-            let wallet = Wallet::load(
-                private_key.as_deref(),
-                keystore_path.as_ref().map(|p| Path::new(p)),
-                password.as_deref(),
-            )?;
+            let wallet = Wallet::load(private_key.as_deref(), keystore_path.as_ref().map(|p| Path::new(p)), password.as_deref())?;
 
             println!("✅ Wallet loaded:");
             println!("ETH Address: {}", wallet.address());

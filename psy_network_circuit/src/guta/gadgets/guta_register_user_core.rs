@@ -1,14 +1,18 @@
-use plonky2::{field::extension::Extendable, hash::hash_types::{HashOutTarget, RichField}, iop::{target::Target, witness::Witness}, plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher}};
-use psy_common_circuit::{builder::{comparison::CircuitBuilderComparison, core::CircuitBuilderHelpersCore}, hash::merkle::gadgets::variable_height_delta_merkle_proof_opt::VariableHeightDeltaMerkleProofOptGadget, treeprover::subtree::gadgets::subtree_core::SubTreeNodeStateTransitionGadget};
+use plonky2::{
+    field::extension::Extendable,
+    hash::hash_types::{HashOutTarget, RichField},
+    iop::{target::Target, witness::Witness},
+    plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher},
+};
+use psy_common_circuit::{
+    builder::{comparison::CircuitBuilderComparison, core::CircuitBuilderHelpersCore},
+    hash::merkle::gadgets::variable_height_delta_merkle_proof_opt::VariableHeightDeltaMerkleProofOptGadget,
+    treeprover::subtree::gadgets::subtree_core::SubTreeNodeStateTransitionGadget,
+};
 use psy_core::data::qhashout::QHashOut;
 use psy_crypto::hash::merkle::core::DeltaMerkleProofCore;
 
 use crate::gadgets::qdata::user::QEDUserLeafGadget;
-
-
-
-
-
 
 #[derive(Clone, Debug)]
 pub struct GUTARegisterUserCoreGadget {
@@ -34,31 +38,18 @@ impl GUTARegisterUserCoreGadget {
         input_height_target: Option<Target>,
         public_key: HashOutTarget,
     ) -> Self {
-
-        let global_user_tree_update_proof = VariableHeightDeltaMerkleProofOptGadget::add_virtual_to_full::<H,F,D>(
-            builder,
-            global_user_tree_realm_height,
-            input_height_target,
-        );
+        let global_user_tree_update_proof =
+            VariableHeightDeltaMerkleProofOptGadget::add_virtual_to_full::<H, F, D>(builder, global_user_tree_realm_height, input_height_target);
 
         builder.assert_zero_hash(global_user_tree_update_proof.old_value);
 
         let user_id = global_user_tree_update_proof.index;
 
-        let user_leaf_gadget = QEDUserLeafGadget::create_new_user_default::<F,D>(
-            builder,
-            user_id,
-            public_key,
-            default_user_state_tree_root,
-        );
+        let user_leaf_gadget = QEDUserLeafGadget::create_new_user_default::<F, D>(builder, user_id, public_key, default_user_state_tree_root);
 
-        let user_leaf_hash = user_leaf_gadget.to_hash::<H,F,D>(builder);
+        let user_leaf_hash = user_leaf_gadget.to_hash::<H, F, D>(builder);
 
-
-        builder.connect_hashes(
-            global_user_tree_update_proof.new_value,
-            user_leaf_hash
-        );
+        builder.connect_hashes(global_user_tree_update_proof.new_value, user_leaf_hash);
 
         Self {
             global_user_tree_update_proof,
@@ -81,13 +72,13 @@ impl GUTARegisterUserCoreGadget {
     ) -> Self {
         let public_key = builder.add_virtual_hash();
 
-        let mut gadget = Self::add_virtual_to_with_public_key::<H,F,D>(
+        let mut gadget = Self::add_virtual_to_with_public_key::<H, F, D>(
             builder,
             global_user_tree_realm_height,
             global_user_tree_height,
             default_user_state_tree_root,
             input_height_target,
-            public_key
+            public_key,
         );
 
         gadget.needs_public_key_witness = true;
@@ -110,7 +101,6 @@ impl GUTARegisterUserCoreGadget {
             node_index,
             node_level,
         }
-
     }
     pub fn set_witness_params<W: Witness<F>, F: RichField>(
         &self,
@@ -118,15 +108,9 @@ impl GUTARegisterUserCoreGadget {
         public_key: QHashOut<F>,
         global_user_tree_update_proof: &DeltaMerkleProofCore<QHashOut<F>>,
     ) -> anyhow::Result<()> {
-        self.global_user_tree_update_proof.set_witness(
-            witness,
-            global_user_tree_update_proof,
-        )?;
-        if self.needs_public_key_witness{
-            witness.set_hash_target(
-                self.public_key,
-                public_key.0
-            )?;
+        self.global_user_tree_update_proof.set_witness(witness, global_user_tree_update_proof)?;
+        if self.needs_public_key_witness {
+            witness.set_hash_target(self.public_key, public_key.0)?;
         }
         Ok(())
     }
@@ -139,10 +123,7 @@ impl GUTARegisterUserCoreGadget {
         if self.needs_public_key_witness {
             anyhow::bail!("This instance of GUTARegisterUserCoreGadget needs a public key witness!");
         }
-        self.global_user_tree_update_proof.set_witness(
-            witness,
-            global_user_tree_update_proof,
-        )
+        self.global_user_tree_update_proof.set_witness(witness, global_user_tree_update_proof)
     }
     pub fn set_witness_detailed_params_no_public_key<W: Witness<F>, F: RichField>(
         &self,
@@ -154,13 +135,7 @@ impl GUTARegisterUserCoreGadget {
         if self.needs_public_key_witness {
             anyhow::bail!("This instance of GUTARegisterUserCoreGadget needs a public key witness!");
         }
-        self.global_user_tree_update_proof.set_witness_params(
-            witness,
-            index,
-            QHashOut::ZERO,
-            user_leaf_hash,
-            siblings
-        )
+        self.global_user_tree_update_proof
+            .set_witness_params(witness, index, QHashOut::ZERO, user_leaf_hash, siblings)
     }
-
 }

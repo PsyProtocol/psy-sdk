@@ -2,12 +2,16 @@ use std::sync::Arc;
 
 use plonky2::plonk::{config::PoseidonGoldilocksConfig, proof::ProofWithPublicInputs};
 use psy_core::job::{
-    drain_queue::{CheckpointDrainQueueEmitterAsyncImm, WithDrainQueueMetadata}, id::ProvingJobCircuitType,
+    drain_queue::{CheckpointDrainQueueEmitterAsyncImm, WithDrainQueueMetadata},
+    id::ProvingJobCircuitType,
     traits::QProofStoreAsyncImm,
 };
 use psy_crypto::{common::generic_circuit_verifier::GenericCircuitVerifier, signature::zk::data::ZKPublicKeyInfo};
-use psy_data::{guta::api::SubmitGUTARealmResultAPINoProofInput, qblock::cmds::deploy_contract::QBCDeployContract};
-use psy_data::config::store_config::{QEDFelt, QEDHasher};
+use psy_data::{
+    config::store_config::{QEDFelt, QEDHasher},
+    guta::api::SubmitGUTARealmResultAPINoProofInput,
+    qblock::cmds::deploy_contract::QBCDeployContract,
+};
 use psy_store::node::coordinator::QEDCoordinatorStoreReaderAsync;
 use rand::{thread_rng, RngCore};
 
@@ -17,11 +21,7 @@ type F = QEDFelt;
 type C = PoseidonGoldilocksConfig;
 const D: usize = 2;
 #[derive(Clone)]
-pub struct CoordinatorEdgeContext<
-    SR: QEDCoordinatorStoreReaderAsync<F>,
-    DQ: CheckpointDrainQueueEmitterAsyncImm,
-    PS: QProofStoreAsyncImm,
-> {
+pub struct CoordinatorEdgeContext<SR: QEDCoordinatorStoreReaderAsync<F>, DQ: CheckpointDrainQueueEmitterAsyncImm, PS: QProofStoreAsyncImm> {
     pub store_reader: Arc<SR>,
     pub checkpoint_queue: Arc<DQ>,
     pub proof_store: Arc<PS>,
@@ -29,16 +29,10 @@ pub struct CoordinatorEdgeContext<
 
     pub coordinator_config: CoordinatorConfig,
     pub last_chkpnt_id: u64,
-
     //pub end_cap_verifier_data: VerifierOnlyCircuitData<C, D>,
 }
 
-impl<
-        SR: QEDCoordinatorStoreReaderAsync<F>,
-        DQ: CheckpointDrainQueueEmitterAsyncImm,
-        PS: QProofStoreAsyncImm,
-    > CoordinatorEdgeContext<SR, DQ, PS>
-{
+impl<SR: QEDCoordinatorStoreReaderAsync<F>, DQ: CheckpointDrainQueueEmitterAsyncImm, PS: QProofStoreAsyncImm> CoordinatorEdgeContext<SR, DQ, PS> {
     pub async fn new(
         coordinator_config: CoordinatorConfig,
         store_reader: Arc<SR>,
@@ -53,24 +47,18 @@ impl<
             checkpoint_queue,
             proof_store,
             proof_verifier,
-           last_chkpnt_id: latest.checkpoint_id,
+            last_chkpnt_id: latest.checkpoint_id,
         })
     }
 
-
-    pub fn verify_proof_of_type(
-        &self,
-        circuit_type: ProvingJobCircuitType,
-        proof: &ProofWithPublicInputs<F, C, D>,
-    ) -> anyhow::Result<()> {
-        self.proof_verifier
-            .verify_proof_of_type(circuit_type, proof)
+    pub fn verify_proof_of_type(&self, circuit_type: ProvingJobCircuitType, proof: &ProofWithPublicInputs<F, C, D>) -> anyhow::Result<()> {
+        self.proof_verifier.verify_proof_of_type(circuit_type, proof)
     }
     pub async fn get_last_checkpoint_id_async(&self) -> anyhow::Result<u64> {
         Ok(self.last_chkpnt_id)
     }
     pub async fn get_next_checkpoint_id_async(&self) -> anyhow::Result<u64> {
-        Ok(self.last_chkpnt_id+1)
+        Ok(self.last_chkpnt_id + 1)
     }
 
     pub async fn handle_process_regsiter_user(&self, zk_user_info: ZKPublicKeyInfo<F>) -> anyhow::Result<()> {
@@ -82,7 +70,12 @@ impl<
         let checkpoint_id = self.get_next_checkpoint_id_async().await?;
         let with_root = contract_data.into_with_whitelist_root::<QEDHasher>()?;
 
-        let cd_for_queue = WithDrainQueueMetadata::new_params(self.coordinator_config.deploy_contract_channel_id, checkpoint_id, thread_rng().next_u64(), with_root);
+        let cd_for_queue = WithDrainQueueMetadata::new_params(
+            self.coordinator_config.deploy_contract_channel_id,
+            checkpoint_id,
+            thread_rng().next_u64(),
+            with_root,
+        );
 
         self.checkpoint_queue.cdq_push_imm(cd_for_queue).await?;
         Ok(())
@@ -106,15 +99,12 @@ impl<
             .store_reader
             .get_user_latest_top_tree_cap_root(self.coordinator_config.realm_root_level, input.realm_id)
             .await?;
-        if old_value != input.top_line_proof.old_root &&(old_value != input.top_line_proof.new_root) {
+        if old_value != input.top_line_proof.old_root && (old_value != input.top_line_proof.new_root) {
             // anyhow::bail!("invalid top line proof old value from realm");
             tracing::warn!("invalid top line proof old value from realm");
         }
         //let checkpoint_id = input.checkpoint_id;
-        let queue_item = input.to_queue_item(
-            self.coordinator_config.guta_channel_id,
-            self.coordinator_config.realm_root_level as u32,
-        );
+        let queue_item = input.to_queue_item(self.coordinator_config.guta_channel_id, self.coordinator_config.realm_root_level as u32);
         let proof_id = queue_item.proof_id;
         //let input_id = proof_id.get_input_witness_id();
         self.proof_store.set_proof_by_id(proof_id, proof).await?;

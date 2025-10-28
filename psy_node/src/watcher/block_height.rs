@@ -1,5 +1,8 @@
-use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::Arc;
+use std::sync::{
+    atomic::{AtomicU64, Ordering},
+    Arc,
+};
+
 use tracing::{debug, trace};
 
 use crate::watcher::current_timestamp;

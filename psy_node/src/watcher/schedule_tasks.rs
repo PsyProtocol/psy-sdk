@@ -1,5 +1,4 @@
-use std::collections::BTreeMap;
-use std::sync::Arc;
+use std::{collections::BTreeMap, sync::Arc};
 
 use anyhow::Result;
 use bb8::Pool;
@@ -8,7 +7,7 @@ use psy_core::job::id::QProvingJobDataID;
 use redis::AsyncCommands;
 use serde::{Deserialize, Serialize};
 use tokio::sync::RwLock;
-use tracing::{error, info, warn, debug};
+use tracing::{debug, error, info, warn};
 
 use crate::watcher::watcher_service::current_timestamp;
 
@@ -57,10 +56,7 @@ impl ScheduledTaskManager {
     const RETRY_DELAY_SECONDS: u64 = 60;
     const RETRY_DELAY_BLOCKS: u64 = 5;
 
-    pub async fn new(
-        redis_pool: Arc<Pool<RedisConnectionManager>>,
-        node_id: String,
-    ) -> Result<Self> {
+    pub async fn new(redis_pool: Arc<Pool<RedisConnectionManager>>, node_id: String) -> Result<Self> {
         let manager = Self {
             tasks: Arc::new(RwLock::new(BTreeMap::new())),
             redis_pool,
@@ -84,7 +80,8 @@ impl ScheduledTaskManager {
     pub async fn get_ready_tasks(&self, current_height: u64, current_time: u64) -> Result<Vec<ScheduledTask>> {
         let tasks = self.tasks.read().await;
 
-        Ok(tasks.values()
+        Ok(tasks
+            .values()
             .filter(|task| self.is_task_ready(task, current_height, current_time))
             .cloned()
             .collect())
@@ -104,15 +101,14 @@ impl ScheduledTaskManager {
 
         // Apply retry delay
         task.execute_at = match task.execute_at {
-            ExecutionTrigger::AtTimestamp(ts) =>
-                ExecutionTrigger::AtTimestamp(ts + Self::RETRY_DELAY_SECONDS),
-            ExecutionTrigger::AfterBlocks { target_height } =>
-                ExecutionTrigger::AfterBlocks { target_height: target_height + Self::RETRY_DELAY_BLOCKS },
+            ExecutionTrigger::AtTimestamp(ts) => ExecutionTrigger::AtTimestamp(ts + Self::RETRY_DELAY_SECONDS),
+            ExecutionTrigger::AfterBlocks { target_height } => ExecutionTrigger::AfterBlocks {
+                target_height: target_height + Self::RETRY_DELAY_BLOCKS,
+            },
         };
 
         self.update_task(task).await
     }
-
 
     fn is_task_ready(&self, task: &ScheduledTask, current_height: u64, current_time: u64) -> bool {
         match task.execute_at {
@@ -141,9 +137,7 @@ impl ScheduledTaskManager {
         let key = self.redis_key(&task.task_id);
         let value = serde_json::to_string(task)?;
 
-        self.redis_pool.get().await?
-            .set_ex(&key, value, Self::REDIS_TTL)
-            .await?;
+        self.redis_pool.get().await?.set_ex(&key, value, Self::REDIS_TTL).await?;
 
         Ok(())
     }
@@ -152,10 +146,7 @@ impl ScheduledTaskManager {
         let pattern = format!("watcher:scheduled:{}:*", self.node_id);
         let mut conn = self.redis_pool.get().await?;
 
-        let keys: Vec<String> = redis::cmd("KEYS")
-            .arg(&pattern)
-            .query_async(&mut *conn)
-            .await?;
+        let keys: Vec<String> = redis::cmd("KEYS").arg(&pattern).query_async(&mut *conn).await?;
 
         let mut tasks = self.tasks.write().await;
         let mut restored_count = 0;

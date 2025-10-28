@@ -1,10 +1,3 @@
-use crate::{
-    traits::{ConnectableTarget, CreatableTarget, SwappableTarget, ToTargets, WitnessValueFor},
-    u32::{
-        arithmetic_u32::{CircuitBuilderU32, U32Target},
-        witness::WitnessU32,
-    },
-};
 use plonky2::{
     field::{extension::Extendable, types::PrimeField64},
     hash::hash_types::RichField,
@@ -14,7 +7,18 @@ use plonky2::{
     },
     plonk::circuit_builder::CircuitBuilder,
 };
-use psy_core::{data::base_types::hash160::Hash160, utils::binary_helpers::{read_u32_be_at, read_u32_le_at}};
+use psy_core::{
+    data::base_types::hash160::Hash160,
+    utils::binary_helpers::{read_u32_be_at, read_u32_le_at},
+};
+
+use crate::{
+    traits::{ConnectableTarget, CreatableTarget, SwappableTarget, ToTargets, WitnessValueFor},
+    u32::{
+        arithmetic_u32::{CircuitBuilderU32, U32Target},
+        witness::WitnessU32,
+    },
+};
 
 pub type Hash160Target = [U32Target; 5];
 impl ToTargets for Hash160Target {
@@ -37,7 +41,7 @@ impl<T: Witness<F>, F: PrimeField64> WitnessHash160<F> for T {
         Ok(())
     }
 
-    fn set_hash160_target_le(&mut self, target: &Hash160Target, value: &[u8])  -> anyhow::Result<()> {
+    fn set_hash160_target_le(&mut self, target: &Hash160Target, value: &[u8]) -> anyhow::Result<()> {
         self.set_u32_target(target[0], read_u32_le_at(value, 0))?;
         self.set_u32_target(target[1], read_u32_le_at(value, 4))?;
         self.set_u32_target(target[2], read_u32_le_at(value, 8))?;
@@ -50,17 +54,10 @@ impl<T: Witness<F>, F: PrimeField64> WitnessHash160<F> for T {
 pub trait CircuitBuilderHash160<F: RichField + Extendable<D>, const D: usize> {
     fn add_virtual_hash160_target(&mut self) -> Hash160Target;
     fn connect_hash160(&mut self, x: Hash160Target, y: Hash160Target);
-    fn select_hash160(
-        &mut self,
-        b: BoolTarget,
-        x: Hash160Target,
-        y: Hash160Target,
-    ) -> Hash160Target;
+    fn select_hash160(&mut self, b: BoolTarget, x: Hash160Target, y: Hash160Target) -> Hash160Target;
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderHash160<F, D>
-    for CircuitBuilder<F, D>
-{
+impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderHash160<F, D> for CircuitBuilder<F, D> {
     fn add_virtual_hash160_target(&mut self) -> Hash160Target {
         [
             self.add_virtual_u32_target(),
@@ -79,12 +76,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderHash160<F, D>
         self.connect_u32(x[4], y[4]);
     }
 
-    fn select_hash160(
-        &mut self,
-        b: BoolTarget,
-        x: Hash160Target,
-        y: Hash160Target,
-    ) -> Hash160Target {
+    fn select_hash160(&mut self, b: BoolTarget, x: Hash160Target, y: Hash160Target) -> Hash160Target {
         [
             self.select_u32(b, x[0], y[0]),
             self.select_u32(b, x[1], y[1]),
@@ -96,43 +88,32 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderHash160<F, D>
 }
 
 impl SwappableTarget for Hash160Target {
-    fn swap<F: RichField + Extendable<D>, const D: usize>(
-        builder: &mut CircuitBuilder<F, D>,
-        swap: BoolTarget,
-        left: Self,
-        right: Self,
-    ) -> Self {
+    fn swap<F: RichField + Extendable<D>, const D: usize>(builder: &mut CircuitBuilder<F, D>, swap: BoolTarget, left: Self, right: Self) -> Self {
         builder.select_hash160(swap, right, left)
     }
 }
 
 impl CreatableTarget for Hash160Target {
-    fn create_virtual<F: RichField + Extendable<D>, const D: usize>(
-        builder: &mut CircuitBuilder<F, D>,
-    ) -> Self {
+    fn create_virtual<F: RichField + Extendable<D>, const D: usize>(builder: &mut CircuitBuilder<F, D>) -> Self {
         builder.add_virtual_hash160_target()
     }
 }
 
 impl ConnectableTarget for Hash160Target {
-    fn connect<F: RichField + Extendable<D>, const D: usize>(
-        &self,
-        builder: &mut CircuitBuilder<F, D>,
-        connect_value: Self,
-    ) {
+    fn connect<F: RichField + Extendable<D>, const D: usize>(&self, builder: &mut CircuitBuilder<F, D>, connect_value: Self) {
         builder.connect_hash160(*self, connect_value)
     }
 }
 
 impl<F: RichField> WitnessValueFor<Hash160Target, F, false> for Hash160 {
-    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &Hash160Target) -> anyhow::Result<()>{
+    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &Hash160Target) -> anyhow::Result<()> {
         witness.set_hash160_target_le(&target, &self.0)?;
         Ok(())
     }
 }
 
 impl<F: RichField> WitnessValueFor<Hash160Target, F, true> for Hash160 {
-    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &Hash160Target) -> anyhow::Result<()>{
+    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &Hash160Target) -> anyhow::Result<()> {
         witness.set_hash160_target(&target, &self.0)?;
         Ok(())
     }

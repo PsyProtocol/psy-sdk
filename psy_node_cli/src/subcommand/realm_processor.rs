@@ -1,13 +1,15 @@
-use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, Ordering};
-use tokio::signal;
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc,
+};
+
 use psy_node::realm::RealmNodeConfig;
+use tokio::signal;
 
 pub async fn run(args: RealmNodeConfig) -> anyhow::Result<()> {
     let ctrl_c = tokio::signal::ctrl_c();
-    let shutdown_requested= Arc::new(AtomicBool::new(false));
-    let mut sigterm = signal::unix::signal(signal::unix::SignalKind::terminate())
-        .expect("Failed to install SIGTERM handler");
+    let shutdown_requested = Arc::new(AtomicBool::new(false));
+    let mut sigterm = signal::unix::signal(signal::unix::SignalKind::terminate()).expect("Failed to install SIGTERM handler");
     tokio::select! {
         result = psy_node::realm::run_realm_processor(args, shutdown_requested.clone())=> {
             match result {

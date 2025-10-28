@@ -1,21 +1,15 @@
 use std::marker::PhantomData;
 
-use plonky2::field::extension::Extendable;
-use plonky2::iop::target::Target;
-use plonky2::iop::witness::Witness;
-use plonky2::plonk::circuit_builder::CircuitBuilder;
+use plonky2::{
+    field::extension::Extendable,
+    iop::{target::Target, witness::Witness},
+    plonk::circuit_builder::CircuitBuilder,
+};
 use psy_crypto::field::qfield::QRichField;
 
-use crate::traits::GenericCircuitMerkleHasher;
-use crate::traits::GenericHashTarget;
-use crate::traits::WitnessValueFor;
-
-use super::merkle_proof::compute_merkle_root;
-use super::merkle_proof::compute_merkle_root_marked_leaves;
-pub struct GenericDeltaMerkleProofVecGadget<
-    H: GenericHashTarget,
-    Hasher: GenericCircuitMerkleHasher<H>,
-> {
+use super::merkle_proof::{compute_merkle_root, compute_merkle_root_marked_leaves};
+use crate::traits::{GenericCircuitMerkleHasher, GenericHashTarget, WitnessValueFor};
+pub struct GenericDeltaMerkleProofVecGadget<H: GenericHashTarget, Hasher: GenericCircuitMerkleHasher<H>> {
     pub old_root: H,
     pub old_value: H,
 
@@ -27,23 +21,16 @@ pub struct GenericDeltaMerkleProofVecGadget<
     _hasher: PhantomData<Hasher>,
 }
 
-impl<H: GenericHashTarget, Hasher: GenericCircuitMerkleHasher<H>>
-    GenericDeltaMerkleProofVecGadget<H, Hasher>
-{
-    pub fn add_virtual_to<F: QRichField + Extendable<D>, const D: usize>(
-        builder: &mut CircuitBuilder<F, D>,
-        height: usize,
-    ) -> Self {
+impl<H: GenericHashTarget, Hasher: GenericCircuitMerkleHasher<H>> GenericDeltaMerkleProofVecGadget<H, Hasher> {
+    pub fn add_virtual_to<F: QRichField + Extendable<D>, const D: usize>(builder: &mut CircuitBuilder<F, D>, height: usize) -> Self {
         let siblings: Vec<H> = (0..height).map(|_| H::create_virtual(builder)).collect();
 
         let old_value = H::create_virtual(builder);
         let new_value = H::create_virtual(builder);
         let index = builder.add_virtual_target();
         let index_bits = builder.split_le(index, height);
-        let old_root =
-            compute_merkle_root::<F, D, H, Hasher>(builder, &index_bits, old_value, &siblings);
-        let new_root =
-            compute_merkle_root::<F, D, H, Hasher>(builder, &index_bits, new_value, &siblings);
+        let old_root = compute_merkle_root::<F, D, H, Hasher>(builder, &index_bits, old_value, &siblings);
+        let new_root = compute_merkle_root::<F, D, H, Hasher>(builder, &index_bits, new_value, &siblings);
 
         Self {
             old_root,
@@ -55,30 +42,15 @@ impl<H: GenericHashTarget, Hasher: GenericCircuitMerkleHasher<H>>
             _hasher: PhantomData {},
         }
     }
-    pub fn add_virtual_to_mark_leaves<F: QRichField + Extendable<D>, const D: usize>(
-        builder: &mut CircuitBuilder<F, D>,
-        height: usize,
-    ) -> Self {
+    pub fn add_virtual_to_mark_leaves<F: QRichField + Extendable<D>, const D: usize>(builder: &mut CircuitBuilder<F, D>, height: usize) -> Self {
         let siblings: Vec<H> = (0..height).map(|_| H::create_virtual(builder)).collect();
 
         let old_value = H::create_virtual(builder);
         let new_value = H::create_virtual(builder);
         let index = builder.add_virtual_target();
         let index_bits = builder.split_le(index, height);
-        let old_root = compute_merkle_root_marked_leaves::<F, D, H, Hasher>(
-            builder,
-            &index_bits,
-            old_value,
-            &siblings,
-            true,
-        );
-        let new_root = compute_merkle_root_marked_leaves::<F, D, H, Hasher>(
-            builder,
-            &index_bits,
-            new_value,
-            &siblings,
-            true,
-        );
+        let old_root = compute_merkle_root_marked_leaves::<F, D, H, Hasher>(builder, &index_bits, old_value, &siblings, true);
+        let new_root = compute_merkle_root_marked_leaves::<F, D, H, Hasher>(builder, &index_bits, new_value, &siblings, true);
 
         Self {
             old_root,
@@ -91,11 +63,7 @@ impl<H: GenericHashTarget, Hasher: GenericCircuitMerkleHasher<H>>
         }
     }
 
-    pub fn set_witness<
-        F: QRichField,
-        HashValue: WitnessValueFor<H, F, BIG_ENDIAN>,
-        const BIG_ENDIAN: bool,
-    >(
+    pub fn set_witness<F: QRichField, HashValue: WitnessValueFor<H, F, BIG_ENDIAN>, const BIG_ENDIAN: bool>(
         &self,
         witness: &mut impl Witness<F>,
         index: F,

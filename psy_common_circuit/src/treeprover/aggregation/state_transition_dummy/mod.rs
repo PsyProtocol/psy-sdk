@@ -1,13 +1,26 @@
 use async_trait::async_trait;
 use plonky2::{
-    field::types::Field, hash::hash_types::{HashOut, HashOutTarget}, iop::{target::Target, witness::{PartialWitness, WitnessWrite}}, plonk::{
+    field::types::Field,
+    hash::hash_types::{HashOut, HashOutTarget},
+    iop::{
+        target::Target,
+        witness::{PartialWitness, WitnessWrite},
+    },
+    plonk::{
         circuit_builder::CircuitBuilder,
         circuit_data::{CircuitConfig, CircuitData, CommonCircuitData, VerifierOnlyCircuitData},
         config::{AlgebraicHasher, GenericConfig},
         proof::ProofWithPublicInputs,
-    }
+    },
 };
-use psy_core::{config::network_constants::get_default_worker_public_key, data::qhashout::QHashOut, job::{id::QProvingJobDataID, traits::{QProofStoreReaderAsync, QProofStoreReaderSync}}};
+use psy_core::{
+    config::network_constants::get_default_worker_public_key,
+    data::qhashout::QHashOut,
+    job::{
+        id::QProvingJobDataID,
+        traits::{QProofStoreReaderAsync, QProofStoreReaderSync},
+    },
+};
 use psy_crypto::{common::circuit_library::CircuitInfoLibrary, hash::merkle::treeprover::DummyAggStateTransition};
 
 use crate::{
@@ -17,14 +30,14 @@ use crate::{
         pad_circuit::{pad_circuit_degree, CircuitBuilderQEDCommonGates},
     },
     circuits::traits::qstandard::{
-        provable::QStandardCircuitProvable, QStandardCircuit, QStandardCircuitProvableWithProofStoreAndRefLibraryAsync, QStandardCircuitProvableWithProofStoreSync
+        provable::QStandardCircuitProvable, QStandardCircuit, QStandardCircuitProvableWithProofStoreAndRefLibraryAsync,
+        QStandardCircuitProvableWithProofStoreSync,
     },
     proof_minifier::pm_core::get_circuit_fingerprint_generic,
 };
 
 #[derive(Debug)]
-pub struct AggStateTransitionDummyCircuit<C: GenericConfig<D>, const D: usize>
-{
+pub struct AggStateTransitionDummyCircuit<C: GenericConfig<D>, const D: usize> {
     pub state_transition_hash: HashOutTarget,
     pub allowed_circuit_hashes_root: HashOutTarget,
     pub worker_public_key: HashOutTarget,
@@ -38,7 +51,7 @@ pub struct AggStateTransitionDummyCircuit<C: GenericConfig<D>, const D: usize>
 }
 impl<C: GenericConfig<D>, const D: usize> AggStateTransitionDummyCircuit<C, D>
 where
-    C::Hasher:AlgebraicHasher<C::F>,
+    C::Hasher: AlgebraicHasher<C::F>,
 {
     pub fn new() -> Self {
         let config = CircuitConfig::standard_recursion_config();
@@ -55,19 +68,14 @@ where
         builder.connect(sum, one);
 
         let zero = builder.zero();
-        let pm_jobs_completed = [
-            is_deploy_contracts,
-            is_register_users,
-            zero,
-        ];
+        let pm_jobs_completed = [is_deploy_contracts, is_register_users, zero];
 
         // builder.assert_non_zero_hash(worker_public_key);
 
         let zero_hash = builder.constant_hash(HashOut::ZERO);
         let commitment = builder.hash_two_to_one::<C::Hasher>(zero_hash, zero_hash);
 
-        let transition =
-            builder.hash_two_to_one::<C::Hasher>(state_transition_hash, state_transition_hash);
+        let transition = builder.hash_two_to_one::<C::Hasher>(state_transition_hash, state_transition_hash);
 
         builder.register_public_inputs(&commitment.elements);
         builder.register_public_inputs(&worker_public_key.elements);
@@ -103,10 +111,7 @@ where
         let mut pw = PartialWitness::<C::F>::new();
         pw.set_hash_target(self.worker_public_key, worker_public_key.0)?;
         pw.set_hash_target(self.state_transition_hash, state_transition_hash.0)?;
-        pw.set_hash_target(
-            self.allowed_circuit_hashes_root,
-            allowed_circuit_hashes_root.0,
-        )?;
+        pw.set_hash_target(self.allowed_circuit_hashes_root, allowed_circuit_hashes_root.0)?;
         pw.set_target(self.is_deploy_contracts, if is_deploy_contracts { C::F::ONE } else { C::F::ZERO })?;
         pw.set_target(self.is_register_users, if is_register_users { C::F::ONE } else { C::F::ZERO })?;
         self.circuit_data.prove(pw)
@@ -131,10 +136,9 @@ where
 }
 */
 
-impl<C: GenericConfig<D>, const D: usize> QStandardCircuit<C, D>
-    for AggStateTransitionDummyCircuit<C, D>
+impl<C: GenericConfig<D>, const D: usize> QStandardCircuit<C, D> for AggStateTransitionDummyCircuit<C, D>
 where
-    C::Hasher:AlgebraicHasher<C::F>,
+    C::Hasher: AlgebraicHasher<C::F>,
 {
     fn get_fingerprint(&self) -> QHashOut<C::F> {
         self.fingerprint
@@ -147,16 +151,11 @@ where
     }
 }
 
-impl<C: GenericConfig<D>, const D: usize>
-    QStandardCircuitProvable<DummyAggStateTransition<C::F>, C, D>
-    for AggStateTransitionDummyCircuit<C, D>
+impl<C: GenericConfig<D>, const D: usize> QStandardCircuitProvable<DummyAggStateTransition<C::F>, C, D> for AggStateTransitionDummyCircuit<C, D>
 where
-    C::Hasher:AlgebraicHasher<C::F>,
+    C::Hasher: AlgebraicHasher<C::F>,
 {
-    fn prove_standard(
-        &self,
-        input: &DummyAggStateTransition<C::F>,
-    ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
+    fn prove_standard(&self, input: &DummyAggStateTransition<C::F>) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         self.prove_base(
             get_default_worker_public_key(),
             input.state_transition_hash,
@@ -167,31 +166,21 @@ where
     }
 }
 
-impl<S: QProofStoreReaderSync, C: GenericConfig<D>, const D: usize>
-    QStandardCircuitProvableWithProofStoreSync<S, DummyAggStateTransition<C::F>, C, D>
+impl<S: QProofStoreReaderSync, C: GenericConfig<D>, const D: usize> QStandardCircuitProvableWithProofStoreSync<S, DummyAggStateTransition<C::F>, C, D>
     for AggStateTransitionDummyCircuit<C, D>
 where
-    C::Hasher:AlgebraicHasher<C::F>,
+    C::Hasher: AlgebraicHasher<C::F>,
 {
-    fn prove_with_proof_store_sync(
-        &self,
-        _store: &S,
-        input: &DummyAggStateTransition<C::F>,
-    ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
+    fn prove_with_proof_store_sync(&self, _store: &S, input: &DummyAggStateTransition<C::F>) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         self.prove_standard(input)
     }
 }
 
 #[async_trait]
-impl<
-        S: QProofStoreReaderAsync + Send + Sync,
-        L: CircuitInfoLibrary<C, D> + Send + Sync,
-        C: GenericConfig<D>,
-        const D: usize,
-    > QStandardCircuitProvableWithProofStoreAndRefLibraryAsync<S, L, C, D>
-    for AggStateTransitionDummyCircuit<C, D>
+impl<S: QProofStoreReaderAsync + Send + Sync, L: CircuitInfoLibrary<C, D> + Send + Sync, C: GenericConfig<D>, const D: usize>
+    QStandardCircuitProvableWithProofStoreAndRefLibraryAsync<S, L, C, D> for AggStateTransitionDummyCircuit<C, D>
 where
-    C::Hasher: AlgebraicHasher<C::F>
+    C::Hasher: AlgebraicHasher<C::F>,
 {
     async fn prove_with_proof_store_async(
         &self,
@@ -201,8 +190,7 @@ where
         worker_public_key: QHashOut<C::F>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         let r: DummyAggStateTransition<C::F> =
-            bincode::deserialize(&store.get_bytes_by_id(job_id.get_input_witness_id()).await?)
-                .map_err(|e| anyhow::anyhow!(e))?;
+            bincode::deserialize(&store.get_bytes_by_id(job_id.get_input_witness_id()).await?).map_err(|e| anyhow::anyhow!(e))?;
         self.prove_base(
             worker_public_key,
             r.state_transition_hash,

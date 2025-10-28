@@ -1,5 +1,7 @@
-use std::hash::Hash;
-use std::ops::{Index, IndexMut};
+use std::{
+    hash::Hash,
+    ops::{Index, IndexMut},
+};
 
 use crate::{Arena, Graph};
 
@@ -53,9 +55,7 @@ pub struct Tree<I: From<usize> + Into<usize> + Copy, T> {
 
 impl<I: From<usize> + Into<usize> + Copy, T> Tree<I, T> {
     pub fn new() -> Self {
-        Self {
-            nodes: Arena::new(),
-        }
+        Self { nodes: Arena::new() }
     }
 }
 

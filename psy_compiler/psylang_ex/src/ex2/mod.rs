@@ -16,6 +16,5 @@ impl ExampleContract2 {
         }
         //ctx.assert_eq(c,100, "c must be less than 100");
         assert!(c < 100, "c must be less than 100");
-        
     }
 }

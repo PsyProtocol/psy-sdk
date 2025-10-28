@@ -1,7 +1,6 @@
 use std::time::Duration;
 
 use plonky2::plonk::config::GenericConfig;
-use tracing::{debug, info};
 use psy_core::{
     job::{
         id::{ProvingJobCircuitType, QJobTopic, QProvingJobDataID, QWorkerModeFilter},
@@ -11,9 +10,8 @@ use psy_core::{
     },
     utils::trace_timer::TraceTimer,
 };
-use psy_crypto::common::{
-    circuit_library::CircuitInfoLibrary, worker::QNextGenWorkerGenericProverAsyncMut,
-};
+use psy_crypto::common::{circuit_library::CircuitInfoLibrary, worker::QNextGenWorkerGenericProverAsyncMut};
+use tracing::{debug, info};
 
 pub struct SimpleAsyncRealmWorker {}
 impl SimpleAsyncRealmWorker {
@@ -31,8 +29,7 @@ impl SimpleAsyncRealmWorker {
         library: &L,
     ) -> anyhow::Result<()> {
         loop {
-            Self::process_next_job(store, event_receiver, prover, library, QWorkerMode::All)
-                .await?;
+            Self::process_next_job(store, event_receiver, prover, library, QWorkerMode::All).await?;
         }
     }
     pub async fn run_worker_until_done<
@@ -48,16 +45,11 @@ impl SimpleAsyncRealmWorker {
         prover: &G,
         library: &L,
     ) -> anyhow::Result<QProvingJobDataID> {
-        let mut job = Self::process_next_job(store, event_receiver, prover, library, QWorkerMode::All)
-        .await?;
-        while
-            job.circuit_type != ProvingJobCircuitType::NotifyRealmComplete {
-                job = Self::process_next_job(store, event_receiver, prover, library, QWorkerMode::All)
-        .await?;
-
+        let mut job = Self::process_next_job(store, event_receiver, prover, library, QWorkerMode::All).await?;
+        while job.circuit_type != ProvingJobCircuitType::NotifyRealmComplete {
+            job = Self::process_next_job(store, event_receiver, prover, library, QWorkerMode::All).await?;
         }
-                Ok(job)
-
+        Ok(job)
     }
     pub async fn process_next_job<
         PS: QProofStoreAsyncImm + Send + Sync,
@@ -100,19 +92,12 @@ impl SimpleAsyncRealmWorker {
         job_id: QProvingJobDataID,
     ) -> anyhow::Result<QProvingJobDataID> {
         let mut timer = TraceTimer::new("process_job");
-        timer.event(format!(
-            "STARTED job {} ({:?})",
-            hex::encode(job_id.to_fixed_bytes()),
-            job_id
-        ));
+        timer.event(format!("STARTED job {} ({:?})", hex::encode(job_id.to_fixed_bytes()), job_id));
 
         tracing::info!(?job_id, "job started");
         if job_id.is_notify_complete() {
-            event_receiver
-                .notify_core_goal_completed_imm(job_id)
-                .await?;
+            event_receiver.notify_core_goal_completed_imm(job_id).await?;
             return Ok(job_id);
-
         }
         if job_id.topic == QJobTopic::GenerateStandardProof {
             //let start_time = std::time::Instant::now();
@@ -122,11 +107,9 @@ impl SimpleAsyncRealmWorker {
                     todo!("impl bls12381");
                 }
                 _ => {
-                    let proof = prover
-                        .worker_prove_mut_async(&store, library, job_id)
-                        .await?;
+                    let proof = prover.worker_prove_mut_async(&store, library, job_id).await?;
                     let output_id = job_id.get_output_id();
-                    tracing::info!("set proof id: {:?}",output_id);
+                    tracing::info!("set proof id: {:?}", output_id);
                     store.set_proof_by_id(output_id, &proof).await?;
                     output_id
                 }
@@ -136,20 +119,14 @@ impl SimpleAsyncRealmWorker {
         let goal_counter = store.get_goal_by_job_id(job_id).await?;
         debug!("Goal counter: {}", goal_counter);
         if goal_counter != 0 {
-            let result = store
-                .inc_counter_by_id(job_id.get_sub_group_counter_id())
-                .await?;
+            let result = store.inc_counter_by_id(job_id.get_sub_group_counter_id()).await?;
             if result == goal_counter {
                 let jobs = store.get_next_jobs_by_job_id(job_id).await?;
                 debug!("Enqueuing jobs for {:?}: {:?}", job_id, jobs);
                 event_receiver.enqueue_jobs_imm(&jobs).await?;
             }
         }
-        timer.event(format!(
-            "FINISHED job {} ({:?})",
-            hex::encode(job_id.to_fixed_bytes()),
-            job_id
-        ));
+        timer.event(format!("FINISHED job {} ({:?})", hex::encode(job_id.to_fixed_bytes()), job_id));
 
         Ok(job_id)
     }

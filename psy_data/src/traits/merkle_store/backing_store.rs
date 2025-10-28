@@ -3,23 +3,15 @@ use kvq::traits::{KVQPair, KVQSerializable};
 
 use crate::models::kvq_merkle::key::KVQMerkleNodeKey;
 
+pub trait QMerkleStoreHash: Copy + Clone + Send + Sync + KVQSerializable {}
 
-
-pub trait QMerkleStoreHash: Copy + Clone + Send + Sync + KVQSerializable {
-
-}
-
-impl<T: Copy + Clone + Send + Sync + KVQSerializable> QMerkleStoreHash for T {
-}
-
+impl<T: Copy + Clone + Send + Sync + KVQSerializable> QMerkleStoreHash for T {}
 
 #[async_trait]
 pub trait MerkleNodeStoreReaderImmutableAsync<Hash: QMerkleStoreHash, const TABLE_TYPE: u16> {
     async fn get_node_if_exists(&self, key: &KVQMerkleNodeKey<TABLE_TYPE>) -> anyhow::Result<Option<KVQPair<KVQMerkleNodeKey<TABLE_TYPE>, Hash>>>;
     async fn get_node_value_if_exists(&self, key: &KVQMerkleNodeKey<TABLE_TYPE>) -> anyhow::Result<Option<Hash>>;
     async fn get_node_values(&self, keys: &[KVQMerkleNodeKey<TABLE_TYPE>]) -> anyhow::Result<Vec<Option<Hash>>>;
-
-
 
     /*
     async fn get_node_latest(&self, key: &KVQMerkleNodeKey<TABLE_TYPE>) -> anyhow::Result<KVQPair<KVQMerkleNodeKey<TABLE_TYPE>, Hash>>;
@@ -36,7 +28,6 @@ pub trait MerkleNodeStoreReaderImmutableAsync<Hash: QMerkleStoreHash, const TABL
     async fn get_node_values(&self, key: &[KVQMerkleNodeKey<TABLE_TYPE>]) -> anyhow::Result<Hash>;
     async fn get_node_values_same_tree(&self, key: &[KVQMerkleNodeKey<TABLE_TYPE>]) -> anyhow::Result<Hash>;
     async fn get_node_value_exact(&self, key: &KVQMerkleNodeKey<TABLE_TYPE>) -> anyhow::Result<Hash>;*/
-
 }
 #[async_trait]
 pub trait MerkleNodeStoreWriterImmutableAsync<Hash: QMerkleStoreHash, const TABLE_TYPE: u16> {
@@ -49,12 +40,15 @@ pub trait MerkleNodeStoreWriterImmutableAsync<Hash: QMerkleStoreHash, const TABL
     async fn set_nodes_same_tree(&self, nodes: &[KVQPair<KVQMerkleNodeKey<TABLE_TYPE>, Hash>]) -> anyhow::Result<()>;
 }
 
-
-
-pub trait MerkleNodeStoreImmutableAsync<Hash: QMerkleStoreHash, const TABLE_TYPE: u16>: MerkleNodeStoreReaderImmutableAsync<Hash, TABLE_TYPE> + MerkleNodeStoreWriterImmutableAsync<Hash, TABLE_TYPE> {
-
+pub trait MerkleNodeStoreImmutableAsync<Hash: QMerkleStoreHash, const TABLE_TYPE: u16>:
+    MerkleNodeStoreReaderImmutableAsync<Hash, TABLE_TYPE> + MerkleNodeStoreWriterImmutableAsync<Hash, TABLE_TYPE>
+{
 }
 
-impl<S:MerkleNodeStoreReaderImmutableAsync<Hash, TABLE_TYPE> + MerkleNodeStoreWriterImmutableAsync<Hash, TABLE_TYPE>, Hash: QMerkleStoreHash, const TABLE_TYPE: u16> MerkleNodeStoreImmutableAsync<Hash, TABLE_TYPE> for S {
-
+impl<
+        S: MerkleNodeStoreReaderImmutableAsync<Hash, TABLE_TYPE> + MerkleNodeStoreWriterImmutableAsync<Hash, TABLE_TYPE>,
+        Hash: QMerkleStoreHash,
+        const TABLE_TYPE: u16,
+    > MerkleNodeStoreImmutableAsync<Hash, TABLE_TYPE> for S
+{
 }

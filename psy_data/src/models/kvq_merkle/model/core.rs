@@ -1,18 +1,16 @@
-
 use std::collections::HashMap;
 
+use kvq::traits::{KVQBinaryStore, KVQPair, KVQSerializable, KVQStoreAdapter, KVQStoreAdapterReader};
+use psy_crypto::hash::{
+    merkle::{
+        core::{DeltaMerkleProofCore, MerkleProofCore},
+        spiderman::SpidermanUpdateProof,
+        utils::sub_tree_nca::{UpdateNCAProofsWithDependencies, UpdateNearestCommonAncestorProof},
+    },
+    traits::hasher::MerkleZeroHasherWithMarkedLeaf,
+};
+
 use super::super::key::KVQMerkleNodeKey;
-use kvq::traits::KVQBinaryStore;
-use kvq::traits::KVQPair;
-use kvq::traits::KVQSerializable;
-use kvq::traits::KVQStoreAdapter;
-use kvq::traits::KVQStoreAdapterReader;
-use psy_crypto::hash::merkle::core::DeltaMerkleProofCore;
-use psy_crypto::hash::merkle::core::MerkleProofCore;
-use psy_crypto::hash::merkle::spiderman::SpidermanUpdateProof;
-use psy_crypto::hash::traits::hasher::MerkleZeroHasherWithMarkedLeaf;
-use psy_crypto::hash::merkle::utils::sub_tree_nca::UpdateNCAProofsWithDependencies;
-use psy_crypto::hash::merkle::utils::sub_tree_nca::UpdateNearestCommonAncestorProof;
 
 pub const CHECKPOINT_ID_FUZZY_SIZE: usize = 8;
 
@@ -37,41 +35,25 @@ pub trait KVQMerkleTreeModelReaderCore<
     fn get_node_exact(store: &S, key: &KVQMerkleNodeKey<TABLE_TYPE>) -> anyhow::Result<Hash> {
         KVA::get_exact(store, key)
     }
-    fn get_nodes_exact_vec(
-        store: &S,
-        keys: &[KVQMerkleNodeKey<TABLE_TYPE>],
-    ) -> anyhow::Result<Vec<Hash>> {
+    fn get_nodes_exact_vec(store: &S, keys: &[KVQMerkleNodeKey<TABLE_TYPE>]) -> anyhow::Result<Vec<Hash>> {
         KVA::get_many_exact(store, keys)
     }
-    fn get_node_optional(
-        store: &S,
-        key: &KVQMerkleNodeKey<TABLE_TYPE>,
-    ) -> anyhow::Result<Option<KVQPair<KVQMerkleNodeKey<TABLE_TYPE>, Hash>>> {
+    fn get_node_optional(store: &S, key: &KVQMerkleNodeKey<TABLE_TYPE>) -> anyhow::Result<Option<KVQPair<KVQMerkleNodeKey<TABLE_TYPE>, Hash>>> {
         KVA::get_leq_kv(store, key, CHECKPOINT_ID_FUZZY_SIZE)
     }
-    fn get_node(
-        store: &S,
-        tree_height: usize,
-        key: &KVQMerkleNodeKey<TABLE_TYPE>,
-    ) -> anyhow::Result<Hash> {
+    fn get_node(store: &S, tree_height: usize, key: &KVQMerkleNodeKey<TABLE_TYPE>) -> anyhow::Result<Hash> {
         match KVA::get_leq(store, key, CHECKPOINT_ID_FUZZY_SIZE)? {
             Some(v) => Ok(v),
             None => {
                 if MARK_LEAVES {
-                    return Ok(Hasher::get_zero_hash_marked(
-                        tree_height - (key.level as usize),
-                    ));
+                    return Ok(Hasher::get_zero_hash_marked(tree_height - (key.level as usize)));
                 } else {
                     Ok(Hasher::get_zero_hash(tree_height - (key.level as usize)))
                 }
             }
         }
     }
-    fn get_nodes(
-        store: &S,
-        tree_height: usize,
-        keys: &[KVQMerkleNodeKey<TABLE_TYPE>],
-    ) -> anyhow::Result<Vec<Hash>> {
+    fn get_nodes(store: &S, tree_height: usize, keys: &[KVQMerkleNodeKey<TABLE_TYPE>]) -> anyhow::Result<Vec<Hash>> {
         let result = KVA::get_many_leq(store, keys, CHECKPOINT_ID_FUZZY_SIZE)?;
         Ok(result
             .iter()
@@ -96,25 +78,19 @@ pub trait KVQMerkleTreeModelReaderCore<
 
         if level_difference == 0 {
             let value = Self::get_node(store, real_tree_height, leaf_key)?;
-            return Ok(MerkleProofCore{
+            return Ok(MerkleProofCore {
                 root: value,
                 value,
                 index: leaf_key.index,
                 siblings: Vec::new(),
             });
-
         }
-        let mut node_keys = Vec::with_capacity(2+level_difference);
+        let mut node_keys = Vec::with_capacity(2 + level_difference);
         node_keys.push(*leaf_key);
         node_keys.append(&mut leaf_key.siblings_above(level_difference));
         node_keys.push(leaf_key.parent_at_level(root_level));
 
-
-        let nodes = Self::get_nodes(
-            store,
-            real_tree_height,
-            &node_keys,
-        )?;
+        let nodes = Self::get_nodes(store, real_tree_height, &node_keys)?;
         let value = nodes[0];
         let root_ind = nodes.len() - 1;
         let siblings = nodes[1..root_ind].to_vec();
@@ -126,15 +102,8 @@ pub trait KVQMerkleTreeModelReaderCore<
             index: leaf_key.index,
         })
     }
-    fn get_leaf(
-        store: &S,
-        key: &KVQMerkleNodeKey<TABLE_TYPE>,
-    ) -> anyhow::Result<MerkleProofCore<Hash>> {
-        let nodes = Self::get_nodes(
-            store,
-            key.level as usize,
-            &vec![vec![*key], key.siblings(), vec![key.root()]].concat(),
-        )?;
+    fn get_leaf(store: &S, key: &KVQMerkleNodeKey<TABLE_TYPE>) -> anyhow::Result<MerkleProofCore<Hash>> {
+        let nodes = Self::get_nodes(store, key.level as usize, &vec![vec![*key], key.siblings(), vec![key.root()]].concat())?;
         let value = nodes[0];
         let root_ind = nodes.len() - 1;
         let siblings = nodes[1..root_ind].to_vec();
@@ -156,42 +125,24 @@ pub trait KVQMerkleTreeModelCore<
     Hasher: MerkleZeroHasherWithMarkedLeaf<Hash>,
 >: KVQMerkleTreeModelReaderCore<TABLE_TYPE, MARK_LEAVES, S, KVA, Hash, Hasher>
 {
-    fn set_node_kv(
-        store: &S,
-        kv: &KVQPair<KVQMerkleNodeKey<TABLE_TYPE>, Hash>,
-    ) -> anyhow::Result<()> {
+    fn set_node_kv(store: &S, kv: &KVQPair<KVQMerkleNodeKey<TABLE_TYPE>, Hash>) -> anyhow::Result<()> {
         KVA::set_ref(store, &kv.key, &kv.value)
     }
-    fn set_node(
-        store: &S,
-        key: &KVQMerkleNodeKey<TABLE_TYPE>,
-        value: &Hash,
-    ) -> anyhow::Result<()> {
+    fn set_node(store: &S, key: &KVQMerkleNodeKey<TABLE_TYPE>, value: &Hash) -> anyhow::Result<()> {
         KVA::set_ref(store, key, value)
     }
-    fn set_nodes_ref<'a>(
-        store: &S,
-        nodes: &[KVQPair<&'a KVQMerkleNodeKey<TABLE_TYPE>, &'a Hash>],
-    ) -> anyhow::Result<()> {
+    fn set_nodes_ref<'a>(store: &S, nodes: &[KVQPair<&'a KVQMerkleNodeKey<TABLE_TYPE>, &'a Hash>]) -> anyhow::Result<()> {
         KVA::set_many_ref(store, nodes)
     }
-    fn set_nodes<'a>(
-        store: &S,
-        nodes: &[KVQPair<KVQMerkleNodeKey<TABLE_TYPE>, Hash>],
-    ) -> anyhow::Result<()> {
+    fn set_nodes<'a>(store: &S, nodes: &[KVQPair<KVQMerkleNodeKey<TABLE_TYPE>, Hash>]) -> anyhow::Result<()> {
         KVA::set_many(store, nodes)
     }
-    fn set_leaf(
-        store: &S,
-        key: &KVQMerkleNodeKey<TABLE_TYPE>,
-        value: Hash,
-    ) -> anyhow::Result<DeltaMerkleProofCore<Hash>> {
+    fn set_leaf(store: &S, key: &KVQMerkleNodeKey<TABLE_TYPE>, value: Hash) -> anyhow::Result<DeltaMerkleProofCore<Hash>> {
         let old_proof = Self::get_leaf(store, key)?;
         let mut current_value = value;
         let mut current_key = *key;
 
-        let mut updates: Vec<KVQPair<KVQMerkleNodeKey<TABLE_TYPE>, Hash>> =
-            Vec::with_capacity((key.level as usize) + 1);
+        let mut updates: Vec<KVQPair<KVQMerkleNodeKey<TABLE_TYPE>, Hash>> = Vec::with_capacity((key.level as usize) + 1);
 
         let height = key.level as usize;
         if height > 0 {
@@ -265,17 +216,12 @@ pub trait KVQMerkleTreeModelCore<
             checkpoint_id,
         };
 
-
-        let mut updates: Vec<KVQPair<KVQMerkleNodeKey<TABLE_TYPE>, Hash>> =
-            Vec::with_capacity(merkle_proof.siblings.len()*2+1);
+        let mut updates: Vec<KVQPair<KVQMerkleNodeKey<TABLE_TYPE>, Hash>> = Vec::with_capacity(merkle_proof.siblings.len() * 2 + 1);
         let mut k = base_leaf_key;
         let mut last_hash = merkle_proof.value;
 
         for sibling in merkle_proof.siblings.iter() {
-            updates.push(KVQPair::<KVQMerkleNodeKey<TABLE_TYPE>, Hash> {
-                key: k,
-                value: last_hash,
-            });
+            updates.push(KVQPair::<KVQMerkleNodeKey<TABLE_TYPE>, Hash> { key: k, value: last_hash });
             updates.push(KVQPair::<KVQMerkleNodeKey<TABLE_TYPE>, Hash> {
                 key: k.sibling(),
                 value: *sibling,
@@ -297,10 +243,7 @@ pub trait KVQMerkleTreeModelCore<
             k = k.parent();
         }
 
-        updates.push(KVQPair::<KVQMerkleNodeKey<TABLE_TYPE>, Hash> {
-            key: k,
-            value: last_hash,
-        });
+        updates.push(KVQPair::<KVQMerkleNodeKey<TABLE_TYPE>, Hash> { key: k, value: last_hash });
         Self::set_nodes(store, &updates)?;
         Ok(())
     }
@@ -324,19 +267,19 @@ pub trait KVQMerkleTreeModelCore<
 
         if a.key.is_sibling_for(&b.key) {
             let parent = a.key.parent();
-            let a_b_parent = Self::get_nodes(store, tree_height,&[a.key, b.key, parent])?;
+            let a_b_parent = Self::get_nodes(store, tree_height, &[a.key, b.key, parent])?;
 
             let new_value = if MARK_LEAVES && a.key.level as usize == tree_height {
                 Hasher::two_to_one_marked_leaf_swap(a.key.is_right_child(), &a.value, &b.value)
-            }else{
+            } else {
                 Hasher::two_to_one_swap(a.key.is_right_child(), &a.value, &b.value)
             };
 
             let r = UpdateNearestCommonAncestorProof {
                 old_nearest_common_ancestor_value: a_b_parent[2],
                 new_nearest_common_ancestor_value: new_value,
-                child_a: DeltaMerkleProofCore::single_value(a.key.index,a_b_parent[0], a.value),
-                child_b: DeltaMerkleProofCore::single_value(b.key.index,a_b_parent[1], b.value),
+                child_a: DeltaMerkleProofCore::single_value(a.key.index, a_b_parent[0], a.value),
+                child_b: DeltaMerkleProofCore::single_value(b.key.index, a_b_parent[1], b.value),
                 nearest_common_ancestor_level: parent.level,
                 nearest_common_ancestor_index: parent.index,
                 level_a: a.key.level,
@@ -348,10 +291,13 @@ pub trait KVQMerkleTreeModelCore<
             updates.push(a);
             updates.push(b);
 
-            return Ok((KVQPair {
-                key: parent,
-                value: new_value,
-            }, r));
+            return Ok((
+                KVQPair {
+                    key: parent,
+                    value: new_value,
+                },
+                r,
+            ));
         }
 
         let nca = a.key.find_nearest_common_ancestor(&b.key);
@@ -364,13 +310,13 @@ pub trait KVQMerkleTreeModelCore<
 
         let old_nearest_common_ancestor_value = if MARK_LEAVES && a_root.level as usize == tree_height {
             Hasher::two_to_one_marked_leaf(&child_a.old_root, &child_b.old_root)
-        }else{
+        } else {
             Hasher::two_to_one(&child_a.old_root, &child_b.old_root)
         };
 
         let new_nearest_common_ancestor_value = if MARK_LEAVES && a_root.level as usize == tree_height {
             Hasher::two_to_one_marked_leaf(&child_a.new_root, &child_b.new_root)
-        }else{
+        } else {
             Hasher::two_to_one(&child_a.new_root, &child_b.new_root)
         };
 
@@ -390,7 +336,7 @@ pub trait KVQMerkleTreeModelCore<
                 key: nca,
                 value: new_nearest_common_ancestor_value,
             },
-            update_nca_proof
+            update_nca_proof,
         ))
     }
 
@@ -409,7 +355,7 @@ pub trait KVQMerkleTreeModelCore<
                 n.key,
                 n.value,
                 root_level,
-                &mut updates
+                &mut updates,
             )?);
             Self::set_nodes(store, &updates)?;
         }
@@ -420,21 +366,15 @@ pub trait KVQMerkleTreeModelCore<
         store: &S,
         tree_height: usize,
         root_level: u8,
-        mut nodes: Vec<KVQPair<KVQMerkleNodeKey<TABLE_TYPE>, Hash>>
+        mut nodes: Vec<KVQPair<KVQMerkleNodeKey<TABLE_TYPE>, Hash>>,
     ) -> anyhow::Result<UpdateNCAProofsWithDependencies<Hash>> {
-        nodes.sort_by(|a,b| a.key.cmp(&b.key));
+        nodes.sort_by(|a, b| a.key.cmp(&b.key));
         nodes.dedup_by(|a, b| a.key == b.key);
 
         if nodes.len() == 1 {
             let mut updates = Vec::new();
-            let dmp_a = Self::set_rehash_from_node_to_level_dmp_with_updates(
-                store,
-                tree_height,
-                nodes[0].key,
-                nodes[0].value,
-                root_level,
-                &mut updates
-            )?;
+            let dmp_a =
+                Self::set_rehash_from_node_to_level_dmp_with_updates(store, tree_height, nodes[0].key, nodes[0].value, root_level, &mut updates)?;
             let root_key = nodes[0].key;
             let root_value = nodes[0].value;
 
@@ -450,7 +390,7 @@ pub trait KVQMerkleTreeModelCore<
             Self::set_nodes(store, &updates)?;
 
             return Ok(UpdateNCAProofsWithDependencies {
-                nca_proofs: vec![UpdateNearestCommonAncestorProof{
+                nca_proofs: vec![UpdateNearestCommonAncestorProof {
                     old_nearest_common_ancestor_value: dmp_a.old_value,
                     new_nearest_common_ancestor_value: dmp_a.new_value,
                     child_a: DeltaMerkleProofCore::single_value(root_key.index, dmp_a.old_value, dmp_a.new_value),
@@ -471,7 +411,7 @@ pub trait KVQMerkleTreeModelCore<
                     root_key.index
                 },
                 link_proof: link_proof,
-            })
+            });
         }
 
         assert!(nodes.len() > 0, "can only call smart injest nca with multiple nodes");
@@ -481,12 +421,7 @@ pub trait KVQMerkleTreeModelCore<
         let mut updates = Vec::with_capacity(nodes.len() * tree_height);
 
         let root_node_key = nodes[0].key.root();
-        let aggregations = Self::build_nca_recursive(
-            &nodes,
-            root_node_key,
-            tree_height as u8,
-            &mut updates,
-        )?;
+        let aggregations = Self::build_nca_recursive(&nodes, root_node_key, tree_height as u8, &mut updates)?;
 
         let mut node_values: HashMap<(u8, u64), Hash> = HashMap::new();
         for node in &nodes {
@@ -494,30 +429,31 @@ pub trait KVQMerkleTreeModelCore<
         }
 
         for agg in &aggregations {
-            let left_node_value = *node_values.get(&(agg.left.level, agg.left.index))
+            let left_node_value = *node_values
+                .get(&(agg.left.level, agg.left.index))
                 .ok_or_else(|| anyhow::anyhow!("Left node value not found: {:?}", agg.left))?;
 
-            let right_node_value = *node_values.get(&(agg.right.level, agg.right.index))
+            let right_node_value = *node_values
+                .get(&(agg.right.level, agg.right.index))
                 .ok_or_else(|| anyhow::anyhow!("Right node value not found: {:?}", agg.right))?;
 
-            let left_kvq = KVQPair { key: agg.left, value: left_node_value };
-            let right_kvq = KVQPair { key: agg.right, value: right_node_value };
+            let left_kvq = KVQPair {
+                key: agg.left,
+                value: left_node_value,
+            };
+            let right_kvq = KVQPair {
+                key: agg.right,
+                value: right_node_value,
+            };
 
-            let (nca_node, nca_proof) = Self::smart_injest_nca_split_kv(
-                store,
-                tree_height,
-                left_kvq,
-                right_kvq,
-                &mut updates
-            )?;
+            let (nca_node, nca_proof) = Self::smart_injest_nca_split_kv(store, tree_height, left_kvq, right_kvq, &mut updates)?;
 
             node_values.insert((agg.nca.level, agg.nca.index), nca_node.value);
             nca_proofs.push(nca_proof);
             dependencies.push((agg.left_dep, agg.right_dep));
         }
 
-        let final_aggregation = aggregations.last()
-            .ok_or_else(|| anyhow::anyhow!("No aggregations generated"))?;
+        let final_aggregation = aggregations.last().ok_or_else(|| anyhow::anyhow!("No aggregations generated"))?;
         let final_node_key = final_aggregation.nca;
         let final_node_value = nca_proofs.last().unwrap().new_nearest_common_ancestor_value;
 
@@ -568,7 +504,14 @@ pub trait KVQMerkleTreeModelCore<
             leaf_to_array_index.insert((node.key.level, node.key.index), -(i as i64) - 1);
         }
 
-        Self::build_recursive_helper(nodes, subtree_root, tree_height, &mut aggregations, &mut node_to_proof_index, &leaf_to_array_index)?;
+        Self::build_recursive_helper(
+            nodes,
+            subtree_root,
+            tree_height,
+            &mut aggregations,
+            &mut node_to_proof_index,
+            &leaf_to_array_index,
+        )?;
         Ok(aggregations)
     }
 
@@ -595,9 +538,7 @@ pub trait KVQMerkleTreeModelCore<
         let right_child = subtree_root.right_child();
         let split_leaf_index = right_child.first_leaf_child(tree_height).index;
 
-        let partition_idx = nodes.iter()
-            .position(|node| node.key.index >= split_leaf_index)
-            .unwrap_or(nodes.len());
+        let partition_idx = nodes.iter().position(|node| node.key.index >= split_leaf_index).unwrap_or(nodes.len());
         let (left_nodes, right_nodes) = nodes.split_at(partition_idx);
 
         let left_nca = Self::build_recursive_helper(
@@ -606,7 +547,7 @@ pub trait KVQMerkleTreeModelCore<
             tree_height,
             aggregations,
             node_to_proof_index,
-            leaf_to_array_index
+            leaf_to_array_index,
         )?;
         let right_nca = Self::build_recursive_helper(
             right_nodes,
@@ -614,27 +555,23 @@ pub trait KVQMerkleTreeModelCore<
             tree_height,
             aggregations,
             node_to_proof_index,
-            leaf_to_array_index
+            leaf_to_array_index,
         )?;
 
         match (left_nca, right_nca) {
             (Some(l), Some(r)) => {
                 let combined_nca = l.find_nearest_common_ancestor(&r);
 
-                let left_dep = node_to_proof_index.get(&(l.level, l.index))
+                let left_dep = node_to_proof_index
+                    .get(&(l.level, l.index))
                     .map(|&i| i as i64)
                     .or_else(|| leaf_to_array_index.get(&(l.level, l.index)).copied())
-                    .ok_or_else(|| anyhow::anyhow!(
-                        "Left dependency not found for node (level={}, index={})",
-                        l.level, l.index
-                    ))?;
-                let right_dep = node_to_proof_index.get(&(r.level, r.index))
+                    .ok_or_else(|| anyhow::anyhow!("Left dependency not found for node (level={}, index={})", l.level, l.index))?;
+                let right_dep = node_to_proof_index
+                    .get(&(r.level, r.index))
                     .map(|&i| i as i64)
                     .or_else(|| leaf_to_array_index.get(&(r.level, r.index)).copied())
-                    .ok_or_else(|| anyhow::anyhow!(
-                        "Right dependency not found for node (level={}, index={})",
-                        r.level, r.index
-                    ))?;
+                    .ok_or_else(|| anyhow::anyhow!("Right dependency not found for node (level={}, index={})", r.level, r.index))?;
 
                 let current_proof_index = aggregations.len();
                 node_to_proof_index.insert((combined_nca.level, combined_nca.index), current_proof_index);
@@ -654,17 +591,11 @@ pub trait KVQMerkleTreeModelCore<
         }
     }
 
-    fn rehash_from_node_to_level(
-        store: &S,
-        tree_height: usize,
-        node: KVQMerkleNodeKey<TABLE_TYPE>,
-        root_level: u8
-    ) -> anyhow::Result<()> {
-
+    fn rehash_from_node_to_level(store: &S, tree_height: usize, node: KVQMerkleNodeKey<TABLE_TYPE>, root_level: u8) -> anyhow::Result<()> {
         let mut current = node;
         let mut current_value = Self::get_node(store, tree_height, &node)?;
 
-        let mut updates: Vec<KVQPair<KVQMerkleNodeKey<TABLE_TYPE>, Hash>> = Vec::with_capacity((current.level-root_level) as usize);
+        let mut updates: Vec<KVQPair<KVQMerkleNodeKey<TABLE_TYPE>, Hash>> = Vec::with_capacity((current.level - root_level) as usize);
         while current.level > root_level {
             let parent_key = current.parent();
             let sibling_value = Self::get_node(store, tree_height, &current.sibling())?;
@@ -682,7 +613,10 @@ pub trait KVQMerkleTreeModelCore<
                     Hasher::two_to_one(&sibling_value, &current_value)
                 }
             };
-            updates.push(KVQPair { key: parent_key, value: parent_value });
+            updates.push(KVQPair {
+                key: parent_key,
+                value: parent_value,
+            });
             current = parent_key;
             current_value = parent_value;
         }
@@ -711,7 +645,7 @@ pub trait KVQMerkleTreeModelCore<
                 siblings: Vec::new(),
             });
         }
-        let sub_height = (node.level-root_level) as usize;
+        let sub_height = (node.level - root_level) as usize;
         let mut siblings_old_value_root_keys = Vec::with_capacity(sub_height + 2);
         siblings_old_value_root_keys.extend_from_slice(&node.siblings_to_level(root_level));
         siblings_old_value_root_keys.push(node);
@@ -724,7 +658,7 @@ pub trait KVQMerkleTreeModelCore<
 
         let mut current_value = new_value;
         let mut current = node;
-        updates.reserve(sub_height+1);
+        updates.reserve(sub_height + 1);
         updates.push(KVQPair { key: node, value: new_value });
         for sibling_value in siblings.iter() {
             let parent_key = current.parent();
@@ -742,7 +676,10 @@ pub trait KVQMerkleTreeModelCore<
                     Hasher::two_to_one(&sibling_value, &current_value)
                 }
             };
-            updates.push(KVQPair { key: parent_key, value: parent_value });
+            updates.push(KVQPair {
+                key: parent_key,
+                value: parent_value,
+            });
             current = parent_key;
             current_value = parent_value;
         }
@@ -770,12 +707,10 @@ pub trait KVQMerkleTreeModelCore<
             anyhow::bail!("tree cannot fit an additional {} leaves", leaves.len());
         }
         let cur_sub_tree_id = append_index / (leaves_per_subtree as u64);
-        let cur_sub_tree_leaf_index =
-            ((append_index as u64) & ((leaves_per_subtree as u64) - 1u64)) as u64;
+        let cur_sub_tree_leaf_index = ((append_index as u64) & ((leaves_per_subtree as u64) - 1u64)) as u64;
 
         let subtree_count =
-            psy_core::utils::math::ceil_div_usize((append_index as usize) + leaves.len(), leaves_per_subtree)
-                - (cur_sub_tree_id as usize);
+            psy_core::utils::math::ceil_div_usize((append_index as usize) + leaves.len(), leaves_per_subtree) - (cur_sub_tree_id as usize);
 
         let mut results = Vec::with_capacity(subtree_count);
         let mut start_indexes = Vec::with_capacity(subtree_count);
@@ -789,7 +724,9 @@ pub trait KVQMerkleTreeModelCore<
         let start_existing_index = cur_sub_tree_id * (leaves_per_subtree as u64);
         let start_added_index = start_existing_index + cur_sub_tree_leaf_index;
 
-        let existing_leaf_keys = (start_existing_index..start_added_index).map(|i| first_empty_leaf_key.at_index(i)).collect::<Vec<_>>();
+        let existing_leaf_keys = (start_existing_index..start_added_index)
+            .map(|i| first_empty_leaf_key.at_index(i))
+            .collect::<Vec<_>>();
         let existing_leaf_values = Self::get_nodes(store, tree_height, &existing_leaf_keys)?;
         old_leaves.extend_from_slice(&existing_leaf_values);
         new_leaves.extend_from_slice(&existing_leaf_values);
@@ -832,9 +769,7 @@ pub trait KVQMerkleTreeModelCore<
 
         if subtree_count > 2 {
             let ll = leaves_used;
-            let old_leaves = (0..leaves_per_subtree)
-                .map(|_| zero_hash)
-                .collect::<Vec<_>>();
+            let old_leaves = (0..leaves_per_subtree).map(|_| zero_hash).collect::<Vec<_>>();
 
             for t in 0..(subtree_count - 3) {
                 let base_ind = ll + t * leaves_per_subtree;
@@ -843,19 +778,21 @@ pub trait KVQMerkleTreeModelCore<
                 let mut node_updates = Vec::with_capacity(new_leaves.len());
 
                 for (i, l) in new_leaves.iter().enumerate() {
-                    node_updates.push(
-                        KVQPair {
-                            key: first_empty_leaf_key.at_index((bb1 + i) as u64),
-                            value: *l,
-                        }
-                    );
+                    node_updates.push(KVQPair {
+                        key: first_empty_leaf_key.at_index((bb1 + i) as u64),
+                        value: *l,
+                    });
                 }
 
                 Self::set_nodes(store, &node_updates)?;
 
                 start_indexes.push(base_ind);
                 results.push(SpidermanUpdateProof {
-                    top_line_proof: Self::rehash_sub_tree_dmp(store, tree_height, &first_empty_leaf_key.at_index(bb1 as u64).n_th_ancestor(sub_tree_height))?,
+                    top_line_proof: Self::rehash_sub_tree_dmp(
+                        store,
+                        tree_height,
+                        &first_empty_leaf_key.at_index(bb1 as u64).n_th_ancestor(sub_tree_height),
+                    )?,
                     web_proof_old_leaves: old_leaves.clone(),
                     web_proof_new_leaves: new_leaves,
                 });
@@ -865,9 +802,7 @@ pub trait KVQMerkleTreeModelCore<
 
             // Process the second-to-last subtree
             let ll = leaves_used;
-            let old_leaves = (0..leaves_per_subtree)
-                .map(|_| zero_hash)
-                .collect::<Vec<_>>();
+            let old_leaves = (0..leaves_per_subtree).map(|_| zero_hash).collect::<Vec<_>>();
 
             let t = subtree_count - 3;
             let base_ind = ll + t * leaves_per_subtree;
@@ -876,19 +811,21 @@ pub trait KVQMerkleTreeModelCore<
             let mut node_updates = Vec::with_capacity(new_leaves.len());
 
             for (i, l) in new_leaves.iter().enumerate() {
-                node_updates.push(
-                    KVQPair {
-                        key: first_empty_leaf_key.at_index((bb1 + i) as u64),
-                        value: *l,
-                    }
-                );
+                node_updates.push(KVQPair {
+                    key: first_empty_leaf_key.at_index((bb1 + i) as u64),
+                    value: *l,
+                });
             }
 
             Self::set_nodes(store, &node_updates)?;
 
             start_indexes.push(base_ind);
             results.push(SpidermanUpdateProof {
-                top_line_proof: Self::rehash_sub_tree_dmp(store, tree_height, &first_empty_leaf_key.at_index(bb1 as u64).n_th_ancestor(sub_tree_height))?,
+                top_line_proof: Self::rehash_sub_tree_dmp(
+                    store,
+                    tree_height,
+                    &first_empty_leaf_key.at_index(bb1 as u64).n_th_ancestor(sub_tree_height),
+                )?,
                 web_proof_old_leaves: old_leaves,
                 web_proof_new_leaves: new_leaves,
             });
@@ -897,9 +834,7 @@ pub trait KVQMerkleTreeModelCore<
         }
 
         if subtree_count > 1 {
-            let old_leaves = (0..leaves_per_subtree)
-                .map(|_| zero_hash)
-                .collect::<Vec<_>>();
+            let old_leaves = (0..leaves_per_subtree).map(|_| zero_hash).collect::<Vec<_>>();
 
             let mut new_leaves = Vec::with_capacity(leaves_per_subtree);
             new_leaves.extend_from_slice(&leaves[leaves_used..]);
@@ -932,11 +867,7 @@ pub trait KVQMerkleTreeModelCore<
         Ok((start_indexes, results))
     }
 
-    fn rehash_sub_tree(
-        store: &S,
-        tree_height: usize,
-        sub_root_key: &KVQMerkleNodeKey<TABLE_TYPE>,
-    ) -> anyhow::Result<()> {
+    fn rehash_sub_tree(store: &S, tree_height: usize, sub_root_key: &KVQMerkleNodeKey<TABLE_TYPE>) -> anyhow::Result<()> {
         let sub_tree_height = tree_height - (sub_root_key.level as usize);
 
         if sub_tree_height == 0 {
@@ -960,11 +891,11 @@ pub trait KVQMerkleTreeModelCore<
         let mut nodes_at_current_level = 1usize << (sub_tree_height - 1);
 
         let mut child_values = Vec::with_capacity(nodes_at_current_level);
-        let mut child_keys = Vec::with_capacity(nodes_at_current_level*2);
-        let mut node_updates = Vec::with_capacity((1usize<<sub_tree_height)-1);
+        let mut child_keys = Vec::with_capacity(nodes_at_current_level * 2);
+        let mut node_updates = Vec::with_capacity((1usize << sub_tree_height) - 1);
 
         for i in 0..(nodes_at_current_level as u64) {
-            let left_key = child_base_key.at_index(i*2+child_base_key.index);
+            let left_key = child_base_key.at_index(i * 2 + child_base_key.index);
             child_keys.push(left_key);
             child_keys.push(left_key.sibling());
         }
@@ -975,14 +906,12 @@ pub trait KVQMerkleTreeModelCore<
                 Hasher::two_to_one(&x[0], &x[1])
             };
 
-            let parent_key = child_base_key.at_index((i as u64)*2+child_base_key.index).parent();
+            let parent_key = child_base_key.at_index((i as u64) * 2 + child_base_key.index).parent();
 
-            node_updates.push(
-                KVQPair{
-                    key: parent_key,
-                    value: parent_value,
-                }
-            );
+            node_updates.push(KVQPair {
+                key: parent_key,
+                value: parent_value,
+            });
             child_values.push(parent_value);
         }
 
@@ -999,7 +928,10 @@ pub trait KVQMerkleTreeModelCore<
                 } else {
                     Hasher::two_to_one(&child_values[i * 2], &child_values[i * 2 + 1])
                 };
-                node_updates.push(KVQPair { key: parent_key, value: parent_value });
+                node_updates.push(KVQPair {
+                    key: parent_key,
+                    value: parent_value,
+                });
 
                 parent_values.push(parent_value);
             }
@@ -1015,37 +947,35 @@ pub trait KVQMerkleTreeModelCore<
         Ok(())
     }
 
-    fn rehash_sub_tree_top(
-        store: &S,
-        tree_height: usize,
-        first_node_at_level: &KVQMerkleNodeKey<TABLE_TYPE>,
-    ) -> anyhow::Result<()> {
+    fn rehash_sub_tree_top(store: &S, tree_height: usize, first_node_at_level: &KVQMerkleNodeKey<TABLE_TYPE>) -> anyhow::Result<()> {
         if first_node_at_level.level == 0 {
             return Ok(());
         }
-        let current_leaf_keys_count = 1usize<<(first_node_at_level.level as usize);
-        let current_leaf_keys = (0..current_leaf_keys_count).map(|x| {
-            first_node_at_level.at_index(x as u64)
-        }).collect::<Vec<_>>();
+        let current_leaf_keys_count = 1usize << (first_node_at_level.level as usize);
+        let current_leaf_keys = (0..current_leaf_keys_count)
+            .map(|x| first_node_at_level.at_index(x as u64))
+            .collect::<Vec<_>>();
 
-        let mut updates: Vec<KVQPair<KVQMerkleNodeKey<TABLE_TYPE>, Hash>> = Vec::with_capacity(current_leaf_keys_count-1);
+        let mut updates: Vec<KVQPair<KVQMerkleNodeKey<TABLE_TYPE>, Hash>> = Vec::with_capacity(current_leaf_keys_count - 1);
 
         let mut current_leaves = Self::get_nodes(store, tree_height, &current_leaf_keys)?;
 
         let mut child_level = first_node_at_level.level;
         while child_level > 0 {
-            let new_leaf_keys_count = 1usize<<(child_level as usize - 1);
+            let new_leaf_keys_count = 1usize << (child_level as usize - 1);
             let mut new_leaves = Vec::with_capacity(new_leaf_keys_count);
 
             for i in 0..new_leaf_keys_count {
                 let value = if MARK_LEAVES && child_level == (tree_height as u8) {
-                    Hasher::two_to_one_marked_leaf(&current_leaves[i*2], &current_leaves[i*2+1])
+                    Hasher::two_to_one_marked_leaf(&current_leaves[i * 2], &current_leaves[i * 2 + 1])
                 } else {
-                    Hasher::two_to_one(&current_leaves[i*2], &current_leaves[i*2+1])
+                    Hasher::two_to_one(&current_leaves[i * 2], &current_leaves[i * 2 + 1])
                 };
                 new_leaves.push(value);
                 updates.push(KVQPair {
-                    key: first_node_at_level.n_th_ancestor(first_node_at_level.level - child_level + 1).at_index(i as u64),
+                    key: first_node_at_level
+                        .n_th_ancestor(first_node_at_level.level - child_level + 1)
+                        .at_index(i as u64),
                     value,
                 });
             }
@@ -1057,11 +987,7 @@ pub trait KVQMerkleTreeModelCore<
         Ok(())
     }
 
-    fn rehash_sub_tree_dmp(
-        store: &S,
-        tree_height: usize,
-        sub_root_key: &KVQMerkleNodeKey<TABLE_TYPE>,
-    ) -> anyhow::Result<DeltaMerkleProofCore<Hash>> {
+    fn rehash_sub_tree_dmp(store: &S, tree_height: usize, sub_root_key: &KVQMerkleNodeKey<TABLE_TYPE>) -> anyhow::Result<DeltaMerkleProofCore<Hash>> {
         let old_sub_tree_root = Self::get_node(store, tree_height, sub_root_key)?;
         let old_tree_root = Self::get_node(store, tree_height, &sub_root_key.root())?;
 
@@ -1090,12 +1016,15 @@ pub trait KVQMerkleTreeModelCore<
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use kvq::{memory::simple::KVQSimpleMemoryBackingStore, traits::KVQPair};
     use plonky2::field::goldilocks_field::GoldilocksField;
     use psy_core::{config::network_constants::GLOBAL_USER_TREE_HEIGHT, data::qhashout::QHashOut};
-    use crate::config::store_config::{UserTreeStore, QEDHasher};
-    use crate::models::kvq_merkle::key::KVQMerkleNodeKey;
+
+    use super::*;
+    use crate::{
+        config::store_config::{QEDHasher, UserTreeStore},
+        models::kvq_merkle::key::KVQMerkleNodeKey,
+    };
 
     type F = GoldilocksField;
     type Hash = QHashOut<F>;
@@ -1243,16 +1172,10 @@ mod tests {
 
         println!("Testing recursive smart_injest_nca with nodes: 10, 26, 76, 140");
         for (i, node) in nodes.iter().enumerate() {
-            println!("Node {}: index={}, level={}, value={}",
-                    i, node.key.index, node.key.level, node.value);
+            println!("Node {}: index={}, level={}, value={}", i, node.key.index, node.key.level, node.value);
         }
 
-        let result = UserTreeStore::<KVQSimpleMemoryBackingStore>::smart_injest_nca(
-            &mut store,
-            tree_height,
-            root_level,
-            nodes.clone()
-        );
+        let result = UserTreeStore::<KVQSimpleMemoryBackingStore>::smart_injest_nca(&mut store, tree_height, root_level, nodes.clone());
 
         match result {
             Ok(nca_result) => {
@@ -1260,7 +1183,10 @@ mod tests {
                 println!("Number of NCA proofs: {}", nca_result.nca_proofs.len());
                 println!("Dependencies: {:?}", nca_result.dependencies);
                 println!("Root proof index: {}", nca_result.root_proof_index);
-                println!("NCA level: {}, index: {}", nca_result.nearest_common_ancestor_level, nca_result.nearest_common_ancestor_index);
+                println!(
+                    "NCA level: {}, index: {}",
+                    nca_result.nearest_common_ancestor_level, nca_result.nearest_common_ancestor_index
+                );
 
                 let mut all_valid = true;
                 for (i, proof) in nca_result.nca_proofs.iter().enumerate() {
@@ -1270,8 +1196,15 @@ mod tests {
 
                     println!("\nProof {}: valid={}, solo_mask={}", i, is_valid, is_solo);
                     println!("  Level A: {}, Level B: {}", proof.level_a, proof.level_b);
-                    println!("  NCA Level: {}, Index: {}", proof.nearest_common_ancestor_level, proof.nearest_common_ancestor_index);
-                    println!("  Child A siblings: {}, Child B siblings: {}", proof.child_a.siblings.len(), proof.child_b.siblings.len());
+                    println!(
+                        "  NCA Level: {}, Index: {}",
+                        proof.nearest_common_ancestor_level, proof.nearest_common_ancestor_index
+                    );
+                    println!(
+                        "  Child A siblings: {}, Child B siblings: {}",
+                        proof.child_a.siblings.len(),
+                        proof.child_b.siblings.len()
+                    );
                 }
 
                 println!("\n=== Dependency Analysis ===");
@@ -1287,7 +1220,7 @@ mod tests {
                 for i in 0..leaf_pairs_count {
                     if let Some(dep) = nca_result.dependencies.get(i) {
                         if *dep == (-1, -1) {
-                            println!("✅ Proof {} maps to nodes[{}] + nodes[{}]", i, i*2, i*2+1);
+                            println!("✅ Proof {} maps to nodes[{}] + nodes[{}]", i, i * 2, i * 2 + 1);
                         }
                     }
                 }
@@ -1312,16 +1245,10 @@ mod tests {
 
         println!("Testing recursive smart_injest_nca with large indices: 1076736, 1080832, 1082880, 1089024, 1093120, 1096704, 1121280");
         for (i, node) in nodes.iter().enumerate() {
-            println!("Node {}: index={}, level={}, value={}",
-                    i, node.key.index, node.key.level, node.value);
+            println!("Node {}: index={}, level={}, value={}", i, node.key.index, node.key.level, node.value);
         }
 
-        let result = UserTreeStore::<KVQSimpleMemoryBackingStore>::smart_injest_nca(
-            &mut store,
-            tree_height,
-            root_level,
-            nodes.clone()
-        );
+        let result = UserTreeStore::<KVQSimpleMemoryBackingStore>::smart_injest_nca(&mut store, tree_height, root_level, nodes.clone());
 
         match result {
             Ok(nca_result) => {
@@ -1329,7 +1256,10 @@ mod tests {
                 println!("Number of NCA proofs: {}", nca_result.nca_proofs.len());
                 println!("Dependencies: {:?}", nca_result.dependencies);
                 println!("Root proof index: {}", nca_result.root_proof_index);
-                println!("NCA level: {}, index: {}", nca_result.nearest_common_ancestor_level, nca_result.nearest_common_ancestor_index);
+                println!(
+                    "NCA level: {}, index: {}",
+                    nca_result.nearest_common_ancestor_level, nca_result.nearest_common_ancestor_index
+                );
 
                 let mut all_valid = true;
                 for (i, proof) in nca_result.nca_proofs.iter().enumerate() {
@@ -1339,7 +1269,10 @@ mod tests {
 
                     println!("\nProof {}: valid={}, solo_mask={}", i, is_valid, is_solo);
                     println!("  Level A: {}, Level B: {}", proof.level_a, proof.level_b);
-                    println!("  NCA Level: {}, Index: {}", proof.nearest_common_ancestor_level, proof.nearest_common_ancestor_index);
+                    println!(
+                        "  NCA Level: {}, Index: {}",
+                        proof.nearest_common_ancestor_level, proof.nearest_common_ancestor_index
+                    );
                 }
 
                 println!("\n=== Tree Structure Comparison ===");
@@ -1393,19 +1326,16 @@ mod tests {
         println!("Node 1: level={}, index={}", ancestor_nodes[0].key.level, ancestor_nodes[0].key.index);
         println!("Node 2: level={}, index={}", ancestor_nodes[1].key.level, ancestor_nodes[1].key.index);
 
-        let result = UserTreeStore::<KVQSimpleMemoryBackingStore>::smart_injest_nca(
-            &mut store,
-            tree_height,
-            0,
-            ancestor_nodes
-        );
+        let result = UserTreeStore::<KVQSimpleMemoryBackingStore>::smart_injest_nca(&mut store, tree_height, 0, ancestor_nodes);
 
         match result {
             Ok(_) => {
                 println!("✅ Recursive algorithm handled ancestor relationship");
             }
-            Err(e) if e.to_string().contains("cannot update two keys on the same path") ||
-                      e.to_string().contains("Recursive depth exceeded tree height") => {
+            Err(e)
+                if e.to_string().contains("cannot update two keys on the same path")
+                    || e.to_string().contains("Recursive depth exceeded tree height") =>
+            {
                 println!("✅ Recursive algorithm correctly rejected ancestor relationship");
                 println!("Expected error: {}", e);
             }
@@ -1428,24 +1358,30 @@ mod tests {
         let left_only_nodes = vec![
             KVQPair {
                 key: KVQMerkleNodeKey {
-                    tree_id: 1, primary_id: 0, secondary_id: 0,
-                    level: GLOBAL_USER_TREE_HEIGHT, index: 1, checkpoint_id,
+                    tree_id: 1,
+                    primary_id: 0,
+                    secondary_id: 0,
+                    level: GLOBAL_USER_TREE_HEIGHT,
+                    index: 1,
+                    checkpoint_id,
                 },
                 value: QHashOut::from_string_or_panic("0c6485d3dd86a321c647b8bd679d1bb1aaf8e73ac375a9656141b1333dc452b6"),
             },
             KVQPair {
                 key: KVQMerkleNodeKey {
-                    tree_id: 1, primary_id: 0, secondary_id: 0,
-                    level: GLOBAL_USER_TREE_HEIGHT, index: 3, checkpoint_id,
+                    tree_id: 1,
+                    primary_id: 0,
+                    secondary_id: 0,
+                    level: GLOBAL_USER_TREE_HEIGHT,
+                    index: 3,
+                    checkpoint_id,
                 },
                 value: QHashOut::from_string_or_panic("4d4b7c5b98f8fadaa15b0e11cc8d8aaac00bd98e5eade0de3d5d15f875fa8881"),
             },
         ];
 
         println!("Test 1: All nodes in left subtree");
-        let result1 = UserTreeStore::<KVQSimpleMemoryBackingStore>::smart_injest_nca(
-            &mut store, tree_height, 0, left_only_nodes
-        );
+        let result1 = UserTreeStore::<KVQSimpleMemoryBackingStore>::smart_injest_nca(&mut store, tree_height, 0, left_only_nodes);
 
         match result1 {
             Ok(_) => println!("✅ Handled all-left-subtree case successfully"),
@@ -1460,24 +1396,30 @@ mod tests {
         let right_only_nodes = vec![
             KVQPair {
                 key: KVQMerkleNodeKey {
-                    tree_id: 1, primary_id: 0, secondary_id: 0,
-                    level: GLOBAL_USER_TREE_HEIGHT, index: half_tree_size + 1, checkpoint_id,
+                    tree_id: 1,
+                    primary_id: 0,
+                    secondary_id: 0,
+                    level: GLOBAL_USER_TREE_HEIGHT,
+                    index: half_tree_size + 1,
+                    checkpoint_id,
                 },
                 value: QHashOut::from_string_or_panic("0c6485d3dd86a321c647b8bd679d1bb1aaf8e73ac375a9656141b1333dc452b6"),
             },
             KVQPair {
                 key: KVQMerkleNodeKey {
-                    tree_id: 1, primary_id: 0, secondary_id: 0,
-                    level: GLOBAL_USER_TREE_HEIGHT, index: half_tree_size + 3, checkpoint_id,
+                    tree_id: 1,
+                    primary_id: 0,
+                    secondary_id: 0,
+                    level: GLOBAL_USER_TREE_HEIGHT,
+                    index: half_tree_size + 3,
+                    checkpoint_id,
                 },
                 value: QHashOut::from_string_or_panic("4d4b7c5b98f8fadaa15b0e11cc8d8aaac00bd98e5eade0de3d5d15f875fa8881"),
             },
         ];
 
         println!("Test 2: All nodes in right subtree");
-        let result2 = UserTreeStore::<KVQSimpleMemoryBackingStore>::smart_injest_nca(
-            &mut store, tree_height, 0, right_only_nodes
-        );
+        let result2 = UserTreeStore::<KVQSimpleMemoryBackingStore>::smart_injest_nca(&mut store, tree_height, 0, right_only_nodes);
 
         match result2 {
             Ok(_) => println!("✅ Handled all-right-subtree case successfully"),
@@ -1491,24 +1433,30 @@ mod tests {
         let mixed_nodes = vec![
             KVQPair {
                 key: KVQMerkleNodeKey {
-                    tree_id: 1, primary_id: 0, secondary_id: 0,
-                    level: GLOBAL_USER_TREE_HEIGHT, index: 10, checkpoint_id,
+                    tree_id: 1,
+                    primary_id: 0,
+                    secondary_id: 0,
+                    level: GLOBAL_USER_TREE_HEIGHT,
+                    index: 10,
+                    checkpoint_id,
                 },
                 value: QHashOut::from_string_or_panic("0c6485d3dd86a321c647b8bd679d1bb1aaf8e73ac375a9656141b1333dc452b6"),
             },
             KVQPair {
                 key: KVQMerkleNodeKey {
-                    tree_id: 1, primary_id: 0, secondary_id: 0,
-                    level: GLOBAL_USER_TREE_HEIGHT, index: half_tree_size + 10, checkpoint_id,
+                    tree_id: 1,
+                    primary_id: 0,
+                    secondary_id: 0,
+                    level: GLOBAL_USER_TREE_HEIGHT,
+                    index: half_tree_size + 10,
+                    checkpoint_id,
                 },
                 value: QHashOut::from_string_or_panic("4d4b7c5b98f8fadaa15b0e11cc8d8aaac00bd98e5eade0de3d5d15f875fa8881"),
             },
         ];
 
         println!("Test 3: Mixed distribution (left and right)");
-        let result3 = UserTreeStore::<KVQSimpleMemoryBackingStore>::smart_injest_nca(
-            &mut store, tree_height, 0, mixed_nodes
-        );
+        let result3 = UserTreeStore::<KVQSimpleMemoryBackingStore>::smart_injest_nca(&mut store, tree_height, 0, mixed_nodes);
 
         match result3 {
             Ok(_) => println!("✅ Handled mixed distribution case successfully"),
@@ -1519,20 +1467,20 @@ mod tests {
         }
 
         // Test 4: Single node (degenerate case)
-        let single_node = vec![
-            KVQPair {
-                key: KVQMerkleNodeKey {
-                    tree_id: 1, primary_id: 0, secondary_id: 0,
-                    level: GLOBAL_USER_TREE_HEIGHT, index: 42, checkpoint_id,
-                },
-                value: QHashOut::from_string_or_panic("0c6485d3dd86a321c647b8bd679d1bb1aaf8e73ac375a9656141b1333dc452b6"),
+        let single_node = vec![KVQPair {
+            key: KVQMerkleNodeKey {
+                tree_id: 1,
+                primary_id: 0,
+                secondary_id: 0,
+                level: GLOBAL_USER_TREE_HEIGHT,
+                index: 42,
+                checkpoint_id,
             },
-        ];
+            value: QHashOut::from_string_or_panic("0c6485d3dd86a321c647b8bd679d1bb1aaf8e73ac375a9656141b1333dc452b6"),
+        }];
 
         println!("Test 4: Single node");
-        let result4 = UserTreeStore::<KVQSimpleMemoryBackingStore>::smart_injest_nca(
-            &mut store, tree_height, 0, single_node
-        );
+        let result4 = UserTreeStore::<KVQSimpleMemoryBackingStore>::smart_injest_nca(&mut store, tree_height, 0, single_node);
 
         match result4 {
             Ok(_) => println!("✅ Handled single node case successfully"),
@@ -1543,24 +1491,30 @@ mod tests {
         let boundary_nodes = vec![
             KVQPair {
                 key: KVQMerkleNodeKey {
-                    tree_id: 1, primary_id: 0, secondary_id: 0,
-                    level: GLOBAL_USER_TREE_HEIGHT, index: half_tree_size - 1, checkpoint_id,
+                    tree_id: 1,
+                    primary_id: 0,
+                    secondary_id: 0,
+                    level: GLOBAL_USER_TREE_HEIGHT,
+                    index: half_tree_size - 1,
+                    checkpoint_id,
                 },
                 value: QHashOut::from_string_or_panic("0c6485d3dd86a321c647b8bd679d1bb1aaf8e73ac375a9656141b1333dc452b6"),
             },
             KVQPair {
                 key: KVQMerkleNodeKey {
-                    tree_id: 1, primary_id: 0, secondary_id: 0,
-                    level: GLOBAL_USER_TREE_HEIGHT, index: half_tree_size, checkpoint_id,
+                    tree_id: 1,
+                    primary_id: 0,
+                    secondary_id: 0,
+                    level: GLOBAL_USER_TREE_HEIGHT,
+                    index: half_tree_size,
+                    checkpoint_id,
                 },
                 value: QHashOut::from_string_or_panic("4d4b7c5b98f8fadaa15b0e11cc8d8aaac00bd98e5eade0de3d5d15f875fa8881"),
             },
         ];
 
         println!("Test 5: Boundary case (last left, first right)");
-        let result5 = UserTreeStore::<KVQSimpleMemoryBackingStore>::smart_injest_nca(
-            &mut store, tree_height, 0, boundary_nodes
-        );
+        let result5 = UserTreeStore::<KVQSimpleMemoryBackingStore>::smart_injest_nca(&mut store, tree_height, 0, boundary_nodes);
 
         match result5 {
             Ok(_) => println!("✅ Handled boundary case successfully"),
@@ -1589,30 +1543,40 @@ mod tests {
         let duplicate_nodes = vec![
             KVQPair {
                 key: KVQMerkleNodeKey {
-                    tree_id: 1, primary_id: 0, secondary_id: 0,
-                    level: GLOBAL_USER_TREE_HEIGHT, index: 10, checkpoint_id,
+                    tree_id: 1,
+                    primary_id: 0,
+                    secondary_id: 0,
+                    level: GLOBAL_USER_TREE_HEIGHT,
+                    index: 10,
+                    checkpoint_id,
                 },
                 value: QHashOut::from_string_or_panic("0c6485d3dd86a321c647b8bd679d1bb1aaf8e73ac375a9656141b1333dc452b6"),
             },
             KVQPair {
                 key: KVQMerkleNodeKey {
-                    tree_id: 1, primary_id: 0, secondary_id: 0,
-                    level: GLOBAL_USER_TREE_HEIGHT, index: 10, checkpoint_id,
+                    tree_id: 1,
+                    primary_id: 0,
+                    secondary_id: 0,
+                    level: GLOBAL_USER_TREE_HEIGHT,
+                    index: 10,
+                    checkpoint_id,
                 },
                 value: QHashOut::from_string_or_panic("4d4b7c5b98f8fadaa15b0e11cc8d8aaac00bd98e5eade0de3d5d15f875fa8881"),
             },
             KVQPair {
                 key: KVQMerkleNodeKey {
-                    tree_id: 1, primary_id: 0, secondary_id: 0,
-                    level: GLOBAL_USER_TREE_HEIGHT, index: 26, checkpoint_id,
+                    tree_id: 1,
+                    primary_id: 0,
+                    secondary_id: 0,
+                    level: GLOBAL_USER_TREE_HEIGHT,
+                    index: 26,
+                    checkpoint_id,
                 },
                 value: QHashOut::from_string_or_panic("1234567890123456789012345678901234567890123456789012345678901234"),
             },
         ];
 
-        let result = UserTreeStore::<KVQSimpleMemoryBackingStore>::smart_injest_nca(
-            &mut store, tree_height, 0, duplicate_nodes
-        );
+        let result = UserTreeStore::<KVQSimpleMemoryBackingStore>::smart_injest_nca(&mut store, tree_height, 0, duplicate_nodes);
 
         match result {
             Ok(_) => {

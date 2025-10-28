@@ -1,12 +1,17 @@
 use kvq::traits::KVQSerializable;
 use plonky2::hash::hash_types::RichField;
 use psy_core::data::qhashout::QHashOut;
-use psy_crypto::hash::merkle::{core::{DeltaMerkleProofCore, MerkleProofCore}, treeprover::{AggStateTrackableInput, AggStateTransition}};
+use psy_crypto::hash::merkle::{
+    core::{DeltaMerkleProofCore, MerkleProofCore},
+    treeprover::{AggStateTrackableInput, AggStateTransition},
+};
 use serde::{Deserialize, Serialize};
 
-use crate::qdata::{checkpoint::{QEDCheckpointGlobalStateRoots, QEDCheckpointLeaf}, contract::QEDContractLeaf, user::QEDUserLeaf};
-
-
+use crate::qdata::{
+    checkpoint::{QEDCheckpointGlobalStateRoots, QEDCheckpointLeaf},
+    contract::QEDContractLeaf,
+    user::QEDUserLeaf,
+};
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Hash)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
@@ -34,9 +39,6 @@ impl<F: RichField> KVQSerializable for QEDUserRegistrationCircuitInput<F> {
     }
 }
 
-
-
-
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Hash)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
 pub struct QEDDeployContractCircuitInput<F: RichField> {
@@ -63,13 +65,9 @@ impl<F: RichField> KVQSerializable for QEDDeployContractCircuitInput<F> {
     }
 }
 
-
-
-
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Hash)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
 pub struct QEDCheckpointStateTransitionCircuitInput<F: RichField> {
-
     pub old_state_roots: QEDCheckpointGlobalStateRoots<F>,
     pub old_checkpoint_leaf: QEDCheckpointLeaf<F>,
 
@@ -78,9 +76,7 @@ pub struct QEDCheckpointStateTransitionCircuitInput<F: RichField> {
 
     pub boundry_user_registration_merkle_proof: MerkleProofCore<QHashOut<F>>,
     pub boundry_user_update_merkle_proof: MerkleProofCore<QHashOut<F>>,
-    
-    
-    
+
     pub checkpoint_delta_merkle_proof: DeltaMerkleProofCore<QHashOut<F>>,
 }
 impl<F: RichField> AggStateTrackableInput<F> for QEDCheckpointStateTransitionCircuitInput<F> {
@@ -101,8 +97,6 @@ impl<F: RichField> KVQSerializable for QEDCheckpointStateTransitionCircuitInput<
         bincode::deserialize(bytes).map_err(Into::into)
     }
 }
-
-
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Hash)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]

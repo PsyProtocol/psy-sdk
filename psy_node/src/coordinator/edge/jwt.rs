@@ -64,12 +64,7 @@ impl<'de> Deserialize<'de> for JwtSecret {
             where
                 E: de::Error,
             {
-                JwtSecret::from_str(value).map_err(|err| {
-                    E::invalid_value(
-                        de::Unexpected::Str(value),
-                        &format!("invalid JWT. {err}").as_str(),
-                    )
-                })
+                JwtSecret::from_str(value).map_err(|err| E::invalid_value(de::Unexpected::Str(value), &format!("invalid JWT. {err}").as_str()))
             }
         }
 
@@ -103,10 +98,7 @@ impl JwtSecret {
 
     pub fn from_hex(s: impl AsRef<[u8]>) -> Result<Self> {
         let vec = hex::decode(s)?;
-        (&*vec)
-            .try_into()
-            .map(Self::new)
-            .map_err(|_| Error::DecodeJwtLength(vec.len()))
+        (&*vec).try_into().map(Self::new).map_err(|_| Error::DecodeJwtLength(vec.len()))
     }
 
     pub fn to_hex(&self) -> String {
@@ -139,10 +131,7 @@ where
 {
     type Response = S::Response;
     type Error = S::Error;
-    type Future = futures::future::Either<
-        S::Future,
-        futures::future::Ready<Result<Self::Response, Self::Error>>,
-    >;
+    type Future = futures::future::Either<S::Future, futures::future::Ready<Result<Self::Response, Self::Error>>>;
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> std::task::Poll<Result<(), Self::Error>> {
         self.inner.poll_ready(cx)
@@ -154,16 +143,11 @@ where
         if let Some(Ok(auth_str)) = req.headers().get(AUTHORIZATION).map(|v| v.to_str()) {
             // tracing::info!("🔐 Authorization: {auth_str:?}");
 
-            if let Some(token) = auth_str
-                .strip_prefix("Bearer ")
-                .or_else(|| auth_str.strip_prefix("bearer "))
-            {
+            if let Some(token) = auth_str.strip_prefix("Bearer ").or_else(|| auth_str.strip_prefix("bearer ")) {
                 let token = token.trim();
                 tracing::info!("🔐 Passing raw token to extensions");
 
-                let jwt_metadata = JwtAuthMetadata {
-                    token: token.to_string(),
-                };
+                let jwt_metadata = JwtAuthMetadata { token: token.to_string() };
                 req.extensions_mut().insert(jwt_metadata);
             } else {
                 tracing::warn!("⚠️ Authorization header not Bearer format");

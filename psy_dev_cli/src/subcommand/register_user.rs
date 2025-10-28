@@ -10,12 +10,11 @@ use psy_crypto::{
     signature::zk::{data::ZKPublicKeyInfo, wallet::SimpleQEDPrivateKey},
 };
 use psy_data::config::store_config::QEDHasher;
-use serde::{Deserialize, Serialize};
-
 use psy_prover::local::{
     provider::{QUserRpcProvider, RpcProvider},
     request::QRegisterUserRPCRequest,
 };
+use serde::{Deserialize, Serialize};
 
 const D: usize = 2;
 type C = PoseidonGoldilocksConfig;
@@ -32,16 +31,13 @@ pub async fn run(args: super::RegisterUserArgs) -> anyhow::Result<()> {
         anyhow::bail!("you must provide --private-key");
     }
 
-    let private_key = QHashOut::<GoldilocksField>::from_str(&args.private_key)
-        .map_err(|e| anyhow::format_err!("{}", e.to_string()))?;
+    let private_key = QHashOut::<GoldilocksField>::from_str(&args.private_key).map_err(|e| anyhow::format_err!("{}", e.to_string()))?;
     let mut wallet = SimpleQEDZKSignatureManager::<C, D>::new();
     let public_key = wallet.add_private_key_get_info(SimpleQEDPrivateKey::new(private_key));
 
     println!("{}", serde_json::to_string_pretty(&public_key)?);
     println!("{:?}", public_key.qfhash::<QEDHasher>().to_string());
-    provider.register_user(QRegisterUserRPCRequest {
-        public_key: public_key,
-    }).await?;
+    provider.register_user(QRegisterUserRPCRequest { public_key: public_key }).await?;
 
     println!("{}", serde_json::to_string_pretty(&public_key).unwrap());
 
@@ -57,14 +53,9 @@ pub async fn run_random(args: super::RandomArgs) -> anyhow::Result<()> {
         let private_key = QHashOut::<GoldilocksField>::rand();
         let public_key = wallet.add_private_key_get_info(SimpleQEDPrivateKey::new(private_key));
 
-        provider.register_user(QRegisterUserRPCRequest {
-            public_key: public_key,
-        }).await?;
+        provider.register_user(QRegisterUserRPCRequest { public_key: public_key }).await?;
 
-        let keypair = KeyPair {
-            public_key,
-            private_key,
-        };
+        let keypair = KeyPair { public_key, private_key };
 
         tracing::info!("user {}: {}", i, serde_json::to_string_pretty(&keypair)?,);
         #[cfg(not(target_arch = "wasm32"))]

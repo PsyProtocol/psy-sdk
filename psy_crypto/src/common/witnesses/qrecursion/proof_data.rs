@@ -1,13 +1,18 @@
-use plonky2::{hash::hash_types::RichField, plonk::{circuit_data::VerifierOnlyCircuitData, config::GenericConfig, proof::ProofWithPublicInputs}};
+use plonky2::{
+    hash::hash_types::RichField,
+    plonk::{circuit_data::VerifierOnlyCircuitData, config::GenericConfig, proof::ProofWithPublicInputs},
+};
 use psy_core::{data::qhashout::QHashOut, ups::circuits::LocalCircuitId};
-use crate::{common::witnesses::qrecursion::header::QRecursionAggStandardHeader, hash::merkle::core::{DeltaMerkleProofCore, MerkleProofCore}};
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use ts_rs::TS;
 
-#[derive(
-    Serialize_repr, Deserialize_repr, PartialEq, Debug, Clone, Copy, Eq, Hash, PartialOrd, Ord, TS
-)]
+use crate::{
+    common::witnesses::qrecursion::header::QRecursionAggStandardHeader,
+    hash::merkle::core::{DeltaMerkleProofCore, MerkleProofCore},
+};
+
+#[derive(Serialize_repr, Deserialize_repr, PartialEq, Debug, Clone, Copy, Eq, Hash, PartialOrd, Ord, TS)]
 #[repr(u8)]
 pub enum QStandardBinaryTreeCircuitType {
     None = 0,
@@ -41,10 +46,7 @@ pub struct SimpleQTreeRecursionManagerInclusionProofs<F: RichField> {
     pub circuit_whitelist_tree_root: QHashOut<F>,
 }
 impl<F: RichField> SimpleQTreeRecursionManagerInclusionProofs<F> {
-    pub fn get_inclusion_proof_for_type(
-        &self,
-        circuit_type: QStandardBinaryTreeCircuitType,
-    ) -> &MerkleProofCore<QHashOut<F>> {
+    pub fn get_inclusion_proof_for_type(&self, circuit_type: QStandardBinaryTreeCircuitType) -> &MerkleProofCore<QHashOut<F>> {
         match circuit_type {
             QStandardBinaryTreeCircuitType::None => {
                 panic!("tried to get an inclusion proof for circuit type 'None'")
@@ -52,12 +54,8 @@ impl<F: RichField> SimpleQTreeRecursionManagerInclusionProofs<F> {
             QStandardBinaryTreeCircuitType::SingleLeaf => &self.single_leaf_circuit_merkle_proof,
             QStandardBinaryTreeCircuitType::TwoLeaf => &self.two_leaf_circuit_merkle_proof,
             QStandardBinaryTreeCircuitType::TwoAgg => &self.two_agg_circuit_merkle_proof,
-            QStandardBinaryTreeCircuitType::LeftLeafRightAgg => {
-                &self.left_leaf_right_agg_circuit_merkle_proof
-            }
-            QStandardBinaryTreeCircuitType::LeftAggRightLeaf => {
-                &self.left_agg_right_leaf_circuit_merkle_proof
-            }
+            QStandardBinaryTreeCircuitType::LeftLeafRightAgg => &self.left_leaf_right_agg_circuit_merkle_proof,
+            QStandardBinaryTreeCircuitType::LeftAggRightLeaf => &self.left_agg_right_leaf_circuit_merkle_proof,
 
             QStandardBinaryTreeCircuitType::Root => {
                 panic!("tried to get an inclusion proof for circuit type 'Root'")
@@ -76,7 +74,6 @@ pub struct TreeAwareTreeProofRecordWithWitness<F: RichField, W: Serialize + Clon
     pub proof_tree_index: u64,
     pub witness: W,
 }
-
 
 #[derive(Clone, Debug, Copy, Serialize, Deserialize, Default)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
@@ -114,7 +111,6 @@ pub struct LeafProofRecord<C: GenericConfig<D>, const D: usize> {
     pub verifier_data: VerifierOnlyCircuitData<C, D>,
 }
 
-
 #[derive(Serialize, Clone, Debug, Eq, PartialEq)]
 pub struct InputLeafProof<C: GenericConfig<D>, const D: usize> {
     pub leaf_circuit_type: u64,
@@ -122,4 +118,3 @@ pub struct InputLeafProof<C: GenericConfig<D>, const D: usize> {
     pub proof: ProofWithPublicInputs<C::F, C, D>,
     pub verifier_data: VerifierOnlyCircuitData<C, D>,
 }
-

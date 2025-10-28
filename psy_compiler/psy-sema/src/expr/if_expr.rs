@@ -1,5 +1,6 @@
-use crate::TypeId;
 use psy_ast::{ExprId, Location, NodeInfo, NodeType};
+
+use crate::TypeId;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct CheckedCase {
@@ -10,11 +11,7 @@ pub struct CheckedCase {
 
 impl CheckedCase {
     pub fn new(predicate: ExprId, type_id: TypeId, body: ExprId) -> Self {
-        Self {
-            predicate,
-            type_id,
-            body,
-        }
+        Self { predicate, type_id, body }
     }
 }
 

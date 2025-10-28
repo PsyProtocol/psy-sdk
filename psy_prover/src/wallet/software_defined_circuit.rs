@@ -1,3 +1,5 @@
+use std::fmt::Debug;
+
 use plonky2::{
     field::{goldilocks_field::GoldilocksField, types::Field},
     gates::gate::GateRef,
@@ -26,14 +28,11 @@ use psy_common_circuit::{
     u32::gates::comparison::ComparisonGate,
 };
 use psy_core::data::qhashout::QHashOut;
-use psy_crypto::{
-    hash::traits::hasher::MerkleZeroHasher, signature::zk::wallet::PRIVATE_KEY_CONSTANTS,
-};
+use psy_crypto::{hash::traits::hasher::MerkleZeroHasher, signature::zk::wallet::PRIVATE_KEY_CONSTANTS};
 use psy_exec::vm::cfc_input::DapenContractFunctionCircuitInput;
 use psy_vm::dpn::vm::def::DPNFunctionCircuitDefinition;
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
-use std::fmt::Debug;
 
 use crate::{
     dpn::vm::compile::QEDContractFunctionBuilderGadget,
@@ -50,19 +49,12 @@ pub trait SoftwareDefinedSignature<C: GenericConfig<D>, const D: usize> {
 
     fn get_circuit_builder_input(&self) -> Self::Input;
 
-    async fn set_signature_circuit_witness(
-        &mut self,
-        pw: &mut PartialWitness<C::F>,
-        input: &Self::WitnessInput,
-    ) -> anyhow::Result<()>;
+    async fn set_signature_circuit_witness(&mut self, pw: &mut PartialWitness<C::F>, input: &Self::WitnessInput) -> anyhow::Result<()>;
 }
 
 #[derive(Debug)]
-pub struct SoftwareDefinedSignatureCircuit<
-    C: GenericConfig<D>,
-    const D: usize,
-    S: SoftwareDefinedSignature<C, D>,
-> where
+pub struct SoftwareDefinedSignatureCircuit<C: GenericConfig<D>, const D: usize, S: SoftwareDefinedSignature<C, D>>
+where
     C::Hasher: AlgebraicHasher<C::F>,
 {
     pub private_key: HashOutTarget,
@@ -87,8 +79,7 @@ where
 
 #[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
 #[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
-impl<C: GenericConfig<D>, const D: usize, S: SoftwareDefinedSignature<C, D>>
-    SoftwareDefinedSignatureCircuit<C, D, S>
+impl<C: GenericConfig<D>, const D: usize, S: SoftwareDefinedSignature<C, D>> SoftwareDefinedSignatureCircuit<C, D, S>
 where
     C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>>,
 {
@@ -113,12 +104,8 @@ where
 
         let added_gates_for_minifier = [GateRef::new(ComparisonGate::new(32, 16))];
 
-        let minifier_chain = QEDProofMinifierChain::<D, C::F, C>::new_add_gates(
-            &circuit_data.verifier_only,
-            &circuit_data.common,
-            2,
-            Some(&added_gates_for_minifier),
-        );
+        let minifier_chain =
+            QEDProofMinifierChain::<D, C::F, C>::new_add_gates(&circuit_data.verifier_only, &circuit_data.common, 2, Some(&added_gates_for_minifier));
 
         Self {
             // input,
@@ -140,9 +127,7 @@ where
         pw.set_hash_target(self.private_key, private_key.0)?;
         pw.set_hash_target(self.sig_hash, sig_hash.0)?;
 
-        self.signature_gadget
-            .set_signature_circuit_witness(&mut pw, input)
-            .await?;
+        self.signature_gadget.set_signature_circuit_witness(&mut pw, input).await?;
 
         let inner_proof = self.circuit_data.prove(pw)?;
         let minified_proof = self.minifier_chain.prove(&inner_proof)?;
@@ -150,8 +135,7 @@ where
     }
 }
 
-impl<C: GenericConfig<D>, const D: usize, S: SoftwareDefinedSignature<C, D>> QStandardCircuit<C, D>
-    for SoftwareDefinedSignatureCircuit<C, D, S>
+impl<C: GenericConfig<D>, const D: usize, S: SoftwareDefinedSignature<C, D>> QStandardCircuit<C, D> for SoftwareDefinedSignatureCircuit<C, D, S>
 where
     C::Hasher: AlgebraicHasher<C::F>,
 {
@@ -232,25 +216,18 @@ impl SoftwareDefinedSignature<C, D> for QSoftwareDefinedSignatureGadget {
     type WitnessInput = QSoftwareDefinedSignatureWitnessInput;
     async fn add_signature_circuit(builder: &mut CircuitBuilder<GF, D>, input: &Self::Input) -> Self {
         let circuit_inputs = builder.add_virtual_targets(input.fn_def.circuit_inputs.len());
-        let fn_builder_gadget =
-            QEDContractFunctionBuilderGadget::add_virtual_to::<PoseidonHash, GF, D>(
-                builder,
-                &input.fn_def,
-                input.contract_state_tree_height as usize,
-                input.session_proof_tree_height as usize,
-                circuit_inputs.clone(),
-                input.force_four_align,
-            );
+        let fn_builder_gadget = QEDContractFunctionBuilderGadget::add_virtual_to::<PoseidonHash, GF, D>(
+            builder,
+            &input.fn_def,
+            input.contract_state_tree_height as usize,
+            input.session_proof_tree_height as usize,
+            circuit_inputs.clone(),
+            input.force_four_align,
+        );
 
         // enforce user contract state tree root is not change
-        let start_contract_state_tree_root = fn_builder_gadget
-            .tx_ctx_header
-            .transaction_call_start_ctx
-            .start_contract_state_tree_root;
-        let end_contract_state_tree_root = fn_builder_gadget
-            .tx_ctx_header
-            .transaction_end_ctx
-            .end_contract_state_tree_root;
+        let start_contract_state_tree_root = fn_builder_gadget.tx_ctx_header.transaction_call_start_ctx.start_contract_state_tree_root;
+        let end_contract_state_tree_root = fn_builder_gadget.tx_ctx_header.transaction_end_ctx.end_contract_state_tree_root;
         builder.connect_hashes(start_contract_state_tree_root, end_contract_state_tree_root);
         Self {
             fn_builder_gadget,
@@ -263,11 +240,7 @@ impl SoftwareDefinedSignature<C, D> for QSoftwareDefinedSignatureGadget {
         self.input.clone()
     }
 
-    async fn set_signature_circuit_witness(
-        &mut self,
-        pw: &mut PartialWitness<GF>,
-        witness_input: &Self::WitnessInput,
-    ) -> anyhow::Result<()> {
+    async fn set_signature_circuit_witness(&mut self, pw: &mut PartialWitness<GF>, witness_input: &Self::WitnessInput) -> anyhow::Result<()> {
         pw.set_target_arr(&self.circuit_inputs, &witness_input.cfc_input.inputs)?;
 
         pw.set_hash_target(
@@ -277,11 +250,9 @@ impl SoftwareDefinedSignature<C, D> for QSoftwareDefinedSignatureGadget {
         self.fn_builder_gadget
             .tx_ctx_header
             .set_witness(pw, &witness_input.cfc_input.tx_input_ctx)?;
-        self.fn_builder_gadget.state_reader.set_witness(
-            pw,
-            &witness_input.cfc_input,
-            &self.input.fn_def,
-        );
+        self.fn_builder_gadget
+            .state_reader
+            .set_witness(pw, &witness_input.cfc_input, &self.input.fn_def);
         Ok(())
     }
 }
@@ -298,13 +269,9 @@ pub struct PSoftwareDefinedSignatureGadget {
 impl SoftwareDefinedSignature<C, D> for PSoftwareDefinedSignatureGadget {
     type Input = PSoftwareDefinedSignatureInput;
     type WitnessInput = PSoftwareDefinedSignatureWitnessInput;
-    async fn add_signature_circuit(
-        builder: &mut CircuitBuilder<GF, D>,
-        input: &Self::Input,
-    ) -> Self {
+    async fn add_signature_circuit(builder: &mut CircuitBuilder<GF, D>, input: &Self::Input) -> Self {
         let circuit_inputs = builder.add_virtual_targets(input.input_len);
-        let mut state_reader_gadget =
-            StateReaderGadget::new(builder, input.contract_state_tree_height as u8);
+        let mut state_reader_gadget = StateReaderGadget::new(builder, input.contract_state_tree_height as u8);
         let mut sign_circuit = input.sign_circuit.clone();
         sign_circuit
             .as_mut()
@@ -323,11 +290,7 @@ impl SoftwareDefinedSignature<C, D> for PSoftwareDefinedSignatureGadget {
         self.input.clone()
     }
 
-    async fn set_signature_circuit_witness(
-        &mut self,
-        pw: &mut PartialWitness<GF>,
-        witness_input: &Self::WitnessInput,
-    ) -> anyhow::Result<()> {
+    async fn set_signature_circuit_witness(&mut self, pw: &mut PartialWitness<GF>, witness_input: &Self::WitnessInput) -> anyhow::Result<()> {
         pw.set_target_arr(&self.circuit_inputs, &witness_input.circuit_inputs)?;
 
         let mut state_reader = witness_input.state_reader.clone();
@@ -365,20 +328,12 @@ impl SoftwareDefinedSignature<C, D> for SoftwareDefinedSignatureGadget {
 
     fn get_circuit_builder_input(&self) -> Self::Input {
         match self {
-            Self::QED(gadget) => {
-                SoftwareDefinedSignatureInput::QED(gadget.get_circuit_builder_input())
-            }
-            Self::PLONKY2(gadget) => {
-                SoftwareDefinedSignatureInput::PLONKY2(gadget.get_circuit_builder_input())
-            }
+            Self::QED(gadget) => SoftwareDefinedSignatureInput::QED(gadget.get_circuit_builder_input()),
+            Self::PLONKY2(gadget) => SoftwareDefinedSignatureInput::PLONKY2(gadget.get_circuit_builder_input()),
         }
     }
 
-    async fn set_signature_circuit_witness(
-        &mut self,
-        pw: &mut PartialWitness<GF>,
-        input: &Self::WitnessInput,
-    ) -> anyhow::Result<()> {
+    async fn set_signature_circuit_witness(&mut self, pw: &mut PartialWitness<GF>, input: &Self::WitnessInput) -> anyhow::Result<()> {
         match (self, input) {
             (Self::QED(gadget), SoftwareDefinedSignatureWitnessInput::QED(input)) => {
                 gadget.set_signature_circuit_witness(pw, input).await?;
@@ -434,10 +389,7 @@ where
 }
 
 pub fn get_sdc_public_key_param<F: RichField>(private_key: &QHashOut<F>) -> QHashOut<F> {
-    let private_key_constants = PRIVATE_KEY_CONSTANTS
-        .iter()
-        .map(|c| F::from_canonical_u64(*c))
-        .collect::<Vec<_>>();
+    let private_key_constants = PRIVATE_KEY_CONSTANTS.iter().map(|c| F::from_canonical_u64(*c)).collect::<Vec<_>>();
     QHashOut(PoseidonHash::hash_no_pad(&[
         private_key_constants[0],
         private_key_constants[1],

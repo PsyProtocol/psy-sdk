@@ -62,8 +62,6 @@ pub struct QEDStateTrackerContractResult<F: RichField> {
     pub end_state_root: QHashOut<F>,
 }
 
-
-
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
 pub struct QEDContractStateTracker<F: RichField> {
@@ -135,7 +133,7 @@ impl<F: RichField> QEDContractStateTracker<F> {
     pub fn to_result(&self) -> QEDStateTrackerContractResult<F> {
         QEDStateTrackerContractResult {
             contract_id: self.contract_id,
-            slots: self.slots.values().map(|x|x.to_owned()).collect::<Vec<_>>(),
+            slots: self.slots.values().map(|x| x.to_owned()).collect::<Vec<_>>(),
             total_slots_modified: self.total_slots_modified,
             start_state_root: self.start_state_root,
             end_state_root: self.end_state_root,
@@ -156,11 +154,7 @@ impl<F: RichField> QEDLocalStateTracker<F> {
             total_slots_modified: 0,
         }
     }
-    pub fn notify_update_slot_dmp(
-        &mut self,
-        contract_id: u64,
-        dmp: &DeltaMerkleProofCore<QHashOut<F>>,
-    ) {
+    pub fn notify_update_slot_dmp(&mut self, contract_id: u64, dmp: &DeltaMerkleProofCore<QHashOut<F>>) {
         let inc_modified_slots = match self.contracts.get_mut(&contract_id) {
             Some(c) => c.notify_update_slot_dmp(dmp),
             None => {
@@ -171,12 +165,11 @@ impl<F: RichField> QEDLocalStateTracker<F> {
             }
         };
 
-        self.total_slots_modified = ((self.total_slots_modified as i32)+inc_modified_slots) as u32;
+        self.total_slots_modified = ((self.total_slots_modified as i32) + inc_modified_slots) as u32;
     }
 
-
     pub fn get_results(&self) -> Vec<QEDStateTrackerContractResult<F>> {
-        self.contracts.values().map(|x|x.to_result()).collect()
+        self.contracts.values().map(|x| x.to_result()).collect()
     }
 
     pub fn get_contract_result(&self, contract_id: u64) -> Option<QEDStateTrackerContractResult<F>> {

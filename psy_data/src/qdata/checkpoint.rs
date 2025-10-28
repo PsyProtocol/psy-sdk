@@ -1,23 +1,21 @@
 use kvq::traits::KVQSerializable;
-use plonky2::{field::goldilocks_field::GoldilocksField, hash::hash_types::{HashOut, RichField}};
+use plonky2::{
+    field::goldilocks_field::GoldilocksField,
+    hash::hash_types::{HashOut, RichField},
+};
 use psy_core::{
     config::network_constants::DA_CHALLENGE_WINDOW,
     data::qhashout::QHashOut,
     traits::to_qfelts::{QFeltSized, ToQFelts},
 };
-use psy_crypto::hash::traits::{
-    hasher::FieldQHasher,
-    qhashable::QFieldHashable,
-};
+use psy_crypto::hash::traits::{hasher::FieldQHasher, qhashable::QFieldHashable};
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
-use crate::qsync::coordinator::QEDCheckpointSyncInfoCompact;
-use crate::config::store_config::QEDFelt;
 
-use super::pm_reward_commitment::PMRewardCommitment;
-use super::pm_jobs_completed_stats::PMJobsCompletedStats;
+use super::{pm_jobs_completed_stats::PMJobsCompletedStats, pm_reward_commitment::PMRewardCommitment};
+use crate::{config::store_config::QEDFelt, qsync::coordinator::QEDCheckpointSyncInfoCompact};
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Copy, Default,TS)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Copy, Default, TS)]
 #[ts(export, concrete(F = GoldilocksField))]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
 pub struct QEDCheckpointLeafStats<F: RichField> {
@@ -64,17 +62,11 @@ impl<F: RichField> QEDCheckpointLeafStats<F> {
             pm_rewards_commitment: PMRewardCommitment::default(),
             da_challenges_claimed: [F::ZERO; DA_CHALLENGE_WINDOW],
         }
-
     }
 }
 impl<F: RichField> ToQFelts<F> for QEDCheckpointLeafStats<F> {
     fn to_qfelts(&self) -> Vec<F> {
-        let mut result = vec![
-            self.fees_collected,
-            self.user_ops_processed,
-            self.total_transactions,
-            self.slots_modified,
-        ];
+        let mut result = vec![self.fees_collected, self.user_ops_processed, self.total_transactions, self.slots_modified];
         result.extend_from_slice(&self.pm_jobs_completed.to_qfelts());
         result.extend_from_slice(&[
             self.block_time,
@@ -90,12 +82,16 @@ impl<F: RichField> ToQFelts<F> for QEDCheckpointLeafStats<F> {
 
     fn from_qfelts(felts: &[F]) -> Self {
         if felts.len() != Self::q_felt_size() {
-            panic!("Invalid number of elements for QEDCheckpointLeafStats, expected {} got {}", Self::q_felt_size(), felts.len());
+            panic!(
+                "Invalid number of elements for QEDCheckpointLeafStats, expected {} got {}",
+                Self::q_felt_size(),
+                felts.len()
+            );
         }
-        
+
         let pm_jobs_completed = PMJobsCompletedStats::from_qfelts(&felts[4..7]);
         let pm_rewards_commitment = PMRewardCommitment::from_qfelts(&felts[12..24]);
-        
+
         QEDCheckpointLeafStats {
             fees_collected: felts[0],
             user_ops_processed: felts[1],
@@ -133,7 +129,7 @@ impl<F: RichField> QFieldHashable<F> for QEDCheckpointLeafStats<F> {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Copy, Default,TS)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Copy, Default, TS)]
 #[ts(export, concrete(F = GoldilocksField))]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
 pub struct QEDCheckpointGlobalStateRoots<F: RichField> {
@@ -202,30 +198,17 @@ impl<F: RichField> ToQFelts<F> for QEDCheckpointGlobalStateRoots<F> {
 
 impl<F: RichField> QFieldHashable<F> for QEDCheckpointGlobalStateRoots<F> {
     fn qfhash<H: FieldQHasher<F>>(&self) -> QHashOut<F> {
-        let contract_and_deposit = H::q_two_to_one(
-            self.contract_tree_root,
-            self.deposit_tree_root
-        );
+        let contract_and_deposit = H::q_two_to_one(self.contract_tree_root, self.deposit_tree_root);
 
-        let user_and_withdrawal = H::q_two_to_one(
-            self.user_tree_root,
-            self.withdrawal_tree_root
-        );
+        let user_and_withdrawal = H::q_two_to_one(self.user_tree_root, self.withdrawal_tree_root);
 
+        let base_combo = H::q_two_to_one(contract_and_deposit, user_and_withdrawal);
 
-        let base_combo = H::q_two_to_one(
-            contract_and_deposit,
-            user_and_withdrawal
-        );
-
-        H::q_two_to_one(
-            base_combo,
-            self.user_registration_tree_root
-        )
+        H::q_two_to_one(base_combo, self.user_registration_tree_root)
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Copy, Default,TS)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Copy, Default, TS)]
 #[ts(export, concrete(F = GoldilocksField))]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
 pub struct QEDCheckpointLeaf<F: RichField> {
@@ -274,10 +257,7 @@ impl<F: RichField> ToQFelts<F> for QEDCheckpointLeaf<F> {
             elements: [felts[0], felts[1], felts[2], felts[3]],
         });
         let stats = QEDCheckpointLeafStats::from_qfelts(&felts[4..]);
-        QEDCheckpointLeaf {
-            global_chain_root,
-            stats,
-        }
+        QEDCheckpointLeaf { global_chain_root, stats }
     }
 }
 
@@ -297,8 +277,7 @@ impl<F: RichField> QFieldHashable<F> for QEDCheckpointLeaf<F> {
     }
 }
 
-
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Copy, Default,TS)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Copy, Default, TS)]
 #[ts(export, concrete(F = GoldilocksField))]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
 pub struct QEDCheckpointLeafCompact<F: RichField> {
@@ -348,14 +327,11 @@ impl<F: RichField> ToQFelts<F> for QEDCheckpointLeafCompact<F> {
 
 impl<F: RichField> QFieldHashable<F> for QEDCheckpointLeafCompact<F> {
     fn qfhash<H: FieldQHasher<F>>(&self) -> QHashOut<F> {
-        H::q_two_to_one(
-            self.global_chain_root,
-            self.stats_hash
-        )
+        H::q_two_to_one(self.global_chain_root, self.stats_hash)
     }
 }
 
-#[derive(Debug, Default, Clone, Serialize, Deserialize, Copy, Hash, Eq, PartialEq,TS)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize, Copy, Hash, Eq, PartialEq, TS)]
 #[ts(export)]
 pub struct QEDL2BlockState {
     pub checkpoint_id: u64,
@@ -403,32 +379,16 @@ impl KVQSerializable for QEDL2BlockState {
 
     fn from_bytes(bytes: &[u8]) -> anyhow::Result<Self> {
         if bytes.len() != 60 {
-            anyhow::bail!(
-                "expected 60 bytes for deserializing QEDL2BlockState, got {} bytes",
-                bytes.len()
-            );
+            anyhow::bail!("expected 60 bytes for deserializing QEDL2BlockState, got {} bytes", bytes.len());
         }
-        let checkpoint_id = u64::from_be_bytes([
-            bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7],
-        ]);
-        let next_add_withdrawal_id = u64::from_le_bytes([
-            bytes[8], bytes[9], bytes[10], bytes[11], bytes[12], bytes[13], bytes[14], bytes[15],
-        ]);
-        let next_process_withdrawal_id = u64::from_le_bytes([
-            bytes[16], bytes[17], bytes[18], bytes[19], bytes[20], bytes[21], bytes[22], bytes[23],
-        ]);
-        let next_deposit_id = u64::from_le_bytes([
-            bytes[24], bytes[25], bytes[26], bytes[27], bytes[28], bytes[29], bytes[30], bytes[31],
-        ]);
-        let total_deposits_claimed_epoch = u64::from_le_bytes([
-            bytes[32], bytes[33], bytes[34], bytes[35], bytes[36], bytes[37], bytes[38], bytes[39],
-        ]);
-        let next_user_id = u64::from_le_bytes([
-            bytes[40], bytes[41], bytes[42], bytes[43], bytes[44], bytes[45], bytes[46], bytes[47],
-        ]);
-        let end_balance = u64::from_le_bytes([
-            bytes[48], bytes[49], bytes[50], bytes[51], bytes[52], bytes[53], bytes[54], bytes[55],
-        ]);
+        let checkpoint_id = u64::from_be_bytes([bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7]]);
+        let next_add_withdrawal_id = u64::from_le_bytes([bytes[8], bytes[9], bytes[10], bytes[11], bytes[12], bytes[13], bytes[14], bytes[15]]);
+        let next_process_withdrawal_id = u64::from_le_bytes([bytes[16], bytes[17], bytes[18], bytes[19], bytes[20], bytes[21], bytes[22], bytes[23]]);
+        let next_deposit_id = u64::from_le_bytes([bytes[24], bytes[25], bytes[26], bytes[27], bytes[28], bytes[29], bytes[30], bytes[31]]);
+        let total_deposits_claimed_epoch =
+            u64::from_le_bytes([bytes[32], bytes[33], bytes[34], bytes[35], bytes[36], bytes[37], bytes[38], bytes[39]]);
+        let next_user_id = u64::from_le_bytes([bytes[40], bytes[41], bytes[42], bytes[43], bytes[44], bytes[45], bytes[46], bytes[47]]);
+        let end_balance = u64::from_le_bytes([bytes[48], bytes[49], bytes[50], bytes[51], bytes[52], bytes[53], bytes[54], bytes[55]]);
         let next_contract_id = u32::from_le_bytes([bytes[56], bytes[57], bytes[58], bytes[59]]);
         Ok(Self {
             checkpoint_id,
@@ -443,9 +403,7 @@ impl KVQSerializable for QEDL2BlockState {
     }
 }
 
-
-
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Copy, Default,TS)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Copy, Default, TS)]
 #[ts(export, concrete(F = GoldilocksField))]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
 pub struct QEDCheckpointLeafCompactWithStateRoots<F: RichField> {
@@ -508,9 +466,7 @@ pub struct CheckpointSyncInfo<F: RichField> {
     pub realm_root: QHashOut<F>,
 }
 
-impl<F: RichField + Serialize + for<'de> Deserialize<'de>> KVQSerializable
-    for CheckpointSyncInfo<F>
-{
+impl<F: RichField + Serialize + for<'de> Deserialize<'de>> KVQSerializable for CheckpointSyncInfo<F> {
     fn to_bytes(&self) -> anyhow::Result<Vec<u8>> {
         bincode::serialize(self).map_err(|e| anyhow::anyhow!(e))
     }
@@ -530,4 +486,3 @@ impl<F: RichField> psy_core::job::history_queue::HistoryQueueMetadataTagged for 
         }
     }
 }
-

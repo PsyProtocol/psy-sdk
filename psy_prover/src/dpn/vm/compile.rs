@@ -4,15 +4,10 @@ use plonky2::{
     iop::target::Target,
     plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher},
 };
-use psy_common_circuit::builder::{
-    core::CircuitBuilderHelpersCore, hash::core::CircuitBuilderHashCore
-};
+use psy_common_circuit::builder::{core::CircuitBuilderHelpersCore, hash::core::CircuitBuilderHashCore};
 use psy_network_circuit::gadgets::qdata::cfc_context_input::DapenCFCUserTransactionInputContextGadget;
 use psy_vm::dpn::{
-    ops::{
-        op_types::DPNOpType,
-        state_cmd::data::DPNStateCmd,
-    },
+    ops::{op_types::DPNOpType, state_cmd::data::DPNStateCmd},
     vm::def::DPNFunctionCircuitDefinition,
 };
 
@@ -34,7 +29,7 @@ pub struct QEDContractFunctionBuilderGadget {
 }
 impl QEDContractFunctionBuilderGadget {
     pub fn add_virtual_to<
-        H:AlgebraicHasher<F> + psy_crypto::hash::traits::hasher::MerkleZeroHasher<HashOut<F>>,
+        H: AlgebraicHasher<F> + psy_crypto::hash::traits::hasher::MerkleZeroHasher<HashOut<F>>,
         F: RichField + Extendable<D>,
         const D: usize,
     >(
@@ -45,8 +40,7 @@ impl QEDContractFunctionBuilderGadget {
         inputs: Vec<Target>,
         force_four_align: bool,
     ) -> Self {
-
-        let tx_ctx_header = DapenCFCUserTransactionInputContextGadget::add_virtual_to::<H,F,D>(builder);
+        let tx_ctx_header = DapenCFCUserTransactionInputContextGadget::add_virtual_to::<H, F, D>(builder);
         let session_proof_tree_root = builder.add_virtual_hash();
 
         let state_reader = StateReaderGadget::new(
@@ -74,8 +68,8 @@ impl QEDContractFunctionBuilderGadget {
         g.outputs = new_outputs;
         g
     }
-     fn process_state_cmd<
-        H:AlgebraicHasher<F> + psy_crypto::hash::traits::hasher::MerkleZeroHasher<HashOut<F>>,
+    fn process_state_cmd<
+        H: AlgebraicHasher<F> + psy_crypto::hash::traits::hasher::MerkleZeroHasher<HashOut<F>>,
         F: RichField + Extendable<D>,
         const D: usize,
     >(
@@ -84,16 +78,18 @@ impl QEDContractFunctionBuilderGadget {
         dpn: &SimpleDPNBuilder<F, D>,
         cmd: &DPNStateCmd<u64>,
     ) {
-        let result = self
-            .state_reader
-            .injest_symbolic_state_command::<H, F, D>(builder, dpn, cmd);
+        let result = self.state_reader.injest_symbolic_state_command::<H, F, D>(builder, dpn, cmd);
         self.cmd_results.push(QEDCmdWithInputAndResultTargets {
             state_cmd: cmd.clone(),
             result,
         });
     }
 
-    fn eval_session<H:AlgebraicHasher<F> + psy_crypto::hash::traits::hasher::MerkleZeroHasher<HashOut<F>>, F: RichField + Extendable<D>, const D: usize>(
+    fn eval_session<
+        H: AlgebraicHasher<F> + psy_crypto::hash::traits::hasher::MerkleZeroHasher<HashOut<F>>,
+        F: RichField + Extendable<D>,
+        const D: usize,
+    >(
         &mut self,
         builder: &mut CircuitBuilder<F, D>,
         fn_def: &DPNFunctionCircuitDefinition,
@@ -104,27 +100,12 @@ impl QEDContractFunctionBuilderGadget {
 
         let mut executor = SimpleDPNBuilder::<F, D>::new_with_contract_ctx(
             inputs,
-            self.tx_ctx_header
-                .proving_session_start_ctx
-                .start_session_user_leaf
-                .user_id,
-            self.tx_ctx_header
-                .transaction_call_start_ctx
-                .call_data
-                .contract_id,
-            self.tx_ctx_header
-                .transaction_call_start_ctx
-                .call_data
-                .caller_contract_id,
+            self.tx_ctx_header.proving_session_start_ctx.start_session_user_leaf.user_id,
+            self.tx_ctx_header.transaction_call_start_ctx.call_data.contract_id,
+            self.tx_ctx_header.transaction_call_start_ctx.call_data.caller_contract_id,
             self.tx_ctx_header.proving_session_start_ctx.checkpoint_id,
-            self.tx_ctx_header
-                .proving_session_start_ctx
-                .start_session_user_leaf
-                .nonce,
-            self.tx_ctx_header
-                .proving_session_start_ctx
-                .start_session_user_leaf
-                .public_key,
+            self.tx_ctx_header.proving_session_start_ctx.start_session_user_leaf.nonce,
+            self.tx_ctx_header.proving_session_start_ctx.start_session_user_leaf.public_key,
         );
         let state_cmd_len = fn_def.state_command_resolution_indices.len();
         let mut next_state_cmd_id = 0;
@@ -154,17 +135,12 @@ impl QEDContractFunctionBuilderGadget {
                 executor.process_var_def(builder, &def);
             }
             while (i + 1) >= next_state_cmd_index {
-                self.process_state_cmd::<H, F, D>(
-                    builder,
-                    &executor,
-                    &fn_def.state_commands[next_state_cmd_id],
-                );
+                self.process_state_cmd::<H, F, D>(builder, &executor, &fn_def.state_commands[next_state_cmd_id]);
                 next_state_cmd_id += 1;
                 if next_state_cmd_id >= state_cmd_len {
                     next_state_cmd_index = fn_def.definitions.len() + 10;
                 } else {
-                    next_state_cmd_index =
-                        fn_def.state_command_resolution_indices[next_state_cmd_id];
+                    next_state_cmd_index = fn_def.state_command_resolution_indices[next_state_cmd_id];
                 }
             }
         }
@@ -182,47 +158,29 @@ impl QEDContractFunctionBuilderGadget {
         let outputs_length_target = builder.constant_u64(outputs.len() as u64);
         let outputs_hash = builder.safe_hash_fixed_length::<H>(&outputs);
 
-        // ensure the result of our evaluation reflects the data in the tx_ctx_header gadget
+        // ensure the result of our evaluation reflects the data in the tx_ctx_header
+        // gadget
 
         // ensure the inputs are correct
         builder.connect(
             inputs_length_target,
-            self.tx_ctx_header
-                .transaction_call_start_ctx
-                .call_data
-                .inputs_length,
+            self.tx_ctx_header.transaction_call_start_ctx.call_data.inputs_length,
         );
-        builder.connect_hashes(
-            inputs_hash,
-            self.tx_ctx_header
-                .transaction_call_start_ctx
-                .call_data
-                .inputs_hash,
-        );
+        builder.connect_hashes(inputs_hash, self.tx_ctx_header.transaction_call_start_ctx.call_data.inputs_hash);
 
         // ensure the outputs are correct
-        builder.connect(
-            outputs_length_target,
-            self.tx_ctx_header.transaction_end_ctx.outputs_length,
-        );
-        builder.connect_hashes(
-            outputs_hash,
-            self.tx_ctx_header.transaction_end_ctx.outputs_hash,
-        );
+        builder.connect(outputs_length_target, self.tx_ctx_header.transaction_end_ctx.outputs_length);
+        builder.connect_hashes(outputs_hash, self.tx_ctx_header.transaction_end_ctx.outputs_hash);
 
         builder.connect_hashes(
             self.state_reader.end_contract_state_root,
-            self.tx_ctx_header
-                .transaction_end_ctx
-                .end_contract_state_tree_root,
+            self.tx_ctx_header.transaction_end_ctx.end_contract_state_tree_root,
         );
 
         // ensure the end deferred tx root is correct
         builder.connect_hashes(
             self.state_reader.end_deferred_tx_tree_root,
-            self.tx_ctx_header
-                .transaction_end_ctx
-                .end_deferred_tx_debt_tree_root,
+            self.tx_ctx_header.transaction_end_ctx.end_deferred_tx_debt_tree_root,
         );
 
         outputs

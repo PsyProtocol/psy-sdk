@@ -2,18 +2,18 @@ use std::collections::HashMap;
 
 use kvq::traits::KVQPair;
 use plonky2::plonk::{config::GenericConfig, proof::ProofWithPublicInputs};
-use psy_core::job::{id::QProvingJobDataID, traits::{QProofStoreReaderAsync, QProofStoreReaderSync, QProofStoreWriterAsyncImm, QProofStoreWriterSync}};
+use psy_core::job::{
+    id::QProvingJobDataID,
+    traits::{QProofStoreReaderAsync, QProofStoreReaderSync, QProofStoreWriterAsyncImm, QProofStoreWriterSync},
+};
 use serde::{Deserialize, Serialize};
-
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProofStoreBuilder {
-
     pub kvs: Vec<KVQPair<QProvingJobDataID, Vec<u8>>>,
     pub key_pos: HashMap<QProvingJobDataID, usize>,
     pub queue_pusher: Vec<QProvingJobDataID>,
 }
-
 
 impl ProofStoreBuilder {
     pub fn new() -> Self {
@@ -29,7 +29,7 @@ impl ProofStoreBuilder {
     pub fn from_serialized_bytes(data: &[u8]) -> anyhow::Result<Self> {
         bincode::deserialize(data).map_err(|err| anyhow::anyhow!("{}", err))
     }
-    pub async fn dump_to_async_store<PS: QProofStoreWriterAsyncImm+QProofStoreReaderAsync>(self, store: &PS) -> anyhow::Result<()> {
+    pub async fn dump_to_async_store<PS: QProofStoreWriterAsyncImm + QProofStoreReaderAsync>(self, store: &PS) -> anyhow::Result<()> {
         store.set_bytes_by_id_batch(&self.kvs).await?;
         Ok(())
     }
@@ -48,19 +48,13 @@ impl ProofStoreBuilder {
 }
 
 impl QProofStoreReaderSync for ProofStoreBuilder {
-    fn get_proof_by_id<C: GenericConfig<D>, const D: usize>(
-        &self,
-        id: QProvingJobDataID,
-    ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
+    fn get_proof_by_id<C: GenericConfig<D>, const D: usize>(&self, id: QProvingJobDataID) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         match self.key_pos.get(&id) {
             Some(index) => Ok(bincode::deserialize(&self.kvs[*index].value)?),
             None => anyhow::bail!(
                 "Proof not found. Wanted {}, Have: {:?}",
                 hex::encode(id.to_fixed_bytes()),
-                self.key_pos
-                    .keys()
-                    .map(|k| hex::encode(k.to_fixed_bytes()))
-                    .collect::<Vec<String>>()
+                self.key_pos.keys().map(|k| hex::encode(k.to_fixed_bytes())).collect::<Vec<String>>()
             ),
         }
     }
@@ -71,10 +65,7 @@ impl QProofStoreReaderSync for ProofStoreBuilder {
             None => anyhow::bail!(
                 "Proof not found. Wanted {}, Have: {:?}",
                 hex::encode(id.to_fixed_bytes()),
-                self.key_pos
-                    .keys()
-                    .map(|k| hex::encode(k.to_fixed_bytes()))
-                    .collect::<Vec<String>>()
+                self.key_pos.keys().map(|k| hex::encode(k.to_fixed_bytes())).collect::<Vec<String>>()
             ),
         }
     }
@@ -88,9 +79,9 @@ impl QProofStoreWriterSync for ProofStoreBuilder {
     ) -> anyhow::Result<()> {
         let pos = self.kvs.len();
         self.key_pos.insert(id, pos);
-        self.kvs.push(KVQPair{
+        self.kvs.push(KVQPair {
             key: id,
-            value: bincode::serialize(proof)?
+            value: bincode::serialize(proof)?,
         });
         Ok(())
     }
@@ -102,26 +93,18 @@ impl QProofStoreWriterSync for ProofStoreBuilder {
     fn set_bytes_by_id(&mut self, id: QProvingJobDataID, data: &[u8]) -> anyhow::Result<()> {
         let pos = self.kvs.len();
         self.key_pos.insert(id, pos);
-        self.kvs.push(KVQPair{
+        self.kvs.push(KVQPair {
             key: id,
             value: data.to_vec(),
         });
         Ok(())
     }
-    
-    fn write_next_jobs(
-        &mut self,
-        jobs: &[QProvingJobDataID],
-        next_jobs: &[QProvingJobDataID],
-    ) -> anyhow::Result<()> {
+
+    fn write_next_jobs(&mut self, jobs: &[QProvingJobDataID], next_jobs: &[QProvingJobDataID]) -> anyhow::Result<()> {
         self.write_next_jobs_core(jobs, next_jobs)
     }
-    
-    fn write_multidimensional_jobs(
-        &mut self,
-        jobs_levels: &[Vec<QProvingJobDataID>],
-        next_jobs: &[QProvingJobDataID],
-    ) -> anyhow::Result<()> {
+
+    fn write_multidimensional_jobs(&mut self, jobs_levels: &[Vec<QProvingJobDataID>], next_jobs: &[QProvingJobDataID]) -> anyhow::Result<()> {
         self.write_multidimensional_jobs_core(jobs_levels, next_jobs)
     }
 }

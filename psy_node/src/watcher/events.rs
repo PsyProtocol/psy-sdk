@@ -1,8 +1,8 @@
 use chrono::{DateTime, Utc};
-use serde::{Deserialize, Serialize};
 use psy_api_services::models::UserEventTxType;
 use psy_core::job::id::{LayerId, ProvingJobCircuitType, QProvingJobDataID};
 use psy_data::config::store_config::QEDFelt;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum WatcherMessage {
@@ -34,7 +34,7 @@ pub struct UserRegistrationMetadata {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UserDeployContractEvent {
     pub deployer: String,
-    pub metadata: UserDeployContractMetadata,  // Contains contract details without code
+    pub metadata: UserDeployContractMetadata, // Contains contract details without code
     pub timestamp: DateTime<Utc>,
 }
 
@@ -109,7 +109,7 @@ pub struct BackupProofEvent {
     pub job_id: QProvingJobDataID,
     pub proof_data: Vec<u8>,
     pub timestamp: u64,
-    pub delete_after_blocks: u64,  // Delete after N blocks (e.g., 256)
+    pub delete_after_blocks: u64, // Delete after N blocks (e.g., 256)
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

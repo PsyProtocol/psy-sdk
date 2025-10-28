@@ -1,10 +1,11 @@
-use kvq::traits::{
-    KVQBinaryStore, KVQStoreAdapter, KVQStoreAdapterReader,
-};
+use kvq::traits::{KVQBinaryStore, KVQStoreAdapter, KVQStoreAdapterReader};
 use plonky2::field::types::PrimeField64;
-use crate::qdata::{checkpoint_id_key::CheckpointTableIdKey, user::QEDUserLeaf};
 
-use crate::{config::store_config::QEDFelt, models::kvq_merkle::model::CHECKPOINT_ID_FUZZY_SIZE};
+use crate::{
+    config::store_config::QEDFelt,
+    models::kvq_merkle::model::CHECKPOINT_ID_FUZZY_SIZE,
+    qdata::{checkpoint_id_key::CheckpointTableIdKey, user::QEDUserLeaf},
+};
 
 pub trait UserLeafModelReaderCore<
     const USER_LEAF_TABLE_TYPE: u16,
@@ -12,23 +13,11 @@ pub trait UserLeafModelReaderCore<
     IDKVA: KVQStoreAdapterReader<S, CheckpointTableIdKey<USER_LEAF_TABLE_TYPE>, QEDUserLeaf<QEDFelt>>,
 >
 {
-    fn get_user_by_id(
-        store: &S,
-        checkpoint_id: u64,
-        user_id: u64,
-    ) -> anyhow::Result<QEDUserLeaf<QEDFelt>> {
-        IDKVA::get_leq(
-            store,
-            &CheckpointTableIdKey::new(checkpoint_id, user_id),
-            CHECKPOINT_ID_FUZZY_SIZE,
-        )?
-        .ok_or_else(|| anyhow::anyhow!("User not found"))
+    fn get_user_by_id(store: &S, checkpoint_id: u64, user_id: u64) -> anyhow::Result<QEDUserLeaf<QEDFelt>> {
+        IDKVA::get_leq(store, &CheckpointTableIdKey::new(checkpoint_id, user_id), CHECKPOINT_ID_FUZZY_SIZE)?
+            .ok_or_else(|| anyhow::anyhow!("User not found"))
     }
-    fn get_users_by_id(
-        store: &S,
-        checkpoint_id: u64,
-        user_ids: &[u64],
-    ) -> anyhow::Result<Vec<QEDUserLeaf<QEDFelt>>> {
+    fn get_users_by_id(store: &S, checkpoint_id: u64, user_ids: &[u64]) -> anyhow::Result<Vec<QEDUserLeaf<QEDFelt>>> {
         let keys = user_ids
             .iter()
             .map(|id| CheckpointTableIdKey::new(checkpoint_id, *id))
@@ -45,7 +34,7 @@ pub trait UserLeafModelCore<
 {
     fn set_user(store: &S, checkpoint_id: u64, user: QEDUserLeaf<QEDFelt>) -> anyhow::Result<()> {
         let key_id = CheckpointTableIdKey::new(
-            checkpoint_id,//user.last_checkpoint_id.to_canonical_u64(),
+            checkpoint_id, //user.last_checkpoint_id.to_canonical_u64(),
             user.user_id.to_canonical_u64(),
         );
         IDKVA::set(store, key_id, user)?;
@@ -53,7 +42,7 @@ pub trait UserLeafModelCore<
     }
     fn set_user_ref(store: &S, checkpoint_id: u64, user: &QEDUserLeaf<QEDFelt>) -> anyhow::Result<()> {
         let key_id = CheckpointTableIdKey::new(
-            checkpoint_id,//user.last_checkpoint_id.to_canonical_u64(),
+            checkpoint_id, //user.last_checkpoint_id.to_canonical_u64(),
             user.user_id.to_canonical_u64(),
         );
         IDKVA::set_ref(store, &key_id, user)?;
@@ -80,23 +69,11 @@ pub struct UserLeafModel<const USER_LEAF_TABLE_TYPE: u16, S, IDKVA> {
     _store: S,
 }
 
-impl<
-        const USER_LEAF_TABLE_TYPE: u16,
-        S,
-        IDKVA: KVQStoreAdapterReader<S, CheckpointTableIdKey<USER_LEAF_TABLE_TYPE>, QEDUserLeaf<QEDFelt>>,
-    > UserLeafModelReaderCore<USER_LEAF_TABLE_TYPE, S, IDKVA>
-    for UserLeafModel<USER_LEAF_TABLE_TYPE, S, IDKVA>
+impl<const USER_LEAF_TABLE_TYPE: u16, S, IDKVA: KVQStoreAdapterReader<S, CheckpointTableIdKey<USER_LEAF_TABLE_TYPE>, QEDUserLeaf<QEDFelt>>>
+    UserLeafModelReaderCore<USER_LEAF_TABLE_TYPE, S, IDKVA> for UserLeafModel<USER_LEAF_TABLE_TYPE, S, IDKVA>
 {
 }
-impl<
-        const USER_LEAF_TABLE_TYPE: u16,
-        S,
-        IDKVA: KVQStoreAdapter<
-            S,
-            CheckpointTableIdKey<USER_LEAF_TABLE_TYPE>,
-            QEDUserLeaf<QEDFelt>,
-        >,
-    > UserLeafModelCore<USER_LEAF_TABLE_TYPE, S, IDKVA>
-    for UserLeafModel<USER_LEAF_TABLE_TYPE, S, IDKVA>
+impl<const USER_LEAF_TABLE_TYPE: u16, S, IDKVA: KVQStoreAdapter<S, CheckpointTableIdKey<USER_LEAF_TABLE_TYPE>, QEDUserLeaf<QEDFelt>>>
+    UserLeafModelCore<USER_LEAF_TABLE_TYPE, S, IDKVA> for UserLeafModel<USER_LEAF_TABLE_TYPE, S, IDKVA>
 {
 }

@@ -2,17 +2,20 @@
 pub struct RuntimeFelt(pub u64);
 
 use std::ops::{
-    Add, Sub, Mul, Div, Rem, BitAnd, BitOr, BitXor, Shl, Shr, Not, Neg, AddAssign, SubAssign,
-    MulAssign, DivAssign, RemAssign, BitAndAssign, BitOrAssign, BitXorAssign, ShlAssign, ShrAssign,
+    Add, AddAssign, BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Div, DivAssign, Mul, MulAssign, Neg, Not, Rem, RemAssign, Shl,
+    ShlAssign, Shr, ShrAssign, Sub, SubAssign,
 };
 
-use plonky2::field::{goldilocks_field::GoldilocksField, types::{Field, Field64, PrimeField64}};
+use plonky2::field::{
+    goldilocks_field::GoldilocksField,
+    types::{Field, Field64, PrimeField64},
+};
 
 use crate::dpn::ops::context_trait::ContextFelt;
 impl Add for RuntimeFelt {
     type Output = Self;
     fn add(self, other: Self) -> Self {
-        RuntimeFelt((self.0 + other.0)%GoldilocksField::ORDER)
+        RuntimeFelt((self.0 + other.0) % GoldilocksField::ORDER)
     }
 }
 impl Sub for RuntimeFelt {
@@ -42,31 +45,31 @@ impl Rem for RuntimeFelt {
 impl BitAnd for RuntimeFelt {
     type Output = Self;
     fn bitand(self, other: Self) -> Self {
-        RuntimeFelt((self.0 & other.0)&0xFFFFFFFFu64)
+        RuntimeFelt((self.0 & other.0) & 0xFFFFFFFFu64)
     }
 }
 impl BitOr for RuntimeFelt {
     type Output = Self;
     fn bitor(self, other: Self) -> Self {
-        RuntimeFelt((self.0 | other.0)&0xFFFFFFFFu64)
+        RuntimeFelt((self.0 | other.0) & 0xFFFFFFFFu64)
     }
 }
 impl BitXor for RuntimeFelt {
     type Output = Self;
     fn bitxor(self, other: Self) -> Self {
-        RuntimeFelt((self.0 ^ other.0)&0xFFFFFFFFu64)
+        RuntimeFelt((self.0 ^ other.0) & 0xFFFFFFFFu64)
     }
 }
 impl Shl for RuntimeFelt {
     type Output = Self;
     fn shl(self, other: Self) -> Self {
-        RuntimeFelt((self.0 << other.0)&0xFFFFFFFFu64)
+        RuntimeFelt((self.0 << other.0) & 0xFFFFFFFFu64)
     }
 }
 impl Shr for RuntimeFelt {
     type Output = Self;
     fn shr(self, other: Self) -> Self {
-        RuntimeFelt((self.0 >> other.0)&0xFFFFFFFFu64)
+        RuntimeFelt((self.0 >> other.0) & 0xFFFFFFFFu64)
     }
 }
 impl Not for RuntimeFelt {
@@ -83,7 +86,7 @@ impl Neg for RuntimeFelt {
 }
 impl AddAssign for RuntimeFelt {
     fn add_assign(&mut self, other: Self) {
-        *self = RuntimeFelt((self.0 + other.0)%GoldilocksField::ORDER)
+        *self = RuntimeFelt((self.0 + other.0) % GoldilocksField::ORDER)
     }
 }
 impl SubAssign for RuntimeFelt {
@@ -108,34 +111,34 @@ impl RemAssign for RuntimeFelt {
 }
 impl BitAndAssign for RuntimeFelt {
     fn bitand_assign(&mut self, other: Self) {
-        *self = RuntimeFelt((self.0 & other.0)&0xFFFFFFFFu64)
+        *self = RuntimeFelt((self.0 & other.0) & 0xFFFFFFFFu64)
     }
 }
 impl BitOrAssign for RuntimeFelt {
     fn bitor_assign(&mut self, other: Self) {
-        *self = RuntimeFelt((self.0 | other.0)&0xFFFFFFFFu64)
+        *self = RuntimeFelt((self.0 | other.0) & 0xFFFFFFFFu64)
     }
 }
 impl BitXorAssign for RuntimeFelt {
     fn bitxor_assign(&mut self, other: Self) {
-        *self = RuntimeFelt((self.0 ^ other.0)&0xFFFFFFFFu64)
+        *self = RuntimeFelt((self.0 ^ other.0) & 0xFFFFFFFFu64)
     }
 }
 impl ShlAssign for RuntimeFelt {
     fn shl_assign(&mut self, other: Self) {
-        *self = RuntimeFelt((self.0 << other.0)&0xFFFFFFFFu64)
+        *self = RuntimeFelt((self.0 << other.0) & 0xFFFFFFFFu64)
     }
 }
 impl ShrAssign for RuntimeFelt {
     fn shr_assign(&mut self, other: Self) {
-        *self = RuntimeFelt((self.0 >> other.0)&0xFFFFFFFFu64)
+        *self = RuntimeFelt((self.0 >> other.0) & 0xFFFFFFFFu64)
     }
 }
 
 impl Add<u64> for RuntimeFelt {
     type Output = Self;
     fn add(self, other: u64) -> Self {
-        RuntimeFelt((self.0 + other)%GoldilocksField::ORDER)
+        RuntimeFelt((self.0 + other) % GoldilocksField::ORDER)
     }
 }
 impl Sub<u64> for RuntimeFelt {
@@ -165,38 +168,38 @@ impl Rem<u64> for RuntimeFelt {
 impl BitAnd<u64> for RuntimeFelt {
     type Output = Self;
     fn bitand(self, other: u64) -> Self {
-        RuntimeFelt((self.0 & other)&0xFFFFFFFFu64)
+        RuntimeFelt((self.0 & other) & 0xFFFFFFFFu64)
     }
 }
 impl BitOr<u64> for RuntimeFelt {
     type Output = Self;
     fn bitor(self, other: u64) -> Self {
-        RuntimeFelt((self.0 | other)&0xFFFFFFFFu64)
+        RuntimeFelt((self.0 | other) & 0xFFFFFFFFu64)
     }
 }
 impl BitXor<u64> for RuntimeFelt {
     type Output = Self;
     fn bitxor(self, other: u64) -> Self {
-        RuntimeFelt((self.0 ^ other)&0xFFFFFFFFu64)
+        RuntimeFelt((self.0 ^ other) & 0xFFFFFFFFu64)
     }
 }
 impl Shl<u64> for RuntimeFelt {
     type Output = Self;
     fn shl(self, other: u64) -> Self {
-        RuntimeFelt((self.0 << other)&0xFFFFFFFFu64)
+        RuntimeFelt((self.0 << other) & 0xFFFFFFFFu64)
     }
 }
 impl Shr<u64> for RuntimeFelt {
     type Output = Self;
     fn shr(self, other: u64) -> Self {
-        RuntimeFelt((self.0 >> other)&0xFFFFFFFFu64)
+        RuntimeFelt((self.0 >> other) & 0xFFFFFFFFu64)
     }
 }
 
 impl Add<RuntimeFelt> for u64 {
     type Output = RuntimeFelt;
     fn add(self, other: RuntimeFelt) -> RuntimeFelt {
-       RuntimeFelt ((self + other.0)%GoldilocksField::ORDER)
+        RuntimeFelt((self + other.0) % GoldilocksField::ORDER)
     }
 }
 impl Sub<RuntimeFelt> for u64 {
@@ -226,36 +229,36 @@ impl Rem<RuntimeFelt> for u64 {
 impl BitAnd<RuntimeFelt> for u64 {
     type Output = RuntimeFelt;
     fn bitand(self, other: RuntimeFelt) -> RuntimeFelt {
-        RuntimeFelt((self & other.0)&0xFFFFFFFFu64)
+        RuntimeFelt((self & other.0) & 0xFFFFFFFFu64)
     }
 }
 impl BitOr<RuntimeFelt> for u64 {
     type Output = RuntimeFelt;
     fn bitor(self, other: RuntimeFelt) -> RuntimeFelt {
-        RuntimeFelt((self | other.0)&0xFFFFFFFFu64)
+        RuntimeFelt((self | other.0) & 0xFFFFFFFFu64)
     }
 }
 impl BitXor<RuntimeFelt> for u64 {
     type Output = RuntimeFelt;
     fn bitxor(self, other: RuntimeFelt) -> RuntimeFelt {
-        RuntimeFelt((self ^ other.0)&0xFFFFFFFFu64)
+        RuntimeFelt((self ^ other.0) & 0xFFFFFFFFu64)
     }
 }
 impl Shl<RuntimeFelt> for u64 {
     type Output = RuntimeFelt;
     fn shl(self, other: RuntimeFelt) -> RuntimeFelt {
-        RuntimeFelt((self << other.0)&0xFFFFFFFFu64)
+        RuntimeFelt((self << other.0) & 0xFFFFFFFFu64)
     }
 }
 impl Shr<RuntimeFelt> for u64 {
     type Output = RuntimeFelt;
     fn shr(self, other: RuntimeFelt) -> RuntimeFelt {
-        RuntimeFelt((self >> other.0)&0xFFFFFFFFu64)
+        RuntimeFelt((self >> other.0) & 0xFFFFFFFFu64)
     }
 }
 impl AddAssign<RuntimeFelt> for u64 {
     fn add_assign(&mut self, other: RuntimeFelt) {
-        *self = (*self + other.0)%GoldilocksField::ORDER
+        *self = (*self + other.0) % GoldilocksField::ORDER
     }
 }
 impl SubAssign<RuntimeFelt> for u64 {
@@ -280,32 +283,32 @@ impl RemAssign<RuntimeFelt> for u64 {
 }
 impl BitAndAssign<RuntimeFelt> for u64 {
     fn bitand_assign(&mut self, other: RuntimeFelt) {
-        *self = (*self & other.0)&0xFFFFFFFFu64
+        *self = (*self & other.0) & 0xFFFFFFFFu64
     }
 }
 impl BitOrAssign<RuntimeFelt> for u64 {
     fn bitor_assign(&mut self, other: RuntimeFelt) {
-        *self = (*self | other.0)&0xFFFFFFFFu64
+        *self = (*self | other.0) & 0xFFFFFFFFu64
     }
 }
 impl BitXorAssign<RuntimeFelt> for u64 {
     fn bitxor_assign(&mut self, other: RuntimeFelt) {
-        *self = (*self ^ other.0)&0xFFFFFFFFu64
+        *self = (*self ^ other.0) & 0xFFFFFFFFu64
     }
 }
 impl ShlAssign<RuntimeFelt> for u64 {
     fn shl_assign(&mut self, other: RuntimeFelt) {
-        *self = (*self << other.0)&0xFFFFFFFFu64
+        *self = (*self << other.0) & 0xFFFFFFFFu64
     }
 }
 impl ShrAssign<RuntimeFelt> for u64 {
     fn shr_assign(&mut self, other: RuntimeFelt) {
-        *self = (*self >> other.0)&0xFFFFFFFFu64
+        *self = (*self >> other.0) & 0xFFFFFFFFu64
     }
 }
 impl AddAssign<u64> for RuntimeFelt {
     fn add_assign(&mut self, other: u64) {
-        *self = RuntimeFelt((self.0 + other)%GoldilocksField::ORDER)
+        *self = RuntimeFelt((self.0 + other) % GoldilocksField::ORDER)
     }
 }
 impl SubAssign<u64> for RuntimeFelt {
@@ -330,27 +333,27 @@ impl RemAssign<u64> for RuntimeFelt {
 }
 impl BitAndAssign<u64> for RuntimeFelt {
     fn bitand_assign(&mut self, other: u64) {
-        *self = RuntimeFelt((self.0 & other)&0xFFFFFFFFu64)
+        *self = RuntimeFelt((self.0 & other) & 0xFFFFFFFFu64)
     }
 }
 impl BitOrAssign<u64> for RuntimeFelt {
     fn bitor_assign(&mut self, other: u64) {
-        *self = RuntimeFelt((self.0 | other)&0xFFFFFFFFu64)
+        *self = RuntimeFelt((self.0 | other) & 0xFFFFFFFFu64)
     }
 }
 impl BitXorAssign<u64> for RuntimeFelt {
     fn bitxor_assign(&mut self, other: u64) {
-        *self = RuntimeFelt((self.0 ^ other)&0xFFFFFFFFu64)
+        *self = RuntimeFelt((self.0 ^ other) & 0xFFFFFFFFu64)
     }
 }
 impl ShlAssign<u64> for RuntimeFelt {
     fn shl_assign(&mut self, other: u64) {
-        *self = RuntimeFelt((self.0 << other)&0xFFFFFFFFu64)
+        *self = RuntimeFelt((self.0 << other) & 0xFFFFFFFFu64)
     }
 }
 impl ShrAssign<u64> for RuntimeFelt {
     fn shr_assign(&mut self, other: u64) {
-        *self = RuntimeFelt((self.0 >> other)&0xFFFFFFFFu64)
+        *self = RuntimeFelt((self.0 >> other) & 0xFFFFFFFFu64)
     }
 }
 impl PartialEq<u64> for RuntimeFelt {
@@ -365,7 +368,7 @@ impl PartialOrd<u64> for RuntimeFelt {
 }
 impl ContextFelt for RuntimeFelt {
     fn cns(value: u64) -> Self {
-        RuntimeFelt(value%GoldilocksField::ORDER)
+        RuntimeFelt(value % GoldilocksField::ORDER)
     }
     fn cns_inverse(value: u64) -> Self {
         RuntimeFelt(GoldilocksField::from_noncanonical_u64(value).inverse().to_canonical_u64())
@@ -377,7 +380,7 @@ impl ContextFelt for RuntimeFelt {
 
 impl From<u64> for RuntimeFelt {
     fn from(value: u64) -> RuntimeFelt {
-        RuntimeFelt(value%GoldilocksField::ORDER)
+        RuntimeFelt(value % GoldilocksField::ORDER)
     }
 }
 impl From<u8> for RuntimeFelt {
@@ -400,6 +403,3 @@ impl From<bool> for RuntimeFelt {
         RuntimeFelt(if value { 1 } else { 0 })
     }
 }
-
-
-

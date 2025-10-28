@@ -1,17 +1,19 @@
 //UPSCFCStandardStateDelta<F>
 
-
-
 use kvq::traits::KVQSerializable;
 use plonky2::{field::goldilocks_field::GoldilocksField, hash::hash_types::RichField};
 use psy_core::data::qhashout::QHashOut;
-use psy_crypto::{common::witnesses::qrecursion::header::AttestTreeAwareProofInTreeInput, hash::merkle::core::{DeltaMerkleProofCore, MerkleProofCore}};
+use psy_crypto::{
+    common::witnesses::qrecursion::header::AttestTreeAwareProofInTreeInput,
+    hash::merkle::core::{DeltaMerkleProofCore, MerkleProofCore},
+};
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
-use crate::{dpn::cfc_context_input::DapenCFCUserTransactionInputContext, qdata::{checkpoint::QEDCheckpointLeafCompactWithStateRoots, contract_inclusion::QEDContractFunctionInclusionProof}};
-
-
+use crate::{
+    dpn::cfc_context_input::DapenCFCUserTransactionInputContext,
+    qdata::{checkpoint::QEDCheckpointLeafCompactWithStateRoots, contract_inclusion::QEDContractFunctionInclusionProof},
+};
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Default, TS)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
@@ -32,9 +34,6 @@ impl<F: RichField> KVQSerializable for UPSCFCStandardStateDeltaInput<F> {
         bincode::deserialize(bytes).map_err(|e| anyhow::anyhow!(e))
     }
 }
-
-
-
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Default, TS)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
@@ -57,17 +56,12 @@ impl<F: RichField> KVQSerializable for UPSVerifyCFCStandardStepInput<F> {
     }
 }
 
-
-
-
-
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Default, TS)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
 #[ts(export, concrete(F = GoldilocksField))]
 pub struct UPSVerifyPopDeferredTxStepInput<F: RichField> {
     pub standard_cfc_verify_input: UPSVerifyCFCStandardStepInput<F>,
     pub ups_pop_deferred_tx_proof: DeltaMerkleProofCore<QHashOut<F>>,
-
 }
 
 impl<F: RichField> KVQSerializable for UPSVerifyPopDeferredTxStepInput<F> {

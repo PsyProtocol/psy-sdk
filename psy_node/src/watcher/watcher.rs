@@ -4,8 +4,10 @@ use anyhow::{anyhow, Result};
 use bb8::Pool;
 use bb8_redis::RedisConnectionManager;
 use futures::StreamExt;
-use psy_store::queue::task_queue::{current_timestamp_millis, QJobStatus, QProvingTaskStoreImpl, JOB_TIMEOUT_PREFIX};
-use psy_store::queue::{QueueId, RsmqQueue};
+use psy_store::queue::{
+    task_queue::{current_timestamp_millis, QJobStatus, QProvingTaskStoreImpl, JOB_TIMEOUT_PREFIX},
+    QueueId, RsmqQueue,
+};
 use redis::AsyncCommands;
 use tracing::{debug, error, info, warn};
 use uuid::Uuid;
@@ -82,8 +84,10 @@ impl TimeoutWatcher {
         let channel = "__keyevent@0__:expired";
 
         pubsub.subscribe(channel).await?;
-        debug!("Timeout watcher started for node {}, monitoring channel: {}",
-              self.node_info.node_id, channel);
+        debug!(
+            "Timeout watcher started for node {}, monitoring channel: {}",
+            self.node_info.node_id, channel
+        );
 
         let mut pubsub_stream = pubsub.into_on_message();
 
@@ -185,10 +189,7 @@ impl TimeoutWatcher {
 
         let job_status = status_bytes
             .ok_or_else(|| anyhow!("Job status not found for timed out job: {}", timeout_key))
-            .and_then(|bytes| {
-                QJobStatus::from_bytes(&bytes)
-                    .map_err(|e| anyhow!("Failed to deserialize job status for {}: {}", timeout_key, e))
-            })?;
+            .and_then(|bytes| QJobStatus::from_bytes(&bytes).map_err(|e| anyhow!("Failed to deserialize job status for {}: {}", timeout_key, e)))?;
 
         let timeout_event = JobTimeoutEvent {
             job_id: job_status.id.clone(),

@@ -2,11 +2,14 @@ use std::collections::HashMap;
 
 use k256::ecdsa::signature::hazmat::PrehashSigner;
 use plonky2::hash::hash_types::RichField;
-use psy_core::data::{base_types::{hash160::Hash160, hash256::Hash256}, qhashout::QHashOut, secp256k1::CompressedPublicKey};
-
-use crate::hash::core::btc::btc_hash160;
+use psy_core::data::{
+    base_types::{hash160::Hash160, hash256::Hash256},
+    qhashout::QHashOut,
+    secp256k1::CompressedPublicKey,
+};
 
 use super::core::QEDCompressedSecp256K1Signature;
+use crate::hash::core::btc::btc_hash160;
 pub trait CompressedPublicKeyToP2PKH {
     fn to_p2pkh_address(&self) -> Hash160;
 }
@@ -16,16 +19,8 @@ impl CompressedPublicKeyToP2PKH for CompressedPublicKey {
     }
 }
 pub trait Secp256K1WalletProvider {
-    fn sign(
-        &self,
-        public_key: &CompressedPublicKey,
-        message: Hash256,
-    ) -> anyhow::Result<QEDCompressedSecp256K1Signature>;
-    fn sign_qhashout<F: RichField>(
-        &self,
-        public_key: &CompressedPublicKey,
-        message: QHashOut<F>,
-    ) -> anyhow::Result<QEDCompressedSecp256K1Signature>;
+    fn sign(&self, public_key: &CompressedPublicKey, message: Hash256) -> anyhow::Result<QEDCompressedSecp256K1Signature>;
+    fn sign_qhashout<F: RichField>(&self, public_key: &CompressedPublicKey, message: QHashOut<F>) -> anyhow::Result<QEDCompressedSecp256K1Signature>;
     fn contains_public_key(&self, public_key: &CompressedPublicKey) -> bool;
     fn contains_p2pkh_address(&self, p2pkh_address: &Hash160) -> bool;
     fn get_public_key_for_p2pkh(&self, p2pkh: &Hash160) -> Option<CompressedPublicKey>;
@@ -38,15 +33,10 @@ pub struct MemorySecp256K1Wallet {
 }
 
 impl Secp256K1WalletProvider for MemorySecp256K1Wallet {
-    fn sign(
-        &self,
-        public_key: &CompressedPublicKey,
-        message: Hash256,
-    ) -> anyhow::Result<QEDCompressedSecp256K1Signature> {
+    fn sign(&self, public_key: &CompressedPublicKey, message: Hash256) -> anyhow::Result<QEDCompressedSecp256K1Signature> {
         let private_key_result = self.key_map.get(public_key);
         if private_key_result.is_some() {
-            let result: k256::ecdsa::Signature =
-                private_key_result.unwrap().sign_prehash(&message.0)?;
+            let result: k256::ecdsa::Signature = private_key_result.unwrap().sign_prehash(&message.0)?;
             let mut rs_bytes = [0u8; 64];
 
             let r_bytes = result.r().to_bytes();
@@ -64,11 +54,7 @@ impl Secp256K1WalletProvider for MemorySecp256K1Wallet {
         }
     }
 
-    fn sign_qhashout<F: RichField>(
-        &self,
-        public_key: &CompressedPublicKey,
-        message: QHashOut<F>,
-    ) -> anyhow::Result<QEDCompressedSecp256K1Signature> {
+    fn sign_qhashout<F: RichField>(&self, public_key: &CompressedPublicKey, message: QHashOut<F>) -> anyhow::Result<QEDCompressedSecp256K1Signature> {
         let msg = message.to_le_bytes();
         let bytes: Hash256 = Hash256(msg);
         self.sign(public_key, bytes)
@@ -109,10 +95,7 @@ impl MemorySecp256K1Wallet {
 
     pub fn get_public_key(&self, private_key: Hash256) -> anyhow::Result<CompressedPublicKey> {
         let signing_key = k256::ecdsa::SigningKey::from_slice(&private_key.0)?;
-        let public_key = signing_key
-            .verifying_key()
-            .to_encoded_point(true)
-            .to_bytes();
+        let public_key = signing_key.verifying_key().to_encoded_point(true).to_bytes();
         let mut compressed = [0u8; 33];
         if public_key.len() == 33 {
             compressed.copy_from_slice(&public_key);

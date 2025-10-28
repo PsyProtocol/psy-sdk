@@ -1,26 +1,18 @@
 use std::marker::PhantomData;
 
-use crate::traits::KVQBinaryStore;
-use crate::traits::KVQPair;
-use crate::traits::KVQSerializable;
-use crate::traits::KVQStoreAdapter;
-use crate::traits::KVQStoreAdapterReader;
-use crate::traits::KVQBinaryStoreAsync;
-use crate::traits::KVQStoreAdapterReaderAsync;
-use crate::traits::KVQStoreAdapterAsync;
-
-
-
 use async_trait::async_trait;
+
+use crate::traits::{
+    KVQBinaryStore, KVQBinaryStoreAsync, KVQPair, KVQSerializable, KVQStoreAdapter, KVQStoreAdapterAsync, KVQStoreAdapterReader,
+    KVQStoreAdapterReaderAsync,
+};
 pub struct KVQStandardAdapter<S, K: KVQSerializable, V: KVQSerializable> {
     _s: PhantomData<S>,
     _k: PhantomData<K>,
     _v: PhantomData<V>,
 }
 
-impl<S: KVQBinaryStore, K: KVQSerializable, V: KVQSerializable> KVQStoreAdapterReader<S, K, V>
-    for KVQStandardAdapter<S, K, V>
-{
+impl<S: KVQBinaryStore, K: KVQSerializable, V: KVQSerializable> KVQStoreAdapterReader<S, K, V> for KVQStandardAdapter<S, K, V> {
     fn get_exact_if_exists(s: &S, key: &K) -> anyhow::Result<Option<V>> {
         let r = s.get_exact_if_exists(&key.to_bytes()?)?;
         if r.is_some() {
@@ -47,15 +39,9 @@ impl<S: KVQBinaryStore, K: KVQSerializable, V: KVQSerializable> KVQStoreAdapterR
     }
 
     fn get_many_exact(s: &S, keys: &[K]) -> anyhow::Result<Vec<V>> {
-        let keys_bytes = keys
-            .iter()
-            .map(|k| k.to_bytes())
-            .collect::<anyhow::Result<Vec<Vec<u8>>>>()?;
+        let keys_bytes = keys.iter().map(|k| k.to_bytes()).collect::<anyhow::Result<Vec<Vec<u8>>>>()?;
         let values_bytes = s.get_many_exact(&keys_bytes)?;
-        let values = values_bytes
-            .iter()
-            .map(|r| V::from_bytes(r))
-            .collect::<anyhow::Result<Vec<V>>>();
+        let values = values_bytes.iter().map(|r| V::from_bytes(r)).collect::<anyhow::Result<Vec<V>>>();
         Ok(values?)
     }
 
@@ -68,10 +54,7 @@ impl<S: KVQBinaryStore, K: KVQSerializable, V: KVQSerializable> KVQStoreAdapterR
     }
 
     fn get_many_leq(s: &S, keys: &[K], fuzzy_bytes: usize) -> anyhow::Result<Vec<Option<V>>> {
-        let keys_bytes = keys
-            .iter()
-            .map(|k| k.to_bytes())
-            .collect::<anyhow::Result<Vec<Vec<u8>>>>()?;
+        let keys_bytes = keys.iter().map(|k| k.to_bytes()).collect::<anyhow::Result<Vec<Vec<u8>>>>()?;
         let values_bytes = s.get_many_leq(&keys_bytes, fuzzy_bytes)?;
         let values = values_bytes
             .iter()
@@ -85,15 +68,8 @@ impl<S: KVQBinaryStore, K: KVQSerializable, V: KVQSerializable> KVQStoreAdapterR
         Ok(values?)
     }
 
-    fn get_many_leq_kv(
-        s: &S,
-        keys: &[K],
-        fuzzy_bytes: usize,
-    ) -> anyhow::Result<Vec<Option<KVQPair<K, V>>>> {
-        let keys_bytes = keys
-            .iter()
-            .map(|k| k.to_bytes())
-            .collect::<anyhow::Result<Vec<Vec<u8>>>>()?;
+    fn get_many_leq_kv(s: &S, keys: &[K], fuzzy_bytes: usize) -> anyhow::Result<Vec<Option<KVQPair<K, V>>>> {
+        let keys_bytes = keys.iter().map(|k| k.to_bytes()).collect::<anyhow::Result<Vec<Vec<u8>>>>()?;
         let kvs_bytes = s.get_many_leq_kv(&keys_bytes, fuzzy_bytes)?;
         let kvs: anyhow::Result<Vec<Option<KVQPair<K, V>>>> = kvs_bytes
             .iter()
@@ -110,11 +86,7 @@ impl<S: KVQBinaryStore, K: KVQSerializable, V: KVQSerializable> KVQStoreAdapterR
         Ok(kvs?)
     }
 
-    fn get_fuzzy_range_leq_kv(
-        s: &S,
-        key: &K,
-        fuzzy_bytes: usize,
-    ) -> anyhow::Result<Vec<KVQPair<K, V>>> {
+    fn get_fuzzy_range_leq_kv(s: &S, key: &K, fuzzy_bytes: usize) -> anyhow::Result<Vec<KVQPair<K, V>>> {
         let key = key.to_bytes()?;
         s.get_fuzzy_range_leq_kv(&key, fuzzy_bytes)?
             .into_iter()
@@ -128,9 +100,7 @@ impl<S: KVQBinaryStore, K: KVQSerializable, V: KVQSerializable> KVQStoreAdapterR
     }
 }
 
-impl<S: KVQBinaryStore, K: KVQSerializable, V: KVQSerializable> KVQStoreAdapter<S, K, V>
-    for KVQStandardAdapter<S, K, V>
-{
+impl<S: KVQBinaryStore, K: KVQSerializable, V: KVQSerializable> KVQStoreAdapter<S, K, V> for KVQStandardAdapter<S, K, V> {
     fn set_ref(s: &S, key: &K, value: &V) -> anyhow::Result<()> {
         s.set(key.to_bytes()?, value.to_bytes()?)
     }
@@ -193,17 +163,8 @@ impl<S: KVQBinaryStore, K: KVQSerializable, V: KVQSerializable> KVQStoreAdapter<
     }
 }
 
-
-
-
-
-
-
-
-
-
 #[async_trait]
-impl<S: KVQBinaryStoreAsync+ Send + Sync, K: KVQSerializable + Send + Sync, V: KVQSerializable+ Send + Sync> KVQStoreAdapterReaderAsync<S, K, V>
+impl<S: KVQBinaryStoreAsync + Send + Sync, K: KVQSerializable + Send + Sync, V: KVQSerializable + Send + Sync> KVQStoreAdapterReaderAsync<S, K, V>
     for KVQStandardAdapter<S, K, V>
 {
     async fn get_exact_if_exists(s: &S, key: &K) -> anyhow::Result<Option<V>> {
@@ -232,15 +193,9 @@ impl<S: KVQBinaryStoreAsync+ Send + Sync, K: KVQSerializable + Send + Sync, V: K
     }
 
     async fn get_many_exact(s: &S, keys: &[K]) -> anyhow::Result<Vec<V>> {
-        let keys_bytes = keys
-            .iter()
-            .map(|k| k.to_bytes())
-            .collect::<anyhow::Result<Vec<Vec<u8>>>>()?;
+        let keys_bytes = keys.iter().map(|k| k.to_bytes()).collect::<anyhow::Result<Vec<Vec<u8>>>>()?;
         let values_bytes = s.get_many_exact(&keys_bytes).await?;
-        let values = values_bytes
-            .iter()
-            .map(|r| V::from_bytes(r))
-            .collect::<anyhow::Result<Vec<V>>>();
+        let values = values_bytes.iter().map(|r| V::from_bytes(r)).collect::<anyhow::Result<Vec<V>>>();
         Ok(values?)
     }
 
@@ -253,10 +208,7 @@ impl<S: KVQBinaryStoreAsync+ Send + Sync, K: KVQSerializable + Send + Sync, V: K
     }
 
     async fn get_many_leq(s: &S, keys: &[K], fuzzy_bytes: usize) -> anyhow::Result<Vec<Option<V>>> {
-        let keys_bytes = keys
-            .iter()
-            .map(|k| k.to_bytes())
-            .collect::<anyhow::Result<Vec<Vec<u8>>>>()?;
+        let keys_bytes = keys.iter().map(|k| k.to_bytes()).collect::<anyhow::Result<Vec<Vec<u8>>>>()?;
         let values_bytes = s.get_many_leq(&keys_bytes, fuzzy_bytes).await?;
         let values = values_bytes
             .iter()
@@ -270,15 +222,8 @@ impl<S: KVQBinaryStoreAsync+ Send + Sync, K: KVQSerializable + Send + Sync, V: K
         Ok(values?)
     }
 
-    async fn get_many_leq_kv(
-        s: &S,
-        keys: &[K],
-        fuzzy_bytes: usize,
-    ) -> anyhow::Result<Vec<Option<KVQPair<K, V>>>> {
-        let keys_bytes = keys
-            .iter()
-            .map(|k| k.to_bytes())
-            .collect::<anyhow::Result<Vec<Vec<u8>>>>()?;
+    async fn get_many_leq_kv(s: &S, keys: &[K], fuzzy_bytes: usize) -> anyhow::Result<Vec<Option<KVQPair<K, V>>>> {
+        let keys_bytes = keys.iter().map(|k| k.to_bytes()).collect::<anyhow::Result<Vec<Vec<u8>>>>()?;
         let kvs_bytes = s.get_many_leq_kv(&keys_bytes, fuzzy_bytes).await?;
         let kvs: anyhow::Result<Vec<Option<KVQPair<K, V>>>> = kvs_bytes
             .iter()
@@ -295,13 +240,10 @@ impl<S: KVQBinaryStoreAsync+ Send + Sync, K: KVQSerializable + Send + Sync, V: K
         Ok(kvs?)
     }
 
-    async fn get_fuzzy_range_leq_kv(
-        s: &S,
-        key: &K,
-        fuzzy_bytes: usize,
-    ) -> anyhow::Result<Vec<KVQPair<K, V>>> {
+    async fn get_fuzzy_range_leq_kv(s: &S, key: &K, fuzzy_bytes: usize) -> anyhow::Result<Vec<KVQPair<K, V>>> {
         let key = key.to_bytes()?;
-        s.get_fuzzy_range_leq_kv(&key, fuzzy_bytes).await?
+        s.get_fuzzy_range_leq_kv(&key, fuzzy_bytes)
+            .await?
             .into_iter()
             .map(|kv| {
                 Ok(KVQPair {
@@ -321,7 +263,11 @@ impl<S: KVQBinaryStoreAsync + Send + Sync, K: KVQSerializable + Send + Sync, V: 
         s.set(key.to_bytes()?, value.to_bytes()?).await
     }
 
-    async fn set(s: &S, key: K, value: V) -> anyhow::Result<()> where K: 'async_trait, V: 'async_trait {
+    async fn set(s: &S, key: K, value: V) -> anyhow::Result<()>
+    where
+        K: 'async_trait,
+        V: 'async_trait,
+    {
         s.set(key.to_bytes()?, value.to_bytes()?).await
     }
 
@@ -338,7 +284,11 @@ impl<S: KVQBinaryStoreAsync + Send + Sync, K: KVQSerializable + Send + Sync, V: 
         s.set_many_vec(pairs?).await
     }
 
-    async fn set_many(s: &S, items: &[KVQPair<K, V>]) -> anyhow::Result<()> where K: 'async_trait, V: 'async_trait {
+    async fn set_many(s: &S, items: &[KVQPair<K, V>]) -> anyhow::Result<()>
+    where
+        K: 'async_trait,
+        V: 'async_trait,
+    {
         let pairs: anyhow::Result<Vec<KVQPair<Vec<u8>, Vec<u8>>>> = items
             .iter()
             .map(|kv| {
@@ -379,5 +329,3 @@ impl<S: KVQBinaryStoreAsync + Send + Sync, K: KVQSerializable + Send + Sync, V: 
         s.set_many_split_ref(&keys_bytes, &values_bytes).await
     }
 }
-
-

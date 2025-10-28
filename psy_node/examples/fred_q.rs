@@ -1,19 +1,14 @@
+use std::time::Duration;
+
 use fred::prelude::*;
 use kvq::traits::KVQSerializable;
 use psy_core::{
-    job::drain_queue::{
-        CheckpointDrainQueueConsumerAsyncImm, CheckpointDrainQueueEmitterAsyncImm,
-        DrainQueueMetadata, DrainQueueMetadataTagged,
-    },
+    job::drain_queue::{CheckpointDrainQueueConsumerAsyncImm, CheckpointDrainQueueEmitterAsyncImm, DrainQueueMetadata, DrainQueueMetadataTagged},
     utils::debug_timer::DebugTimer,
 };
-use psy_store::queue::DrainQueueFred;
-use std::time::Duration;
-use tokio::task::JoinHandle;
-
-
+use psy_store::queue::{new_fred_pool, DrainQueueFred};
 use rand::{thread_rng, Rng};
-use psy_store::queue::new_fred_pool;
+use tokio::task::JoinHandle;
 
 #[derive(Clone, Copy, Debug, PartialEq, PartialOrd, Eq, Ord, Hash)]
 struct TestItem {
@@ -27,7 +22,7 @@ impl TestItem {
         (0..count)
             .map(|i| Self {
                 a: a_value,
-                b: (i+start_idx) as u64,
+                b: (i + start_idx) as u64,
                 c: thread_rng().gen::<u64>(),
                 d: thread_rng().gen::<u64>(),
             })
@@ -48,10 +43,7 @@ impl KVQSerializable for TestItem {
 
     fn from_bytes(bytes: &[u8]) -> anyhow::Result<Self> {
         if bytes.len() != 32 {
-            anyhow::bail!(
-                "expected 32 bytes when deserializing TestItem, got {}",
-                bytes.len()
-            );
+            anyhow::bail!("expected 32 bytes when deserializing TestItem, got {}", bytes.len());
         }
         let a = u64::from_be_bytes(bytes[0..8].try_into().unwrap());
         let b = u64::from_be_bytes(bytes[8..16].try_into().unwrap());
@@ -71,13 +63,12 @@ impl DrainQueueMetadataTagged for TestItem {
     }
 }
 
-
 async fn run_fred_test3() -> anyhow::Result<()> {
     let mut timer = DebugTimer::new("dq_rust_2v2");
     timer.lap("start");
 
-    let pool = new_fred_pool("redis://127.0.0.1:6379",8).await?;
-    
+    let pool = new_fred_pool("redis://127.0.0.1:6379", 8).await?;
+
     timer.lap("connected to redis");
 
     let q = DrainQueueFred::new(pool, "fred_q".to_string());
@@ -86,21 +77,22 @@ async fn run_fred_test3() -> anyhow::Result<()> {
     let items_per_worker = 2000usize;
     let checkpoint_id = 2u64;
 
-    let res = (0..worker_count).map(|i|{
-        let dq = q.clone();
-        let start_idx = items_per_worker*i;
-        let item_count = items_per_worker;
-        let jhandle: JoinHandle<Result<(), anyhow::Error>> = tokio::spawn(async move {
+    let res = (0..worker_count)
+        .map(|i| {
+            let dq = q.clone();
+            let start_idx = items_per_worker * i;
+            let item_count = items_per_worker;
+            let jhandle: JoinHandle<Result<(), anyhow::Error>> = tokio::spawn(async move {
+                let items = TestItem::gen_many(checkpoint_id, item_count, start_idx);
+                for item in items {
+                    dq.cdq_push_imm(item).await?;
+                }
 
-            let items = TestItem::gen_many(checkpoint_id, item_count, start_idx);
-            for item in items {
-                dq.cdq_push_imm(item).await?;
-            }
-    
-            Ok(())
-        });
-        jhandle
-    }).collect::<Vec<_>>();
+                Ok(())
+            });
+            jhandle
+        })
+        .collect::<Vec<_>>();
 
     for r in res {
         r.await??;
@@ -119,13 +111,13 @@ async fn run_fred_test2() -> anyhow::Result<()> {
     let mut timer = DebugTimer::new("dq_rust_2v2");
     timer.lap("start");
 
-    let pool = new_fred_pool("redis://127.0.0.1:6379",8).await?;
-    
+    let pool = new_fred_pool("redis://127.0.0.1:6379", 8).await?;
+
     timer.lap("connected to redis");
 
     let q = DrainQueueFred::new(pool, "fred_q".to_string());
 
-    /* 
+    /*
     let worker_count = 4usize;
     let items_per_worker = 5000usize;
     let checkpoint_id = 2u64;*/
@@ -134,7 +126,6 @@ async fn run_fred_test2() -> anyhow::Result<()> {
     let q2 = q.clone();
 
     let res1: JoinHandle<Result<(), anyhow::Error>> = tokio::spawn(async move {
-
         let items = TestItem::gen_many(2, 5000, 0);
         for item in items {
             q1.cdq_push_imm(item).await?;
@@ -144,7 +135,6 @@ async fn run_fred_test2() -> anyhow::Result<()> {
     });
 
     let res2: JoinHandle<Result<(), anyhow::Error>> = tokio::spawn(async move {
-
         let items = TestItem::gen_many(2, 5000, 5000);
         for item in items {
             q2.cdq_push_imm(item).await?;
@@ -165,13 +155,12 @@ async fn run_fred_test2() -> anyhow::Result<()> {
     Ok(())
 }
 
-
 async fn run_fred_test() -> anyhow::Result<()> {
     let mut timer = DebugTimer::new("dq_rust_2");
     timer.lap("start");
 
-    let pool = new_fred_pool("redis://127.0.0.1:6379",8).await?;
-    
+    let pool = new_fred_pool("redis://127.0.0.1:6379", 8).await?;
+
     timer.lap("connected to redis");
 
     let q = DrainQueueFred::new(pool, "fred_q".to_string());

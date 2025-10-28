@@ -28,10 +28,7 @@ impl TreePosition {
         self.level == 0xffffu64
     }
     pub fn new_null() -> Self {
-        Self {
-            level: 0xffffu64,
-            index: 0,
-        }
+        Self { level: 0xffffu64, index: 0 }
     }
 }
 
@@ -94,10 +91,7 @@ impl BinaryTreePlanner {
                 ));
                 output.push_str(&format!(
                     "\"{}:{}\" -> \"{}:{}\";\n",
-                    job.position.level,
-                    job.position.index,
-                    job.right_job.level,
-                    job.right_job.index
+                    job.position.level, job.position.index, job.right_job.level, job.right_job.index
                 ));
             }
         }

@@ -1,19 +1,23 @@
 use core::marker::PhantomData;
-use plonky2::plonk::circuit_data::CommonCircuitData;
-use plonky2::util::serialization::{Buffer, IoResult, Read, Write};
 
-use plonky2::field::extension::Extendable;
-use plonky2::field::types::Field;
-use plonky2::gates::gate::Gate;
-use plonky2::gates::util::StridedConstraintConsumer;
-use plonky2::hash::hash_types::RichField;
-use plonky2::iop::ext_target::ExtensionTarget;
-use plonky2::iop::generator::{GeneratedValues, SimpleGenerator, WitnessGeneratorRef};
-use plonky2::iop::target::Target;
-use plonky2::iop::witness::{PartitionWitness, Witness, WitnessWrite};
-use plonky2::plonk::circuit_builder::CircuitBuilder;
-use plonky2::plonk::plonk_common::{reduce_with_powers, reduce_with_powers_ext_circuit};
-use plonky2::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
+use plonky2::{
+    field::{extension::Extendable, types::Field},
+    gates::{gate::Gate, util::StridedConstraintConsumer},
+    hash::hash_types::RichField,
+    iop::{
+        ext_target::ExtensionTarget,
+        generator::{GeneratedValues, SimpleGenerator, WitnessGeneratorRef},
+        target::Target,
+        witness::{PartitionWitness, Witness, WitnessWrite},
+    },
+    plonk::{
+        circuit_builder::CircuitBuilder,
+        circuit_data::CommonCircuitData,
+        plonk_common::{reduce_with_powers, reduce_with_powers_ext_circuit},
+        vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase},
+    },
+    util::serialization::{Buffer, IoResult, Read, Write},
+};
 use psy_core::utils::math::ceil_div_usize;
 
 /// A gate which can decompose a number into base B little-endian limbs.
@@ -66,22 +70,14 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for U32RangeCheckG
 
             constraints.push(computed_sum - input_limb);
             for aux_limb in aux_limbs {
-                constraints.push(
-                    (0..Self::BASE)
-                        .map(|i| aux_limb - F::Extension::from_canonical_usize(i))
-                        .product(),
-                );
+                constraints.push((0..Self::BASE).map(|i| aux_limb - F::Extension::from_canonical_usize(i)).product());
             }
         }
 
         constraints
     }
 
-    fn eval_unfiltered_base_one(
-        &self,
-        vars: EvaluationVarsBase<F>,
-        mut yield_constr: StridedConstraintConsumer<F>,
-    ) {
+    fn eval_unfiltered_base_one(&self, vars: EvaluationVarsBase<F>, mut yield_constr: StridedConstraintConsumer<F>) {
         let base = F::from_canonical_usize(Self::BASE);
         for i in 0..self.num_input_limbs {
             let input_limb = vars.local_wires[self.wire_ith_input_limb(i)];
@@ -92,20 +88,12 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for U32RangeCheckG
 
             yield_constr.one(computed_sum - input_limb);
             for aux_limb in aux_limbs {
-                yield_constr.one(
-                    (0..Self::BASE)
-                        .map(|i| aux_limb - F::from_canonical_usize(i))
-                        .product(),
-                );
+                yield_constr.one((0..Self::BASE).map(|i| aux_limb - F::from_canonical_usize(i)).product());
             }
         }
     }
 
-    fn eval_unfiltered_circuit(
-        &self,
-        builder: &mut CircuitBuilder<F, D>,
-        vars: EvaluationTargets<D>,
-    ) -> Vec<ExtensionTarget<D>> {
+    fn eval_unfiltered_circuit(&self, builder: &mut CircuitBuilder<F, D>, vars: EvaluationTargets<D>) -> Vec<ExtensionTarget<D>> {
         let mut constraints = Vec::with_capacity(self.num_constraints());
 
         let base = builder.constant(F::from_canonical_usize(Self::BASE));
@@ -154,7 +142,8 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for U32RangeCheckG
         Self::BASE
     }
 
-    // 1 for checking the each sum of aux limbs, plus a range check for each aux limb.
+    // 1 for checking the each sum of aux limbs, plus a range check for each aux
+    // limb.
     fn num_constraints(&self) -> usize {
         self.num_input_limbs * (1 + self.aux_limbs_per_input_limb())
     }
@@ -178,9 +167,7 @@ pub struct U32RangeCheckGenerator<F: RichField + Extendable<D>, const D: usize> 
     row: usize,
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D>
-    for U32RangeCheckGenerator<F, D>
-{
+impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D> for U32RangeCheckGenerator<F, D> {
     fn dependencies(&self) -> Vec<Target> {
         let num_input_limbs = self.gate.num_input_limbs;
         (0..num_input_limbs)
@@ -196,8 +183,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D>
                 .to_canonical_u64() as u32;
 
             let base = U32RangeCheckGate::<F, D>::BASE as u32;
-            let limbs = (0..self.gate.aux_limbs_per_input_limb())
-                .map(|j| Target::wire(self.row, self.gate.wire_ith_input_limb_jth_aux_limb(i, j)));
+            let limbs = (0..self.gate.aux_limbs_per_input_limb()).map(|j| Target::wire(self.row, self.gate.wire_ith_input_limb_jth_aux_limb(i, j)));
             let limbs_value = (0..self.gate.aux_limbs_per_input_limb())
                 .scan(sum_value, |acc, _| {
                     let tmp = *acc % base;
@@ -236,14 +222,17 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D>
 mod tests {
     use anyhow::Result;
     use itertools::unfold;
-    use plonky2::field::extension::quartic::QuarticExtension;
-    use plonky2::field::goldilocks_field::GoldilocksField;
-    use plonky2::field::types::{Field, Sample};
-    use plonky2::gates::gate_testing::{test_eval_fns, test_low_degree};
-    use plonky2::hash::hash_types::HashOut;
-    use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
-    use rand::rngs::OsRng;
-    use rand::Rng;
+    use plonky2::{
+        field::{
+            extension::quartic::QuarticExtension,
+            goldilocks_field::GoldilocksField,
+            types::{Field, Sample},
+        },
+        gates::gate_testing::{test_eval_fns, test_low_degree},
+        hash::hash_types::HashOut,
+        plonk::config::{GenericConfig, PoseidonGoldilocksConfig},
+    };
+    use rand::{rngs::OsRng, Rng};
 
     use super::*;
 
@@ -281,8 +270,7 @@ mod tests {
                     .map(F::from_canonical_u64)
                 };
 
-                let mut aux_limbs: Vec<_> =
-                    split_to_limbs(input_limb, AUX_LIMBS_PER_INPUT_LIMB).collect();
+                let mut aux_limbs: Vec<_> = split_to_limbs(input_limb, AUX_LIMBS_PER_INPUT_LIMB).collect();
 
                 v.append(&mut aux_limbs);
             }

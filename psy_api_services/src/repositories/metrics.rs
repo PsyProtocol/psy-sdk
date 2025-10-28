@@ -1,8 +1,10 @@
 use chrono::Utc;
 use sqlx::PgPool;
 
-use crate::models::{TpsData, UserEvent, UserEventTxType, WorkerLeaderboardEntry};
-use crate::Result;
+use crate::{
+    models::{TpsData, UserEvent, UserEventTxType, WorkerLeaderboardEntry},
+    Result,
+};
 
 pub struct TpsRepository;
 pub struct WorkerLeaderboardRepository;
@@ -72,7 +74,8 @@ impl TpsRepository {
 /// Worker Leaderboard Repository
 impl WorkerLeaderboardRepository {
     /// Get worker leaderboard for the last 24 hours
-    /// Returns top workers ranked by total rewards earned, limited to specified count
+    /// Returns top workers ranked by total rewards earned, limited to specified
+    /// count
     pub async fn get_leaderboard_24h(
         pool: &PgPool,
         limit: i64, // Maximum number of entries to return (e.g., 100)
@@ -83,8 +86,9 @@ impl WorkerLeaderboardRepository {
         const REWARD_PER_PROOF: i64 = 5_000_000_000;
 
         // Query to get worker leaderboard data based on worker_events table
-        // This approach calculates rewards based on completed tasks in the last 24 hours
-        // Prioritizes workers by proof count first, then by public key for consistent ranking
+        // This approach calculates rewards based on completed tasks in the last 24
+        // hours Prioritizes workers by proof count first, then by public key
+        // for consistent ranking
         let rows = sqlx::query!(
             r#"
             WITH worker_stats AS (

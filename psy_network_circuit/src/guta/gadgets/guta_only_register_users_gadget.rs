@@ -1,17 +1,17 @@
-use plonky2::{field::extension::Extendable, hash::hash_types::{HashOutTarget, RichField}, iop::witness::Witness, plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher}};
+use plonky2::{
+    field::extension::Extendable,
+    hash::hash_types::{HashOutTarget, RichField},
+    iop::witness::Witness,
+    plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher},
+};
 use psy_core::{config::network_constants::get_default_worker_public_key, data::qhashout::QHashOut};
 use psy_data::{guta::proof_input::GUTARegisterUserFullInput, qdata::user::QEDUserLeaf};
 
+use super::{guta_header::GlobalUserTreeAggregatorHeaderGadget, guta_register_users::GUTARegisterUsersGadget, helpers::ToGUTAHeader};
 use crate::guta::gadgets::guta_stats::GUTAStatsGadget;
 
-use super::{guta_header::GlobalUserTreeAggregatorHeaderGadget, guta_register_users::GUTARegisterUsersGadget, helpers::ToGUTAHeader};
-
-
-
-
-
 #[derive(Clone, Debug)]
-pub struct GUTAOnlyRegisterUsersGadget{
+pub struct GUTAOnlyRegisterUsersGadget {
     pub register_users_gadget: GUTARegisterUsersGadget,
 
     // computed
@@ -19,7 +19,6 @@ pub struct GUTAOnlyRegisterUsersGadget{
 }
 
 impl GUTAOnlyRegisterUsersGadget {
-
     pub fn add_virtual_to<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
         guta_circuit_whitelist: HashOutTarget,
@@ -28,10 +27,11 @@ impl GUTAOnlyRegisterUsersGadget {
         global_user_tree_height: usize,
         default_user_state_tree_root: QHashOut<F>,
         max_users: usize,
-    ) -> Self
-    {
-
-        assert!(global_user_tree_realm_height <= global_user_tree_height, "global_user_tree_realm_height cannot be taller than global_user_tree_height");
+    ) -> Self {
+        assert!(
+            global_user_tree_realm_height <= global_user_tree_height,
+            "global_user_tree_realm_height cannot be taller than global_user_tree_height"
+        );
 
         let register_users_gadget = GUTARegisterUsersGadget::add_virtual_to::<H, F, D>(
             builder,
@@ -39,18 +39,15 @@ impl GUTAOnlyRegisterUsersGadget {
             global_user_tree_height,
             default_user_state_tree_root,
             None,
-            max_users
+            max_users,
         );
 
-
-
-        let new_guta_header = GlobalUserTreeAggregatorHeaderGadget{
+        let new_guta_header = GlobalUserTreeAggregatorHeaderGadget {
             guta_circuit_whitelist: guta_circuit_whitelist,
             checkpoint_tree_root: checkpoint_tree_root,
             state_transition: register_users_gadget.get_state_transition(),
             stats: GUTAStatsGadget::add_virtual_to_zero(builder),
         };
-
 
         Self {
             new_guta_header,
@@ -67,18 +64,17 @@ impl GUTAOnlyRegisterUsersGadget {
         let dummy_public_key = get_default_worker_public_key();
         let dummy_user_leaf_hash = QEDUserLeaf::new_user_default(F::ZERO, dummy_public_key, default_user_state_tree_root).alghash::<H>();
 
-        self.register_users_gadget.set_witness_params(
-            witness,
-            guta_register_user_inputs,
-            dummy_public_key,
-            dummy_user_leaf_hash,
-        )
+        self.register_users_gadget
+            .set_witness_params(witness, guta_register_user_inputs, dummy_public_key, dummy_user_leaf_hash)
     }
-
 }
 
-impl <const D: usize> ToGUTAHeader<D> for GUTAOnlyRegisterUsersGadget{
-    fn get_guta_header<H: AlgebraicHasher<F>, F: RichField + Extendable<D>>(&self, _builder: &mut CircuitBuilder<F, D>, _default_guta_circuit_whitelist: HashOutTarget) -> GlobalUserTreeAggregatorHeaderGadget {
+impl<const D: usize> ToGUTAHeader<D> for GUTAOnlyRegisterUsersGadget {
+    fn get_guta_header<H: AlgebraicHasher<F>, F: RichField + Extendable<D>>(
+        &self,
+        _builder: &mut CircuitBuilder<F, D>,
+        _default_guta_circuit_whitelist: HashOutTarget,
+    ) -> GlobalUserTreeAggregatorHeaderGadget {
         self.new_guta_header
     }
 }

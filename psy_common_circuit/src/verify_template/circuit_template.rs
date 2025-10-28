@@ -1,18 +1,18 @@
 use std::sync::Arc;
 
-use plonky2::field::types::{Field, PrimeField64};
-use plonky2::plonk::circuit_builder::CircuitBuilder;
-
-use plonky2::plonk::{
-    circuit_data::{CircuitConfig, CommonCircuitData, VerifierOnlyCircuitData},
-    config::GenericConfig,
-    plonk_common::salt_size,
+use plonky2::{
+    field::types::{Field, PrimeField64},
+    plonk::{
+        circuit_builder::CircuitBuilder,
+        circuit_data::{CircuitConfig, CommonCircuitData, VerifierOnlyCircuitData},
+        config::GenericConfig,
+        plonk_common::salt_size,
+    },
 };
 use serde::{Deserialize, Serialize};
 
-use crate::circuits::traits::qstandard::QStandardCircuit;
-
 use super::ser_data::VTFriParams;
+use crate::circuits::traits::qstandard::QStandardCircuit;
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct QEDCircuitVerifyTemplate {
@@ -70,8 +70,7 @@ impl QEDCircuitVerifyTemplate {
         let salt = salt_size(common_data.fri_params.hiding);
 
         let num_preprocessed_polys = common_data.sigmas_range().end;
-        let num_zs_partial_products_polys =
-            common_data.config.num_challenges * (1 + common_data.num_partial_products);
+        let num_zs_partial_products_polys = common_data.config.num_challenges * (1 + common_data.num_partial_products);
         let num_all_lookup_polys = common_data.config.num_challenges * common_data.num_lookup_polys;
         let quotient_degree_factor = common_data.quotient_degree_factor;
         let num_quotient_polys = common_data.config.num_challenges * quotient_degree_factor;
@@ -92,19 +91,11 @@ impl QEDCircuitVerifyTemplate {
         let num_constants = common_data.num_constants;
         let num_wires = config.num_wires;
         let num_routed_wires = config.num_routed_wires;
-        let k_is = common_data
-            .k_is
-            .iter()
-            .map(|f| f.to_canonical_u64())
-            .collect();
+        let k_is = common_data.k_is.iter().map(|f| f.to_canonical_u64()).collect();
         let num_partial_products = common_data.num_partial_products;
         let num_lookup_polys = common_data.num_lookup_polys;
         let num_lookup_selectors = common_data.num_lookup_selectors;
-        let luts = common_data
-            .luts
-            .iter()
-            .map(|lut| lut.iter().map(|x| [x.0, x.1]).collect())
-            .collect();
+        let luts = common_data.luts.iter().map(|lut| lut.iter().map(|x| [x.0, x.1]).collect()).collect();
         Self {
             verifier_data_cap_height,
             fri_cap_height,
@@ -127,13 +118,8 @@ impl QEDCircuitVerifyTemplate {
             luts,
         }
     }
-    pub fn from_standard_circuit<Q: QStandardCircuit<C, D>, C: GenericConfig<D>, const D: usize>(
-        circuit: &Q,
-    ) -> Self {
-        Self::from_common_and_verifier_only(
-            circuit.get_common_circuit_data_ref(),
-            circuit.get_verifier_config_ref(),
-        )
+    pub fn from_standard_circuit<Q: QStandardCircuit<C, D>, C: GenericConfig<D>, const D: usize>(circuit: &Q) -> Self {
+        Self::from_common_and_verifier_only(circuit.get_common_circuit_data_ref(), circuit.get_verifier_config_ref())
     }
     pub fn to_code(&self) -> String {
         let luts_str = luts_to_string(&self.luts);
@@ -190,19 +176,12 @@ impl QEDCircuitVerifyTemplate {
 
         base
     }
-    pub fn get_common_data<C: GenericConfig<D>, const D: usize>(
-        &self,
-    ) -> CommonCircuitData<C::F, D> {
+    pub fn get_common_data<C: GenericConfig<D>, const D: usize>(&self) -> CommonCircuitData<C::F, D> {
         let circuit_config = self.get_circuit_config();
         let fri_params = self.vt_fri_params.clone().into();
 
-        let donor_circuit_data =
-            CircuitBuilder::<C::F, D>::new(CircuitConfig::standard_recursion_config()).build::<C>();
-        let k_is = self
-            .k_is
-            .iter()
-            .map(|x| C::F::from_noncanonical_u64(*x))
-            .collect::<Vec<C::F>>();
+        let donor_circuit_data = CircuitBuilder::<C::F, D>::new(CircuitConfig::standard_recursion_config()).build::<C>();
+        let k_is = self.k_is.iter().map(|x| C::F::from_noncanonical_u64(*x)).collect::<Vec<C::F>>();
         let luts = self
             .luts
             .iter()

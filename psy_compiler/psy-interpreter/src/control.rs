@@ -1,8 +1,9 @@
-use enum_as_inner::EnumAsInner;
 use std::{
     convert::Infallible,
     ops::{ControlFlow, FromResidual, Try},
 };
+
+use enum_as_inner::EnumAsInner;
 
 #[derive(Clone, Debug, PartialEq, EnumAsInner)]
 pub enum ControlState<T> {

@@ -1,23 +1,27 @@
 use plonky2::{
-    field::types::Field, gates::gate::GateRef, hash::hash_types::{HashOut, HashOutTarget}, iop::witness::{PartialWitness, WitnessWrite}, plonk::{
+    field::types::Field,
+    gates::gate::GateRef,
+    hash::hash_types::{HashOut, HashOutTarget},
+    iop::witness::{PartialWitness, WitnessWrite},
+    plonk::{
         circuit_builder::CircuitBuilder,
         circuit_data::{CircuitConfig, CircuitData, CommonCircuitData, VerifierOnlyCircuitData},
         config::{AlgebraicHasher, GenericConfig},
         proof::ProofWithPublicInputs,
-    }, util::serialization::{DefaultGateSerializer, DefaultGeneratorSerializer}
+    },
+    util::serialization::{DefaultGateSerializer, DefaultGeneratorSerializer},
 };
 use psy_core::{data::qhashout::QHashOut, utils::debug_timer::DebugTimer};
-use psy_crypto::{common::witnesses::zk_signature::QEDZKSignatureCircuitInput, hash::traits::hasher::MerkleZeroHasher, signature::zk::wallet::PRIVATE_KEY_CONSTANTS};
-
-use crate::{
-    builder::hash::core::CircuitBuilderHashCore, proof_minifier::pm_chain::QEDProofMinifierChain, u32::gates::comparison::ComparisonGate,
+use psy_crypto::{
+    common::witnesses::zk_signature::QEDZKSignatureCircuitInput, hash::traits::hasher::MerkleZeroHasher, signature::zk::wallet::PRIVATE_KEY_CONSTANTS,
 };
 
 use super::super::traits::qstandard::{provable::QStandardCircuitProvable, QStandardCircuit};
+use crate::{builder::hash::core::CircuitBuilderHashCore, proof_minifier::pm_chain::QEDProofMinifierChain, u32::gates::comparison::ComparisonGate};
 #[derive(Debug)]
 pub struct QEDBasicZKSignatureCircuit<C: GenericConfig<D> + 'static, const D: usize>
 where
-    C::Hasher:AlgebraicHasher<C::F>,
+    C::Hasher: AlgebraicHasher<C::F>,
 {
     pub private_key: HashOutTarget,
     pub sig_hash: HashOutTarget,
@@ -28,7 +32,7 @@ where
 }
 impl<C: GenericConfig<D>, const D: usize> Clone for QEDBasicZKSignatureCircuit<C, D>
 where
-    C::Hasher:AlgebraicHasher<C::F>,
+    C::Hasher: AlgebraicHasher<C::F>,
 {
     fn clone(&self) -> Self {
         Self::new()
@@ -36,7 +40,7 @@ where
 }
 impl<C: GenericConfig<D>, const D: usize> QEDBasicZKSignatureCircuit<C, D>
 where
-    C::Hasher:AlgebraicHasher<C::F>,
+    C::Hasher: AlgebraicHasher<C::F>,
 {
     pub fn new() -> Self {
         let config = CircuitConfig::standard_recursion_config();
@@ -80,26 +84,17 @@ where
         ]);
 
         let sig_hash = builder.add_virtual_hash();
-        let public_inputs_hash = builder.hash_two_to_one::<C::Hasher>(
-            sig_hash,
-            public_key_param_target, 
-        );
+        let public_inputs_hash = builder.hash_two_to_one::<C::Hasher>(sig_hash, public_key_param_target);
         builder.register_public_inputs(&public_inputs_hash.elements);
         let circuit_data = builder.build::<C>();
         timer.lap("build inner circuit done");
 
         // start add some gates to make it easier to integrate with others
         timer.lap("build minifier circuit");
-        let added_gates_for_minifier = [
-            GateRef::new(ComparisonGate::new(32, 16)),
-        ];
+        let added_gates_for_minifier = [GateRef::new(ComparisonGate::new(32, 16))];
 
-        let minifier_chain = QEDProofMinifierChain::<D, C::F, C>::new_add_gates(
-            &circuit_data.verifier_only,
-            &circuit_data.common,
-            2,
-            Some(&added_gates_for_minifier),
-        );
+        let minifier_chain =
+            QEDProofMinifierChain::<D, C::F, C>::new_add_gates(&circuit_data.verifier_only, &circuit_data.common, 2, Some(&added_gates_for_minifier));
         timer.lap("build minifier circuit done");
         let fingerprint = QHashOut(minifier_chain.get_fingerprint());
         Self {
@@ -110,44 +105,34 @@ where
             fingerprint,
         }
     }
-    pub fn prove_base(
-        &self,
-        private_key: QHashOut<C::F>,
-        sig_hash: QHashOut<C::F>,
-    ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
+    pub fn prove_base(&self, private_key: QHashOut<C::F>, sig_hash: QHashOut<C::F>) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         let mut pw = PartialWitness::new();
         pw.set_hash_target(self.private_key, private_key.0)?;
         pw.set_hash_target(self.sig_hash, sig_hash.0)?;
         let inner_proof = self.circuit_data.prove(pw)?;
         self.minifier_chain.prove(&inner_proof)
     }
-    pub fn prove_base_inner(
-        &self,
-        private_key: QHashOut<C::F>,
-        sig_hash: QHashOut<C::F>,
-    ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
+    pub fn prove_base_inner(&self, private_key: QHashOut<C::F>, sig_hash: QHashOut<C::F>) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         let mut pw = PartialWitness::new();
         pw.set_hash_target(self.private_key, private_key.0)?;
         pw.set_hash_target(self.sig_hash, sig_hash.0)?;
         self.circuit_data.prove(pw)
     }
-    pub fn prove_minifier(
-        &self,
-        inner_proof: ProofWithPublicInputs<C::F, C, D>,
-    ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
+    pub fn prove_minifier(&self, inner_proof: ProofWithPublicInputs<C::F, C, D>) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         self.minifier_chain.prove(&inner_proof)
     }
 }
 
 impl<C: GenericConfig<D> + Default, const D: usize> QEDBasicZKSignatureCircuit<C, D>
 where
-    C::Hasher:AlgebraicHasher<C::F>,
+    C::Hasher: AlgebraicHasher<C::F>,
 {
     pub fn serialize_circuit_data(&self) -> anyhow::Result<Vec<u8>> {
         let gate_serializer = DefaultGateSerializer;
         let generator_serializer = DefaultGeneratorSerializer::<C, D>::default();
 
-        let data_bytes = self.circuit_data
+        let data_bytes = self
+            .circuit_data
             .to_bytes(&gate_serializer, &generator_serializer)
             .map_err(|_| anyhow::Error::msg("CircuitData serialization failed."))?;
 
@@ -210,16 +195,10 @@ where
 
         // start add some gates to make it easier to integrate with others
         timer.lap("build minifier circuit");
-        let added_gates_for_minifier = [
-            GateRef::new(ComparisonGate::new(32, 16)),
-        ];
+        let added_gates_for_minifier = [GateRef::new(ComparisonGate::new(32, 16))];
 
-        let minifier_chain = QEDProofMinifierChain::<D, C::F, C>::new_add_gates(
-            &circuit_data.verifier_only,
-            &circuit_data.common,
-            2,
-            Some(&added_gates_for_minifier),
-        );
+        let minifier_chain =
+            QEDProofMinifierChain::<D, C::F, C>::new_add_gates(&circuit_data.verifier_only, &circuit_data.common, 2, Some(&added_gates_for_minifier));
         timer.lap("build minifier circuit done");
         let fingerprint = QHashOut(minifier_chain.get_fingerprint());
 
@@ -234,7 +213,7 @@ where
 }
 impl<C: GenericConfig<D>, const D: usize> QStandardCircuit<C, D> for QEDBasicZKSignatureCircuit<C, D>
 where
-    C::Hasher:AlgebraicHasher<C::F>,
+    C::Hasher: AlgebraicHasher<C::F>,
 {
     fn get_fingerprint(&self) -> QHashOut<C::F> {
         self.fingerprint
@@ -248,24 +227,19 @@ where
         self.minifier_chain.get_common_data()
     }
 }
-impl<C: GenericConfig<D>, const D: usize>
-    QStandardCircuitProvable<QEDZKSignatureCircuitInput<C::F>, C, D> for QEDBasicZKSignatureCircuit<C, D>
+impl<C: GenericConfig<D>, const D: usize> QStandardCircuitProvable<QEDZKSignatureCircuitInput<C::F>, C, D> for QEDBasicZKSignatureCircuit<C, D>
 where
-    C::Hasher:AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>>,
+    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>>,
 {
-    fn prove_standard(
-        &self,
-        input: &QEDZKSignatureCircuitInput<C::F>,
-    ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
+    fn prove_standard(&self, input: &QEDZKSignatureCircuitInput<C::F>) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         self.prove_base(input.private_key, input.sig_hash)
     }
 }
 
-
 #[derive(Debug)]
 pub struct QEDBasicZKSignatureInnerCircuit<C: GenericConfig<D> + 'static, const D: usize>
 where
-    C::Hasher:AlgebraicHasher<C::F>,
+    C::Hasher: AlgebraicHasher<C::F>,
 {
     pub private_key: HashOutTarget,
     pub sig_hash: HashOutTarget,
@@ -273,7 +247,7 @@ where
 }
 impl<C: GenericConfig<D>, const D: usize> Clone for QEDBasicZKSignatureInnerCircuit<C, D>
 where
-    C::Hasher:AlgebraicHasher<C::F>,
+    C::Hasher: AlgebraicHasher<C::F>,
 {
     fn clone(&self) -> Self {
         Self::new()
@@ -281,7 +255,7 @@ where
 }
 impl<C: GenericConfig<D>, const D: usize> QEDBasicZKSignatureInnerCircuit<C, D>
 where
-    C::Hasher:AlgebraicHasher<C::F>,
+    C::Hasher: AlgebraicHasher<C::F>,
 {
     pub fn new() -> Self {
         let config = CircuitConfig::standard_recursion_config();
@@ -325,10 +299,7 @@ where
         ]);
 
         let sig_hash = builder.add_virtual_hash();
-        let public_inputs_hash = builder.hash_two_to_one::<C::Hasher>(
-            sig_hash,
-            public_key_param_target, 
-        );
+        let public_inputs_hash = builder.hash_two_to_one::<C::Hasher>(sig_hash, public_key_param_target);
         builder.register_public_inputs(&public_inputs_hash.elements);
         let circuit_data = builder.build::<C>();
         timer.lap("build inner circuit done");
@@ -339,11 +310,7 @@ where
             circuit_data,
         }
     }
-    pub fn prove_base(
-        &self,
-        private_key: QHashOut<C::F>,
-        sig_hash: QHashOut<C::F>,
-    ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
+    pub fn prove_base(&self, private_key: QHashOut<C::F>, sig_hash: QHashOut<C::F>) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         let mut pw = PartialWitness::new();
         pw.set_hash_target(self.private_key, private_key.0)?;
         pw.set_hash_target(self.sig_hash, sig_hash.0)?;
@@ -356,7 +323,7 @@ mod test {
     use psy_core::utils::debug_timer::DebugTimer;
 
     use super::*;
-    
+
     const D: usize = 2;
     type C = PoseidonGoldilocksConfig;
     type F = <C as GenericConfig<D>>::F;
@@ -371,7 +338,7 @@ mod test {
         timer.lap("serialize circuit data");
         let circuit_data_bytes = zk_circuit.serialize_circuit_data()?;
         timer.lap("serialize circuit data done");
-        
+
         timer.lap("deserialize circuit data");
         let zk_circuit2 = QEDBasicZKSignatureCircuit::<C, D>::new_with_serialized_circuit(&circuit_data_bytes)?;
         timer.lap("deserialize circuit data done");
@@ -387,7 +354,7 @@ mod test {
         let mut pw = PartialWitness::new();
         pw.set_hash_target(zk_circuit2.private_key, input.private_key.0)?;
         pw.set_hash_target(zk_circuit2.sig_hash, input.sig_hash.0)?;
-        
+
         timer.lap("prove inner");
         let inner_proof = zk_circuit2.circuit_data.prove(pw)?;
         timer.lap("prove inner done");

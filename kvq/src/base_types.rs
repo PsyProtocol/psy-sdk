@@ -1,8 +1,7 @@
 use plonky2::hash::hash_types::{HashOut, RichField};
 
-use crate::impl_kvq_serialize;
-
 use super::traits::KVQSerializable;
+use crate::impl_kvq_serialize;
 
 impl_kvq_serialize!(u8, u32, u64, u128);
 
@@ -83,8 +82,6 @@ impl<F: RichField> KVQSerializable for HashOut<F> {
         let c = F::from_noncanonical_u64(u64::from_le_bytes(buf));
         buf.copy_from_slice(&bytes[24..32]);
         let d = F::from_noncanonical_u64(u64::from_le_bytes(buf));
-        Ok(HashOut {
-            elements: [a, b, c, d],
-        })
+        Ok(HashOut { elements: [a, b, c, d] })
     }
 }

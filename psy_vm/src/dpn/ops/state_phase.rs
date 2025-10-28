@@ -1,11 +1,7 @@
 use hashbrown::HashMap;
 use serde::{Deserialize, Serialize};
 
-use super::{
-    op_types::DPNOpType,
-    sym_felt::SymFeltRef,
-    sym_felt_store::SymFeltStore,
-};
+use super::{op_types::DPNOpType, sym_felt::SymFeltRef, sym_felt_store::SymFeltStore};
 
 #[derive(Debug, Copy, Clone, Serialize, Deserialize, Hash, PartialEq, PartialOrd, Eq, Ord)]
 pub struct StatePhaseKey {
@@ -43,20 +39,19 @@ impl StatePhaseBuilder {
                 before_external_call_index: 0,
             }
         } else {
-            let key = if sfr.get_op_type().eq(&DPNOpType::GetStateQueryResultSingle)
-                || sfr.get_op_type().eq(&DPNOpType::GetStateQueryResult)
-            {
-                //const_param: ((contract_state_tree_height as u64)<<48) | (self.external_function_call_count as u64)<<32 | (self.set_state_command_count as u64),
+            let key = if sfr.get_op_type().eq(&DPNOpType::GetStateQueryResultSingle) || sfr.get_op_type().eq(&DPNOpType::GetStateQueryResult) {
+                //const_param: ((contract_state_tree_height as u64)<<48) |
+                // (self.external_function_call_count as u64)<<32 |
+                // (self.set_state_command_count as u64),
                 let const_param = store.get_def(sfr).const_param;
                 let tk = StatePhaseKey {
                     before_set_state_index: (const_param & 0xFFFFFFFFu64) as u32,
                     before_external_call_index: ((const_param >> 32) & 0xFFFFu64) as u16,
                 };
-                if self.state_phases.contains_key(&tk){
+                if self.state_phases.contains_key(&tk) {
                     self.state_phases.get_mut(&tk).unwrap().push(sfr);
                 } else {
                     self.state_phases.insert(tk, vec![sfr]);
-
                 }
 
                 tk
@@ -73,8 +68,7 @@ impl StatePhaseBuilder {
                     for child in children {
                         let child_phase = self.compute_phase(store, child);
                         if child_phase.before_external_call_index > before_external_call_index
-                            || (child_phase.before_external_call_index
-                                == before_external_call_index
+                            || (child_phase.before_external_call_index == before_external_call_index
                                 && child_phase.before_set_state_index > before_set_state_index)
                         {
                             before_external_call_index = child_phase.before_external_call_index;

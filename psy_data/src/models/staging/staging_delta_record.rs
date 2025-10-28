@@ -1,6 +1,7 @@
 use kvq::traits::{KVQBinaryStore, KVQSerializable};
 use plonky2::hash::hash_types::RichField;
-use psy_core::{data::qhashout::QHashOut, config::network_constants::REALM_USER_TREE_HEIGHT, utils::math::ceil_div_usize};
+use psy_core::{config::network_constants::REALM_USER_TREE_HEIGHT, data::qhashout::QHashOut, utils::math::ceil_div_usize};
+
 use crate::qdata::staging_delta_record_key::StagingDeltaRecordKey;
 
 pub struct StagingDeltaRecordModelCore<const TABLE_TYPE: u16, S, IDKVA> {
@@ -41,10 +42,7 @@ impl<const TABLE_TYPE: u16, S, IDKVA> StagingDeltaRecordModelCore<TABLE_TYPE, S,
         Ok(records)
     }
 
-    pub fn delete_delta_records_for_realm_root<F: RichField, Store: KVQBinaryStore>(
-        store: &Store,
-        realm_root: QHashOut<F>,
-    ) -> anyhow::Result<usize> {
+    pub fn delete_delta_records_for_realm_root<F: RichField, Store: KVQBinaryStore>(store: &Store, realm_root: QHashOut<F>) -> anyhow::Result<usize> {
         let real_max_realm_id = (1u32 << (REALM_USER_TREE_HEIGHT as u32)) - 1;
         let realm_id_bytes = ceil_div_usize(REALM_USER_TREE_HEIGHT as usize, 8);
 
@@ -73,11 +71,7 @@ impl<const TABLE_TYPE: u16, S, IDKVA> StagingDeltaRecordModelCore<TABLE_TYPE, S,
         }
     }
 
-    pub fn delete_delta_record<F: RichField, Store: KVQBinaryStore>(
-        store: &Store,
-        realm_root: QHashOut<F>,
-        realm_id: u32,
-    ) -> anyhow::Result<bool> {
+    pub fn delete_delta_record<F: RichField, Store: KVQBinaryStore>(store: &Store, realm_root: QHashOut<F>, realm_id: u32) -> anyhow::Result<bool> {
         let key = StagingDeltaRecordKey::<F, TABLE_TYPE>::new(realm_root, realm_id);
         store.delete(&key.to_bytes()?)
     }

@@ -1,8 +1,9 @@
 use kvq::traits::{KVQBinaryStore, KVQStoreAdapter, KVQStoreAdapterReader};
-use crate::qdata::{checkpoint::QEDL2BlockState, u64_key::U64TableKey};
 
-use crate::models::kvq_merkle::model::CHECKPOINT_ID_FUZZY_SIZE;
-
+use crate::{
+    models::kvq_merkle::model::CHECKPOINT_ID_FUZZY_SIZE,
+    qdata::{checkpoint::QEDL2BlockState, u64_key::U64TableKey},
+};
 
 pub trait L2BlockStatesModelReaderCore<
     const CHECKPOINT_BLOCK_STATE_TABLE_TYPE: u16,
@@ -16,21 +17,11 @@ pub trait L2BlockStatesModelReaderCore<
     }
     fn get_latest_block_state(store: &S) -> anyhow::Result<QEDL2BlockState> {
         // Try to get the highest checkpoint ID using get_leq
-        KVA::get_leq(
-            store,
-            &U64TableKey(0xffffffffffffffu64),
-            CHECKPOINT_ID_FUZZY_SIZE,
-        )?
-        .ok_or_else(|| anyhow::anyhow!("error getting latest block state"))
+        KVA::get_leq(store, &U64TableKey(0xffffffffffffffu64), CHECKPOINT_ID_FUZZY_SIZE)?
+            .ok_or_else(|| anyhow::anyhow!("error getting latest block state"))
     }
-    fn get_block_states_by_id(
-        store: &S,
-        checkpoint_ids: &[u64],
-    ) -> anyhow::Result<Vec<QEDL2BlockState>> {
-        let keys = checkpoint_ids
-            .iter()
-            .map(|id| U64TableKey(*id))
-            .collect::<Vec<_>>();
+    fn get_block_states_by_id(store: &S, checkpoint_ids: &[u64]) -> anyhow::Result<Vec<QEDL2BlockState>> {
+        let keys = checkpoint_ids.iter().map(|id| U64TableKey(*id)).collect::<Vec<_>>();
         KVA::get_many_exact(store, &keys)
     }
 }
@@ -40,10 +31,7 @@ pub trait L2BlockStatesModelCore<
     KVA: KVQStoreAdapter<S, U64TableKey<CHECKPOINT_BLOCK_STATE_TABLE_TYPE>, QEDL2BlockState>,
 >: L2BlockStatesModelReaderCore<CHECKPOINT_BLOCK_STATE_TABLE_TYPE, S, KVA>
 {
-    fn delete_block_state_by_id(
-        store: &S,
-        checkpoint_id: u64,
-    ) -> anyhow::Result<Option<QEDL2BlockState>> {
+    fn delete_block_state_by_id(store: &S, checkpoint_id: u64) -> anyhow::Result<Option<QEDL2BlockState>> {
         let key_id = U64TableKey::<CHECKPOINT_BLOCK_STATE_TABLE_TYPE>(checkpoint_id);
         let current = KVA::get_exact_if_exists(store, &key_id)?;
         if current.is_some() {
@@ -83,15 +71,10 @@ impl<
         const CHECKPOINT_BLOCK_STATE_TABLE_TYPE: u16,
         S,
         KVA: KVQStoreAdapterReader<S, U64TableKey<CHECKPOINT_BLOCK_STATE_TABLE_TYPE>, QEDL2BlockState>,
-    > L2BlockStatesModelReaderCore<CHECKPOINT_BLOCK_STATE_TABLE_TYPE, S, KVA>
-    for L2BlockStatesModel<CHECKPOINT_BLOCK_STATE_TABLE_TYPE, S, KVA>
+    > L2BlockStatesModelReaderCore<CHECKPOINT_BLOCK_STATE_TABLE_TYPE, S, KVA> for L2BlockStatesModel<CHECKPOINT_BLOCK_STATE_TABLE_TYPE, S, KVA>
 {
 }
-impl<
-        const CHECKPOINT_BLOCK_STATE_TABLE_TYPE: u16,
-        S,
-        KVA: KVQStoreAdapter<S, U64TableKey<CHECKPOINT_BLOCK_STATE_TABLE_TYPE>, QEDL2BlockState>,
-    > L2BlockStatesModelCore<CHECKPOINT_BLOCK_STATE_TABLE_TYPE, S, KVA>
-    for L2BlockStatesModel<CHECKPOINT_BLOCK_STATE_TABLE_TYPE, S, KVA>
+impl<const CHECKPOINT_BLOCK_STATE_TABLE_TYPE: u16, S, KVA: KVQStoreAdapter<S, U64TableKey<CHECKPOINT_BLOCK_STATE_TABLE_TYPE>, QEDL2BlockState>>
+    L2BlockStatesModelCore<CHECKPOINT_BLOCK_STATE_TABLE_TYPE, S, KVA> for L2BlockStatesModel<CHECKPOINT_BLOCK_STATE_TABLE_TYPE, S, KVA>
 {
 }

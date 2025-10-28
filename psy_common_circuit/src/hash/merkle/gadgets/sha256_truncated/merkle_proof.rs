@@ -1,10 +1,14 @@
+use plonky2::{
+    field::extension::Extendable,
+    iop::target::{BoolTarget, Target},
+    plonk::circuit_builder::CircuitBuilder,
+};
 use psy_crypto::field::qfield::QRichField;
-use plonky2::field::extension::Extendable;
-use plonky2::iop::target::{BoolTarget, Target};
-use plonky2::plonk::circuit_builder::CircuitBuilder;
 
-use crate::builder::hash::sha256_truncated::CircuitBuilderTruncatedSha256;
-use crate::hash::base_types::hash192::{CircuitBuilderHash192, Hash192Target, WitnessHash192};
+use crate::{
+    builder::hash::sha256_truncated::CircuitBuilderTruncatedSha256,
+    hash::base_types::hash192::{CircuitBuilderHash192, Hash192Target, WitnessHash192},
+};
 
 pub fn compute_merkle_root<F: QRichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
@@ -31,13 +35,8 @@ pub struct MerkleProofTruncatedSha256Gadget {
 }
 
 impl MerkleProofTruncatedSha256Gadget {
-    pub fn add_virtual_to<F: QRichField + Extendable<D>, const D: usize>(
-        builder: &mut CircuitBuilder<F, D>,
-        height: usize,
-    ) -> Self {
-        let siblings: Vec<Hash192Target> = (0..height)
-            .map(|_| builder.add_virtual_hash192_target())
-            .collect();
+    pub fn add_virtual_to<F: QRichField + Extendable<D>, const D: usize>(builder: &mut CircuitBuilder<F, D>, height: usize) -> Self {
+        let siblings: Vec<Hash192Target> = (0..height).map(|_| builder.add_virtual_hash192_target()).collect();
 
         let value = builder.add_virtual_hash192_target();
         let index = builder.add_virtual_target();
@@ -77,10 +76,7 @@ pub fn compute_merkle_root_from_leaves_sha256_192<F: QRichField + Extendable<D>,
     let num_levels = (leaves.len() as f64).log2().ceil() as usize;
     let mut current = leaves.to_vec();
     for _ in 0..num_levels {
-        let tmp = current
-            .chunks_exact(2)
-            .map(|f| builder.two_to_one_truncated_sha256(f[0], f[1]))
-            .collect();
+        let tmp = current.chunks_exact(2).map(|f| builder.two_to_one_truncated_sha256(f[0], f[1])).collect();
         current = tmp;
     }
     current[0]
@@ -88,14 +84,20 @@ pub fn compute_merkle_root_from_leaves_sha256_192<F: QRichField + Extendable<D>,
 #[cfg(test)]
 mod tests {
 
-    use plonky2::iop::witness::PartialWitness;
-    use plonky2::plonk::circuit_builder::CircuitBuilder;
-    use plonky2::plonk::circuit_data::CircuitConfig;
-    use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
+    use plonky2::{
+        iop::witness::PartialWitness,
+        plonk::{
+            circuit_builder::CircuitBuilder,
+            circuit_data::CircuitConfig,
+            config::{GenericConfig, PoseidonGoldilocksConfig},
+        },
+    };
     use psy_crypto::hash::base_types::MerkleProof192;
 
-    use crate::hash::base_types::hash192::{CircuitBuilderHash192, WitnessHash192};
-    use crate::hash::merkle::gadgets::sha256_truncated::merkle_proof::MerkleProofTruncatedSha256Gadget;
+    use crate::hash::{
+        base_types::hash192::{CircuitBuilderHash192, WitnessHash192},
+        merkle::gadgets::sha256_truncated::merkle_proof::MerkleProofTruncatedSha256Gadget,
+    };
 
     const SMALL_MERKLE_PROOFS: &str = r#"
     [
@@ -280,17 +282,16 @@ mod tests {
             let config = CircuitConfig::standard_recursion_config();
             let mut builder = CircuitBuilder::<F, D>::new(config);
 
-            let merkle_proof_gadget = MerkleProofTruncatedSha256Gadget::add_virtual_to(
-                &mut builder,
-                proof.siblings.len(),
-            );
+            let merkle_proof_gadget = MerkleProofTruncatedSha256Gadget::add_virtual_to(&mut builder, proof.siblings.len());
             let expected_root_target = builder.add_virtual_hash192_target();
             builder.connect_hash192(expected_root_target, merkle_proof_gadget.root);
             let num_gates = builder.num_gates();
             let data = builder.build::<C>();
             tracing::info!(
                 "MerkleProofTruncatedSha256Gadget (height = {}) circuit num_gates={}, quotient_degree_factor={}",
-                proof.siblings.len(), num_gates, data.common.quotient_degree_factor
+                proof.siblings.len(),
+                num_gates,
+                data.common.quotient_degree_factor
             );
 
             let mut pw = PartialWitness::new();

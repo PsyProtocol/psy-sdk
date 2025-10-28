@@ -1,8 +1,8 @@
+use std::{env, path::Path};
+
 use anyhow::Result;
 use minijinja::{context, Environment};
 use psy_data::qdata::contract::{ContractConfig, PrecompileConfig, RootConfig};
-use std::env;
-use std::path::Path;
 
 fn main() -> Result<()> {
     let manifest_dir = env::var("CARGO_MANIFEST_DIR")?;
@@ -15,16 +15,10 @@ fn main() -> Result<()> {
     let config_path = workspace_root.join("config.json");
 
     println!("cargo:rerun-if-changed={}", config_path.display());
-    let config_str = std::fs::read_to_string(&config_path).map_err(|e| {
-        anyhow::anyhow!(
-            "Failed to read config.json at {}: {}",
-            config_path.display(),
-            e
-        )
-    })?;
+    let config_str =
+        std::fs::read_to_string(&config_path).map_err(|e| anyhow::anyhow!("Failed to read config.json at {}: {}", config_path.display(), e))?;
 
-    let root_config: RootConfig = serde_json::from_str(&config_str)
-        .map_err(|e| anyhow::anyhow!("Failed to parse config.json: {}", e))?;
+    let root_config: RootConfig = serde_json::from_str(&config_str).map_err(|e| anyhow::anyhow!("Failed to parse config.json: {}", e))?;
 
     let config = PrecompileConfig {
         contracts: root_config.genesis.precompiles,
@@ -38,10 +32,7 @@ fn main() -> Result<()> {
         let json_file = out_path.join(format!("{}.json", contract.name));
         if !json_file.exists() {
             std::fs::write(&json_file, "[]").unwrap_or_else(|e| {
-                println!(
-                    "cargo:warning=Failed to create initial empty JSON for {}: {}",
-                    contract.name, e
-                );
+                println!("cargo:warning=Failed to create initial empty JSON for {}: {}", contract.name, e);
             });
         }
     }
@@ -50,33 +41,26 @@ fn main() -> Result<()> {
         let contract_dir = workspace_root.join(&contract.path);
 
         if !contract_dir.exists() {
-            println!(
-                "cargo:warning=Contract directory {} does not exist",
-                contract_dir.display()
-            );
+            println!("cargo:warning=Contract directory {} does not exist", contract_dir.display());
             continue;
         }
 
         let dargo_toml = contract_dir.join("Dargo.toml");
         if !dargo_toml.exists() {
-            println!(
-                "cargo:warning=Dargo.toml not found at {}",
-                dargo_toml.display()
-            );
+            println!("cargo:warning=Dargo.toml not found at {}", dargo_toml.display());
             continue;
         }
 
         let main_qed = contract_dir.join("src/main.qed");
         if !main_qed.exists() {
-            println!(
-                "cargo:warning=src/main.qed not found at {}",
-                main_qed.display()
-            );
+            println!("cargo:warning=src/main.qed not found at {}", main_qed.display());
             continue;
         }
 
-        use dargo::cli::{with_workspace, DargoConfig};
-        use dargo::compile_cmd::CompileOptions;
+        use dargo::{
+            cli::{with_workspace, DargoConfig},
+            compile_cmd::CompileOptions,
+        };
 
         let target_dir = contract_dir.join("target");
         let dargo_config = DargoConfig {
@@ -94,11 +78,7 @@ fn main() -> Result<()> {
         with_workspace(compile_options, dargo_config, |opts, workspace| {
             use dargo::cli::resolve_crate_path_graph;
             let crate_path_graph = resolve_crate_path_graph(&workspace, opts.entry_path.clone());
-            match psy_interpreter::interpret(
-                opts.contract_name.clone(),
-                opts.method_names.clone(),
-                crate_path_graph,
-            ) {
+            match psy_interpreter::interpret(opts.contract_name.clone(), opts.method_names.clone(), crate_path_graph) {
                 Ok(mut interpret_result) => {
                     use dargo::cli::doc_cmd::extract_function_metadata_from_context;
                     let _function_metadata = extract_function_metadata_from_context(
@@ -109,37 +89,20 @@ fn main() -> Result<()> {
 
                     use dargo::cli::save_build_artifact_to_file;
 
-                    if let Err(e) = save_build_artifact_to_file(
-                        &interpret_result.compile_results,
-                        &contract.name,
-                        &target_dir,
-                    ) {
-                        println!(
-                            "cargo:warning=Failed to save build artifact to target dir for {}: {}",
-                            contract.name, e
-                        );
+                    if let Err(e) = save_build_artifact_to_file(&interpret_result.compile_results, &contract.name, &target_dir) {
+                        println!("cargo:warning=Failed to save build artifact to target dir for {}: {}", contract.name, e);
                     }
 
                     let out_dir = env::var("OUT_DIR").map_err(anyhow::Error::from)?;
                     let out_path = std::path::Path::new(&out_dir);
 
-                    if let Err(e) = save_build_artifact_to_file(
-                        &interpret_result.compile_results,
-                        &contract.name,
-                        out_path,
-                    ) {
-                        println!(
-                            "cargo:warning=Failed to save build artifact to OUT_DIR for {}: {}",
-                            contract.name, e
-                        );
+                    if let Err(e) = save_build_artifact_to_file(&interpret_result.compile_results, &contract.name, out_path) {
+                        println!("cargo:warning=Failed to save build artifact to OUT_DIR for {}: {}", contract.name, e);
                     }
                     Ok(())
                 }
                 Err(e) => {
-                    println!(
-                        "cargo:warning=Failed to compile {} contract: {}",
-                        contract.name, e
-                    );
+                    println!("cargo:warning=Failed to compile {} contract: {}", contract.name, e);
                     Err(e.into())
                 }
             }
@@ -240,10 +203,7 @@ pub fn list_contract_methods(contract_name: &str) -> Vec<String> {
     Ok(())
 }
 
-fn generate_precompile_constants_with_method_ids(
-    config: &PrecompileConfig,
-    out_path: &Path,
-) -> Result<()> {
+fn generate_precompile_constants_with_method_ids(config: &PrecompileConfig, out_path: &Path) -> Result<()> {
     use serde_json::Value;
 
     let mut contracts_with_methods = Vec::new();
@@ -286,10 +246,7 @@ pub const {{ contract.name | upper }}_{{ method_data.name | upper }}_METHOD_ID: 
     Ok(())
 }
 
-fn extract_method_ids_from_json(
-    json_file: &std::path::Path,
-    method_names: &[String],
-) -> Result<Vec<serde_json::Value>> {
+fn extract_method_ids_from_json(json_file: &std::path::Path, method_names: &[String]) -> Result<Vec<serde_json::Value>> {
     use serde_json::Value;
 
     if !json_file.exists() {

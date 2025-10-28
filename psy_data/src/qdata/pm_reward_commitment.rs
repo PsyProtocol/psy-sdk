@@ -1,11 +1,14 @@
 use plonky2::{field::goldilocks_field::GoldilocksField, hash::hash_types::RichField, plonk::config::AlgebraicHasher};
-use psy_core::{data::qhashout::QHashOut, traits::to_qfelts::{QFeltSized, ToQFelts}};
+use psy_core::{
+    data::qhashout::QHashOut,
+    traits::to_qfelts::{QFeltSized, ToQFelts},
+};
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
 pub const PM_REWARD_COMMITMENT_SIZE: usize = 12;
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Copy, Default,TS)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Copy, Default, TS)]
 #[ts(export, concrete(F = GoldilocksField))]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
 pub struct PMRewardCommitment<F: RichField> {
@@ -14,22 +17,11 @@ pub struct PMRewardCommitment<F: RichField> {
     pub deploy_contracts_root: QHashOut<F>,
 }
 
-
-
 impl<F: RichField> PMRewardCommitment<F> {
     pub fn combine_with<H: AlgebraicHasher<F>>(&self, other: &Self) -> Self {
-        let register_users_root = QHashOut(H::two_to_one(
-            self.register_users_root.0,
-            other.register_users_root.0,
-        ));
-        let gutas_root = QHashOut(H::two_to_one(
-            self.gutas_root.0,
-            other.gutas_root.0,
-        ));
-        let deploy_contracts_root = QHashOut(H::two_to_one(
-            self.deploy_contracts_root.0,
-            other.deploy_contracts_root.0,
-        ));
+        let register_users_root = QHashOut(H::two_to_one(self.register_users_root.0, other.register_users_root.0));
+        let gutas_root = QHashOut(H::two_to_one(self.gutas_root.0, other.gutas_root.0));
+        let deploy_contracts_root = QHashOut(H::two_to_one(self.deploy_contracts_root.0, other.deploy_contracts_root.0));
         PMRewardCommitment {
             register_users_root,
             gutas_root,
@@ -38,14 +30,8 @@ impl<F: RichField> PMRewardCommitment<F> {
     }
 
     pub fn get_commitment_hash<H: AlgebraicHasher<F>>(&self) -> QHashOut<F> {
-        let temp = H::two_to_one(
-            self.register_users_root.0,
-            self.gutas_root.0,
-        );
-        QHashOut(H::two_to_one(
-            temp,
-            self.deploy_contracts_root.0,
-        ))
+        let temp = H::two_to_one(self.register_users_root.0, self.gutas_root.0);
+        QHashOut(H::two_to_one(temp, self.deploy_contracts_root.0))
     }
 }
 impl<F: RichField> QFeltSized for PMRewardCommitment<F> {
@@ -64,7 +50,11 @@ impl<F: RichField> ToQFelts<F> for PMRewardCommitment<F> {
 
     fn from_qfelts(felts: &[F]) -> Self {
         if felts.len() != PM_REWARD_COMMITMENT_SIZE {
-            panic!("Invalid number of elements for PMRewardCommitment, expected {} got {}", PM_REWARD_COMMITMENT_SIZE, felts.len());
+            panic!(
+                "Invalid number of elements for PMRewardCommitment, expected {} got {}",
+                PM_REWARD_COMMITMENT_SIZE,
+                felts.len()
+            );
         }
         PMRewardCommitment {
             register_users_root: QHashOut(plonky2::hash::hash_types::HashOut {

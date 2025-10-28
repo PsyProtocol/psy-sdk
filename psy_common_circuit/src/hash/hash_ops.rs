@@ -38,10 +38,7 @@ pub fn _shr<F: RichField + Extendable<D>, const D: usize, const S: usize>(
     res.map(|x| x.unwrap())
 }
 
-pub fn uint64_to_bits<F: RichField + Extendable<D>, const D: usize>(
-    value: u64,
-    builder: &mut CircuitBuilder<F, D>,
-) -> [BoolTarget; 64] {
+pub fn uint64_to_bits<F: RichField + Extendable<D>, const D: usize>(value: u64, builder: &mut CircuitBuilder<F, D>) -> [BoolTarget; 64] {
     let mut bits = [None; 64];
     (0..64).for_each(|i| {
         if value & (1 << (63 - i)) != 0 {
@@ -53,10 +50,7 @@ pub fn uint64_to_bits<F: RichField + Extendable<D>, const D: usize>(
     bits.map(|x| x.unwrap())
 }
 
-pub fn uint32_to_bits<F: RichField + Extendable<D>, const D: usize>(
-    value: u32,
-    builder: &mut CircuitBuilder<F, D>,
-) -> [BoolTarget; 32] {
+pub fn uint32_to_bits<F: RichField + Extendable<D>, const D: usize>(value: u32, builder: &mut CircuitBuilder<F, D>) -> [BoolTarget; 32] {
     let mut bits = [None; 32];
     (0..32).for_each(|i| {
         if value & (1 << (31 - i)) != 0 {
@@ -88,16 +82,15 @@ pub fn split_le_no_drain<F: RichField + Extendable<D>, const D: usize>(
     }
     let gate_type = BaseSumGate::<2>::new_from_config::<F>(&builder.config);
     let k = ceil_div_usize(num_bits, gate_type.num_limbs);
-    let gates = (0..k)
-        .map(|_| builder.add_gate(gate_type, vec![]))
-        .collect::<Vec<_>>();
+    let gates = (0..k).map(|_| builder.add_gate(gate_type, vec![])).collect::<Vec<_>>();
 
     let mut bits = Vec::with_capacity(num_bits);
     for &gate in &gates {
         // for limb_column in gate_type.limbs() {
         let limbs_range = 1..1 + gate_type.num_limbs;
         for limb_column in limbs_range {
-            // `new_unsafe` is safe here because BaseSumGate::<2> forces it to be in `{0, 1}`.
+            // `new_unsafe` is safe here because BaseSumGate::<2> forces it to be in `{0,
+            // 1}`.
             bits.push(BoolTarget::new_unsafe(Target::wire(gate, limb_column)));
         }
     }
@@ -138,15 +131,16 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D> for Wir
         vec![self.integer]
     }
 
-    fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) -> anyhow::Result<()>{
+    fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) -> anyhow::Result<()> {
         let mut integer_value = witness.get_target(self.integer).to_canonical_u64();
 
         for &gate in &self.gates {
             //BaseSumGate::<2>::WIRE_SUM = 0
             let sum = Target::wire(gate, 0);
 
-            // If num_limbs >= 64, we don't need to truncate since `integer_value` is already
-            // limited to 64 bits, and trying to do so would cause overflow. Hence the conditional.
+            // If num_limbs >= 64, we don't need to truncate since `integer_value` is
+            // already limited to 64 bits, and trying to do so would cause
+            // overflow. Hence the conditional.
             let mut truncated_value = integer_value;
             if self.num_limbs < 64 {
                 truncated_value = integer_value & ((1 << self.num_limbs) - 1);
@@ -156,16 +150,9 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D> for Wir
             };
 
             out_buffer.set_target(sum, F::from_canonical_u64(truncated_value))?;
-
         }
 
-        debug_assert_eq!(
-            integer_value,
-            0,
-            "Integer too large to fit in {} many `BaseSumGate`s",
-            self.gates.len()
-        );
-
+        debug_assert_eq!(integer_value, 0, "Integer too large to fit in {} many `BaseSumGate`s", self.gates.len());
 
         anyhow::Ok(())
     }
@@ -193,18 +180,11 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D> for Wir
         let integer = src.read_target()?;
         let gates = src.read_usize_vec()?;
         let num_limbs = src.read_usize()?;
-        Ok(Self {
-            integer,
-            gates,
-            num_limbs,
-        })
+        Ok(Self { integer, gates, num_limbs })
     }
 }
 
-pub fn reg_dbg_input<F: RichField + Extendable<D>, const D: usize, const S: usize>(
-    x: [BoolTarget; S],
-    builder: &mut CircuitBuilder<F, D>,
-) {
+pub fn reg_dbg_input<F: RichField + Extendable<D>, const D: usize, const S: usize>(x: [BoolTarget; S], builder: &mut CircuitBuilder<F, D>) {
     let p = builder.le_sum(x.iter());
     builder.register_public_input(p);
 }

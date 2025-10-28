@@ -1,19 +1,18 @@
 pub mod error;
 
-use error::UserError;
-pub use error::{Error, Result};
-use indexmap::IndexMap;
-use lalrpop_util::lalrpop_mod;
-use psy_ast::*;
-use psy_common::Graph;
-use psy_lexer::{GenericTokenTransformer, Lexer, Loc, Token};
-use psy_vm::dpn::ops::context_trait::{ContextFelt, DPNContext};
 use std::{
     collections::{HashMap, HashSet},
     path::{Path, PathBuf},
 };
 
-use psy_ast::Program;
+use error::UserError;
+pub use error::{Error, Result};
+use indexmap::IndexMap;
+use lalrpop_util::lalrpop_mod;
+use psy_ast::{Program, *};
+use psy_common::Graph;
+use psy_lexer::{GenericTokenTransformer, Lexer, Loc, Token};
+use psy_vm::dpn::ops::context_trait::{ContextFelt, DPNContext};
 
 pub type LalrpopError<'input> = lalrpop_util::ParseError<Loc, Token<'input>, UserError>;
 
@@ -27,11 +26,7 @@ pub struct Parser<'a, 'b, F: Clone + From<u32>, C> {
 }
 
 impl<'a, 'b, F: ContextFelt + From<u32>, C: DPNContext<F>> Parser<'a, 'b, F, C> {
-    pub fn new(
-        program: &'a mut Program<F>,
-        ctx: &'b mut C,
-        crate_path_graph: Graph<PathBuf>,
-    ) -> Self {
+    pub fn new(program: &'a mut Program<F>, ctx: &'b mut C, crate_path_graph: Graph<PathBuf>) -> Self {
         Self {
             program,
             ctx,
@@ -62,19 +57,10 @@ impl<'a, 'b, F: ContextFelt + From<u32>, C: DPNContext<F>> Parser<'a, 'b, F, C> 
         Ok(())
     }
 
-    fn parse_module(
-        program: &mut Program<F>,
-        ctx: &mut C,
-        current_path: &PathBuf,
-        location: Location,
-        visibility: Visibility,
-    ) -> Result<ModuleNode> {
+    fn parse_module(program: &mut Program<F>, ctx: &mut C, current_path: &PathBuf, location: Location, visibility: Visibility) -> Result<ModuleNode> {
         let module_name = resolve_module_name(program, current_path);
         let file_id = program.file_resolver.resolve_file(current_path.clone())?;
-        let file_content = program
-            .file_resolver
-            .resolve_content(&file_id)
-            .ok_or(Error::FileUnresolved)?;
+        let file_content = program.file_resolver.resolve_content(&file_id).ok_or(Error::FileUnresolved)?;
 
         let lexer = Lexer::new(file_content);
         let transformer = GenericTokenTransformer::new(lexer);
@@ -83,10 +69,7 @@ impl<'a, 'b, F: ContextFelt + From<u32>, C: DPNContext<F>> Parser<'a, 'b, F, C> 
             .parse(
                 file_content,
                 file_id,
-                Identifier::new(
-                    module_name,
-                    Location::new(file_id, location.start, location.end),
-                ),
+                Identifier::new(module_name, Location::new(file_id, location.start, location.end)),
                 &mut program.exprs,
                 &mut program.stmts,
                 &mut program.defs,
@@ -108,11 +91,7 @@ impl<'a, 'b, F: ContextFelt + From<u32>, C: DPNContext<F>> Parser<'a, 'b, F, C> 
     // modB/
     //     std/
     //         prelude
-    fn parse_inner(
-        program: &mut Program<F>,
-        ctx: &mut C,
-        root_module_path: PathBuf,
-    ) -> Result<ModuleId> {
+    fn parse_inner(program: &mut Program<F>, ctx: &mut C, root_module_path: PathBuf) -> Result<ModuleId> {
         let mut module_stack = vec![(
             false,
             root_module_path.clone(),
@@ -124,9 +103,7 @@ impl<'a, 'b, F: ContextFelt + From<u32>, C: DPNContext<F>> Parser<'a, 'b, F, C> 
         let mut inline_modules: IndexMap<PathBuf, ModuleNode> = IndexMap::new();
 
         let mut entry_module_id = None;
-        while let Some((is_inline, current_path, parent_module_id, visibility, location)) =
-            module_stack.pop()
-        {
+        while let Some((is_inline, current_path, parent_module_id, visibility, location)) = module_stack.pop() {
             if visited.contains(&current_path) {
                 return Err(Error::FileParsedMultipleTimes(current_path.clone()).into());
             }
@@ -135,25 +112,16 @@ impl<'a, 'b, F: ContextFelt + From<u32>, C: DPNContext<F>> Parser<'a, 'b, F, C> 
             let module: ModuleNode = if !is_inline {
                 Self::parse_module(program, ctx, &current_path, location, visibility)?
             } else {
-                inline_modules
-                    .remove(&current_path)
-                    .expect("Inline module not found")
+                inline_modules.remove(&current_path).expect("Inline module not found")
             };
 
             for (dep_module, visibility, _location) in module.modules.iter().rev() {
                 let dep_path = resolve_module_path(program, dep_module.id, &current_path).unwrap();
-                module_stack.push((
-                    false,
-                    dep_path,
-                    Some(module_id),
-                    *visibility,
-                    dep_module.location,
-                ));
+                module_stack.push((false, dep_path, Some(module_id), *visibility, dep_module.location));
             }
 
             for inline_module in module.inline_modules.iter().rev() {
-                let dep_path =
-                    resolve_module_path(program, inline_module.name, &current_path).unwrap();
+                let dep_path = resolve_module_path(program, inline_module.name, &current_path).unwrap();
                 module_stack.push((
                     true,
                     dep_path.clone(),
@@ -174,19 +142,11 @@ impl<'a, 'b, F: ContextFelt + From<u32>, C: DPNContext<F>> Parser<'a, 'b, F, C> 
         Ok(entry_module_id)
     }
 
-    fn finish_inner(
-        program: &mut Program<F>,
-        ctx: &mut C,
-        mut dependency_graph: Graph<CrateId>,
-    ) -> Result<()> {
+    fn finish_inner(program: &mut Program<F>, ctx: &mut C, mut dependency_graph: Graph<CrateId>) -> Result<()> {
         let std_module_id = Self::parse_inner(program, ctx, std_path())?;
         let std_crate_id = std_module_id.into();
         dependency_graph.add_node(std_crate_id);
-        let crate_ids = dependency_graph
-            .nodes()
-            .into_iter()
-            .cloned()
-            .collect::<Vec<_>>();
+        let crate_ids = dependency_graph.nodes().into_iter().cloned().collect::<Vec<_>>();
         for crate_id in crate_ids {
             dependency_graph.add_edge(crate_id, std_crate_id);
         }
@@ -200,10 +160,7 @@ impl<'a, 'b, F: ContextFelt + From<u32>, C: DPNContext<F>> Parser<'a, 'b, F, C> 
                 let def_id = program.defs.alloc_item(DefinitionNode::Use(UseNode {
                     visibility: Visibility::Private,
                     kind: Identifier::new(IdentId::STD, Location::new(file_id, 0, 0)),
-                    segments: vec![Identifier::new(
-                        IdentId::PRELUDE,
-                        Location::new(file_id, 0, 0),
-                    )],
+                    segments: vec![Identifier::new(IdentId::PRELUDE, Location::new(file_id, 0, 0))],
                     target: None,
                     comments: vec![],
                     location: Location::new(file_id, 0, 0),
@@ -245,10 +202,7 @@ pub fn resolve_module_path<F: Clone + From<u32>>(
     Some(path)
 }
 
-pub fn resolve_module_name<F: Clone + From<u32>>(
-    program: &mut Program<F>,
-    file_path: &Path,
-) -> IdentId {
+pub fn resolve_module_name<F: Clone + From<u32>>(program: &mut Program<F>, file_path: &Path) -> IdentId {
     let interner = &mut program.interner;
     let file_name_without_extension = file_path.file_stem().and_then(|s| s.to_str()).unwrap();
     let module_name = match file_name_without_extension {
@@ -273,10 +227,7 @@ fn std_path() -> PathBuf {
 
     let current_file = std::path::Path::new(file!());
 
-    if let Some(parser_dir) = current_file.parent()
-        .and_then(|p| p.parent())
-        .and_then(|p| p.parent())
-    {
+    if let Some(parser_dir) = current_file.parent().and_then(|p| p.parent()).and_then(|p| p.parent()) {
         let std_path = parser_dir.join("psy-std/std.qed");
         if std_path.exists() {
             return std_path;
@@ -289,7 +240,7 @@ fn std_path() -> PathBuf {
             "../../psy-std/std.qed",
             "../../../psy-std/std.qed",
             "../psy_compiler/psy-std/std.qed",
-            "../../psy_compiler/psy-std/std.qed"
+            "../../psy_compiler/psy-std/std.qed",
         ];
 
         for candidate in &candidates {
@@ -307,11 +258,13 @@ fn std_path() -> PathBuf {
 
 #[cfg(test)]
 mod tests {
-    use super::Parser;
+    use std::path::PathBuf;
+
     use psy_ast::Program;
     use psy_common::Graph;
     use psy_vm::dpn::ops::exec_context::QExecContext;
-    use std::path::PathBuf;
+
+    use super::Parser;
     #[test]
     fn test_psy_parser() {
         let mut program = Program::new();

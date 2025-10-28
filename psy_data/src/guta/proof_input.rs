@@ -1,15 +1,34 @@
-
-
 use kvq::traits::KVQSerializable;
-use plonky2::{field::goldilocks_field::GoldilocksField, hash::hash_types::{HashOut, RichField}};
-use psy_core::{config::network_constants::{DEFAULT_USER_STATE_TREE_ROOT_U64, GLOBAL_USER_TREE_HEIGHT}, data::qhashout::QHashOut, job::id::QProvingJobDataID};
-use psy_crypto::hash::{merkle::{core::{compute_historical_and_current_merkle_roots_core_gt, compute_historical_and_current_merkle_roots_core_gt_qho, DeltaMerkleProofCore, MerkleProofCore}, treeprover::subtree::SubTreeNodeStateTransition, utils::sub_tree_nca::PartialUpdateNearestCommonAncestorProof}, traits::{hasher::{FieldQHasher, MerkleHasher, MerkleZeroHasher}, qhashable::QFieldHashable}};
+use plonky2::{
+    field::goldilocks_field::GoldilocksField,
+    hash::hash_types::{HashOut, RichField},
+};
+use psy_core::{
+    config::network_constants::{DEFAULT_USER_STATE_TREE_ROOT_U64, GLOBAL_USER_TREE_HEIGHT},
+    data::qhashout::QHashOut,
+    job::id::QProvingJobDataID,
+};
+use psy_crypto::hash::{
+    merkle::{
+        core::{
+            compute_historical_and_current_merkle_roots_core_gt, compute_historical_and_current_merkle_roots_core_gt_qho, DeltaMerkleProofCore,
+            MerkleProofCore,
+        },
+        treeprover::subtree::SubTreeNodeStateTransition,
+        utils::sub_tree_nca::PartialUpdateNearestCommonAncestorProof,
+    },
+    traits::{
+        hasher::{FieldQHasher, MerkleHasher, MerkleZeroHasher},
+        qhashable::QFieldHashable,
+    },
+};
 use serde::{Deserialize, Serialize};
 
-use crate::{config::store_config::QEDHasher, qdata::{checkpoint::QEDCheckpointLeafCompactWithStateRoots, ups_end_cap_result::UPSEndCapResultCompact, user::QEDUserLeaf}};
-
 use super::{header::GlobalUserTreeAggregatorHeader, stats::GUTAStats};
-
+use crate::{
+    config::store_config::QEDHasher,
+    qdata::{checkpoint::QEDCheckpointLeafCompactWithStateRoots, ups_end_cap_result::UPSEndCapResultCompact, user::QEDUserLeaf},
+};
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
@@ -54,9 +73,7 @@ impl<F: RichField> KVQSerializable for VerifyTwoGUTAProofGadgetStandardInput<F> 
     }
 }
 
-
 impl<F: RichField> VerifyTwoGUTAProofGadgetStandardInput<F> {
-
     pub fn get_guta_header_a(&self) -> GlobalUserTreeAggregatorHeader<F> {
         GlobalUserTreeAggregatorHeader {
             guta_circuit_whitelist: self.guta_inclusion_proof_a.root,
@@ -83,9 +100,7 @@ impl<F: RichField> VerifyTwoGUTAProofGadgetStandardInput<F> {
             stats: self.stats_b,
         }
     }
-
 }
-
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
@@ -104,8 +119,10 @@ impl<F: RichField> VerifyTwoGUTAProofUpgradeCheckpointStandardInputSimple<F> {
 
 impl VerifyTwoGUTAProofUpgradeCheckpointStandardInputSimple<GoldilocksField> {
     pub fn check_witness(&self) -> anyhow::Result<()> {
-        let (_historical_root_a, current_root_a) = compute_historical_and_current_merkle_roots_core_gt::<QHashOut<GoldilocksField>, QEDHasher>(&self.historical_checkpoint_proof_a);
-        let (_historical_root_b, current_root_b) = compute_historical_and_current_merkle_roots_core_gt::<QHashOut<GoldilocksField>, QEDHasher>(&self.historical_checkpoint_proof_b);
+        let (_historical_root_a, current_root_a) =
+            compute_historical_and_current_merkle_roots_core_gt::<QHashOut<GoldilocksField>, QEDHasher>(&self.historical_checkpoint_proof_a);
+        let (_historical_root_b, current_root_b) =
+            compute_historical_and_current_merkle_roots_core_gt::<QHashOut<GoldilocksField>, QEDHasher>(&self.historical_checkpoint_proof_b);
         if current_root_a != self.historical_checkpoint_proof_a.root {
             return Err(anyhow::anyhow!("two guta upgrade checkpoint historical_checkpoint_proof_a not match"));
         }
@@ -142,14 +159,11 @@ impl<F: RichField> KVQSerializable for VerifyTwoGUTAProofUpgradeCheckpointStanda
     }
 }
 
-
 impl<F: RichField> VerifyTwoGUTAProofUpgradeCheckpointStandardInput<F> {
     pub fn get_guta_header_a<H: MerkleZeroHasher<QHashOut<F>>>(&self) -> GlobalUserTreeAggregatorHeader<F> {
         GlobalUserTreeAggregatorHeader {
             guta_circuit_whitelist: self.guta_inclusion_proof_a.root,
-            checkpoint_tree_root: compute_historical_and_current_merkle_roots_core_gt::<QHashOut<F>, H>(
-                &self.historical_checkpoint_proof_a
-            ).0,
+            checkpoint_tree_root: compute_historical_and_current_merkle_roots_core_gt::<QHashOut<F>, H>(&self.historical_checkpoint_proof_a).0,
             state_transition: SubTreeNodeStateTransition {
                 old_node_value: self.nca_proof.child_a.old_value,
                 new_node_value: self.nca_proof.child_a.new_value,
@@ -162,9 +176,7 @@ impl<F: RichField> VerifyTwoGUTAProofUpgradeCheckpointStandardInput<F> {
     pub fn get_guta_header_b<H: MerkleZeroHasher<QHashOut<F>>>(&self) -> GlobalUserTreeAggregatorHeader<F> {
         GlobalUserTreeAggregatorHeader {
             guta_circuit_whitelist: self.guta_inclusion_proof_b.root,
-            checkpoint_tree_root: compute_historical_and_current_merkle_roots_core_gt::<QHashOut<F>, H>(
-                &self.historical_checkpoint_proof_b
-            ).0,
+            checkpoint_tree_root: compute_historical_and_current_merkle_roots_core_gt::<QHashOut<F>, H>(&self.historical_checkpoint_proof_b).0,
             state_transition: SubTreeNodeStateTransition {
                 old_node_value: self.nca_proof.child_b.old_value,
                 new_node_value: self.nca_proof.child_b.new_value,
@@ -177,9 +189,7 @@ impl<F: RichField> VerifyTwoGUTAProofUpgradeCheckpointStandardInput<F> {
     pub fn get_guta_header_a_ho<H: MerkleZeroHasher<HashOut<F>>>(&self) -> GlobalUserTreeAggregatorHeader<F> {
         GlobalUserTreeAggregatorHeader {
             guta_circuit_whitelist: self.guta_inclusion_proof_a.root,
-            checkpoint_tree_root: compute_historical_and_current_merkle_roots_core_gt_qho::<F, H>(
-                &self.historical_checkpoint_proof_a
-            ).0,
+            checkpoint_tree_root: compute_historical_and_current_merkle_roots_core_gt_qho::<F, H>(&self.historical_checkpoint_proof_a).0,
             state_transition: SubTreeNodeStateTransition {
                 old_node_value: self.nca_proof.child_a.old_value,
                 new_node_value: self.nca_proof.child_a.new_value,
@@ -192,9 +202,7 @@ impl<F: RichField> VerifyTwoGUTAProofUpgradeCheckpointStandardInput<F> {
     pub fn get_guta_header_b_ho<H: MerkleZeroHasher<HashOut<F>>>(&self) -> GlobalUserTreeAggregatorHeader<F> {
         GlobalUserTreeAggregatorHeader {
             guta_circuit_whitelist: self.guta_inclusion_proof_b.root,
-            checkpoint_tree_root: compute_historical_and_current_merkle_roots_core_gt_qho::<F, H>(
-                &self.historical_checkpoint_proof_b
-            ).0,
+            checkpoint_tree_root: compute_historical_and_current_merkle_roots_core_gt_qho::<F, H>(&self.historical_checkpoint_proof_b).0,
             state_transition: SubTreeNodeStateTransition {
                 old_node_value: self.nca_proof.child_b.old_value,
                 new_node_value: self.nca_proof.child_b.new_value,
@@ -216,7 +224,8 @@ pub struct VerifyEndCapSimpleStandardInput<F: RichField> {
 
 impl VerifyEndCapSimpleStandardInput<GoldilocksField> {
     pub fn check_witness(&self) -> anyhow::Result<()> {
-        let (historical_root, current_root) = compute_historical_and_current_merkle_roots_core_gt::<QHashOut<GoldilocksField>, QEDHasher>(&self.checkpoint_historical_merkle_proof);
+        let (historical_root, current_root) =
+            compute_historical_and_current_merkle_roots_core_gt::<QHashOut<GoldilocksField>, QEDHasher>(&self.checkpoint_historical_merkle_proof);
         if self.checkpoint_root != historical_root {
             return Err(anyhow::anyhow!("end result historical root not match"));
         }
@@ -236,7 +245,6 @@ impl<F: RichField> KVQSerializable for VerifyEndCapSimpleStandardInput<F> {
     }
 }
 
-
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
 pub struct VerifyTwoEndCapCircuitWithIdsInput<F: RichField> {
@@ -245,7 +253,6 @@ pub struct VerifyTwoEndCapCircuitWithIdsInput<F: RichField> {
     pub proof_a_id: QProvingJobDataID,
     pub proof_b_id: QProvingJobDataID,
 }
-
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
@@ -260,7 +267,6 @@ pub struct VerifyTwoEndCapCircuitInput<F: RichField> {
 }
 
 impl<F: RichField> VerifyTwoEndCapCircuitInput<F> {
-
     pub fn get_end_result_a(&self) -> UPSEndCapResultCompact<F> {
         UPSEndCapResultCompact {
             start_user_leaf_hash: self.nca_proof.child_a.old_value,
@@ -291,7 +297,6 @@ impl<F: RichField> VerifyTwoEndCapCircuitInput<F> {
             stats: self.a_end_cap.guta_stats.combine_with(&self.b_end_cap.guta_stats),
         }
     }
-
 }
 impl VerifyTwoEndCapCircuitInput<GoldilocksField> {
     pub fn check_witness(&self) -> anyhow::Result<()> {
@@ -316,10 +321,6 @@ impl<F: RichField> KVQSerializable for VerifyTwoEndCapCircuitInput<F> {
     }
 }
 
-
-
-
-
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
 pub struct VerifySingleEndCapInput<F: RichField> {
@@ -333,7 +334,6 @@ pub struct VerifySingleEndCapInput<F: RichField> {
 }
 
 impl<F: RichField> VerifySingleEndCapInput<F> {
-
     pub fn get_guta_header_a(&self) -> GlobalUserTreeAggregatorHeader<F> {
         GlobalUserTreeAggregatorHeader {
             guta_circuit_whitelist: self.guta_circuit_whitelist,
@@ -374,13 +374,16 @@ impl VerifySingleEndCapInput<GoldilocksField> {
         self.a_end_cap.check_witness()?;
         let end_result = self.get_end_result_a();
         let guta_new_header = self.get_new_guta_header();
-        if end_result.start_user_leaf_hash != guta_new_header.state_transition.old_node_value ||
-            end_result.end_user_leaf_hash != guta_new_header.state_transition.new_node_value ||
-            end_result.user_id != guta_new_header.state_transition.node_index {
+        if end_result.start_user_leaf_hash != guta_new_header.state_transition.old_node_value
+            || end_result.end_user_leaf_hash != guta_new_header.state_transition.new_node_value
+            || end_result.user_id != guta_new_header.state_transition.node_index
+        {
             return Err(anyhow::anyhow!("end result not match"));
         }
 
-        let (historical_root, current_root) = compute_historical_and_current_merkle_roots_core_gt::<QHashOut<GoldilocksField>, QEDHasher>(&self.a_end_cap.checkpoint_historical_merkle_proof);
+        let (historical_root, current_root) = compute_historical_and_current_merkle_roots_core_gt::<QHashOut<GoldilocksField>, QEDHasher>(
+            &self.a_end_cap.checkpoint_historical_merkle_proof,
+        );
         if historical_root != end_result.checkpoint_tree_root_hash {
             return Err(anyhow::anyhow!("historical root not match"));
         }
@@ -401,10 +404,6 @@ impl<F: RichField> KVQSerializable for VerifySingleEndCapInput<F> {
     }
 }
 
-
-
-
-
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
 pub struct VerifyLeftGUTARightEndCapInputSimple<F: RichField> {
@@ -417,7 +416,9 @@ pub struct VerifyLeftGUTARightEndCapInputSimple<F: RichField> {
 impl VerifyLeftGUTARightEndCapInputSimple<GoldilocksField> {
     pub fn check_witness(&self) -> anyhow::Result<()> {
         self.b_end_cap.check_witness()?;
-        let (_historical_root, current_root) = compute_historical_and_current_merkle_roots_core_gt::<QHashOut<GoldilocksField>, QEDHasher>(&self.b_end_cap.checkpoint_historical_merkle_proof);
+        let (_historical_root, current_root) = compute_historical_and_current_merkle_roots_core_gt::<QHashOut<GoldilocksField>, QEDHasher>(
+            &self.b_end_cap.checkpoint_historical_merkle_proof,
+        );
         if current_root != self.checkpoint_tree_root {
             return Err(anyhow::anyhow!("left guta right endcap checkpoint tree root not match"));
         }
@@ -436,7 +437,6 @@ impl<F: RichField> KVQSerializable for VerifyLeftGUTARightEndCapInputSimple<F> {
         bincode::deserialize(bytes).map_err(|e| anyhow::anyhow!(e))
     }
 }
-
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
@@ -459,9 +459,7 @@ impl<F: RichField> KVQSerializable for VerifyLeftGUTARightEndCapInput<F> {
     }
 }
 
-
 impl<F: RichField> VerifyLeftGUTARightEndCapInput<F> {
-
     pub fn get_guta_header_a(&self) -> GlobalUserTreeAggregatorHeader<F> {
         GlobalUserTreeAggregatorHeader {
             guta_circuit_whitelist: self.guta_inclusion_proof_a.root,
@@ -483,7 +481,6 @@ impl<F: RichField> VerifyLeftGUTARightEndCapInput<F> {
             user_id: F::from_canonical_u64(self.nca_proof.child_b.index),
         }
     }
-
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
@@ -493,13 +490,14 @@ pub struct VerifyLeftEndCapRightGUTAInputSimple<F: RichField> {
     pub stats_b: GUTAStats<F>,
     pub a_end_cap: VerifyEndCapSimpleStandardInput<F>,
     pub nca_proof: PartialUpdateNearestCommonAncestorProof<QHashOut<F>>,
-
 }
 
 impl VerifyLeftEndCapRightGUTAInputSimple<GoldilocksField> {
     pub fn check_witness(&self) -> anyhow::Result<()> {
         self.a_end_cap.check_witness()?;
-        let (_historical_root, current_root) = compute_historical_and_current_merkle_roots_core_gt::<QHashOut<GoldilocksField>, QEDHasher>(&self.a_end_cap.checkpoint_historical_merkle_proof);
+        let (_historical_root, current_root) = compute_historical_and_current_merkle_roots_core_gt::<QHashOut<GoldilocksField>, QEDHasher>(
+            &self.a_end_cap.checkpoint_historical_merkle_proof,
+        );
         if current_root != self.checkpoint_tree_root {
             return Err(anyhow::anyhow!("left endcap right guta checkpoint tree root not match"));
         }
@@ -519,9 +517,6 @@ impl<F: RichField> KVQSerializable for VerifyLeftEndCapRightGUTAInputSimple<F> {
         bincode::deserialize(bytes).map_err(|e| anyhow::anyhow!(e))
     }
 }
-
-
-
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
@@ -544,9 +539,7 @@ impl<F: RichField> KVQSerializable for VerifyLeftEndCapRightGUTAInput<F> {
     }
 }
 
-
 impl<F: RichField> VerifyLeftEndCapRightGUTAInput<F> {
-
     pub fn get_guta_header_b(&self) -> GlobalUserTreeAggregatorHeader<F> {
         GlobalUserTreeAggregatorHeader {
             guta_circuit_whitelist: self.guta_inclusion_proof_b.root,
@@ -568,7 +561,6 @@ impl<F: RichField> VerifyLeftEndCapRightGUTAInput<F> {
             user_id: F::from_canonical_u64(self.nca_proof.child_a.index),
         }
     }
-
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
@@ -578,8 +570,6 @@ pub struct GUTANoChangeFullInput<F: RichField> {
     pub checkpoint_leaf: QEDCheckpointLeafCompactWithStateRoots<F>,
 }
 
-
-
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
 pub struct GUTARegisterUserFullInput<F: RichField> {
@@ -587,16 +577,14 @@ pub struct GUTARegisterUserFullInput<F: RichField> {
     pub global_user_tree_update_proof: DeltaMerkleProofCore<QHashOut<F>>,
 }
 impl<F: RichField> GUTARegisterUserFullInput<F> {
-
     pub fn new_empty<H: FieldQHasher<F>>(height: usize) -> Self {
-
         let user_state_tree_root = QHashOut::from_values(
             DEFAULT_USER_STATE_TREE_ROOT_U64[0],
             DEFAULT_USER_STATE_TREE_ROOT_U64[1],
             DEFAULT_USER_STATE_TREE_ROOT_U64[2],
             DEFAULT_USER_STATE_TREE_ROOT_U64[3],
         );
-        let fake_public_key = QHashOut::from_values(1,1,1,1);
+        let fake_public_key = QHashOut::from_values(1, 1, 1, 1);
         let siblings = (0..GLOBAL_USER_TREE_HEIGHT).map(|_| QHashOut::ZERO).collect::<Vec<_>>();
         let user_registration_tree_merkle_proof = MerkleProofCore::new_from_params::<H>(0, fake_public_key, siblings);
 
@@ -604,32 +592,25 @@ impl<F: RichField> GUTARegisterUserFullInput<F> {
         let leaf_hash = user_leaf.qfhash::<H>();
 
         let dmp_siblings = (0..height).map(|_| QHashOut::ZERO).collect();
-        let global_user_tree_update_proof = DeltaMerkleProofCore::from_params::<H>(
-            0,
-            QHashOut::ZERO,
-            leaf_hash,
-            dmp_siblings,
-        );
+        let global_user_tree_update_proof = DeltaMerkleProofCore::from_params::<H>(0, QHashOut::ZERO, leaf_hash, dmp_siblings);
 
         Self {
             user_registration_tree_merkle_proof,
             global_user_tree_update_proof,
         }
-
     }
 
     pub fn new_dummy(height: usize, dummy_user_leaf_hash: QHashOut<F>, fake_public_key: QHashOut<F>) -> Self {
-
         let siblings = (0..GLOBAL_USER_TREE_HEIGHT).map(|_| QHashOut::ZERO).collect::<Vec<_>>();
         let user_registration_tree_merkle_proof = MerkleProofCore {
             siblings,
             root: QHashOut::ZERO,
-            value : fake_public_key,
+            value: fake_public_key,
             index: 0,
         };
 
         let dmp_siblings = (0..height).map(|_| QHashOut::ZERO).collect();
-        let global_user_tree_update_proof = DeltaMerkleProofCore{
+        let global_user_tree_update_proof = DeltaMerkleProofCore {
             siblings: dmp_siblings,
             old_root: QHashOut::ZERO,
             old_value: QHashOut::ZERO,
@@ -642,7 +623,6 @@ impl<F: RichField> GUTARegisterUserFullInput<F> {
             user_registration_tree_merkle_proof,
             global_user_tree_update_proof,
         }
-
     }
 }
 
@@ -656,12 +636,6 @@ impl<F: RichField> KVQSerializable for GUTARegisterUserFullInput<F> {
     }
 }
 
-
-
-
-
-
-
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
 pub struct VerifyGUTAToCapCircuitInputSimple<F: RichField> {
@@ -670,12 +644,9 @@ pub struct VerifyGUTAToCapCircuitInputSimple<F: RichField> {
 }
 impl<F: RichField> VerifyGUTAToCapCircuitInputSimple<F> {
     pub fn get_new_state_transition<H: FieldQHasher<F>>(&self) -> SubTreeNodeStateTransition<F> {
-
         if self.top_line_siblings.len() == 0 {
             self.guta_proof_header.state_transition.clone()
-        }else{
-
-
+        } else {
             let new_dmp = DeltaMerkleProofCore::from_params::<H>(
                 self.guta_proof_header.state_transition.node_index.to_canonical_u64(),
                 self.guta_proof_header.state_transition.old_node_value,
@@ -683,29 +654,25 @@ impl<F: RichField> VerifyGUTAToCapCircuitInputSimple<F> {
                 self.top_line_siblings.clone(),
             );
 
-            SubTreeNodeStateTransition{
+            SubTreeNodeStateTransition {
                 old_node_value: new_dmp.old_root,
                 new_node_value: new_dmp.new_root,
-                node_index:F::from_canonical_u64 (
-                    self.guta_proof_header.state_transition.node_index.to_canonical_u64()>>(self.top_line_siblings.len() as u64)
+                node_index: F::from_canonical_u64(
+                    self.guta_proof_header.state_transition.node_index.to_canonical_u64() >> (self.top_line_siblings.len() as u64),
                 ),
-                node_level: F::from_canonical_u64 (
-                    self.guta_proof_header.state_transition.node_level.to_canonical_u64()-(self.top_line_siblings.len() as u64)
+                node_level: F::from_canonical_u64(
+                    self.guta_proof_header.state_transition.node_level.to_canonical_u64() - (self.top_line_siblings.len() as u64),
                 ),
             }
         }
-
     }
     pub fn get_new_guta_header<H: FieldQHasher<F>>(&self) -> GlobalUserTreeAggregatorHeader<F> {
-
-
-        GlobalUserTreeAggregatorHeader{
+        GlobalUserTreeAggregatorHeader {
             guta_circuit_whitelist: self.guta_proof_header.guta_circuit_whitelist,
             checkpoint_tree_root: self.guta_proof_header.checkpoint_tree_root,
             state_transition: self.get_new_state_transition::<H>(),
             stats: self.guta_proof_header.stats,
         }
-
     }
 }
 impl<F: RichField> KVQSerializable for VerifyGUTAToCapCircuitInputSimple<F> {
@@ -718,7 +685,6 @@ impl<F: RichField> KVQSerializable for VerifyGUTAToCapCircuitInputSimple<F> {
     }
 }
 
-
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
 pub struct VerifyGUTAToCapUpgradeCheckpointCircuitInputSimple<F: RichField> {
@@ -729,12 +695,9 @@ pub struct VerifyGUTAToCapUpgradeCheckpointCircuitInputSimple<F: RichField> {
 
 impl<F: RichField> VerifyGUTAToCapUpgradeCheckpointCircuitInputSimple<F> {
     pub fn get_new_state_transition<H: FieldQHasher<F>>(&self) -> SubTreeNodeStateTransition<F> {
-
         if self.top_line_siblings.len() == 0 {
             self.guta_proof_header.state_transition.clone()
-        }else{
-
-
+        } else {
             let new_dmp = DeltaMerkleProofCore::from_params::<H>(
                 self.guta_proof_header.state_transition.node_index.to_canonical_u64(),
                 self.guta_proof_header.state_transition.old_node_value,
@@ -742,30 +705,26 @@ impl<F: RichField> VerifyGUTAToCapUpgradeCheckpointCircuitInputSimple<F> {
                 self.top_line_siblings.clone(),
             );
 
-            SubTreeNodeStateTransition{
+            SubTreeNodeStateTransition {
                 old_node_value: new_dmp.old_root,
                 new_node_value: new_dmp.new_root,
-                node_index:F::from_canonical_u64 (
-                    self.guta_proof_header.state_transition.node_index.to_canonical_u64()>>(self.top_line_siblings.len() as u64)
+                node_index: F::from_canonical_u64(
+                    self.guta_proof_header.state_transition.node_index.to_canonical_u64() >> (self.top_line_siblings.len() as u64),
                 ),
-                node_level: F::from_canonical_u64 (
-                    self.guta_proof_header.state_transition.node_level.to_canonical_u64()-(self.top_line_siblings.len() as u64)
+                node_level: F::from_canonical_u64(
+                    self.guta_proof_header.state_transition.node_level.to_canonical_u64() - (self.top_line_siblings.len() as u64),
                 ),
             }
         }
-
     }
     pub fn get_new_guta_header<H: FieldQHasher<F>>(&self) -> GlobalUserTreeAggregatorHeader<F> {
-
-
-        GlobalUserTreeAggregatorHeader{
+        GlobalUserTreeAggregatorHeader {
             guta_circuit_whitelist: self.guta_proof_header.guta_circuit_whitelist,
             // upgraded to the new root for the new header
             checkpoint_tree_root: self.historical_checkpoint_proof.root,
             state_transition: self.get_new_state_transition::<H>(),
             stats: self.guta_proof_header.stats,
         }
-
     }
 }
 impl<F: RichField> KVQSerializable for VerifyGUTAToCapUpgradeCheckpointCircuitInputSimple<F> {
@@ -778,14 +737,12 @@ impl<F: RichField> KVQSerializable for VerifyGUTAToCapUpgradeCheckpointCircuitIn
     }
 }
 
-
-
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
 pub struct VerifyGUTARegisterUsersCircuitInputSimple<F: RichField> {
     pub guta_proof_header: GlobalUserTreeAggregatorHeader<F>,
     pub top_line_siblings: Vec<QHashOut<F>>,
-    pub guta_register_user_inputs: Vec<GUTARegisterUserFullInput<F>>
+    pub guta_register_user_inputs: Vec<GUTARegisterUserFullInput<F>>,
 }
 
 impl<F: RichField> KVQSerializable for VerifyGUTARegisterUsersCircuitInputSimple<F> {
@@ -797,10 +754,6 @@ impl<F: RichField> KVQSerializable for VerifyGUTARegisterUsersCircuitInputSimple
         bincode::deserialize(bytes).map_err(|e| anyhow::anyhow!(e))
     }
 }
-
-
-
-
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]

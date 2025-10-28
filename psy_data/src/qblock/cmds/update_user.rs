@@ -5,7 +5,6 @@ use serde::{Deserialize, Serialize};
 
 use crate::qdata::user::QEDUserLeaf;
 
-
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Copy)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
 pub struct QBCUserContractStateUpdateKVPair<F: RichField> {
@@ -33,7 +32,6 @@ impl<F: RichField> QBCUpdateUser<F> {
         }
     }
 }
-
 
 impl<F: RichField> KVQSerializable for QBCUpdateUser<F> {
     fn to_bytes(&self) -> anyhow::Result<Vec<u8>> {

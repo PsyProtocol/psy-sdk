@@ -48,18 +48,12 @@ fn sum_le_bits(bits: &[u8]) -> u64 {
     bits.iter().fold(0u64, |acc, &b| (acc << 1) | (b as u64))
 }
 pub fn hash256_le_to_felt252_hashout_packed<F: RichField>(hash: &[u8]) -> HashOut<F> {
-    let result = hash
-        .iter()
-        .map(|x| u8_to_bits_le(*x))
-        .flatten()
-        .collect::<Vec<_>>();
+    let result = hash.iter().map(|x| u8_to_bits_le(*x)).flatten().collect::<Vec<_>>();
     let a = F::from_canonical_u64(sum_le_bits(&result[0..63]));
     let b = F::from_canonical_u64(sum_le_bits(&result[63..126]));
     let c = F::from_canonical_u64(sum_le_bits(&result[126..189]));
     let d = F::from_canonical_u64(sum_le_bits(&result[189..252]));
-    HashOut {
-        elements: [a, b, c, d],
-    }
+    HashOut { elements: [a, b, c, d] }
 }
 pub fn felt252_hashout_to_hash256_le<F: RichField>(hash: HashOut<F>) -> Hash256 {
     //let top_bit = 1u64 << 63u64;

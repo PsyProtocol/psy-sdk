@@ -1,13 +1,24 @@
 use std::marker::PhantomData;
 
-use kvq::{adapters::standard::KVQStandardAdapter, traits::{ KVQSerializable, KVQStoreAdapter}};
+use kvq::{
+    adapters::standard::KVQStandardAdapter,
+    traits::{KVQSerializable, KVQStoreAdapter},
+};
 use plonky2::hash::hash_types::RichField;
 use psy_core::data::qhashout::QHashOut;
-use psy_crypto::hash::{merkle::core::{DeltaMerkleProofCore, MerkleProofCore}, traits::qhashable::QFieldHashable};
-use psy_data::{config::store_config::QEDHash, dpn::proving_session::DPNTransactionDebtItem, models::kvq_merkle::key::KVQMerkleNodeKey};
+use psy_crypto::hash::{
+    merkle::core::{DeltaMerkleProofCore, MerkleProofCore},
+    traits::qhashable::QFieldHashable,
+};
+use psy_data::{
+    config::store_config::{QEDFelt, QEDHash, QEDHasher},
+    dpn::proving_session::DPNTransactionDebtItem,
+    models::kvq_merkle::{
+        key::KVQMerkleNodeKey,
+        model::{KVQFixedConfigMerkleTreeModelCore, KVQFixedConfigMerkleTreeModelReaderCore},
+    },
+};
 use serde::{Deserialize, Serialize};
-
-use psy_data::{config::store_config::{QEDFelt, QEDHasher}, models::kvq_merkle::model::{KVQFixedConfigMerkleTreeModelCore, KVQFixedConfigMerkleTreeModelReaderCore}};
 
 use super::config::{LocalProvingSessionTreeStore, LOCAL_PROVING_SESSION_TREE_TABLE_TYPE};
 
@@ -15,7 +26,14 @@ type GF = QEDFelt;
 type QHasher = QEDHasher;
 #[derive(Serialize)]
 #[serde(bound = "for<'de2> TX: Deserialize<'de2>")]
-pub struct TransactionDebtTreeRef<S, TX: QFieldHashable<F> + Serialize, F: RichField, const HEIGHT: u8, const TREE_ID: u8, IDKVA = KVQStandardAdapter<S, KVQMerkleNodeKey<{ LOCAL_PROVING_SESSION_TREE_TABLE_TYPE }>, QEDHash>> {
+pub struct TransactionDebtTreeRef<
+    S,
+    TX: QFieldHashable<F> + Serialize,
+    F: RichField,
+    const HEIGHT: u8,
+    const TREE_ID: u8,
+    IDKVA = KVQStandardAdapter<S, KVQMerkleNodeKey<{ LOCAL_PROVING_SESSION_TREE_TABLE_TYPE }>, QEDHash>,
+> {
     _tx: PhantomData<TX>,
     _f: PhantomData<F>,
     #[serde(skip)]
@@ -25,8 +43,15 @@ pub struct TransactionDebtTreeRef<S, TX: QFieldHashable<F> + Serialize, F: RichF
     remaining_debt: Vec<DPNTransactionDebtItem<TX, F>>,
 }
 
-
-impl<S, TX: KVQSerializable + QFieldHashable<F> + Serialize, F: RichField, const HEIGHT: u8, const TREE_ID: u8, IDKVA: KVQStoreAdapter<S, KVQMerkleNodeKey<{ LOCAL_PROVING_SESSION_TREE_TABLE_TYPE }>, QEDHash>> TransactionDebtTreeRef<S, TX, F, HEIGHT, TREE_ID, IDKVA> {
+impl<
+        S,
+        TX: KVQSerializable + QFieldHashable<F> + Serialize,
+        F: RichField,
+        const HEIGHT: u8,
+        const TREE_ID: u8,
+        IDKVA: KVQStoreAdapter<S, KVQMerkleNodeKey<{ LOCAL_PROVING_SESSION_TREE_TABLE_TYPE }>, QEDHash>,
+    > TransactionDebtTreeRef<S, TX, F, HEIGHT, TREE_ID, IDKVA>
+{
     pub fn new(checkpoint_id: u64) -> Self {
         Self {
             _tx: PhantomData::default(),
@@ -34,7 +59,7 @@ impl<S, TX: KVQSerializable + QFieldHashable<F> + Serialize, F: RichField, const
             _adapter: PhantomData::default(),
             next_index: 0,
             checkpoint_id,
-            remaining_debt: vec![]
+            remaining_debt: vec![],
         }
     }
     pub fn has_remaining_proof_debt(&self) -> bool {
@@ -61,7 +86,7 @@ impl<S, TX: KVQSerializable + QFieldHashable<F> + Serialize, F: RichField, const
     pub fn get_proof_debt_item_by_tree_index(&self, tree_index: u64) -> Option<&DPNTransactionDebtItem<TX, F>> {
         self.remaining_debt.iter().find(|x| x.tree_index == tree_index)
     }
-    pub fn get_latest_proof_debt_item(&self) -> Option<&DPNTransactionDebtItem<TX, F>>{
+    pub fn get_latest_proof_debt_item(&self) -> Option<&DPNTransactionDebtItem<TX, F>> {
         self.remaining_debt.last()
     }
 
@@ -69,20 +94,23 @@ impl<S, TX: KVQSerializable + QFieldHashable<F> + Serialize, F: RichField, const
     fn remove_proof_debt_item_by_tree_index_u64(&mut self, tree_index: u64) -> Option<DPNTransactionDebtItem<TX, F>> {
         if self.remaining_debt.len() == 0 {
             None
-        }else{
+        } else {
             match self.remaining_debt.iter().position(|x| x.tree_index == tree_index) {
-                Some(array_index) => {
-                    Some(self.remaining_debt.remove(array_index))
-                },
+                Some(array_index) => Some(self.remaining_debt.remove(array_index)),
                 None => None,
             }
         }
     }
-
 }
 
-
-impl<S, TX: KVQSerializable + QFieldHashable<GF> + Serialize, const HEIGHT: u8, const TREE_ID: u8, IDKVA: KVQStoreAdapter<S, KVQMerkleNodeKey<{ LOCAL_PROVING_SESSION_TREE_TABLE_TYPE }>, QEDHash>> TransactionDebtTreeRef<S, TX, GF, HEIGHT, TREE_ID, IDKVA> {
+impl<
+        S,
+        TX: KVQSerializable + QFieldHashable<GF> + Serialize,
+        const HEIGHT: u8,
+        const TREE_ID: u8,
+        IDKVA: KVQStoreAdapter<S, KVQMerkleNodeKey<{ LOCAL_PROVING_SESSION_TREE_TABLE_TYPE }>, QEDHash>,
+    > TransactionDebtTreeRef<S, TX, GF, HEIGHT, TREE_ID, IDKVA>
+{
     pub fn get_latest_tx_debt_leaf(&self, store: &S) -> anyhow::Result<MerkleProofCore<QHashOut<GF>>> {
         self.get_tx_debt_leaf(store, self.get_latest_index())
     }
@@ -120,7 +148,11 @@ impl<S, TX: KVQSerializable + QFieldHashable<GF> + Serialize, const HEIGHT: u8, 
         self.remaining_debt.push(debt_item);
         Ok(insertion_proof)
     }
-    pub fn repay_tx_debt(&mut self, store: &S, tree_leaf_index: u64) -> anyhow::Result<(DPNTransactionDebtItem<TX, GF>, DeltaMerkleProofCore<QHashOut<GF>>)> {
+    pub fn repay_tx_debt(
+        &mut self,
+        store: &S,
+        tree_leaf_index: u64,
+    ) -> anyhow::Result<(DPNTransactionDebtItem<TX, GF>, DeltaMerkleProofCore<QHashOut<GF>>)> {
         let removed = self.remove_proof_debt_item_by_tree_index_u64(tree_leaf_index);
         match removed {
             Some(item) => {
@@ -128,25 +160,28 @@ impl<S, TX: KVQSerializable + QFieldHashable<GF> + Serialize, const HEIGHT: u8, 
                     store,
                     self.checkpoint_id,
                     tree_leaf_index,
-                    QHashOut::ZERO
+                    QHashOut::ZERO,
                 )?;
 
                 // simple tree compaction
                 if self.has_remaining_proof_debt() {
-                    if self.next_index == tree_leaf_index+1 {
+                    if self.next_index == tree_leaf_index + 1 {
                         self.next_index = tree_leaf_index;
                     }
-                }else{
+                } else {
                     self.next_index = 0;
                 }
 
                 Ok((item, removal_proof))
-
-            },
+            }
             None => anyhow::bail!("transaction debt not found at tree index {}", tree_leaf_index),
         }
     }
-    pub fn repay_tx_debt_imm(&mut self, store: &S, tree_leaf_index: u64) -> anyhow::Result<(DPNTransactionDebtItem<TX, GF>, DeltaMerkleProofCore<QHashOut<GF>>)> {
+    pub fn repay_tx_debt_imm(
+        &mut self,
+        store: &S,
+        tree_leaf_index: u64,
+    ) -> anyhow::Result<(DPNTransactionDebtItem<TX, GF>, DeltaMerkleProofCore<QHashOut<GF>>)> {
         let removed = self.remove_proof_debt_item_by_tree_index_u64(tree_leaf_index);
         match removed {
             Some(item) => {
@@ -154,23 +189,21 @@ impl<S, TX: KVQSerializable + QFieldHashable<GF> + Serialize, const HEIGHT: u8, 
                     store,
                     self.checkpoint_id,
                     tree_leaf_index,
-                    QHashOut::ZERO
+                    QHashOut::ZERO,
                 )?;
 
                 // simple tree compaction
                 if self.has_remaining_proof_debt() {
-                    if self.next_index == tree_leaf_index+1 {
+                    if self.next_index == tree_leaf_index + 1 {
                         self.next_index = tree_leaf_index;
                     }
-                }else{
+                } else {
                     self.next_index = 0;
                 }
 
                 Ok((item, removal_proof))
-
-            },
+            }
             None => anyhow::bail!("transaction debt not found at tree index {}", tree_leaf_index),
         }
     }
-
 }

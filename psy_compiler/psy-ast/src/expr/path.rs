@@ -19,10 +19,7 @@ impl PathNode {
     }
 
     pub fn is_receiver(&self) -> bool {
-        self.root.is_none()
-            && self.segments.is_empty()
-            && self.target.is_basic()
-            && self.target.as_basic().unwrap().id == IdentId::SELF
+        self.root.is_none() && self.segments.is_empty() && self.target.is_basic() && self.target.as_basic().unwrap().id == IdentId::SELF
     }
 }
 

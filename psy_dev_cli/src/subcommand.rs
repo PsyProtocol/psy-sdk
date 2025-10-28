@@ -2,24 +2,24 @@ use clap::{command, Parser, Subcommand};
 pub use get_user_id_from_registration_id::GetUserIdFromRegistrationIdArgs;
 pub use job::JobArgs;
 
-pub mod test_full_group_1;
-pub mod test_register_v2;
 pub mod benchmark_full_group_1;
 pub mod benchmark_full_group_2;
 pub mod benchmark_full_group_3;
 pub mod benchmark_register_v2;
-pub mod generate_token;
-pub mod produce_block;
-pub mod register_user;
-pub mod get_user_id_from_registration_id;
-pub mod generate;
-pub mod launch;
-pub mod get_job_proof;
-pub mod qhash;
-pub mod stress_test;
-pub mod job;
-pub mod realm_status;
 pub mod check_registered_users;
+pub mod generate;
+pub mod generate_token;
+pub mod get_job_proof;
+pub mod get_user_id_from_registration_id;
+pub mod job;
+pub mod launch;
+pub mod produce_block;
+pub mod qhash;
+pub mod realm_status;
+pub mod register_user;
+pub mod stress_test;
+pub mod test_full_group_1;
+pub mod test_register_v2;
 
 #[derive(Parser)]
 pub struct Cli {
@@ -157,16 +157,11 @@ pub struct ProduceBlockArgs {
     pub rpc_config: String,
 }
 
-
 #[derive(Parser)]
 pub struct RegisterUserArgs {
     #[clap(env, long, default_value = "config.json", env)]
     pub rpc_config: String,
-    #[clap(
-        long,
-        short,
-        default_value = "f93ee5497d94c7d216bb5daaf77a60a4903cb7c69b752c3e1a24753691505998"
-    )]
+    #[clap(long, short, default_value = "f93ee5497d94c7d216bb5daaf77a60a4903cb7c69b752c3e1a24753691505998")]
     pub private_key: String,
 }
 
@@ -212,7 +207,6 @@ pub struct RunArgs {
 
     #[arg(long, help = "Stop all running services")]
     pub stop: bool,
-
 }
 
 #[derive(Parser)]
@@ -232,7 +226,11 @@ pub struct GenerateAwsArgs {
     #[arg(long, help = "Force overwrite existing files")]
     pub force: bool,
 
-    #[arg(long, default_value = "balanced", help = "Instance optimization strategy: cost-optimized, performance-optimized, or balanced")]
+    #[arg(
+        long,
+        default_value = "balanced",
+        help = "Instance optimization strategy: cost-optimized, performance-optimized, or balanced"
+    )]
     pub optimization_strategy: String,
 
     #[arg(long, help = "Automatically set EC2 instance types based on recommendations")]
@@ -306,5 +304,4 @@ pub struct StressTestArgs {
 
     #[arg(long, default_value = "", help = "Path to contract file")]
     pub contract_path: String,
-
 }

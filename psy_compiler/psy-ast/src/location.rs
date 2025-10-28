@@ -9,11 +9,7 @@ pub struct Location {
 
 impl Location {
     pub fn new(file_id: FileId, start: usize, end: usize) -> Self {
-        Self {
-            file_id,
-            start,
-            end,
-        }
+        Self { file_id, start, end }
     }
 }
 

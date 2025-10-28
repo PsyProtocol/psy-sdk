@@ -1,41 +1,35 @@
 use std::path::PathBuf;
 
 use psy_ast::{DefaultVisitorContext, ModuleId};
-
 use psy_common::FileId;
+use psy_fmt::Formatter;
 use psy_vm::dpn::ops::context_trait::{ContextFelt, DPNContext};
 
-use crate::TypeCheckerVisitorContext;
-
-use crate::error::{Error, Result};
-use psy_fmt::Formatter;
+use crate::{
+    error::{Error, Result},
+    TypeCheckerVisitorContext,
+};
 
 impl<F: ContextFelt + From<u32> + 'static, C: DPNContext<F>> TypeCheckerVisitorContext<F, C> {
     pub fn format_file(&mut self, file_path: &PathBuf) -> Result<String> {
-        let file_path = file_path
-            .canonicalize()
-            .map_err(|err| Error::AnyhowError(anyhow::anyhow!("{}", err)))?;
-        let file_id =
-            self.program
-                .file_resolver
-                .resolve_id(&file_path)
-                .ok_or(Error::AnyhowError(anyhow::anyhow!(
-                    "cant resolve file `{}`",
-                    file_path.display().to_string()
-                )))?;
-        let module_id =
-            self.find_module_id(*file_id)
-                .ok_or(Error::AnyhowError(anyhow::anyhow!(
-                    "cant resolve module file `{}`",
-                    file_path.display().to_string()
-                )))?;
-        self.format_module(module_id)
-            .map(|ctx| ctx.trim_end().to_owned())
+        let file_path = file_path.canonicalize().map_err(|err| Error::AnyhowError(anyhow::anyhow!("{}", err)))?;
+        let file_id = self
+            .program
+            .file_resolver
+            .resolve_id(&file_path)
+            .ok_or(Error::AnyhowError(anyhow::anyhow!(
+                "cant resolve file `{}`",
+                file_path.display().to_string()
+            )))?;
+        let module_id = self.find_module_id(*file_id).ok_or(Error::AnyhowError(anyhow::anyhow!(
+            "cant resolve module file `{}`",
+            file_path.display().to_string()
+        )))?;
+        self.format_module(module_id).map(|ctx| ctx.trim_end().to_owned())
     }
 
     pub fn format_module(&mut self, module_id: ModuleId) -> Result<String> {
-        let mut default_visitor_context: DefaultVisitorContext<'_, F, C> =
-            DefaultVisitorContext::new(&mut self.program);
+        let mut default_visitor_context: DefaultVisitorContext<'_, F, C> = DefaultVisitorContext::new(&mut self.program);
         let mut formatter = Formatter::new();
         formatter
             .format_module_helper(module_id, true, &mut default_visitor_context)

@@ -2,21 +2,17 @@ use plonky2::{
     field::extension::Extendable,
     hash::hash_types::{HashOut, HashOutTarget, RichField},
     iop::witness::Witness,
-    plonk::{
-        circuit_builder::CircuitBuilder,
-        config::AlgebraicHasher,
-    },
+    plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher},
 };
 use psy_common_circuit::{
-    builder::
-        hash::core::CircuitBuilderHashCore
-    , hash::merkle::gadgets::{delta_merkle_proof::DeltaMerkleProofGadget, merkle_proof::MerkleProofGadget}
+    builder::hash::core::CircuitBuilderHashCore,
+    hash::merkle::gadgets::{delta_merkle_proof::DeltaMerkleProofGadget, merkle_proof::MerkleProofGadget},
 };
 use psy_core::data::qhashout::QHashOut;
-use psy_crypto::hash::{merkle::core::{DeltaMerkleProofCore, MerkleProofCore}, traits::hasher::MerkleZeroHasher}
-;
-
-
+use psy_crypto::hash::{
+    merkle::core::{DeltaMerkleProofCore, MerkleProofCore},
+    traits::hasher::MerkleZeroHasher,
+};
 
 #[derive(Debug, Clone)]
 pub struct CheckpointStateTransitionCoreGadget {
@@ -36,19 +32,15 @@ impl CheckpointStateTransitionCoreGadget {
         builder: &mut CircuitBuilder<F, D>,
         checkpoint_tree_height: usize,
     ) -> Self {
-        let append_checkpoint_tree_proof =
-            DeltaMerkleProofGadget::add_virtual_to_append_only::<H, F, D>(builder, checkpoint_tree_height);
-        let previous_checkpoint_proof = MerkleProofGadget::add_virtual_to_append_only::<H,F,D>(builder, checkpoint_tree_height);
+        let append_checkpoint_tree_proof = DeltaMerkleProofGadget::add_virtual_to_append_only::<H, F, D>(builder, checkpoint_tree_height);
+        let previous_checkpoint_proof = MerkleProofGadget::add_virtual_to_append_only::<H, F, D>(builder, checkpoint_tree_height);
 
         // ensure we are appending to an empty leaf
         let zero_hash = builder.constant_qhash(QHashOut::ZERO);
         builder.connect_hashes(append_checkpoint_tree_proof.old_value, zero_hash);
 
         // ensure that old root == previous checkpoint root
-        builder.connect_hashes(
-            append_checkpoint_tree_proof.old_root,
-            previous_checkpoint_proof.root,
-        );
+        builder.connect_hashes(append_checkpoint_tree_proof.old_root, previous_checkpoint_proof.root);
 
         // sanity check: previous.index + 1 == current.index
         let one = builder.one();
@@ -76,14 +68,10 @@ impl CheckpointStateTransitionCoreGadget {
         append_checkpoint_tree_proof: &DeltaMerkleProofCore<QHashOut<F>>,
         previous_checkpoint_proof: &MerkleProofCore<QHashOut<F>>,
     ) -> anyhow::Result<()> {
-        self.append_checkpoint_tree_proof.set_witness_core_proof_q(
-            witness,
-            append_checkpoint_tree_proof,
-        )?;
-        self.previous_checkpoint_proof.set_witness_core_proof_q_generic(
-            witness,
-            previous_checkpoint_proof,
-        )?;
+        self.append_checkpoint_tree_proof
+            .set_witness_core_proof_q(witness, append_checkpoint_tree_proof)?;
+        self.previous_checkpoint_proof
+            .set_witness_core_proof_q_generic(witness, previous_checkpoint_proof)?;
         Ok(())
     }
 }

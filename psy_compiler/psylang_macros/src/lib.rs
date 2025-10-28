@@ -1,17 +1,21 @@
+use std::collections::HashSet as Set;
+
 use felt_sized::derive_felt_sized;
 use proc_macro::TokenStream;
 use quote::{quote, ToTokens};
 use state_init::derive_state_init;
-use std::collections::HashSet as Set;
-use syn::fold::{self, Fold};
-use syn::parse::{Parse, ParseStream, Result};
-use syn::punctuated::Punctuated;
-use syn::{parse_macro_input, parse_quote, BinOp, DeriveInput, Expr, Ident, ItemFn, ItemImpl, Local, Pat, Stmt, Token};
+use syn::{
+    fold::{self, Fold},
+    parse::{Parse, ParseStream, Result},
+    parse_macro_input, parse_quote,
+    punctuated::Punctuated,
+    BinOp, DeriveInput, Expr, Ident, ItemFn, ItemImpl, Local, Pat, Stmt, Token,
+};
+mod felt_sized;
 mod gm1;
 mod heap2;
-mod felt_sized;
 mod state_init;
-use gm1::{RewriterVisitor};
+use gm1::RewriterVisitor;
 use psy_vm::dpn::ops::context_trait::FeltSized;
 /// Parses a list of variable names separated by commas.
 ///
@@ -83,7 +87,7 @@ impl Args {
     fn assign_and_print_bin(&mut self, left: Expr, op: &BinOp, right: Expr) -> Expr {
         let right = fold::fold_expr(self, right);
         // replace with ctx.op_<op>(left, right)
-        /* 
+        /*
         match  op {
             BinOp::Add(_) => todo!(),
             BinOp::Sub(_) => todo!(),
@@ -160,9 +164,6 @@ impl Args {
 /// simply recurse on any child nodes. We can override only those methods for
 /// which we want non-default behavior. In this case the traversal needs to
 /// transform `Expr` and `Stmt` nodes.
-/// 
-///
-/// 
 impl Fold for Args {
     fn fold_expr(&mut self, e: Expr) -> Expr {
         match e {
@@ -244,13 +245,12 @@ pub fn trace_var(args: TokenStream, input: TokenStream) -> TokenStream {
     TokenStream::from(quote!(#output))
 }
 
-
 #[proc_macro_attribute]
 pub fn qcontract(args: TokenStream, input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as ItemImpl);
 
     // Parse the list of variables the user wanted to print.
-    let mut vs = RewriterVisitor{};
+    let mut vs = RewriterVisitor {};
 
     // Use a syntax tree traversal to transform the function body.
     let output = vs.fold_item_impl(input);
@@ -268,18 +268,15 @@ pub fn show_streams(attr: TokenStream, item: TokenStream) -> TokenStream {
     println!("input: {:#?}", input);
     "fn test_function(x: FeltOp, y: FeltOp) -> FeltOp {
         x
-    }".parse().unwrap()
-
+    }"
+    .parse()
+    .unwrap()
 }
-
-
 
 #[proc_macro_derive(QStateInitializable)]
 pub fn derive_state(input: TokenStream) -> TokenStream {
     derive_state_init(input.into()).into()
 }
-
-
 
 #[proc_macro_derive(FeltSized)]
 pub fn derive_feltsz(input: TokenStream) -> TokenStream {

@@ -1,16 +1,13 @@
 use kvq::traits::KVQSerializable;
 use plonky2::{field::goldilocks_field::GoldilocksField, hash::hash_types::RichField};
 use psy_core::{
-    config::network_constants::{DEFERRED_CALL_MAGIC, SIGN_SIMPLE_TRANSACTION_MAGIC, DEFAULT_CALLER_CONTRACT_ID_U64},
+    config::network_constants::{DEFAULT_CALLER_CONTRACT_ID_U64, DEFERRED_CALL_MAGIC, SIGN_SIMPLE_TRANSACTION_MAGIC},
     data::qhashout::QHashOut,
     traits::to_qfelts::ToQFelts,
 };
 use psy_crypto::hash::{
     merkle::core::DeltaMerkleProofCore,
-    traits::{
-        hasher::FieldQHasher,
-        qhashable::QFieldHashable,
-    },
+    traits::{hasher::FieldQHasher, qhashable::QFieldHashable},
     utils::safe_hash_fixed_length,
 };
 use serde::{Deserialize, Serialize};
@@ -83,7 +80,10 @@ impl<F: RichField> ToQFelts<F> for DPNProvingSessionCompactMethodCall<F> {
 
     fn from_qfelts(felts: &[F]) -> Self {
         if felts.len() != 8 {
-            panic!("Invalid number of elements for DPNProvingSessionCompactMethodCall, expected 8, got {}",felts.len());
+            panic!(
+                "Invalid number of elements for DPNProvingSessionCompactMethodCall, expected 8, got {}",
+                felts.len()
+            );
         }
 
         Self {
@@ -141,12 +141,7 @@ impl<F: RichField> DPNProvingSessionSimpleMethodCall<F> {
         }
     }
     pub fn to_compact<H: FieldQHasher<F>>(&self) -> DPNProvingSessionCompactMethodCall<F> {
-        DPNProvingSessionCompactMethodCall::new_from_inputs::<H>(
-            self.caller_contract_id,
-            self.contract_id,
-            self.method_id,
-            &self.inputs,
-        )
+        DPNProvingSessionCompactMethodCall::new_from_inputs::<H>(self.caller_contract_id, self.contract_id, self.method_id, &self.inputs)
     }
 }
 impl<F: RichField> Default for DPNProvingSessionSimpleMethodCall<F> {
@@ -194,13 +189,8 @@ impl<F: RichField> ToQFelts<F> for DPNProvingSessionSimpleMethodCall<F> {
 
 impl<F: RichField> QFieldHashable<F> for DPNProvingSessionSimpleMethodCall<F> {
     fn qfhash<H: FieldQHasher<F>>(&self) -> QHashOut<F> {
-        DPNProvingSessionCompactMethodCall::new_from_inputs::<H>(
-            self.caller_contract_id,
-            self.contract_id,
-            self.method_id,
-            &self.inputs,
-        )
-        .qfhash::<H>()
+        DPNProvingSessionCompactMethodCall::new_from_inputs::<H>(self.caller_contract_id, self.contract_id, self.method_id, &self.inputs)
+            .qfhash::<H>()
     }
 }
 
@@ -233,7 +223,10 @@ impl<F: RichField> ToQFelts<F> for DPNProvingSessionSignableCompactMethodCall<F>
 
     fn from_qfelts(felts: &[F]) -> Self {
         if felts.len() != 10 {
-            panic!("Invalid number of elements for DPNProvingSessionSignableCompactMethodCall: expected 10, got {}", felts.len());
+            panic!(
+                "Invalid number of elements for DPNProvingSessionSignableCompactMethodCall: expected 10, got {}",
+                felts.len()
+            );
         }
         Self {
             checkpoint_id: felts[0],
@@ -269,11 +262,7 @@ pub struct DPNProvingSessionSignableMethodCall<F: RichField> {
 }
 
 impl<F: RichField> DPNProvingSessionSignableMethodCall<F> {
-    pub fn new(
-        user_id: F,
-        checkpoint_id: F,
-        call_data: DPNProvingSessionSimpleMethodCall<F>,
-    ) -> Self {
+    pub fn new(user_id: F, checkpoint_id: F, call_data: DPNProvingSessionSimpleMethodCall<F>) -> Self {
         Self {
             checkpoint_id,
             user_id,
@@ -311,7 +300,10 @@ impl<F: RichField> ToQFelts<F> for DPNProvingSessionSignableMethodCall<F> {
 
     fn from_qfelts(felts: &[F]) -> Self {
         if felts.len() < 5 {
-            panic!("Invalid number of elements for DPNProvingSessionSignableMethodCall: expected >= 5, got {}", felts.len());
+            panic!(
+                "Invalid number of elements for DPNProvingSessionSignableMethodCall: expected >= 5, got {}",
+                felts.len()
+            );
         }
         Self {
             checkpoint_id: felts[0],
@@ -361,18 +353,22 @@ pub struct QEDLocalTransactionRecord<F: RichField> {
     pub user_contract_tree_update_proof: DeltaMerkleProofCore<QHashOut<F>>,
 
     // external call info
-    pub added_deferred_tx_items:
-        Vec<DPNTransactionDebtItem<DPNProvingSessionSimpleMethodCall<F>, F>>,
+    pub added_deferred_tx_items: Vec<DPNTransactionDebtItem<DPNProvingSessionSimpleMethodCall<F>, F>>,
 }
 
 impl<F: RichField> QEDLocalTransactionRecord<F> {
-    pub fn new_base(start_checkpoint: F, write_checkpoint: F, call_data: DPNProvingSessionSignableMethodCall<F>, start_contract_state_tree_root: QHashOut<F>) -> Self {
+    pub fn new_base(
+        start_checkpoint: F,
+        write_checkpoint: F,
+        call_data: DPNProvingSessionSignableMethodCall<F>,
+        start_contract_state_tree_root: QHashOut<F>,
+    ) -> Self {
         Self {
             start_checkpoint,
             write_checkpoint,
             call_data,
             start_contract_state_tree_root,
-            end_contract_state_tree_root:start_contract_state_tree_root,
+            end_contract_state_tree_root: start_contract_state_tree_root,
             contract_state_tree_update_proofs: Vec::new(),
             user_contract_tree_update_proof: Default::default(),
             added_deferred_tx_items: Vec::new(),

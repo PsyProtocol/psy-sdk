@@ -1,17 +1,22 @@
-use crate::builder::{comparison::CircuitBuilderComparison, hash::core::CircuitBuilderHashCore, math::core::CircuitBuilderCoreMathHelpers, select::CircuitBuilderSelectHelpers};
 use plonky2::{
     field::extension::Extendable,
-    hash::hash_types::{HashOut, HashOutTarget, RichField},
+    hash::{
+        hash_types::{HashOut, HashOutTarget, RichField},
+        poseidon::PoseidonHash,
+    },
     iop::{
         target::{BoolTarget, Target},
         witness::Witness,
     },
     plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher},
 };
-use plonky2::hash::poseidon::PoseidonHash;
 use psy_core::data::qhashout::QHashOut;
-use psy_crypto::hash::merkle::core::DeltaMerkleProofCore;
-use psy_crypto::hash::traits::hasher::MerkleHasher;
+use psy_crypto::hash::{merkle::core::DeltaMerkleProofCore, traits::hasher::MerkleHasher};
+
+use crate::builder::{
+    comparison::CircuitBuilderComparison, hash::core::CircuitBuilderHashCore, math::core::CircuitBuilderCoreMathHelpers,
+    select::CircuitBuilderSelectHelpers,
+};
 
 type QEDHasher = PoseidonHash;
 
@@ -21,31 +26,24 @@ pub struct BitsHelper {
     pub high_bits_mask: Vec<BoolTarget>,
 }
 
-
 #[derive(Debug, Clone)]
 pub struct QVariableHeightBitInfo {
     pub index_bits: Vec<bool>,
     pub is_bit_not_within_height: Vec<bool>,
     pub is_first_bit_outside_height: Vec<bool>,
-
 }
 
 impl QVariableHeightBitInfo {
-    pub fn is_right_child(
-        &self,
-    ) -> bool {
+    pub fn is_right_child(&self) -> bool {
         let mut base = 0u32;
 
-        for (a,b) in  self.index_bits.iter().zip(self.is_first_bit_outside_height.iter()) {
-            let combo = (a&b) as u32;
+        for (a, b) in self.index_bits.iter().zip(self.is_first_bit_outside_height.iter()) {
+            let combo = (a & b) as u32;
             base = combo + base;
         }
         base >= 1
-
     }
-    pub fn get_root_parent_index(
-        &self,
-    ) -> u32 {
+    pub fn get_root_parent_index(&self) -> u32 {
         let mut sub_root_bit = 0u32;
         let mut sub_root_index = 0u32;
         let one = 1u32;
@@ -56,22 +54,16 @@ impl QVariableHeightBitInfo {
             let add_indicator = (self.index_bits[i] as u32) * sub_root_bit;
             sub_root_index = add_indicator + sub_root_index;
 
-
             sub_root_bit = sub_root_bit + sub_root_bit;
-
         }
 
         sub_root_index
     }
 
     pub fn from_index_and_height(index: u64, height: usize, max_height: usize) -> Self {
-        let index_bits = (0..max_height)
-            .map(|i| (index >> i) & 1 == 1)
-            .collect::<Vec<_>>();
+        let index_bits = (0..max_height).map(|i| (index >> i) & 1 == 1).collect::<Vec<_>>();
 
-        let is_bit_not_within_height = (0..max_height)
-            .map(|i| i >= height)
-            .collect::<Vec<_>>();
+        let is_bit_not_within_height = (0..max_height).map(|i| i >= height).collect::<Vec<_>>();
 
         let mut is_first_bit_outside_height = vec![false; max_height];
         if let Some(first_outside) = (0..max_height).find(|&i| i >= height) {
@@ -84,7 +76,6 @@ impl QVariableHeightBitInfo {
             is_first_bit_outside_height,
         }
     }
-
 }
 
 #[derive(Debug, Clone)]
@@ -92,28 +83,19 @@ pub struct VariableHeightBitInfo {
     pub index_bits: Vec<BoolTarget>,
     pub is_bit_not_within_height: Vec<BoolTarget>,
     pub is_first_bit_outside_height: Vec<BoolTarget>,
-
 }
 
 impl VariableHeightBitInfo {
-    pub fn is_right_child<F: RichField + Extendable<D>, const D: usize>(
-        &self,
-        builder: &mut CircuitBuilder<F, D>,
-    ) -> BoolTarget {
+    pub fn is_right_child<F: RichField + Extendable<D>, const D: usize>(&self, builder: &mut CircuitBuilder<F, D>) -> BoolTarget {
         let mut base = builder.zero();
 
-        for (a,b) in  self.index_bits.iter().zip(self.is_first_bit_outside_height.iter()) {
+        for (a, b) in self.index_bits.iter().zip(self.is_first_bit_outside_height.iter()) {
             let combo = builder.and(*a, *b);
             base = builder.add(combo.target, base);
         }
         BoolTarget::new_unsafe(base)
-
     }
-    pub fn get_root_parent_index<F: RichField + Extendable<D>, const D: usize>(
-        &self,
-        builder: &mut CircuitBuilder<F, D>,
-    ) -> Target {
-
+    pub fn get_root_parent_index<F: RichField + Extendable<D>, const D: usize>(&self, builder: &mut CircuitBuilder<F, D>) -> Target {
         let mut sub_root_bit = builder.zero();
         let mut sub_root_index = builder.zero();
         let one = builder.one();
@@ -124,9 +106,7 @@ impl VariableHeightBitInfo {
             let add_indicator = builder.mul(self.index_bits[i].target, sub_root_bit);
             sub_root_index = builder.add(add_indicator, sub_root_index);
 
-
             sub_root_bit = builder.add(sub_root_bit, sub_root_bit);
-
         }
 
         sub_root_index
@@ -136,25 +116,18 @@ impl VariableHeightBitInfo {
         builder: &mut CircuitBuilder<F, D>,
         q_info: &QVariableHeightBitInfo,
     ) -> Self {
-        let index_bits = q_info.index_bits.iter()
-            .map(|&b| builder.constant_bool(b))
-            .collect();
-        
-        let is_bit_not_within_height = q_info.is_bit_not_within_height.iter()
-            .map(|&b| builder.constant_bool(b))
-            .collect();
-        
-        let is_first_bit_outside_height = q_info.is_first_bit_outside_height.iter()
-            .map(|&b| builder.constant_bool(b))
-            .collect();
-        
+        let index_bits = q_info.index_bits.iter().map(|&b| builder.constant_bool(b)).collect();
+
+        let is_bit_not_within_height = q_info.is_bit_not_within_height.iter().map(|&b| builder.constant_bool(b)).collect();
+
+        let is_first_bit_outside_height = q_info.is_first_bit_outside_height.iter().map(|&b| builder.constant_bool(b)).collect();
+
         Self {
             index_bits,
             is_bit_not_within_height,
             is_first_bit_outside_height,
         }
     }
-
 }
 
 #[derive(Debug, Clone)]
@@ -173,14 +146,14 @@ pub struct VariableHeightDeltaMerkleProofOptGadget {
     pub has_witness_height: bool,
 }
 impl VariableHeightDeltaMerkleProofOptGadget {
-    pub fn add_virtual_to_full<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
+    pub fn add_virtual_to_full<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
         max_height: usize,
         input_height_target: Option<Target>,
     ) -> Self {
-        Self::add_virtual_to_full_with_subtree_root_index::<H,F,D>(builder,max_height,input_height_target)
+        Self::add_virtual_to_full_with_subtree_root_index::<H, F, D>(builder, max_height, input_height_target)
     }
-    pub fn add_virtual_to_full_with_subtree_root_index<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
+    pub fn add_virtual_to_full_with_subtree_root_index<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
         max_height: usize,
         input_height_target: Option<Target>,
@@ -188,9 +161,7 @@ impl VariableHeightDeltaMerkleProofOptGadget {
         let index = builder.add_virtual_target();
         let old_value = builder.add_virtual_hash();
         let new_value = builder.add_virtual_hash();
-        let siblings = (0..max_height)
-            .map(|_| builder.add_virtual_hash())
-            .collect::<Vec<_>>();
+        let siblings = (0..max_height).map(|_| builder.add_virtual_hash()).collect::<Vec<_>>();
 
         let has_witness_height = input_height_target.is_none();
         let height = match input_height_target {
@@ -201,18 +172,7 @@ impl VariableHeightDeltaMerkleProofOptGadget {
         let zero_target = builder.zero();
         builder.ensure_not_equal(height, zero_target);*/
 
-        let (
-            old_root,
-            new_root,
-            bit_info,
-        ) = Self::compute_roots::<H,F,D>(
-            builder,
-            index,
-            old_value,
-            new_value,
-            &siblings,
-            height
-        );
+        let (old_root, new_root, bit_info) = Self::compute_roots::<H, F, D>(builder, index, old_value, new_value, &siblings, height);
 
         Self {
             old_root,
@@ -227,7 +187,7 @@ impl VariableHeightDeltaMerkleProofOptGadget {
             bit_info,
         }
     }
-    pub fn add_virtual_to_full_with_subtree_root_index_known<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
+    pub fn add_virtual_to_full_with_subtree_root_index_known<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
         max_height: usize,
         input_height_target: Option<Target>,
@@ -235,9 +195,7 @@ impl VariableHeightDeltaMerkleProofOptGadget {
         old_value: HashOutTarget,
         new_value: HashOutTarget,
     ) -> Self {
-        let siblings = (0..max_height)
-            .map(|_| builder.add_virtual_hash())
-            .collect::<Vec<_>>();
+        let siblings = (0..max_height).map(|_| builder.add_virtual_hash()).collect::<Vec<_>>();
 
         let has_witness_height = input_height_target.is_none();
         let height = match input_height_target {
@@ -248,18 +206,7 @@ impl VariableHeightDeltaMerkleProofOptGadget {
         let zero_target = builder.zero();
         builder.ensure_not_equal(height, zero_target);*/
 
-        let (
-            old_root,
-            new_root,
-            bit_info,
-        ) = Self::compute_roots::<H,F,D>(
-            builder,
-            index,
-            old_value,
-            new_value,
-            &siblings,
-            height
-        );
+        let (old_root, new_root, bit_info) = Self::compute_roots::<H, F, D>(builder, index, old_value, new_value, &siblings, height);
 
         Self {
             old_root,
@@ -274,7 +221,7 @@ impl VariableHeightDeltaMerkleProofOptGadget {
             bit_info,
         }
     }
-    pub fn compute_roots<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
+    pub fn compute_roots<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
         index: Target,
         old_value: HashOutTarget,
@@ -288,11 +235,7 @@ impl VariableHeightDeltaMerkleProofOptGadget {
 
         Self::compute_root_bits::<H, F, D>(builder, index_bits, old_value, new_value, siblings, height_target)
     }
-    pub fn compute_root_bits<
-        H:AlgebraicHasher<F>,
-        F: RichField + Extendable<D>,
-        const D: usize,
-    >(
+    pub fn compute_root_bits<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
         index_bits: Vec<BoolTarget>,
         old_value: HashOutTarget,
@@ -319,7 +262,6 @@ impl VariableHeightDeltaMerkleProofOptGadget {
         for (ind, (&bit, &sibling)) in index_bits.iter().zip(siblings).enumerate() {
             is_bit_not_within_height.push(is_remaining_levels_zero);
 
-
             // ensure the index does not have any unused bits
             /*let is_remaining_levels_zero_and_non_zero_bit = builder.and(is_remaining_levels_zero, bit);
             builder.connect(
@@ -327,33 +269,22 @@ impl VariableHeightDeltaMerkleProofOptGadget {
                 zero_target
             );*/
 
-
-
-            let old_proposed_state = builder.two_to_one_swapped::<H>(
-                old_state,
-                sibling,
-                bit,
-            );
+            let old_proposed_state = builder.two_to_one_swapped::<H>(old_state, sibling, bit);
 
             old_state = builder.select_hash(is_remaining_levels_zero, old_state, old_proposed_state);
 
-            let new_proposed_state = builder.two_to_one_swapped::<H>(
-                new_state,
-                sibling,
-                bit,
-            );
+            let new_proposed_state = builder.two_to_one_swapped::<H>(new_state, sibling, bit);
 
             new_state = builder.select_hash(is_remaining_levels_zero, new_state, new_proposed_state);
 
             remaining_levels = builder.sub(remaining_levels, one_target);
             let is_cur_remaining_levels_zero = builder.is_zero(remaining_levels);
-            let new_is_remaining_levels_zero = builder.or(
-                is_remaining_levels_zero,
-                is_cur_remaining_levels_zero,
-            );
-            //let is_not_change_state = builder.is_equal(new_is_remaining_levels_zero.target, is_remaining_levels_zero.target);
-            //let is_change_state = builder.not(is_not_change_state);
-            if ind < (index_bits.len()-1) {
+            let new_is_remaining_levels_zero = builder.or(is_remaining_levels_zero, is_cur_remaining_levels_zero);
+            //let is_not_change_state =
+            // builder.is_equal(new_is_remaining_levels_zero.target,
+            // is_remaining_levels_zero.target); let is_change_state =
+            // builder.not(is_not_change_state);
+            if ind < (index_bits.len() - 1) {
                 let is_change_state = builder.xor_bit(new_is_remaining_levels_zero, is_remaining_levels_zero);
                 is_first_bit_outside_height.push(is_change_state);
             }
@@ -361,11 +292,15 @@ impl VariableHeightDeltaMerkleProofOptGadget {
             is_remaining_levels_zero = new_is_remaining_levels_zero;
         }
 
-        (old_state, new_state, VariableHeightBitInfo{
-            index_bits,
-            is_bit_not_within_height,
-            is_first_bit_outside_height,
-        })
+        (
+            old_state,
+            new_state,
+            VariableHeightBitInfo {
+                index_bits,
+                is_bit_not_within_height,
+                is_first_bit_outside_height,
+            },
+        )
     }
 
     pub fn set_witness_params<W: Witness<F>, F: RichField>(
@@ -375,26 +310,22 @@ impl VariableHeightDeltaMerkleProofOptGadget {
         old_value: QHashOut<F>,
         new_value: QHashOut<F>,
         siblings: &[QHashOut<F>],
-    )  -> anyhow::Result<()> {
-            witness.set_target(self.index, index)?;
-            witness.set_hash_target(self.old_value, old_value.0)?;
-            witness.set_hash_target(self.new_value, new_value.0)?;
-            if self.has_witness_height {
-                witness.set_target(self.height, F::from_canonical_usize(siblings.len()))?;
-            }
-            for i in 0..siblings.len() {
-                witness.set_hash_target(self.siblings[i], siblings[i].0)?;
-            }
-            for i in siblings.len()..self.max_height {
-                witness.set_hash_target(self.siblings[i], HashOut::ZERO)?;
-            }
-            Ok(())
+    ) -> anyhow::Result<()> {
+        witness.set_target(self.index, index)?;
+        witness.set_hash_target(self.old_value, old_value.0)?;
+        witness.set_hash_target(self.new_value, new_value.0)?;
+        if self.has_witness_height {
+            witness.set_target(self.height, F::from_canonical_usize(siblings.len()))?;
+        }
+        for i in 0..siblings.len() {
+            witness.set_hash_target(self.siblings[i], siblings[i].0)?;
+        }
+        for i in siblings.len()..self.max_height {
+            witness.set_hash_target(self.siblings[i], HashOut::ZERO)?;
+        }
+        Ok(())
     }
-    pub fn set_witness<W: Witness<F>, F: RichField>(
-        &self,
-        witness: &mut W,
-        input: &DeltaMerkleProofCore<QHashOut<F>>,
-    )  -> anyhow::Result<()> {
+    pub fn set_witness<W: Witness<F>, F: RichField>(&self, witness: &mut W, input: &DeltaMerkleProofCore<QHashOut<F>>) -> anyhow::Result<()> {
         self.set_witness_params(
             witness,
             F::from_noncanonical_u64(input.index),
@@ -406,7 +337,7 @@ impl VariableHeightDeltaMerkleProofOptGadget {
 }
 
 #[derive(Debug, Clone)]
-pub struct VariableHeightDeltaMerkleProofOpt<F:RichField> {
+pub struct VariableHeightDeltaMerkleProofOpt<F: RichField> {
     pub old_root: QHashOut<F>,
     pub new_root: QHashOut<F>,
     pub old_value: QHashOut<F>,
@@ -459,7 +390,7 @@ impl<F: RichField> VariableHeightDeltaMerkleProofOpt<F> {
             }
         }
         for i in siblings.len()..max_height {
-            proof.siblings[i] = QHashOut::ZERO; 
+            proof.siblings[i] = QHashOut::ZERO;
         }
         proof.height = match input_height {
             Some(h) => F::from_canonical_usize(h),
@@ -476,11 +407,12 @@ impl<F: RichField> VariableHeightDeltaMerkleProofOpt<F> {
         let index = self.index.to_noncanonical_u64() as usize;
         let height = self.height.to_canonical_u64() as usize;
 
-        assert!(index < (1 << height), "The index exceeds the maximum range corresponding to the tree height");
+        assert!(
+            index < (1 << height),
+            "The index exceeds the maximum range corresponding to the tree height"
+        );
 
-        let index_bits = (0..self.max_height)
-            .map(|i| (index >> i) & 1 == 1)
-            .collect::<Vec<_>>();
+        let index_bits = (0..self.max_height).map(|i| (index >> i) & 1 == 1).collect::<Vec<_>>();
 
         let old_root = self.compute_root_from_value(&self.old_value, &index_bits, height);
         let new_root = self.compute_root_from_value(&self.new_value, &index_bits, height);
@@ -490,12 +422,7 @@ impl<F: RichField> VariableHeightDeltaMerkleProofOpt<F> {
         (old_root, new_root, bit_info)
     }
 
-    fn compute_root_from_value(
-        &self,
-        leaf_value: &QHashOut<F>,
-        index_bits: &[bool],
-        height: usize,
-    ) -> QHashOut<F> {
+    fn compute_root_from_value(&self, leaf_value: &QHashOut<F>, index_bits: &[bool], height: usize) -> QHashOut<F> {
         let mut current_hash = leaf_value.clone();
         let mut remaining_height = height;
 
@@ -543,27 +470,32 @@ impl<F: RichField> VariableHeightDeltaMerkleProofOpt<F> {
 
 #[cfg(test)]
 mod tests {
-    use plonky2::field::types::{Field, PrimeField64};
-    use plonky2::hash::poseidon::PoseidonHash;
-    use plonky2::iop::target::Target;
-    use plonky2::iop::witness::{PartialWitness, WitnessWrite};
-    use plonky2::plonk::circuit_builder::CircuitBuilder;
-    use plonky2::plonk::circuit_data::{CircuitConfig, CircuitData};
-    use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
-    use plonky2::plonk::proof::ProofWithPublicInputs;
+    use plonky2::{
+        field::types::{Field, PrimeField64},
+        hash::poseidon::PoseidonHash,
+        iop::{
+            target::Target,
+            witness::{PartialWitness, WitnessWrite},
+        },
+        plonk::{
+            circuit_builder::CircuitBuilder,
+            circuit_data::{CircuitConfig, CircuitData},
+            config::{GenericConfig, PoseidonGoldilocksConfig},
+            proof::ProofWithPublicInputs,
+        },
+    };
     use psy_core::data::qhashout::QHashOut;
-    use psy_crypto::hash::merkle::core::DeltaMerkleProofCore;
-    use psy_crypto::hash::merkle::utils::common::SimpleMerkleNodeKey;
-    use psy_crypto::hash::merkle::utils::simple_merkle_tree::SimpleMerkleTree;
-    use psy_crypto::hash::traits::hasher::PoseidonHasher;
-    use rand::rngs::ThreadRng;
-    use rand::Rng;
-
-    use crate::builder::comparison::CircuitBuilderComparison;
-    use crate::builder::hash::core::CircuitBuilderHashCore;
+    use psy_crypto::hash::{
+        merkle::{
+            core::DeltaMerkleProofCore,
+            utils::{common::SimpleMerkleNodeKey, simple_merkle_tree::SimpleMerkleTree},
+        },
+        traits::hasher::PoseidonHasher,
+    };
+    use rand::{rngs::ThreadRng, Rng};
 
     use super::VariableHeightDeltaMerkleProofOptGadget;
-
+    use crate::builder::{comparison::CircuitBuilderComparison, hash::core::CircuitBuilderHashCore};
 
     const D: usize = 2;
     type C = PoseidonGoldilocksConfig;
@@ -580,11 +512,8 @@ mod tests {
             let config = CircuitConfig::standard_recursion_config();
             let mut builder = CircuitBuilder::<F, D>::new(config);
             let height = builder.add_virtual_target();
-            let variable_delta_merkle_proof_gadget = VariableHeightDeltaMerkleProofOptGadget::add_virtual_to_full::<PoseidonHash, F, D>(
-                &mut builder,
-                max_height,
-                Some(height),
-            );
+            let variable_delta_merkle_proof_gadget =
+                VariableHeightDeltaMerkleProofOptGadget::add_virtual_to_full::<PoseidonHash, F, D>(&mut builder, max_height, Some(height));
 
             builder.register_public_inputs(&variable_delta_merkle_proof_gadget.old_root.elements);
             builder.register_public_inputs(&variable_delta_merkle_proof_gadget.new_root.elements);
@@ -595,13 +524,10 @@ mod tests {
                 circuit_data,
             }
         }
-        pub fn prove(&self, height: usize, merkle_proof: &DeltaMerkleProofCore<QHashOut<F>>) -> anyhow::Result<ProofWithPublicInputs<F,C,D>> {
+        pub fn prove(&self, height: usize, merkle_proof: &DeltaMerkleProofCore<QHashOut<F>>) -> anyhow::Result<ProofWithPublicInputs<F, C, D>> {
             let mut pw = PartialWitness::new();
             pw.set_target(self.height, F::from_canonical_usize(height))?;
-            self.variable_delta_merkle_proof_gadget.set_witness(
-                &mut pw,
-                merkle_proof,
-            )?;
+            self.variable_delta_merkle_proof_gadget.set_witness(&mut pw, merkle_proof)?;
             self.circuit_data.prove(pw)
         }
     }
@@ -646,23 +572,14 @@ mod tests {
             let computed_root_index_a = variable_dmp_gadget_a.bit_info.get_root_parent_index(&mut builder);
             let computed_root_index_b = variable_dmp_gadget_b.bit_info.get_root_parent_index(&mut builder);
 
-            builder.connect(
-                computed_root_index_a,
-                computed_root_index_b
-            );
+            builder.connect(computed_root_index_a, computed_root_index_b);
 
             let variable_dmp_gadget_a_is_right = variable_dmp_gadget_a.bit_info.is_right_child(&mut builder);
             let variable_dmp_gadget_b_is_right = variable_dmp_gadget_b.bit_info.is_right_child(&mut builder);
 
-            let direction_sanity_check = builder.add(
-                variable_dmp_gadget_a_is_right.target,
-                variable_dmp_gadget_b_is_right.target,
-            );
+            let direction_sanity_check = builder.add(variable_dmp_gadget_a_is_right.target, variable_dmp_gadget_b_is_right.target);
 
-            builder.connect(
-                direction_sanity_check,
-                one
-            );
+            builder.connect(direction_sanity_check, one);
 
             let computed_old_root = builder.two_to_one_swapped::<PoseidonHash>(
                 variable_dmp_gadget_a.old_root,
@@ -675,14 +592,14 @@ mod tests {
                 variable_dmp_gadget_a_is_right,
             );
 
-            builder.register_public_inputs(&vec![
-                vec![
-                    sub_root_level,
-                    computed_root_index_a,
-                    ],
+            builder.register_public_inputs(
+                &vec![
+                    vec![sub_root_level, computed_root_index_a],
                     computed_old_root.elements.to_vec(),
                     computed_new_root.elements.to_vec(),
-            ].concat());
+                ]
+                .concat(),
+            );
             let circuit_data = builder.build::<C>();
             Self {
                 variable_dmp_gadget_a,
@@ -698,55 +615,54 @@ mod tests {
             sub_root_level: u8,
             delta_merkle_proof_a: &DeltaMerkleProofCore<QHashOut<F>>,
             delta_merkle_proof_b: &DeltaMerkleProofCore<QHashOut<F>>,
-        ) -> anyhow::Result<ProofWithPublicInputs<F,C,D>> {
-
-
+        ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>> {
             //println!("delta_merkle_proof_a: {:?}",&delta_merkle_proof_a);
             //println!("delta_merkle_proof_b: {:?}",&delta_merkle_proof_b);
-            let level_a = (delta_merkle_proof_a.siblings.len() as u8 +sub_root_level+1) as u8;
-            let level_b = (delta_merkle_proof_b.siblings.len() as u8 +sub_root_level+1) as u8;
+            let level_a = (delta_merkle_proof_a.siblings.len() as u8 + sub_root_level + 1) as u8;
+            let level_b = (delta_merkle_proof_b.siblings.len() as u8 + sub_root_level + 1) as u8;
 
             let mut pw = PartialWitness::new();
             pw.set_target(self.sub_root_level, F::from_canonical_u8(sub_root_level))?;
             pw.set_target(self.level_a, F::from_canonical_u8(level_a))?;
             pw.set_target(self.level_b, F::from_canonical_u8(level_b))?;
 
-            self.variable_dmp_gadget_a.set_witness(
-                &mut pw,
-                delta_merkle_proof_a,
-            )?;
-            self.variable_dmp_gadget_b.set_witness(
-                &mut pw,
-                delta_merkle_proof_b,
-            )?;
+            self.variable_dmp_gadget_a.set_witness(&mut pw, delta_merkle_proof_a)?;
+            self.variable_dmp_gadget_b.set_witness(&mut pw, delta_merkle_proof_b)?;
             self.circuit_data.prove(pw)
         }
     }
 
     fn rand_non_root_key(rng: &mut ThreadRng, height: usize) -> SimpleMerkleNodeKey {
-        let node_level = (rng.gen_range(0..height)+1) as u64;
-        let node_index_mask = (1u64<<node_level)-1u64;
-        let node_index = rng.gen::<u64>()&node_index_mask;
-        SimpleMerkleNodeKey{
+        let node_level = (rng.gen_range(0..height) + 1) as u64;
+        let node_index_mask = (1u64 << node_level) - 1u64;
+        let node_index = rng.gen::<u64>() & node_index_mask;
+        SimpleMerkleNodeKey {
             level: node_level as u8,
             index: node_index,
         }
     }
-    pub fn generate_random_sub_tree_delta_merkle_proofs_at_height(height: usize, rand_leaf_count: usize) -> (SimpleMerkleNodeKey, DeltaMerkleProofCore<QHashOut<F>>, SimpleMerkleNodeKey, DeltaMerkleProofCore<QHashOut<F>>, QHashOut<F>, QHashOut<F>,) {
-        let max_leaf_index_mask = (1u64<<(height as u64))-1u64;
+    pub fn generate_random_sub_tree_delta_merkle_proofs_at_height(
+        height: usize,
+        rand_leaf_count: usize,
+    ) -> (
+        SimpleMerkleNodeKey,
+        DeltaMerkleProofCore<QHashOut<F>>,
+        SimpleMerkleNodeKey,
+        DeltaMerkleProofCore<QHashOut<F>>,
+        QHashOut<F>,
+        QHashOut<F>,
+    ) {
+        let max_leaf_index_mask = (1u64 << (height as u64)) - 1u64;
         let mut tree = SimpleMerkleTree::<PoseidonHasher, QHashOut<F>>::new(height as u8);
         // add some random leaves
         for _ in 0..rand_leaf_count {
-            let rand_index = QHashOut::<F>::rand().0.elements[0].to_canonical_u64()&max_leaf_index_mask;
+            let rand_index = QHashOut::<F>::rand().0.elements[0].to_canonical_u64() & max_leaf_index_mask;
             tree.set_leaf(rand_index, QHashOut::rand());
         }
 
         let (leaf_key_a, leaf_key_b) = if height == 1 {
-            (
-                SimpleMerkleNodeKey::new(1, 0),
-                SimpleMerkleNodeKey::new(1, 1)
-            )
-        }else{
+            (SimpleMerkleNodeKey::new(1, 0), SimpleMerkleNodeKey::new(1, 1))
+        } else {
             let mut rng = rand::thread_rng();
             let leaf_key_a = rand_non_root_key(&mut rng, height);
             let mut leaf_key_b = rand_non_root_key(&mut rng, height);
@@ -759,7 +675,10 @@ mod tests {
                 leaf_key_b = rand_non_root_key(&mut rng, height);
             }
 
-            while leaf_key_a.eq(&leaf_key_b) || (leaf_key_a.level < leaf_key_b.level && leaf_key_b.parent_at_level(leaf_key_a.level).eq(&leaf_key_a)) ||(leaf_key_b.level < leaf_key_a.level && leaf_key_a.parent_at_level(leaf_key_b.level).eq(&leaf_key_b)) {
+            while leaf_key_a.eq(&leaf_key_b)
+                || (leaf_key_a.level < leaf_key_b.level && leaf_key_b.parent_at_level(leaf_key_a.level).eq(&leaf_key_a))
+                || (leaf_key_b.level < leaf_key_a.level && leaf_key_a.parent_at_level(leaf_key_b.level).eq(&leaf_key_b))
+            {
                 leaf_key_b = rand_non_root_key(&mut rng, height);
             }
             (leaf_key_a, leaf_key_b)
@@ -773,13 +692,11 @@ mod tests {
         println!("nearest_common_ancestor: {:?}",nearest_common_ancestor);
         */
 
-
-        let old_proof_a = tree.get_subtree_merkle_proof(nearest_common_ancestor.level+1, leaf_key_a);
-        let old_proof_b = tree.get_subtree_merkle_proof(nearest_common_ancestor.level+1, leaf_key_b);
+        let old_proof_a = tree.get_subtree_merkle_proof(nearest_common_ancestor.level + 1, leaf_key_a);
+        let old_proof_b = tree.get_subtree_merkle_proof(nearest_common_ancestor.level + 1, leaf_key_b);
 
         assert!(old_proof_a.verify::<PoseidonHasher>(), "old_proof_a invalid: {:?}", old_proof_a);
         assert!(old_proof_b.verify::<PoseidonHasher>(), "old_proof_b invalid: {:?}", old_proof_b);
-
 
         let old_root = tree.get_node_value(&nearest_common_ancestor);
 
@@ -794,16 +711,14 @@ mod tests {
         println!("leaf_b_index: {:?}",leaf_b_index);
         */
 
-        let new_proof_a = tree.get_subtree_merkle_proof(nearest_common_ancestor.level+1, leaf_key_a);
-        let new_proof_b = tree.get_subtree_merkle_proof(nearest_common_ancestor.level+1, leaf_key_b);
+        let new_proof_a = tree.get_subtree_merkle_proof(nearest_common_ancestor.level + 1, leaf_key_a);
+        let new_proof_b = tree.get_subtree_merkle_proof(nearest_common_ancestor.level + 1, leaf_key_b);
         let new_root = tree.get_node_value(&nearest_common_ancestor);
         assert!(new_proof_a.verify::<PoseidonHasher>(), "new_proof_a invalid: {:?}", new_proof_a);
         assert!(new_proof_b.verify::<PoseidonHasher>(), "new_proof_b invalid: {:?}", new_proof_b);
 
         assert_eq!(old_proof_a.siblings, new_proof_a.siblings, "siblings changed for a");
         assert_eq!(old_proof_b.siblings, new_proof_b.siblings, "siblings changed for b");
-
-
 
         let dmp_a = DeltaMerkleProofCore {
             old_root: old_proof_a.root,
@@ -824,32 +739,29 @@ mod tests {
             siblings: old_proof_b.siblings,
         };
 
-
         (leaf_key_a, dmp_a, leaf_key_b, dmp_b, old_root, new_root)
     }
     #[test]
     fn test_variable_merkle_proof_sub_tree_circuit2() {
-
         let circuit = TestVariableHeightSubRootMerkleProofCircuit::new(32);
         let height = 32;
         let rand_leaf_count = 500;
-        let max_leaf_index_mask = (1u64<<(height as u64))-1u64;
+        let max_leaf_index_mask = (1u64 << (height as u64)) - 1u64;
         let mut tree = SimpleMerkleTree::<PoseidonHasher, QHashOut<F>>::new(height as u8);
         // add some random leaves
         for _ in 0..rand_leaf_count {
-            let rand_index = QHashOut::<F>::rand().0.elements[0].to_canonical_u64()&max_leaf_index_mask;
+            let rand_index = QHashOut::<F>::rand().0.elements[0].to_canonical_u64() & max_leaf_index_mask;
             tree.set_leaf(rand_index, QHashOut::rand());
         }
 
-
         let leaf_key_a = SimpleMerkleNodeKey::new(4, 13);
-        let leaf_key_b = SimpleMerkleNodeKey::new(5,6);
+        let leaf_key_b = SimpleMerkleNodeKey::new(5, 6);
 
         let nearest_common_ancestor = leaf_key_a.find_nearest_common_ancestor(&leaf_key_b);
-        println!("nearest_common_ancestor: {:?}",nearest_common_ancestor);
+        println!("nearest_common_ancestor: {:?}", nearest_common_ancestor);
 
-        let old_proof_a = tree.get_subtree_merkle_proof(nearest_common_ancestor.level+1, leaf_key_a);
-        let old_proof_b = tree.get_subtree_merkle_proof(nearest_common_ancestor.level+1, leaf_key_b);
+        let old_proof_a = tree.get_subtree_merkle_proof(nearest_common_ancestor.level + 1, leaf_key_a);
+        let old_proof_b = tree.get_subtree_merkle_proof(nearest_common_ancestor.level + 1, leaf_key_b);
 
         assert!(old_proof_a.verify::<PoseidonHasher>(), "old_proof_a invalid: {:?}", old_proof_a);
         assert!(old_proof_b.verify::<PoseidonHasher>(), "old_proof_b invalid: {:?}", old_proof_b);
@@ -860,12 +772,10 @@ mod tests {
         tree.set_leaf(leaf_a_index, QHashOut::rand());
         tree.set_leaf(leaf_b_index, QHashOut::rand());
 
-
-        let new_proof_a = tree.get_subtree_merkle_proof(nearest_common_ancestor.level+1, leaf_key_a);
-        let new_proof_b = tree.get_subtree_merkle_proof(nearest_common_ancestor.level+1, leaf_key_b);
+        let new_proof_a = tree.get_subtree_merkle_proof(nearest_common_ancestor.level + 1, leaf_key_a);
+        let new_proof_b = tree.get_subtree_merkle_proof(nearest_common_ancestor.level + 1, leaf_key_b);
         assert!(new_proof_a.verify::<PoseidonHasher>(), "new_proof_a invalid: {:?}", new_proof_a);
         assert!(new_proof_b.verify::<PoseidonHasher>(), "new_proof_b invalid: {:?}", new_proof_b);
-
 
         let dmp_a = DeltaMerkleProofCore {
             old_root: old_proof_a.root,
@@ -886,39 +796,32 @@ mod tests {
             siblings: old_proof_b.siblings,
         };
 
+        let proof = circuit.prove(nearest_common_ancestor.level, &dmp_a, &dmp_b).unwrap();
 
-
-
-        let proof = circuit.prove(
-            nearest_common_ancestor.level,
-            &dmp_a,
-            &dmp_b,
-        ).unwrap();
-
-        println!("pubs: {:?}",&proof.public_inputs);
-
-
+        println!("pubs: {:?}", &proof.public_inputs);
     }
     #[test]
     fn test_variable_merkle_proof_sub_tree_circuit() {
         let circuit = TestVariableHeightSubRootMerkleProofCircuit::new(32);
 
+        let merkle_proofs = (1..32)
+            .map(|level| {
+                (0..20)
+                    .map(|_| generate_random_sub_tree_delta_merkle_proofs_at_height(level, level * 100))
+                    .collect::<Vec<_>>()
+            })
+            .flatten()
+            .collect::<Vec<_>>();
 
-
-
-        let merkle_proofs = (1..32).map(|level| {
-            (0..20).map(|_| generate_random_sub_tree_delta_merkle_proofs_at_height(level, level*100)).collect::<Vec<_>>()
-        }).flatten().collect::<Vec<_>>();
-
-        for  (leaf_key_a, proof_a, leaf_key_b, proof_b, expected_old_root, expected_new_root) in merkle_proofs.iter() {
+        for (leaf_key_a, proof_a, leaf_key_b, proof_b, expected_old_root, expected_new_root) in merkle_proofs.iter() {
             //println!("leaf_key_a: {:?}",leaf_key_a);
             //println!("leaf_key_b: {:?}",leaf_key_b);
 
             //println!("expected_old_root: {:?}", expected_old_root);
             //println!("expected_new_root: {:?}", expected_new_root);
 
-            assert!(proof_a.verify::<PoseidonHash>(), "proof_a invalid {:?}",proof_a);
-            assert!(proof_b.verify::<PoseidonHash>(), "proof_b invalid {:?}",proof_b);
+            assert!(proof_a.verify::<PoseidonHash>(), "proof_a invalid {:?}", proof_a);
+            assert!(proof_b.verify::<PoseidonHash>(), "proof_b invalid {:?}", proof_b);
 
             /*
             let expected_old_root = if leaf_key_a.is_on_the_right_of(leaf_key_b) {
@@ -933,50 +836,70 @@ mod tests {
             };*/
             let nearest_common_ancestor = leaf_key_a.find_nearest_common_ancestor(&leaf_key_b);
             //println!("nearest_common_ancestor: {:?}",nearest_common_ancestor);
-            let proof = circuit.prove(
-                nearest_common_ancestor.level,
-                proof_a,
-                proof_b,
-            ).unwrap();
+            let proof = circuit.prove(nearest_common_ancestor.level, proof_a, proof_b).unwrap();
             let proof_nearest_common_ancestor_level = proof.public_inputs[0].to_canonical_u64() as u8;
             let proof_nearest_common_ancestor_index = proof.public_inputs[1].to_canonical_u64();
             //println!("public_inputs: {:?}", &proof.public_inputs);
 
-            assert_eq!(proof_nearest_common_ancestor_level, nearest_common_ancestor.level, "nearest_common_ancestor_level should match expected");
-            assert_eq!(proof_nearest_common_ancestor_index, nearest_common_ancestor.index, "nearest_common_ancestor_level should match expected");
-            assert_eq!(proof.public_inputs[2..6].to_vec(), expected_old_root.0.elements.to_vec(), "old roots should match proof");
-            assert_eq!(proof.public_inputs[6..10].to_vec(), expected_new_root.0.elements.to_vec(), "new roots should match proof");
+            assert_eq!(
+                proof_nearest_common_ancestor_level, nearest_common_ancestor.level,
+                "nearest_common_ancestor_level should match expected"
+            );
+            assert_eq!(
+                proof_nearest_common_ancestor_index, nearest_common_ancestor.index,
+                "nearest_common_ancestor_level should match expected"
+            );
+            assert_eq!(
+                proof.public_inputs[2..6].to_vec(),
+                expected_old_root.0.elements.to_vec(),
+                "old roots should match proof"
+            );
+            assert_eq!(
+                proof.public_inputs[6..10].to_vec(),
+                expected_new_root.0.elements.to_vec(),
+                "new roots should match proof"
+            );
 
             circuit.circuit_data.verify(proof).unwrap();
         }
     }
 
-
     pub fn generate_random_delta_merkle_proofs_at_height(height: usize, count: usize) -> Vec<DeltaMerkleProofCore<QHashOut<F>>> {
-        let max_leaf_index_mask = (1u64<<(height as u64))-1u64;
+        let max_leaf_index_mask = (1u64 << (height as u64)) - 1u64;
         let mut tree = SimpleMerkleTree::<PoseidonHasher, QHashOut<F>>::new(height as u8);
         // add some random leaves
-        for _ in 0..(count*2) {
-            let rand_index = QHashOut::<F>::rand().0.elements[0].to_canonical_u64()&max_leaf_index_mask;
+        for _ in 0..(count * 2) {
+            let rand_index = QHashOut::<F>::rand().0.elements[0].to_canonical_u64() & max_leaf_index_mask;
             tree.set_leaf(rand_index, QHashOut::rand());
         }
-        (0..count).map(|_|{
-            let rand_index = QHashOut::<F>::rand().0.elements[0].to_canonical_u64()&max_leaf_index_mask;
-            tree.set_leaf(rand_index, QHashOut::rand())
-        }).collect()
+        (0..count)
+            .map(|_| {
+                let rand_index = QHashOut::<F>::rand().0.elements[0].to_canonical_u64() & max_leaf_index_mask;
+                tree.set_leaf(rand_index, QHashOut::rand())
+            })
+            .collect()
     }
 
     #[test]
     fn test_variable_delta_merkle_proof_circuit() {
         let circuit = TestVariableHeightDeltaMerkleProofCircuit::new(32);
-        let merkle_proofs = (1..32).map(|level| {
-            generate_random_delta_merkle_proofs_at_height(level, 20)
-        }).flatten().collect::<Vec<_>>();
+        let merkle_proofs = (1..32)
+            .map(|level| generate_random_delta_merkle_proofs_at_height(level, 20))
+            .flatten()
+            .collect::<Vec<_>>();
 
         for mp in merkle_proofs.iter() {
             let proof = circuit.prove(mp.siblings.len(), mp).unwrap();
-            assert_eq!(proof.public_inputs[0..4].to_vec(), mp.old_root.0.elements.to_vec(), "old roots should match proof");
-            assert_eq!(proof.public_inputs[4..8].to_vec(), mp.new_root.0.elements.to_vec(), "new roots should match proof");
+            assert_eq!(
+                proof.public_inputs[0..4].to_vec(),
+                mp.old_root.0.elements.to_vec(),
+                "old roots should match proof"
+            );
+            assert_eq!(
+                proof.public_inputs[4..8].to_vec(),
+                mp.new_root.0.elements.to_vec(),
+                "new roots should match proof"
+            );
             circuit.circuit_data.verify(proof).unwrap();
         }
     }
@@ -985,25 +908,34 @@ mod tests {
     #[should_panic]
     fn test_variable_merkle_proof_circuit_incorrect_height() {
         let circuit = TestVariableHeightDeltaMerkleProofCircuit::new(32);
-        let merkle_proofs = (1..32).map(|level| {
-            generate_random_delta_merkle_proofs_at_height(level, 2)
-        }).flatten().collect::<Vec<_>>();
+        let merkle_proofs = (1..32)
+            .map(|level| generate_random_delta_merkle_proofs_at_height(level, 2))
+            .flatten()
+            .collect::<Vec<_>>();
 
         for mp in merkle_proofs.iter() {
-            let proof = circuit.prove(mp.siblings.len()+1, mp).unwrap();
-            assert_eq!(proof.public_inputs[0..4].to_vec(), mp.old_root.0.elements.to_vec(), "old roots should match proof");
-            assert_eq!(proof.public_inputs[4..8].to_vec(), mp.new_root.0.elements.to_vec(), "new roots should match proof");
+            let proof = circuit.prove(mp.siblings.len() + 1, mp).unwrap();
+            assert_eq!(
+                proof.public_inputs[0..4].to_vec(),
+                mp.old_root.0.elements.to_vec(),
+                "old roots should match proof"
+            );
+            assert_eq!(
+                proof.public_inputs[4..8].to_vec(),
+                mp.new_root.0.elements.to_vec(),
+                "new roots should match proof"
+            );
             circuit.circuit_data.verify(proof).unwrap();
         }
     }
 
     #[test]
-    fn test_variable_height_bit_info() -> anyhow::Result<()>{
-        use super::{VariableHeightBitInfo, QVariableHeightBitInfo};
+    fn test_variable_height_bit_info() -> anyhow::Result<()> {
+        use super::{QVariableHeightBitInfo, VariableHeightBitInfo};
 
         let config = CircuitConfig::standard_recursion_config();
         let mut builder = CircuitBuilder::<F, D>::new(config);
-    
+
         let index = 100;
         let height = 4;
         let max_height = 8;
@@ -1012,10 +944,7 @@ mod tests {
         let expected_is_right = q_bit_info.is_right_child();
         let expected_root_parent_index = q_bit_info.get_root_parent_index();
 
-        let circuit_bit_info = VariableHeightBitInfo::from_q_bit_info(
-            &mut builder, 
-            &q_bit_info
-        );
+        let circuit_bit_info = VariableHeightBitInfo::from_q_bit_info(&mut builder, &q_bit_info);
 
         let circuit_is_right = circuit_bit_info.is_right_child(&mut builder);
         let circuit_root_parent_index = circuit_bit_info.get_root_parent_index(&mut builder);
@@ -1048,25 +977,17 @@ mod tests {
 
     #[test]
     fn test_variable_height_delta_merkle_proof_opt() -> anyhow::Result<()> {
-        use super::{VariableHeightDeltaMerkleProofOptGadget, VariableHeightDeltaMerkleProofOpt};
         use psy_data::config::store_config::QEDHasher;
+
+        use super::{VariableHeightDeltaMerkleProofOpt, VariableHeightDeltaMerkleProofOptGadget};
         let max_height = 4;
 
         let index = 8;
         let old_value = QHashOut::<F>::rand();
         let new_value = QHashOut::<F>::rand();
-        let siblings = (0..max_height)
-            .map(|_| QHashOut::<F>::rand())
-            .collect::<Vec<_>>(); 
+        let siblings = (0..max_height).map(|_| QHashOut::<F>::rand()).collect::<Vec<_>>();
 
-        let plain_proof = VariableHeightDeltaMerkleProofOpt::from_params(
-            index,
-            old_value.clone(),
-            new_value.clone(),
-            &siblings,
-            max_height,
-            None,
-        );
+        let plain_proof = VariableHeightDeltaMerkleProofOpt::from_params(index, old_value.clone(), new_value.clone(), &siblings, max_height, None);
         let expected_old_root = plain_proof.old_root.clone();
         let expected_new_root = plain_proof.new_root.clone();
         let expected_old_value = plain_proof.old_value.clone();
@@ -1074,12 +995,9 @@ mod tests {
 
         let config = CircuitConfig::standard_recursion_config();
         let mut builder = CircuitBuilder::<F, D>::new(config);
-        
-        let variable_height_delta_merkle_proof_opt_gadget = VariableHeightDeltaMerkleProofOptGadget::add_virtual_to_full_with_subtree_root_index::<
-            QEDHasher,
-            F,
-            D,
-        >(&mut builder, max_height, None);
+
+        let variable_height_delta_merkle_proof_opt_gadget =
+            VariableHeightDeltaMerkleProofOptGadget::add_virtual_to_full_with_subtree_root_index::<QEDHasher, F, D>(&mut builder, max_height, None);
 
         let old_root_target = builder.constant_hash(expected_old_root.0.clone());
         let new_root_target = builder.constant_hash(expected_new_root.0.clone());
@@ -1091,7 +1009,6 @@ mod tests {
         builder.connect_hashes(variable_height_delta_merkle_proof_opt_gadget.old_value, old_value_target);
         builder.connect_hashes(variable_height_delta_merkle_proof_opt_gadget.new_value, new_value_target);
 
-
         builder.register_public_inputs(&variable_height_delta_merkle_proof_opt_gadget.old_root.elements);
         builder.register_public_inputs(&variable_height_delta_merkle_proof_opt_gadget.new_root.elements);
         builder.register_public_inputs(&variable_height_delta_merkle_proof_opt_gadget.old_value.elements);
@@ -1101,17 +1018,19 @@ mod tests {
 
         let mut pw = PartialWitness::new();
         let index = F::from_canonical_u64(index);
-        variable_height_delta_merkle_proof_opt_gadget.set_witness_params::<PartialWitness<F> ,F>(&mut pw,        
+        variable_height_delta_merkle_proof_opt_gadget.set_witness_params::<PartialWitness<F>, F>(
+            &mut pw,
             index,
             old_value.clone(),
             new_value.clone(),
-            &siblings)?;
-        
+            &siblings,
+        )?;
+
         let proof = circuit.prove(pw)?;
 
         circuit.verify(proof.clone())?;
 
-        let output_old_root = proof.public_inputs[0..4].to_vec(); 
+        let output_old_root = proof.public_inputs[0..4].to_vec();
         let output_new_root = proof.public_inputs[4..8].to_vec();
         let output_old_value = proof.public_inputs[8..12].to_vec();
         let output_new_value = proof.public_inputs[12..16].to_vec();

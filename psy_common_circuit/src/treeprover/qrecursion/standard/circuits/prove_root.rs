@@ -8,20 +8,18 @@ use plonky2::{
         proof::ProofWithPublicInputs,
     },
 };
-use psy_core::
-    data::qhashout::QHashOut
-;
+use psy_core::data::qhashout::QHashOut;
 use psy_crypto::{
     common::witnesses::qrecursion::header::QRecursionAggStandardHeader,
-    hash::{
-        merkle::
-            core::MerkleProofCore
-        ,
-        traits::hasher::MerkleZeroHasher,
-    },
+    hash::{merkle::core::MerkleProofCore, traits::hasher::MerkleZeroHasher},
 };
 
-use crate::{builder::hash::core::CircuitBuilderHashCore, circuits::traits::qstandard::QStandardCircuit, proof_minifier::{pm_chain_dynamic::QEDProofMinifierDynamicChain, pm_core::get_circuit_fingerprint_generic}, treeprover::qrecursion::standard::gadgets::verify_agg_proof::VerifyAggProofGadget};
+use crate::{
+    builder::hash::core::CircuitBuilderHashCore,
+    circuits::traits::qstandard::QStandardCircuit,
+    proof_minifier::{pm_chain_dynamic::QEDProofMinifierDynamicChain, pm_core::get_circuit_fingerprint_generic},
+    treeprover::qrecursion::standard::gadgets::verify_agg_proof::VerifyAggProofGadget,
+};
 #[derive(Debug)]
 pub struct QRecursionStandardRootCircuit<C: GenericConfig<D>, const D: usize>
 where
@@ -83,44 +81,31 @@ where
         let config = CircuitConfig::standard_recursion_config();
         let mut builder = CircuitBuilder::<C::F, D>::new(config);
 
-        let verify_proof_tree_root_gadget = VerifyAggProofGadget::add_virtual_to::<C, C::F>(
-            &mut builder,
-            proof_tree_agg_common_data,
-            proof_tree_agg_verifier_data_cap_height,
-        );
+        let verify_proof_tree_root_gadget =
+            VerifyAggProofGadget::add_virtual_to::<C, C::F>(&mut builder, proof_tree_agg_common_data, proof_tree_agg_verifier_data_cap_height);
 
-        
-        let known_proof_tree_circuit_whitelist_root_target =
-            builder.constant_qhash(known_proof_tree_circuit_whitelist_root);
+        let known_proof_tree_circuit_whitelist_root_target = builder.constant_qhash(known_proof_tree_circuit_whitelist_root);
 
         // ensure the proof tree is using the correct, unmodified aggregation circuits
         builder.connect_hashes(
             known_proof_tree_circuit_whitelist_root_target,
-            verify_proof_tree_root_gadget
-                .agg_whitelist_merkle_proof
-                .root,
+            verify_proof_tree_root_gadget.agg_whitelist_merkle_proof.root,
         );
 
-        let public_inputs_hash = verify_proof_tree_root_gadget
-        .agg_proof_header_gadget
-        .state_transition_end;
+        let public_inputs_hash = verify_proof_tree_root_gadget.agg_proof_header_gadget.state_transition_end;
 
         builder.register_public_inputs(&public_inputs_hash.elements);
 
         let base_circuit_data = builder.build::<C>();
 
-        let base_fingerprint = QHashOut(get_circuit_fingerprint_generic(
-            &base_circuit_data.verifier_only,
-        ));
+        let base_fingerprint = QHashOut(get_circuit_fingerprint_generic(&base_circuit_data.verifier_only));
 
         let minifier_chain = if has_minifier {
-            Some(
-                QEDProofMinifierDynamicChain::<D, C::F, C>::new_with_dynamic_constant_verifier(
-                    &base_circuit_data.verifier_only,
-                    &base_circuit_data.common,
-                    &[true, true, true, true],
-                ),
-            )
+            Some(QEDProofMinifierDynamicChain::<D, C::F, C>::new_with_dynamic_constant_verifier(
+                &base_circuit_data.verifier_only,
+                &base_circuit_data.common,
+                &[true, true, true, true],
+            ))
         } else {
             None
         };
@@ -161,33 +146,22 @@ where
         agg_root_verifier_data: &VerifierOnlyCircuitData<C, D>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         if self.is_minifier_enabled() {
-            let base_proof = self.prove_base_inner(
-                agg_whitelist_merkle_proof,
-                agg_proof_header,
-                agg_root_proof,
-                agg_root_verifier_data,
-            )?;
+            let base_proof = self.prove_base_inner(agg_whitelist_merkle_proof, agg_proof_header, agg_root_proof, agg_root_verifier_data)?;
             self.minifier_chain.as_ref().unwrap().prove(&base_proof)
         } else {
-            self.prove_base_inner(
-                agg_whitelist_merkle_proof,
-                agg_proof_header,
-                agg_root_proof,
-                agg_root_verifier_data,
-            )
+            self.prove_base_inner(agg_whitelist_merkle_proof, agg_proof_header, agg_root_proof, agg_root_verifier_data)
         }
     }
 
-    pub fn verify_proof(&self, proof_with_pis: ProofWithPublicInputs<C::F, C, D>,) -> anyhow::Result<()> {
+    pub fn verify_proof(&self, proof_with_pis: ProofWithPublicInputs<C::F, C, D>) -> anyhow::Result<()> {
         if self.is_minifier_enabled() {
             self.minifier_chain.as_ref().unwrap().verify(proof_with_pis)
-        }else{
+        } else {
             self.base_circuit_data.verify(proof_with_pis)
         }
     }
 }
-impl<C: GenericConfig<D>, const D: usize> QStandardCircuit<C, D>
-    for QRecursionStandardRootCircuit<C, D>
+impl<C: GenericConfig<D>, const D: usize> QStandardCircuit<C, D> for QRecursionStandardRootCircuit<C, D>
 where
     C::Hasher: AlgebraicHasher<C::F>,
 {

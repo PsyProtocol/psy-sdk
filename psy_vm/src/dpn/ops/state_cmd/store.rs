@@ -1,9 +1,8 @@
+use super::{data::DPNStateCmd, types::DPNStateCmdCore};
 use crate::dpn::ops::sym_felt::SymFeltRef;
 
-use super::{data::DPNStateCmd, types::DPNStateCmdCore};
-
 #[derive(Debug, Clone)]
-pub struct DPNStateCommandStore  {
+pub struct DPNStateCommandStore {
     pub any_order_cmd_map: hashbrown::HashMap<DPNStateCmd<SymFeltRef>, usize>,
     pub external_sensitive_cmd_map: hashbrown::HashMap<DPNStateCmd<SymFeltRef>, usize>,
     pub external_and_state_sensitive_cmd_map: hashbrown::HashMap<DPNStateCmd<SymFeltRef>, usize>,
@@ -20,41 +19,39 @@ impl DPNStateCommandStore {
         }
     }
     pub fn injest_command(&mut self, cmd: DPNStateCmd<SymFeltRef>) -> usize {
-        if !cmd.is_read_only(){
+        if !cmd.is_read_only() {
             // todo: de-dup write commands intelligently
             if cmd.is_inline_external_call_cmd() {
                 self.external_sensitive_cmd_map.clear();
                 self.external_and_state_sensitive_cmd_map.clear();
-            }else if cmd.is_set_state_cmd() {
+            } else if cmd.is_set_state_cmd() {
                 self.external_and_state_sensitive_cmd_map.clear();
             }
             let index = self.commands.len();
             self.commands.push(cmd);
             index
-        }else if cmd.is_set_state_order_sensitive() {
+        } else if cmd.is_set_state_order_sensitive() {
             if self.external_and_state_sensitive_cmd_map.contains_key(&cmd) {
                 *self.external_and_state_sensitive_cmd_map.get(&cmd).unwrap()
-            }else{
+            } else {
                 let index = self.commands.len();
                 self.external_and_state_sensitive_cmd_map.insert(cmd.clone(), index);
                 self.commands.push(cmd);
                 index
             }
-
-        }else if cmd.is_external_call_order_sensitive() {
+        } else if cmd.is_external_call_order_sensitive() {
             if self.external_sensitive_cmd_map.contains_key(&cmd) {
                 *self.external_sensitive_cmd_map.get(&cmd).unwrap()
-            }else{
+            } else {
                 let index = self.commands.len();
                 self.external_sensitive_cmd_map.insert(cmd.clone(), index);
                 self.commands.push(cmd);
                 index
             }
-            
-        }else{
+        } else {
             if self.any_order_cmd_map.contains_key(&cmd) {
                 *self.any_order_cmd_map.get(&cmd).unwrap()
-            }else{
+            } else {
                 let index = self.commands.len();
                 self.any_order_cmd_map.insert(cmd.clone(), index);
                 self.commands.push(cmd);
@@ -62,7 +59,7 @@ impl DPNStateCommandStore {
             }
         }
     }
-    pub fn finalize(self)->Vec<DPNStateCmd<SymFeltRef>>{
+    pub fn finalize(self) -> Vec<DPNStateCmd<SymFeltRef>> {
         self.commands
     }
 }

@@ -1,9 +1,6 @@
 use indexmap::IndexMap;
 
-use crate::{
-    Comment, GenericParameter, Identifier, Location, NodeInfo, NodeType, StructField,
-    UncheckedType, Visibility,
-};
+use crate::{Comment, GenericParameter, Identifier, Location, NodeInfo, NodeType, StructField, UncheckedType, Visibility};
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum EnumVariant {

@@ -4,9 +4,8 @@ use psy_ast::IdentId;
 use psy_vm::dpn::ops::context_trait::ContextFelt;
 
 use crate::{
-    rewriter::Rewriter, CheckedArrayNode, CheckedFunctionSignature, CheckedStructField,
-    CheckedStructNode, Constraint, Implementer, Result, ScopeId, Type, TypeChecker,
-    TypeCheckerVisitorContext, TypeId,
+    rewriter::Rewriter, CheckedArrayNode, CheckedFunctionSignature, CheckedStructField, CheckedStructNode, Constraint, Implementer, Result, ScopeId,
+    Type, TypeChecker, TypeCheckerVisitorContext, TypeId,
 };
 
 #[derive(Debug)]
@@ -44,42 +43,20 @@ impl<F: Clone + From<u32> + ContextFelt, C> InferCtxt<F, C> {
     }
 
     pub fn get_equations(&self) -> IndexMap<TypeId, TypeId> {
-        self.contexts
-            .last()
-            .unwrap()
-            .iter()
-            .cloned()
-            .flatten()
-            .collect()
+        self.contexts.last().unwrap().iter().cloned().flatten().collect()
     }
 
     pub fn probe(&self, type_id: TypeId) -> Option<TypeId> {
-        self.contexts
-            .last()
-            .unwrap()
-            .iter()
-            .rev()
-            .find_map(|x| x.get(&type_id))
-            .cloned()
+        self.contexts.last().unwrap().iter().rev().find_map(|x| x.get(&type_id)).cloned()
     }
 
     pub fn equate(&mut self, lhs_ty: TypeId, rhs_ty: TypeId) {
-        self.contexts
-            .last_mut()
-            .unwrap()
-            .last_mut()
-            .unwrap()
-            .insert(lhs_ty, rhs_ty);
+        self.contexts.last_mut().unwrap().last_mut().unwrap().insert(lhs_ty, rhs_ty);
     }
 }
 
 impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
-    pub fn unify(
-        &mut self,
-        lhs_ty: TypeId,
-        rhs_ty: TypeId,
-        ctx: &mut TypeCheckerVisitorContext<F, C>,
-    ) -> bool {
+    pub fn unify(&mut self, lhs_ty: TypeId, rhs_ty: TypeId, ctx: &mut TypeCheckerVisitorContext<F, C>) -> bool {
         let lhs_ty = self.substitute_all(lhs_ty, ctx).unwrap();
         let rhs_ty = self.substitute_all(rhs_ty, ctx).unwrap();
 
@@ -125,10 +102,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
                     size_ty: rhs_size_ty,
                     ..
                 }),
-            ) => {
-                self.unify(lhs_inner_ty, rhs_inner_ty, ctx)
-                    && self.unify(lhs_size_ty, rhs_size_ty, ctx)
-            }
+            ) => self.unify(lhs_inner_ty, rhs_inner_ty, ctx) && self.unify(lhs_size_ty, rhs_size_ty, ctx),
             (Type::Tuple(t1), Type::Tuple(t2)) => {
                 for (lhs_ty, rhs_ty) in t1.clone().into_iter().zip_eq(t2.clone().into_iter()) {
                     if !self.unify(lhs_ty, rhs_ty, ctx) {
@@ -148,10 +122,10 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
                         .all(|(p1, p2)| self.unify(p1, p2, ctx))
             }
 
-            (Type::Function(f), Type::FunctionSignature(sig))
-            | (Type::FunctionSignature(sig), Type::Function(f)) => &f.signature() == sig,
-            (Type::LambdaFunction(f), Type::FunctionSignature(sig))
-            | (Type::FunctionSignature(sig), Type::LambdaFunction(f)) => &f.signature() == sig,
+            (Type::Function(f), Type::FunctionSignature(sig)) | (Type::FunctionSignature(sig), Type::Function(f)) => &f.signature() == sig,
+            (Type::LambdaFunction(f), Type::FunctionSignature(sig)) | (Type::FunctionSignature(sig), Type::LambdaFunction(f)) => {
+                &f.signature() == sig
+            }
             (Type::Const(c), Type::Const(d)) => c.ty == d.ty,
             (Type::Const(c), _) => c.ty == rhs_ty,
             (_, Type::Const(c)) => c.ty == lhs_ty,
@@ -159,11 +133,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
         }
     }
 
-    pub fn substitute_all(
-        &mut self,
-        type_id: TypeId,
-        ctx: &mut TypeCheckerVisitorContext<F, C>,
-    ) -> Result<TypeId> {
+    pub fn substitute_all(&mut self, type_id: TypeId, ctx: &mut TypeCheckerVisitorContext<F, C>) -> Result<TypeId> {
         if !self.infcx.has_equations() {
             return Ok(type_id);
         }
@@ -183,11 +153,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
         Ok(result)
     }
 
-    pub fn substitute_type(
-        &mut self,
-        type_id: TypeId,
-        ctx: &mut TypeCheckerVisitorContext<F, C>,
-    ) -> Result<TypeId> {
+    pub fn substitute_type(&mut self, type_id: TypeId, ctx: &mut TypeCheckerVisitorContext<F, C>) -> Result<TypeId> {
         if let Some(subst_type) = self.infcx.probe(type_id) {
             return Ok(subst_type);
         }
@@ -201,13 +167,8 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
                     size_ty: self.substitute_all(array.size_ty, ctx)?,
                     scope_id: array.scope_id,
                 });
-                let type_id =
-                    ctx.symbols
-                        .get_or_add_type(Some(ScopeId::primitive()), ty.key(), ty)?;
-                let poly_ty = ctx
-                    .symbols
-                    .get_type_id(Some(ScopeId::primitive()), IdentId::TYPE_ARRAY)
-                    .unwrap();
+                let type_id = ctx.symbols.get_or_add_type(Some(ScopeId::primitive()), ty.key(), ty)?;
+                let poly_ty = ctx.symbols.get_type_id(Some(ScopeId::primitive()), IdentId::TYPE_ARRAY).unwrap();
                 self.register_instance(type_id, poly_ty, ctx)?;
                 Ok(type_id)
             }
@@ -218,8 +179,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
                     new_types.push(self.substitute_all(ty, ctx)?);
                 }
                 let ty = Type::Tuple(new_types);
-                ctx.symbols
-                    .get_or_add_type(Some(ScopeId::primitive()), ty.key(), ty)
+                ctx.symbols.get_or_add_type(Some(ScopeId::primitive()), ty.key(), ty)
             }
 
             Type::FunctionSignature(sig) => {
@@ -244,8 +204,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
 
                 let poly_ty = self.poly_of(type_id, ctx).unwrap();
 
-                if let Some(instance) = self.find_instance(poly_ty, generic_parameters.clone(), ctx)
-                {
+                if let Some(instance) = self.find_instance(poly_ty, generic_parameters.clone(), ctx) {
                     return Ok(instance);
                 }
 
@@ -311,8 +270,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
 
                 let poly_ty = self.poly_of(type_id, ctx).unwrap();
 
-                if let Some(instance) = self.find_instance(poly_ty, generic_parameters.clone(), ctx)
-                {
+                if let Some(instance) = self.find_instance(poly_ty, generic_parameters.clone(), ctx) {
                     return Ok(instance);
                 }
 

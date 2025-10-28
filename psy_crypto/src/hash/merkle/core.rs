@@ -8,13 +8,10 @@ use plonky2::{
 use psy_core::data::qhashout::QHashOut;
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
+
 use crate::hash::traits::hasher::{MerkleHasher, MerkleHasherWithMarkedLeaf, MerkleZeroHasher, QHasher};
 
-
-
-pub fn compute_partial_merkle_root_from_leaves_algebraic<F: RichField, H:AlgebraicHasher<F>>(
-    leaves: &[HashOut<F>],
-) -> HashOut<F> {
+pub fn compute_partial_merkle_root_from_leaves_algebraic<F: RichField, H: AlgebraicHasher<F>>(leaves: &[HashOut<F>]) -> HashOut<F> {
     let mut current = leaves.to_vec();
     while current.len() > 1 {
         let mut next = vec![];
@@ -28,12 +25,7 @@ pub fn compute_partial_merkle_root_from_leaves_algebraic<F: RichField, H:Algebra
     }
     current[0]
 }
-pub fn compute_partial_merkle_root_from_leaves<
-    Hash: PartialEq + Copy,
-    Hasher: MerkleHasher<Hash>,
->(
-    leaves: &[Hash],
-) -> Hash {
+pub fn compute_partial_merkle_root_from_leaves<Hash: PartialEq + Copy, Hasher: MerkleHasher<Hash>>(leaves: &[Hash]) -> Hash {
     let mut current = leaves.to_vec();
     while current.len() > 1 {
         let mut next = vec![];
@@ -48,11 +40,7 @@ pub fn compute_partial_merkle_root_from_leaves<
     current[0]
 }
 
-pub fn compute_root_merkle_proof_generic<Hash: PartialEq + Copy, H: MerkleHasher<Hash>>(
-    value: Hash,
-    index: u64,
-    siblings: &[Hash]
-) -> Hash {
+pub fn compute_root_merkle_proof_generic<Hash: PartialEq + Copy, H: MerkleHasher<Hash>>(value: Hash, index: u64, siblings: &[Hash]) -> Hash {
     let mut current = value;
     for (i, sibling) in siblings.iter().enumerate() {
         if index & (1 << i) == 0 {
@@ -63,11 +51,7 @@ pub fn compute_root_merkle_proof_generic<Hash: PartialEq + Copy, H: MerkleHasher
     }
     current
 }
-pub fn compute_root_merkle_proof<H: QHasher<F>, F: RichField>(
-    value: QHashOut<F>,
-    index: F,
-    siblings: &[QHashOut<F>],
-) -> QHashOut<F> {
+pub fn compute_root_merkle_proof<H: QHasher<F>, F: RichField>(value: QHashOut<F>, index: F, siblings: &[QHashOut<F>]) -> QHashOut<F> {
     let mut current = value;
     let index = index.to_canonical_u64();
     for (i, sibling) in siblings.iter().enumerate() {
@@ -89,10 +73,8 @@ pub fn verify_delta_merkle_proof<H: QHasher<F>, F: RichField>(proof: &DeltaMerkl
     if proof.siblings.len() > 64 {
         return false;
     }
-    compute_root_merkle_proof::<H, F>(proof.old_value, proof.index, &proof.siblings)
-        == proof.old_root
-        && compute_root_merkle_proof::<H, F>(proof.new_value, proof.index, &proof.siblings)
-            == proof.new_root
+    compute_root_merkle_proof::<H, F>(proof.old_value, proof.index, &proof.siblings) == proof.old_root
+        && compute_root_merkle_proof::<H, F>(proof.new_value, proof.index, &proof.siblings) == proof.new_root
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -203,7 +185,7 @@ impl<Hash: PartialEq + Copy + Default> Default for MerkleProofCore<Hash> {
 }
 impl<Hash: PartialEq + Copy> MerkleProofCore<Hash> {
     pub fn new_from_params<Hasher: MerkleHasher<Hash>>(index: u64, value: Hash, siblings: Vec<Hash>) -> Self {
-        let root =compute_root_merkle_proof_generic::<Hash, Hasher>(value, index, &siblings);
+        let root = compute_root_merkle_proof_generic::<Hash, Hasher>(value, index, &siblings);
         Self {
             root,
             value,
@@ -211,7 +193,10 @@ impl<Hash: PartialEq + Copy> MerkleProofCore<Hash> {
             siblings,
         }
     }
-    pub fn verify<Hasher: MerkleHasher<Hash>>(&self) -> bool where Hash: Display{
+    pub fn verify<Hasher: MerkleHasher<Hash>>(&self) -> bool
+    where
+        Hash: Display,
+    {
         if self.siblings.len() > 64 {
             return false;
         }
@@ -230,7 +215,7 @@ impl<Hash: PartialEq + Copy> MerkleProofCore<Hash> {
             old_value: self.value,
             new_value: self.value,
             index: self.index,
-            siblings: self.siblings
+            siblings: self.siblings,
         }
     }
     pub fn to_delta_merkle_proof(&self) -> DeltaMerkleProofCore<Hash> {
@@ -240,7 +225,7 @@ impl<Hash: PartialEq + Copy> MerkleProofCore<Hash> {
             old_value: self.value,
             new_value: self.value,
             index: self.index,
-            siblings: self.siblings.clone()
+            siblings: self.siblings.clone(),
         }
     }
 }
@@ -264,7 +249,7 @@ pub struct DeltaMerkleProofCorePartial<Hash: PartialEq + Copy> {
     pub siblings: Vec<Hash>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize,TS)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, TS)]
 #[ts(export, concrete(Hash = u64))]
 pub struct DeltaMerkleProofCore<Hash: PartialEq + Copy> {
     pub old_root: Hash,
@@ -302,35 +287,31 @@ impl<Hash: PartialEq + Copy> DeltaMerkleProofCore<Hash> {
         }
     }
     pub fn with_shortened_height_from_bottom<H: MerkleHasher<Hash>>(&self, new_height: usize) -> Self {
-        assert!(new_height <= self.siblings.len(), "cannot shorten tree to a height taller than the current proof");
+        assert!(
+            new_height <= self.siblings.len(),
+            "cannot shorten tree to a height taller than the current proof"
+        );
         if new_height == self.siblings.len() {
             self.clone()
-        }else{
-            let height_diff = self.siblings.len()-new_height;
-            let low_index = self.index&((1u64<<(height_diff as u64))-1u64);
+        } else {
+            let height_diff = self.siblings.len() - new_height;
+            let low_index = self.index & ((1u64 << (height_diff as u64)) - 1u64);
             let new_index = self.index >> (height_diff as u64);
             let old_value = compute_root_merkle_proof_generic::<Hash, H>(self.old_value, low_index, &self.siblings[0..height_diff]);
             let new_value = compute_root_merkle_proof_generic::<Hash, H>(self.new_value, low_index, &self.siblings[0..height_diff]);
 
-            Self::from_params::<H>(
-                new_index,
-                old_value,
-                new_value,
-                self.siblings[height_diff..].to_vec(),
-            )
+            Self::from_params::<H>(new_index, old_value, new_value, self.siblings[height_diff..].to_vec())
         }
     }
     pub fn shorten_height<H: MerkleHasher<Hash>>(&self, new_height: usize) -> Self {
-        assert!(new_height <= self.siblings.len(), "cannot shorten tree to a height taller than the current proof");
+        assert!(
+            new_height <= self.siblings.len(),
+            "cannot shorten tree to a height taller than the current proof"
+        );
         if new_height == self.siblings.len() {
             self.clone()
-        }else{
-            Self::from_params::<H>(
-                self.index,
-                self.old_value,
-                self.new_value,
-                self.siblings[0..new_height].to_vec(),
-            )
+        } else {
+            Self::from_params::<H>(self.index, self.old_value, self.new_value, self.siblings[0..new_height].to_vec())
         }
     }
 }
@@ -397,9 +378,7 @@ impl<Hash: PartialEq + Copy> DeltaMerkleProofCore<Hash> {
         verify_delta_merkle_proof_marked_leaves_core::<Hash, Hasher>(self)
     }
 }
-pub fn verify_merkle_proof_core<Hash: PartialEq + Copy + Display, Hasher: MerkleHasher<Hash>>(
-    proof: &MerkleProofCore<Hash>,
-) -> bool {
+pub fn verify_merkle_proof_core<Hash: PartialEq + Copy + Display, Hasher: MerkleHasher<Hash>>(proof: &MerkleProofCore<Hash>) -> bool {
     if proof.siblings.len() > 64 {
         return false;
     }
@@ -413,7 +392,6 @@ pub fn verify_merkle_proof_core<Hash: PartialEq + Copy + Display, Hasher: Merkle
     }
     current == proof.root
 }
-
 
 pub fn compute_historical_and_current_merkle_roots_core<Hash: PartialEq + Copy, Hasher: MerkleZeroHasher<Hash>>(
     proof: &MerkleProofCore<Hash>,
@@ -431,7 +409,6 @@ pub fn compute_historical_and_current_merkle_roots_core<Hash: PartialEq + Copy, 
     }
     (historical, current)
 }
-
 
 pub fn compute_historical_and_current_merkle_roots_core_qho<F: RichField, Hasher: MerkleZeroHasher<HashOut<F>>>(
     proof: &MerkleProofCore<QHashOut<F>>,
@@ -484,9 +461,7 @@ pub fn compute_historical_and_current_merkle_roots_core_gt_qho<F: RichField, Has
     (QHashOut(historical), QHashOut(current))
 }
 
-pub fn verify_delta_merkle_proof_core<Hash: PartialEq + Copy, Hasher: MerkleHasher<Hash>>(
-    proof: &DeltaMerkleProofCore<Hash>,
-) -> bool {
+pub fn verify_delta_merkle_proof_core<Hash: PartialEq + Copy, Hasher: MerkleHasher<Hash>>(proof: &DeltaMerkleProofCore<Hash>) -> bool {
     if proof.siblings.len() > 64 {
         return false;
     }
@@ -512,12 +487,7 @@ pub fn verify_delta_merkle_proof_core<Hash: PartialEq + Copy, Hasher: MerkleHash
     current == proof.new_root
 }
 
-pub fn verify_merkle_proof_marked_leaves_core<
-    Hash: PartialEq + Copy,
-    Hasher: MerkleHasher<Hash>,
->(
-    proof: &MerkleProofCore<Hash>,
-) -> bool {
+pub fn verify_merkle_proof_marked_leaves_core<Hash: PartialEq + Copy, Hasher: MerkleHasher<Hash>>(proof: &MerkleProofCore<Hash>) -> bool {
     if proof.siblings.len() > 64 {
         return false;
     }
@@ -531,10 +501,7 @@ pub fn verify_merkle_proof_marked_leaves_core<
     }
     current == proof.root
 }
-pub fn verify_delta_merkle_proof_marked_leaves_core<
-    Hash: PartialEq + Copy,
-    Hasher: MerkleHasherWithMarkedLeaf<Hash>,
->(
+pub fn verify_delta_merkle_proof_marked_leaves_core<Hash: PartialEq + Copy, Hasher: MerkleHasherWithMarkedLeaf<Hash>>(
     proof: &DeltaMerkleProofCore<Hash>,
 ) -> bool {
     if proof.siblings.len() > 64 {
@@ -571,13 +538,8 @@ pub fn verify_delta_merkle_proof_marked_leaves_core<
     current == proof.new_root
 }
 
-pub fn calc_merkle_root_from_leaves<Hash: PartialEq + Copy, Hasher: MerkleHasher<Hash>>(
-    leaves: Vec<Hash>,
-) -> Hash {
-    let mut current_leaves: Vec<Hash> = leaves
-        .chunks_exact(2)
-        .map(|chunk| Hasher::two_to_one(&chunk[0], &chunk[1]))
-        .collect();
+pub fn calc_merkle_root_from_leaves<Hash: PartialEq + Copy, Hasher: MerkleHasher<Hash>>(leaves: Vec<Hash>) -> Hash {
+    let mut current_leaves: Vec<Hash> = leaves.chunks_exact(2).map(|chunk| Hasher::two_to_one(&chunk[0], &chunk[1])).collect();
     let height = (current_leaves.len() as f64).log2().ceil() as usize;
     for _ in 1..height {
         let next_leaves = current_leaves

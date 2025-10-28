@@ -13,21 +13,7 @@ pub use setup::{KZGParams, KZGSetup};
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use builder::CircuitBuilderKZGHelpers;
-    use crate::crypto::bn254::{
-        curve::{g1::G1, g2::G2},
-        field::{bn128_base::Bn128Base, bn128_scalar::Bn128Scalar},
-        gadgets::{
-            g1::CircuitBuilderG1,
-            g2::CircuitBuilderG2,
-            nonnative_fp::CircuitBuilderNonNative,
-            pairing::{AffinePointTargetG2, CircuitBuilderCurveG2, CircuitBuilderPairing},
-        },
-    };
-    use crate::crypto::secp256k1::ecdsa::gadgets::biguint::{BigUintTarget, CircuitBuilderBiguint};
-    use crate::crypto::bn254::gadgets::nonnative_fp::NonNativeTarget;
-
     use num::{BigUint, Zero};
     use plonky2::{
         field::types::Field,
@@ -38,6 +24,21 @@ mod tests {
             circuit_data::CircuitConfig,
             config::{GenericConfig, PoseidonGoldilocksConfig},
         },
+    };
+
+    use super::*;
+    use crate::crypto::{
+        bn254::{
+            curve::{g1::G1, g2::G2},
+            field::{bn128_base::Bn128Base, bn128_scalar::Bn128Scalar},
+            gadgets::{
+                g1::CircuitBuilderG1,
+                g2::CircuitBuilderG2,
+                nonnative_fp::{CircuitBuilderNonNative, NonNativeTarget},
+                pairing::{AffinePointTargetG2, CircuitBuilderCurveG2, CircuitBuilderPairing},
+            },
+        },
+        secp256k1::ecdsa::gadgets::biguint::{BigUintTarget, CircuitBuilderBiguint},
     };
 
     const D: usize = 2;
@@ -129,9 +130,7 @@ mod tests {
             // Setup Lagrange basis for domain size 1
             let tau = Bn128Scalar::from_canonical_u64(12345);
             let setup = KZGSetup::new_lagrange_setup(tau, 1);
-            let lagrange_g1 = vec![
-                builder.constant_g1_affine(setup.lagrange_g1[0])
-            ];
+            let lagrange_g1 = vec![builder.constant_g1_affine(setup.lagrange_g1[0])];
 
             let commitment = builder.kzg_commit(&evaluations, &lagrange_g1);
 
@@ -149,7 +148,7 @@ mod tests {
             // Create FFT settings for domain size 2
             let domain_size = 2;
             let fft_settings = builder.fft_settings(domain_size);
-            
+
             // Create evaluations at roots of unity
             let evaluations = vec![
                 builder.constant_nonnative(Bn128Scalar::from_canonical_u64(5)),
@@ -159,17 +158,13 @@ mod tests {
             // Setup Lagrange basis
             let tau = Bn128Scalar::from_canonical_u64(12345);
             let setup = KZGSetup::new_lagrange_setup(tau, domain_size);
-            let lagrange_g1: Vec<_> = setup.lagrange_g1
-                .iter()
-                .map(|p| builder.constant_g1_affine(*p))
-                .collect();
+            let lagrange_g1: Vec<_> = setup.lagrange_g1.iter().map(|p| builder.constant_g1_affine(*p)).collect();
 
             let point = builder.constant_nonnative(Bn128Scalar::from_canonical_u64(3));
-            let (evaluation, proof) =
-                builder.kzg_create_opening_proof(&evaluations, &point, &lagrange_g1, &fft_settings);
+            let (evaluation, proof) = builder.kzg_create_opening_proof(&evaluations, &point, &lagrange_g1, &fft_settings);
 
-            // We can't easily predict the exact evaluation without computing Lagrange interpolation
-            // So just check that proof creation succeeds
+            // We can't easily predict the exact evaluation without computing Lagrange
+            // interpolation So just check that proof creation succeeds
             let data = builder.build::<C>();
             let pw = PartialWitness::new();
             let proof = data.prove(pw).unwrap();
@@ -184,7 +179,7 @@ mod tests {
             // Create FFT settings for domain size 4
             let domain_size = 4;
             let fft_settings = builder.fft_settings(domain_size);
-            
+
             // Create evaluations at roots of unity
             let evaluations = vec![
                 builder.constant_nonnative(Bn128Scalar::from_canonical_u64(1)),
@@ -204,9 +199,7 @@ mod tests {
             let proof = data.prove(pw).unwrap();
             data.verify(proof).unwrap();
         }
-
     }
-
 
     mod lagrange_tests {
         use super::*;
@@ -233,17 +226,12 @@ mod tests {
 
             // Evaluate at a point not in the domain
             let point = builder.constant_nonnative(Bn128Scalar::from_canonical_u64(5));
-            
+
             // First compute p(z) using Lagrange interpolation
             let eval_at_point = builder.lagrange_interpolate_at_point(&evaluations, &point, &fft_settings);
 
             // Compute quotient polynomial in evaluation form
-            let quotient_evals = builder.kzg_compute_quotient_polynomial(
-                &evaluations,
-                &point,
-                &eval_at_point,
-                &fft_settings,
-            );
+            let quotient_evals = builder.kzg_compute_quotient_polynomial(&evaluations, &point, &eval_at_point, &fft_settings);
 
             // Verify quotient has correct length
             assert_eq!(quotient_evals.len(), domain_size);
@@ -252,13 +240,8 @@ mod tests {
             println!("Testing special case: evaluation at root of unity");
             let point_at_root = fft_settings.roots_of_unity[1].clone();
             let eval_at_root = evaluations[1].clone(); // Should equal y_1
-            
-            let quotient_at_root = builder.kzg_compute_quotient_polynomial(
-                &evaluations,
-                &point_at_root,
-                &eval_at_root,
-                &fft_settings,
-            );
+
+            let quotient_at_root = builder.kzg_compute_quotient_polynomial(&evaluations, &point_at_root, &eval_at_root, &fft_settings);
 
             // Verify that q_1 = 0 (special case)
             let zero = builder.zero_nonnative();
@@ -303,11 +286,7 @@ mod tests {
                 builder.constant_nonnative(Bn128Scalar::from_canonical_u64(4)),
             ];
 
-            let lagrange_g1 = params
-                .lagrange_g1
-                .into_iter()
-                .map(|p| builder.constant_g1_affine(p))
-                .collect::<Vec<_>>();
+            let lagrange_g1 = params.lagrange_g1.into_iter().map(|p| builder.constant_g1_affine(p)).collect::<Vec<_>>();
 
             let commitment = builder.kzg_commit(&evaluations, &lagrange_g1);
 
@@ -336,8 +315,7 @@ mod tests {
             let tau = Bn128Scalar::from_canonical_u64(7);
             let params = KZGSetup::new_trusted_setup(tau, 4);
 
-            use crate::crypto::bn254::curve::g1::G1;
-            use crate::crypto::secp256k1::ecdsa::curve::curve_types::Curve;
+            use crate::crypto::{bn254::curve::g1::G1, secp256k1::ecdsa::curve::curve_types::Curve};
             let g1_gen = G1::GENERATOR_AFFINE;
 
             // First Lagrange basis element L_0(τ) * G is not the generator
@@ -381,19 +359,15 @@ mod tests {
     }
 
     mod debug_tests {
-        use crate::crypto::bn254::pairing_config;
-
         use super::*;
+        use crate::crypto::bn254::pairing_config;
 
         #[test]
         fn test_debug_kzg_commit_only() {
             let mut builder = CircuitBuilder::<F, D>::new(pairing_config());
 
             let params = KZGSetup::new_test_setup(2);
-            let lagrange_g1 = params.lagrange_g1
-                .iter()
-                .map(|p| builder.constant_g1_affine(*p))
-                .collect::<Vec<_>>();
+            let lagrange_g1 = params.lagrange_g1.iter().map(|p| builder.constant_g1_affine(*p)).collect::<Vec<_>>();
 
             // Evaluations at roots of unity
             let evaluations = vec![
@@ -444,11 +418,8 @@ mod tests {
             let fft_settings = builder.fft_settings(domain_size);
 
             // Convert Lagrange basis to circuit targets
-            let lagrange_g1: Vec<_> = setup_params.lagrange_g1
-                .iter()
-                .map(|p| builder.constant_g1_affine(*p))
-                .collect();
-            
+            let lagrange_g1: Vec<_> = setup_params.lagrange_g1.iter().map(|p| builder.constant_g1_affine(*p)).collect();
+
             let (_, g2_tau_point) = setup_params.get_g2_powers();
             let g2_tau = builder.constant_affine_point_g2::<G2, Bn128Base>(*g2_tau_point);
 
@@ -465,21 +436,10 @@ mod tests {
 
             // Step 2: Create opening proof at point z = 5
             let point = builder.constant_nonnative(Bn128Scalar::from_canonical_u64(5));
-            let (evaluation, proof) = builder.kzg_create_opening_proof(
-                &evaluations, 
-                &point, 
-                &lagrange_g1,
-                &fft_settings
-            );
+            let (evaluation, proof) = builder.kzg_create_opening_proof(&evaluations, &point, &lagrange_g1, &fft_settings);
 
             // Step 3: Verify the proof
-            let is_valid = builder.kzg_verify(
-                &commitment,
-                &point,
-                &evaluation,
-                &proof,
-                &g2_tau
-            );
+            let is_valid = builder.kzg_verify(&commitment, &point, &evaluation, &proof, &g2_tau);
 
             // Assert the proof is valid
             builder.assert_one(is_valid.target);
@@ -500,12 +460,9 @@ mod tests {
             let tau = Bn128Scalar::from_canonical_u64(54321);
             let setup_params = KZGSetup::new_trusted_setup(tau, 8);
             let fft_settings = builder.fft_settings(8);
-            
-            let lagrange_g1: Vec<_> = setup_params.lagrange_g1
-                .iter()
-                .map(|p| builder.constant_g1_affine(*p))
-                .collect();
-            
+
+            let lagrange_g1: Vec<_> = setup_params.lagrange_g1.iter().map(|p| builder.constant_g1_affine(*p)).collect();
+
             let (_, g2_tau_point) = setup_params.get_g2_powers();
             let g2_tau = builder.constant_affine_point_g2::<G2, Bn128Base>(*g2_tau_point);
 
@@ -533,23 +490,12 @@ mod tests {
 
             // Create and verify proofs for each point
             for point in points.iter() {
-                let (eval, proof) = builder.kzg_create_opening_proof(
-                    &evaluations,
-                    point,
-                    &lagrange_g1,
-                    &fft_settings
-                );
+                let (eval, proof) = builder.kzg_create_opening_proof(&evaluations, point, &lagrange_g1, &fft_settings);
 
                 // Don't check exact evaluation values since we're using Lagrange interpolation
 
                 // Verify proof
-                let is_valid = builder.kzg_verify(
-                    &commitment,
-                    point,
-                    &eval,
-                    &proof,
-                    &g2_tau
-                );
+                let is_valid = builder.kzg_verify(&commitment, point, &eval, &proof, &g2_tau);
                 builder.assert_one(is_valid.target);
             }
 
@@ -568,12 +514,9 @@ mod tests {
             let tau = Bn128Scalar::from_canonical_u64(98765);
             let setup_params = KZGSetup::new_trusted_setup(tau, 4);
             let fft_settings = builder.fft_settings(4);
-            
-            let lagrange_g1: Vec<_> = setup_params.lagrange_g1
-                .iter()
-                .map(|p| builder.constant_g1_affine(*p))
-                .collect();
-            
+
+            let lagrange_g1: Vec<_> = setup_params.lagrange_g1.iter().map(|p| builder.constant_g1_affine(*p)).collect();
+
             let (_, g2_tau_point) = setup_params.get_g2_powers();
             let g2_tau = builder.constant_affine_point_g2::<G2, Bn128Base>(*g2_tau_point);
 
@@ -602,22 +545,11 @@ mod tests {
                 builder.constant_nonnative(Bn128Scalar::from_canonical_u64(3)),
             ];
 
-            let (evaluations, proofs) = builder.kzg_create_batch_opening_proofs(
-                &all_evaluations,
-                &points,
-                &lagrange_g1,
-                &fft_settings
-            );
+            let (evaluations, proofs) = builder.kzg_create_batch_opening_proofs(&all_evaluations, &points, &lagrange_g1, &fft_settings);
 
             // Batch verify
             let commitments = vec![commitment1, commitment2];
-            let is_valid = builder.kzg_batch_verify(
-                &commitments,
-                &points,
-                &evaluations,
-                &proofs,
-                &g2_tau
-            );
+            let is_valid = builder.kzg_batch_verify(&commitments, &points, &evaluations, &proofs, &g2_tau);
 
             builder.assert_one(is_valid.target);
 
@@ -636,12 +568,9 @@ mod tests {
             let tau = Bn128Scalar::from_canonical_u64(11111);
             let setup_params = KZGSetup::new_trusted_setup(tau, 4);
             let fft_settings = builder.fft_settings(4);
-            
-            let lagrange_g1: Vec<_> = setup_params.lagrange_g1
-                .iter()
-                .map(|p| builder.constant_g1_affine(*p))
-                .collect();
-            
+
+            let lagrange_g1: Vec<_> = setup_params.lagrange_g1.iter().map(|p| builder.constant_g1_affine(*p)).collect();
+
             let (_, g2_tau_point) = setup_params.get_g2_powers();
             let g2_tau = builder.constant_affine_point_g2::<G2, Bn128Base>(*g2_tau_point);
 
@@ -655,12 +584,7 @@ mod tests {
 
             let commitment = builder.kzg_commit(&evaluations, &lagrange_g1);
             let point = builder.constant_nonnative(Bn128Scalar::from_canonical_u64(3));
-            let (correct_eval, correct_proof) = builder.kzg_create_opening_proof(
-                &evaluations,
-                &point,
-                &lagrange_g1,
-                &fft_settings
-            );
+            let (correct_eval, correct_proof) = builder.kzg_create_opening_proof(&evaluations, &point, &lagrange_g1, &fft_settings);
 
             // Create an incorrect evaluation
             let wrong_eval = builder.constant_nonnative(Bn128Scalar::from_canonical_u64(999));
@@ -669,9 +593,9 @@ mod tests {
             let is_valid = builder.kzg_verify(
                 &commitment,
                 &point,
-                &wrong_eval,  // Wrong evaluation
+                &wrong_eval, // Wrong evaluation
                 &correct_proof,
-                &g2_tau
+                &g2_tau,
             );
 
             // Assert the proof is INVALID
@@ -692,12 +616,9 @@ mod tests {
             let tau = Bn128Scalar::from_canonical_u64(22222);
             let setup_params = KZGSetup::new_trusted_setup(tau, 4);
             let fft_settings = builder.fft_settings(4);
-            
-            let lagrange_g1: Vec<_> = setup_params.lagrange_g1
-                .iter()
-                .map(|p| builder.constant_g1_affine(*p))
-                .collect();
-            
+
+            let lagrange_g1: Vec<_> = setup_params.lagrange_g1.iter().map(|p| builder.constant_g1_affine(*p)).collect();
+
             let (_, g2_tau_point) = setup_params.get_g2_powers();
             let g2_tau = builder.constant_affine_point_g2::<G2, Bn128Base>(*g2_tau_point);
 
@@ -711,25 +632,14 @@ mod tests {
 
             let commitment = builder.kzg_commit(&evaluations, &lagrange_g1);
             let point = builder.constant_nonnative(Bn128Scalar::from_canonical_u64(7));
-            let (eval, proof) = builder.kzg_create_opening_proof(
-                &evaluations,
-                &point,
-                &lagrange_g1,
-                &fft_settings
-            );
+            let (eval, proof) = builder.kzg_create_opening_proof(&evaluations, &point, &lagrange_g1, &fft_settings);
 
             // Evaluation should be zero
             let zero = builder.constant_nonnative(Bn128Scalar::ZERO);
             builder.connect_nonnative(&eval, &zero);
 
             // Verify proof
-            let is_valid = builder.kzg_verify(
-                &commitment,
-                &point,
-                &eval,
-                &proof,
-                &g2_tau
-            );
+            let is_valid = builder.kzg_verify(&commitment, &point, &eval, &proof, &g2_tau);
             builder.assert_one(is_valid.target);
 
             let data = builder.build::<C>();

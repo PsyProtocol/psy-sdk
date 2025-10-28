@@ -1,7 +1,6 @@
 use proc_macro2::TokenStream;
 use quote::{quote, quote_spanned, ToTokens};
-use syn::{parse_quote, Data, DeriveInput, Fields, GenericParam, Generics, spanned::Spanned, Index};
-
+use syn::{parse_quote, spanned::Spanned, Data, DeriveInput, Fields, GenericParam, Generics, Index};
 
 pub fn derive_felt_sized(input: proc_macro2::TokenStream) -> proc_macro2::TokenStream {
     // Parse the input tokens into a syntax tree.
@@ -10,7 +9,6 @@ pub fn derive_felt_sized(input: proc_macro2::TokenStream) -> proc_macro2::TokenS
     // Delegate to the core implementation.
     derive_felt_sized_core(input)
 }
-
 
 pub fn derive_felt_sized_core(input: DeriveInput) -> proc_macro2::TokenStream {
     // Parse the input tokens into a syntax tree.

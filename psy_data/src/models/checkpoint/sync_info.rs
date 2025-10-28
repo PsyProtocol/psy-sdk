@@ -1,13 +1,6 @@
-use kvq::traits::{
-    KVQBinaryStore, KVQStoreAdapter, KVQStoreAdapterReader,
-};
-use crate::qdata::u64_key::U64TableKey;
+use kvq::traits::{KVQBinaryStore, KVQStoreAdapter, KVQStoreAdapterReader};
 
-use crate::{
-    config::store_config::QCheckpointSyncInfoCompact,
-    models::kvq_merkle::model::CHECKPOINT_ID_FUZZY_SIZE,
-};
-
+use crate::{config::store_config::QCheckpointSyncInfoCompact, models::kvq_merkle::model::CHECKPOINT_ID_FUZZY_SIZE, qdata::u64_key::U64TableKey};
 
 #[derive(Debug, thiserror::Error)]
 pub enum CheckpointError {
@@ -17,28 +10,17 @@ pub enum CheckpointError {
     Other(#[from] anyhow::Error),
 }
 
-
 pub trait QEDCheckpointSyncInfoModelReaderCore<
     const CHECKPOINT_SYNC_INFO_TABLE_TYPE: u16,
     S,
-    KVA: KVQStoreAdapterReader<
-        S,
-        U64TableKey<CHECKPOINT_SYNC_INFO_TABLE_TYPE>,
-        QCheckpointSyncInfoCompact,
-    >,
+    KVA: KVQStoreAdapterReader<S, U64TableKey<CHECKPOINT_SYNC_INFO_TABLE_TYPE>, QCheckpointSyncInfoCompact>,
 >
 {
-    fn get_checkpoint_sync_info_compact(
-        store: &S,
-        checkpoint_id: u64,
-    ) -> anyhow::Result<QCheckpointSyncInfoCompact> {
+    fn get_checkpoint_sync_info_compact(store: &S, checkpoint_id: u64) -> anyhow::Result<QCheckpointSyncInfoCompact> {
         //tracing::info!("get block state: {}", checkpoint_id);
         KVA::get_exact(store, &U64TableKey(checkpoint_id))
     }
-    fn get_checkpoint_sync_info_compact_or_latest(
-        store: &S,
-        checkpoint_id: u64,
-    ) -> anyhow::Result<QCheckpointSyncInfoCompact> {
+    fn get_checkpoint_sync_info_compact_or_latest(store: &S, checkpoint_id: u64) -> anyhow::Result<QCheckpointSyncInfoCompact> {
         //tracing::info!("get block state: {}", checkpoint_id);
         let result = KVA::get_leq(store, &U64TableKey(checkpoint_id), CHECKPOINT_ID_FUZZY_SIZE)?;
         if result.is_some() {
@@ -47,28 +29,16 @@ pub trait QEDCheckpointSyncInfoModelReaderCore<
             Err(CheckpointError::NotFound.into())
         }
     }
-    fn get_latest_checkpoint_sync_info_compact(
-        store: &S,
-    ) -> anyhow::Result<QCheckpointSyncInfoCompact> {
-        let result = KVA::get_leq(
-            store,
-            &U64TableKey(0xffffffffffffffffu64),
-            CHECKPOINT_ID_FUZZY_SIZE,
-        )?;
+    fn get_latest_checkpoint_sync_info_compact(store: &S) -> anyhow::Result<QCheckpointSyncInfoCompact> {
+        let result = KVA::get_leq(store, &U64TableKey(0xffffffffffffffffu64), CHECKPOINT_ID_FUZZY_SIZE)?;
         if result.is_some() {
             Ok(result.unwrap())
         } else {
             Err(CheckpointError::NotFound.into())
         }
     }
-    fn get_checkpoint_sync_info_batch(
-        store: &S,
-        checkpoint_ids: &[u64],
-    ) -> anyhow::Result<Vec<QCheckpointSyncInfoCompact>> {
-        let keys = checkpoint_ids
-            .iter()
-            .map(|id| U64TableKey(*id))
-            .collect::<Vec<_>>();
+    fn get_checkpoint_sync_info_batch(store: &S, checkpoint_ids: &[u64]) -> anyhow::Result<Vec<QCheckpointSyncInfoCompact>> {
+        let keys = checkpoint_ids.iter().map(|id| U64TableKey(*id)).collect::<Vec<_>>();
         KVA::get_many_exact(store, &keys)
     }
     fn get_checkpoint_sync_info_range(
@@ -103,9 +73,7 @@ pub trait QEDCheckpointSyncInfoModelReaderCore<
         } else {
             KVA::get_many_exact(
                 store,
-                &(start_checkpoint_id..end_checkpoint_id)
-                    .map(|id| U64TableKey(id))
-                    .collect::<Vec<_>>(),
+                &(start_checkpoint_id..end_checkpoint_id).map(|id| U64TableKey(id)).collect::<Vec<_>>(),
             )
         }
     }
@@ -113,17 +81,10 @@ pub trait QEDCheckpointSyncInfoModelReaderCore<
 pub trait QEDCheckpointSyncInfoModelCore<
     const CHECKPOINT_SYNC_INFO_TABLE_TYPE: u16,
     S,
-    KVA: KVQStoreAdapter<
-        S,
-        U64TableKey<CHECKPOINT_SYNC_INFO_TABLE_TYPE>,
-        QCheckpointSyncInfoCompact,
-    >,
+    KVA: KVQStoreAdapter<S, U64TableKey<CHECKPOINT_SYNC_INFO_TABLE_TYPE>, QCheckpointSyncInfoCompact>,
 >: QEDCheckpointSyncInfoModelReaderCore<CHECKPOINT_SYNC_INFO_TABLE_TYPE, S, KVA>
 {
-    fn delete_checkpoint_sync_info_by_id(
-        store: &mut S,
-        checkpoint_id: u64,
-    ) -> anyhow::Result<Option<QCheckpointSyncInfoCompact>> {
+    fn delete_checkpoint_sync_info_by_id(store: &mut S, checkpoint_id: u64) -> anyhow::Result<Option<QCheckpointSyncInfoCompact>> {
         let key_id = U64TableKey::<CHECKPOINT_SYNC_INFO_TABLE_TYPE>(checkpoint_id);
         let current = KVA::get_exact_if_exists(store, &key_id)?;
         if current.is_some() {
@@ -134,18 +95,12 @@ pub trait QEDCheckpointSyncInfoModelCore<
             Ok(None)
         }
     }
-    fn set_checkpoint_sync_info(
-        store: &S,
-        checkpoint_sync_info: QCheckpointSyncInfoCompact,
-    ) -> anyhow::Result<()> {
+    fn set_checkpoint_sync_info(store: &S, checkpoint_sync_info: QCheckpointSyncInfoCompact) -> anyhow::Result<()> {
         let key_id = U64TableKey::<CHECKPOINT_SYNC_INFO_TABLE_TYPE>(checkpoint_sync_info.l2_block_state.checkpoint_id);
         KVA::set(store, key_id, checkpoint_sync_info)?;
         Ok(())
     }
-    fn set_checkpoint_sync_info_ref(
-        store: &S,
-        checkpoint_sync_info: &QCheckpointSyncInfoCompact,
-    ) -> anyhow::Result<()> {
+    fn set_checkpoint_sync_info_ref(store: &S, checkpoint_sync_info: &QCheckpointSyncInfoCompact) -> anyhow::Result<()> {
         let key_id = U64TableKey::<CHECKPOINT_SYNC_INFO_TABLE_TYPE>(checkpoint_sync_info.l2_block_state.checkpoint_id);
         KVA::set_ref(store, &key_id, &checkpoint_sync_info)?;
         Ok(())
@@ -159,11 +114,7 @@ pub struct QEDCheckpointSyncInfoModel<const CHECKPOINT_SYNC_INFO_TABLE_TYPE: u16
 impl<
         const CHECKPOINT_SYNC_INFO_TABLE_TYPE: u16,
         S,
-        KVA: KVQStoreAdapterReader<
-            S,
-            U64TableKey<CHECKPOINT_SYNC_INFO_TABLE_TYPE>,
-            QCheckpointSyncInfoCompact,
-        >,
+        KVA: KVQStoreAdapterReader<S, U64TableKey<CHECKPOINT_SYNC_INFO_TABLE_TYPE>, QCheckpointSyncInfoCompact>,
     > QEDCheckpointSyncInfoModelReaderCore<CHECKPOINT_SYNC_INFO_TABLE_TYPE, S, KVA>
     for QEDCheckpointSyncInfoModel<CHECKPOINT_SYNC_INFO_TABLE_TYPE, S, KVA>
 {
@@ -171,11 +122,7 @@ impl<
 impl<
         const CHECKPOINT_SYNC_INFO_TABLE_TYPE: u16,
         S,
-        KVA: KVQStoreAdapter<
-            S,
-            U64TableKey<CHECKPOINT_SYNC_INFO_TABLE_TYPE>,
-            QCheckpointSyncInfoCompact,
-        >,
+        KVA: KVQStoreAdapter<S, U64TableKey<CHECKPOINT_SYNC_INFO_TABLE_TYPE>, QCheckpointSyncInfoCompact>,
     > QEDCheckpointSyncInfoModelCore<CHECKPOINT_SYNC_INFO_TABLE_TYPE, S, KVA>
     for QEDCheckpointSyncInfoModel<CHECKPOINT_SYNC_INFO_TABLE_TYPE, S, KVA>
 {

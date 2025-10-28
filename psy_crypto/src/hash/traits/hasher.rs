@@ -1,15 +1,16 @@
-use plonky2::field::goldilocks_field::GoldilocksField;
-use plonky2::field::types::Field;
-use plonky2::hash::hash_types::HashOut;
-use plonky2::hash::hash_types::RichField;
-use plonky2::hash::poseidon::PoseidonHash;
-use plonky2::plonk::config::AlgebraicHasher;
-use plonky2::plonk::config::Hasher;
-use plonky2::util::log2_ceil;
-use psy_core::data::base_types::hash160::Hash160;
-use psy_core::data::base_types::hash192::Hash192;
-use psy_core::data::base_types::hash256::Hash256;
-use psy_core::data::qhashout::QHashOut;
+use plonky2::{
+    field::{goldilocks_field::GoldilocksField, types::Field},
+    hash::{
+        hash_types::{HashOut, RichField},
+        poseidon::PoseidonHash,
+    },
+    plonk::config::{AlgebraicHasher, Hasher},
+    util::log2_ceil,
+};
+use psy_core::data::{
+    base_types::{hash160::Hash160, hash192::Hash192, hash256::Hash256},
+    qhashout::QHashOut,
+};
 
 use crate::field::qfield::QRichField;
 
@@ -26,21 +27,19 @@ impl<F: Field> ZeroableHash for HashOut<F> {
 }
 impl ZeroableHash for Hash256 {
     fn get_zero_value() -> Self {
-       Self([0u8; 32])
+        Self([0u8; 32])
     }
 }
-
 
 impl ZeroableHash for Hash192 {
     fn get_zero_value() -> Self {
-       Self([0u8; 24])
+        Self([0u8; 24])
     }
 }
 
-
 impl ZeroableHash for Hash160 {
     fn get_zero_value() -> Self {
-       Self([0u8; 20])
+        Self([0u8; 20])
     }
 }
 impl<F: Field> ZeroableHash for QHashOut<F> {
@@ -53,7 +52,7 @@ pub trait MerkleHasher<Hash: PartialEq> {
     fn two_to_one_swap(swap: bool, left: &Hash, right: &Hash) -> Hash {
         if swap {
             Self::two_to_one(right, left)
-        }else{
+        } else {
             Self::two_to_one(left, right)
         }
     }
@@ -68,20 +67,20 @@ impl<Hash: PartialEq + Copy, H: MerkleHasher<Hash>> MerkleLeafHasher<Hash> for H
         let leaves_len = leaves.len();
         if leaves_len == 0 {
             anyhow::bail!("compute_root_from_leaves called with an empty array");
-        }else if leaves_len == 1 {
+        } else if leaves_len == 1 {
             return Ok(leaves[0]);
-        }else if leaves_len == 2{
-            return Ok(Self::two_to_one(&leaves[0], &leaves[1]))
+        } else if leaves_len == 2 {
+            return Ok(Self::two_to_one(&leaves[0], &leaves[1]));
         }
 
         let height = log2_ceil(leaves_len);
-        if leaves_len != (1usize<<height) {
+        if leaves_len != (1usize << height) {
             anyhow::bail!("compute_root_from_leaves called where leaves.len() is not a power of 2");
-        }else{
-            let mut current_leaves_len = leaves_len>>1;
+        } else {
+            let mut current_leaves_len = leaves_len >> 1;
             let mut current_leaves = Vec::with_capacity(current_leaves_len);
             for i in 0..current_leaves_len {
-                current_leaves.push(Self::two_to_one(&leaves[i*2], &leaves[i*2+1]));
+                current_leaves.push(Self::two_to_one(&leaves[i * 2], &leaves[i * 2 + 1]));
             }
 
             while current_leaves_len > 1 {
@@ -89,7 +88,7 @@ impl<Hash: PartialEq + Copy, H: MerkleHasher<Hash>> MerkleLeafHasher<Hash> for H
                 let mut level_leaves = Vec::with_capacity(level_leaves_len);
 
                 for i in 0..level_leaves_len {
-                    level_leaves.push(Self::two_to_one(&current_leaves[i*2], &current_leaves[i*2+1]));
+                    level_leaves.push(Self::two_to_one(&current_leaves[i * 2], &current_leaves[i * 2 + 1]));
                 }
 
                 current_leaves = level_leaves;
@@ -105,7 +104,7 @@ pub trait MerkleHasherWithMarkedLeaf<Hash: PartialEq>: MerkleHasher<Hash> {
     fn two_to_one_marked_leaf_swap(swap: bool, left: &Hash, right: &Hash) -> Hash {
         if swap {
             Self::two_to_one_marked_leaf(right, left)
-        }else{
+        } else {
             Self::two_to_one_marked_leaf(left, right)
         }
     }
@@ -114,36 +113,28 @@ pub trait MerkleHasherWithMarkedLeaf<Hash: PartialEq>: MerkleHasher<Hash> {
 pub trait MerkleZeroHasher<Hash: PartialEq>: MerkleHasher<Hash> {
     fn get_zero_hash(reverse_level: usize) -> Hash;
 }
-pub trait BaseMerkleZeroHasherWithMarkedLeaf<Hash: PartialEq>:
-    MerkleHasherWithMarkedLeaf<Hash>
-{
+pub trait BaseMerkleZeroHasherWithMarkedLeaf<Hash: PartialEq>: MerkleHasherWithMarkedLeaf<Hash> {
     fn get_zero_hash_marked(reverse_level: usize) -> Hash;
 }
-pub trait MerkleZeroHasherWithMarkedLeaf<Hash: PartialEq>:
-    BaseMerkleZeroHasherWithMarkedLeaf<Hash> + MerkleZeroHasher<Hash>
-{
-}
+pub trait MerkleZeroHasherWithMarkedLeaf<Hash: PartialEq>: BaseMerkleZeroHasherWithMarkedLeaf<Hash> + MerkleZeroHasher<Hash> {}
 
 pub const ZERO_HASH_CACHE_SIZE: usize = 128;
 pub trait MerkleZeroHasherWithCache<Hash: PartialEq + Copy>: MerkleHasher<Hash> {
     const CACHED_ZERO_HASHES: [Hash; ZERO_HASH_CACHE_SIZE];
 }
-pub trait MerkleZeroHasherWithCacheMarkedLeaf<Hash: PartialEq + Copy>:
-    MerkleHasherWithMarkedLeaf<Hash>
-{
+pub trait MerkleZeroHasherWithCacheMarkedLeaf<Hash: PartialEq + Copy>: MerkleHasherWithMarkedLeaf<Hash> {
     const CACHED_MARKED_LEAF_ZERO_HASHES: [Hash; ZERO_HASH_CACHE_SIZE];
 }
 
-pub trait QAlgebraicHasher<F: RichField>:AlgebraicHasher<F> + MerkleHasher<QHashOut<F>> + MerkleHasher<HashOut<F>> + BasicFieldHasher<F> {}
+pub trait QAlgebraicHasher<F: RichField>: AlgebraicHasher<F> + MerkleHasher<QHashOut<F>> + MerkleHasher<HashOut<F>> + BasicFieldHasher<F> {}
 pub trait QAlgebraicZeroHasher<F: RichField>: QAlgebraicHasher<F> + MerkleZeroHasher<QHashOut<F>> + MerkleZeroHasher<HashOut<F>> {}
-
 
 pub trait BasicFieldHasher<F: RichField> {
     fn hash_many(elements: &[F]) -> HashOut<F>;
     fn hash_many_pad(elements: &[F]) -> HashOut<F>;
     fn two_to_one(left: HashOut<F>, right: HashOut<F>) -> HashOut<F>;
 }
-/* 
+/*
 impl<H:AlgebraicHasher<F>, F: RichField> BasicFieldHasher<F> for H {
     fn hash_many(elements: &[F]) -> HashOut<F> {
         H::hash_no_pad(elements)
@@ -158,8 +149,7 @@ impl<H:AlgebraicHasher<F>, F: RichField> BasicFieldHasher<F> for H {
     }
 }*/
 
-
-impl<F: RichField> BasicFieldHasher<F> for PoseidonHash{
+impl<F: RichField> BasicFieldHasher<F> for PoseidonHash {
     fn hash_many(elements: &[F]) -> HashOut<F> {
         PoseidonHash::hash_no_pad(elements)
     }
@@ -207,7 +197,6 @@ impl<H: BasicFieldHasher<F>, F: RichField> FieldQHasher<F> for H {
         QHashOut(<H as BasicFieldHasher<F>>::two_to_one(left.0, right.0))
     }
 }
-
 
 impl<H: FieldQHasher<F>, F: RichField> MerkleHasher<HashOut<F>> for H {
     fn two_to_one(left: &HashOut<F>, right: &HashOut<F>) -> HashOut<F> {
@@ -320,7 +309,7 @@ impl MerkleZeroHasher<HashOut<GoldilocksField>> for PoseidonHash {
         PoseidonHasher::get_zero_hash(reverse_level)
     }
 }
-/* 
+/*
 impl<F: RichField> FieldHasher<HashOut<F>, F> for PoseidonHash {
     fn hash_many(elements: &[F]) -> HashOut<F> {
         PoseidonHash::hash_no_pad(elements)
@@ -349,7 +338,7 @@ fn compute_zero_hashes_core<Hash: PartialEq + ZeroableHash + Copy, Hasher: Merkl
     result
 }*/
 
-/* 
+/*
 impl<F: RichField, H: Hasher<F, Hash = HashOut<F>>> FieldQHasher<F> for H {
     fn hash_many(elements: &[F]) -> QHashOut<F> {
         QHashOut(H::hash_no_pad(elements))
@@ -360,20 +349,14 @@ impl<F: RichField, H: Hasher<F, Hash = HashOut<F>>> FieldQHasher<F> for H {
     }
 }
 */
-pub fn iterate_merkle_hasher_alg<H:AlgebraicHasher<F>, F: RichField>(
-    current: QHashOut<F>,
-    reverse_level: usize,
-) -> QHashOut<F> {
+pub fn iterate_merkle_hasher_alg<H: AlgebraicHasher<F>, F: RichField>(current: QHashOut<F>, reverse_level: usize) -> QHashOut<F> {
     let mut value = current.0;
     for _ in 0..reverse_level {
         value = H::two_to_one(value, value);
     }
     QHashOut(value)
 }
-pub fn iterate_merkle_hasher<Hash: PartialEq, Hasher: MerkleHasher<Hash>>(
-    mut current: Hash,
-    reverse_level: usize,
-) -> Hash {
+pub fn iterate_merkle_hasher<Hash: PartialEq, Hasher: MerkleHasher<Hash>>(mut current: Hash, reverse_level: usize) -> Hash {
     for _ in 0..reverse_level {
         current = Hasher::two_to_one(&current, &current);
     }
@@ -390,9 +373,7 @@ impl<Hash: PartialEq + Copy, T: MerkleZeroHasherWithCache<Hash>> MerkleZeroHashe
     }
 }
 
-impl<Hash: PartialEq + Copy, T: MerkleZeroHasherWithCacheMarkedLeaf<Hash>>
-    BaseMerkleZeroHasherWithMarkedLeaf<Hash> for T
-{
+impl<Hash: PartialEq + Copy, T: MerkleZeroHasherWithCacheMarkedLeaf<Hash>> BaseMerkleZeroHasherWithMarkedLeaf<Hash> for T {
     fn get_zero_hash_marked(reverse_level: usize) -> Hash {
         if reverse_level < ZERO_HASH_CACHE_SIZE {
             T::CACHED_MARKED_LEAF_ZERO_HASHES[reverse_level]
@@ -403,12 +384,9 @@ impl<Hash: PartialEq + Copy, T: MerkleZeroHasherWithCacheMarkedLeaf<Hash>>
     }
 }
 
-impl<
-        Hash: PartialEq + Copy,
-        T: MerkleZeroHasherWithCacheMarkedLeaf<Hash> + MerkleZeroHasherWithCache<Hash>,
-    > MerkleZeroHasherWithMarkedLeaf<Hash> for T
+impl<Hash: PartialEq + Copy, T: MerkleZeroHasherWithCacheMarkedLeaf<Hash> + MerkleZeroHasherWithCache<Hash>> MerkleZeroHasherWithMarkedLeaf<Hash>
+    for T
 {
 }
-
 
 impl<F: RichField> QAlgebraicHasher<F> for PoseidonHash {}

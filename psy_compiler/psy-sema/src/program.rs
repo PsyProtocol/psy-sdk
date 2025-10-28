@@ -21,11 +21,7 @@ impl<F: Clone + From<u32>> CheckedProgram<F> {
         }
     }
 
-    pub fn modify_definition(
-        &mut self,
-        def_id: DefId,
-        f: impl FnOnce(&mut CheckedDefinitionNode) -> Result<()>,
-    ) -> Result<()> {
+    pub fn modify_definition(&mut self, def_id: DefId, f: impl FnOnce(&mut CheckedDefinitionNode) -> Result<()>) -> Result<()> {
         f(&mut self[def_id])
     }
 }

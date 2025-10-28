@@ -1,5 +1,3 @@
-
-
 use kvq::traits::KVQSerializable;
 use plonky2::{field::goldilocks_field::GoldilocksField, hash::hash_types::RichField};
 use psy_core::data::qhashout::QHashOut;
@@ -7,10 +5,8 @@ use psy_crypto::common::witnesses::qrecursion::header::AttestProofInTreeInput;
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
-
-use crate::qdata::user_contract_state::UserContractState;
-
 use super::verify_previous_ups_step::VerifyPreviousUPSStepProofInProofTreeInput;
+use crate::qdata::user_contract_state::UserContractState;
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, TS)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
@@ -24,8 +20,6 @@ pub struct UPSEndCapFromProofTreeGadgetInput<F: RichField> {
     pub second_to_last_tx_hash_stack: QHashOut<F>,
 }
 
-
-
 impl<F: RichField> KVQSerializable for UPSEndCapFromProofTreeGadgetInput<F> {
     fn to_bytes(&self) -> anyhow::Result<Vec<u8>> {
         bincode::serialize(self).map_err(|e| anyhow::anyhow!(e))
@@ -35,4 +29,3 @@ impl<F: RichField> KVQSerializable for UPSEndCapFromProofTreeGadgetInput<F> {
         bincode::deserialize(bytes).map_err(|e| anyhow::anyhow!(e))
     }
 }
-

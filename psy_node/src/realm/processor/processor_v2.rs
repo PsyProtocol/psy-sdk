@@ -1,9 +1,16 @@
-use std::{marker::PhantomData, sync::Arc, time::Duration};
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-use std::collections::HashMap;
-use std::time::Instant;
+use std::{
+    collections::HashMap,
+    marker::PhantomData,
+    sync::{
+        atomic::{AtomicBool, AtomicU64, Ordering},
+        Arc,
+    },
+    time::{Duration, Instant},
+};
+
 use anyhow::{anyhow, bail, ensure};
 use async_trait::async_trait;
+use kvq::traits::{KVQPair, KVQSerializable};
 use plonky2::{
     field::{
         goldilocks_field::GoldilocksField,
@@ -12,41 +19,30 @@ use plonky2::{
     hash::hash_types::RichField,
     plonk::config::PoseidonGoldilocksConfig,
 };
-use psy_core::job::worker_queue::WorkerEventTransmitterAsyncImm;
-use psy_crypto::hash::merkle::core::compute_historical_and_current_merkle_roots_core_gt;
-use psy_data::guta::proof_input::{GUTAOnlyRegisterUsersInput, GUTARegisterUserFullInput, VerifyGUTAToCapCircuitInputSimple};
-use psy_store::queue::task_queue::QProvingTaskStore;
-use tracing::{debug, error, info, trace, warn};
-use rand::Rng;
-use serde::{Deserialize, Serialize};
-use tokio::time::sleep;
-use kvq::traits::{KVQSerializable, KVQPair};
 use psy_common_circuit::hash::merkle::gadgets::delta_merkle_proof;
 use psy_core::{
     config::network_constants::{
-        GLOBAL_USER_TREE_HEIGHT, REALM_USER_TREE_HEIGHT, GLOBAL_CONTRACT_TREE_HEIGHT,
-        MAX_CONTRACT_STATE_TREE_HEIGHT, COORDINATOR_USER_TREE_HEIGHT
+        COORDINATOR_USER_TREE_HEIGHT, GLOBAL_CONTRACT_TREE_HEIGHT, GLOBAL_USER_TREE_HEIGHT, MAX_CONTRACT_STATE_TREE_HEIGHT, REALM_USER_TREE_HEIGHT,
     },
     data::qhashout::QHashOut,
     job::{
-        id::{ProvingJobCircuitType, ProvingJobDataType, QJobTopic, QProvingJobDataID, ProvingJobDataId},
+        id::{ProvingJobCircuitType, ProvingJobDataId, ProvingJobDataType, QJobTopic, QProvingJobDataID},
         traits::{QProofStoreAsyncImm, QProofStoreReaderAsync, QProofStoreWriterAsyncImm},
+        worker_queue::WorkerEventTransmitterAsyncImm,
     },
     utils::graph::BidirectionalGraph,
 };
 use psy_crypto::{
     common::{
-        cached_circuit_library::get_cached_circuit_library,
-        circuit_library::CircuitInfoLibraryCore,
-        generic_circuit_verifier::GenericCircuitVerifier,
-        user_id::get_user_id_from_registration_id
+        cached_circuit_library::get_cached_circuit_library, circuit_library::CircuitInfoLibraryCore,
+        generic_circuit_verifier::GenericCircuitVerifier, user_id::get_user_id_from_registration_id,
     },
     hash::{
         merkle::{
-            core::{compute_root_merkle_proof_generic, DeltaMerkleProofCore, MerkleProofCore},
+            core::{compute_historical_and_current_merkle_roots_core_gt, compute_root_merkle_proof_generic, DeltaMerkleProofCore, MerkleProofCore},
             treeprover::{data::CircuitInputWithDependencies, subtree::SubTreeNodeStateTransition},
             utils::{
-                common::{SimpleMerkleNodeKey, QMerkleNode},
+                common::{QMerkleNode, SimpleMerkleNodeKey},
                 sub_tree_nca::{NCAProofsWithTopLine, PartialUpdateNearestCommonAncestorProof},
             },
         },
@@ -60,58 +56,69 @@ use psy_data::{
     config::{
         genesis_config::GenesisConfig,
         store_config::{
-            BaseContractStateTreeStore, QEDHash, QEDHasher, QEDProof, UserContractTreeStore,
-            CONTRACT_STATE_TREE_ID, MAX_CHECKPOINT, USER_CONTRACT_STATE_TREE_TABLE_TYPE
-        }
+            BaseContractStateTreeStore, QEDHash, QEDHasher, QEDProof, StagingCheckpointInfoStore, StagingDeltaRecordStore, UserContractTreeStore,
+            CONTRACT_STATE_TREE_ID, MAX_CHECKPOINT, USER_CONTRACT_STATE_TREE_TABLE_TYPE,
+        },
     },
     guta::{
         header::GlobalUserTreeAggregatorHeader,
         proof_input::{
-            VerifyEndCapSimpleStandardInput, VerifySingleEndCapInput, VerifyTwoEndCapCircuitInput,
-            VerifyTwoGUTAProofGadgetStandardInput, VerifyTwoGUTAProofGadgetStandardInputSimple,
+            GUTAOnlyRegisterUsersInput, GUTARegisterUserFullInput, VerifyEndCapSimpleStandardInput, VerifyGUTAToCapCircuitInputSimple,
+            VerifyLeftGUTARightEndCapInputSimple, VerifySingleEndCapInput, VerifyTwoEndCapCircuitInput, VerifyTwoGUTAProofGadgetStandardInput,
+            VerifyTwoGUTAProofGadgetStandardInputSimple,
         },
         stats::GUTAStats,
     },
     models::{
         checkpoint::{block_state::L2BlockStatesModel, sync_info::CheckpointError},
-        kvq_merkle::{key::KVQMerkleNodeKey, model::{KVQMerkleTreeModelCore, KVQSemiFixedConfigMerkleTreeModelReaderCore}}
+        kvq_merkle::{
+            key::KVQMerkleNodeKey,
+            model::{KVQMerkleTreeModelCore, KVQSemiFixedConfigMerkleTreeModelReaderCore},
+        },
     },
     qdata::{
-        checkpoint::QEDL2BlockState, staging_checkpoint_info::StagingCheckpointInfo,
-        ups_end_cap_result::UPSEndCapResultCompact, user::QEDUserLeaf
+        checkpoint::QEDL2BlockState, staging_checkpoint_info::StagingCheckpointInfo, ups_end_cap_result::UPSEndCapResultCompact, user::QEDUserLeaf,
     },
-    traits::qdatastore::{qmetadata::QMetaDataStoreWriterSync, qtreedata::QTreeDataStoreWriterSync}
+    traits::qdatastore::{qmetadata::QMetaDataStoreWriterSync, qtreedata::QTreeDataStoreWriterSync},
 };
 use psy_store::{
     node::realm::{QEDRealmStoreReaderAsync, QEDRealmStoreWriterAsyncImm},
-    queue::{task_queue::QProvingTaskStoreImpl, QPendingUserStoreAsyncImm, ProofStoreRedisAsync, new_redis_async_pool},
-    store::QEDStore,
-    store::journal::{Journal, JournalStore}
-};
-use psy_data::config::store_config::{StagingCheckpointInfoStore, StagingDeltaRecordStore};
-use psy_data::guta::proof_input::VerifyLeftGUTARightEndCapInputSimple;
-use crate::common::slot::SLOT_SIZE;
-use crate::{
-    common_v2::traits::realm::{
-        random_uuid_for_checkpoint, CoordinatorClient, GenericTreeNodeUpdate,
-        GlobalBlockUpdateFromCoordinator, GlobalUserTreeMerkleReader, GraphDependencyBuilder,
-        RealmDataForCoordinator, RealmDataForCoordinatorHeader, RealmEdgeContractStateTreeUpdate,
-        RealmProcessorCombinedUpdate, RealmProcessorEdgeQueueHelper, RealmProcessorStateClient,
-        SimpleTreeUpdateBuilder, UniqueQueueId
+    queue::{
+        new_redis_async_pool,
+        task_queue::{QProvingTaskStore, QProvingTaskStoreImpl},
+        ProofStoreRedisAsync, QPendingUserStoreAsyncImm,
     },
-    common::clock::SlotTimer,
-    common::retry::Retryable,
-    common::slot::{LocalClock, Slot},
-    common::verifier::get_cached_generic_verifier,
-    coordinator::client_v2::ConcreteCoordinatorClient,
-    realm::{RealmNodeConfig, RealmProcessor as RealmProcessorV1},
-    realm::processor::{ConcreteRealmProcessorContext, SyncCheckpointResult},
-    realm::state::edge_queue_helper::RealmEdgeQueueHelper,
-    realm::state::processor::RealmConfig,
-    realm::state::processor_v2::RealmProcessorContextV2,
+    store::{
+        journal::{Journal, JournalStore},
+        QEDStore,
+    },
 };
+use rand::Rng;
+use serde::{Deserialize, Serialize};
+use tokio::time::sleep;
+use tracing::{debug, error, info, trace, warn};
 
-use crate::realm::state::queue_factory::QueueFactory;
+use crate::{
+    common::{
+        clock::SlotTimer,
+        retry::Retryable,
+        slot::{LocalClock, Slot, SLOT_SIZE},
+        verifier::get_cached_generic_verifier,
+    },
+    common_v2::traits::realm::{
+        random_uuid_for_checkpoint, CoordinatorClient, GenericTreeNodeUpdate, GlobalBlockUpdateFromCoordinator, GlobalUserTreeMerkleReader,
+        GraphDependencyBuilder, RealmDataForCoordinator, RealmDataForCoordinatorHeader, RealmEdgeContractStateTreeUpdate,
+        RealmProcessorCombinedUpdate, RealmProcessorEdgeQueueHelper, RealmProcessorStateClient, SimpleTreeUpdateBuilder, UniqueQueueId,
+    },
+    coordinator::client_v2::ConcreteCoordinatorClient,
+    realm::{
+        processor::{ConcreteRealmProcessorContext, SyncCheckpointResult},
+        state::{
+            edge_queue_helper::RealmEdgeQueueHelper, processor::RealmConfig, processor_v2::RealmProcessorContextV2, queue_factory::QueueFactory,
+        },
+        RealmNodeConfig, RealmProcessor as RealmProcessorV1,
+    },
+};
 
 type C = PoseidonGoldilocksConfig;
 const D: usize = 2;
@@ -163,15 +170,10 @@ impl RealmProcessorV2 {
             config_path: self.config_path.clone(),
         })
     }
-    pub async fn new(
-        config: RealmNodeConfig
-    ) -> anyhow::Result<Self> {
+    pub async fn new(config: RealmNodeConfig) -> anyhow::Result<Self> {
         info!("Realm Processor V2 Config: {:?}", config);
 
-        let pool = new_redis_async_pool(
-            config.redis.redis_uri.as_str(),
-            config.redis.pool_size.unwrap_or(10)
-        ).await?;
+        let pool = new_redis_async_pool(config.redis.redis_uri.as_str(), config.redis.pool_size.unwrap_or(10)).await?;
 
         let task_store = QProvingTaskStoreImpl::new(
             &config.redis.redis_uri.as_str(),
@@ -180,10 +182,7 @@ impl RealmProcessorV2 {
         )
         .await?;
 
-        let realm_qps = ProofStoreRedisAsync::new(
-            &config.redis.redis_uri.as_str(),
-            config.queue.queue_biz_key,
-        ).await?;
+        let realm_qps = ProofStoreRedisAsync::new(&config.redis.redis_uri.as_str(), config.queue.queue_biz_key).await?;
 
         let store = QEDStore::new(&config.backend.to_backend()).await?;
         let proof_verifier = Arc::new(get_cached_generic_verifier::<C, D>());
@@ -195,7 +194,8 @@ impl RealmProcessorV2 {
             config.redis.pool_size.unwrap_or(10),
             config.realm.realm_id,
             Arc::new(store.clone()),
-        ).await?;
+        )
+        .await?;
 
         Ok(Self {
             realm_config,
@@ -209,7 +209,7 @@ impl RealmProcessorV2 {
         })
     }
 
-      pub async fn start(mut self) -> anyhow::Result<()> {
+    pub async fn start(mut self) -> anyhow::Result<()> {
         info!("Realm Processor V2 starting");
 
         self.initialize_store().await?;
@@ -218,7 +218,7 @@ impl RealmProcessorV2 {
             match self.process_block().await {
                 Err(err) if !err.to_string().contains("No user updates") => {
                     error!("Block processing failed: {:?}", err);
-                },
+                }
                 _ => {}
             }
 
@@ -232,21 +232,30 @@ impl RealmProcessorV2 {
         let now = Instant::now();
         debug!("1️⃣ Processing block: prepare_for_next_block");
         let current_unique_checkpoint = self.prepare_for_next_block().await?;
-        debug!("prepare_for_next_block cost time: {:?}, current_unique_checkpoint: {:?}", now.elapsed(), current_unique_checkpoint);
+        debug!(
+            "prepare_for_next_block cost time: {:?}, current_unique_checkpoint: {:?}",
+            now.elapsed(),
+            current_unique_checkpoint
+        );
 
         debug!("2️⃣ Processing block: build_block_delta");
         let delta = self.build_block_delta(current_unique_checkpoint, vec![]).await?;
-        debug!("build_block_delta cost time: {:?}, current_unique_checkpoint: {:?}", now.elapsed(), current_unique_checkpoint);
+        debug!(
+            "build_block_delta cost time: {:?}, current_unique_checkpoint: {:?}",
+            now.elapsed(),
+            current_unique_checkpoint
+        );
         debug!("3️⃣ Processing block: wait_for_inclusion");
         self.wait_for_inclusion(&delta).await?;
-        debug!("wait_for_inclusion cost time: {:?}, current_unique_checkpoint: {:?}", now.elapsed(), current_unique_checkpoint);
+        debug!(
+            "wait_for_inclusion cost time: {:?}, current_unique_checkpoint: {:?}",
+            now.elapsed(),
+            current_unique_checkpoint
+        );
         Ok(())
     }
 
-    async fn wait_for_inclusion(
-        &self,
-        delta: &RealmProcessorCombinedUpdate<F>,
-    ) -> anyhow::Result<()> {
+    async fn wait_for_inclusion(&self, delta: &RealmProcessorCombinedUpdate<F>) -> anyhow::Result<()> {
         self.save_update_delta_record(delta).await?;
         info!("💾 Saved delta record");
 
@@ -256,7 +265,9 @@ impl RealmProcessorV2 {
         self.propagate_update_delta_record_to_peers(delta).await?;
         info!("📡 Propagated delta record to peers");
 
-        self.proof_store.wait_for_block_proving_jobs_imm(delta.local_checkpoint_id, Some(Duration::from_millis(SLOT_SIZE))).await?;
+        self.proof_store
+            .wait_for_block_proving_jobs_imm(delta.local_checkpoint_id, Some(Duration::from_millis(SLOT_SIZE)))
+            .await?;
         info!("⏳ Waited for block proving jobs completion");
 
         let full_message_for_coordinator = RealmDataForCoordinator {
@@ -314,7 +325,11 @@ impl RealmProcessorV2 {
                 current_checkpoint_id
             );
             // TODO
-            let coordinator_update = match self.coordinator_client.wait_until_coordinator_completed(self.realm_config.realm_id as u64, expected_checkpoint_id).await {
+            let coordinator_update = match self
+                .coordinator_client
+                .wait_until_coordinator_completed(self.realm_config.realm_id as u64, expected_checkpoint_id)
+                .await
+            {
                 Ok(coordinator_update) => coordinator_update,
                 Err(e) => {
                     attempts += 1;
@@ -352,10 +367,8 @@ impl RealmProcessorV2 {
             "📊 Retrieved current state for final sync"
         );
 
-        self.sync_finalized_to_latest_checkpoint(
-            current_checkpoint_id,
-            current_realm_root,
-        ).await?;
+        self.sync_finalized_to_latest_checkpoint(current_checkpoint_id, current_realm_root)
+            .await?;
         info!("✅ Final sync completed");
 
         info!("✅ wait_for_inclusion completed successfully");
@@ -371,7 +384,8 @@ impl RealmProcessorV2 {
         let realm_id = self.realm_config.realm_id as u64;
         let mut tree_update_builder = SimpleTreeUpdateBuilder { updates: vec![] };
 
-        let updates: Vec<GenericTreeNodeUpdate<F>> = pending_users.iter()
+        let updates: Vec<GenericTreeNodeUpdate<F>> = pending_users
+            .iter()
             .map(|proof| {
                 let user_id = get_user_id_from_registration_id(proof.index);
                 let user_leaf = QEDUserLeaf {
@@ -400,7 +414,8 @@ impl RealmProcessorV2 {
             )
             .await?;
 
-        let regs: Vec<GUTARegisterUserFullInput<F>> = pending_users.iter()
+        let regs: Vec<GUTARegisterUserFullInput<F>> = pending_users
+            .iter()
             .zip(delta_proofs.iter())
             .map(|(registration_proof, delta_proof)| GUTARegisterUserFullInput {
                 user_registration_tree_merkle_proof: registration_proof.clone(),
@@ -445,7 +460,8 @@ impl RealmProcessorV2 {
         combined_update.header.start_realm_root = delta_proofs.first().unwrap().old_root;
         combined_update.header.guta_stats = guta_stats;
 
-        let user_leaves: Vec<QEDUserLeaf<F>> = pending_users.iter()
+        let user_leaves: Vec<QEDUserLeaf<F>> = pending_users
+            .iter()
             .map(|proof| {
                 let user_id = get_user_id_from_registration_id(proof.index);
                 QEDUserLeaf {
@@ -473,14 +489,16 @@ impl RealmProcessorV2 {
         tree_update_builder: &mut SimpleTreeUpdateBuilder<F>,
         existing_root_job_id: QProvingJobDataID,
     ) -> anyhow::Result<RealmProcessorCombinedUpdate<F>> {
-        use psy_crypto::common::user_id::get_user_id_from_registration_id;
-        use psy_data::guta::proof_input::{GUTAOnlyRegisterUsersInput, GUTARegisterUserFullInput, VerifyGUTARegisterUsersCircuitInputSimple};
-        use psy_data::guta::header::GlobalUserTreeAggregatorHeader;
-        use psy_crypto::hash::merkle::treeprover::data::CircuitInputWithDependencies;
+        use psy_crypto::{common::user_id::get_user_id_from_registration_id, hash::merkle::treeprover::data::CircuitInputWithDependencies};
+        use psy_data::guta::{
+            header::GlobalUserTreeAggregatorHeader,
+            proof_input::{GUTAOnlyRegisterUsersInput, GUTARegisterUserFullInput, VerifyGUTARegisterUsersCircuitInputSimple},
+        };
 
         let realm_id = self.realm_config.realm_id as u64;
 
-        let updates: Vec<GenericTreeNodeUpdate<F>> = pending_users.iter()
+        let updates: Vec<GenericTreeNodeUpdate<F>> = pending_users
+            .iter()
             .map(|proof| {
                 let user_id = get_user_id_from_registration_id(proof.index);
                 let user_leaf = QEDUserLeaf {
@@ -501,15 +519,11 @@ impl RealmProcessorV2 {
             .collect();
 
         let (_realm_root_update, delta_proofs) = self
-            .get_multiple_delta_merkle_proofs::<QEDHasher>(
-                tree_update_builder,
-                checkpoint_id,
-                updates,
-                None,
-            )
+            .get_multiple_delta_merkle_proofs::<QEDHasher>(tree_update_builder, checkpoint_id, updates, None)
             .await?;
 
-        let regs: Vec<GUTARegisterUserFullInput<F>> = pending_users.iter()
+        let regs: Vec<GUTARegisterUserFullInput<F>> = pending_users
+            .iter()
             .zip(delta_proofs.iter())
             .map(|(registration_proof, delta_proof)| GUTARegisterUserFullInput {
                 user_registration_tree_merkle_proof: registration_proof.clone(),
@@ -571,12 +585,10 @@ impl RealmProcessorV2 {
             },
         };
 
-        let bp = self.store.get_user_sub_tree_merkle_proof(
-            checkpoint_id ,
-            0,
-            self.realm_config.realm_root_level,
-            combined_update.realm_id,
-        ).await?;
+        let bp = self
+            .store
+            .get_user_sub_tree_merkle_proof(checkpoint_id, 0, self.realm_config.realm_root_level, combined_update.realm_id)
+            .await?;
         let top_line_siblings = bp.siblings;
 
         let input = VerifyGUTARegisterUsersCircuitInputSimple {
@@ -605,13 +617,16 @@ impl RealmProcessorV2 {
         self.proof_store
             .set_bytes_by_id(final_root_job_id.get_input_witness_id(), &bincode::serialize(&ww)?)
             .await?;
-        self.task_store.register_dependencies(final_root_job_id.get_output_id(), &ww.dependencies).await;
+        self.task_store
+            .register_dependencies(final_root_job_id.get_output_id(), &ww.dependencies)
+            .await;
 
         combined_update.root_job_id = final_root_job_id.get_output_id();
         combined_update.header.root_job_id = final_root_job_id;
         combined_update.header.end_realm_root = delta_proofs.last().unwrap().new_root;
 
-        let user_leaves: Vec<QEDUserLeaf<F>> = pending_users.iter()
+        let user_leaves: Vec<QEDUserLeaf<F>> = pending_users
+            .iter()
             .map(|proof| {
                 let user_id = get_user_id_from_registration_id(proof.index);
                 QEDUserLeaf {
@@ -648,10 +663,8 @@ impl RealmProcessorV2 {
         );
 
         info!("🔄 Starting sync_finalized_to_latest_checkpoint");
-        self.sync_finalized_to_latest_checkpoint(
-            current_checkpoint_id,
-            current_realm_root,
-        ).await?;
+        self.sync_finalized_to_latest_checkpoint(current_checkpoint_id, current_realm_root)
+            .await?;
         info!("✅ Completed sync_finalized_to_latest_checkpoint");
 
         let last_unique_queue = self.get_shared_queue_id().await?;
@@ -691,7 +704,8 @@ impl RealmProcessorV2 {
         match self.get_latest_checkpoint_id().await {
             Ok(id) => Ok(id),
             Err(e) if matches!(e.downcast_ref::<CheckpointError>(), Some(CheckpointError::NotFound)) => {
-                let updates = self.coordinator_client
+                let updates = self
+                    .coordinator_client
                     .get_latest_block_updates_from_coordinator(realm_id, 0, MAX_CHECKPOINT)
                     .await?;
 
@@ -737,7 +751,7 @@ impl RealmProcessorV2 {
             .get_user_bottom_tree_merkle_proof(
                 self.realm_config.realm_root_level,
                 current_checkpoint_id,
-                (self.realm_config.realm_id as u64) << (REALM_USER_TREE_HEIGHT as u64)
+                (self.realm_config.realm_id as u64) << (REALM_USER_TREE_HEIGHT as u64),
             )
             .await?
             .root;
@@ -776,9 +790,7 @@ impl RealmProcessorV2 {
         };
         info!("🏗️ Initialized combined_update structure");
 
-        let mut user_updates = self.edge_queue_helper
-            .dump_user_updates(unique_queue_id)
-            .await?;
+        let mut user_updates = self.edge_queue_helper.dump_user_updates(unique_queue_id).await?;
         info!(
             user_updates_count = user_updates.len(),
             pending_users_count = pending_users.len(),
@@ -789,30 +801,49 @@ impl RealmProcessorV2 {
 
         // update checkpoint tree merkle proof
         for user_update in user_updates.iter_mut() {
-            debug!("real_checkpoint_id: {}, current_checkpoint_id: {}",
-                real_checkpoint_id, current_checkpoint_id);
+            debug!(
+                "real_checkpoint_id: {}, current_checkpoint_id: {}",
+                real_checkpoint_id, current_checkpoint_id
+            );
 
             if user_update.misc_data.checkpoint_historical_merkle_proof.root != checkpoint_tree_root {
                 debug!("❗ Mismatch in checkpoint tree root, updating merkle proof");
-                warn!("checkpoint_id: {}, user_update checkpoint tree root: {}, store checkpoint tree root: {}",
-                    current_checkpoint_id, user_update.misc_data.checkpoint_historical_merkle_proof.root,
-                    checkpoint_tree_root);
+                warn!(
+                    "checkpoint_id: {}, user_update checkpoint tree root: {}, store checkpoint tree root: {}",
+                    current_checkpoint_id, user_update.misc_data.checkpoint_historical_merkle_proof.root, checkpoint_tree_root
+                );
 
                 let endcap_checkpoint_id = user_update.misc_data.checkpoint_historical_merkle_proof.index;
-                let checkpoint_tree_proof = self.store.get_checkpoint_tree_merkle_proof(real_checkpoint_id, endcap_checkpoint_id).await?;
+                let checkpoint_tree_proof = self
+                    .store
+                    .get_checkpoint_tree_merkle_proof(real_checkpoint_id, endcap_checkpoint_id)
+                    .await?;
 
-                let (user_computed_historical_root, user_computed_current_root) = compute_historical_and_current_merkle_roots_core_gt::<QHashOut<F>, QEDHasher>(&checkpoint_tree_proof);
-                ensure!(user_computed_current_root == checkpoint_tree_proof.root,
+                let (user_computed_historical_root, user_computed_current_root) =
+                    compute_historical_and_current_merkle_roots_core_gt::<QHashOut<F>, QEDHasher>(&checkpoint_tree_proof);
+                ensure!(
+                    user_computed_current_root == checkpoint_tree_proof.root,
                     "checkpoint_id: {}, user_update computed root: {}, store checkpoint tree root: {}",
-                    current_checkpoint_id, user_computed_current_root, checkpoint_tree_proof.root);
+                    current_checkpoint_id,
+                    user_computed_current_root,
+                    checkpoint_tree_proof.root
+                );
 
-                ensure!(user_computed_current_root == checkpoint_tree_root,
+                ensure!(
+                    user_computed_current_root == checkpoint_tree_root,
                     "checkpoint_id: {}, user_update checkpoint tree root: {}, store checkpoint tree root: {}",
-                    current_checkpoint_id, user_computed_current_root, checkpoint_tree_root);
+                    current_checkpoint_id,
+                    user_computed_current_root,
+                    checkpoint_tree_root
+                );
 
-                ensure!(user_computed_historical_root == user_update.misc_data.checkpoint_root,
+                ensure!(
+                    user_computed_historical_root == user_update.misc_data.checkpoint_root,
                     "checkpoint_id: {}, user_update checkpoint tree root hash: {}, store checkpoint tree root hash: {}",
-                    current_checkpoint_id, user_computed_historical_root, user_update.misc_data.checkpoint_root);
+                    current_checkpoint_id,
+                    user_computed_historical_root,
+                    user_update.misc_data.checkpoint_root
+                );
 
                 user_update.misc_data.checkpoint_historical_merkle_proof = checkpoint_tree_proof;
             }
@@ -824,7 +855,9 @@ impl RealmProcessorV2 {
                 return Ok(combined_update);
             } else {
                 info!("👥 Case: No user updates but has pending users - handling only pending users");
-                return self.handle_only_pending_users(current_checkpoint_id, pending_users, combined_update).await;
+                return self
+                    .handle_only_pending_users(current_checkpoint_id, pending_users, combined_update)
+                    .await;
             }
         }
         // TODO-PERF: do we need to do .to_canonical_u64()?
@@ -836,7 +869,7 @@ impl RealmProcessorV2 {
         });
         info!("🔄 Sorted user updates by user_id");
 
-        let mut guta_agg_header =  GlobalUserTreeAggregatorHeader {
+        let mut guta_agg_header = GlobalUserTreeAggregatorHeader {
             guta_circuit_whitelist: self.realm_config.guta_circuit_whitelist,
             checkpoint_tree_root: self.store.get_checkpoint_tree_root(current_checkpoint_id).await?,
             state_transition: SubTreeNodeStateTransition {
@@ -1021,7 +1054,10 @@ impl RealmProcessorV2 {
             guta_agg_header.stats = input.input.a_end_cap.guta_stats.combine_with(&input.input.b_end_cap.guta_stats);
             info!("✅ Two user case completed");
         } else {
-            info!("🔢 Case: Multiple user updates ({}) - processing with GUTA tree aggregation", user_updates.len());
+            info!(
+                "🔢 Case: Multiple user updates ({}) - processing with GUTA tree aggregation",
+                user_updates.len()
+            );
             let has_odd_end_caps = user_updates.len() % 2 == 1;
             let odd_proofs = if has_odd_end_caps { Some(user_updates.last().unwrap()) } else { None };
             info!(
@@ -1131,7 +1167,10 @@ impl RealmProcessorV2 {
                 guta_records.push(combo);
                 info!("✅ Completed pair {} processing", i + 1);
             }
-            info!("✅ Completed initial pairwise GUTA processing, created {} GUTA records", guta_records.len());
+            info!(
+                "✅ Completed initial pairwise GUTA processing, created {} GUTA records",
+                guta_records.len()
+            );
 
             info!("🏗️ Starting GUTA tree aggregation from {} records", guta_records.len());
             let mut aggregation_level = 1;
@@ -1204,7 +1243,9 @@ impl RealmProcessorV2 {
                     self.proof_store
                         .set_bytes_by_id(w_id.get_input_witness_id(), &bincode::serialize(&input)?)
                         .await?;
-                    self.task_store.register_dependencies(w_id.get_output_id(), &[left_value.proof_id, right_value.proof_id]).await;
+                    self.task_store
+                        .register_dependencies(w_id.get_output_id(), &[left_value.proof_id, right_value.proof_id])
+                        .await;
 
                     let combo = GUTAStatsWithProofId {
                         proof_id: w_id.get_output_id(),
@@ -1225,10 +1266,16 @@ impl RealmProcessorV2 {
                     info!("↗️ Added odd record back to next level");
                 }
                 aggregation_level += 1;
-                info!("✅ Completed aggregation level {}, {} records remaining", aggregation_level - 1, guta_records.len());
+                info!(
+                    "✅ Completed aggregation level {}, {} records remaining",
+                    aggregation_level - 1,
+                    guta_records.len()
+                );
             }
-            info!("🎯 GUTA tree aggregation completed, final record: level={}, index={}",
-                guta_records[0].merkle_key.level, guta_records[0].merkle_key.index);
+            info!(
+                "🎯 GUTA tree aggregation completed, final record: level={}, index={}",
+                guta_records[0].merkle_key.level, guta_records[0].merkle_key.index
+            );
 
             if odd_proofs.is_some() {
                 info!("🔄 Processing final odd proof with last GUTA record");
@@ -1282,14 +1329,16 @@ impl RealmProcessorV2 {
                         },
                         checkpoint_tree_root: last_guta_left.checkpoint_root,
                         stats_a: last_guta_left.guta_stats,
-                        b_end_cap: odd_proof_right.misc_data.clone()
+                        b_end_cap: odd_proof_right.misc_data.clone(),
                     },
                     dependencies: vec![last_guta_left.proof_id, odd_proof_right.proof_id],
                 };
                 self.proof_store
                     .set_bytes_by_id(w_id.get_input_witness_id(), &bincode::serialize(&input)?)
                     .await?;
-                self.task_store.register_dependencies(w_id.get_output_id(), &[last_guta_left.proof_id]).await;
+                self.task_store
+                    .register_dependencies(w_id.get_output_id(), &[last_guta_left.proof_id])
+                    .await;
 
                 let combo = GUTAStatsWithProofId {
                     proof_id: w_id.get_output_id(),
@@ -1342,13 +1391,15 @@ impl RealmProcessorV2 {
         if pending_users.len() > 0 {
             info!("👥 Processing pending users with existing jobs");
             let current_root_job_id = combined_update.root_job_id;
-            combined_update = self.handle_pending_users_with_existing_jobs(
+            combined_update = self
+                .handle_pending_users_with_existing_jobs(
                     current_checkpoint_id,
                     pending_users,
                     combined_update,
                     &mut tree_update_builder,
-                current_root_job_id
-            ).await?;
+                    current_root_job_id,
+                )
+                .await?;
             info!("✅ Completed pending users processing");
         }
 
@@ -1378,7 +1429,8 @@ impl RealmProcessorV2 {
                 )
                 .await?;
 
-            let top_line_siblings_len = (guta_agg_header.state_transition.node_level.to_canonical_u64() - COORDINATOR_USER_TREE_HEIGHT as u64) as usize;
+            let top_line_siblings_len =
+                (guta_agg_header.state_transition.node_level.to_canonical_u64() - COORDINATOR_USER_TREE_HEIGHT as u64) as usize;
 
             let good_sibs = bp.siblings[(bp.siblings.len() - top_line_siblings_len)..].to_vec();
 
@@ -1424,15 +1476,12 @@ impl RealmProcessorV2 {
         Ok(combined_update)
     }
 
-    async fn sync_global_block_updates_only(
-        &self,
-        from_checkpoint: u64,
-        to_checkpoint: u64,
-    ) -> anyhow::Result<()> {
+    async fn sync_global_block_updates_only(&self, from_checkpoint: u64, to_checkpoint: u64) -> anyhow::Result<()> {
         if from_checkpoint == to_checkpoint {
             return Ok(());
         }
-        let updates = self.coordinator_client
+        let updates = self
+            .coordinator_client
             .get_latest_block_updates_from_coordinator(self.realm_config.realm_id as u64, from_checkpoint, to_checkpoint)
             .await?;
         for update in updates.iter() {
@@ -1442,16 +1491,16 @@ impl RealmProcessorV2 {
     }
 
     async fn sync_realm_deltas_and_block_updates(
-       &self,
+        &self,
         from_realm_root: QHashOut<F>,
         to_realm_root: QHashOut<F>,
         from_checkpoint: u64,
         to_checkpoint: u64,
     ) -> anyhow::Result<()> {
         let realm_id = self.realm_config.realm_id as u64;
-        let deltas = self.sync_latest_realm_deltas_from_peers(realm_id, from_realm_root, to_realm_root)
-            .await?;
-        let updates = self.coordinator_client
+        let deltas = self.sync_latest_realm_deltas_from_peers(realm_id, from_realm_root, to_realm_root).await?;
+        let updates = self
+            .coordinator_client
             .get_latest_block_updates_from_coordinator(realm_id, from_checkpoint, to_checkpoint)
             .await?;
 
@@ -1473,11 +1522,7 @@ impl RealmProcessorV2 {
         Ok(())
     }
 
-    async fn sync_finalized_to_latest_checkpoint(
-        &self,
-        from_checkpoint: u64,
-        from_realm_root: QHashOut<F>,
-    ) -> anyhow::Result<()> {
+    async fn sync_finalized_to_latest_checkpoint(&self, from_checkpoint: u64, from_realm_root: QHashOut<F>) -> anyhow::Result<()> {
         let realm_id = self.realm_config.realm_id as u64;
         info!(
             realm_id = realm_id,
@@ -1486,13 +1531,11 @@ impl RealmProcessorV2 {
             "🔄 Starting sync_finalized_to_latest_checkpoint"
         );
 
-        let updates = self.coordinator_client
+        let updates = self
+            .coordinator_client
             .get_latest_block_updates_from_coordinator(realm_id, from_checkpoint, MAX_CHECKPOINT)
             .await?;
-        info!(
-            updates_count = updates.len(),
-            "📥 Retrieved block updates from coordinator"
-        );
+        info!(updates_count = updates.len(), "📥 Retrieved block updates from coordinator");
 
         if updates.len() <= 1 {
             info!("⏭️ No updates to sync (updates.len() <= 1), skipping");
@@ -1505,7 +1548,11 @@ impl RealmProcessorV2 {
                 expected_from_realm_root = %serde_json::to_string_pretty(&from_realm_root).unwrap(),
                 "❌ First update realm_root mismatch"
             );
-            anyhow::bail!("First update realm_root {} does not match from_realm_root {}", updates[0].realm_root, from_realm_root);
+            anyhow::bail!(
+                "First update realm_root {} does not match from_realm_root {}",
+                updates[0].realm_root,
+                from_realm_root
+            );
         }
         info!("✅ Validated first update realm_root matches from_realm_root");
 
@@ -1537,7 +1584,11 @@ impl RealmProcessorV2 {
                         checkpoint_id = checkpoint_id,
                         "❌ Missing delta record"
                     );
-                    anyhow::bail!("Missing delta record for realm_root {} at checkpoint {}", update.realm_root, checkpoint_id);
+                    anyhow::bail!(
+                        "Missing delta record for realm_root {} at checkpoint {}",
+                        update.realm_root,
+                        checkpoint_id
+                    );
                 }
             } else {
                 info!("➡️ Realm root unchanged, applying only global block update");
@@ -1552,10 +1603,7 @@ impl RealmProcessorV2 {
         Ok(())
     }
 
-    async fn process_genesis_user_states(
-        &self,
-        genesis_config: &GenesisConfig<F>,
-    ) -> anyhow::Result<()> {
+    async fn process_genesis_user_states(&self, genesis_config: &GenesisConfig<F>) -> anyhow::Result<()> {
         let realm_id = self.realm_config.realm_id as u64;
         tracing::info!("Processing genesis state for realm {}", realm_id);
 
@@ -1575,7 +1623,9 @@ impl RealmProcessorV2 {
                     }
 
                     if !contract_slots.is_empty() {
-                        user_contract_states.entry(user_id).or_insert_with(HashMap::new)
+                        user_contract_states
+                            .entry(user_id)
+                            .or_insert_with(HashMap::new)
                             .insert(*contract_id, contract_slots);
                     }
                 }
@@ -1593,15 +1643,16 @@ impl RealmProcessorV2 {
             for (contract_id, slots) in contracts {
                 let mut contract_state_root = QEDHasher::get_zero_hash(MAX_CONTRACT_STATE_TREE_HEIGHT.into());
                 for (slot_id, slot_value) in slots {
-                    contract_state_root = self.store.set_user_state_tree_leaf_hash(0, user_id, contract_id as u32, MAX_CONTRACT_STATE_TREE_HEIGHT, slot_id, slot_value)?.new_root;
+                    contract_state_root = self
+                        .store
+                        .set_user_state_tree_leaf_hash(0, user_id, contract_id as u32, MAX_CONTRACT_STATE_TREE_HEIGHT, slot_id, slot_value)?
+                        .new_root;
                 }
 
-                user_contract_tree_root = self.store.set_user_contract_tree_leaf_hash(
-                    0,
-                    user_id,
-                    contract_id as u32,
-                    contract_state_root,
-                )?.new_root;
+                user_contract_tree_root = self
+                    .store
+                    .set_user_contract_tree_leaf_hash(0, user_id, contract_id as u32, contract_state_root)?
+                    .new_root;
             }
 
             let user_leaf = QEDUserLeaf {
@@ -1616,7 +1667,8 @@ impl RealmProcessorV2 {
 
             let user_leaf_hash = user_leaf.qfhash::<QEDHasher>();
 
-            self.store.set_user_leaf_data(0, &user_leaf)
+            self.store
+                .set_user_leaf_data(0, &user_leaf)
                 .map_err(|e| anyhow::anyhow!("Failed to set user leaf data for user {}: {}", user_id, e))?;
 
             let realm_update = QMerkleNode {
@@ -1628,17 +1680,22 @@ impl RealmProcessorV2 {
             };
             realm_updates.push(realm_update);
 
-            tracing::info!("✅ Genesis state set for user {} with UCT root {} (realm {})",
-                  user_id, user_contract_tree_root, realm_id);
+            tracing::info!(
+                "✅ Genesis state set for user {} with UCT root {} (realm {})",
+                user_id,
+                user_contract_tree_root,
+                realm_id
+            );
         }
 
-        self.store.injest_user_tree_nodes_imm(0, COORDINATOR_USER_TREE_HEIGHT, &realm_updates).await?;
+        self.store
+            .injest_user_tree_nodes_imm(0, COORDINATOR_USER_TREE_HEIGHT, &realm_updates)
+            .await?;
 
         tracing::info!("Genesis state initialization completed for realm {}", realm_id);
 
         Ok(())
     }
-
 }
 
 #[async_trait]
@@ -1650,7 +1707,9 @@ impl GlobalUserTreeMerkleReader<F> for RealmProcessorV2 {
         from_index: u64,
         to_level: u8,
     ) -> anyhow::Result<(u64, MerkleProofCore<QHashOut<F>>)> {
-        self.store.get_sub_tree_merkle_proof::<H>(checkpoint_id, from_level, from_index, to_level).await
+        self.store
+            .get_sub_tree_merkle_proof::<H>(checkpoint_id, from_level, from_index, to_level)
+            .await
     }
 
     async fn resolve_delta_merkle_proofs_for_nca<H: MerkleHasher<QHashOut<F>>>(
@@ -1660,8 +1719,14 @@ impl GlobalUserTreeMerkleReader<F> for RealmProcessorV2 {
         left_node: GenericTreeNodeUpdate<F>,
         right_node: GenericTreeNodeUpdate<F>,
         to_level: u8,
-    ) -> anyhow::Result<(GenericTreeNodeUpdate<F>, DeltaMerkleProofCore<QHashOut<F>>, DeltaMerkleProofCore<QHashOut<F>>)> {
-        self.store.resolve_delta_merkle_proofs_for_nca::<H>(tree_update_builder, checkpoint_id, left_node, right_node, to_level).await
+    ) -> anyhow::Result<(
+        GenericTreeNodeUpdate<F>,
+        DeltaMerkleProofCore<QHashOut<F>>,
+        DeltaMerkleProofCore<QHashOut<F>>,
+    )> {
+        self.store
+            .resolve_delta_merkle_proofs_for_nca::<H>(tree_update_builder, checkpoint_id, left_node, right_node, to_level)
+            .await
     }
 
     async fn get_multiple_delta_merkle_proofs<H: MerkleHasher<QHashOut<F>>>(
@@ -1671,7 +1736,9 @@ impl GlobalUserTreeMerkleReader<F> for RealmProcessorV2 {
         updates: Vec<GenericTreeNodeUpdate<F>>,
         to_level: Option<u8>,
     ) -> anyhow::Result<(GenericTreeNodeUpdate<F>, Vec<DeltaMerkleProofCore<QHashOut<F>>>)> {
-        self.store.get_multiple_delta_merkle_proofs::<H>(tree_update_builder, checkpoint_id, updates, to_level).await
+        self.store
+            .get_multiple_delta_merkle_proofs::<H>(tree_update_builder, checkpoint_id, updates, to_level)
+            .await
     }
 }
 
@@ -1683,10 +1750,7 @@ impl RealmProcessorStateClient<F> for RealmProcessorV2 {
 
     async fn get_shared_queue_id(&self) -> anyhow::Result<UniqueQueueId> {
         if let Some((uuid, checkpoint_id, _info)) = StagingCheckpointInfoStore::<QEDStore>::get_latest_checkpoint_info_with_uuid(&self.store)? {
-            Ok(UniqueQueueId {
-                id: checkpoint_id,
-                uuid,
-            })
+            Ok(UniqueQueueId { id: checkpoint_id, uuid })
         } else {
             anyhow::bail!("No staging checkpoint info found")
         }
@@ -1697,7 +1761,11 @@ impl RealmProcessorStateClient<F> for RealmProcessorV2 {
         Ok(())
     }
 
-    async fn load_update_delta_records(&self, _realm_id: u64, target_realm_root: QHashOut<F>) -> anyhow::Result<Option<RealmProcessorCombinedUpdate<F>>> {
+    async fn load_update_delta_records(
+        &self,
+        _realm_id: u64,
+        target_realm_root: QHashOut<F>,
+    ) -> anyhow::Result<Option<RealmProcessorCombinedUpdate<F>>> {
         let records = StagingDeltaRecordStore::<QEDStore>::get_delta_records_for_realm_root(&self.store, target_realm_root)?;
         if records.is_empty() {
             Ok(None)
@@ -1714,11 +1782,20 @@ impl RealmProcessorStateClient<F> for RealmProcessorV2 {
         Ok(())
     }
 
-    async fn sync_latest_realm_deltas_from_peers(&self, _realm_id: u64, _from_realm_root: QHashOut<F>, _to_realm_root: QHashOut<F>) -> anyhow::Result<Vec<RealmProcessorCombinedUpdate<F>>> {
+    async fn sync_latest_realm_deltas_from_peers(
+        &self,
+        _realm_id: u64,
+        _from_realm_root: QHashOut<F>,
+        _to_realm_root: QHashOut<F>,
+    ) -> anyhow::Result<Vec<RealmProcessorCombinedUpdate<F>>> {
         Ok(vec![])
     }
 
-    async fn apply_realm_deltas(&self, delta: &RealmProcessorCombinedUpdate<F>, global_block_update: &GlobalBlockUpdateFromCoordinator<F>) -> anyhow::Result<()> {
+    async fn apply_realm_deltas(
+        &self,
+        delta: &RealmProcessorCombinedUpdate<F>,
+        global_block_update: &GlobalBlockUpdateFromCoordinator<F>,
+    ) -> anyhow::Result<()> {
         let canonical_checkpoint_id = global_block_update.compact.l2_block_state.checkpoint_id;
 
         info!(
@@ -1729,13 +1806,13 @@ impl RealmProcessorStateClient<F> for RealmProcessorV2 {
             "🚀 Starting apply_realm_deltas"
         );
 
-        debug!(
-            user_updates_count = delta.updated_users.len(),
-            "📝 Ingesting user leaves batch"
-        );
-        self.store.injest_user_leaves_batch_imm(canonical_checkpoint_id, &delta.updated_users).await?;
+        debug!(user_updates_count = delta.updated_users.len(), "📝 Ingesting user leaves batch");
+        self.store
+            .injest_user_leaves_batch_imm(canonical_checkpoint_id, &delta.updated_users)
+            .await?;
 
-        let user_tree_nodes: Vec<QMerkleNode<F>> = delta.updated_users
+        let user_tree_nodes: Vec<QMerkleNode<F>> = delta
+            .updated_users
             .iter()
             .map(|update| {
                 trace!(
@@ -1758,14 +1835,17 @@ impl RealmProcessorStateClient<F> for RealmProcessorV2 {
             coordinator_tree_height = COORDINATOR_USER_TREE_HEIGHT,
             "🌲 Ingesting user tree nodes"
         );
-        self.store.injest_user_tree_nodes_imm(canonical_checkpoint_id, COORDINATOR_USER_TREE_HEIGHT, &user_tree_nodes).await?;
+        self.store
+            .injest_user_tree_nodes_imm(canonical_checkpoint_id, COORDINATOR_USER_TREE_HEIGHT, &user_tree_nodes)
+            .await?;
 
         debug!(
             contract_state_updates_count = delta.contract_state_tree_updates.len(),
             "📊 Processing contract state tree updates"
         );
 
-        let contract_state_nodes: Vec<_> = delta.contract_state_tree_updates
+        let contract_state_nodes: Vec<_> = delta
+            .contract_state_tree_updates
             .iter()
             .enumerate()
             .map(|(i, update)| {
@@ -1807,7 +1887,8 @@ impl RealmProcessorStateClient<F> for RealmProcessorV2 {
             "👤 Processing user contract tree updates"
         );
 
-        let user_contract_nodes: Vec<_> = delta.user_contract_tree_updates
+        let user_contract_nodes: Vec<_> = delta
+            .user_contract_tree_updates
             .iter()
             .enumerate()
             .map(|(i, update)| {
@@ -1821,7 +1902,12 @@ impl RealmProcessorStateClient<F> for RealmProcessorV2 {
                 );
 
                 KVQPair {
-                    key: UserContractTreeStore::<QEDStore>::new_node_key_sfc(canonical_checkpoint_id, update.user_id, update.level, update.index as u64),
+                    key: UserContractTreeStore::<QEDStore>::new_node_key_sfc(
+                        canonical_checkpoint_id,
+                        update.user_id,
+                        update.level,
+                        update.index as u64,
+                    ),
                     value: update.new_value,
                 }
             })
@@ -1871,7 +1957,8 @@ impl RealmProcessorStateClient<F> for RealmProcessorV2 {
 
     async fn apply_only_global_block_update_dangerous(&self, global_block_update: &GlobalBlockUpdateFromCoordinator<F>) -> anyhow::Result<()> {
         let merkle_proofs = global_block_update.compact.get_registered_user_merkle_proofs::<QEDHasher>();
-        let start_registration_user_id = global_block_update.compact.l2_block_state.next_user_id - (global_block_update.compact.registered_users.len() as u64);
+        let start_registration_user_id =
+            global_block_update.compact.l2_block_state.next_user_id - (global_block_update.compact.registered_users.len() as u64);
         let realm_users: Vec<_> = merkle_proofs
             .into_iter()
             .enumerate()
@@ -1887,7 +1974,11 @@ impl RealmProcessorStateClient<F> for RealmProcessorV2 {
             .collect();
 
         if !realm_users.is_empty() {
-            tracing::info!("Adding {} new pending users to edge queue for realm {}", realm_users.len(), self.realm_config.realm_id);
+            tracing::info!(
+                "Adding {} new pending users to edge queue for realm {}",
+                realm_users.len(),
+                self.realm_config.realm_id
+            );
         }
 
         let sync_info = global_block_update.compact.clone().to_sync_info::<QEDHasher>();
@@ -1897,7 +1988,8 @@ impl RealmProcessorStateClient<F> for RealmProcessorV2 {
 
     async fn apply_only_realm_deltas_dangerous(&self, delta: &RealmProcessorCombinedUpdate<F>) -> anyhow::Result<()> {
         self.store.injest_user_leaves_batch_imm(delta.queue_id, &delta.updated_users).await?;
-        let user_tree_nodes: Vec<QMerkleNode<F>> = delta.updated_users
+        let user_tree_nodes: Vec<QMerkleNode<F>> = delta
+            .updated_users
             .iter()
             .map(|update| QMerkleNode {
                 key: SimpleMerkleNodeKey {
@@ -1907,7 +1999,9 @@ impl RealmProcessorStateClient<F> for RealmProcessorV2 {
                 value: update.qfhash::<QEDHasher>(),
             })
             .collect();
-        self.store.injest_user_tree_nodes_imm(delta.queue_id, COORDINATOR_USER_TREE_HEIGHT, &user_tree_nodes).await?;
+        self.store
+            .injest_user_tree_nodes_imm(delta.queue_id, COORDINATOR_USER_TREE_HEIGHT, &user_tree_nodes)
+            .await?;
 
         for update in &delta.contract_state_tree_updates {
             let nodes = vec![KVQPair {
@@ -1949,14 +2043,13 @@ impl RealmProcessorStateClient<F> for RealmProcessorV2 {
             .get_user_bottom_tree_merkle_proof(
                 self.realm_config.realm_root_level,
                 checkpoint_id,
-                (self.realm_config.realm_id as u64) << (REALM_USER_TREE_HEIGHT as u64)
+                (self.realm_config.realm_id as u64) << (REALM_USER_TREE_HEIGHT as u64),
             )
             .await?
             .root;
 
         Ok((checkpoint_id, realm_root))
     }
-
 }
 
 impl Retryable for RealmProcessorV2 {}

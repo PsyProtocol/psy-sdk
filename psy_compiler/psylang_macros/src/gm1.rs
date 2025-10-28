@@ -1,11 +1,9 @@
 use quote::{ToTokens, TokenStreamExt};
-
 use syn::{
     fold::{self, Fold},
     parse_quote,
     punctuated::Punctuated,
-    Attribute, BinOp, Block, Expr, ExprBinary, ExprBlock, ExprIf, ExprMethodCall, ImplItem,
-    ImplItemFn, Item, ItemImpl, Local, Stmt, Token,
+    Attribute, BinOp, Block, Expr, ExprBinary, ExprBlock, ExprIf, ExprMethodCall, ImplItem, ImplItemFn, Item, ItemImpl, Local, Stmt, Token,
 };
 
 fn ctx_bin_op(op: &ExprBinary) -> Expr {
@@ -293,10 +291,7 @@ impl Fold for RewriterVisitor {
                 let mut new_args = Vec::new();
 
                 for (i, arg) in args.iter().enumerate() {
-                    let tmp_ident = syn::Ident::new(
-                        &format!("tmp_arg_{}", i),
-                        proc_macro2::Span::call_site().into(),
-                    );
+                    let tmp_ident = syn::Ident::new(&format!("tmp_arg_{}", i), proc_macro2::Span::call_site().into());
                     let stmt: Stmt = parse_quote! {
                         let #tmp_ident = (#arg);
                     };
@@ -311,12 +306,11 @@ impl Fold for RewriterVisitor {
                         }
                         stmts.push(stmt);
                         new_args.push(tmp_ident);
-
                     } else {
                         stmts.push(stmt);
                         new_args.push(tmp_ident);
                     }
-                    /* 
+                    /*
                     if let Expr::Path(x) = arg.clone() {
                         if x.path.segments.len() == 1 {
                             let seg = x.path.segments.first().unwrap();

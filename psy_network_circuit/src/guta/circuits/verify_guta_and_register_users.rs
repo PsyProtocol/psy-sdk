@@ -1,26 +1,45 @@
 use async_trait::async_trait;
 use plonky2::{
-    gates::{constant::ConstantGate, gate::GateRef}, hash::hash_types::{HashOut, HashOutTarget}, iop::
-        witness::{PartialWitness, WitnessWrite}, plonk::{
+    field::types::Field,
+    gates::{constant::ConstantGate, gate::GateRef},
+    hash::hash_types::{HashOut, HashOutTarget},
+    iop::witness::{PartialWitness, WitnessWrite},
+    plonk::{
         circuit_builder::CircuitBuilder,
         circuit_data::{CircuitConfig, CircuitData, CommonCircuitData, VerifierOnlyCircuitData},
         config::{AlgebraicHasher, GenericConfig},
         proof::ProofWithPublicInputs,
-    }, field::types::Field
+    },
 };
 use psy_common_circuit::{
-    builder::{comparison::CircuitBuilderComparison, hash::core::CircuitBuilderHashCore, pad_circuit::pad_circuit_degree}, circuits::traits::qstandard::{ QStandardCircuit, QStandardCircuitProvableWithProofStoreAndRefLibraryAsync}, proof_minifier::
-        pm_core::get_circuit_fingerprint_generic, traits::ToTargets
+    builder::{comparison::CircuitBuilderComparison, hash::core::CircuitBuilderHashCore, pad_circuit::pad_circuit_degree},
+    circuits::traits::qstandard::{QStandardCircuit, QStandardCircuitProvableWithProofStoreAndRefLibraryAsync},
+    proof_minifier::pm_core::get_circuit_fingerprint_generic,
+    traits::ToTargets,
 };
-use psy_core::{config::network_constants::{DEFAULT_USER_STATE_TREE_ROOT_U64, GLOBAL_USER_TREE_HEIGHT}, data::qhashout::QHashOut, job::{id::QProvingJobDataID, traits::QProofStoreReaderAsync}};
-use psy_crypto::{common::circuit_library::CircuitInfoLibrary, hash::{merkle::{core::MerkleProofCore, treeprover::data::CircuitInputWithDependencies}, traits::hasher::MerkleZeroHasher}};
-use psy_data::guta::{header::GlobalUserTreeAggregatorHeader, proof_input::{GUTARegisterUserFullInput, VerifyGUTARegisterUsersCircuitInputSimple}};
+use psy_core::{
+    config::network_constants::{DEFAULT_USER_STATE_TREE_ROOT_U64, GLOBAL_USER_TREE_HEIGHT},
+    data::qhashout::QHashOut,
+    job::{id::QProvingJobDataID, traits::QProofStoreReaderAsync},
+};
+use psy_crypto::{
+    common::circuit_library::CircuitInfoLibrary,
+    hash::{
+        merkle::{core::MerkleProofCore, treeprover::data::CircuitInputWithDependencies},
+        traits::hasher::MerkleZeroHasher,
+    },
+};
+use psy_data::guta::{
+    header::GlobalUserTreeAggregatorHeader,
+    proof_input::{GUTARegisterUserFullInput, VerifyGUTARegisterUsersCircuitInputSimple},
+};
 
-use crate::{guta::gadgets::guta_register_users_batch::GUTARegisterUsersBatchGadget, gadgets::qdata::pm_jobs_completed_stats::PMJobsCompletedStatsGadget};
+use crate::{
+    gadgets::qdata::pm_jobs_completed_stats::PMJobsCompletedStatsGadget, guta::gadgets::guta_register_users_batch::GUTARegisterUsersBatchGadget,
+};
 
 #[derive(Debug)]
-pub struct GUTAVerifyGUTARegisterUsersCircuit<C: GenericConfig<D>, const D: usize>
-{
+pub struct GUTAVerifyGUTARegisterUsersCircuit<C: GenericConfig<D>, const D: usize> {
     pub register_batch_gadget: GUTARegisterUsersBatchGadget<D>,
     pub worker_public_key_target: HashOutTarget,
     pub pm_jobs_completed: PMJobsCompletedStatsGadget,
@@ -31,18 +50,16 @@ pub struct GUTAVerifyGUTARegisterUsersCircuit<C: GenericConfig<D>, const D: usiz
 
 impl<C: GenericConfig<D>, const D: usize> GUTAVerifyGUTARegisterUsersCircuit<C, D>
 where
-    C::Hasher:AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> {
-        pub fn new(
-            guta_proof_common_data: &CommonCircuitData<C::F, D>,
-            guta_proof_verifier_data_cap_height: usize,
-            max_users: usize,
-            global_user_tree_realm_height: usize,
-        ) -> Self {
-
-
+    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>>,
+{
+    pub fn new(
+        guta_proof_common_data: &CommonCircuitData<C::F, D>,
+        guta_proof_verifier_data_cap_height: usize,
+        max_users: usize,
+        global_user_tree_realm_height: usize,
+    ) -> Self {
         let config = CircuitConfig::standard_recursion_config();
         let mut builder = CircuitBuilder::<C::F, D>::new(config);
-
 
         let default_user_state_tree_root = QHashOut::from_values(
             DEFAULT_USER_STATE_TREE_ROOT_U64[0],
@@ -50,7 +67,6 @@ where
             DEFAULT_USER_STATE_TREE_ROOT_U64[2],
             DEFAULT_USER_STATE_TREE_ROOT_U64[3],
         );
-
 
         let register_batch_gadget = GUTARegisterUsersBatchGadget::<D>::add_virtual_to::<C, C::F>(
             &mut builder,
@@ -72,25 +88,69 @@ where
 
         let child_commitment = HashOutTarget {
             elements: [
-                register_batch_gadget.verify_to_line_gadget.verify_guta_proof_gadget.proof_target.public_inputs[0],
-                register_batch_gadget.verify_to_line_gadget.verify_guta_proof_gadget.proof_target.public_inputs[1],
-                register_batch_gadget.verify_to_line_gadget.verify_guta_proof_gadget.proof_target.public_inputs[2],
-                register_batch_gadget.verify_to_line_gadget.verify_guta_proof_gadget.proof_target.public_inputs[3],
-            ]
+                register_batch_gadget
+                    .verify_to_line_gadget
+                    .verify_guta_proof_gadget
+                    .proof_target
+                    .public_inputs[0],
+                register_batch_gadget
+                    .verify_to_line_gadget
+                    .verify_guta_proof_gadget
+                    .proof_target
+                    .public_inputs[1],
+                register_batch_gadget
+                    .verify_to_line_gadget
+                    .verify_guta_proof_gadget
+                    .proof_target
+                    .public_inputs[2],
+                register_batch_gadget
+                    .verify_to_line_gadget
+                    .verify_guta_proof_gadget
+                    .proof_target
+                    .public_inputs[3],
+            ],
         };
         let child_worker_public_key = HashOutTarget {
             elements: [
-                register_batch_gadget.verify_to_line_gadget.verify_guta_proof_gadget.proof_target.public_inputs[4],
-                register_batch_gadget.verify_to_line_gadget.verify_guta_proof_gadget.proof_target.public_inputs[5],
-                register_batch_gadget.verify_to_line_gadget.verify_guta_proof_gadget.proof_target.public_inputs[6],
-                register_batch_gadget.verify_to_line_gadget.verify_guta_proof_gadget.proof_target.public_inputs[7],
-            ]
+                register_batch_gadget
+                    .verify_to_line_gadget
+                    .verify_guta_proof_gadget
+                    .proof_target
+                    .public_inputs[4],
+                register_batch_gadget
+                    .verify_to_line_gadget
+                    .verify_guta_proof_gadget
+                    .proof_target
+                    .public_inputs[5],
+                register_batch_gadget
+                    .verify_to_line_gadget
+                    .verify_guta_proof_gadget
+                    .proof_target
+                    .public_inputs[6],
+                register_batch_gadget
+                    .verify_to_line_gadget
+                    .verify_guta_proof_gadget
+                    .proof_target
+                    .public_inputs[7],
+            ],
         };
 
         let child_pm_jobs_completed = [
-            register_batch_gadget.verify_to_line_gadget.verify_guta_proof_gadget.proof_target.public_inputs[8],
-            register_batch_gadget.verify_to_line_gadget.verify_guta_proof_gadget.proof_target.public_inputs[9],
-            register_batch_gadget.verify_to_line_gadget.verify_guta_proof_gadget.proof_target.public_inputs[10],
+            register_batch_gadget
+                .verify_to_line_gadget
+                .verify_guta_proof_gadget
+                .proof_target
+                .public_inputs[8],
+            register_batch_gadget
+                .verify_to_line_gadget
+                .verify_guta_proof_gadget
+                .proof_target
+                .public_inputs[9],
+            register_batch_gadget
+                .verify_to_line_gadget
+                .verify_guta_proof_gadget
+                .proof_target
+                .public_inputs[10],
         ];
 
         let one = builder.one();
@@ -113,9 +173,7 @@ where
         builder.add_gate_to_gate_set(GateRef::new(ConstantGate::new(builder.config.num_constants)));
         let circuit_data = builder.build::<C>();
 
-        let fingerprint = QHashOut(get_circuit_fingerprint_generic(
-            &circuit_data.verifier_only,
-        ));
+        let fingerprint = QHashOut(get_circuit_fingerprint_generic(&circuit_data.verifier_only));
 
         Self {
             circuit_data,
@@ -140,14 +198,12 @@ where
 
         pw.set_hash_target(self.worker_public_key_target, worker_public_key.0)?;
 
-
         let default_user_state_tree_root = QHashOut::from_values(
             DEFAULT_USER_STATE_TREE_ROOT_U64[0],
             DEFAULT_USER_STATE_TREE_ROOT_U64[1],
             DEFAULT_USER_STATE_TREE_ROOT_U64[2],
             DEFAULT_USER_STATE_TREE_ROOT_U64[3],
         );
-
 
         self.register_batch_gadget.set_witness_params(
             &mut pw,
@@ -157,18 +213,16 @@ where
             verifier_data,
             top_line_siblings,
             guta_register_user_inputs,
-            default_user_state_tree_root
+            default_user_state_tree_root,
         )?;
 
         self.circuit_data.prove(pw)
     }
 }
 
-
-impl<C: GenericConfig<D>, const D: usize> QStandardCircuit<C, D>
-    for GUTAVerifyGUTARegisterUsersCircuit<C, D>
+impl<C: GenericConfig<D>, const D: usize> QStandardCircuit<C, D> for GUTAVerifyGUTARegisterUsersCircuit<C, D>
 where
-    C::Hasher:AlgebraicHasher<C::F>,
+    C::Hasher: AlgebraicHasher<C::F>,
 {
     fn get_fingerprint(&self) -> QHashOut<C::F> {
         self.fingerprint
@@ -183,16 +237,9 @@ where
     }
 }
 
-
-
 #[async_trait]
-impl<
-        S: QProofStoreReaderAsync + Send + Sync,
-        L: CircuitInfoLibrary<C, D> + Send + Sync,
-        C: GenericConfig<D> + 'static,
-        const D: usize,
-    > QStandardCircuitProvableWithProofStoreAndRefLibraryAsync<S, L, C, D>
-    for GUTAVerifyGUTARegisterUsersCircuit<C, D>
+impl<S: QProofStoreReaderAsync + Send + Sync, L: CircuitInfoLibrary<C, D> + Send + Sync, C: GenericConfig<D> + 'static, const D: usize>
+    QStandardCircuitProvableWithProofStoreAndRefLibraryAsync<S, L, C, D> for GUTAVerifyGUTARegisterUsersCircuit<C, D>
 where
     C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>>,
 {
@@ -204,8 +251,7 @@ where
         worker_public_key: QHashOut<C::F>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         let r: CircuitInputWithDependencies<VerifyGUTARegisterUsersCircuitInputSimple<C::F>> =
-            bincode::deserialize(&store.get_bytes_by_id(job_id.get_input_witness_id()).await?)
-                .map_err(|e| anyhow::anyhow!(e))?;
+            bincode::deserialize(&store.get_bytes_by_id(job_id.get_input_witness_id()).await?).map_err(|e| anyhow::anyhow!(e))?;
         tracing::debug!("GUTAVerifyGUTARegisterUsersInput: {}", serde_json::to_string_pretty(&r)?);
 
         if r.dependencies.len() != 1 {
@@ -217,8 +263,7 @@ where
         let dep_a_type = r.dependencies[0].circuit_type;
 
         let child_a_verifier_data = library.get_verifier_data(dep_a_type)?;
-        let guta_inclusion_proof_a =
-            library.get_group_inclusion_proof(job_id.circuit_type, dep_a_type)?;
+        let guta_inclusion_proof_a = library.get_group_inclusion_proof(job_id.circuit_type, dep_a_type)?;
 
         let result = self.prove_base(
             worker_public_key,

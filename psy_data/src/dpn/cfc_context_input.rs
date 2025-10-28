@@ -1,5 +1,3 @@
-
-
 use kvq::traits::KVQSerializable;
 use plonky2::{field::goldilocks_field::GoldilocksField, hash::hash_types::RichField};
 use psy_core::data::qhashout::QHashOut;
@@ -7,10 +5,11 @@ use psy_crypto::hash::traits::{hasher::FieldQHasher, qhashable::QFieldHashable};
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
-use crate::qdata::{checkpoint::{QEDCheckpointGlobalStateRoots, QEDCheckpointLeaf}, user::QEDUserLeaf};
-
 use super::proving_session::DPNProvingSessionCompactMethodCall;
-
+use crate::qdata::{
+    checkpoint::{QEDCheckpointGlobalStateRoots, QEDCheckpointLeaf},
+    user::QEDUserLeaf,
+};
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Copy, Default, TS)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
@@ -23,18 +22,15 @@ pub struct DapenCFCProvingSessionStartContext<F: RichField> {
     pub start_session_user_leaf: QEDUserLeaf<F>,
 }
 
-
 impl<F: RichField> QFieldHashable<F> for DapenCFCProvingSessionStartContext<F> {
     fn qfhash<H: FieldQHasher<F>>(&self) -> QHashOut<F> {
-
         let checkpoint_leaf_hash = self.checkpoint_leaf.qfhash::<H>();
         let checkpoint_combo = H::q_two_to_one(self.checkpoint_tree_root, checkpoint_leaf_hash);
         let user_leaf_hash = self.start_session_user_leaf.qfhash::<H>();
 
-        let checkpoint_user_combo  = H::q_two_to_one(checkpoint_combo, user_leaf_hash);
+        let checkpoint_user_combo = H::q_two_to_one(checkpoint_combo, user_leaf_hash);
         H::q_hash_many(&[
             self.checkpoint_id,
-
             checkpoint_user_combo.0.elements[0],
             checkpoint_user_combo.0.elements[1],
             checkpoint_user_combo.0.elements[2],
@@ -42,7 +38,6 @@ impl<F: RichField> QFieldHashable<F> for DapenCFCProvingSessionStartContext<F> {
         ])
     }
 }
-
 
 impl<F: RichField> KVQSerializable for DapenCFCProvingSessionStartContext<F> {
     fn to_bytes(&self) -> anyhow::Result<Vec<u8>> {
@@ -53,10 +48,6 @@ impl<F: RichField> KVQSerializable for DapenCFCProvingSessionStartContext<F> {
         bincode::deserialize(bytes).map_err(|e| anyhow::anyhow!(e))
     }
 }
-
-
-
-
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Copy, Default, TS)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
@@ -74,10 +65,8 @@ pub struct DapenCFCUserTransactionCallStartContext<F: RichField> {
     pub start_user_event_index: F,
 }
 
-
 impl<F: RichField> QFieldHashable<F> for DapenCFCUserTransactionCallStartContext<F> {
     fn qfhash<H: FieldQHasher<F>>(&self) -> QHashOut<F> {
-
         let uct_cst_combo = H::q_two_to_one(self.start_user_contract_tree_root, self.start_contract_state_tree_root);
 
         let debt_combo = self.start_deferred_tx_debt_tree_root;
@@ -88,19 +77,15 @@ impl<F: RichField> QFieldHashable<F> for DapenCFCUserTransactionCallStartContext
         let state_call_combo = H::q_two_to_one(uct_cst_combo, call_data_debt_combo);
 
         H::q_hash_many(&[
-
             state_call_combo.0.elements[0],
             state_call_combo.0.elements[1],
             state_call_combo.0.elements[2],
             state_call_combo.0.elements[3],
-
-
             self.start_user_balance,
             self.start_user_event_index,
         ])
     }
 }
-
 
 impl<F: RichField> KVQSerializable for DapenCFCUserTransactionCallStartContext<F> {
     fn to_bytes(&self) -> anyhow::Result<Vec<u8>> {
@@ -111,7 +96,6 @@ impl<F: RichField> KVQSerializable for DapenCFCUserTransactionCallStartContext<F
         bincode::deserialize(bytes).map_err(|e| anyhow::anyhow!(e))
     }
 }
-
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Copy, Default, TS)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
@@ -126,14 +110,11 @@ pub struct DapenCFCUserTransactionEndContext<F: RichField> {
     pub total_balance_spent: F,
 }
 
-
 impl<F: RichField> QFieldHashable<F> for DapenCFCUserTransactionEndContext<F> {
     fn qfhash<H: FieldQHasher<F>>(&self) -> QHashOut<F> {
-
         let debt_combo = self.end_deferred_tx_debt_tree_root;
 
         let state_debt_combo = H::q_two_to_one(self.end_contract_state_tree_root, debt_combo);
-
 
         let output_info_hash = H::q_hash_many(&[
             self.outputs_hash.0.elements[0],
@@ -149,7 +130,6 @@ impl<F: RichField> QFieldHashable<F> for DapenCFCUserTransactionEndContext<F> {
     }
 }
 
-
 impl<F: RichField> KVQSerializable for DapenCFCUserTransactionEndContext<F> {
     fn to_bytes(&self) -> anyhow::Result<Vec<u8>> {
         bincode::serialize(self).map_err(|e| anyhow::anyhow!(e))
@@ -160,9 +140,6 @@ impl<F: RichField> KVQSerializable for DapenCFCUserTransactionEndContext<F> {
     }
 }
 
-
-
-
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Copy, Default, TS)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
 #[ts(export, concrete(F = GoldilocksField))]
@@ -172,12 +149,10 @@ pub struct DapenCFCUserTransactionInputContext<F: RichField> {
     pub transaction_end_ctx: DapenCFCUserTransactionEndContext<F>,
 }
 
-
 impl<F: RichField> QFieldHashable<F> for DapenCFCUserTransactionInputContext<F> {
     fn qfhash<H: FieldQHasher<F>>(&self) -> QHashOut<F> {
-
         let proving_session_start_ctx_hash = self.proving_session_start_ctx.qfhash::<H>();
-        
+
         let transaction_call_start_ctx_hash = self.transaction_call_start_ctx.qfhash::<H>();
         let transaction_end_ctx_hash = self.transaction_end_ctx.qfhash::<H>();
         let tx_start_end_combo = H::q_two_to_one(transaction_call_start_ctx_hash, transaction_end_ctx_hash);
@@ -188,7 +163,6 @@ impl<F: RichField> QFieldHashable<F> for DapenCFCUserTransactionInputContext<F> 
     }
 }
 
-
 impl<F: RichField> KVQSerializable for DapenCFCUserTransactionInputContext<F> {
     fn to_bytes(&self) -> anyhow::Result<Vec<u8>> {
         bincode::serialize(self).map_err(|e| anyhow::anyhow!(e))
@@ -198,8 +172,3 @@ impl<F: RichField> KVQSerializable for DapenCFCUserTransactionInputContext<F> {
         bincode::deserialize(bytes).map_err(|e| anyhow::anyhow!(e))
     }
 }
-
-
-
-
-

@@ -1,23 +1,24 @@
 pub mod prove_proxy;
 
-use std::sync::Arc;
-use std::time::Duration;
-use parking_lot::{RwLock, Mutex};
-use jsonrpsee::core::async_trait;
-use jsonrpsee::proc_macros::rpc;
-use jsonrpsee::types::{ErrorObject, ErrorObjectOwned};
+use std::{sync::Arc, time::Duration};
 
-use plonky2::field::goldilocks_field::GoldilocksField;
-use plonky2::plonk::config::PoseidonGoldilocksConfig;
-use tokio::time::timeout;
+use jsonrpsee::{
+    core::async_trait,
+    proc_macros::rpc,
+    types::{ErrorObject, ErrorObjectOwned},
+};
+use parking_lot::{Mutex, RwLock};
+use plonky2::{field::goldilocks_field::GoldilocksField, plonk::config::PoseidonGoldilocksConfig};
 use psy_core::data::qhashout::QHashOut;
 use psy_crypto::signature::zk::data::ZKPublicKeyInfo;
 use psy_data::qblock::cmds::deploy_contract::QBCDeployContract;
 use psy_vm::dpn::vm::def::DPNFunctionCircuitDefinition;
-use crate::session::{WalletKeyPair, WalletSession};
-use crate::local::store::UserProverWorkerStore;
-use crate::local::args::ContractCallArgs;
-use crate::local::provider::RpcProvider;
+use tokio::time::timeout;
+
+use crate::{
+    local::{args::ContractCallArgs, provider::RpcProvider, store::UserProverWorkerStore},
+    session::{WalletKeyPair, WalletSession},
+};
 
 type C = PoseidonGoldilocksConfig;
 type F = GoldilocksField;
@@ -27,25 +28,13 @@ const D: usize = 2;
 pub trait Rpc {
     /// local proving operation
     #[method(name = "exec_contract_call")]
-    async fn exec_contract_call(
-        &self,
-        public_key: QHashOut<F>,
-        contract_call_args: Vec<ContractCallArgs>,
-    ) -> Result<String, ErrorObjectOwned>;
+    async fn exec_contract_call(&self, public_key: QHashOut<F>, contract_call_args: Vec<ContractCallArgs>) -> Result<String, ErrorObjectOwned>;
     #[method(name = "start_session")]
     async fn start_session(&self, public_key: QHashOut<F>) -> Result<String, ErrorObjectOwned>;
     #[method(name = "prove_contract_call")]
-    async fn prove_contract_call(
-        &self,
-        public_key: QHashOut<F>,
-        contract_call_arg: ContractCallArgs,
-    ) -> Result<String, ErrorObjectOwned>;
+    async fn prove_contract_call(&self, public_key: QHashOut<F>, contract_call_arg: ContractCallArgs) -> Result<String, ErrorObjectOwned>;
     #[method(name = "prove_contract_calls")]
-    async fn prove_contract_calls(
-        &self,
-        public_key: QHashOut<F>,
-        contract_call_args: Vec<ContractCallArgs>,
-    ) -> Result<String, ErrorObjectOwned>;
+    async fn prove_contract_calls(&self, public_key: QHashOut<F>, contract_call_args: Vec<ContractCallArgs>) -> Result<String, ErrorObjectOwned>;
     #[method(name = "sign_and_submit")]
     async fn sign_and_submit(&self, public_key: QHashOut<F>) -> Result<String, ErrorObjectOwned>;
     #[method(name = "register_user")]
@@ -57,11 +46,7 @@ pub trait Rpc {
     #[method(name = "get_random_keypair")]
     async fn get_random_keypair(&self) -> Result<WalletKeyPair, ErrorObjectOwned>;
     #[method(name = "deploy_contract")]
-    async fn deploy_contract(
-        &self,
-        deployer: QHashOut<F>,
-        circuit_defs: Vec<DPNFunctionCircuitDefinition>,
-    ) -> Result<String, ErrorObjectOwned>;
+    async fn deploy_contract(&self, deployer: QHashOut<F>, circuit_defs: Vec<DPNFunctionCircuitDefinition>) -> Result<String, ErrorObjectOwned>;
     #[method(name = "get_deploy_contract_cmd")]
     async fn get_deploy_contract_cmd(
         &self,
@@ -78,27 +63,18 @@ pub struct RpcServerImpl {
 }
 
 impl RpcServerImpl {
-    pub fn new(
-        wallet_session: Arc<RwLock<WalletSession>>,
-    ) -> Self {
-        Self {
-            wallet_session,
-        }
+    pub fn new(wallet_session: Arc<RwLock<WalletSession>>) -> Self {
+        Self { wallet_session }
     }
 
     pub fn rpc_provider(&self) -> RpcProvider {
         self.wallet_session.read().st_provider.clone()
     }
-
 }
 
 #[async_trait]
 impl RpcServer for RpcServerImpl {
-    async fn exec_contract_call(
-        &self,
-        public_key: QHashOut<F>,
-        contract_call_args: Vec<ContractCallArgs>,
-    ) -> Result<String, ErrorObjectOwned> {
+    async fn exec_contract_call(&self, public_key: QHashOut<F>, contract_call_args: Vec<ContractCallArgs>) -> Result<String, ErrorObjectOwned> {
         todo!("exec_contract_call");
     }
 
@@ -106,19 +82,11 @@ impl RpcServer for RpcServerImpl {
         todo!("start_session")
     }
 
-    async fn prove_contract_call(
-        &self,
-        public_key: QHashOut<F>,
-        contract_call_arg: ContractCallArgs,
-    ) -> Result<String, ErrorObjectOwned> {
+    async fn prove_contract_call(&self, public_key: QHashOut<F>, contract_call_arg: ContractCallArgs) -> Result<String, ErrorObjectOwned> {
         todo!("prove contract call")
     }
 
-    async fn prove_contract_calls(
-        &self,
-        public_key: QHashOut<F>,
-        contract_call_args: Vec<ContractCallArgs>,
-    ) -> Result<String, ErrorObjectOwned> {
+    async fn prove_contract_calls(&self, public_key: QHashOut<F>, contract_call_args: Vec<ContractCallArgs>) -> Result<String, ErrorObjectOwned> {
         todo!("prove contract calls")
     }
 
@@ -139,14 +107,10 @@ impl RpcServer for RpcServerImpl {
     }
 
     async fn get_random_keypair(&self) -> Result<WalletKeyPair, ErrorObjectOwned> {
-        todo!("get_random_keypair") 
+        todo!("get_random_keypair")
     }
 
-    async fn deploy_contract(
-        &self,
-        deployer: QHashOut<F>,
-        circuit_defs: Vec<DPNFunctionCircuitDefinition>,
-    ) -> Result<String, ErrorObjectOwned> {
+    async fn deploy_contract(&self, deployer: QHashOut<F>, circuit_defs: Vec<DPNFunctionCircuitDefinition>) -> Result<String, ErrorObjectOwned> {
         todo!("deploy_contract")
     }
 
@@ -155,6 +119,6 @@ impl RpcServer for RpcServerImpl {
         deployer: QHashOut<F>,
         circuit_defs: Vec<DPNFunctionCircuitDefinition>,
     ) -> Result<QBCDeployContract<F>, ErrorObjectOwned> {
-       todo!("get_deploy_contract_cmd")
+        todo!("get_deploy_contract_cmd")
     }
 }

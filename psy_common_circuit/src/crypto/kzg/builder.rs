@@ -1,3 +1,5 @@
+use std::marker::PhantomData;
+
 use plonky2::{
     field::{
         extension::Extendable,
@@ -8,43 +10,36 @@ use plonky2::{
     plonk::circuit_builder::CircuitBuilder,
 };
 
-use crate::crypto::bn254::{
-    curve::{g2::G2, G1},
-    field::{
-        bn128_base::Bn128Base, bn128_scalar::Bn128Scalar, extension::quadratic::QuadraticExtension,
-    },
-    gadgets::{
-        g1::{CircuitBuilderG1, G1AffineTarget},
-        g2::{CircuitBuilderG2, G2AffineTarget},
-        nonnative_fp::{CircuitBuilderNonNative, NonNativeTarget},
-        nonnative_fp12::{CircuitBuilderNonNativeExt12, NonNativeTargetExt12},
-        nonnative_fp2::CircuitBuilderNonNativeExt2,
-        nonnative_fp6::{CircuitBuilderNonNativeExt6, NonNativeTargetExt6},
-        pairing::{AffinePointTargetG2, CircuitBuilderCurveG2, CircuitBuilderPairing},
-        windowed_mul::CircuitBuilderWindowedMul,
-    },
-};
-
-use std::marker::PhantomData;
-
-use crate::crypto::secp256k1::ecdsa::curve::curve_types::{AffinePoint, Curve};
-use crate::crypto::secp256k1::ecdsa::gadgets::curve::{AffinePointTarget, CircuitBuilderCurve};
-
 use super::{
     commitment::KZGCommitmentTarget,
     fft::{CircuitBuilderFFT, FFTSettingsTarget},
     proof::KZGProofTarget,
 };
-
+use crate::crypto::{
+    bn254::{
+        curve::{g2::G2, G1},
+        field::{bn128_base::Bn128Base, bn128_scalar::Bn128Scalar, extension::quadratic::QuadraticExtension},
+        gadgets::{
+            g1::{CircuitBuilderG1, G1AffineTarget},
+            g2::{CircuitBuilderG2, G2AffineTarget},
+            nonnative_fp::{CircuitBuilderNonNative, NonNativeTarget},
+            nonnative_fp12::{CircuitBuilderNonNativeExt12, NonNativeTargetExt12},
+            nonnative_fp2::CircuitBuilderNonNativeExt2,
+            nonnative_fp6::{CircuitBuilderNonNativeExt6, NonNativeTargetExt6},
+            pairing::{AffinePointTargetG2, CircuitBuilderCurveG2, CircuitBuilderPairing},
+            windowed_mul::CircuitBuilderWindowedMul,
+        },
+    },
+    secp256k1::ecdsa::{
+        curve::curve_types::{AffinePoint, Curve},
+        gadgets::curve::{AffinePointTarget, CircuitBuilderCurve},
+    },
+};
 
 pub trait CircuitBuilderKZG<F: RichField + Extendable<D>, const D: usize> {
     /// Commit to polynomial in evaluation form
     /// C = Σ(y_i * L_i(τ) * G)
-    fn kzg_commit(
-        &mut self,
-        evaluations: &[NonNativeTarget<Bn128Scalar>],
-        lagrange_g1: &[G1AffineTarget<F, D>],
-    ) -> KZGCommitmentTarget<F, D>;
+    fn kzg_commit(&mut self, evaluations: &[NonNativeTarget<Bn128Scalar>], lagrange_g1: &[G1AffineTarget<F, D>]) -> KZGCommitmentTarget<F, D>;
 
     /// Create opening proof from evaluation form
     /// π = [Σ(q_i * L_i(τ))]G where q_i = (y_i - p(z))/(ω^i - z)
@@ -81,7 +76,8 @@ pub trait CircuitBuilderKZG<F: RichField + Extendable<D>, const D: usize> {
 
 pub trait CircuitBuilderKZGHelpers<F: RichField + Extendable<D>, const D: usize> {
     /// Evaluate polynomial at a point given evaluations at roots of unity
-    /// Uses barycentric Lagrange interpolation: p(z) = (z^n - 1)/n * Σ(y_i / (z - ω^i))
+    /// Uses barycentric Lagrange interpolation: p(z) = (z^n - 1)/n * Σ(y_i / (z
+    /// - ω^i))
     fn kzg_evaluate_at_point(
         &mut self,
         evaluations: &[NonNativeTarget<Bn128Scalar>],
@@ -108,10 +104,7 @@ pub trait CircuitBuilderKZGHelpers<F: RichField + Extendable<D>, const D: usize>
     ) -> NonNativeTarget<Bn128Scalar>;
 
     /// Batch inverse: (1/a_0, 1/a_1, ..., 1/a_n)
-    fn kzg_batch_inverse(
-        &mut self,
-        elements: &[NonNativeTarget<Bn128Scalar>],
-    ) -> Vec<NonNativeTarget<Bn128Scalar>>;
+    fn kzg_batch_inverse(&mut self, elements: &[NonNativeTarget<Bn128Scalar>]) -> Vec<NonNativeTarget<Bn128Scalar>>;
 
     /// G1 point at infinity
     fn g1_infinity(&mut self) -> G1AffineTarget<F, D>;
@@ -128,23 +121,14 @@ pub trait CircuitBuilderKZGHelpers<F: RichField + Extendable<D>, const D: usize>
     ) -> Vec<NonNativeTarget<Bn128Scalar>>;
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderKZG<F, D>
-    for CircuitBuilder<F, D>
-{
-    fn kzg_commit(
-        &mut self,
-        evaluations: &[NonNativeTarget<Bn128Scalar>],
-        lagrange_g1: &[G1AffineTarget<F, D>],
-    ) -> KZGCommitmentTarget<F, D> {
+impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderKZG<F, D> for CircuitBuilder<F, D> {
+    fn kzg_commit(&mut self, evaluations: &[NonNativeTarget<Bn128Scalar>], lagrange_g1: &[G1AffineTarget<F, D>]) -> KZGCommitmentTarget<F, D> {
         assert_eq!(
             evaluations.len(),
             lagrange_g1.len(),
             "Evaluations and Lagrange G1 points must have the same length"
         );
-        assert!(
-            !evaluations.is_empty(),
-            "Cannot commit to empty polynomial"
-        );
+        assert!(!evaluations.is_empty(), "Cannot commit to empty polynomial");
 
         // C = Σ(y_i * L_i(τ) * G) = MSM(lagrange_g1, evaluations)
         let commitment = self.g1_msm(lagrange_g1, evaluations);
@@ -163,12 +147,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderKZG<F, D>
         let eval_at_point = self.lagrange_interpolate_at_point(evaluations, point, fft_settings);
 
         // q_i = (y_i - p(z))/(ω^i - z)
-        let quotient_evals = self.kzg_compute_quotient_polynomial(
-            evaluations,
-            point,
-            &eval_at_point,
-            fft_settings,
-        );
+        let quotient_evals = self.kzg_compute_quotient_polynomial(evaluations, point, &eval_at_point, fft_settings);
 
         // π = Σ(q_i * L_i(τ) * G)
         let proof_commitment = self.kzg_commit(&quotient_evals, lagrange_g1);
@@ -191,7 +170,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderKZG<F, D>
     ) -> BoolTarget {
         // Use rust-kzg's exact formula: e(C - yG, H) = e(π, (τ - z)H)
         // This matches the pairings_verify call in rust-kzg
-        
+
         let g1_gen = self.g1_generator();
         let g2_gen = self.constant_affine_point_g2::<G2, Bn128Base>(G2::GENERATOR_AFFINE);
 
@@ -210,7 +189,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderKZG<F, D>
             _phantom: PhantomData,
         };
         let z_h = self.curve_scalar_mul_windowed_g2(&g2_gen_windowed, point);
-        
+
         let z_h_pairing = AffinePointTargetG2 {
             x: z_h.x.clone(),
             y: z_h.y.clone(),
@@ -246,13 +225,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderKZG<F, D>
         }
 
         if commitments.len() == 1 {
-            return self.kzg_verify(
-                &commitments[0],
-                &points[0],
-                &evaluations[0],
-                &proofs[0],
-                g2_tau,
-            );
+            return self.kzg_verify(&commitments[0], &points[0], &evaluations[0], &proofs[0], g2_tau);
         }
 
         // Compute random challenge r
@@ -321,9 +294,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderKZG<F, D>
     }
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderKZGHelpers<F, D>
-    for CircuitBuilder<F, D>
-{
+impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderKZGHelpers<F, D> for CircuitBuilder<F, D> {
     fn kzg_evaluate_at_point(
         &mut self,
         evaluations: &[NonNativeTarget<Bn128Scalar>],
@@ -346,13 +317,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderKZGHelpers<F, D
         let mut proofs = Vec::new();
 
         for (evals, point) in evaluations_list.iter().zip(points.iter()) {
-            let (eval, proof) = CircuitBuilderKZG::kzg_create_opening_proof(
-                self, 
-                evals, 
-                point, 
-                lagrange_g1,
-                fft_settings
-            );
+            let (eval, proof) = CircuitBuilderKZG::kzg_create_opening_proof(self, evals, point, lagrange_g1, fft_settings);
             evaluations.push(eval);
             proofs.push(proof);
         }
@@ -371,7 +336,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderKZGHelpers<F, D
 
         let mut inputs = Vec::new();
 
-        // r = Hash(len || C_0 || z_0 || y_0 || π_0 || ... || C_n || z_n || y_n || π_n) mod p
+        // r = Hash(len || C_0 || z_0 || y_0 || π_0 || ... || C_n || z_n || y_n || π_n)
+        // mod p
         inputs.push(self.constant(F::from_canonical_usize(commitments.len())));
 
         for i in 0..commitments.len() {
@@ -406,8 +372,10 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderKZGHelpers<F, D
 
         // Convert hash to nonnative scalar
         // Use hash elements as U32 limbs for BigUint, then convert to nonnative
-        use crate::u32::gadgets::arithmetic_u32::{CircuitBuilderU32, U32Target};
-        use crate::crypto::secp256k1::ecdsa::gadgets::biguint::{BigUintTarget, CircuitBuilderBiguint};
+        use crate::{
+            crypto::secp256k1::ecdsa::gadgets::biguint::{BigUintTarget, CircuitBuilderBiguint},
+            u32::gadgets::arithmetic_u32::{CircuitBuilderU32, U32Target},
+        };
 
         let mut u32_limbs = Vec::new();
         for i in 0..hash.elements.len().min(8) {
@@ -425,10 +393,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderKZGHelpers<F, D
         self.biguint_to_nonnative(&reduced)
     }
 
-    fn kzg_batch_inverse(
-        &mut self,
-        elements: &[NonNativeTarget<Bn128Scalar>],
-    ) -> Vec<NonNativeTarget<Bn128Scalar>> {
+    fn kzg_batch_inverse(&mut self, elements: &[NonNativeTarget<Bn128Scalar>]) -> Vec<NonNativeTarget<Bn128Scalar>> {
         if elements.is_empty() {
             return vec![];
         }
@@ -476,7 +441,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderKZGHelpers<F, D
             _phantom: PhantomData,
         }
     }
-
 
     fn kzg_compute_quotient_polynomial(
         &mut self,

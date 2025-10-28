@@ -1,10 +1,6 @@
-use psy_ast::{
-    DefId, DefaultVisitorContext, FunctionNode, Program, StructNode, Visibility, VisitorContext,
-};
+use psy_ast::{DefId, DefaultVisitorContext, FunctionNode, Program, StructNode, Visibility, VisitorContext};
 
-use crate::{
-    FieldAbiSpec, FunctionAbiSpec, ParamAbiSpec, SpecCompliantAbi, StructAbiSpec, TypeAbiSpec,
-};
+use crate::{FieldAbiSpec, FunctionAbiSpec, ParamAbiSpec, SpecCompliantAbi, StructAbiSpec, TypeAbiSpec};
 
 pub struct AbiExtractor {
     pub contract_name: String,
@@ -58,7 +54,8 @@ impl AbiExtractor {
                     functions: None,
                 };
 
-                // Find associated functions (only for contracts or when functions are explicitly associated)
+                // Find associated functions (only for contracts or when functions are
+                // explicitly associated)
                 let functions = self.find_impl_functions(&struct_name, &ctx);
                 if !functions.is_empty() {
                     struct_spec.functions = Some(functions);
@@ -100,22 +97,14 @@ impl AbiExtractor {
         matches!(function_name, "new" | "get" | "set")
     }
 
-    fn has_contract_attr<F: Clone + From<u32>>(
-        &self,
-        struct_node: &StructNode,
-        ctx: &DefaultVisitorContext<F, ()>,
-    ) -> bool {
+    fn has_contract_attr<F: Clone + From<u32>>(&self, struct_node: &StructNode, ctx: &DefaultVisitorContext<F, ()>) -> bool {
         struct_node.attrs.iter().any(|attr| {
             let attr_name = ctx.ident(attr.name).0.as_str();
             attr_name == "contract" || attr_name == "storage"
         })
     }
 
-    fn find_impl_functions<F: Clone + From<u32>>(
-        &self,
-        struct_name: &str,
-        ctx: &DefaultVisitorContext<F, ()>,
-    ) -> Vec<FunctionAbiSpec> {
+    fn find_impl_functions<F: Clone + From<u32>>(&self, struct_name: &str, ctx: &DefaultVisitorContext<F, ()>) -> Vec<FunctionAbiSpec> {
         let mut functions = Vec::new();
 
         // Look for impl blocks that implement this struct
@@ -124,17 +113,14 @@ impl AbiExtractor {
             if let Some(impl_node) = ctx.definition(def_id).as_impl() {
                 // Check if this impl is for our target struct or its Ref version
                 let impl_type_name = self.extract_type_name(&impl_node.ty, ctx);
-                if impl_type_name == struct_name || impl_type_name == format!("{}Ref", struct_name)
-                {
+                if impl_type_name == struct_name || impl_type_name == format!("{}Ref", struct_name) {
                     // Extract functions from this impl block
                     for &function_def_id in &impl_node.body {
                         if let Some(function) = ctx.definition(function_def_id).as_function() {
                             let function_name = ctx.ident(function.name).0.to_string();
 
                             // Skip internal functions and only include public functions
-                            if Self::is_public(&function.visibility)
-                                && !self.is_internal_function(&function_name)
-                            {
+                            if Self::is_public(&function.visibility) && !self.is_internal_function(&function_name) {
                                 let function_spec = self.extract_function_abi_spec(function, ctx);
                                 functions.push(function_spec);
                             }
@@ -147,11 +133,7 @@ impl AbiExtractor {
         functions
     }
 
-    fn extract_type_name<F: Clone + From<u32>>(
-        &self,
-        unchecked_type: &psy_ast::UncheckedType,
-        ctx: &DefaultVisitorContext<F, ()>,
-    ) -> String {
+    fn extract_type_name<F: Clone + From<u32>>(&self, unchecked_type: &psy_ast::UncheckedType, ctx: &DefaultVisitorContext<F, ()>) -> String {
         match unchecked_type {
             psy_ast::UncheckedType::Basic(identifier) => ctx.ident(*identifier).0.to_string(),
             psy_ast::UncheckedType::Path(path) => self.extract_type_name(&path.target, ctx),
@@ -159,11 +141,7 @@ impl AbiExtractor {
         }
     }
 
-    fn extract_function_abi_spec<F: Clone + From<u32>>(
-        &self,
-        function: &FunctionNode,
-        ctx: &DefaultVisitorContext<F, ()>,
-    ) -> FunctionAbiSpec {
+    fn extract_function_abi_spec<F: Clone + From<u32>>(&self, function: &FunctionNode, ctx: &DefaultVisitorContext<F, ()>) -> FunctionAbiSpec {
         let params = function
             .parameters
             .iter()

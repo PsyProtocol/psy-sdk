@@ -1,55 +1,40 @@
-use psy_core::data::qhashout::QHashOut;
 use hashbrown::HashMap;
 use plonky2::plonk::{
     circuit_data::{CommonCircuitData, VerifierOnlyCircuitData},
     config::{AlgebraicHasher, GenericConfig},
     proof::ProofWithPublicInputs,
 };
+use psy_core::data::qhashout::QHashOut;
 use psy_crypto::signature::zk::wallet::SimpleL2PrivateKey;
 
 use crate::circuits::{
     traits::qstandard::QStandardCircuit,
-    zk_signature::{
-        fixed_public_key::ZKSignatureCircuitSimpleFixedPublicKey, inner::ZKSignatureCircuitInner,
-    },
+    zk_signature::{fixed_public_key::ZKSignatureCircuitSimpleFixedPublicKey, inner::ZKSignatureCircuitInner},
     zk_signature_wrapper::ZKSignatureWrapperCircuit,
 };
 
 #[derive(Debug)]
 pub struct SimpleZKSignatureWalletKey<C: GenericConfig<D> + 'static, const D: usize>
 where
-    C::Hasher:AlgebraicHasher<C::F>,
+    C::Hasher: AlgebraicHasher<C::F>,
 {
     pub circuit_fingerprint_public_key: QHashOut<C::F>,
     pub hash_public_key: QHashOut<C::F>,
     pub fixed_circuit: ZKSignatureCircuitSimpleFixedPublicKey<C, D>,
 }
 pub trait ZKSignatureBasicWalletProvider<C: GenericConfig<D> + 'static, const D: usize> {
-    fn zk_sign(
-        &self,
-        private_key: QHashOut<C::F>,
-        action_hash: QHashOut<C::F>,
-    ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>>;
+    fn zk_sign(&self, private_key: QHashOut<C::F>, action_hash: QHashOut<C::F>) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>>;
     fn get_public_keys(&self) -> Vec<QHashOut<C::F>>;
     fn get_hash_public_keys(&self) -> Vec<QHashOut<C::F>>;
     fn add_hash_public_key(&mut self, hash_public_key: QHashOut<C::F>) -> QHashOut<C::F>;
     fn remove_public_key(&mut self, public_key: QHashOut<C::F>);
     fn contains_public_key(&self, public_key: QHashOut<C::F>) -> bool;
     fn contains_hash_public_key(&self, hash_public_key: QHashOut<C::F>) -> bool;
-    fn get_public_key_from_hash_public_key(
-        &self,
-        hash_public_key: QHashOut<C::F>,
-    ) -> Option<QHashOut<C::F>>;
+    fn get_public_key_from_hash_public_key(&self, hash_public_key: QHashOut<C::F>) -> Option<QHashOut<C::F>>;
     fn clear(&mut self);
 }
-pub trait ZKSignatureWalletProvider<C: GenericConfig<D> + 'static, const D: usize>:
-    ZKSignatureBasicWalletProvider<C, D>
-{
-    fn sign(
-        &self,
-        public_key: QHashOut<C::F>,
-        action_hash: QHashOut<C::F>,
-    ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>>;
+pub trait ZKSignatureWalletProvider<C: GenericConfig<D> + 'static, const D: usize>: ZKSignatureBasicWalletProvider<C, D> {
+    fn sign(&self, public_key: QHashOut<C::F>, action_hash: QHashOut<C::F>) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>>;
     fn sign_by_hash_public_key(
         &self,
         hash_public_key: QHashOut<C::F>,
@@ -60,7 +45,7 @@ pub trait ZKSignatureWalletProvider<C: GenericConfig<D> + 'static, const D: usiz
 
 pub struct SimpleZKSignatureWallet<C: GenericConfig<D> + 'static, const D: usize>
 where
-    C::Hasher:AlgebraicHasher<C::F>,
+    C::Hasher: AlgebraicHasher<C::F>,
 {
     pub inner_circuit: ZKSignatureCircuitInner<C, D>,
     pub wrapper_circuit: ZKSignatureWrapperCircuit<C, D>,
@@ -70,7 +55,7 @@ where
 
 impl<C: GenericConfig<D> + 'static, const D: usize> Clone for SimpleZKSignatureWallet<C, D>
 where
-    C::Hasher:AlgebraicHasher<C::F>,
+    C::Hasher: AlgebraicHasher<C::F>,
 {
     fn clone(&self) -> Self {
         let mut key_map: HashMap<QHashOut<C::F>, SimpleZKSignatureWalletKey<C, D>> = HashMap::new();
@@ -83,10 +68,7 @@ where
                 SimpleZKSignatureWalletKey {
                     circuit_fingerprint_public_key: v.circuit_fingerprint_public_key,
                     hash_public_key: v.hash_public_key,
-                    fixed_circuit: ZKSignatureCircuitSimpleFixedPublicKey::<C, D>::new_from_isc(
-                        &inner_circuit,
-                        v.hash_public_key,
-                    ),
+                    fixed_circuit: ZKSignatureCircuitSimpleFixedPublicKey::<C, D>::new_from_isc(&inner_circuit, v.hash_public_key),
                 },
             );
         });
@@ -101,20 +83,14 @@ where
 }
 impl<C: GenericConfig<D> + 'static, const D: usize> SimpleZKSignatureWallet<C, D>
 where
-    C::Hasher:AlgebraicHasher<C::F>,
+    C::Hasher: AlgebraicHasher<C::F>,
 {
     pub fn new() -> Self {
         let inner_circuit = ZKSignatureCircuitInner::new();
-        let fixed_circuit = ZKSignatureCircuitSimpleFixedPublicKey::new_from_isc(
-            &inner_circuit,
-            QHashOut::from_values(1337, 1337, 1337, 1337),
-        );
+        let fixed_circuit = ZKSignatureCircuitSimpleFixedPublicKey::new_from_isc(&inner_circuit, QHashOut::from_values(1337, 1337, 1337, 1337));
         let wrapper_circuit = ZKSignatureWrapperCircuit::new_from_common(
             &fixed_circuit.get_common_circuit_data_ref(),
-            fixed_circuit
-                .get_verifier_config_ref()
-                .constants_sigmas_cap
-                .height(),
+            fixed_circuit.get_verifier_config_ref().constants_sigmas_cap.height(),
         );
 
         Self {
@@ -124,28 +100,19 @@ where
             hash_public_key_to_fingerprint: HashMap::new(),
         }
     }
-    pub fn get_fingerprint_public_key_for_private_key(&self, private_key: QHashOut<C::F>) -> QHashOut<C::F>{
+    pub fn get_fingerprint_public_key_for_private_key(&self, private_key: QHashOut<C::F>) -> QHashOut<C::F> {
         let pk = SimpleL2PrivateKey::new(private_key);
         let hash_public_key = pk.get_public_key::<C::Hasher>();
-        let fixed_circuit = ZKSignatureCircuitSimpleFixedPublicKey::new_from_isc(
-            &self.inner_circuit,
-            hash_public_key,
-        );
+        let fixed_circuit = ZKSignatureCircuitSimpleFixedPublicKey::new_from_isc(&self.inner_circuit, hash_public_key);
         fixed_circuit.get_fingerprint()
-
     }
 }
 
-impl<C: GenericConfig<D> + 'static, const D: usize> ZKSignatureBasicWalletProvider<C, D>
-    for SimpleZKSignatureWallet<C, D>
+impl<C: GenericConfig<D> + 'static, const D: usize> ZKSignatureBasicWalletProvider<C, D> for SimpleZKSignatureWallet<C, D>
 where
-    C::Hasher:AlgebraicHasher<C::F>,
+    C::Hasher: AlgebraicHasher<C::F>,
 {
-    fn zk_sign(
-        &self,
-        private_key: QHashOut<C::F>,
-        action_hash: QHashOut<C::F>,
-    ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
+    fn zk_sign(&self, private_key: QHashOut<C::F>, action_hash: QHashOut<C::F>) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         let pk = SimpleL2PrivateKey::new(private_key);
         let hash_public_key = pk.get_public_key::<C::Hasher>();
         let fingeprint_result = self.hash_public_key_to_fingerprint.get(&hash_public_key);
@@ -155,16 +122,12 @@ where
                 let key = key_result.unwrap();
                 let inner_proof = self.inner_circuit.prove_base(private_key, action_hash)?;
                 let fixed_proof = key.fixed_circuit.prove_base(&inner_proof)?;
-                self.wrapper_circuit
-                    .prove_base(&fixed_proof, key.fixed_circuit.get_verifier_config_ref())
+                self.wrapper_circuit.prove_base(&fixed_proof, key.fixed_circuit.get_verifier_config_ref())
             } else {
                 anyhow::bail!("Key not found");
             }
         } else {
-            let fixed_circuit = ZKSignatureCircuitSimpleFixedPublicKey::new_from_isc(
-                &self.inner_circuit,
-                hash_public_key,
-            );
+            let fixed_circuit = ZKSignatureCircuitSimpleFixedPublicKey::new_from_isc(&self.inner_circuit, hash_public_key);
             let circuit_fingerprint_public_key = fixed_circuit.get_fingerprint();
             let key = SimpleZKSignatureWalletKey {
                 circuit_fingerprint_public_key,
@@ -172,9 +135,8 @@ where
                 fixed_circuit,
             };
             let inner_proof = self.inner_circuit.prove_base(private_key, action_hash)?;
-                let fixed_proof = key.fixed_circuit.prove_base(&inner_proof)?;
-                self.wrapper_circuit
-                    .prove_base(&fixed_proof, key.fixed_circuit.get_verifier_config_ref())
+            let fixed_proof = key.fixed_circuit.prove_base(&inner_proof)?;
+            self.wrapper_circuit.prove_base(&fixed_proof, key.fixed_circuit.get_verifier_config_ref())
         }
     }
 
@@ -183,24 +145,15 @@ where
     }
 
     fn get_hash_public_keys(&self) -> Vec<QHashOut<C::F>> {
-        self.hash_public_key_to_fingerprint
-            .keys()
-            .cloned()
-            .collect()
+        self.hash_public_key_to_fingerprint.keys().cloned().collect()
     }
 
     fn add_hash_public_key(&mut self, hash_public_key: QHashOut<C::F>) -> QHashOut<C::F> {
-        if self
-            .hash_public_key_to_fingerprint
-            .contains_key(&hash_public_key)
-        {
+        if self.hash_public_key_to_fingerprint.contains_key(&hash_public_key) {
             return self.hash_public_key_to_fingerprint[&hash_public_key];
         }
 
-        let fixed_circuit = ZKSignatureCircuitSimpleFixedPublicKey::new_from_isc(
-            &self.inner_circuit,
-            hash_public_key,
-        );
+        let fixed_circuit = ZKSignatureCircuitSimpleFixedPublicKey::new_from_isc(&self.inner_circuit, hash_public_key);
         let circuit_fingerprint_public_key = fixed_circuit.get_fingerprint();
         let key = SimpleZKSignatureWalletKey {
             circuit_fingerprint_public_key,
@@ -226,14 +179,10 @@ where
     }
 
     fn contains_hash_public_key(&self, hash_public_key: QHashOut<C::F>) -> bool {
-        self.hash_public_key_to_fingerprint
-            .contains_key(&hash_public_key)
+        self.hash_public_key_to_fingerprint.contains_key(&hash_public_key)
     }
 
-    fn get_public_key_from_hash_public_key(
-        &self,
-        hash_public_key: QHashOut<C::F>,
-    ) -> Option<QHashOut<C::F>> {
+    fn get_public_key_from_hash_public_key(&self, hash_public_key: QHashOut<C::F>) -> Option<QHashOut<C::F>> {
         let result = self.hash_public_key_to_fingerprint.get(&hash_public_key);
         if result.is_some() {
             Some(*result.unwrap())
@@ -248,21 +197,17 @@ where
     }
 }
 
-pub struct MemoryZKSignatureWallet<
-    C: GenericConfig<D> + 'static,
-    const D: usize,
-    BP: ZKSignatureBasicWalletProvider<C, D>,
-> where
-    C::Hasher:AlgebraicHasher<C::F>,
+pub struct MemoryZKSignatureWallet<C: GenericConfig<D> + 'static, const D: usize, BP: ZKSignatureBasicWalletProvider<C, D>>
+where
+    C::Hasher: AlgebraicHasher<C::F>,
 {
     pub basic_wallet: BP,
     fingerprint_public_key_to_private_key: HashMap<QHashOut<C::F>, QHashOut<C::F>>,
 }
 
-impl<C: GenericConfig<D> + 'static, const D: usize> QStandardCircuit<C, D>
-    for MemoryZKSignatureWallet<C, D, SimpleZKSignatureWallet<C, D>>
+impl<C: GenericConfig<D> + 'static, const D: usize> QStandardCircuit<C, D> for MemoryZKSignatureWallet<C, D, SimpleZKSignatureWallet<C, D>>
 where
-    C::Hasher:AlgebraicHasher<C::F>,
+    C::Hasher: AlgebraicHasher<C::F>,
 {
     fn get_fingerprint(&self) -> QHashOut<C::F> {
         self.basic_wallet.wrapper_circuit.get_fingerprint()
@@ -273,32 +218,23 @@ where
     }
 
     fn get_common_circuit_data_ref(&self) -> &CommonCircuitData<C::F, D> {
-        self.basic_wallet
-            .wrapper_circuit
-            .get_common_circuit_data_ref()
+        self.basic_wallet.wrapper_circuit.get_common_circuit_data_ref()
     }
 }
-impl<
-        C: GenericConfig<D> + 'static,
-        const D: usize,
-        BP: ZKSignatureBasicWalletProvider<C, D> + Clone,
-    > Clone for MemoryZKSignatureWallet<C, D, BP>
+impl<C: GenericConfig<D> + 'static, const D: usize, BP: ZKSignatureBasicWalletProvider<C, D> + Clone> Clone for MemoryZKSignatureWallet<C, D, BP>
 where
-    C::Hasher:AlgebraicHasher<C::F>,
+    C::Hasher: AlgebraicHasher<C::F>,
 {
     fn clone(&self) -> Self {
         Self {
             basic_wallet: self.basic_wallet.clone(),
-            fingerprint_public_key_to_private_key: self
-                .fingerprint_public_key_to_private_key
-                .clone(),
+            fingerprint_public_key_to_private_key: self.fingerprint_public_key_to_private_key.clone(),
         }
     }
 }
-impl<C: GenericConfig<D> + 'static, const D: usize, BP: ZKSignatureBasicWalletProvider<C, D>>
-    MemoryZKSignatureWallet<C, D, BP>
+impl<C: GenericConfig<D> + 'static, const D: usize, BP: ZKSignatureBasicWalletProvider<C, D>> MemoryZKSignatureWallet<C, D, BP>
 where
-    C::Hasher:AlgebraicHasher<C::F>,
+    C::Hasher: AlgebraicHasher<C::F>,
 {
     pub fn new(basic_wallet: BP) -> Self {
         Self {
@@ -307,22 +243,16 @@ where
         }
     }
     pub fn new_memory() -> MemoryZKSignatureWallet<C, D, SimpleZKSignatureWallet<C, D>> {
-        MemoryZKSignatureWallet::<C, D, SimpleZKSignatureWallet<C, D>>::new(
-            SimpleZKSignatureWallet::new(),
-        )
+        MemoryZKSignatureWallet::<C, D, SimpleZKSignatureWallet<C, D>>::new(SimpleZKSignatureWallet::new())
     }
 }
 
-impl<C: GenericConfig<D> + 'static, const D: usize, BP: ZKSignatureBasicWalletProvider<C, D>>
-    ZKSignatureBasicWalletProvider<C, D> for MemoryZKSignatureWallet<C, D, BP>
+impl<C: GenericConfig<D> + 'static, const D: usize, BP: ZKSignatureBasicWalletProvider<C, D>> ZKSignatureBasicWalletProvider<C, D>
+    for MemoryZKSignatureWallet<C, D, BP>
 where
-    C::Hasher:AlgebraicHasher<C::F>,
+    C::Hasher: AlgebraicHasher<C::F>,
 {
-    fn zk_sign(
-        &self,
-        private_key: QHashOut<C::F>,
-        action_hash: QHashOut<C::F>,
-    ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
+    fn zk_sign(&self, private_key: QHashOut<C::F>, action_hash: QHashOut<C::F>) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         self.basic_wallet.zk_sign(private_key, action_hash)
     }
 
@@ -339,8 +269,7 @@ where
     }
 
     fn remove_public_key(&mut self, public_key: QHashOut<C::F>) {
-        self.fingerprint_public_key_to_private_key
-            .remove(&public_key);
+        self.fingerprint_public_key_to_private_key.remove(&public_key);
         self.basic_wallet.remove_public_key(public_key)
     }
 
@@ -352,12 +281,8 @@ where
         self.basic_wallet.contains_public_key(hash_public_key)
     }
 
-    fn get_public_key_from_hash_public_key(
-        &self,
-        hash_public_key: QHashOut<C::F>,
-    ) -> Option<QHashOut<C::F>> {
-        self.basic_wallet
-            .get_public_key_from_hash_public_key(hash_public_key)
+    fn get_public_key_from_hash_public_key(&self, hash_public_key: QHashOut<C::F>) -> Option<QHashOut<C::F>> {
+        self.basic_wallet.get_public_key_from_hash_public_key(hash_public_key)
     }
 
     fn clear(&mut self) {
@@ -366,16 +291,12 @@ where
     }
 }
 
-impl<C: GenericConfig<D> + 'static, const D: usize, BP: ZKSignatureBasicWalletProvider<C, D>>
-    ZKSignatureWalletProvider<C, D> for MemoryZKSignatureWallet<C, D, BP>
+impl<C: GenericConfig<D> + 'static, const D: usize, BP: ZKSignatureBasicWalletProvider<C, D>> ZKSignatureWalletProvider<C, D>
+    for MemoryZKSignatureWallet<C, D, BP>
 where
-    C::Hasher:AlgebraicHasher<C::F>,
+    C::Hasher: AlgebraicHasher<C::F>,
 {
-    fn sign(
-        &self,
-        public_key: QHashOut<C::F>,
-        action_hash: QHashOut<C::F>,
-    ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
+    fn sign(&self, public_key: QHashOut<C::F>, action_hash: QHashOut<C::F>) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         let private_key = self.fingerprint_public_key_to_private_key.get(&public_key);
         if private_key.is_some() {
             self.zk_sign(*private_key.unwrap(), action_hash)
@@ -388,8 +309,7 @@ where
         let pk = SimpleL2PrivateKey::new(private_key);
         let hash_public_key = pk.get_public_key::<C::Hasher>();
         let public_key = self.basic_wallet.add_hash_public_key(hash_public_key);
-        self.fingerprint_public_key_to_private_key
-            .insert(public_key, private_key);
+        self.fingerprint_public_key_to_private_key.insert(public_key, private_key);
         public_key
     }
 

@@ -1,19 +1,19 @@
-use plonky2::iop::target::Target;
-use psy_core::data::qhashout::QHashOut;
-use plonky2::hash::hash_types::HashOut;
 use plonky2::{
     field::extension::Extendable,
-    hash::hash_types::{HashOutTarget, RichField},
-    iop::target::BoolTarget,
+    hash::{
+        hash_types::{HashOut, HashOutTarget, RichField},
+        hashing::PlonkyPermutation,
+    },
+    iop::target::{BoolTarget, Target},
     plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher},
 };
-use plonky2::hash::hashing::PlonkyPermutation;
+use psy_core::data::qhashout::QHashOut;
 
-use crate::builder::comparison::CircuitBuilderComparison;
-use crate::builder::core::CircuitBuilderHelpersCore;
-use crate::builder::select::CircuitBuilderSelectHelpers;
-use crate::hash::base_types::hash256::Hash256Target;
-use crate::u32::arithmetic_u32::U32Target;
+use crate::{
+    builder::{comparison::CircuitBuilderComparison, core::CircuitBuilderHelpersCore, select::CircuitBuilderSelectHelpers},
+    hash::base_types::hash256::Hash256Target,
+    u32::arithmetic_u32::U32Target,
+};
 
 const NUM_HASH_OUT_ELEMENTS: usize = 4;
 pub trait CircuitBuilderHashCore<F: RichField + Extendable<D>, const D: usize> {
@@ -23,40 +23,28 @@ pub trait CircuitBuilderHashCore<F: RichField + Extendable<D>, const D: usize> {
     fn constant_hash_str(&mut self, value: &str) -> HashOutTarget;
     fn hashout_to_hash256_le(&mut self, value: HashOutTarget) -> Hash256Target;
     fn hashout_to_hash256_be(&mut self, value: HashOutTarget) -> Hash256Target;
-    fn two_to_one_swapped<H:AlgebraicHasher<F>>(
-        &mut self,
-        left: HashOutTarget,
-        right: HashOutTarget,
-        swap: BoolTarget,
-    ) -> HashOutTarget;
-    fn hash_two_to_one<H:AlgebraicHasher<F>>(
-        &mut self,
-        left: HashOutTarget,
-        right: HashOutTarget,
-    ) -> HashOutTarget;
+    fn two_to_one_swapped<H: AlgebraicHasher<F>>(&mut self, left: HashOutTarget, right: HashOutTarget, swap: BoolTarget) -> HashOutTarget;
+    fn hash_two_to_one<H: AlgebraicHasher<F>>(&mut self, left: HashOutTarget, right: HashOutTarget) -> HashOutTarget;
 
-
-    fn safe_hash_fixed_length<H:AlgebraicHasher<F>>(&mut self, targets: &[Target]) -> HashOutTarget;
-
+    fn safe_hash_fixed_length<H: AlgebraicHasher<F>>(&mut self, targets: &[Target]) -> HashOutTarget;
 
     fn ensure_hash_not_equal(&mut self, x: HashOutTarget, y: HashOutTarget);
-    fn ensure_hash_not_equal_if(
-        &mut self,
-        condition: BoolTarget,
-        x: HashOutTarget,
-        y: HashOutTarget,
-    );
+    fn ensure_hash_not_equal_if(&mut self, condition: BoolTarget, x: HashOutTarget, y: HashOutTarget);
 
     // sets the n-th element of a hash to a value
     // index is assumed to be range checked where: 0 <= index <= 3
     fn set_target_in_hash(&mut self, hash: HashOutTarget, index: Target, value: Target) -> HashOutTarget;
 
-    fn set_target_in_hash_bit_indexed(&mut self, hash: HashOutTarget, index_low_bit: BoolTarget, index_high_bit: BoolTarget, value: Target) -> HashOutTarget;
+    fn set_target_in_hash_bit_indexed(
+        &mut self,
+        hash: HashOutTarget,
+        index_low_bit: BoolTarget,
+        index_high_bit: BoolTarget,
+        value: Target,
+    ) -> HashOutTarget;
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderHashCore<F, D>
-    for CircuitBuilder<F, D>
-{
+impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderHashCore<F, D> for CircuitBuilder<F, D> {
     /*fn constant_hash(&mut self, value: HashOut<F>) -> HashOutTarget {
         let a = self.cons
     }*/
@@ -69,13 +57,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderHashCore<F, D>
         self.constant_qhash(QHashOut::from_string_or_panic(value))
     }
 
-    fn two_to_one_swapped<H:AlgebraicHasher<F>>(
-        &mut self,
-        left: HashOutTarget,
-        right: HashOutTarget,
-        swap: BoolTarget,
-    ) -> HashOutTarget {
-
+    fn two_to_one_swapped<H: AlgebraicHasher<F>>(&mut self, left: HashOutTarget, right: HashOutTarget, swap: BoolTarget) -> HashOutTarget {
         /*
         let real_left = self.select_hash(swap,right, left);
         let real_right = self.select_hash(swap,left, right);
@@ -92,9 +74,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderHashCore<F, D>
         state = H::permute_swapped(state, swap, self);
 
         HashOutTarget {
-            elements: state.squeeze()[0..NUM_HASH_OUT_ELEMENTS]
-                .try_into()
-                .unwrap(),
+            elements: state.squeeze()[0..NUM_HASH_OUT_ELEMENTS].try_into().unwrap(),
         }
     }
 
@@ -116,11 +96,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderHashCore<F, D>
         ]
     }
 
-    fn hash_two_to_one<H:AlgebraicHasher<F>>(
-        &mut self,
-        left: HashOutTarget,
-        right: HashOutTarget,
-    ) -> HashOutTarget {
+    fn hash_two_to_one<H: AlgebraicHasher<F>>(&mut self, left: HashOutTarget, right: HashOutTarget) -> HashOutTarget {
         self.hash_n_to_hash_no_pad::<H>(vec![
             left.elements[0],
             left.elements[1],
@@ -139,12 +115,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderHashCore<F, D>
         self.connect(is_eq_target, false_target);
     }
 
-    fn ensure_hash_not_equal_if(
-        &mut self,
-        condition: BoolTarget,
-        x: HashOutTarget,
-        y: HashOutTarget,
-    ) {
+    fn ensure_hash_not_equal_if(&mut self, condition: BoolTarget, x: HashOutTarget, y: HashOutTarget) {
         let is_eq = self.is_equal_hash(x, y);
         let is_eq_and_enabled_target = self.and(is_eq, condition).target;
         let false_target = self._false().target;
@@ -180,7 +151,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderHashCore<F, D>
     }
 
     fn set_target_in_hash(&mut self, hash: HashOutTarget, index: Target, value: Target) -> HashOutTarget {
-
         /*
         TODO/OPT: is using the bitsplit method more efficient?
 
@@ -198,25 +168,23 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderHashCore<F, D>
         let index_is_2 = self.is_equal(index, constant_2);
         let index_is_3 = self.is_equal(index, constant_3);
 
-
         let elements_0 = self.select(index_is_0, value, hash.elements[0]);
         let elements_1 = self.select(index_is_1, value, hash.elements[1]);
         let elements_2 = self.select(index_is_2, value, hash.elements[2]);
         let elements_3 = self.select(index_is_3, value, hash.elements[3]);
 
         HashOutTarget {
-            elements: [
-                elements_0,
-                elements_1,
-                elements_2,
-                elements_3,
-            ]
+            elements: [elements_0, elements_1, elements_2, elements_3],
         }
     }
 
-    fn set_target_in_hash_bit_indexed(&mut self, hash: HashOutTarget, index_low_bit: BoolTarget, index_high_bit: BoolTarget, value: Target) -> HashOutTarget {
-
-
+    fn set_target_in_hash_bit_indexed(
+        &mut self,
+        hash: HashOutTarget,
+        index_low_bit: BoolTarget,
+        index_high_bit: BoolTarget,
+        value: Target,
+    ) -> HashOutTarget {
         let not_high_bit = self.not(index_high_bit);
         let not_low_bit = self.not(index_high_bit);
 
@@ -231,20 +199,11 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderHashCore<F, D>
         let elements_3 = self.select(index_is_3, value, hash.elements[3]);
 
         HashOutTarget {
-            elements: [
-                elements_0,
-                elements_1,
-                elements_2,
-                elements_3,
-            ]
+            elements: [elements_0, elements_1, elements_2, elements_3],
         }
-
-
-
     }
 
-    fn safe_hash_fixed_length<H:AlgebraicHasher<F>>(&mut self, targets: &[Target]) -> HashOutTarget {
-
+    fn safe_hash_fixed_length<H: AlgebraicHasher<F>>(&mut self, targets: &[Target]) -> HashOutTarget {
         let targets_length = targets.len();
         let targets_length_target = self.constant_u64(targets_length as u64);
 

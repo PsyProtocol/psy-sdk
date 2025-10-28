@@ -49,13 +49,7 @@ pub struct AssignmentNode {
 }
 
 impl AssignmentNode {
-    pub fn new(
-        target: ExprId,
-        operator: AssignmentOperator,
-        value: ExprId,
-        comments: Vec<Comment>,
-        location: Location,
-    ) -> Self {
+    pub fn new(target: ExprId, operator: AssignmentOperator, value: ExprId, comments: Vec<Comment>, location: Location) -> Self {
         Self {
             target,
             operator,

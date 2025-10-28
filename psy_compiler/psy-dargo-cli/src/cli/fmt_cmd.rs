@@ -1,9 +1,10 @@
-use crate::cli::write_to_file;
-use crate::errors::Result;
+use std::path::PathBuf;
+
 use clap::Args;
 use psy_interpreter::Interpreter;
 use psy_vm::dpn::ops::{exec_context::QExecContext, sym_felt::SymFeltRef};
-use std::path::PathBuf;
+
+use crate::{cli::write_to_file, errors::Result};
 
 #[derive(Debug, Clone, Args)]
 pub(crate) struct FmtCommand {

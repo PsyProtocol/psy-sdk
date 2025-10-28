@@ -1,20 +1,24 @@
 use num::BigUint;
-use plonky2::field::extension::Extendable;
-use plonky2::field::types::Field;
-use plonky2::hash::hash_types::RichField;
-use plonky2::hash::keccak::KeccakHash;
-use plonky2::plonk::circuit_builder::CircuitBuilder;
-use plonky2::plonk::config::{GenericHashOut, Hasher};
-
-use super::super::gadgets::curve::{AffinePointTarget, CircuitBuilderCurve};
-use super::super::gadgets::curve_windowed_mul::CircuitBuilderWindowedMul;
-use super::super::gadgets::nonnative::NonNativeTarget;
-use super::super::gadgets::split_nonnative::CircuitBuilderSplit;
+use plonky2::{
+    field::{extension::Extendable, types::Field},
+    hash::{hash_types::RichField, keccak::KeccakHash},
+    plonk::{
+        circuit_builder::CircuitBuilder,
+        config::{GenericHashOut, Hasher},
+    },
+};
 use psy_crypto::signature::secp256k1::curve::curve_types::{Curve, CurveScalar};
 
+use super::super::gadgets::{
+    curve::{AffinePointTarget, CircuitBuilderCurve},
+    curve_windowed_mul::CircuitBuilderWindowedMul,
+    nonnative::NonNativeTarget,
+    split_nonnative::CircuitBuilderSplit,
+};
+
 /// Computes `n*p + m*q` using windowed MSM, with a 2-bit window.
-/// See Algorithm 9.23 in Handbook of Elliptic and Hyperelliptic Curve Cryptography for a
-/// description.
+/// See Algorithm 9.23 in Handbook of Elliptic and Hyperelliptic Curve
+/// Cryptography for a description.
 /// Note: Doesn't work if `p == q`.
 pub fn curve_msm_circuit<C: Curve, F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
@@ -29,9 +33,7 @@ pub fn curve_msm_circuit<C: Curve, F: RichField + Extendable<D>, const D: usize>
     let num_limbs = limbs_n.len();
 
     let hash_0 = KeccakHash::<32>::hash_no_pad(&[F::ZERO]);
-    let hash_0_scalar = C::ScalarField::from_noncanonical_biguint(BigUint::from_bytes_le(
-        &GenericHashOut::<F>::to_bytes(&hash_0),
-    ));
+    let hash_0_scalar = C::ScalarField::from_noncanonical_biguint(BigUint::from_bytes_le(&GenericHashOut::<F>::to_bytes(&hash_0)));
     let rando = (CurveScalar(hash_0_scalar) * C::GENERATOR_PROJECTIVE).to_affine();
     let rando_t = builder.constant_affine_point(rando);
     let neg_rando = builder.constant_affine_point(-rando);
@@ -52,8 +54,7 @@ pub fn curve_msm_circuit<C: Curve, F: RichField + Extendable<D>, const D: usize>
     }
     for i in 1..4 {
         for j in 1..4 {
-            precomputation[i + 4 * j] =
-                builder.curve_add(&precomputation[i], &precomputation[4 * j]);
+            precomputation[i + 4 * j] = builder.curve_add(&precomputation[i], &precomputation[4 * j]);
         }
     }
 
@@ -79,18 +80,21 @@ pub fn curve_msm_circuit<C: Curve, F: RichField + Extendable<D>, const D: usize>
 #[cfg(test)]
 mod tests {
     use anyhow::Result;
-    use plonky2::field::secp256k1_scalar::Secp256K1Scalar;
-    use plonky2::field::types::Sample;
-    use plonky2::iop::witness::PartialWitness;
-    use plonky2::plonk::circuit_builder::CircuitBuilder;
-    use plonky2::plonk::circuit_data::CircuitConfig;
-    use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
+    use plonky2::{
+        field::{secp256k1_scalar::Secp256K1Scalar, types::Sample},
+        iop::witness::PartialWitness,
+        plonk::{
+            circuit_builder::CircuitBuilder,
+            circuit_data::CircuitConfig,
+            config::{GenericConfig, PoseidonGoldilocksConfig},
+        },
+    };
+    use psy_crypto::signature::secp256k1::curve::{
+        curve_types::{Curve, CurveScalar},
+        secp256k1::Secp256K1,
+    };
 
-    use super::super::super::gadgets::curve::CircuitBuilderCurve;
-    use super::super::super::gadgets::curve_msm::curve_msm_circuit;
-    use super::super::super::gadgets::nonnative::CircuitBuilderNonNative;
-    use psy_crypto::signature::secp256k1::curve::curve_types::{Curve, CurveScalar};
-    use psy_crypto::signature::secp256k1::curve::secp256k1::Secp256K1;
+    use super::super::super::gadgets::{curve::CircuitBuilderCurve, curve_msm::curve_msm_circuit, nonnative::CircuitBuilderNonNative};
 
     #[test]
     #[ignore]
@@ -104,15 +108,12 @@ mod tests {
         let pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, D>::new(config);
 
-        let p =
-            (CurveScalar(Secp256K1Scalar::rand()) * Secp256K1::GENERATOR_PROJECTIVE).to_affine();
-        let q =
-            (CurveScalar(Secp256K1Scalar::rand()) * Secp256K1::GENERATOR_PROJECTIVE).to_affine();
+        let p = (CurveScalar(Secp256K1Scalar::rand()) * Secp256K1::GENERATOR_PROJECTIVE).to_affine();
+        let q = (CurveScalar(Secp256K1Scalar::rand()) * Secp256K1::GENERATOR_PROJECTIVE).to_affine();
         let n = Secp256K1Scalar::rand();
         let m = Secp256K1Scalar::rand();
 
-        let res =
-            (CurveScalar(n) * p.to_projective() + CurveScalar(m) * q.to_projective()).to_affine();
+        let res = (CurveScalar(n) * p.to_projective() + CurveScalar(m) * q.to_projective()).to_affine();
         let res_expected = builder.constant_affine_point(res);
         builder.curve_assert_valid(&res_expected);
 
@@ -121,8 +122,7 @@ mod tests {
         let n_target = builder.constant_nonnative(n);
         let m_target = builder.constant_nonnative(m);
 
-        let res_target =
-            curve_msm_circuit(&mut builder, &p_target, &q_target, &n_target, &m_target);
+        let res_target = curve_msm_circuit(&mut builder, &p_target, &q_target, &n_target, &m_target);
         builder.curve_assert_valid(&res_target);
 
         builder.connect_affine_point(&res_target, &res_expected);

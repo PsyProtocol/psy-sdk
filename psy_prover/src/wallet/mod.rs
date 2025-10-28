@@ -1,10 +1,10 @@
-pub mod memory_wallet;
-pub mod utils;
-pub mod software_defined_circuit;
-pub mod simple_sign;
-#[cfg(not(target_arch = "wasm32"))]
-pub mod secp_wallet;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod error;
+pub mod memory_wallet;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod secp_sign;
+#[cfg(not(target_arch = "wasm32"))]
+pub mod secp_wallet;
+pub mod simple_sign;
+pub mod software_defined_circuit;
+pub mod utils;

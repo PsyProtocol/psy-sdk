@@ -1,37 +1,34 @@
 use std::marker::PhantomData;
 
 use kvq::memory::simple::KVQSimpleMemoryBackingStore;
-use psy_store::node::coordinator::QEDCoordinatorStoreWriterAsyncImm;
 use plonky2::{
     field::{goldilocks_field::GoldilocksField, types::Field},
     plonk::config::PoseidonGoldilocksConfig,
 };
-use psy_common_circuit::circuits::{
-    traits::qstandard::QStandardCircuit, zk_signature3::manager::SimpleQEDZKSignatureManager,
-};
+use psy_common_circuit::circuits::{traits::qstandard::QStandardCircuit, zk_signature3::manager::SimpleQEDZKSignatureManager};
 use psy_core::{
     config::network_constants::{GLOBAL_USER_TREE_HEIGHT, UPS_SESSION_PROOF_TREE_HEIGHT},
     data::qhashout::QHashOut,
     utils::debug_timer::DebugTimer,
 };
-use psy_crypto::{
-    hash::utils::gen_dapen_contract_function_method_id, signature::zk::wallet::SimpleQEDPrivateKey,
-};
+use psy_crypto::{hash::utils::gen_dapen_contract_function_method_id, signature::zk::wallet::SimpleQEDPrivateKey};
 use psy_data::{
+    config::store_config::QEDHasher,
     protocol::circuit_fingerprints::QEDWorkerToolboxCoreCircuitFingerprints,
-    qblock::cmds::{
-        core::QEDBlockCommands, deploy_contract::QBCDeployContract, register_user::QBCRegisterUser,
+    qblock::{
+        cmds::{core::QEDBlockCommands, deploy_contract::QBCDeployContract, register_user::QBCRegisterUser},
+        process::simple::SimpleBlockProcessor,
     },
-    qdata::contract::{ContractCodeDefinition, ContractFunctionCodeDefinition}, qstore::imm::cmd_processor::QEDReadCommandProcessorSync,
+    qdata::contract::{ContractCodeDefinition, ContractFunctionCodeDefinition},
+    qstore::imm::cmd_processor::QEDReadCommandProcessorSync,
+    traits::qdatastore::{qmetadata::QMetaDataStoreReaderSync, qtreedata::QEDComboDataStoreReaderWriterSync},
 };
 use psy_exec::vm::{cfc_input::DapenContractFunctionCircuitInput, exec::QEDEvalSessionResult};
-use psy_prover::dpn::{
-    circuits::cfc::DapenContractFunctionCircuit,
+use psy_prover::dpn::circuits::cfc::DapenContractFunctionCircuit;
+use psy_store::{
+    controllers::local::{prepare_environment_with_real_contract, proving_session::QEDLocalProvingSessionStore},
+    node::coordinator::QEDCoordinatorStoreWriterAsyncImm,
 };
-use psy_data::{
-    config::store_config::QEDHasher, qblock::process::simple::SimpleBlockProcessor, traits::qdatastore::{qmetadata::QMetaDataStoreReaderSync, qtreedata::QEDComboDataStoreReaderWriterSync}
-};
-use psy_store::controllers::local::{proving_session::QEDLocalProvingSessionStore, prepare_environment_with_real_contract};
 use psy_vm::dpn::{
     ops::{context_trait::DPNContext, exec_context::QExecContext, sym_felt::SymFeltRef},
     vm::{compile::QEDCompileResult, def::DPNFunctionCircuitDefinition},
@@ -45,9 +42,7 @@ pub struct SimpleContractStateful<C: DPNContext<Felt>> {
 }
 impl<C: DPNContext<Felt>> SimpleContractStateful<C> {
     pub fn new() -> Self {
-        Self {
-            _phantom: PhantomData,
-        }
+        Self { _phantom: PhantomData }
     }
 }
 
@@ -59,15 +54,7 @@ impl<C: DPNContext<Felt>> SimpleContractStateful<C> {
         let current_balance = self_user_leaf[0];
 
         let new_balance = current_balance + amount;
-        ctx.cset_state_hash_at(
-            ctx.get_user_id(),
-            [
-                new_balance,
-                self_user_leaf[1],
-                self_user_leaf[2],
-                self_user_leaf[3],
-            ],
-        );
+        ctx.cset_state_hash_at(ctx.get_user_id(), [new_balance, self_user_leaf[1], self_user_leaf[2], self_user_leaf[3]]);
 
         new_balance
     }
@@ -82,34 +69,15 @@ impl<C: DPNContext<Felt>> SimpleContractStateful<C> {
         let new_balance = current_balance - amount;
         ctx.assert_true(new_balance < current_balance, "user balance overflow");
 
-        ctx.cset_state_hash_at(
-            self_user_id,
-            [
-                new_balance,
-                self_user_leaf[1],
-                self_user_leaf[2],
-                self_user_leaf[3],
-            ],
-        );
+        ctx.cset_state_hash_at(self_user_id, [new_balance, self_user_leaf[1], self_user_leaf[2], self_user_leaf[3]]);
 
         let p2p_leaf = ctx.get_state_hash_at(recipient);
         let previous_total_sent_to_recipient = p2p_leaf[2];
 
         let new_total_sent_to_recipient = previous_total_sent_to_recipient + amount;
-        ctx.assert_true(
-            new_total_sent_to_recipient > previous_total_sent_to_recipient,
-            "sent amount overflow",
-        );
+        ctx.assert_true(new_total_sent_to_recipient > previous_total_sent_to_recipient, "sent amount overflow");
 
-        ctx.cset_state_hash_at(
-            recipient,
-            [
-                p2p_leaf[0],
-                p2p_leaf[1],
-                new_total_sent_to_recipient,
-                p2p_leaf[3],
-            ],
-        );
+        ctx.cset_state_hash_at(recipient, [p2p_leaf[0], p2p_leaf[1], new_total_sent_to_recipient, p2p_leaf[3]]);
         current_balance
     }
     pub fn simple_claim(&mut self, ctx: &mut C, sender: Felt) -> Felt {
@@ -122,12 +90,7 @@ impl<C: DPNContext<Felt>> SimpleContractStateful<C> {
         let loc_transfer_info_for_sender = ctx.get_state_hash_at(sender);
         let loc_previous_total_recieved_from_sender = loc_transfer_info_for_sender[0];
 
-        let sender_transfer_info_leaf_for_me = ctx.get_other_user_contract_state_hash_at(
-            0,
-            sender,
-            ctx.get_contract_id(),
-            self_user_id,
-        );
+        let sender_transfer_info_leaf_for_me = ctx.get_other_user_contract_state_hash_at(0, sender, ctx.get_contract_id(), self_user_id);
 
         let sender_total_sent_to_me = sender_transfer_info_leaf_for_me[2];
 
@@ -153,10 +116,7 @@ impl<C: DPNContext<Felt>> SimpleContractStateful<C> {
         let new_balance = tokens_to_claim + current_balance;
         ctx.assert_true(current_balance < new_balance, "balance overflow");
 
-        ctx.cset_state_hash_at(
-            self_user_id,
-            [new_balance, self_leaf[1], self_leaf[2], self_leaf[3]],
-        );
+        ctx.cset_state_hash_at(self_user_id, [new_balance, self_leaf[1], self_leaf[2], self_leaf[3]]);
 
         new_balance
     }
@@ -171,12 +131,9 @@ async fn test_run_contract_fn<R: QEDReadCommandProcessorSync<GoldilocksField> + 
     lps: &mut QEDLocalProvingSessionStore<GoldilocksField, R>,
     inputs: &[GoldilocksField],
 ) -> anyhow::Result<DapenContractFunctionCircuitInput<GoldilocksField>> {
-    QEDEvalSessionResult::new().exec_contract_call(
-        lps,
-        contract_id,
-        fn_circuit_def,
-        inputs.to_vec(),
-    ).await
+    QEDEvalSessionResult::new()
+        .exec_contract_call(lps, contract_id, fn_circuit_def, inputs.to_vec())
+        .await
 }
 
 fn compile_simple_mint_debug() -> anyhow::Result<DPNFunctionCircuitDefinition> {
@@ -188,13 +145,7 @@ fn compile_simple_mint_debug() -> anyhow::Result<DPNFunctionCircuitDefinition> {
     let method_args = [("amount".to_string(), 1usize)];
     let method_name = "simple_mint_debug".to_string();
     let method_id = gen_dapen_contract_function_method_id(method_name.clone(), &method_args);
-    let fn_circuit_def = QEDCompileResult::compile_exec(
-        "simple_mint_debug".to_string(),
-        method_id,
-        &ctx.store,
-        &ctx,
-        &outputs,
-    );
+    let fn_circuit_def = QEDCompileResult::compile_exec("simple_mint_debug".to_string(), method_id, &ctx.store, &ctx, &outputs);
 
     Ok(fn_circuit_def)
 }
@@ -205,19 +156,10 @@ fn compile_simple_transfer() -> anyhow::Result<DPNFunctionCircuitDefinition> {
     let amount = ctx.add_input();
     let z = contract.simple_transfer(&mut ctx, recipient, amount);
     let outputs = vec![z];
-    let method_args = [
-        ("recipient".to_string(), 1usize),
-        ("amount".to_string(), 1usize),
-    ];
+    let method_args = [("recipient".to_string(), 1usize), ("amount".to_string(), 1usize)];
     let method_name = "simple_transfer".to_string();
     let method_id = gen_dapen_contract_function_method_id(method_name.clone(), &method_args);
-    let fn_circuit_def = QEDCompileResult::compile_exec(
-        "simple_transfer".to_string(),
-        method_id,
-        &ctx.store,
-        &ctx,
-        &outputs,
-    );
+    let fn_circuit_def = QEDCompileResult::compile_exec("simple_transfer".to_string(), method_id, &ctx.store, &ctx, &outputs);
 
     Ok(fn_circuit_def)
 }
@@ -231,13 +173,7 @@ fn compile_simple_claim() -> anyhow::Result<DPNFunctionCircuitDefinition> {
     let method_args = [("sender".to_string(), 1usize)];
     let method_name = "simple_claim".to_string();
     let method_id = gen_dapen_contract_function_method_id(method_name.clone(), &method_args);
-    let fn_circuit_def = QEDCompileResult::compile_exec(
-        "simple_claim".to_string(),
-        method_id,
-        &ctx.store,
-        &ctx,
-        &outputs,
-    );
+    let fn_circuit_def = QEDCompileResult::compile_exec("simple_claim".to_string(), method_id, &ctx.store, &ctx, &outputs);
 
     Ok(fn_circuit_def)
 }
@@ -264,11 +200,8 @@ async fn test_prove_simple() -> anyhow::Result<()> {
 
     use psy_prover::session::gen_contract_deploy_and_circuits_for_functions;
 
-    let (result_circuits, deploy_cmd) = gen_contract_deploy_and_circuits_for_functions::<C, D>(
-        deployer,
-        contract_state_tree_height as u8,
-        &defs_array,
-    )?;
+    let (result_circuits, deploy_cmd) =
+        gen_contract_deploy_and_circuits_for_functions::<C, D>(deployer, contract_state_tree_height as u8, &defs_array)?;
     let mut result_circuits = result_circuits;
     timer.lap("finished building fn circuits");
     let priv_key = QHashOut::rand();
@@ -284,7 +217,8 @@ async fn test_prove_simple() -> anyhow::Result<()> {
         None,
         None,
         Some(UPS_SESSION_PROOF_TREE_HEIGHT as usize),
-    ).await?;
+    )
+    .await?;
     timer.lap("prepared environement");
 
     let contract_id = GoldilocksField::from_canonical_u64(2);
@@ -296,7 +230,8 @@ async fn test_prove_simple() -> anyhow::Result<()> {
         &simple_mint_debug_def,
         &mut lps,
         &[GoldilocksField::from_noncanonical_u64(133700)],
-    ).await?;
+    )
+    .await?;
 
     timer.lap("generated witness input");
     println!("witnesss_json:\n{:?}", &cfc_input);
@@ -309,7 +244,8 @@ async fn test_prove_simple() -> anyhow::Result<()> {
     let simple_mint_debug_circuit = result_circuits.pop().unwrap();
     timer.lap("end: setup circuits");
 
-    //println!("common_looks_like: \n{:?}\n\n\n", simple_mint_debug_circuit.get_common_circuit_data_ref());
+    //println!("common_looks_like: \n{:?}\n\n\n",
+    // simple_mint_debug_circuit.get_common_circuit_data_ref());
     let proof = simple_mint_debug_circuit.prove_base(&cfc_input).unwrap();
 
     timer.lap("proved");
@@ -319,17 +255,16 @@ async fn test_prove_simple() -> anyhow::Result<()> {
         contract_id,
         &simple_transfer_def,
         &mut lps,
-        &[
-            GoldilocksField::from_noncanonical_u64(2),
-            GoldilocksField::from_noncanonical_u64(1000),
-        ],
-    ).await?;
+        &[GoldilocksField::from_noncanonical_u64(2), GoldilocksField::from_noncanonical_u64(1000)],
+    )
+    .await?;
 
     timer.lap("generated witness input");
     println!("witnesss_json:\n{:?}", &cfc_input);
     //println!("witnesss_json:\n{}",serde_json::to_string(&result).unwrap());
 
-    //println!("common_looks_like: \n{:?}\n\n\n", simple_mint_debug_circuit.get_common_circuit_data_ref());
+    //println!("common_looks_like: \n{:?}\n\n\n",
+    // simple_mint_debug_circuit.get_common_circuit_data_ref());
     let proof = simple_transfer_circuit.prove_base(&cfc_input).unwrap();
 
     timer.lap("proved");

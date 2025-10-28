@@ -1,36 +1,36 @@
+pub mod client;
 pub mod job_tracker;
 pub mod simple_async_coord;
 pub mod simple_async_realm;
 pub mod worker_state;
-pub mod client;
 
+use std::{sync::Arc, time::Duration};
+
+use job_tracker::{JobLocation, WorkerJobTracker};
 use plonky2::field::goldilocks_field::GoldilocksField;
-use psy_core::data::qhashout::QHashOut;
-use psy_core::job::{
-    id::{ProvingJobCircuitType, QJobTopic, QProvingJobDataID},
-    traits::QProofStoreReaderAsync,
+use psy_core::{
+    data::qhashout::QHashOut,
+    job::{
+        id::{ProvingJobCircuitType, QJobTopic, QProvingJobDataID},
+        traits::QProofStoreReaderAsync,
+    },
+    utils::trace_timer::TraceTimer,
 };
-use psy_crypto::common::generic_circuit_verifier::GenericCircuitVerifier;
 use psy_crypto::common::{
-    simple_circuit_library::SimpleCircuitLibrary, worker::QNextGenWorkerGenericProverAsyncMut,
+    generic_circuit_verifier::GenericCircuitVerifier, simple_circuit_library::SimpleCircuitLibrary, worker::QNextGenWorkerGenericProverAsyncMut,
 };
 use psy_network_circuit::coordinator::coordinator_helper::QEDCoordinatorCircuitManager;
-use std::{sync::Arc, time::Duration};
-use tracing::{debug, error, info, warn, trace};
+use psy_prover::wallet::secp_wallet::Wallet;
+use tokio::{sync::Mutex, time::timeout};
+use tracing::{debug, error, info, trace, warn};
 pub use worker_state::*;
 
 use crate::common::{
     jobs::{JobClient, JobReceiver},
+    retry::{retry_with_backoff, RetryConfig},
+    slot::SLOT_SIZE,
     verifier::get_cached_generic_verifier,
-    retry::RetryConfig,
 };
-use job_tracker::{JobLocation, WorkerJobTracker};
-use tokio::sync::Mutex;
-use tokio::time::timeout;
-use psy_prover::wallet::secp_wallet::Wallet;
-use crate::common::slot::SLOT_SIZE;
-use psy_core::utils::trace_timer::TraceTimer;
-use crate::common::retry::retry_with_backoff;
 
 pub async fn run_worker(
     edge_url: String,
@@ -78,11 +78,7 @@ pub async fn run_worker(
 
         let job_id = job.job_id;
         let mut timer = TraceTimer::new("process_job");
-        timer.event(format!(
-            "STARTED job {} ({:?})",
-            job_id.to_hex_string(),
-            job_id
-        ));
+        timer.event(format!("STARTED job {} ({:?})", job_id.to_hex_string(), job_id));
 
         let timeout_duration = match location {
             JobLocation::Coordinator => Duration::from_millis(2 * SLOT_SIZE),
@@ -90,29 +86,31 @@ pub async fn run_worker(
         };
 
         // Process job with timeout and retry logic
-        match timeout(timeout_duration, process_job_with_retry(
-            &store,
-            &job_receiver,
-            job.clone(),
-            &prover,
-            &verifier,
-            wallet.clone(),
-            &worker_pk_str,
-            &job_tracker,
-            location.clone(),
-            &retry_config,
-            &mut timer,
-        )).await {
+        match timeout(
+            timeout_duration,
+            process_job_with_retry(
+                &store,
+                &job_receiver,
+                job.clone(),
+                &prover,
+                &verifier,
+                wallet.clone(),
+                &worker_pk_str,
+                &job_tracker,
+                location.clone(),
+                &retry_config,
+                &mut timer,
+            ),
+        )
+        .await
+        {
             Ok(Ok(())) => {
                 // Job completed successfully
                 debug!("Job {} completed successfully", job_id.to_hex_string());
             }
             Ok(Err(e)) => {
                 // Job failed after all retries
-                error!(
-                    "Job {} failed after all retries: {:?}, node: {:?}",
-                    job_id.to_hex_string(), e, location
-                );
+                error!("Job {} failed after all retries: {:?}, node: {:?}", job_id.to_hex_string(), e, location);
             }
             Err(_) => {
                 // Timeout occurred
@@ -145,25 +143,21 @@ where
     let job_id = job.job_id;
 
     // Retry the proving operation
-    let proof = retry_with_backoff(
-        retry_config,
-        &format!("prove job {}", job_id.to_hex_string()),
-        || async {
-            let proof = prover.worker_prove_mut_async(store, &verifier.library, job_id).await?;
-            Ok::<_, anyhow::Error>(proof)
-        },
-    ).await?;
+    let proof = retry_with_backoff(retry_config, &format!("prove job {}", job_id.to_hex_string()), || async {
+        let proof = prover.worker_prove_mut_async(store, &verifier.library, job_id).await?;
+        Ok::<_, anyhow::Error>(proof)
+    })
+    .await?;
 
     info!("Proved job: job_id={:?}", job_id);
 
     // Submit proof with retry
-    retry_with_backoff(
-        retry_config,
-        &format!("submit proof for job {}", job_id.to_hex_string()),
-        || async {
-            job_receiver.submit_job_proof(job.clone(), proof.clone(), wallet.clone(), worker_pk_str).await
-        },
-    ).await?;
+    retry_with_backoff(retry_config, &format!("submit proof for job {}", job_id.to_hex_string()), || async {
+        job_receiver
+            .submit_job_proof(job.clone(), proof.clone(), wallet.clone(), worker_pk_str)
+            .await
+    })
+    .await?;
 
     info!("Successfully submitted proof for job: {:?}, node: {:?}", job_id, location);
 
@@ -176,11 +170,7 @@ where
         }
     }
 
-    timer.event(format!(
-        "FINISHED job {} ({:?})",
-        job_id.to_hex_string(),
-        job_id
-    ));
+    timer.event(format!("FINISHED job {} ({:?})", job_id.to_hex_string(), job_id));
 
     Ok(())
 }

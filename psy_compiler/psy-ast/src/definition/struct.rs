@@ -1,9 +1,6 @@
 use indexmap::IndexMap;
 
-use crate::{
-    AttrNode, Comment, GenericParameter, Identifier, Location, NodeInfo, NodeType, UncheckedType,
-    Visibility,
-};
+use crate::{AttrNode, Comment, GenericParameter, Identifier, Location, NodeInfo, NodeType, UncheckedType, Visibility};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct StructNode {
@@ -14,7 +11,7 @@ pub struct StructNode {
     pub visibility: Visibility,
     pub comments: Vec<Comment>,
     pub location: Location,
-    pub is_generated: bool
+    pub is_generated: bool,
 }
 
 #[derive(Clone, Debug, PartialEq)]

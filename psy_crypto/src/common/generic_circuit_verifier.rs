@@ -13,12 +13,11 @@ use psy_core::{
 };
 use serde::{Deserialize, Serialize};
 
-use crate::hash::core::sha256;
-
 use super::{
     circuit_library::{CircuitInfoLibrary, CircuitInfoLibraryBuilder},
     simple_circuit_library::{SerializableSimpleCircuitLibrary, SimpleCircuitLibrary},
 };
+use crate::hash::core::sha256;
 
 #[derive(Debug, Clone)]
 pub struct GenericCircuitCommonDataLibrary<C: GenericConfig<D>, const D: usize> {
@@ -62,11 +61,7 @@ impl<C: GenericConfig<D>, const D: usize> GenericCircuitCommonDataLibrary<C, D> 
         let cd_str = format!("CDV1_{:?}", common_data);
         sha256::CoreSha256Hasher::hash_bytes(cd_str.as_bytes())
     }
-    pub fn insert_common_data(
-        &mut self,
-        circuit_type: ProvingJobCircuitType,
-        common_data: CommonCircuitData<C::F, D>,
-    ) {
+    pub fn insert_common_data(&mut self, circuit_type: ProvingJobCircuitType, common_data: CommonCircuitData<C::F, D>) {
         let new_hash = Self::hash_common_circuit_data(&common_data);
         tracing::debug!("Circuit verifier - circuit_type: {:?}, new_hash: {}", circuit_type, new_hash);
         match self.common_data_hashes.iter().position(|x| new_hash.eq(x)) {
@@ -87,15 +82,21 @@ impl<C: GenericConfig<D>, const D: usize> GenericCircuitCommonDataLibrary<C, D> 
         common_data_items: Vec<CommonCircuitData<C::F, D>>,
     ) -> anyhow::Result<Self> {
         if common_data_items.len() != ser.common_data_hashes.len() {
-            anyhow::bail!("ser.common_data_hashes.len() != common_data_items.len() (ser.common_data_hashes.len() = {}), got {}",ser.common_data_hashes.len(),common_data_items.len());
+            anyhow::bail!(
+                "ser.common_data_hashes.len() != common_data_items.len() (ser.common_data_hashes.len() = {}), got {}",
+                ser.common_data_hashes.len(),
+                common_data_items.len()
+            );
         }
         if ser.common_circuit_list.len() != ser.common_data_hashes.len() {
-            anyhow::bail!("ser.common_circuit_list.len() != ser.common_data_hashes.len() (ser.common_circuit_list.len() = {}), got {}",ser.common_circuit_list.len(),common_data_items.len());
+            anyhow::bail!(
+                "ser.common_circuit_list.len() != ser.common_data_hashes.len() (ser.common_circuit_list.len() = {}), got {}",
+                ser.common_circuit_list.len(),
+                common_data_items.len()
+            );
         }
 
-        for (cdata, expected_cdata_hash) in
-            common_data_items.iter().zip(ser.common_data_hashes.iter())
-        {
+        for (cdata, expected_cdata_hash) in common_data_items.iter().zip(ser.common_data_hashes.iter()) {
             if !Self::hash_common_circuit_data(cdata).eq(expected_cdata_hash) {
                 anyhow::bail!("invalid common data hash in serialized data");
             }
@@ -103,14 +104,11 @@ impl<C: GenericConfig<D>, const D: usize> GenericCircuitCommonDataLibrary<C, D> 
 
         let mut common_circuit_map = IndexMap::new();
 
-        ser.common_circuit_list
-            .iter()
-            .enumerate()
-            .for_each(|(index, l)| {
-                l.iter().for_each(|circuit_type| {
-                    common_circuit_map.insert(*circuit_type, index);
-                });
+        ser.common_circuit_list.iter().enumerate().for_each(|(index, l)| {
+            l.iter().for_each(|circuit_type| {
+                common_circuit_map.insert(*circuit_type, index);
             });
+        });
 
         Ok(Self {
             common_data_items,
@@ -140,10 +138,7 @@ impl<C: GenericConfig<D>, const D: usize> GenericCircuitCommonDataLibrary<C, D> 
 
         result
     }
-    pub fn get_common_circuit_data_ref(
-        &self,
-        circuit_type: ProvingJobCircuitType,
-    ) -> anyhow::Result<&CommonCircuitData<C::F, D>> {
+    pub fn get_common_circuit_data_ref(&self, circuit_type: ProvingJobCircuitType) -> anyhow::Result<&CommonCircuitData<C::F, D>> {
         match self.common_circuit_map.get(&circuit_type) {
             Some(x) => Ok(&self.common_data_items[*x]),
             None => anyhow::bail!("no common data found for circuit type {:?}", circuit_type),
@@ -173,13 +168,9 @@ where
             common: GenericCircuitCommonDataLibrary::new(),
         }
     }
-    pub fn from_serialized(
-        ser: SerializedGenericCircuitVerifier<C::F>,
-        common_data_items: Vec<CommonCircuitData<C::F, D>>,
-    ) -> anyhow::Result<Self> {
+    pub fn from_serialized(ser: SerializedGenericCircuitVerifier<C::F>, common_data_items: Vec<CommonCircuitData<C::F, D>>) -> anyhow::Result<Self> {
         let library = SimpleCircuitLibrary::from_serialized(ser.library);
-        let common =
-            GenericCircuitCommonDataLibrary::from_serialized(&ser.common, common_data_items)?;
+        let common = GenericCircuitCommonDataLibrary::from_serialized(&ser.common, common_data_items)?;
 
         Ok(Self { library, common })
     }
@@ -189,34 +180,23 @@ where
 
         SerializedGenericCircuitVerifier { library, common }
     }
-    pub fn verify_proof_of_type(
-        &self,
-        circuit_type: ProvingJobCircuitType,
-        proof: &ProofWithPublicInputs<C::F, C, D>,
-    ) -> anyhow::Result<()>
+    pub fn verify_proof_of_type(&self, circuit_type: ProvingJobCircuitType, proof: &ProofWithPublicInputs<C::F, C, D>) -> anyhow::Result<()>
     where
         C::Hasher: AlgebraicHasher<C::F>,
     {
         let cdata_ref = self.common.get_common_circuit_data_ref(circuit_type)?;
-        self.library
-            .verify_proof_of_type(circuit_type, cdata_ref, proof)?;
+        self.library.verify_proof_of_type(circuit_type, cdata_ref, proof)?;
         Ok(())
     }
 
     pub fn register_circuit_triplet(
         &mut self,
         circuit_type: ProvingJobCircuitType,
-        triplet: (
-            &CommonCircuitData<C::F, D>,
-            &VerifierOnlyCircuitData<C, D>,
-            QHashOut<C::F>,
-        ),
+        triplet: (&CommonCircuitData<C::F, D>, &VerifierOnlyCircuitData<C, D>, QHashOut<C::F>),
     ) {
         let (common_ref, v_ref, fingerprint) = triplet;
 
-        self.library
-            .register_circuit(circuit_type, fingerprint, v_ref.into());
-        self.common
-            .insert_common_data(circuit_type, common_ref.to_owned());
+        self.library.register_circuit(circuit_type, fingerprint, v_ref.into());
+        self.common.insert_common_data(circuit_type, common_ref.to_owned());
     }
 }

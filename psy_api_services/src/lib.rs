@@ -12,6 +12,7 @@ use axum::Router;
 use services::{create_database_pool, ApiService, RewardService};
 use tokio::signal;
 use tower_http::{cors::CorsLayer, trace::TraceLayer};
+
 use crate::services::JobStatusService;
 
 /// Run the API service with the given configuration.

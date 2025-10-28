@@ -1,18 +1,17 @@
 #![cfg(not(target_arch = "wasm32"))]
 
-pub mod scylla;
-pub mod lmdbx;
-pub mod tikv;
 pub mod backend;
 pub mod journal;
+pub mod lmdbx;
+pub mod scylla;
+pub mod tikv;
 
 use std::sync::Arc;
+
 use kvq::traits::{KVQBinaryStore, KVQBinaryStoreAsync, KVQPair};
 
-use self::scylla::ScyllaStore;
-use self::lmdbx::KVQlibmdbxStore;
-use self::tikv::TiKVStore;
 pub use self::backend::{Backend, BackendConfig};
+use self::{lmdbx::KVQlibmdbxStore, scylla::ScyllaStore, tikv::TiKVStore};
 
 #[derive(Clone, Debug)]
 pub enum QEDStore {
@@ -165,18 +164,13 @@ impl KVQBinaryStore for QEDStore {
         }
     }
 
-    fn set_and_delete_many(
-        &self,
-        keys_to_set: &[KVQPair<&Vec<u8>, &Vec<u8>>],
-        keys_to_delete: &[Vec<u8>]
-    ) -> anyhow::Result<()> {
+    fn set_and_delete_many(&self, keys_to_set: &[KVQPair<&Vec<u8>, &Vec<u8>>], keys_to_delete: &[Vec<u8>]) -> anyhow::Result<()> {
         match self {
             QEDStore::Scylla(store) => store.set_and_delete_many(keys_to_set, keys_to_delete),
             QEDStore::Lmdbx(store) => store.set_and_delete_many(keys_to_set, keys_to_delete),
             QEDStore::TiKV(store) => store.set_and_delete_many(keys_to_set, keys_to_delete),
         }
     }
-
 }
 
 #[async_trait::async_trait]
@@ -391,11 +385,7 @@ impl KVQBinaryStoreAsync for QEDStore {
         }
     }
 
-    async fn set_and_delete_many(
-        &self,
-        keys_to_set: &[KVQPair<&Vec<u8>, &Vec<u8>>],
-        keys_to_delete: &[Vec<u8>]
-    ) -> anyhow::Result<()> {
+    async fn set_and_delete_many(&self, keys_to_set: &[KVQPair<&Vec<u8>, &Vec<u8>>], keys_to_delete: &[Vec<u8>]) -> anyhow::Result<()> {
         match self {
             QEDStore::Scylla(store) => <ScyllaStore as KVQBinaryStoreAsync>::set_and_delete_many(store, keys_to_set, keys_to_delete).await,
             QEDStore::Lmdbx(store) => {

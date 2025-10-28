@@ -1,13 +1,18 @@
 use std::{collections::HashMap, fmt::Display};
 
 use kvq::traits::{KVQPair, KVQSerializable};
-use psy_core::{config::network_constants::CST_USER_UPDATE_CHANNEL_ID, job::drain_queue::{DrainQueueMetadata, DrainQueueMetadataTagged}};
+use psy_core::{
+    config::network_constants::CST_USER_UPDATE_CHANNEL_ID,
+    job::drain_queue::{DrainQueueMetadata, DrainQueueMetadataTagged},
+};
 use psy_crypto::hash::{
-    merkle::{core::DeltaMerkleProofCore, utils::common::{SimpleMerkleNode, SimpleMerkleNodeKey}},
+    merkle::{
+        core::DeltaMerkleProofCore,
+        utils::common::{SimpleMerkleNode, SimpleMerkleNodeKey},
+    },
     traits::hasher::MerkleHasher,
 };
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
-
 
 #[derive(Clone, Serialize, Deserialize, PartialEq)]
 #[serde(bound = "for<'de2> Hash: Deserialize<'de2>")]
@@ -17,7 +22,6 @@ pub struct CSTUserUpdate<Hash: PartialEq + Copy + Serialize> {
     pub uct_updates: Vec<SimpleMerkleNode<Hash>>,
     pub updates: Vec<CSTDeltaNode<Hash>>,
 }
-
 
 impl<Hash: PartialEq + Copy + Serialize> DrainQueueMetadataTagged for CSTUserUpdate<Hash> {
     fn get_dq_metadata(&self) -> DrainQueueMetadata {
@@ -55,11 +59,7 @@ impl KVQSerializable for CSTDeltaNodeKey {
 
 impl CSTDeltaNodeKey {
     pub fn new(contract_id: u32, level: u8, index: u64) -> Self {
-        Self {
-            contract_id,
-            level,
-            index,
-        }
+        Self { contract_id, level, index }
     }
     pub fn root(&self) -> Self {
         Self {
@@ -98,10 +98,7 @@ impl<Hash: PartialEq + Serialize + Copy + Display + std::fmt::Debug> CSTUserUpda
             uct_node_map: HashMap::new(),
         }
     }
-    pub fn verify_injest_uct_delta_merkle_proof<Hasher: MerkleHasher<Hash>>(
-        &mut self,
-        proof: &DeltaMerkleProofCore<Hash>,
-    ) -> anyhow::Result<()> {
+    pub fn verify_injest_uct_delta_merkle_proof<Hasher: MerkleHasher<Hash>>(&mut self, proof: &DeltaMerkleProofCore<Hash>) -> anyhow::Result<()> {
         tracing::debug!("UCT merkle proof: {}", serde_json::to_string_pretty(&proof).unwrap());
         let mut current = proof.old_value;
         for (i, sibling) in proof.siblings.iter().enumerate() {
@@ -165,30 +162,20 @@ impl<Hash: PartialEq + Serialize + Copy + Display + std::fmt::Debug> CSTUserUpda
         CSTUserUpdate {
             user_id,
             checkpoint_id,
-            uct_updates: self.uct_node_map
+            uct_updates: self
+                .uct_node_map
                 .into_iter()
                 .map(|(k, v)| SimpleMerkleNode { key: k, value: v })
                 .collect(),
-            updates: self
-                .node_map
-                .into_iter()
-                .map(|(k, v)| CSTDeltaNode { key: k, value: v })
-                .collect(),
+            updates: self.node_map.into_iter().map(|(k, v)| CSTDeltaNode { key: k, value: v }).collect(),
         }
     }
     pub fn to_updates(self, checkpoint_id: u64, user_id: u64) -> CSTUserUpdate<Hash> {
         CSTUserUpdate {
             user_id,
             checkpoint_id,
-            uct_updates: self.uct_node_map
-                .iter()
-                .map(|(k, v)| SimpleMerkleNode { key: *k, value: *v })
-                .collect(),
-            updates: self
-                .node_map
-                .iter()
-                .map(|(k, v)| CSTDeltaNode { key: *k, value: *v })
-                .collect(),
+            uct_updates: self.uct_node_map.iter().map(|(k, v)| SimpleMerkleNode { key: *k, value: *v }).collect(),
+            updates: self.node_map.iter().map(|(k, v)| CSTDeltaNode { key: *k, value: *v }).collect(),
         }
     }
 }

@@ -8,9 +8,9 @@ pub trait HistoryQueueMetadataTagged {
     fn get_hq_metadata(&self) -> HistoryQueueMetadata;
 }
 
-pub trait HQSerializable: KVQSerializable + HistoryQueueMetadataTagged + Send+ Sync {}
+pub trait HQSerializable: KVQSerializable + HistoryQueueMetadataTagged + Send + Sync {}
 
-impl<T: KVQSerializable + HistoryQueueMetadataTagged+ Send+ Sync> HQSerializable for T {}
+impl<T: KVQSerializable + HistoryQueueMetadataTagged + Send + Sync> HQSerializable for T {}
 
 #[derive(Clone, Copy, PartialEq, PartialOrd, Ord, Eq, Hash, Serialize, Deserialize)]
 pub struct HistoryQueueMetadata {
@@ -31,10 +31,7 @@ impl KVQSerializable for HistoryQueueMetadata {
 
     fn from_bytes(bytes: &[u8]) -> anyhow::Result<Self> {
         if bytes.len() != 24 {
-            anyhow::bail!(
-                "expected 24 bytes when deserializing HistoryQueueMetadata, got {}",
-                bytes.len()
-            );
+            anyhow::bail!("expected 24 bytes when deserializing HistoryQueueMetadata, got {}", bytes.len());
         }
         let channel_id = u64::from_be_bytes(bytes[0..8].try_into().unwrap());
         let checkpoint_id = u64::from_be_bytes(bytes[8..16].try_into().unwrap());
@@ -80,7 +77,10 @@ impl<T: KVQSerializable> KVQSerializable for WithHistoryQueueMetadata<T> {
 
     fn from_bytes(bytes: &[u8]) -> anyhow::Result<Self> {
         if bytes.len() < 24 {
-            anyhow::bail!("not enough bytes for deserializing WithHistoryQueueMetadata<T>, need at least 24, got {}", bytes.len());
+            anyhow::bail!(
+                "not enough bytes for deserializing WithHistoryQueueMetadata<T>, need at least 24, got {}",
+                bytes.len()
+            );
         }
 
         let channel_id = u64::from_be_bytes(bytes[0..8].try_into().unwrap());
@@ -114,28 +114,14 @@ pub trait CheckpointHistoryQueueEmitterAsyncImm {
 
 #[async_trait]
 pub trait CheckpointHistoryQueueConsumerAsyncImm {
-    async fn chq_items_gte<T: HQSerializable>(
-        &self,
-        channel_id: u64,
-        start_checkpoint_id: u64,
-    ) -> anyhow::Result<Vec<T>>;
-    async fn wait_for_next_item_imm<T: HQSerializable>(
-        &self,
-        channel_id: u64,
-        start_checkpoint_id: u64,
-    ) -> anyhow::Result<T>;
+    async fn chq_items_gte<T: HQSerializable>(&self, channel_id: u64, start_checkpoint_id: u64) -> anyhow::Result<Vec<T>>;
+    async fn wait_for_next_item_imm<T: HQSerializable>(&self, channel_id: u64, start_checkpoint_id: u64) -> anyhow::Result<T>;
 }
 
 #[async_trait]
-pub trait CheckpointHistoryQueueAsyncImm:
-    CheckpointHistoryQueueEmitterAsyncImm + CheckpointHistoryQueueConsumerAsyncImm
-{
-}
+pub trait CheckpointHistoryQueueAsyncImm: CheckpointHistoryQueueEmitterAsyncImm + CheckpointHistoryQueueConsumerAsyncImm {}
 
-impl<Q: CheckpointHistoryQueueEmitterAsyncImm + CheckpointHistoryQueueConsumerAsyncImm>
-    CheckpointHistoryQueueAsyncImm for Q
-{
-}
+impl<Q: CheckpointHistoryQueueEmitterAsyncImm + CheckpointHistoryQueueConsumerAsyncImm> CheckpointHistoryQueueAsyncImm for Q {}
 
 #[async_trait]
 pub trait CheckpointHistoryQueueEmitterAsyncMut {
@@ -144,29 +130,15 @@ pub trait CheckpointHistoryQueueEmitterAsyncMut {
 
 #[async_trait]
 pub trait CheckpointHistoryQueueConsumerAsyncMut {
-    async fn chq_items_gte<T: HQSerializable>(
-        &mut self,
-        channel_id: u64,
-        start_checkpoint_id: u64,
-    ) -> anyhow::Result<Vec<T>>;
+    async fn chq_items_gte<T: HQSerializable>(&mut self, channel_id: u64, start_checkpoint_id: u64) -> anyhow::Result<Vec<T>>;
 
-    async fn wait_for_next_item_mut<T: HQSerializable>(
-        &mut self,
-        channel_id: u64,
-        start_checkpoint_id: u64,
-    ) -> anyhow::Result<T>;
+    async fn wait_for_next_item_mut<T: HQSerializable>(&mut self, channel_id: u64, start_checkpoint_id: u64) -> anyhow::Result<T>;
 }
 
 #[async_trait]
-pub trait CheckpointHistoryQueueAsyncMut:
-    CheckpointHistoryQueueEmitterAsyncMut + CheckpointHistoryQueueConsumerAsyncMut
-{
-}
+pub trait CheckpointHistoryQueueAsyncMut: CheckpointHistoryQueueEmitterAsyncMut + CheckpointHistoryQueueConsumerAsyncMut {}
 
-impl<Q: CheckpointHistoryQueueEmitterAsyncMut + CheckpointHistoryQueueConsumerAsyncMut>
-    CheckpointHistoryQueueAsyncMut for Q
-{
-}
+impl<Q: CheckpointHistoryQueueEmitterAsyncMut + CheckpointHistoryQueueConsumerAsyncMut> CheckpointHistoryQueueAsyncMut for Q {}
 
 #[async_trait]
 pub trait CheckpointHistoryQueueEmitterSyncImm {
@@ -175,22 +147,13 @@ pub trait CheckpointHistoryQueueEmitterSyncImm {
 
 #[async_trait]
 pub trait CheckpointHistoryQueueConsumerSyncImm {
-    fn chq_drain_imm_sync<T: HQSerializable>(
-        &self,
-        channel_id: u64,
-    ) -> anyhow::Result<Vec<T>>;
+    fn chq_drain_imm_sync<T: HQSerializable>(&self, channel_id: u64) -> anyhow::Result<Vec<T>>;
 }
 
 #[async_trait]
-pub trait CheckpointHistoryQueueSyncImm:
-    CheckpointHistoryQueueEmitterSyncImm + CheckpointHistoryQueueConsumerSyncImm
-{
-}
+pub trait CheckpointHistoryQueueSyncImm: CheckpointHistoryQueueEmitterSyncImm + CheckpointHistoryQueueConsumerSyncImm {}
 
-impl<Q: CheckpointHistoryQueueEmitterSyncImm + CheckpointHistoryQueueConsumerSyncImm>
-    CheckpointHistoryQueueSyncImm for Q
-{
-}
+impl<Q: CheckpointHistoryQueueEmitterSyncImm + CheckpointHistoryQueueConsumerSyncImm> CheckpointHistoryQueueSyncImm for Q {}
 
 #[async_trait]
 pub trait CheckpointHistoryQueueEmitterSyncMut {
@@ -199,25 +162,13 @@ pub trait CheckpointHistoryQueueEmitterSyncMut {
 
 #[async_trait]
 pub trait CheckpointHistoryQueueConsumerSyncMut {
-    fn chq_drain_mut_sync<T: HQSerializable>(
-        &mut self,
-        channel_id: u64,
-    ) -> anyhow::Result<Vec<T>>;
+    fn chq_drain_mut_sync<T: HQSerializable>(&mut self, channel_id: u64) -> anyhow::Result<Vec<T>>;
 }
 
 #[async_trait]
-pub trait CheckpointHistoryQueueSyncMut:
-    CheckpointHistoryQueueEmitterSyncMut + CheckpointHistoryQueueConsumerSyncMut
-{
-}
+pub trait CheckpointHistoryQueueSyncMut: CheckpointHistoryQueueEmitterSyncMut + CheckpointHistoryQueueConsumerSyncMut {}
 
-impl<Q: CheckpointHistoryQueueEmitterSyncMut + CheckpointHistoryQueueConsumerSyncMut>
-    CheckpointHistoryQueueSyncMut for Q
-{
-}
-
-
-
+impl<Q: CheckpointHistoryQueueEmitterSyncMut + CheckpointHistoryQueueConsumerSyncMut> CheckpointHistoryQueueSyncMut for Q {}
 
 #[derive(Clone)]
 pub struct QEDArcImmutableHistoryQueueWrapper<P> {

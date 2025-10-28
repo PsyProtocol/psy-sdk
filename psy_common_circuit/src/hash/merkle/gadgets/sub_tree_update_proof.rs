@@ -1,24 +1,17 @@
-use crate::builder::{
-    comparison::CircuitBuilderComparison, hash::core::CircuitBuilderHashCore,
-};
 use plonky2::{
     field::extension::Extendable,
     hash::hash_types::{HashOutTarget, RichField},
-    iop::{
-        target::Target,
-        witness::Witness,
-    },
+    iop::{target::Target, witness::Witness},
     plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher},
 };
 use psy_core::data::qhashout::QHashOut;
 use psy_crypto::hash::merkle::{
     core::DeltaMerkleProofCore,
-    utils::sub_tree_nca::{
-        PartialUpdateNearestCommonAncestorProof, UpdateNearestCommonAncestorProof,
-    },
+    utils::sub_tree_nca::{PartialUpdateNearestCommonAncestorProof, UpdateNearestCommonAncestorProof},
 };
 
 use super::variable_height_delta_merkle_proof::VariableHeightDeltaMerkleProofGadget;
+use crate::builder::{comparison::CircuitBuilderComparison, hash::core::CircuitBuilderHashCore};
 
 #[derive(Debug, Clone)]
 pub struct UpdateNearestCommonAncestorProofGadget {
@@ -39,11 +32,7 @@ pub struct UpdateNearestCommonAncestorProofGadget {
     has_witness_level_b: bool,
 }
 impl UpdateNearestCommonAncestorProofGadget {
-    pub fn add_virtual_to_full<
-        H: AlgebraicHasher<F>,
-        F: RichField + Extendable<D>,
-        const D: usize,
-    >(
+    pub fn add_virtual_to_full<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
         max_height: usize,
     ) -> Self {
@@ -51,23 +40,13 @@ impl UpdateNearestCommonAncestorProofGadget {
         let level_b = builder.add_virtual_target();
         let nearest_common_ancestor_level = builder.add_virtual_target();
 
-        let mut gadget = Self::add_virtual_to_full_with_params::<H, F, D>(
-            builder,
-            max_height,
-            level_a,
-            level_b,
-            nearest_common_ancestor_level,
-        );
+        let mut gadget = Self::add_virtual_to_full_with_params::<H, F, D>(builder, max_height, level_a, level_b, nearest_common_ancestor_level);
         gadget.has_witness_level_a = true;
         gadget.has_witness_level_b = true;
         gadget.has_witness_nearest_common_ancestor_level = true;
         gadget
     }
-    fn add_virtual_to_full_with_params<
-        H: AlgebraicHasher<F>,
-        F: RichField + Extendable<D>,
-        const D: usize,
-    >(
+    fn add_virtual_to_full_with_params<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
         max_height: usize,
         level_a: Target,
@@ -84,18 +63,10 @@ impl UpdateNearestCommonAncestorProofGadget {
         let height_b = builder.sub(level_b, nearest_common_ancestor_level_plus_1);
 
         let child_a =
-            VariableHeightDeltaMerkleProofGadget::add_virtual_to_full_with_subtree_root_index::<
-                H,
-                F,
-                D,
-            >(builder, max_height, Some(height_a));
+            VariableHeightDeltaMerkleProofGadget::add_virtual_to_full_with_subtree_root_index::<H, F, D>(builder, max_height, Some(height_a));
 
         let child_b =
-            VariableHeightDeltaMerkleProofGadget::add_virtual_to_full_with_subtree_root_index::<
-                H,
-                F,
-                D,
-            >(builder, max_height, Some(height_b));
+            VariableHeightDeltaMerkleProofGadget::add_virtual_to_full_with_subtree_root_index::<H, F, D>(builder, max_height, Some(height_b));
 
         let computed_root_index_a = child_a.bit_info.get_root_parent_index(builder);
         let computed_root_index_b = child_b.bit_info.get_root_parent_index(builder);
@@ -105,23 +76,12 @@ impl UpdateNearestCommonAncestorProofGadget {
         let variable_dmp_gadget_a_is_right = child_a.bit_info.is_right_child(builder);
         let variable_dmp_gadget_b_is_right = child_b.bit_info.is_right_child(builder);
 
-        let direction_sanity_check = builder.add(
-            variable_dmp_gadget_a_is_right.target,
-            variable_dmp_gadget_b_is_right.target,
-        );
+        let direction_sanity_check = builder.add(variable_dmp_gadget_a_is_right.target, variable_dmp_gadget_b_is_right.target);
 
         builder.connect(direction_sanity_check, one);
 
-        let computed_old_root = builder.two_to_one_swapped::<H>(
-            child_a.old_root,
-            child_b.old_root,
-            variable_dmp_gadget_a_is_right,
-        );
-        let computed_new_root = builder.two_to_one_swapped::<H>(
-            child_a.new_root,
-            child_b.new_root,
-            variable_dmp_gadget_a_is_right,
-        );
+        let computed_old_root = builder.two_to_one_swapped::<H>(child_a.old_root, child_b.old_root, variable_dmp_gadget_a_is_right);
+        let computed_new_root = builder.two_to_one_swapped::<H>(child_a.new_root, child_b.new_root, variable_dmp_gadget_a_is_right);
 
         Self {
             child_a,
@@ -144,32 +104,24 @@ impl UpdateNearestCommonAncestorProofGadget {
         witness: &mut W,
         child_a: &DeltaMerkleProofCore<QHashOut<F>>,
         child_b: &DeltaMerkleProofCore<QHashOut<F>>,
-        nearest_common_ancestor_level: u8
-        
-    )  -> anyhow::Result<()> {
+        nearest_common_ancestor_level: u8,
+    ) -> anyhow::Result<()> {
         self.child_a.set_witness(witness, child_a)?;
         self.child_b.set_witness(witness, child_b)?;
 
         if self.has_witness_nearest_common_ancestor_level {
-            witness.set_target(
-                self.nearest_common_ancestor_level,
-                F::from_canonical_u8(nearest_common_ancestor_level),
-            )?;
+            witness.set_target(self.nearest_common_ancestor_level, F::from_canonical_u8(nearest_common_ancestor_level))?;
         }
         if self.has_witness_level_a {
             witness.set_target(
                 self.level_a,
-                F::from_canonical_u8(
-                    nearest_common_ancestor_level + (child_a.siblings.len() as u8) + 1,
-                ),
+                F::from_canonical_u8(nearest_common_ancestor_level + (child_a.siblings.len() as u8) + 1),
             )?;
         }
         if self.has_witness_level_b {
             witness.set_target(
                 self.level_b,
-                F::from_canonical_u8(
-                    nearest_common_ancestor_level + (child_b.siblings.len() as u8) + 1,
-                ),
+                F::from_canonical_u8(nearest_common_ancestor_level + (child_b.siblings.len() as u8) + 1),
             )?;
         }
         Ok(())
@@ -179,24 +131,14 @@ impl UpdateNearestCommonAncestorProofGadget {
         witness: &mut W,
         input: &PartialUpdateNearestCommonAncestorProof<QHashOut<F>>,
     ) -> anyhow::Result<()> {
-        self.set_witness_params(
-            witness,
-            &input.child_a,
-            &input.child_b,
-            input.nearest_common_ancestor_level,
-        )
+        self.set_witness_params(witness, &input.child_a, &input.child_b, input.nearest_common_ancestor_level)
     }
     pub fn set_witness_full<W: Witness<F>, F: RichField>(
         &self,
         witness: &mut W,
         input: &UpdateNearestCommonAncestorProof<QHashOut<F>>,
     ) -> anyhow::Result<()> {
-        self.set_witness_params(
-            witness,
-            &input.child_a,
-            &input.child_b,
-            input.nearest_common_ancestor_level,
-        )
+        self.set_witness_params(witness, &input.child_a, &input.child_b, input.nearest_common_ancestor_level)
     }
 }
 
@@ -204,20 +146,27 @@ impl UpdateNearestCommonAncestorProofGadget {
 mod tests {
     use std::fmt::Debug;
 
-    use plonky2::field::types::PrimeField64;
-    use plonky2::hash::poseidon::PoseidonHash;
-    use plonky2::iop::witness::PartialWitness;
-    use plonky2::plonk::circuit_builder::CircuitBuilder;
-    use plonky2::plonk::circuit_data::{CircuitConfig, CircuitData};
-    use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
-    use plonky2::plonk::proof::ProofWithPublicInputs;
+    use plonky2::{
+        field::types::PrimeField64,
+        hash::poseidon::PoseidonHash,
+        iop::witness::PartialWitness,
+        plonk::{
+            circuit_builder::CircuitBuilder,
+            circuit_data::{CircuitConfig, CircuitData},
+            config::{GenericConfig, PoseidonGoldilocksConfig},
+            proof::ProofWithPublicInputs,
+        },
+    };
     use psy_core::data::qhashout::QHashOut;
-    use psy_crypto::hash::merkle::utils::common::SimpleMerkleNodeKey;
-    use psy_crypto::hash::merkle::utils::simple_merkle_tree::SimpleMerkleTree;
-    use psy_crypto::hash::merkle::utils::sub_tree_nca::{PartialUpdateNearestCommonAncestorProof, UpdateNCAWithAdditionalLink};
-    use psy_crypto::hash::traits::hasher::{MerkleZeroHasher, PoseidonHasher};
+    use psy_crypto::hash::{
+        merkle::utils::{
+            common::SimpleMerkleNodeKey,
+            simple_merkle_tree::SimpleMerkleTree,
+            sub_tree_nca::{PartialUpdateNearestCommonAncestorProof, UpdateNCAWithAdditionalLink},
+        },
+        traits::hasher::{MerkleZeroHasher, PoseidonHasher},
+    };
     use rand::{thread_rng, Rng, RngCore};
-
 
     use super::UpdateNearestCommonAncestorProofGadget;
 
@@ -234,28 +183,21 @@ mod tests {
         pub fn new(max_height: usize) -> Self {
             let config = CircuitConfig::standard_recursion_config();
             let mut builder = CircuitBuilder::<F, D>::new(config);
-            let update_nca_gadget =
-            UpdateNearestCommonAncestorProofGadget::add_virtual_to_full::<PoseidonHash, F, D>(
-                    &mut builder,
-                    max_height,
-                );
+            let update_nca_gadget = UpdateNearestCommonAncestorProofGadget::add_virtual_to_full::<PoseidonHash, F, D>(&mut builder, max_height);
 
-                builder.register_public_inputs(&[
-                    update_nca_gadget.nearest_common_ancestor_level,
-                    update_nca_gadget.nearest_common_ancestor_index,
-                ]);
-                builder.register_public_inputs(&update_nca_gadget.old_nearest_common_ancestor_value.elements);
-                builder.register_public_inputs(&update_nca_gadget.new_nearest_common_ancestor_value.elements);
+            builder.register_public_inputs(&[
+                update_nca_gadget.nearest_common_ancestor_level,
+                update_nca_gadget.nearest_common_ancestor_index,
+            ]);
+            builder.register_public_inputs(&update_nca_gadget.old_nearest_common_ancestor_value.elements);
+            builder.register_public_inputs(&update_nca_gadget.new_nearest_common_ancestor_value.elements);
             let circuit_data = builder.build::<C>();
             Self {
                 update_nca_gadget,
                 circuit_data,
             }
         }
-        pub fn prove(
-            &self,
-            nca_proof: &PartialUpdateNearestCommonAncestorProof<QHashOut<F>>,
-        ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>> {
+        pub fn prove(&self, nca_proof: &PartialUpdateNearestCommonAncestorProof<QHashOut<F>>) -> anyhow::Result<ProofWithPublicInputs<F, C, D>> {
             let mut pw = PartialWitness::new();
             self.update_nca_gadget.set_witness_partial(&mut pw, nca_proof)?;
             self.circuit_data.prove(pw)
@@ -273,7 +215,7 @@ mod tests {
     type QEDHash = QHashOut<F>;
     type H = PoseidonHasher;
 
-    fn _rand_leaf_node_key<Hasher: MerkleZeroHasher<Hash>, Hash: Copy + PartialEq + Default+Debug>(
+    fn _rand_leaf_node_key<Hasher: MerkleZeroHasher<Hash>, Hash: Copy + PartialEq + Default + Debug>(
         tree: &SimpleMerkleTree<Hasher, Hash>,
     ) -> SimpleMerkleNodeKey {
         let index = thread_rng().gen::<u64>() & tree.get_max_leaf_index();
@@ -327,10 +269,7 @@ mod tests {
                 .collect::<Vec<_>>();
         }
         let inds = if count > max_leaves {
-            panic!(
-                "tried to generate {} unique leaf indicies for a tree of height {}",
-                count, tree_height
-            );
+            panic!("tried to generate {} unique leaf indicies for a tree of height {}", count, tree_height);
         } else if count < 100 || count < (max_leaves - count) {
             let mut existing_inds = Vec::with_capacity(count);
             let mut found = 0;
@@ -365,16 +304,11 @@ mod tests {
         };
 
         inds.into_iter()
-            .map(|index| SimpleMerkleNodeKey {
-                level: tree_height,
-                index,
-            })
+            .map(|index| SimpleMerkleNodeKey { level: tree_height, index })
             .collect::<Vec<_>>()
     }
 
-    fn _gen_random_update_nca_with_additioanl_link_for_tree(
-        tree: &mut SimpleMerkleTree<H, QEDHash>,
-    ) -> UpdateNCAWithAdditionalLink<QEDHash> {
+    fn _gen_random_update_nca_with_additioanl_link_for_tree(tree: &mut SimpleMerkleTree<H, QEDHash>) -> UpdateNCAWithAdditionalLink<QEDHash> {
         let (leaf_a, leaf_b) = rand_leaf_pair_no_collisions(tree.get_height());
 
         let dmp_a = tree.set_leaf(leaf_a.index, QHashOut::rand());
@@ -383,10 +317,7 @@ mod tests {
         UpdateNCAWithAdditionalLink::from_delta_merkle_proof_pair::<H>(&dmp_a, &dmp_b)
     }
 
-
-    pub fn _generate_partial_nca_proof(
-        tree: &mut SimpleMerkleTree<H, QEDHash>,
-    ) -> PartialUpdateNearestCommonAncestorProof<QHashOut<F>>{
+    pub fn _generate_partial_nca_proof(tree: &mut SimpleMerkleTree<H, QEDHash>) -> PartialUpdateNearestCommonAncestorProof<QHashOut<F>> {
         let (leaf_a, leaf_b) = rand_leaf_pair_no_collisions(tree.get_height());
 
         let dmp_a = tree.set_leaf(leaf_a.index, QHashOut::rand());
@@ -394,32 +325,26 @@ mod tests {
         PartialUpdateNearestCommonAncestorProof::from_delta_merkle_proof_pair::<H>(&dmp_a, &dmp_b)
     }
 
-
-
-    pub fn generate_partial_nca_proof_multi_level_b(
-        tree: &mut SimpleMerkleTree<H, QEDHash>,
-    ) -> PartialUpdateNearestCommonAncestorProof<QHashOut<F>>{
+    pub fn generate_partial_nca_proof_multi_level_b(tree: &mut SimpleMerkleTree<H, QEDHash>) -> PartialUpdateNearestCommonAncestorProof<QHashOut<F>> {
         let (leaf_a, leaf_b) = rand_leaf_pair_no_collisions(tree.get_height());
-        
+
         let dmp_a = tree.set_leaf(leaf_a.index, QHashOut::rand());
         let dmp_b = tree.set_leaf(leaf_b.index, QHashOut::rand());
-
 
         let mut base = PartialUpdateNearestCommonAncestorProof::from_delta_merkle_proof_pair::<H>(&dmp_a, &dmp_b);
 
         let base_height = base.child_a.siblings.len() as u8;
-        if base_height>2 {
-            let new_height_a = (thread_rng().gen::<u8>() % (base_height+1)) as usize;
+        if base_height > 2 {
+            let new_height_a = (thread_rng().gen::<u8>() % (base_height + 1)) as usize;
             let new_height_b = (thread_rng().gen::<u8>() % base_height) as usize + 1;
 
             base.child_a = base.child_a.with_shortened_height_from_bottom::<H>(new_height_a);
             base.child_b = base.child_b.with_shortened_height_from_bottom::<H>(new_height_b);
         }
         base
-
     }
 
-/* 
+    /*
     pub fn _generate_partial_nca_proof_multi_level(
         height: usize,
         rand_leaf_count: usize,
@@ -542,7 +467,7 @@ mod tests {
             // technically the last sibling changed
             siblings: old_proof_b.siblings,
         };
-        
+
         PartialUpdateNearestCommonAncestorProof {
             child_a: dmp_a,
             child_b: dmp_b,
@@ -554,19 +479,14 @@ mod tests {
         let circuit = TestUpdateNearestCommonAncestorProofCircuit::new(32);
         let nca_proofs = (1..32)
             .map(|level| {
-                let mut tree =SimpleMerkleTree::new(level);
+                let mut tree = SimpleMerkleTree::new(level);
 
-                (0..20)
-                    .map(|_| {
-                        generate_partial_nca_proof_multi_level_b(&mut tree)
-                    })
-                    .collect::<Vec<_>>()
+                (0..20).map(|_| generate_partial_nca_proof_multi_level_b(&mut tree)).collect::<Vec<_>>()
             })
             .flatten()
             .collect::<Vec<_>>();
 
-        for nca_proof in nca_proofs.iter()
-        {
+        for nca_proof in nca_proofs.iter() {
             //println!("leaf_key_a: {:?}",leaf_key_a);
             //println!("leaf_key_b: {:?}",leaf_key_b);
 
@@ -576,20 +496,13 @@ mod tests {
             //println!("nca_proof: {:?}",nca_proof.to_full_proof::<H>());
             //println!("nca_proof: {}",serde_json::to_string_pretty(&nca_proof.to_full_proof::<H>()).unwrap());
 
-            assert!(
-                nca_proof.to_full_proof::<H>().verify::<H>(),
-                "proof_a invalid {:?}",
-                nca_proof
-            );
+            assert!(nca_proof.to_full_proof::<H>().verify::<H>(), "proof_a invalid {:?}", nca_proof);
             //println!("nearest_common_ancestor: {:?}",nearest_common_ancestor);
-            let proof = circuit
-                .prove(&nca_proof)
-                .unwrap();
+            let proof = circuit.prove(&nca_proof).unwrap();
 
             //println!("pubs: {:?}", &proof.public_inputs);
 
-            let proof_nearest_common_ancestor_level =
-                proof.public_inputs[0].to_canonical_u64() as u8;
+            let proof_nearest_common_ancestor_level = proof.public_inputs[0].to_canonical_u64() as u8;
             let proof_nearest_common_ancestor_index = proof.public_inputs[1].to_canonical_u64();
             //println!("public_inputs: {:?}", &proof.public_inputs);
 
@@ -598,7 +511,8 @@ mod tests {
                 "nearest_common_ancestor_level should match expected"
             );
             assert_eq!(
-                proof_nearest_common_ancestor_index, nca_proof.get_nca_index(),
+                proof_nearest_common_ancestor_index,
+                nca_proof.get_nca_index(),
                 "nearest_common_ancestor_level should match expected"
             );
 
@@ -616,5 +530,4 @@ mod tests {
             circuit.circuit_data.verify(proof).unwrap();
         }
     }
-
 }

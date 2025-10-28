@@ -1,25 +1,36 @@
 use core::marker::PhantomData;
 
-use psy_crypto::signature::secp256k1::curve::glv::{decompose_secp256k1_scalar, GLV_BETA, GLV_S};
-use psy_crypto::signature::secp256k1::curve::secp256k1::Secp256K1;
-use plonky2::field::extension::Extendable;
-use plonky2::field::secp256k1_base::Secp256K1Base;
-use plonky2::field::secp256k1_scalar::Secp256K1Scalar;
-use plonky2::field::types::{Field, PrimeField};
-use plonky2::hash::hash_types::RichField;
-use plonky2::iop::generator::{GeneratedValues, SimpleGenerator};
-use plonky2::iop::target::{BoolTarget, Target};
-use plonky2::iop::witness::{PartitionWitness, WitnessWrite};
-use plonky2::plonk::circuit_builder::CircuitBuilder;
-use plonky2::util::serialization::{Read, Write};
+use plonky2::{
+    field::{
+        extension::Extendable,
+        secp256k1_base::Secp256K1Base,
+        secp256k1_scalar::Secp256K1Scalar,
+        types::{Field, PrimeField},
+    },
+    hash::hash_types::RichField,
+    iop::{
+        generator::{GeneratedValues, SimpleGenerator},
+        target::{BoolTarget, Target},
+        witness::{PartitionWitness, WitnessWrite},
+    },
+    plonk::circuit_builder::CircuitBuilder,
+    util::serialization::{Read, Write},
+};
+use psy_crypto::signature::secp256k1::curve::{
+    glv::{decompose_secp256k1_scalar, GLV_BETA, GLV_S},
+    secp256k1::Secp256K1,
+};
 
+use super::{
+    super::gadgets::{
+        biguint::{GeneratedValuesBigUint, WitnessBigUint},
+        curve::{AffinePointTarget, CircuitBuilderCurve},
+        curve_msm::curve_msm_circuit,
+        nonnative::{CircuitBuilderNonNative, NonNativeTarget},
+    },
+    biguint::BigUintTarget,
+};
 use crate::u32::arithmetic_u32::U32Target;
-
-use super::super::gadgets::biguint::{GeneratedValuesBigUint, WitnessBigUint};
-use super::super::gadgets::curve::{AffinePointTarget, CircuitBuilderCurve};
-use super::super::gadgets::curve_msm::curve_msm_circuit;
-use super::super::gadgets::nonnative::{CircuitBuilderNonNative, NonNativeTarget};
-use super::biguint::BigUintTarget;
 
 pub trait CircuitBuilderGlv<F: RichField + Extendable<D>, const D: usize> {
     fn secp256k1_glv_beta(&mut self) -> NonNativeTarget<Secp256K1Base>;
@@ -27,23 +38,12 @@ pub trait CircuitBuilderGlv<F: RichField + Extendable<D>, const D: usize> {
     fn decompose_secp256k1_scalar(
         &mut self,
         k: &NonNativeTarget<Secp256K1Scalar>,
-    ) -> (
-        NonNativeTarget<Secp256K1Scalar>,
-        NonNativeTarget<Secp256K1Scalar>,
-        BoolTarget,
-        BoolTarget,
-    );
+    ) -> (NonNativeTarget<Secp256K1Scalar>, NonNativeTarget<Secp256K1Scalar>, BoolTarget, BoolTarget);
 
-    fn glv_mul(
-        &mut self,
-        p: &AffinePointTarget<Secp256K1>,
-        k: &NonNativeTarget<Secp256K1Scalar>,
-    ) -> AffinePointTarget<Secp256K1>;
+    fn glv_mul(&mut self, p: &AffinePointTarget<Secp256K1>, k: &NonNativeTarget<Secp256K1Scalar>) -> AffinePointTarget<Secp256K1>;
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderGlv<F, D>
-    for CircuitBuilder<F, D>
-{
+impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderGlv<F, D> for CircuitBuilder<F, D> {
     fn secp256k1_glv_beta(&mut self) -> NonNativeTarget<Secp256K1Base> {
         self.constant_nonnative(GLV_BETA)
     }
@@ -51,12 +51,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderGlv<F, D>
     fn decompose_secp256k1_scalar(
         &mut self,
         k: &NonNativeTarget<Secp256K1Scalar>,
-    ) -> (
-        NonNativeTarget<Secp256K1Scalar>,
-        NonNativeTarget<Secp256K1Scalar>,
-        BoolTarget,
-        BoolTarget,
-    ) {
+    ) -> (NonNativeTarget<Secp256K1Scalar>, NonNativeTarget<Secp256K1Scalar>, BoolTarget, BoolTarget) {
         let k1 = self.add_virtual_nonnative_target_sized::<Secp256K1Scalar>(4);
         let k2 = self.add_virtual_nonnative_target_sized::<Secp256K1Scalar>(4);
         let k1_neg = self.add_virtual_bool_target_unsafe();
@@ -82,19 +77,12 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderGlv<F, D>
         (k1, k2, k1_neg, k2_neg)
     }
 
-    fn glv_mul(
-        &mut self,
-        p: &AffinePointTarget<Secp256K1>,
-        k: &NonNativeTarget<Secp256K1Scalar>,
-    ) -> AffinePointTarget<Secp256K1> {
+    fn glv_mul(&mut self, p: &AffinePointTarget<Secp256K1>, k: &NonNativeTarget<Secp256K1Scalar>) -> AffinePointTarget<Secp256K1> {
         let (k1, k2, k1_neg, k2_neg) = self.decompose_secp256k1_scalar(k);
 
         let beta = self.secp256k1_glv_beta();
         let beta_px = self.mul_nonnative(&beta, &p.x);
-        let sp = AffinePointTarget::<Secp256K1> {
-            x: beta_px,
-            y: p.y.clone(),
-        };
+        let sp = AffinePointTarget::<Secp256K1> { x: beta_px, y: p.y.clone() };
 
         let p_neg = self.curve_conditional_neg(p, k1_neg);
         let sp_neg = self.curve_conditional_neg(&sp, k2_neg);
@@ -112,17 +100,13 @@ struct GLVDecompositionGenerator<F: RichField + Extendable<D>, const D: usize> {
     _phantom: PhantomData<F>,
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D>
-    for GLVDecompositionGenerator<F, D>
-{
+impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D> for GLVDecompositionGenerator<F, D> {
     fn dependencies(&self) -> Vec<Target> {
         self.k.value.limbs.iter().map(|l| l.0).collect()
     }
 
-    fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) -> anyhow::Result<()>{
-        let k = Secp256K1Scalar::from_noncanonical_biguint(
-            witness.get_biguint_target(&self.k.value),
-        );
+    fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) -> anyhow::Result<()> {
+        let k = Secp256K1Scalar::from_noncanonical_biguint(witness.get_biguint_target(&self.k.value));
 
         let (k1, k2, k1_neg, k2_neg) = decompose_secp256k1_scalar(k);
 
@@ -143,27 +127,9 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D>
         dst: &mut Vec<u8>,
         _common_data: &plonky2::plonk::circuit_data::CommonCircuitData<F, D>,
     ) -> plonky2::util::serialization::IoResult<()> {
-        let k_targets = self
-            .k
-            .value
-            .limbs
-            .iter()
-            .map(|x| x.0)
-            .collect::<Vec<Target>>();
-        let k1_targets = self
-            .k1
-            .value
-            .limbs
-            .iter()
-            .map(|x| x.0)
-            .collect::<Vec<Target>>();
-        let k2_targets = self
-            .k2
-            .value
-            .limbs
-            .iter()
-            .map(|x| x.0)
-            .collect::<Vec<Target>>();
+        let k_targets = self.k.value.limbs.iter().map(|x| x.0).collect::<Vec<Target>>();
+        let k1_targets = self.k1.value.limbs.iter().map(|x| x.0).collect::<Vec<Target>>();
+        let k2_targets = self.k2.value.limbs.iter().map(|x| x.0).collect::<Vec<Target>>();
         dst.write_target_vec(&k_targets)?;
         dst.write_target_vec(&k1_targets)?;
         dst.write_target_vec(&k2_targets)?;
@@ -217,19 +183,22 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D>
 #[cfg(test)]
 mod tests {
     use anyhow::Result;
-    use psy_crypto::signature::secp256k1::curve::curve_types::{Curve, CurveScalar};
-    use psy_crypto::signature::secp256k1::curve::glv::glv_mul;
-    use psy_crypto::signature::secp256k1::curve::secp256k1::Secp256K1;
-    use plonky2::field::secp256k1_scalar::Secp256K1Scalar;
-    use plonky2::field::types::Sample;
-    use plonky2::iop::witness::PartialWitness;
-    use plonky2::plonk::circuit_builder::CircuitBuilder;
-    use plonky2::plonk::circuit_data::CircuitConfig;
-    use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
+    use plonky2::{
+        field::{secp256k1_scalar::Secp256K1Scalar, types::Sample},
+        iop::witness::PartialWitness,
+        plonk::{
+            circuit_builder::CircuitBuilder,
+            circuit_data::CircuitConfig,
+            config::{GenericConfig, PoseidonGoldilocksConfig},
+        },
+    };
+    use psy_crypto::signature::secp256k1::curve::{
+        curve_types::{Curve, CurveScalar},
+        glv::glv_mul,
+        secp256k1::Secp256K1,
+    };
 
-    use super::super::super::gadgets::curve::CircuitBuilderCurve;
-    use super::super::super::gadgets::glv::CircuitBuilderGlv;
-    use super::super::super::gadgets::nonnative::CircuitBuilderNonNative;
+    use super::super::super::gadgets::{curve::CircuitBuilderCurve, glv::CircuitBuilderGlv, nonnative::CircuitBuilderNonNative};
 
     #[test]
     #[ignore]
@@ -243,8 +212,7 @@ mod tests {
         let pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, D>::new(config);
 
-        let rando =
-            (CurveScalar(Secp256K1Scalar::rand()) * Secp256K1::GENERATOR_PROJECTIVE).to_affine();
+        let rando = (CurveScalar(Secp256K1Scalar::rand()) * Secp256K1::GENERATOR_PROJECTIVE).to_affine();
         let randot = builder.constant_affine_point(rando);
 
         let scalar = Secp256K1Scalar::rand();

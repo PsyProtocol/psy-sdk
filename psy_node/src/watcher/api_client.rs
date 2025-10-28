@@ -1,15 +1,23 @@
-use reqwest::Client;
 use anyhow::Result;
 use chrono::{DateTime, Utc};
+use psy_api_services::{
+    handlers::{TelemetryPayload, TelemetryResponse},
+    models::{UserEvent, UserEventTxType, WorkerEvent, WorkerEventSource, WorkerEventStatus},
+};
+use psy_core::job::id::QProvingJobDataID;
+use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use tracing::{info, debug, warn};
-use psy_api_services::handlers::{TelemetryPayload, TelemetryResponse};
-use psy_api_services::models::{UserEvent, UserEventTxType, WorkerEvent, WorkerEventSource, WorkerEventStatus};
-use psy_core::job::id::QProvingJobDataID;
-use crate::watcher::events::{JobCompletedEvent, JobTimeoutEvent, UserRegistrationEvent, BackupProofEvent, BackupWitnessEvent, UserRegistrationMetadata, UserDeployContractMetadata, UserDeployContractEvent, UserGutaSubmissionEvent, JobStartedEvent, JobPendingEvent};
-use crate::watcher::watcher::NodeType;
-use crate::watcher::watcher_service::{current_datetime, current_timestamp, current_timestamp_mills};
+use tracing::{debug, info, warn};
+
+use crate::watcher::{
+    events::{
+        BackupProofEvent, BackupWitnessEvent, JobCompletedEvent, JobPendingEvent, JobStartedEvent, JobTimeoutEvent, UserDeployContractEvent,
+        UserDeployContractMetadata, UserGutaSubmissionEvent, UserRegistrationEvent, UserRegistrationMetadata,
+    },
+    watcher::NodeType,
+    watcher_service::{current_datetime, current_timestamp, current_timestamp_mills},
+};
 
 pub struct ApiClient {
     client: Client,
@@ -20,15 +28,8 @@ pub struct ApiClient {
 }
 
 impl ApiClient {
-    pub fn new(
-        endpoint: String,
-        node_id: String,
-        node_type: NodeType,
-        realm_id: Option<i64>,
-    ) -> Result<Self> {
-        let client = Client::builder()
-            .timeout(std::time::Duration::from_secs(30))
-            .build()?;
+    pub fn new(endpoint: String, node_id: String, node_type: NodeType, realm_id: Option<i64>) -> Result<Self> {
+        let client = Client::builder().timeout(std::time::Duration::from_secs(30)).build()?;
 
         Ok(Self {
             client,
@@ -288,24 +289,19 @@ impl ApiClient {
     }
 
     async fn send_telemetry(&self, payload: &TelemetryPayload) -> Result<()> {
-        let response = self.client
+        let response = self
+            .client
             .post(&format!("{}/telemetry/events", self.endpoint))
             .json(payload)
             .send()
             .await?;
 
         if !response.status().is_success() {
-            return Err(anyhow::anyhow!(
-                "Failed to send telemetry to API service: {}",
-                response.status()
-            ));
+            return Err(anyhow::anyhow!("Failed to send telemetry to API service: {}", response.status()));
         }
 
         let telemetry_response: TelemetryResponse = response.json().await?;
-        debug!(
-            "Telemetry sent successfully: {} events processed",
-            telemetry_response.processed_count
-        );
+        debug!("Telemetry sent successfully: {} events processed", telemetry_response.processed_count);
 
         Ok(())
     }

@@ -1,8 +1,7 @@
 use hashbrown::HashMap;
-
-use super::traits::ContextInput;
 use psy_core::config::network_constants::DEFAULT_CALLER_CONTRACT_ID_U64;
 
+use super::traits::ContextInput;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ContractHashRef {
@@ -48,7 +47,7 @@ impl DummyContextEvalInput {
         }
     }
     fn get_global_contract_slot_or_default(&self, user_id: u64, contract_id: u64, index: u64) -> u64 {
-        self.get_global_contract_hash_or_default(user_id, contract_id, index/4)[(index&3) as usize]
+        self.get_global_contract_hash_or_default(user_id, contract_id, index / 4)[(index & 3) as usize]
     }
 }
 impl ContextInput for DummyContextEvalInput {
@@ -71,18 +70,17 @@ impl ContextInput for DummyContextEvalInput {
         self.get_global_contract_slot_or_default(self.user_id, contract_id, index)
     }
     fn get_global_contract_slot(&self, user_id: u64, contract_id: u64, index: u64) -> u64 {
-
         self.get_global_contract_slot_or_default(user_id, contract_id, index)
     }
-    
+
     fn get_user_nonce(&self) -> u64 {
         self.last_nonce
     }
-    
+
     fn get_checkpoint_id(&self) -> u64 {
         self.checkpoint_id
     }
-    
+
     fn get_user_public_key_hash(&self) -> [u64; 4] {
         self.user_public_key_hash
     }

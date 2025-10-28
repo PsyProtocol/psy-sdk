@@ -22,16 +22,12 @@ pub trait QEDBlobStoreMut: QEDBlobStoreReader {
         self.remove_bin_mut(key.to_bytes()?)
     }
     fn pop_mut<K: KVQSerializable, V: KVQSerializable>(&mut self, key: &K) -> anyhow::Result<Option<V>> {
-        Ok(
-            match self.pop_bin_mut(key.to_bytes()?)? {
-                Some(data) => Some(V::from_bytes(&data)?),
-                None => None,
-            }
-        )
+        Ok(match self.pop_bin_mut(key.to_bytes()?)? {
+            Some(data) => Some(V::from_bytes(&data)?),
+            None => None,
+        })
     }
 }
-
-
 
 pub trait QEDBlobStoreImm: QEDBlobStoreReader {
     fn set_bin_imm(&self, key: Vec<u8>, value: Vec<u8>) -> anyhow::Result<()>;
@@ -46,13 +42,9 @@ pub trait QEDBlobStoreImm: QEDBlobStoreReader {
         self.remove_bin_imm(key.to_bytes()?)
     }
     fn pop_imm<K: KVQSerializable, V: KVQSerializable>(&self, key: &K) -> anyhow::Result<Option<V>> {
-        Ok(
-            match self.pop_bin_imm(key.to_bytes()?)? {
-                Some(data) => Some(V::from_bytes(&data)?),
-                None => None,
-            }
-        )
+        Ok(match self.pop_bin_imm(key.to_bytes()?)? {
+            Some(data) => Some(V::from_bytes(&data)?),
+            None => None,
+        })
     }
 }
-
-

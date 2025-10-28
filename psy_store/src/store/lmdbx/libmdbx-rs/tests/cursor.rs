@@ -1,6 +1,7 @@
 #![allow(missing_docs)]
-use reth_libmdbx::*;
 use std::borrow::Cow;
+
+use reth_libmdbx::*;
 use tempfile::tempdir;
 
 #[test]
@@ -97,12 +98,7 @@ fn test_iter() {
     let dir = tempdir().unwrap();
     let env = Environment::builder().open(dir.path()).unwrap();
 
-    let items: Vec<(_, _)> = vec![
-        (*b"key1", *b"val1"),
-        (*b"key2", *b"val2"),
-        (*b"key3", *b"val3"),
-        (*b"key5", *b"val5"),
-    ];
+    let items: Vec<(_, _)> = vec![(*b"key1", *b"val1"), (*b"key2", *b"val2"), (*b"key3", *b"val3"), (*b"key5", *b"val5")];
 
     {
         let txn = env.begin_rw_txn().unwrap();
@@ -144,10 +140,7 @@ fn test_iter() {
         cursor.iter_from(b"key4").collect::<Result<Vec<_>>>().unwrap()
     );
 
-    assert_eq!(
-        Vec::<((), ())>::new(),
-        cursor.iter_from(b"key6").collect::<Result<Vec<_>>>().unwrap()
-    );
+    assert_eq!(Vec::<((), ())>::new(), cursor.iter_from(b"key6").collect::<Result<Vec<_>>>().unwrap());
 }
 
 #[test]

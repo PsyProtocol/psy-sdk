@@ -1,20 +1,17 @@
 use std::marker::PhantomData;
 
-use psy_core::data::qhashout::QHashOut;
 use plonky2::plonk::{
     circuit_data::{CommonCircuitData, VerifierOnlyCircuitData},
     config::{AlgebraicHasher, GenericConfig},
     proof::ProofWithPublicInputs,
 };
+use psy_core::data::qhashout::QHashOut;
 use serde::Serialize;
 
+use super::QStandardCircuit;
 use crate::proof_minifier::pm_chain::QEDProofMinifierChain;
 
-use super::QStandardCircuit;
-
-pub trait QStandardCircuitProvable<I: Serialize + Clone, C: GenericConfig<D>, const D: usize>:
-    QStandardCircuit<C, D>
-{
+pub trait QStandardCircuitProvable<I: Serialize + Clone, C: GenericConfig<D>, const D: usize>: QStandardCircuit<C, D> {
     fn prove_standard(&self, input: &I) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>>;
 }
 
@@ -46,29 +43,20 @@ pub struct QStandardCircuitProvableWrapped<
     C: GenericConfig<D> + 'static,
     const D: usize,
 > where
-    C::Hasher:AlgebraicHasher<C::F>,
+    C::Hasher: AlgebraicHasher<C::F>,
 {
     pub circuit: IC,
     pub minifier: QEDProofMinifierChain<D, C::F, C>,
     _phantom_i: PhantomData<I>,
 }
 
-impl<
-        const M: usize,
-        IC: QStandardCircuitProvable<I, C, D>,
-        I: Serialize + Clone,
-        C: GenericConfig<D> + 'static,
-        const D: usize,
-    > QStandardCircuitProvableWrapped<M, IC, I, C, D>
+impl<const M: usize, IC: QStandardCircuitProvable<I, C, D>, I: Serialize + Clone, C: GenericConfig<D> + 'static, const D: usize>
+    QStandardCircuitProvableWrapped<M, IC, I, C, D>
 where
-    C::Hasher:AlgebraicHasher<C::F>,
+    C::Hasher: AlgebraicHasher<C::F>,
 {
     pub fn new_wrapped(inner_circuit: IC) -> Self {
-        let minifier = QEDProofMinifierChain::new(
-            inner_circuit.get_verifier_config_ref(),
-            inner_circuit.get_common_circuit_data_ref(),
-            M,
-        );
+        let minifier = QEDProofMinifierChain::new(inner_circuit.get_verifier_config_ref(), inner_circuit.get_common_circuit_data_ref(), M);
         Self {
             circuit: inner_circuit,
             minifier,
@@ -77,30 +65,20 @@ where
     }
 }
 
-impl<
-        const M: usize,
-        IC: QStandardCircuitProvable<I, C, D> + Clone,
-        I: Serialize + Clone,
-        C: GenericConfig<D> + 'static,
-        const D: usize,
-    > Clone for QStandardCircuitProvableWrapped<M, IC, I, C, D>
+impl<const M: usize, IC: QStandardCircuitProvable<I, C, D> + Clone, I: Serialize + Clone, C: GenericConfig<D> + 'static, const D: usize> Clone
+    for QStandardCircuitProvableWrapped<M, IC, I, C, D>
 where
-    C::Hasher:AlgebraicHasher<C::F>,
+    C::Hasher: AlgebraicHasher<C::F>,
 {
     fn clone(&self) -> Self {
         Self::new_wrapped(self.circuit.clone())
     }
 }
 
-impl<
-        const M: usize,
-        IC: QStandardCircuitProvable<I, C, D>,
-        I: Serialize + Clone,
-        C: GenericConfig<D> + 'static,
-        const D: usize,
-    > QStandardCircuit<C, D> for QStandardCircuitProvableWrapped<M, IC, I, C, D>
+impl<const M: usize, IC: QStandardCircuitProvable<I, C, D>, I: Serialize + Clone, C: GenericConfig<D> + 'static, const D: usize>
+    QStandardCircuit<C, D> for QStandardCircuitProvableWrapped<M, IC, I, C, D>
 where
-    C::Hasher:AlgebraicHasher<C::F>,
+    C::Hasher: AlgebraicHasher<C::F>,
 {
     fn get_fingerprint(&self) -> QHashOut<C::F> {
         QHashOut(self.minifier.get_fingerprint())
@@ -115,15 +93,10 @@ where
     }
 }
 
-impl<
-        const M: usize,
-        IC: QStandardCircuitProvable<I, C, D>,
-        I: Serialize + Clone,
-        C: GenericConfig<D> + 'static,
-        const D: usize,
-    > QStandardCircuitProvable<I, C, D> for QStandardCircuitProvableWrapped<M, IC, I, C, D>
+impl<const M: usize, IC: QStandardCircuitProvable<I, C, D>, I: Serialize + Clone, C: GenericConfig<D> + 'static, const D: usize>
+    QStandardCircuitProvable<I, C, D> for QStandardCircuitProvableWrapped<M, IC, I, C, D>
 where
-    C::Hasher:AlgebraicHasher<C::F>,
+    C::Hasher: AlgebraicHasher<C::F>,
 {
     fn prove_standard(&self, input: &I) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         let inner_proof = self.circuit.prove_standard(input)?;

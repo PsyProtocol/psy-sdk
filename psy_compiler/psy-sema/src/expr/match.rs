@@ -1,5 +1,6 @@
-use crate::{ScopeId, TypeId};
 use psy_ast::{ExprId, Location, NodeInfo, NodeType};
+
+use crate::{ScopeId, TypeId};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct CheckedMatchNode {

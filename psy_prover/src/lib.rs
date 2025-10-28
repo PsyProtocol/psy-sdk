@@ -1,12 +1,11 @@
 pub mod dpn;
-pub mod ups;
 pub mod local;
-pub mod wallet;
 pub mod session;
+pub mod ups;
+pub mod wallet;
 
 #[cfg(not(target_arch = "wasm32"))]
 pub mod health;
-
 
 use psy_core::config::network_constants::QED_NETWORK_MAGIC_REGTEST;
 #[cfg(target_arch = "wasm32")]
@@ -43,42 +42,38 @@ pub fn init_logging() {
 
 #[cfg(not(target_arch = "wasm32"))]
 pub async fn run_server(args: crate::local::args::ProverArgs) -> anyhow::Result<()> {
+    use std::{net::SocketAddr, sync::Arc};
+
     use hyper::Method;
     use jsonrpsee::server::Server;
-    use crate::local::UserProverWorkerStore;
+    use parking_lot::{Mutex, RwLock};
     use psy_core::data::base_types::hash256::Hash256;
-    use crate::local::provider::RpcConfig;
-    use crate::session::WalletSession;
-    use std::net::SocketAddr;
-    use std::sync::Arc;
-    use parking_lot::{RwLock, Mutex};
     use tower_http::cors::{Any, CorsLayer};
-    use crate::health::HealthLayer;
 
-    use crate::local::native::{RpcServer, RpcServerImpl};
-    use crate::local::common::enc::SimpleZeroPadEncryptionHelper;
+    use crate::{
+        health::HealthLayer,
+        local::{
+            common::enc::SimpleZeroPadEncryptionHelper,
+            native::{RpcServer, RpcServerImpl},
+            provider::RpcConfig,
+            UserProverWorkerStore,
+        },
+        session::WalletSession,
+    };
 
     let api_key = Hash256::from_hex_string(&args.api_key)?;
     let _encryption_helper = SimpleZeroPadEncryptionHelper::new(api_key);
 
     let cors_opts = CorsLayer::new()
-        .allow_methods([
-            Method::POST,
-            Method::OPTIONS,
-        ])
+        .allow_methods([Method::POST, Method::OPTIONS])
         .allow_origin(Any)
         .allow_headers(Any);
-    let cors = tower::ServiceBuilder::new()
-        .layer(HealthLayer)
-        .layer(cors_opts);
+    let cors = tower::ServiceBuilder::new().layer(HealthLayer).layer(cors_opts);
 
     let server_addr: SocketAddr = args.listen_addr.parse()?;
     tracing::info!("Starting user prover server at {}", server_addr);
 
-    let server = Server::builder()
-        .set_http_middleware(cors)
-        .build(server_addr)
-        .await?;
+    let server = Server::builder().set_http_middleware(cors).build(server_addr).await?;
 
     let config_str = std::fs::read_to_string(&args.rpc_config)?;
     let json_value: serde_json::Value = serde_json::from_str(&config_str)?;
@@ -92,18 +87,19 @@ pub async fn run_server(args: crate::local::args::ProverArgs) -> anyhow::Result<
     Ok(())
 }
 
-
 #[cfg(not(target_arch = "wasm32"))]
-pub async fn run_prove_proxy_server(
-    args: crate::local::args::ProveProxyArgs,
-) -> anyhow::Result<()> {
-    use crate::local::{native::prove_proxy::ProveProxyRpcServer, provider::RpcConfig};
-    use crate::health::HealthLayer;
+pub async fn run_prove_proxy_server(args: crate::local::args::ProveProxyArgs) -> anyhow::Result<()> {
+    use std::net::SocketAddr;
+
     use hyper::Method;
     use jsonrpsee::server::Server;
-    use std::net::SocketAddr;
     use tower_http::cors::{Any, CorsLayer};
-    
+
+    use crate::{
+        health::HealthLayer,
+        local::{native::prove_proxy::ProveProxyRpcServer, provider::RpcConfig},
+    };
+
     let config_str = std::fs::read_to_string(&args.rpc_config)?;
     let json_value: serde_json::Value = serde_json::from_str(&config_str)?;
     let rpc_config: RpcConfig = serde_json::from_value(json_value["network"].clone())?;
@@ -112,15 +108,10 @@ pub async fn run_prove_proxy_server(
         .allow_methods([Method::POST, Method::OPTIONS])
         .allow_origin(Any)
         .allow_headers(Any);
-    let cors = tower::ServiceBuilder::new()
-        .layer(HealthLayer)
-        .layer(cors_opts);
+    let cors = tower::ServiceBuilder::new().layer(HealthLayer).layer(cors_opts);
     let server_addr: SocketAddr = args.listen_addr.parse()?;
     tracing::info!("Starting prove proxy server at {}", server_addr);
-    let server = Server::builder()
-        .set_http_middleware(cors)
-        .build(server_addr)
-        .await?;
+    let server = Server::builder().set_http_middleware(cors).build(server_addr).await?;
 
     let handle = server.start(prove_proxy.into_rpc());
     handle.stopped().await;

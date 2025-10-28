@@ -1,19 +1,22 @@
 use plonky2::{
-    hash::hash_types::HashOut, iop::
-        witness::PartialWitness
-    , plonk::{
+    hash::hash_types::HashOut,
+    iop::witness::PartialWitness,
+    plonk::{
         circuit_builder::CircuitBuilder,
         circuit_data::{CircuitConfig, CircuitData, CommonCircuitData, VerifierOnlyCircuitData},
         config::{AlgebraicHasher, GenericConfig},
         proof::ProofWithPublicInputs,
-    }
+    },
 };
 use psy_common_circuit::{
-    builder::{hash::core::CircuitBuilderHashCore, pad_circuit::{pad_circuit_degree, CircuitBuilderQEDCommonGates}},
+    builder::{
+        hash::core::CircuitBuilderHashCore,
+        pad_circuit::{pad_circuit_degree, CircuitBuilderQEDCommonGates},
+    },
     circuits::traits::qstandard::{provable::QStandardCircuitProvable, QStandardCircuit, QStandardCircuitProvableWithProofStoreSync},
-    proof_minifier::
-        pm_core::get_circuit_fingerprint_generic
-    , traits::CreatableWithHasherTarget, treeprover::qrecursion::standard::gadgets::attest_tree_aware_proof_in_tree::compute_tree_aware_proof_public_inputs,
+    proof_minifier::pm_core::get_circuit_fingerprint_generic,
+    traits::CreatableWithHasherTarget,
+    treeprover::qrecursion::standard::gadgets::attest_tree_aware_proof_in_tree::compute_tree_aware_proof_public_inputs,
 };
 use psy_core::{config::network_constants::UPS_SESSION_PROOF_TREE_HEIGHT, data::qhashout::QHashOut, job::traits::QProofStoreReaderSync};
 use psy_crypto::hash::traits::hasher::MerkleZeroHasher;
@@ -24,7 +27,7 @@ use crate::ups::gadgets::ups_start::UPSStartStepGadget;
 #[derive(Debug)]
 pub struct UPSStartSessionCircuit<C: GenericConfig<D> + 'static, const D: usize>
 where
-    C::Hasher:AlgebraicHasher<C::F>,
+    C::Hasher: AlgebraicHasher<C::F>,
 {
     pub start_step_gadget: UPSStartStepGadget,
 
@@ -34,8 +37,8 @@ where
 
 impl<C: GenericConfig<D> + 'static, const D: usize> UPSStartSessionCircuit<C, D>
 where
-    C::Hasher:AlgebraicHasher<C::F> {
-    
+    C::Hasher: AlgebraicHasher<C::F>,
+{
     pub fn new_with_config(
         //coset_gate: &GateRef<C::F, D>,
         empty_ups_proof_tree_root: QHashOut<C::F>,
@@ -43,18 +46,14 @@ where
         let config = CircuitConfig::standard_recursion_config();
         let mut builder = CircuitBuilder::<C::F, D>::new(config);
 
-        let start_step_gadget = UPSStartStepGadget::create_virtual_with_hasher::<C::Hasher,C::F,D>(&mut builder);
+        let start_step_gadget = UPSStartStepGadget::create_virtual_with_hasher::<C::Hasher, C::F, D>(&mut builder);
 
         let empty_ups_proof_tree_root_target = builder.constant_qhash(empty_ups_proof_tree_root);
-        
 
         let inner_public_inputs_hash = start_step_gadget.header_gadget.to_hash::<C::Hasher, C::F, D>(&mut builder);
 
-        let public_inputs_hash = compute_tree_aware_proof_public_inputs::<C::Hasher, C::F, D>(
-            &mut builder, 
-            empty_ups_proof_tree_root_target,
-            inner_public_inputs_hash
-        );
+        let public_inputs_hash =
+            compute_tree_aware_proof_public_inputs::<C::Hasher, C::F, D>(&mut builder, empty_ups_proof_tree_root_target, inner_public_inputs_hash);
 
         builder.register_public_inputs(&public_inputs_hash.elements);
 
@@ -62,46 +61,38 @@ where
         pad_circuit_degree::<C::F, D>(&mut builder, 11);
         let circuit_data = builder.build::<C>();
 
-        let fingerprint = QHashOut(get_circuit_fingerprint_generic(
-            &circuit_data.verifier_only,
-        ));
+        let fingerprint = QHashOut(get_circuit_fingerprint_generic(&circuit_data.verifier_only));
         Self {
             start_step_gadget,
             circuit_data,
             fingerprint,
         }
     }
-    
-    fn prove_base_inner(
-        &self,
-        target: &UPSStartStepInput<C::F>,
-    ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
+
+    fn prove_base_inner(&self, target: &UPSStartStepInput<C::F>) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         let mut pw = PartialWitness::<C::F>::new();
 
         self.start_step_gadget.set_witness(&mut pw, target)?;
 
-
         self.circuit_data.prove(pw)
     }
-    pub fn prove_base(
-        &self,
-        target: &UPSStartStepInput<C::F>,
-    ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
+    pub fn prove_base(&self, target: &UPSStartStepInput<C::F>) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         self.prove_base_inner(target)
     }
-    
 }
 
-impl<C: GenericConfig<D> + 'static, const D: usize> UPSStartSessionCircuit<C, D> where C::Hasher:AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>>, {
+impl<C: GenericConfig<D> + 'static, const D: usize> UPSStartSessionCircuit<C, D>
+where
+    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>>,
+{
     pub fn new() -> Self {
         let empty_tree_zero_hash = C::Hasher::get_zero_hash(UPS_SESSION_PROOF_TREE_HEIGHT as usize);
         Self::new_with_config(QHashOut(empty_tree_zero_hash))
     }
 }
-impl<C: GenericConfig<D> + 'static, const D: usize> QStandardCircuit<C, D>
-    for UPSStartSessionCircuit<C, D>
+impl<C: GenericConfig<D> + 'static, const D: usize> QStandardCircuit<C, D> for UPSStartSessionCircuit<C, D>
 where
-    C::Hasher:AlgebraicHasher<C::F>,
+    C::Hasher: AlgebraicHasher<C::F>,
 {
     fn get_fingerprint(&self) -> QHashOut<C::F> {
         self.fingerprint
@@ -116,34 +107,21 @@ where
     }
 }
 
-
-impl<C: GenericConfig<D>, const D: usize>
-    QStandardCircuitProvable<UPSStartStepInput<C::F>, C, D>
-    for UPSStartSessionCircuit<C, D>
+impl<C: GenericConfig<D>, const D: usize> QStandardCircuitProvable<UPSStartStepInput<C::F>, C, D> for UPSStartSessionCircuit<C, D>
 where
-    C::Hasher:AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>>,
+    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>>,
 {
-    fn prove_standard(
-        &self,
-        input: &UPSStartStepInput<C::F>,
-    ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
-        self.prove_base(
-            input
-        )
+    fn prove_standard(&self, input: &UPSStartStepInput<C::F>) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
+        self.prove_base(input)
     }
 }
 
-impl<S: QProofStoreReaderSync, C: GenericConfig<D>, const D: usize>
-    QStandardCircuitProvableWithProofStoreSync<S, UPSStartStepInput<C::F>, C, D>
+impl<S: QProofStoreReaderSync, C: GenericConfig<D>, const D: usize> QStandardCircuitProvableWithProofStoreSync<S, UPSStartStepInput<C::F>, C, D>
     for UPSStartSessionCircuit<C, D>
 where
-    C::Hasher:AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>>,
+    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>>,
 {
-    fn prove_with_proof_store_sync(
-        &self,
-        _store: &S,
-        input: &UPSStartStepInput<C::F>,
-    ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
+    fn prove_with_proof_store_sync(&self, _store: &S, input: &UPSStartStepInput<C::F>) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         self.prove_standard(input)
     }
 }

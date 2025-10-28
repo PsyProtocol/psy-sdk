@@ -1,12 +1,13 @@
-use std::ops::{
-    Add, AddAssign, BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Div, DivAssign, Index, Mul, MulAssign, Neg, Not, Rem, RemAssign, Shl, ShlAssign, Shr, ShrAssign, Sub, SubAssign
+use std::{
+    fmt::Debug,
+    ops::{
+        Add, AddAssign, BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Div, DivAssign, Index, Mul, MulAssign, Neg, Not, Rem,
+        RemAssign, Shl, ShlAssign, Shr, ShrAssign, Sub, SubAssign,
+    },
 };
-use std::fmt::Debug;
 
+use super::{op_types::DPNOpType, sym_felt::SymFeltRef};
 use crate::dpn::QContext;
-
-use super::op_types::DPNOpType;
-use super::sym_felt::SymFeltRef;
 pub trait ContextFelt:
     Copy
     + Debug
@@ -57,7 +58,8 @@ pub trait ContextFelt:
     + ShlAssign<u64>
     + ShrAssign<u64>
     + PartialEq<u64>
-    + PartialOrd<u64> {
+    + PartialOrd<u64>
+{
     fn cns(value: u64) -> Self;
     fn cns_inverse(value: u64) -> Self;
     fn get_u64(&self) -> u64;
@@ -68,7 +70,6 @@ pub trait FeltSized {
         Self::size()
     }
 }
-
 
 impl<T: FeltSized, const N: usize> FeltSized for [T; N] {
     fn size() -> u64 {
@@ -151,11 +152,7 @@ impl<T: ToFelts<SymFeltRef>, A: QContextArraySized<T>> QContextArray<T> for A {
             for i in 1..self.q_size() {
                 let value = self.q_get_direct(i);
                 let eq = context.op_eq(index, SymFeltRef::new_constant(i));
-                result = context.cselect(
-                    eq,
-                    value,
-                    result,
-                );
+                result = context.cselect(eq, value, result);
             }
             result
         }
@@ -246,11 +243,7 @@ impl<F: ContextFelt, T: ToFelts<F>, C: DPNContext<F>, A: DPNContextArraySized<F,
                 let value = self.q_get_direct(i);
                 let ind = context.op_const(i);
                 let eq = context.op_eq(index, ind);
-                result = context.cselect(
-                    eq,
-                    value,
-                    result,
-                );
+                result = context.cselect(eq, value, result);
             }
             result
         }
@@ -349,25 +342,20 @@ pub trait DPNContext<F: ContextFelt>: Debug + Clone {
     fn cset_state_hash_at(&mut self, slot_index: F, new_value: [F; 4]) -> [F; 4];
     fn cset_state_range_at(&mut self, sub_slot_index: F, values: &[F]);
 
-
-    fn cinvoke_external_contract_function_sync(
-        &mut self,
-        contract_id: F,
-        method_id: F,
-        input_args: Vec<F>,
-        num_outputs: u32,
-    ) -> Vec<F>;
-    fn cinvoke_external_contract_function_deferred(
-        &mut self,
-        contract_id: F,
-        method_id: F,
-        input_args: Vec<F>,
-    ) -> [F; 4];
+    fn cinvoke_external_contract_function_sync(&mut self, contract_id: F, method_id: F, input_args: Vec<F>, num_outputs: u32) -> Vec<F>;
+    fn cinvoke_external_contract_function_deferred(&mut self, contract_id: F, method_id: F, input_args: Vec<F>) -> [F; 4];
     fn get_state_hash_at(&mut self, slot_index: F) -> [F; 4];
     fn get_state_range_at(&mut self, sub_slot_index: F, length: F) -> Vec<F>;
     fn get_other_contract_state_hash_at(&mut self, contract_state_tree_height: F, contract_id: F, slot_index: F) -> [F; 4];
     fn get_other_user_contract_state_hash_at(&mut self, contract_state_tree_height: F, user_id: F, contract_id: F, slot_index: F) -> [F; 4];
-    fn get_other_user_contract_state_range_at(&mut self, contract_state_tree_height: F, user_id: F, contract_id: F, sub_slot_index: F, length: F) -> Vec<F>;
+    fn get_other_user_contract_state_range_at(
+        &mut self,
+        contract_state_tree_height: F,
+        user_id: F,
+        contract_id: F,
+        sub_slot_index: F,
+        length: F,
+    ) -> Vec<F>;
 
     fn cset_state<V: ToFelts<F>>(&mut self, old_value: V, new_value: V) -> V;
     fn start_if_block(&mut self, condition: F);

@@ -1,16 +1,18 @@
 use core::marker::PhantomData;
 
-use psy_crypto::signature::secp256k1::curve::curve_types::Curve;
-use psy_crypto::signature::secp256k1::curve::secp256k1::Secp256K1;
-use plonky2::field::extension::Extendable;
-use plonky2::field::secp256k1_scalar::Secp256K1Scalar;
-use plonky2::hash::hash_types::RichField;
-use plonky2::plonk::circuit_builder::CircuitBuilder;
+use plonky2::{
+    field::{extension::Extendable, secp256k1_scalar::Secp256K1Scalar},
+    hash::hash_types::RichField,
+    plonk::circuit_builder::CircuitBuilder,
+};
+use psy_crypto::signature::secp256k1::curve::{curve_types::Curve, secp256k1::Secp256K1};
 
-use super::super::gadgets::curve::{AffinePointTarget, CircuitBuilderCurve};
-use super::super::gadgets::curve_fixed_base::fixed_base_curve_mul_circuit;
-use super::super::gadgets::glv::CircuitBuilderGlv;
-use super::super::gadgets::nonnative::{CircuitBuilderNonNative, NonNativeTarget};
+use super::super::gadgets::{
+    curve::{AffinePointTarget, CircuitBuilderCurve},
+    curve_fixed_base::fixed_base_curve_mul_circuit,
+    glv::CircuitBuilderGlv,
+    nonnative::{CircuitBuilderNonNative, NonNativeTarget},
+};
 
 #[derive(Clone, Debug)]
 pub struct ECDSASecretKeyTarget<C: Curve>(pub NonNativeTarget<C::ScalarField>);
@@ -39,8 +41,7 @@ pub fn verify_message_circuit<F: RichField + Extendable<D>, const D: usize>(
     let u1_target = builder.mul_nonnative(&msg_target, &c_target);
     let u2_target = builder.mul_nonnative(&r_target, &c_target);
 
-    let point1_target =
-        fixed_base_curve_mul_circuit(builder, Secp256K1::GENERATOR_AFFINE, &u1_target);
+    let point1_target = fixed_base_curve_mul_circuit(builder, Secp256K1::GENERATOR_AFFINE, &u1_target);
     let point2_target = builder.glv_mul(&pk_target.0, &u2_target);
     let point_target = builder.curve_add(&point1_target, &point2_target);
 
@@ -54,15 +55,19 @@ pub fn verify_message_circuit<F: RichField + Extendable<D>, const D: usize>(
 #[cfg(test)]
 mod tests {
     use anyhow::Result;
-    use psy_core::utils::debug_timer::DebugTimer;
-    use psy_crypto::signature::secp256k1::curve::curve_types::CurveScalar;
-    use psy_crypto::signature::secp256k1::curve::ecdsa::{
-        sign_message, ECDSAPublicKey, ECDSASecretKey, ECDSASignature,
+    use plonky2::{
+        field::types::{PrimeField64, Sample},
+        iop::witness::PartialWitness,
+        plonk::{
+            circuit_data::CircuitConfig,
+            config::{GenericConfig, PoseidonGoldilocksConfig},
+        },
     };
-    use plonky2::field::types::{PrimeField64, Sample};
-    use plonky2::iop::witness::PartialWitness;
-    use plonky2::plonk::circuit_data::CircuitConfig;
-    use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
+    use psy_core::utils::debug_timer::DebugTimer;
+    use psy_crypto::signature::secp256k1::curve::{
+        curve_types::CurveScalar,
+        ecdsa::{sign_message, ECDSAPublicKey, ECDSASecretKey, ECDSASignature},
+    };
     use serde::{Deserialize, Serialize};
 
     use super::*;
@@ -79,8 +84,7 @@ mod tests {
 
         let msg_value = Secp256K1Scalar::rand();
         let sk_value = ECDSASecretKey::<Curve>(Secp256K1Scalar::rand());
-        let pk_value =
-            ECDSAPublicKey((CurveScalar(sk_value.0) * Curve::GENERATOR_PROJECTIVE).to_affine());
+        let pk_value = ECDSAPublicKey((CurveScalar(sk_value.0) * Curve::GENERATOR_PROJECTIVE).to_affine());
         let sig_value = sign_message(msg_value, sk_value);
         let r_value = sig_value.r;
         let s_value = sig_value.s;
@@ -94,10 +98,7 @@ mod tests {
         let pk_target = ECDSAPublicKeyTarget(builder.constant_affine_point(pk_value.0));
         let r_target = builder.constant_nonnative(r_value);
         let s_target = builder.constant_nonnative(s_value);
-        let sig_target = ECDSASignatureTarget {
-            r: r_target,
-            s: s_target,
-        };
+        let sig_target = ECDSASignatureTarget { r: r_target, s: s_target };
 
         verify_message_circuit(&mut builder, msg_target, sig_target, pk_target);
 
@@ -153,11 +154,7 @@ mod tests {
         }
     }
 
-    fn print_all(
-        pk_value: &ECDSAPublicKey<Secp256K1>,
-        sig_value: &ECDSASignature<Secp256K1>,
-        msg_value: &Secp256K1Scalar,
-    ) -> Result<()> {
+    fn print_all(pk_value: &ECDSAPublicKey<Secp256K1>, sig_value: &ECDSASignature<Secp256K1>, msg_value: &Secp256K1Scalar) -> Result<()> {
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;
@@ -182,40 +179,11 @@ mod tests {
 
         // start struct builder
         let mut sb = SimpleStructBuilder::new();
-        let pk_target_x_dec = pk_target
-            .0
-            .x
-            .value
-            .limbs
-            .iter()
-            .map(|x| x.0)
-            .collect::<Vec<_>>();
-        let pk_target_y_dec = pk_target
-            .0
-            .y
-            .value
-            .limbs
-            .iter()
-            .map(|x| x.0)
-            .collect::<Vec<_>>();
-        let msg_target_dec = msg_target
-            .value
-            .limbs
-            .iter()
-            .map(|x| x.0)
-            .collect::<Vec<_>>();
-        let r_target_dec = msg_target
-            .value
-            .limbs
-            .iter()
-            .map(|x| x.0)
-            .collect::<Vec<_>>();
-        let s_target_dec = msg_target
-            .value
-            .limbs
-            .iter()
-            .map(|x| x.0)
-            .collect::<Vec<_>>();
+        let pk_target_x_dec = pk_target.0.x.value.limbs.iter().map(|x| x.0).collect::<Vec<_>>();
+        let pk_target_y_dec = pk_target.0.y.value.limbs.iter().map(|x| x.0).collect::<Vec<_>>();
+        let msg_target_dec = msg_target.value.limbs.iter().map(|x| x.0).collect::<Vec<_>>();
+        let r_target_dec = msg_target.value.limbs.iter().map(|x| x.0).collect::<Vec<_>>();
+        let s_target_dec = msg_target.value.limbs.iter().map(|x| x.0).collect::<Vec<_>>();
         // start register fields
         sb.add_field("pk_target_x", pk_target_x_dec.len());
         builder.register_public_inputs(&pk_target_x_dec);
@@ -236,10 +204,7 @@ mod tests {
 
         // end struct builder
 
-        let sig_target = ECDSASignatureTarget::<Secp256K1> {
-            r: r_target,
-            s: s_target,
-        };
+        let sig_target = ECDSASignatureTarget::<Secp256K1> { r: r_target, s: s_target };
 
         let r_target = sig_target.r;
         let s_target = sig_target.s;
@@ -250,8 +215,7 @@ mod tests {
         let u1_target = builder.mul_nonnative(&msg_target, &c_target);
         let u2_target = builder.mul_nonnative(&r_target, &c_target);
 
-        let point1_target =
-            fixed_base_curve_mul_circuit(&mut builder, Secp256K1::GENERATOR_AFFINE, &u1_target);
+        let point1_target = fixed_base_curve_mul_circuit(&mut builder, Secp256K1::GENERATOR_AFFINE, &u1_target);
         let point2_target = builder.glv_mul(&pk_target.0, &u2_target);
         let point_target = builder.curve_add(&point1_target, &point2_target);
 
@@ -268,12 +232,7 @@ mod tests {
         timer.lap("start prove");
         let pw = PartialWitness::new();
         let proof = data.prove(pw).unwrap();
-        let pubs = proof
-            .public_inputs
-            .to_vec()
-            .iter()
-            .map(|x| x.to_canonical_u64())
-            .collect::<Vec<u64>>();
+        let pubs = proof.public_inputs.to_vec().iter().map(|x| x.to_canonical_u64()).collect::<Vec<u64>>();
         let result = sb.generate::<u64>(pubs);
         tracing::info!("result:\n{}", serde_json::to_string(&result).unwrap());
 
@@ -286,9 +245,7 @@ mod tests {
     fn test_random_sig_print() {
         let msg_value = Secp256K1Scalar::rand();
         let sk_value = ECDSASecretKey::<Secp256K1>(Secp256K1Scalar::rand());
-        let pk_value = ECDSAPublicKey::<Secp256K1>(
-            (CurveScalar(sk_value.0) * Curve::GENERATOR_PROJECTIVE).to_affine(),
-        );
+        let pk_value = ECDSAPublicKey::<Secp256K1>((CurveScalar(sk_value.0) * Curve::GENERATOR_PROJECTIVE).to_affine());
         tracing::info!("priv_key: {}", serde_json::to_string(&sk_value).unwrap());
         tracing::info!("pub_key: {}", serde_json::to_string(&pk_value).unwrap());
         tracing::info!("msg: {}", serde_json::to_string(&msg_value).unwrap());

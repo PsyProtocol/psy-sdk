@@ -1,4 +1,4 @@
-pub mod types;
 pub mod data;
-pub mod store;
 pub mod processor;
+pub mod store;
+pub mod types;

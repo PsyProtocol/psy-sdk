@@ -1,7 +1,7 @@
 use std::{
     collections::{HashMap, HashSet},
     sync::Arc,
-    time::{Duration, SystemTime, UNIX_EPOCH,}
+    time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
 use anyhow::{anyhow, Context, Result};
@@ -23,11 +23,10 @@ use crate::queue::{new_redis_async_pool, QueueId, QueueStats, RsmqQueue};
 const TASK_COMMON_PREFIX: &str = "tasks";
 pub const JOB_STATUS_PREFIX: &str = "js"; // short for job-status
 pub const JOB_TIMEOUT_PREFIX: &str = "jt"; //short for job-timeout
-const JOB_TIMEOUT_SECONDS: u64 =  6;
+const JOB_TIMEOUT_SECONDS: u64 = 6;
 const VISIBILITY_TIMEOUT: Duration = Duration::from_secs(JOB_TIMEOUT_SECONDS);
 
 pub const JOB_STATUS_TTL_SECONDS: u64 = 7200; //job status ttl in seconds, 2 hour
-
 
 /// Represents a single proving job with task assignment
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -93,7 +92,7 @@ pub struct QJobStatus {
     pub id: QProvingJobDataID,
     pub status: Status,
     pub worker_id: Option<String>,
-    pub start_time: u64, // Milliseconds since epoch
+    pub start_time: u64,       // Milliseconds since epoch
     pub end_time: Option<u64>, // Milliseconds since epoch
 }
 
@@ -147,7 +146,8 @@ impl QJobStatus {
         }
     }
 
-    /// Check if the job has timed out (based on current time and timeout duration)
+    /// Check if the job has timed out (based on current time and timeout
+    /// duration)
     pub fn is_timed_out(&self, timeout_ms: u64) -> bool {
         if self.status == Status::Completed {
             return false;
@@ -172,8 +172,7 @@ impl QProvingTaskStoreImpl {
         debug!("Initializing QProvingTaskStore with pool size {}", pool_size);
         trace!("redis_url: {}, queue_biz_key: {}", redis_url, queue_biz_key);
 
-        let redis_pool = Arc::new(new_redis_async_pool(redis_url, pool_size)
-            .await.context("Failed to create Redis pool")?);
+        let redis_pool = Arc::new(new_redis_async_pool(redis_url, pool_size).await.context("Failed to create Redis pool")?);
 
         let rsmq = Arc::new(
             RsmqQueue::new(redis_url, pool_size, queue_biz_key)
@@ -197,7 +196,7 @@ impl QProvingTaskStoreImpl {
 
     #[inline]
     fn layer_zset_key(&self) -> String {
-        format!("{}:{}:layer_zset",  &self.biz_key, TASK_COMMON_PREFIX)
+        format!("{}:{}:layer_zset", &self.biz_key, TASK_COMMON_PREFIX)
     }
 
     #[inline]
@@ -211,7 +210,7 @@ impl QProvingTaskStoreImpl {
     }
 
     #[inline]
-    pub fn job_timeout_key(&self,job_id: &QProvingJobDataID) -> String {
+    pub fn job_timeout_key(&self, job_id: &QProvingJobDataID) -> String {
         format!("{}:{}:{}", &self.biz_key, JOB_TIMEOUT_PREFIX, job_id.to_hex_string())
     }
 
@@ -226,7 +225,8 @@ impl QProvingTaskStoreImpl {
                     let ret = format!("{}:{}:{}", biz_prefix, JOB_STATUS_PREFIX, rest2);
                     trace!("Job status key : {}", ret);
                     return Some(ret);
-                    // return Some(format!("{}:{}:{}", biz_prefix, JOB_STATUS_PREFIX, rest2));
+                    // return Some(format!("{}:{}:{}", biz_prefix,
+                    // JOB_STATUS_PREFIX, rest2));
                 }
             }
         }
@@ -241,12 +241,16 @@ impl QProvingTaskStoreImpl {
             if let Some(rest) = status_key.strip_prefix(&format!("{}:", biz_prefix)) {
                 if let Some(rest2) = rest.strip_prefix(&format!("{}:", JOB_STATUS_PREFIX)) {
                     //todo! debug only, should use return directly
-                    let ret = format!("
-                        {}:{}:{}", biz_prefix, JOB_TIMEOUT_PREFIX, rest2);
+                    let ret = format!(
+                        "
+                        {}:{}:{}",
+                        biz_prefix, JOB_TIMEOUT_PREFIX, rest2
+                    );
                     trace!("Job timeout key : {}", ret);
                     return Some(ret);
 
-                    // return Some(format!("{}:{}:{}", biz_prefix, JOB_TIMEOUT_PREFIX, rest2));
+                    // return Some(format!("{}:{}:{}", biz_prefix,
+                    // JOB_TIMEOUT_PREFIX, rest2));
                 }
             }
         }
@@ -255,7 +259,7 @@ impl QProvingTaskStoreImpl {
 
     async fn set_job_status(&self, status: &QJobStatus) -> Result<()> {
         let mut conn = self.redis_pool.get().await?;
-        let key =  self.job_status_key(&status.id);
+        let key = self.job_status_key(&status.id);
         let value = status.to_bytes()?;
         debug!("Setting job status in Redis: key={}, status={:?}", key, status);
         conn.set_ex(key, value, JOB_STATUS_TTL_SECONDS).await?;
@@ -264,7 +268,7 @@ impl QProvingTaskStoreImpl {
 
     pub async fn get_job_status(&self, job_id: &QProvingJobDataID) -> Result<Option<QJobStatus>> {
         let mut conn = self.redis_pool.get().await?;
-        let key =  self.job_status_key(job_id);
+        let key = self.job_status_key(job_id);
         let value: Option<Vec<u8>> = conn.get(key).await?;
         match value {
             Some(bytes) => Ok(Some(QJobStatus::from_bytes(&bytes)?)),
@@ -274,7 +278,7 @@ impl QProvingTaskStoreImpl {
 
     async fn set_job_timeout(&self, job_id: &QProvingJobDataID, timeout_seconds: u64) -> Result<()> {
         let mut conn = self.redis_pool.get().await?;
-        let key =  self.job_timeout_key(job_id);
+        let key = self.job_timeout_key(job_id);
         // Set empty value with expiration
         conn.set_ex(key, "", timeout_seconds).await?;
         Ok(())
@@ -304,7 +308,7 @@ impl QProvingTaskStoreImpl {
         let layers_key = self.layer_zset_key();
 
         /* Note: If different nodes push at the same time, there may be problems due to clock asynchrony.
-           In our current scenario, only the processor will push, so there is no problem. */
+        In our current scenario, only the processor will push, so there is no problem. */
         // Use timestamp + sequence for unique, ordered scores
         let base_score = chrono::Utc::now().timestamp_micros();
 
@@ -363,17 +367,11 @@ impl QProvingTaskStoreImpl {
                 }
             }
             Some(rank) => {
-                debug!(
-                    "⏭️ Skipped pop: layer {:?} is at position {}, not at head",
-                    target_layer_id, rank
-                );
+                debug!("⏭️ Skipped pop: layer {:?} is at position {}, not at head", target_layer_id, rank);
                 Ok(false)
             }
             None => {
-                debug!(
-                    "🗑️ Layer {:?} not found in current queue (already processed or expired)",
-                    target_layer_id
-                );
+                debug!("🗑️ Layer {:?} not found in current queue (already processed or expired)", target_layer_id);
                 Ok(false)
             }
         }
@@ -420,10 +418,7 @@ impl QProvingTaskStoreImpl {
                 layer_id, stats.hidden_messages
             );
         } else if stats.total_messages > 0 {
-            debug!(
-                "📥 Layer {} still has {} pending messages in queue",
-                layer_id, stats.total_messages
-            );
+            debug!("📥 Layer {} still has {} pending messages in queue", layer_id, stats.total_messages);
         }
 
         Ok(false)
@@ -433,7 +428,6 @@ impl QProvingTaskStoreImpl {
 impl QProvingTaskStoreImpl {
     /// Validates job ownership and extends its visibility timeout if valid
     pub async fn validate_and_extend_job(&self, job: &QJob) -> Result<JobValidationStatus> {
-
         let current_layer = match self.peek_current_layer().await? {
             Some(layer) => layer,
             None => {
@@ -468,7 +462,8 @@ impl QProvingTaskStoreImpl {
         }
     }
     /// Set custom visibility timeout for a job
-    /// This allows you to control when the job becomes available for other workers to claim
+    /// This allows you to control when the job becomes available for other
+    /// workers to claim
     pub async fn set_job_visibility(&self, job: &QJob, visibility_seconds: u64) -> Result<()> {
         let queue_id = self.layer_queue_id(&job.layer_id);
         let visibility = Duration::from_secs(visibility_seconds);
@@ -476,10 +471,7 @@ impl QProvingTaskStoreImpl {
         self.rsmq
             .change_message_visibility(&queue_id, &job.msg_id, visibility)
             .await
-            .context(format!(
-                "Failed to set visibility to {} seconds for job {}",
-                visibility_seconds, job
-            ))?;
+            .context(format!("Failed to set visibility to {} seconds for job {}", visibility_seconds, job))?;
 
         info!(
             "Set visibility to {} seconds for job {} (msg_id: {})",
@@ -488,7 +480,6 @@ impl QProvingTaskStoreImpl {
 
         Ok(())
     }
-
 }
 
 fn classify_visibility_error(job: &QJob, error: anyhow::Error) -> Result<JobValidationStatus> {
@@ -516,7 +507,6 @@ pub enum JobValidationStatus {
     MessageNotFound,
     MessageNotHidden,
 }
-
 
 #[async_trait]
 pub trait QProvingTaskStore {
@@ -552,12 +542,12 @@ pub trait QProvingTaskStore {
 #[async_trait]
 impl QProvingTaskStore for QProvingTaskStoreImpl {
     async fn initialize_task_topology(&self, layers: Vec<QProvingTaskLayer>) -> Result<()> {
-
         if layers.is_empty() {
             debug!("No layers to save, skipping topology save");
             return Ok(());
         }
-        info!("Saving {} layers with {} total jobs",
+        info!(
+            "Saving {} layers with {} total jobs",
             layers.len(),
             layers.iter().map(|l| l.job_ids.len()).sum::<usize>()
         );
@@ -567,10 +557,7 @@ impl QProvingTaskStore for QProvingTaskStoreImpl {
             self.rsmq.create_queue_if_not_exists(&queue_id).await?;
 
             if !layer.job_ids.is_empty() {
-                let jobs: Vec<QJob> = layer.job_ids
-                    .iter()
-                    .map(|job_id| QJob::new(job_id.clone(), layer.layer_id))
-                    .collect();
+                let jobs: Vec<QJob> = layer.job_ids.iter().map(|job_id| QJob::new(job_id.clone(), layer.layer_id)).collect();
 
                 self.rsmq.send_batch(&queue_id, &jobs).await?;
                 debug!("Layer {}: enqueued {} jobs", layer.layer_id, jobs.len());
@@ -615,12 +602,11 @@ impl QProvingTaskStore for QProvingTaskStoreImpl {
 
         let job_status = match self.get_job_status(&job.job_id).await? {
             Some(mut status) => {
-                warn!("Reclaiming job {} from worker {:?} to worker {}",
-                job.job_id, status.worker_id, worker_id);
+                warn!("Reclaiming job {} from worker {:?} to worker {}", job.job_id, status.worker_id, worker_id);
                 status.reset_for_reclaim(worker_id);
                 status
             }
-            None => QJobStatus::new_processing(job.job_id.clone(), worker_id)
+            None => QJobStatus::new_processing(job.job_id.clone(), worker_id),
         };
 
         self.set_job_status(&job_status).await?;
@@ -635,7 +621,9 @@ impl QProvingTaskStore for QProvingTaskStoreImpl {
         let queue_id = self.layer_queue_id(&job.layer_id);
 
         // Get current job status
-        let mut job_status = self.get_job_status(&job.job_id).await?
+        let mut job_status = self
+            .get_job_status(&job.job_id)
+            .await?
             .ok_or_else(|| anyhow!("Job status not found for {}", job.job_id))?;
 
         validate_worker_authority(&job_status, job, worker_id)?;
@@ -643,7 +631,8 @@ impl QProvingTaskStore for QProvingTaskStoreImpl {
         if job_status.status != Status::Processing {
             return Err(anyhow!(
                 "Job {} is not in Processing state (current: {:?})",
-                job.job_id, job_status.status
+                job.job_id,
+                job_status.status
             ));
         }
 
@@ -691,8 +680,7 @@ impl QProvingTaskStore for QProvingTaskStoreImpl {
 
     async fn save_job_dependency_graph(&self, checkpoint_id: u64) -> Result<()> {
         let graph = self.job_graph.lock().await;
-        let serialized = bincode::serialize(&*graph)
-            .map_err(|e| anyhow::anyhow!("Failed to serialize job graph: {}", e))?;
+        let serialized = bincode::serialize(&*graph).map_err(|e| anyhow::anyhow!("Failed to serialize job graph: {}", e))?;
         drop(graph);
 
         let mut conn = self.redis_pool.get().await?;
@@ -892,13 +880,9 @@ impl QProvingTaskStoreImpl {
     }
 }
 
-
 /// Get current timestamp in milliseconds
 pub fn current_timestamp_millis() -> u64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap()
-        .as_millis() as u64
+    SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis() as u64
 }
 
 fn validate_worker_authority(status: &QJobStatus, job: &QJob, worker_id: &str) -> Result<()> {
@@ -906,11 +890,10 @@ fn validate_worker_authority(status: &QJobStatus, job: &QJob, worker_id: &str) -
         Some(claimed_id) if claimed_id == worker_id => Ok(()),
         Some(claimed_id) => Err(anyhow!(
             "Worker mismatch: job {} claimed by {} but {} attempted completion",
-            job.job_id, claimed_id, worker_id
+            job.job_id,
+            claimed_id,
+            worker_id
         )),
-        None => Err(anyhow!(
-            "Job {} has no worker ID - cannot verify completion authority",
-            job.job_id
-        )),
+        None => Err(anyhow!("Job {} has no worker ID - cannot verify completion authority", job.job_id)),
     }
 }

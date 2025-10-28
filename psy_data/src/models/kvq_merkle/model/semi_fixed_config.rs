@@ -1,14 +1,11 @@
-use kvq::traits::KVQBinaryStore;
-use kvq::traits::KVQSerializable;
-use kvq::traits::KVQStoreAdapter;
-use kvq::traits::KVQStoreAdapterReader;
-use psy_crypto::hash::merkle::core::DeltaMerkleProofCore;
-use psy_crypto::hash::merkle::core::MerkleProofCore;
-use psy_crypto::hash::traits::hasher::MerkleZeroHasherWithMarkedLeaf;
-
-use crate::models::kvq_merkle::key::KVQMerkleNodeKey;
+use kvq::traits::{KVQBinaryStore, KVQSerializable, KVQStoreAdapter, KVQStoreAdapterReader};
+use psy_crypto::hash::{
+    merkle::core::{DeltaMerkleProofCore, MerkleProofCore},
+    traits::hasher::MerkleZeroHasherWithMarkedLeaf,
+};
 
 use super::{KVQMerkleTreeModelCore, KVQMerkleTreeModelReaderCore};
+use crate::models::kvq_merkle::key::KVQMerkleNodeKey;
 
 pub trait KVQSemiFixedConfigMerkleTreeModelReaderCore<
     const TREE_ID: u8,
@@ -42,40 +39,20 @@ pub trait KVQSemiFixedConfigMerkleTreeModelReaderCore<
             checkpoint_id,
         }
     }
-    fn get_leaf_sfc(
-        store: &S,
-        checkpoint_id: u64,
-        primary_id: u64,
-        index: u64,
-    ) -> anyhow::Result<MerkleProofCore<Hash>> {
+    fn get_leaf_sfc(store: &S, checkpoint_id: u64, primary_id: u64, index: u64) -> anyhow::Result<MerkleProofCore<Hash>> {
         Self::get_leaf(store, &Self::new_leaf_key_sfc(checkpoint_id, primary_id, index))
     }
     fn get_leaf_value_fc(store: &S, checkpoint_id: u64, primary_id: u64, index: u64) -> anyhow::Result<Hash> {
-        Self::get_node(
-            store,
-            TREE_HEIGHT as usize,
-            &Self::new_leaf_key_sfc(checkpoint_id, primary_id, index),
-        )
+        Self::get_node(store, TREE_HEIGHT as usize, &Self::new_leaf_key_sfc(checkpoint_id, primary_id, index))
     }
-    fn get_leaf_values_fc(
-        store: &S,
-        checkpoint_id: u64,
-        primary_id: u64,
-        indexes: &[u64],
-    ) -> anyhow::Result<Vec<Hash>> {
+    fn get_leaf_values_fc(store: &S, checkpoint_id: u64, primary_id: u64, indexes: &[u64]) -> anyhow::Result<Vec<Hash>> {
         let leaf_keys = indexes
             .iter()
             .map(|index| Self::new_leaf_key_sfc(checkpoint_id, primary_id, *index))
             .collect::<Vec<_>>();
         Self::get_nodes(store, TREE_HEIGHT as usize, &leaf_keys)
     }
-    fn get_node_value_fc(
-        store: &S,
-        checkpoint_id: u64,
-        primary_id: u64,
-        level: u8,
-        index: u64,
-    ) -> anyhow::Result<Hash> {
+    fn get_node_value_fc(store: &S, checkpoint_id: u64, primary_id: u64, level: u8, index: u64) -> anyhow::Result<Hash> {
         Self::get_node(
             store,
             TREE_HEIGHT as usize,
@@ -83,11 +60,7 @@ pub trait KVQSemiFixedConfigMerkleTreeModelReaderCore<
         )
     }
     fn get_root_fc(store: &S, checkpoint_id: u64, primary_id: u64) -> anyhow::Result<Hash> {
-        Self::get_node(
-            store,
-            TREE_HEIGHT as usize,
-            &Self::new_node_key_sfc(checkpoint_id, primary_id, 0, 0),
-        )
+        Self::get_node(store, TREE_HEIGHT as usize, &Self::new_node_key_sfc(checkpoint_id, primary_id, 0, 0))
     }
 }
 pub trait KVQSemiFixedConfigMerkleTreeModelCore<
@@ -102,66 +75,50 @@ pub trait KVQSemiFixedConfigMerkleTreeModelCore<
     Hasher: MerkleZeroHasherWithMarkedLeaf<Hash>,
 >:
     KVQMerkleTreeModelCore<TABLE_TYPE, MARK_LEAVES, S, KVA, Hash, Hasher>
-    + KVQSemiFixedConfigMerkleTreeModelReaderCore<
-        TREE_ID,
-        TREE_HEIGHT,
-        SECONDARY_ID,
-        TABLE_TYPE,
-        MARK_LEAVES,
-        S,
-        KVA,
-        Hash,
-        Hasher,
-    >
+    + KVQSemiFixedConfigMerkleTreeModelReaderCore<TREE_ID, TREE_HEIGHT, SECONDARY_ID, TABLE_TYPE, MARK_LEAVES, S, KVA, Hash, Hasher>
 {
-    fn set_leaf_sfc(
-        store: &S,
-        checkpoint_id: u64,
-        primary_id: u64,
-        index: u64,
-        value: Hash,
-    ) -> anyhow::Result<DeltaMerkleProofCore<Hash>> {
+    fn set_leaf_sfc(store: &S, checkpoint_id: u64, primary_id: u64, index: u64, value: Hash) -> anyhow::Result<DeltaMerkleProofCore<Hash>> {
         Self::set_leaf(store, &Self::new_leaf_key_sfc(checkpoint_id, primary_id, index), value)
     }
 
-    fn injest_merkle_proof_sfc(store: &S, 
-        primary_id: u64, checkpoint_id: u64, merkle_proof: &MerkleProofCore<Hash>) -> anyhow::Result<()> {
+    fn injest_merkle_proof_sfc(store: &S, primary_id: u64, checkpoint_id: u64, merkle_proof: &MerkleProofCore<Hash>) -> anyhow::Result<()> {
         Self::injest_merkle_proof(store, TREE_ID, primary_id, SECONDARY_ID, checkpoint_id, merkle_proof)
     }
     fn injest_merkle_proof_set_leaf_sfc(
-        store: &S, 
+        store: &S,
         primary_id: u64,
-        old_checkpoint_id: u64, 
-        merkle_proof: &MerkleProofCore<Hash>, 
+        old_checkpoint_id: u64,
+        merkle_proof: &MerkleProofCore<Hash>,
         new_checkpoint_id: u64,
-        new_value: Hash
+        new_value: Hash,
     ) -> anyhow::Result<DeltaMerkleProofCore<Hash>> {
         Self::injest_merkle_proof_sfc(store, primary_id, old_checkpoint_id, merkle_proof)?;
-        Self::set_leaf(store, &Self::new_leaf_key_sfc(new_checkpoint_id, primary_id, merkle_proof.index), new_value)
+        Self::set_leaf(
+            store,
+            &Self::new_leaf_key_sfc(new_checkpoint_id, primary_id, merkle_proof.index),
+            new_value,
+        )
     }
-    
-    fn injest_merkle_proof_sfc_imm(store: &S, 
-        primary_id: u64, checkpoint_id: u64, merkle_proof: &MerkleProofCore<Hash>) -> anyhow::Result<()> {
+
+    fn injest_merkle_proof_sfc_imm(store: &S, primary_id: u64, checkpoint_id: u64, merkle_proof: &MerkleProofCore<Hash>) -> anyhow::Result<()> {
         Self::injest_merkle_proof(store, TREE_ID, primary_id, SECONDARY_ID, checkpoint_id, merkle_proof)
     }
     fn injest_merkle_proof_set_leaf_sfc_imm(
-        store: &S, 
+        store: &S,
         primary_id: u64,
-        old_checkpoint_id: u64, 
-        merkle_proof: &MerkleProofCore<Hash>, 
+        old_checkpoint_id: u64,
+        merkle_proof: &MerkleProofCore<Hash>,
         new_checkpoint_id: u64,
-        new_value: Hash
+        new_value: Hash,
     ) -> anyhow::Result<DeltaMerkleProofCore<Hash>> {
         Self::injest_merkle_proof_sfc_imm(store, primary_id, old_checkpoint_id, merkle_proof)?;
-        Self::set_leaf(store, &Self::new_leaf_key_sfc(new_checkpoint_id, primary_id, merkle_proof.index), new_value)
+        Self::set_leaf(
+            store,
+            &Self::new_leaf_key_sfc(new_checkpoint_id, primary_id, merkle_proof.index),
+            new_value,
+        )
     }
-    fn set_leaf_sfc_imm(
-        store: &S,
-        checkpoint_id: u64,
-        primary_id: u64,
-        index: u64,
-        value: Hash,
-    ) -> anyhow::Result<DeltaMerkleProofCore<Hash>> {
+    fn set_leaf_sfc_imm(store: &S, checkpoint_id: u64, primary_id: u64, index: u64, value: Hash) -> anyhow::Result<DeltaMerkleProofCore<Hash>> {
         Self::set_leaf(store, &Self::new_leaf_key_sfc(checkpoint_id, primary_id, index), value)
     }
 }

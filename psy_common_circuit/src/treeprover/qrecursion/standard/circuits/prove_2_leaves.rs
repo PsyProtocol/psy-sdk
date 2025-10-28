@@ -1,7 +1,23 @@
-use plonky2::{gates::{constant::ConstantGate, gate::GateRef}, hash::hash_types::{HashOut, HashOutTarget}, iop::witness::{PartialWitness, WitnessWrite}, plonk::{circuit_builder::CircuitBuilder, circuit_data::{CircuitConfig, CircuitData, CommonCircuitData, VerifierOnlyCircuitData}, config::{AlgebraicHasher, GenericConfig}, proof::ProofWithPublicInputs}};
-use crate::{builder::core::CircuitBuilderHelpersCore, circuits::traits::qstandard::QStandardCircuit, proof_minifier::pm_core::get_circuit_fingerprint_generic, treeprover::qrecursion::standard::gadgets::{agg_proof_header::QRecursionAggStandardHeaderGadget, verify_leaf_proof::VerifyLeafProofGadget}};
+use plonky2::{
+    gates::{constant::ConstantGate, gate::GateRef},
+    hash::hash_types::{HashOut, HashOutTarget},
+    iop::witness::{PartialWitness, WitnessWrite},
+    plonk::{
+        circuit_builder::CircuitBuilder,
+        circuit_data::{CircuitConfig, CircuitData, CommonCircuitData, VerifierOnlyCircuitData},
+        config::{AlgebraicHasher, GenericConfig},
+        proof::ProofWithPublicInputs,
+    },
+};
 use psy_core::data::qhashout::QHashOut;
 use psy_crypto::hash::{merkle::core::DeltaMerkleProofCore, traits::hasher::MerkleZeroHasher};
+
+use crate::{
+    builder::core::CircuitBuilderHelpersCore,
+    circuits::traits::qstandard::QStandardCircuit,
+    proof_minifier::pm_core::get_circuit_fingerprint_generic,
+    treeprover::qrecursion::standard::gadgets::{agg_proof_header::QRecursionAggStandardHeaderGadget, verify_leaf_proof::VerifyLeafProofGadget},
+};
 
 #[derive(Debug)]
 pub struct QRecursionStandardTwoLeafCircuit<C: GenericConfig<D>, const D: usize>
@@ -17,7 +33,6 @@ where
     pub circuit_data: CircuitData<C::F, C, D>,
     pub fingerprint: QHashOut<C::F>,
     // end circuit data
-
 }
 impl<C: GenericConfig<D>, const D: usize> QRecursionStandardTwoLeafCircuit<C, D>
 where
@@ -29,46 +44,25 @@ where
         verifier_data_cap_height: usize,
         child_common_data: &CommonCircuitData<C::F, D>,
     ) -> Self {
-        
         let config = CircuitConfig::standard_recursion_config();
         let mut builder = CircuitBuilder::<C::F, D>::new(config);
 
-        let left_leaf_gadget = VerifyLeafProofGadget::<D>::add_virtual_to::<C, C::F>(
-            &mut builder, 
-            q_recursion_tree_height, 
-            child_common_data, 
-            verifier_data_cap_height,
-        );
-        let right_leaf_gadget = VerifyLeafProofGadget::<D>::add_virtual_to::<C, C::F>(
-            &mut builder, 
-            q_recursion_tree_height, 
-            child_common_data, 
-            verifier_data_cap_height,
-        );
-
+        let left_leaf_gadget =
+            VerifyLeafProofGadget::<D>::add_virtual_to::<C, C::F>(&mut builder, q_recursion_tree_height, child_common_data, verifier_data_cap_height);
+        let right_leaf_gadget =
+            VerifyLeafProofGadget::<D>::add_virtual_to::<C, C::F>(&mut builder, q_recursion_tree_height, child_common_data, verifier_data_cap_height);
 
         // left and right leaf insertions should be back to back
-        builder.connect_hashes(
-            left_leaf_gadget.insert_leaf_proof.new_root,
-            right_leaf_gadget.insert_leaf_proof.old_root,
-        );
-
-
+        builder.connect_hashes(left_leaf_gadget.insert_leaf_proof.new_root, right_leaf_gadget.insert_leaf_proof.old_root);
 
         // the leaves should be next to each other
         let one_const_target = builder.constant_u64(1);
 
         // left_leaf_index_plus_1 = left_insertion_proof.index + 1
-        let left_leaf_index_plus_1 = builder.add(
-            left_leaf_gadget.insert_leaf_proof.index, 
-            one_const_target,
-        );
+        let left_leaf_index_plus_1 = builder.add(left_leaf_gadget.insert_leaf_proof.index, one_const_target);
 
         // ensure that right_insertion_proof.index = left_insertion_proof.index + 1
-        builder.connect(
-            right_leaf_gadget.insert_leaf_proof.index,
-            left_leaf_index_plus_1
-        );
+        builder.connect(right_leaf_gadget.insert_leaf_proof.index, left_leaf_index_plus_1);
 
         let agg_circuit_whitelist_root = builder.add_virtual_hash();
 
@@ -78,7 +72,7 @@ where
             agg_circuit_whitelist_root,
         };
         let self_public_inputs_hash = self_header_gadget.get_combined_hash::<C::Hasher, C::F, D>(&mut builder);
-        
+
         builder.register_public_inputs(&self_public_inputs_hash.elements);
         //builder.add_qed_type_a_common_gates(Some(coset_gate.clone()));
         //pad_circuit_degree::<C::F, D>(&mut builder, 12);
@@ -111,23 +105,15 @@ where
         right_verifier_data: &VerifierOnlyCircuitData<C, D>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         let mut pw = PartialWitness::<C::F>::new();
-        
+
         pw.set_hash_target(self.agg_circuit_whitelist_root, agg_circuit_whitelist_root.0)?;
 
-        self.left_leaf_gadget.set_witness(
-            &mut pw,
-            left_insert_leaf_proof,
-            left_proof,
-            left_verifier_data
-        )?;
+        self.left_leaf_gadget
+            .set_witness(&mut pw, left_insert_leaf_proof, left_proof, left_verifier_data)?;
 
-        self.right_leaf_gadget.set_witness(
-            &mut pw,
-            right_insert_leaf_proof,
-            right_proof,
-            right_verifier_data
-        )?;
-        
+        self.right_leaf_gadget
+            .set_witness(&mut pw, right_insert_leaf_proof, right_proof, right_verifier_data)?;
+
         self.circuit_data.prove(pw)
     }
 }
@@ -148,7 +134,6 @@ where
         &self.circuit_data.common
     }
 }
-
 
 /*
 impl<C: GenericConfig<D>, const D: usize>

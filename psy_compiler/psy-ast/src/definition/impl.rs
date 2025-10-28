@@ -1,9 +1,6 @@
 use indexmap::IndexMap;
 
-use crate::{
-    Comment, DefId, GenericParameter, Identifier, Location, NodeInfo, NodeType, UncheckedType,
-    Visibility,
-};
+use crate::{Comment, DefId, GenericParameter, Identifier, Location, NodeInfo, NodeType, UncheckedType, Visibility};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ImplNode {

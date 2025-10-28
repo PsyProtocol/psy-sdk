@@ -1,5 +1,6 @@
-use crate::TAG_LATEST;
 use std::path::PathBuf;
+
+use crate::TAG_LATEST;
 
 pub(crate) fn clone_git_repo(url: &str, tag: &str) -> Result<PathBuf, String> {
     use std::process::Command;
@@ -10,21 +11,13 @@ pub(crate) fn clone_git_repo(url: &str, tag: &str) -> Result<PathBuf, String> {
     }
 
     let mut cmd = Command::new("git");
-    cmd.arg("-c")
-        .arg("advice.detachedHead=false")
-        .arg("clone")
-        .arg("--depth")
-        .arg("1");
+    cmd.arg("-c").arg("advice.detachedHead=false").arg("clone").arg("--depth").arg("1");
 
     if tag != TAG_LATEST {
         cmd.arg("--branch").arg(tag);
     }
 
-    let status = cmd
-        .arg(url)
-        .arg(&loc)
-        .status()
-        .map_err(|e| format!("Failed to run git: {}", e))?;
+    let status = cmd.arg(url).arg(&loc).status().map_err(|e| format!("Failed to run git: {}", e))?;
 
     if !status.success() {
         return Err(format!("Git clone failed with status: {:?}", status));
@@ -78,8 +71,9 @@ fn dargo_crates() -> PathBuf {
 
 #[cfg(test)]
 mod tests {
-    use super::resolve_folder_name;
     use url::Url;
+
+    use super::resolve_folder_name;
 
     #[test]
     fn test_resolve_folder_name() {

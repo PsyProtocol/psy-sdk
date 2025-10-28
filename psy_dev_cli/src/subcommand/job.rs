@@ -28,11 +28,9 @@ pub async fn run(args: JobArgs) -> Result<()> {
 
 async fn decode_job_id(args: DecodeArgs) -> Result<()> {
     let job_id_hex = args.job_id.strip_prefix("0x").unwrap_or(&args.job_id);
-    let job_id_bytes = hex::decode(job_id_hex)
-        .map_err(|e| anyhow::format_err!("Failed to decode hex: {}", e))?;
+    let job_id_bytes = hex::decode(job_id_hex).map_err(|e| anyhow::format_err!("Failed to decode hex: {}", e))?;
 
-    let job_id = QProvingJobDataID::try_from_byte_vec(&job_id_bytes)
-        .map_err(|e| anyhow::format_err!("Failed to parse job ID: {}", e))?;
+    let job_id = QProvingJobDataID::try_from_byte_vec(&job_id_bytes).map_err(|e| anyhow::format_err!("Failed to parse job ID: {}", e))?;
 
     println!("Job ID: {}", job_id.to_hex_string());
     println!("  Topic: {:?}", job_id.topic);

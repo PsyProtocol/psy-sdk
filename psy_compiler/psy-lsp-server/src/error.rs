@@ -1,5 +1,5 @@
-use std::borrow::Cow;
-use std::path::PathBuf;
+use std::{borrow::Cow, path::PathBuf};
+
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -27,9 +27,7 @@ impl From<QLspError> for tower_lsp::jsonrpc::Error {
     fn from(err: QLspError) -> Self {
         use tower_lsp::jsonrpc::Error as LspError;
         match &err {
-            QLspError::InvalidUri(_)
-            | QLspError::UriToPathError(_)
-            | QLspError::FileIdNotFound(_) => LspError::invalid_params(err.to_string()),
+            QLspError::InvalidUri(_) | QLspError::UriToPathError(_) | QLspError::FileIdNotFound(_) => LspError::invalid_params(err.to_string()),
             _ => LspError {
                 code: tower_lsp::jsonrpc::ErrorCode::InternalError,
                 message: Cow::from(err.to_string()),

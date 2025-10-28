@@ -10,17 +10,17 @@ use plonky2::{
     hash::hash_types::{HashOut, RichField},
     plonk::config::GenericHashOut,
 };
-
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_with::serde_as;
-
-use super::base_types::{
-    felt248::felt248_hashout_to_hash256_le, felt252::{felt252_hashout_to_hash256_le, hashout_to_felt252_hashout}, hash256::Hash256
-};
 use ts_rs::TS;
 
+use super::base_types::{
+    felt248::felt248_hashout_to_hash256_le,
+    felt252::{felt252_hashout_to_hash256_le, hashout_to_felt252_hashout},
+    hash256::Hash256,
+};
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash,TS)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, TS)]
 #[ts(export, concrete(F = GoldilocksField))]
 pub struct QHashOut<F: Field>(pub HashOut<F>);
 
@@ -56,9 +56,7 @@ impl<'de, F: RichField> Deserialize<'de> for QHashOut<F> {
         bytes.reverse();
         bytes.resize(32, 0);
 
-        Ok(QHashOut(<HashOut<F> as GenericHashOut<F>>::from_bytes(
-            &bytes,
-        )))
+        Ok(QHashOut(<HashOut<F> as GenericHashOut<F>>::from_bytes(&bytes)))
     }
 }
 
@@ -106,9 +104,7 @@ impl<F: RichField> TryFrom<&[u64; 4]> for QHashOut<F> {
 }
 impl<F: RichField> Display for QHashOut<F> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let s = serde_json::to_string(self)
-            .map(|v| v.replace('\"', ""))
-            .unwrap();
+        let s = serde_json::to_string(self).map(|v| v.replace('\"', "")).unwrap();
 
         write!(f, "{}", s)
     }
@@ -193,16 +189,12 @@ impl<F: RichField> QHashOut<F> {
     }
 }
 
-
-
 impl<F: RichField> KVQSerializable for QHashOut<F> {
     fn to_bytes(&self) -> anyhow::Result<Vec<u8>> {
         KVQSerializable::to_bytes(&self.0)
     }
 
     fn from_bytes(bytes: &[u8]) -> anyhow::Result<Self> {
-        Ok(QHashOut(<HashOut<F> as KVQSerializable>::from_bytes(
-            bytes,
-        )?))
+        Ok(QHashOut(<HashOut<F> as KVQSerializable>::from_bytes(bytes)?))
     }
 }

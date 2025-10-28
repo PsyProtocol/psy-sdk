@@ -1,38 +1,38 @@
-use plonky2::{field::{extension::Extendable, types::Field}, hash::hash_types::{HashOutTarget, RichField}, iop::{target::BoolTarget, witness::Witness}, plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher}};
+use plonky2::{
+    field::{extension::Extendable, types::Field},
+    hash::hash_types::{HashOutTarget, RichField},
+    iop::{target::BoolTarget, witness::Witness},
+    plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher},
+};
 use psy_core::data::qhashout::QHashOut;
 use psy_crypto::hash::merkle::{core::DeltaMerkleProofCore, spiderman::SpidermanUpdateProof};
 
 use super::{delta_merkle_proof::DeltaMerkleProofGadget, full_merkle_tree_append::FullMerkleTreeAppendGadget};
-
 
 #[derive(Debug, Clone)]
 pub struct SpidermanAppendProofGadget {
     pub top_line_proof: DeltaMerkleProofGadget,
     pub web_proof: FullMerkleTreeAppendGadget,
 
-    
     pub old_root: HashOutTarget,
     pub new_root: HashOutTarget,
 }
-
 
 impl SpidermanAppendProofGadget {
     pub fn get_added_leaves(&self) -> &Vec<BoolTarget> {
         &self.web_proof.added_leaves
     }
-    pub fn add_virtual_to<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
+    pub fn add_virtual_to<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
         top_line_height: usize,
         web_tree_height: usize,
     ) -> Self {
-
         let top_line_proof = DeltaMerkleProofGadget::add_virtual_to::<H, F, D>(builder, top_line_height);
         let web_proof = FullMerkleTreeAppendGadget::add_virtual_to::<H, F, D>(builder, web_tree_height);
-        
+
         // connect the node at the bottom of the top line to the root of the subtree
         builder.connect_hashes(top_line_proof.old_value, web_proof.old_root);
         builder.connect_hashes(top_line_proof.new_value, web_proof.new_root);
-
 
         let old_root = top_line_proof.old_root;
         let new_root = top_line_proof.new_root;
@@ -56,39 +56,30 @@ impl SpidermanAppendProofGadget {
         self.web_proof.set_witness(witness, old_leaves, new_leaves)
     }
 
-    pub fn set_witness<W: Witness<F>, F: Field>(
-        &self,
-        witness: &mut W,
-        proof: &SpidermanUpdateProof<QHashOut<F>>,
-    ) -> anyhow::Result<()> {
-        self.set_witness_params(
-            witness,
-            &proof.top_line_proof,
-            &proof.web_proof_old_leaves,
-            &proof.web_proof_new_leaves,
-        )
+    pub fn set_witness<W: Witness<F>, F: Field>(&self, witness: &mut W, proof: &SpidermanUpdateProof<QHashOut<F>>) -> anyhow::Result<()> {
+        self.set_witness_params(witness, &proof.top_line_proof, &proof.web_proof_old_leaves, &proof.web_proof_new_leaves)
     }
 }
 
-
-
 #[cfg(test)]
 mod tests {
-    use plonky2::hash::poseidon::PoseidonHash;
-    use plonky2::iop::witness::PartialWitness;
-    use plonky2::plonk::circuit_builder::CircuitBuilder;
-    use plonky2::plonk::circuit_data::{CircuitConfig, CircuitData};
-    use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
-    use plonky2::plonk::proof::ProofWithPublicInputs;
+    use plonky2::{
+        hash::poseidon::PoseidonHash,
+        iop::witness::PartialWitness,
+        plonk::{
+            circuit_builder::CircuitBuilder,
+            circuit_data::{CircuitConfig, CircuitData},
+            config::{GenericConfig, PoseidonGoldilocksConfig},
+            proof::ProofWithPublicInputs,
+        },
+    };
     use psy_core::data::qhashout::QHashOut;
-
-    use psy_crypto::hash::merkle::spiderman::SpidermanUpdateProof;
-    use psy_crypto::hash::merkle::utils::simple_merkle_tree::SimpleMerkleTree;
-    use psy_crypto::hash::traits::hasher::PoseidonHasher;
-    
+    use psy_crypto::hash::{
+        merkle::{spiderman::SpidermanUpdateProof, utils::simple_merkle_tree::SimpleMerkleTree},
+        traits::hasher::PoseidonHasher,
+    };
 
     use super::SpidermanAppendProofGadget;
-
 
     const D: usize = 2;
     type C = PoseidonGoldilocksConfig;
@@ -100,64 +91,36 @@ mod tests {
     }
 
     impl TestSpidermanAppendCircuit {
-        pub fn new(            
-            top_line_height: usize,
-            web_tree_height: usize,
-        ) -> Self {
+        pub fn new(top_line_height: usize, web_tree_height: usize) -> Self {
             let config = CircuitConfig::standard_recursion_config();
             let mut builder = CircuitBuilder::<F, D>::new(config);
-            let update_gadget = SpidermanAppendProofGadget::add_virtual_to::<PoseidonHash, F, D>(
-                &mut builder,
-                top_line_height,
-                web_tree_height,
-            );
+            let update_gadget = SpidermanAppendProofGadget::add_virtual_to::<PoseidonHash, F, D>(&mut builder, top_line_height, web_tree_height);
 
             builder.register_public_inputs(&update_gadget.old_root.elements);
             builder.register_public_inputs(&update_gadget.new_root.elements);
-            builder.register_public_inputs(
-                &update_gadget
-                    .get_added_leaves()
-                    .iter()
-                    .map(|x| x.target)
-                    .collect::<Vec<_>>(),
-            );
+            builder.register_public_inputs(&update_gadget.get_added_leaves().iter().map(|x| x.target).collect::<Vec<_>>());
 
             let circuit_data = builder.build::<C>();
-            Self {
-                update_gadget,
-                circuit_data,
-            }
+            Self { update_gadget, circuit_data }
         }
-        pub fn prove(
-            &self,
-            proof: &SpidermanUpdateProof<QHashOut<F>>,
-        ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>> {
+        pub fn prove(&self, proof: &SpidermanUpdateProof<QHashOut<F>>) -> anyhow::Result<ProofWithPublicInputs<F, C, D>> {
             let mut pw = PartialWitness::new();
-            self.update_gadget
-                .set_witness(&mut pw, proof)?;
+            self.update_gadget.set_witness(&mut pw, proof)?;
             self.circuit_data.prove(pw)
         }
     }
-    
 
-    fn test_spiderman_tree_basic(
-        top_line_height: usize,
-        web_tree_height: usize,
-        append_leaf_ct: usize,
-        start_index: usize,
-    ) {
+    fn test_spiderman_tree_basic(top_line_height: usize, web_tree_height: usize, append_leaf_ct: usize, start_index: usize) {
         let circuit = TestSpidermanAppendCircuit::new(top_line_height, web_tree_height);
 
-        let total_height = top_line_height+web_tree_height;
+        let total_height = top_line_height + web_tree_height;
 
         let mut tree = SimpleMerkleTree::<PoseidonHasher, QHashOut<F>>::new(total_height as u8);
 
-        for i in 0..start_index{
+        for i in 0..start_index {
             tree.set_leaf(i as u64, QHashOut::rand());
         }
-        let test_leaves = (0..append_leaf_ct).map(|_|{
-            QHashOut::rand()
-        }).collect::<Vec<_>>();
+        let test_leaves = (0..append_leaf_ct).map(|_| QHashOut::rand()).collect::<Vec<_>>();
 
         let spiderman_proofs = tree.append_leaves_spider_man(web_tree_height as u8, &test_leaves).unwrap();
         for p in spiderman_proofs.iter() {
@@ -165,9 +128,7 @@ mod tests {
             let pubs = circuit.prove(p).unwrap().public_inputs;
             assert_eq!(pubs[0..4].to_vec(), p.top_line_proof.old_root.0.elements.to_vec());
             assert_eq!(pubs[4..8].to_vec(), p.top_line_proof.new_root.0.elements.to_vec());
-
         }
-        
     }
     #[test]
     fn test_spiderman_tree_basic_small() {
@@ -176,5 +137,4 @@ mod tests {
         test_spiderman_tree_basic(3, 3, 9, 2);
         test_spiderman_tree_basic(8, 4, 1, 125);
     }
-
 }

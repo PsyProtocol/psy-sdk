@@ -1,60 +1,48 @@
-use fred::prelude::*;
-use psy_core::{
-    job::{id::QProvingJobDataID, traits::{QProofStoreAsyncImm, QProofStoreReaderAsync, QWorkerGenericProverAsyncMut}, worker_queue::WorkerEventReceiverAsyncImm},
-    utils::debug_timer::DebugTimer,
-};
-use psy_store::queue::ProofStoreFred;
 use std::time::Duration;
 
 use async_trait::async_trait;
-
-use plonky2::plonk::{circuit_data::{CommonCircuitData, VerifierOnlyCircuitData}, config::{GenericConfig, PoseidonGoldilocksConfig}, proof::ProofWithPublicInputs};
-use psy_core::{data::qhashout::QHashOut, job::{id::{ProvingJobCircuitType, QJobTopic, QWorkerModeFilter}, mode::QWorkerMode, traits::{QProofStore, QWorkerGenericProverMut, QWorkerVerifyHelper}}};
-use psy_store::queue::new_fred_pool;
+use fred::prelude::*;
+use plonky2::plonk::{
+    circuit_data::{CommonCircuitData, VerifierOnlyCircuitData},
+    config::{GenericConfig, PoseidonGoldilocksConfig},
+    proof::ProofWithPublicInputs,
+};
+use psy_core::{
+    data::qhashout::QHashOut,
+    job::{
+        id::{ProvingJobCircuitType, QJobTopic, QProvingJobDataID, QWorkerModeFilter},
+        mode::QWorkerMode,
+        traits::{
+            QProofStore, QProofStoreAsyncImm, QProofStoreReaderAsync, QWorkerGenericProverAsyncMut, QWorkerGenericProverMut, QWorkerVerifyHelper,
+        },
+        worker_queue::WorkerEventReceiverAsyncImm,
+    },
+    utils::debug_timer::DebugTimer,
+};
+use psy_store::queue::{new_fred_pool, ProofStoreFred};
 
 #[derive(Debug, Clone)]
 pub struct QEDFakeProver {
     pub x: u32,
 }
 
-impl<
-C: GenericConfig<D>,
-const D: usize,
-> QWorkerVerifyHelper<C, D> for QEDFakeProver {
+impl<C: GenericConfig<D>, const D: usize> QWorkerVerifyHelper<C, D> for QEDFakeProver {
     fn get_verifier_triplet_for_circuit_type(
         &self,
         _circuit_type: ProvingJobCircuitType,
-    ) -> (
-        &CommonCircuitData<C::F, D>,
-        &VerifierOnlyCircuitData<C, D>,
-        QHashOut<C::F>,
-    ) {
+    ) -> (&CommonCircuitData<C::F, D>, &VerifierOnlyCircuitData<C, D>, QHashOut<C::F>) {
         todo!()
     }
 }
-impl<PS: QProofStore,
-C: GenericConfig<D>,
-const D: usize,
->QWorkerGenericProverMut<PS, C, D> for QEDFakeProver {
-    fn worker_prove_mut(
-        &mut self,
-        _store: &PS,
-        _job_id: QProvingJobDataID,
-    ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
+impl<PS: QProofStore, C: GenericConfig<D>, const D: usize> QWorkerGenericProverMut<PS, C, D> for QEDFakeProver {
+    fn worker_prove_mut(&mut self, _store: &PS, _job_id: QProvingJobDataID) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         todo!()
     }
 }
 
 #[async_trait]
-impl<PS: QProofStoreReaderAsync,
-C: GenericConfig<D>,
-const D: usize,
->QWorkerGenericProverAsyncMut<PS, C, D> for QEDFakeProver {
-    async fn worker_prove_mut(
-        &mut self,
-        _store: &PS,
-        _job_id: QProvingJobDataID,
-    ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
+impl<PS: QProofStoreReaderAsync, C: GenericConfig<D>, const D: usize> QWorkerGenericProverAsyncMut<PS, C, D> for QEDFakeProver {
+    async fn worker_prove_mut(&mut self, _store: &PS, _job_id: QProvingJobDataID) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         todo!()
     }
 }
@@ -76,9 +64,8 @@ impl SimpleActorWorker {
         let mut timer = DebugTimer::new("process_next_job");
 
         loop {
-
             Self::process_next_job(store, event_receiver, prover, QWorkerMode::All).await?;
-            start_job+=1;
+            start_job += 1;
             if start_job % 1000 == 0 {
                 timer.lap("processed 1k jobs");
             }
@@ -95,7 +82,6 @@ impl SimpleActorWorker {
         event_receiver: &ER,
         prover: &mut G,
         mode: QWorkerMode,
-
     ) -> anyhow::Result<()> {
         let job = event_receiver.wait_for_next_job_imm().await?;
         if mode.can_process_job(job) {
@@ -164,12 +150,11 @@ impl SimpleActorWorker {
     }
 }
 
-
 async fn run_fred_test3() -> anyhow::Result<()> {
     let mut timer = DebugTimer::new("dq_rust_2v2");
     timer.lap("start");
 
-    let pool = new_fred_pool("redis://127.0.0.1:6379",8).await?;
+    let pool = new_fred_pool("redis://127.0.0.1:6379", 8).await?;
 
     timer.lap("connected to redis");
 
@@ -178,21 +163,14 @@ async fn run_fred_test3() -> anyhow::Result<()> {
     //let worker_count = 16usize;
     //let items_per_worker = 2000usize;
 
-
-
     timer.lap("started up");
-    let mut fake_prover = QEDFakeProver{x: 1};
+    let mut fake_prover = QEDFakeProver { x: 1 };
 
     const D: usize = 2;
     type C = PoseidonGoldilocksConfig;
 
-    SimpleActorWorker::run_worker::<_,_,_, C,D>(
-        &q,
-        &q,
-        &mut fake_prover,
-    ).await?;
+    SimpleActorWorker::run_worker::<_, _, _, C, D>(&q, &q, &mut fake_prover).await?;
     timer.lap("finished jobs");
-
 
     Ok(())
 }

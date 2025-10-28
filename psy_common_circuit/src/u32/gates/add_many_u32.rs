@@ -1,27 +1,31 @@
 use core::marker::PhantomData;
+
 use itertools::unfold;
-use plonky2::util::serialization::{Buffer, IoResult, Read, Write};
-
-use plonky2::field::extension::Extendable;
-use plonky2::field::types::Field;
-use plonky2::gates::gate::Gate;
-use plonky2::gates::util::StridedConstraintConsumer;
-use plonky2::hash::hash_types::RichField;
-use plonky2::iop::ext_target::ExtensionTarget;
-use plonky2::iop::generator::{GeneratedValues, SimpleGenerator, WitnessGeneratorRef};
-use plonky2::iop::target::Target;
-use plonky2::iop::wire::Wire;
-use plonky2::iop::witness::{PartitionWitness, Witness, WitnessWrite};
-use plonky2::plonk::circuit_builder::CircuitBuilder;
-use plonky2::plonk::circuit_data::{CircuitConfig, CommonCircuitData};
-use plonky2::plonk::vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase};
+use plonky2::{
+    field::{extension::Extendable, types::Field},
+    gates::{gate::Gate, util::StridedConstraintConsumer},
+    hash::hash_types::RichField,
+    iop::{
+        ext_target::ExtensionTarget,
+        generator::{GeneratedValues, SimpleGenerator, WitnessGeneratorRef},
+        target::Target,
+        wire::Wire,
+        witness::{PartitionWitness, Witness, WitnessWrite},
+    },
+    plonk::{
+        circuit_builder::CircuitBuilder,
+        circuit_data::{CircuitConfig, CommonCircuitData},
+        vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase},
+    },
+    util::serialization::{Buffer, IoResult, Read, Write},
+};
 use psy_core::utils::math::ceil_div_usize;
-
 
 const LOG2_MAX_NUM_ADDENDS: usize = 4;
 const MAX_NUM_ADDENDS: usize = 24;
 
-/// A gate to perform addition on `num_addends` different 32-bit values, plus a small carry
+/// A gate to perform addition on `num_addends` different 32-bit values, plus a
+/// small carry
 #[derive(Copy, Clone, Debug)]
 pub struct U32AddManyGate<F: RichField + Extendable<D>, const D: usize> {
     pub num_addends: usize,
@@ -113,9 +117,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for U32AddManyGate
             for j in (0..Self::num_limbs()).rev() {
                 let this_limb = vars.local_wires[self.wire_ith_output_jth_limb(i, j)];
                 let max_limb = 1 << Self::limb_bits();
-                let product = (0..max_limb)
-                    .map(|x| this_limb - F::Extension::from_canonical_usize(x))
-                    .product();
+                let product = (0..max_limb).map(|x| this_limb - F::Extension::from_canonical_usize(x)).product();
                 constraints.push(product);
 
                 if j < Self::num_result_limbs() {
@@ -131,11 +133,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for U32AddManyGate
         constraints
     }
 
-    fn eval_unfiltered_base_one(
-        &self,
-        vars: EvaluationVarsBase<F>,
-        mut yield_constr: StridedConstraintConsumer<F>,
-    ) {
+    fn eval_unfiltered_base_one(&self, vars: EvaluationVarsBase<F>, mut yield_constr: StridedConstraintConsumer<F>) {
         for i in 0..self.num_ops {
             let addends: Vec<F> = (0..self.num_addends)
                 .map(|j| vars.local_wires[self.wire_ith_op_jth_addend(i, j)])
@@ -158,9 +156,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for U32AddManyGate
             for j in (0..Self::num_limbs()).rev() {
                 let this_limb = vars.local_wires[self.wire_ith_output_jth_limb(i, j)];
                 let max_limb = 1 << Self::limb_bits();
-                let product = (0..max_limb)
-                    .map(|x| this_limb - F::from_canonical_usize(x))
-                    .product();
+                let product = (0..max_limb).map(|x| this_limb - F::from_canonical_usize(x)).product();
                 yield_constr.one(product);
 
                 if j < Self::num_result_limbs() {
@@ -174,11 +170,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for U32AddManyGate
         }
     }
 
-    fn eval_unfiltered_circuit(
-        &self,
-        builder: &mut CircuitBuilder<F, D>,
-        vars: EvaluationTargets<D>,
-    ) -> Vec<ExtensionTarget<D>> {
+    fn eval_unfiltered_circuit(&self, builder: &mut CircuitBuilder<F, D>, vars: EvaluationTargets<D>) -> Vec<ExtensionTarget<D>> {
         let mut constraints = Vec::with_capacity(self.num_constraints());
 
         for i in 0..self.num_ops {
@@ -197,34 +189,29 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for U32AddManyGate
 
             let base: F::Extension = F::from_canonical_u64(1 << 32u64).into();
             let base_target = builder.constant_extension(base);
-            let combined_output =
-                builder.mul_add_extension(output_carry, base_target, output_result);
+            let combined_output = builder.mul_add_extension(output_carry, base_target, output_result);
 
             constraints.push(builder.sub_extension(combined_output, computed_output));
 
             let mut combined_result_limbs = builder.zero_extension();
             let mut combined_carry_limbs = builder.zero_extension();
-            let base = builder
-                .constant_extension(F::Extension::from_canonical_u64(1u64 << Self::limb_bits()));
+            let base = builder.constant_extension(F::Extension::from_canonical_u64(1u64 << Self::limb_bits()));
             for j in (0..Self::num_limbs()).rev() {
                 let this_limb = vars.local_wires[self.wire_ith_output_jth_limb(i, j)];
                 let max_limb = 1 << Self::limb_bits();
 
                 let mut product = builder.one_extension();
                 for x in 0..max_limb {
-                    let x_target =
-                        builder.constant_extension(F::Extension::from_canonical_usize(x));
+                    let x_target = builder.constant_extension(F::Extension::from_canonical_usize(x));
                     let diff = builder.sub_extension(this_limb, x_target);
                     product = builder.mul_extension(product, diff);
                 }
                 constraints.push(product);
 
                 if j < Self::num_result_limbs() {
-                    combined_result_limbs =
-                        builder.mul_add_extension(base, combined_result_limbs, this_limb);
+                    combined_result_limbs = builder.mul_add_extension(base, combined_result_limbs, this_limb);
                 } else {
-                    combined_carry_limbs =
-                        builder.mul_add_extension(base, combined_carry_limbs, this_limb);
+                    combined_carry_limbs = builder.mul_add_extension(base, combined_carry_limbs, this_limb);
                 }
             }
             constraints.push(builder.sub_extension(combined_result_limbs, output_result));
@@ -294,9 +281,7 @@ struct U32AddManyGenerator<F: RichField + Extendable<D>, const D: usize> {
     _phantom: PhantomData<F>,
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D>
-    for U32AddManyGenerator<F, D>
-{
+impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D> for U32AddManyGenerator<F, D> {
     fn dependencies(&self) -> Vec<Target> {
         let local_target = |column| Target::wire(self.row, column);
 
@@ -307,10 +292,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D>
     }
 
     fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) -> anyhow::Result<()> {
-        let local_wire = |column| Wire {
-            row: self.row,
-            column,
-        };
+        let local_wire = |column| Wire { row: self.row, column };
 
         let get_local_wire = |column| witness.get_wire(local_wire(column));
 
@@ -387,14 +369,13 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D>
 #[cfg(test)]
 mod tests {
     use anyhow::Result;
-    use plonky2::field::extension::quartic::QuarticExtension;
-    use plonky2::field::goldilocks_field::GoldilocksField;
-    use plonky2::field::types::Sample;
-    use plonky2::gates::gate_testing::{test_eval_fns, test_low_degree};
-    use plonky2::hash::hash_types::HashOut;
-    use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
-    use rand::rngs::OsRng;
-    use rand::Rng;
+    use plonky2::{
+        field::{extension::quartic::QuarticExtension, goldilocks_field::GoldilocksField, types::Sample},
+        gates::gate_testing::{test_eval_fns, test_low_degree},
+        hash::hash_types::HashOut,
+        plonk::config::{GenericConfig, PoseidonGoldilocksConfig},
+    };
+    use rand::{rngs::OsRng, Rng};
 
     use super::*;
 
@@ -452,10 +433,8 @@ mod tests {
                     .map(F::from_canonical_u64)
                 };
 
-                let mut result_limbs: Vec<_> =
-                    split_to_limbs(output_result, num_result_limbs).collect();
-                let mut carry_limbs: Vec<_> =
-                    split_to_limbs(output_carry, num_carry_limbs).collect();
+                let mut result_limbs: Vec<_> = split_to_limbs(output_result, num_result_limbs).collect();
+                let mut carry_limbs: Vec<_> = split_to_limbs(output_carry, num_carry_limbs).collect();
 
                 for a in adds {
                     v0.push(F::from_canonical_u64(*a));
@@ -474,9 +453,7 @@ mod tests {
         let addends: Vec<Vec<_>> = (0..NUM_U32_ADD_MANY_OPS)
             .map(|_| (0..NUM_ADDENDS).map(|_| rng.gen::<u32>() as u64).collect())
             .collect();
-        let carries: Vec<_> = (0..NUM_U32_ADD_MANY_OPS)
-            .map(|_| rng.gen::<u32>() as u64)
-            .collect();
+        let carries: Vec<_> = (0..NUM_U32_ADD_MANY_OPS).map(|_| rng.gen::<u32>() as u64).collect();
 
         let gate = U32AddManyGate::<F, D> {
             num_addends: NUM_ADDENDS,

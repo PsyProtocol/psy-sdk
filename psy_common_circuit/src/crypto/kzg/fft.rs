@@ -1,3 +1,6 @@
+use std::marker::PhantomData;
+
+use num::{BigUint, Zero};
 use plonky2::{
     field::{
         extension::Extendable,
@@ -7,17 +10,14 @@ use plonky2::{
     plonk::circuit_builder::CircuitBuilder,
 };
 
-use crate::crypto::bn254::{
-    field::bn128_scalar::Bn128Scalar,
-    gadgets::nonnative_fp::{CircuitBuilderNonNative, NonNativeTarget},
+use crate::crypto::{
+    bn254::{
+        field::bn128_scalar::Bn128Scalar,
+        gadgets::nonnative_fp::{CircuitBuilderNonNative, NonNativeTarget},
+    },
+    kzg::builder::{CircuitBuilderKZG, CircuitBuilderKZGHelpers},
+    secp256k1::ecdsa::gadgets::biguint::{BigUintTarget, CircuitBuilderBiguint},
 };
-use crate::crypto::secp256k1::ecdsa::gadgets::biguint::{CircuitBuilderBiguint, BigUintTarget};
-
-use crate::crypto::kzg::builder::{CircuitBuilderKZG, CircuitBuilderKZGHelpers};
-
-use num::{BigUint, Zero};
-
-use std::marker::PhantomData;
 
 #[derive(Clone, Debug)]
 pub struct FFTSettingsTarget<F: RichField + Extendable<D>, const D: usize> {
@@ -30,22 +30,11 @@ pub struct FFTSettingsTarget<F: RichField + Extendable<D>, const D: usize> {
 }
 
 pub trait CircuitBuilderFFT<F: RichField + Extendable<D>, const D: usize> {
-    fn fft_settings(
-        &mut self,
-        domain_size: usize,
-    ) -> FFTSettingsTarget<F, D>;
+    fn fft_settings(&mut self, domain_size: usize) -> FFTSettingsTarget<F, D>;
 
-    fn fft_forward(
-        &mut self,
-        coeffs: &[NonNativeTarget<Bn128Scalar>],
-        settings: &FFTSettingsTarget<F, D>,
-    ) -> Vec<NonNativeTarget<Bn128Scalar>>;
+    fn fft_forward(&mut self, coeffs: &[NonNativeTarget<Bn128Scalar>], settings: &FFTSettingsTarget<F, D>) -> Vec<NonNativeTarget<Bn128Scalar>>;
 
-    fn fft_inverse(
-        &mut self,
-        evals: &[NonNativeTarget<Bn128Scalar>],
-        settings: &FFTSettingsTarget<F, D>,
-    ) -> Vec<NonNativeTarget<Bn128Scalar>>;
+    fn fft_inverse(&mut self, evals: &[NonNativeTarget<Bn128Scalar>], settings: &FFTSettingsTarget<F, D>) -> Vec<NonNativeTarget<Bn128Scalar>>;
 
     fn lagrange_interpolate_at_point(
         &mut self,
@@ -54,28 +43,20 @@ pub trait CircuitBuilderFFT<F: RichField + Extendable<D>, const D: usize> {
         settings: &FFTSettingsTarget<F, D>,
     ) -> NonNativeTarget<Bn128Scalar>;
 
-    fn primitive_root_of_unity(
-        &mut self,
-        n: usize,
-    ) -> NonNativeTarget<Bn128Scalar>;
+    fn primitive_root_of_unity(&mut self, n: usize) -> NonNativeTarget<Bn128Scalar>;
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderFFT<F, D>
-    for CircuitBuilder<F, D>
-{
+impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderFFT<F, D> for CircuitBuilder<F, D> {
     /// Creates FFT settings for a given domain size
-    /// 
+    ///
     /// # Mathematical Foundation
-    /// 
+    ///
     /// For domain size n (power of 2), generates:
     /// - Primitive n-th root of unity: ω where ω^n = 1
     /// - Forward roots: [1, ω, ω², ..., ω^(n-1)]
     /// - Inverse roots: [1, ω^(-1), ω^(-2), ..., ω^(-(n-1))]
     /// - Domain size inverse: n^(-1) for IFFT scaling
-    fn fft_settings(
-        &mut self,
-        domain_size: usize,
-    ) -> FFTSettingsTarget<F, D> {
+    fn fft_settings(&mut self, domain_size: usize) -> FFTSettingsTarget<F, D> {
         assert!(domain_size.is_power_of_two(), "Domain size must be power of 2");
 
         // Compute primitive n-th root of unity ω
@@ -93,20 +74,18 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderFFT<F, D>
 
         for i in 1..domain_size {
             // roots[i] = ω^i
-            let prev_root = &roots_of_unity[i-1];
+            let prev_root = &roots_of_unity[i - 1];
             let next_root = self.mul_nonnative(prev_root, &root);
             roots_of_unity.push(next_root);
 
             // inv_roots[i] = ω^(-i)
-            let prev_inv_root = &inv_roots_of_unity[i-1];
+            let prev_inv_root = &inv_roots_of_unity[i - 1];
             let next_inv_root = self.mul_nonnative(prev_inv_root, &root_inv);
             inv_roots_of_unity.push(next_inv_root);
         }
 
         // Compute n^(-1) for IFFT normalization
-        let domain_size_scalar = self.constant_nonnative(
-            Bn128Scalar::from_canonical_usize(domain_size)
-        );
+        let domain_size_scalar = self.constant_nonnative(Bn128Scalar::from_canonical_usize(domain_size));
         let domain_size_inv = self.inv_nonnative(&domain_size_scalar);
 
         FFTSettingsTarget {
@@ -120,25 +99,20 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderFFT<F, D>
     }
 
     /// Computes the Discrete Fourier Transform (DFT) of polynomial coefficients
-    /// 
+    ///
     /// # Mathematical Formula
-    /// 
+    ///
     /// For polynomial p(x) = Σ(a_i * x^i), computes evaluations:
     /// y_j = p(ω^j) = Σ(a_i * ω^(i*j)) for j = 0, 1, ..., n-1
-    /// 
+    ///
     /// # Algorithm: Cooley-Tukey FFT
-    /// 
+    ///
     /// 1. Bit-reversal permutation
     /// 2. Iterative butterfly operations:
-    ///    - For each stage m = 2^k:
-    ///      u' = u + ω^j * v  (even index)
-    ///      v' = u - ω^j * v  (odd index)
+    ///    - For each stage m = 2^k: u' = u + ω^j * v  (even index) v' = u - ω^j
+    ///      * v  (odd index)
     ///    where ω^j are twiddle factors
-    fn fft_forward(
-        &mut self,
-        coeffs: &[NonNativeTarget<Bn128Scalar>],
-        settings: &FFTSettingsTarget<F, D>,
-    ) -> Vec<NonNativeTarget<Bn128Scalar>> {
+    fn fft_forward(&mut self, coeffs: &[NonNativeTarget<Bn128Scalar>], settings: &FFTSettingsTarget<F, D>) -> Vec<NonNativeTarget<Bn128Scalar>> {
         let n = settings.domain_size;
         assert_eq!(coeffs.len(), n, "Input size must match domain size");
 
@@ -187,22 +161,18 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderFFT<F, D>
     }
 
     /// Computes the Inverse Discrete Fourier Transform (IDFT)
-    /// 
+    ///
     /// # Mathematical Formula
-    /// 
+    ///
     /// For evaluations y_j = p(ω^j), recovers coefficients:
     /// a_i = (1/n) * Σ(y_j * ω^(-i*j)) for i = 0, 1, ..., n-1
-    /// 
+    ///
     /// # Implementation
-    /// 
+    ///
     /// Uses same algorithm as forward FFT but with:
     /// - Inverse roots: ω^(-1) instead of ω
     /// - Final scaling by 1/n
-    fn fft_inverse(
-        &mut self,
-        evals: &[NonNativeTarget<Bn128Scalar>],
-        settings: &FFTSettingsTarget<F, D>,
-    ) -> Vec<NonNativeTarget<Bn128Scalar>> {
+    fn fft_inverse(&mut self, evals: &[NonNativeTarget<Bn128Scalar>], settings: &FFTSettingsTarget<F, D>) -> Vec<NonNativeTarget<Bn128Scalar>> {
         let n = settings.domain_size;
         assert_eq!(evals.len(), n, "Input size must match domain size");
 
@@ -250,18 +220,19 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderFFT<F, D>
         values
     }
 
-    /// Interpolates polynomial value at arbitrary point using Lagrange interpolation
-    /// 
+    /// Interpolates polynomial value at arbitrary point using Lagrange
+    /// interpolation
+    ///
     /// # Mathematical Formula
-    /// 
+    ///
     /// Given evaluations y_i = p(ω^i) for i = 0, ..., n-1, computes:
     /// p(z) = Σ(y_i * L_i(z))
-    /// 
+    ///
     /// Where Lagrange basis at z:
     /// L_i(z) = ∏_{j≠i} (z - ω^j) / (ω^i - ω^j)
-    /// 
+    ///
     /// # Efficient Formula for Roots of Unity
-    /// 
+    ///
     /// For domain {1, ω, ω², ..., ω^(n-1)}:
     /// p(z) = (z^n - 1)/(n) * Σ(y_i / (z - ω^i))
     fn lagrange_interpolate_at_point(
@@ -306,24 +277,21 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderFFT<F, D>
     }
 
     /// Computes a primitive n-th root of unity in the scalar field
-    /// 
+    ///
     /// # Mathematical Formula
-    /// 
+    ///
     /// For field order r and generator g:
     /// ω = g^((r-1)/n) mod r
-    /// 
+    ///
     /// Properties of ω:
     /// - ω^n ≡ 1 (mod r)
     /// - ω^k ≢ 1 (mod r) for 0 < k < n
-    /// 
+    ///
     /// For BN128 scalar field:
     /// - g = 5 (multiplicative generator)
     /// - r = field order
     /// - n must divide (r-1)
-    fn primitive_root_of_unity(
-        &mut self,
-        n: usize,
-    ) -> NonNativeTarget<Bn128Scalar> {
+    fn primitive_root_of_unity(&mut self, n: usize) -> NonNativeTarget<Bn128Scalar> {
         assert!(n.is_power_of_two(), "n must be power of 2");
 
         // g = 5 is a generator of the multiplicative group
@@ -351,27 +319,13 @@ fn reverse_bits(x: usize, log_n: u32) -> usize {
 }
 
 trait CircuitBuilderPowExt<F: RichField + Extendable<D>, const D: usize> {
-    fn pow_nonnative_biguint(
-        &mut self,
-        base: &NonNativeTarget<Bn128Scalar>,
-        exponent: &BigUint,
-    ) -> NonNativeTarget<Bn128Scalar>;
+    fn pow_nonnative_biguint(&mut self, base: &NonNativeTarget<Bn128Scalar>, exponent: &BigUint) -> NonNativeTarget<Bn128Scalar>;
 
-    fn pow_nonnative(
-        &mut self,
-        base: &NonNativeTarget<Bn128Scalar>,
-        exponent: usize,
-    ) -> NonNativeTarget<Bn128Scalar>;
+    fn pow_nonnative(&mut self, base: &NonNativeTarget<Bn128Scalar>, exponent: usize) -> NonNativeTarget<Bn128Scalar>;
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderPowExt<F, D>
-    for CircuitBuilder<F, D>
-{
-    fn pow_nonnative_biguint(
-        &mut self,
-        base: &NonNativeTarget<Bn128Scalar>,
-        exponent: &BigUint,
-    ) -> NonNativeTarget<Bn128Scalar> {
+impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderPowExt<F, D> for CircuitBuilder<F, D> {
+    fn pow_nonnative_biguint(&mut self, base: &NonNativeTarget<Bn128Scalar>, exponent: &BigUint) -> NonNativeTarget<Bn128Scalar> {
         let mut result = self.one_nonnative();
         let mut temp = base.clone();
 
@@ -388,11 +342,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderPowExt<F, D>
         result
     }
 
-    fn pow_nonnative(
-        &mut self,
-        base: &NonNativeTarget<Bn128Scalar>,
-        exponent: usize,
-    ) -> NonNativeTarget<Bn128Scalar> {
+    fn pow_nonnative(&mut self, base: &NonNativeTarget<Bn128Scalar>, exponent: usize) -> NonNativeTarget<Bn128Scalar> {
         let mut result = self.one_nonnative();
         let mut temp = base.clone();
         let mut exp = exponent;
@@ -411,7 +361,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderPowExt<F, D>
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use plonky2::{
         iop::witness::PartialWitness,
         plonk::{
@@ -419,6 +368,8 @@ mod tests {
             config::{GenericConfig, PoseidonGoldilocksConfig},
         },
     };
+
+    use super::*;
 
     const D: usize = 2;
     type C = PoseidonGoldilocksConfig;

@@ -1,9 +1,12 @@
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
-use crate::dpn::ops::{op_types::{DPNAssertEqInfoIndexed, DPNIndexedVarDef}, state_cmd::data::DPNStateCmd};
+use crate::dpn::ops::{
+    op_types::{DPNAssertEqInfoIndexed, DPNIndexedVarDef},
+    state_cmd::data::DPNStateCmd,
+};
 
-/* 
+/*
 const INDEX_BITS: u64 = 32;
 const INDEX_MASK: u64 = (1u64<<INDEX_BITS)-1u64;
 
@@ -37,12 +40,12 @@ pub struct DPNAssertEqInfoIndexed {
 
 #[derive(Serialize, Deserialize, Clone, Debug, Eq, PartialEq, TS)]
 pub struct DPNFunctionCircuitDefinition {
-  pub name: String,
-  pub method_id: u32,
-  pub circuit_inputs: Vec<u64>,
-  pub circuit_outputs: Vec<u64>,
-  pub state_commands: Vec<DPNStateCmd<u64>>,
-  pub state_command_resolution_indices: Vec<usize>,
-  pub assertions: Vec<DPNAssertEqInfoIndexed>,
-  pub definitions: Vec<DPNIndexedVarDef>,
+    pub name: String,
+    pub method_id: u32,
+    pub circuit_inputs: Vec<u64>,
+    pub circuit_outputs: Vec<u64>,
+    pub state_commands: Vec<DPNStateCmd<u64>>,
+    pub state_command_resolution_indices: Vec<usize>,
+    pub assertions: Vec<DPNAssertEqInfoIndexed>,
+    pub definitions: Vec<DPNIndexedVarDef>,
 }

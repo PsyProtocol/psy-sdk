@@ -25,7 +25,7 @@ pub trait CircuitBuilderHelpersCore<F: RichField + Extendable<D>, const D: usize
     fn constant_u64_bytes_le(&mut self, value: u64) -> [Target; 8];
     fn constant_u64_bytes_be(&mut self, value: u64) -> [Target; 8];
 
-    fn split_low_high_32bits(&mut self, x: Target) -> (Target, Target); 
+    fn split_low_high_32bits(&mut self, x: Target) -> (Target, Target);
     fn split_u64_bytes_le(&mut self, x: Target) -> [Target; 8];
     fn split_u64_bytes_be(&mut self, x: Target) -> [Target; 8];
 
@@ -45,23 +45,10 @@ pub trait CircuitBuilderHelpersCore<F: RichField + Extendable<D>, const D: usize
 }
 
 pub trait WitnessHelpersCore<F: PrimeField64>: Witness<F> {
-    fn resolve_targets_with_constants(
-        &self,
-        constant_map: &HashMap<Target, F>,
-        targets: &[Target],
-    ) -> Vec<F>;
-    fn resolve_target_with_constants(&self, constant_map: &HashMap<Target, F>, target: Target)
-        -> F;
-    fn resolve_target_or_constant<R: TargetResolverCore<F>>(
-        &self,
-        alt_resolver: &R,
-        target: Target,
-    ) -> F;
-    fn resolve_targets_or_constants<R: TargetResolverCore<F>>(
-        &self,
-        alt_resolver: &R,
-        targets: &[Target],
-    ) -> Vec<F>;
+    fn resolve_targets_with_constants(&self, constant_map: &HashMap<Target, F>, targets: &[Target]) -> Vec<F>;
+    fn resolve_target_with_constants(&self, constant_map: &HashMap<Target, F>, target: Target) -> F;
+    fn resolve_target_or_constant<R: TargetResolverCore<F>>(&self, alt_resolver: &R, target: Target) -> F;
+    fn resolve_targets_or_constants<R: TargetResolverCore<F>>(&self, alt_resolver: &R, targets: &[Target]) -> Vec<F>;
     fn set_byte_targets(&mut self, targets: &[Target], value: &[u8]);
     fn get_byte_targets(&self, targets: &[Target]) -> Vec<u8>;
 
@@ -80,10 +67,7 @@ impl<T: Witness<F>, F: PrimeField64> WitnessHelpersCore<F> for T {
     }
 
     fn get_byte_targets(&self, targets: &[Target]) -> Vec<u8> {
-        self.get_targets(targets)
-            .iter()
-            .map(|n| n.to_canonical_u64() as u8)
-            .collect()
+        self.get_targets(targets).iter().map(|n| n.to_canonical_u64() as u8).collect()
     }
 
     fn set_u32_bytes_le_target(&mut self, targets: &[Target], value: u32) {
@@ -106,11 +90,7 @@ impl<T: Witness<F>, F: PrimeField64> WitnessHelpersCore<F> for T {
         self.set_byte_targets(targets, &bytes);
     }
 
-    fn resolve_target_or_constant<R: TargetResolverCore<F>>(
-        &self,
-        alt_resolver: &R,
-        target: Target,
-    ) -> F {
+    fn resolve_target_or_constant<R: TargetResolverCore<F>>(&self, alt_resolver: &R, target: Target) -> F {
         let rt = self.try_get_target(target);
         if rt.is_none() {
             //tracing::info!("target empty, trying constant");
@@ -125,38 +105,23 @@ impl<T: Witness<F>, F: PrimeField64> WitnessHelpersCore<F> for T {
         }
     }
 
-    fn resolve_targets_with_constants(
-        &self,
-        constant_map: &HashMap<Target, F>,
-        targets: &[Target],
-    ) -> Vec<F> {
+    fn resolve_targets_with_constants(&self, constant_map: &HashMap<Target, F>, targets: &[Target]) -> Vec<F> {
         targets
             .iter()
             .map(|target| self.resolve_target_with_constants(constant_map, *target))
             .collect()
     }
 
-    fn resolve_target_with_constants(
-        &self,
-        constant_map: &HashMap<Target, F>,
-        target: Target,
-    ) -> F {
+    fn resolve_target_with_constants(&self, constant_map: &HashMap<Target, F>, target: Target) -> F {
         let rt = self.try_get_target(target);
         if rt.is_none() {
-            constant_map
-                .get(&target)
-                .copied()
-                .expect("cannot resolve target")
+            constant_map.get(&target).copied().expect("cannot resolve target")
         } else {
             rt.unwrap()
         }
     }
 
-    fn resolve_targets_or_constants<R: TargetResolverCore<F>>(
-        &self,
-        alt_resolver: &R,
-        targets: &[Target],
-    ) -> Vec<F> {
+    fn resolve_targets_or_constants<R: TargetResolverCore<F>>(&self, alt_resolver: &R, targets: &[Target]) -> Vec<F> {
         targets
             .iter()
             .map(|target| self.resolve_target_or_constant(alt_resolver, *target))
@@ -169,30 +134,18 @@ impl<F: RichField + Extendable<D>, const D: usize> TargetResolverCore<F> for Cir
     }
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderHelpersCore<F, D>
-    for CircuitBuilder<F, D>
-{
+impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderHelpersCore<F, D> for CircuitBuilder<F, D> {
     fn constant_u32_bits(&mut self, value: u32) -> [BoolTarget; 32] {
-        core::array::from_fn(|i| {
-            if ((value >> i as u32) & 1) == 1 {
-                self._true()
-            } else {
-                self._false()
-            }
-        })
+        core::array::from_fn(|i| if ((value >> i as u32) & 1) == 1 { self._true() } else { self._false() })
     }
 
     fn split_u64_bytes_le(&mut self, x: Target) -> [Target; 8] {
         let result = self.split_le_base::<8>(x, 8);
-        [
-            result[0], result[1], result[2], result[3], result[4], result[5], result[6], result[7],
-        ]
+        [result[0], result[1], result[2], result[3], result[4], result[5], result[6], result[7]]
     }
     fn split_u64_bytes_be(&mut self, x: Target) -> [Target; 8] {
         let result = self.split_le_base::<8>(x, 8);
-        [
-            result[7], result[6], result[5], result[4], result[3], result[2], result[1], result[0],
-        ]
+        [result[7], result[6], result[5], result[4], result[3], result[2], result[1], result[0]]
     }
 
     fn sum_targets(&mut self, values: &[Target]) -> Target {
@@ -266,24 +219,15 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderHelpersCore<F, 
     }
 
     fn constant_bytes(&mut self, values: &[u8]) -> Vec<Target> {
-        values
-            .iter()
-            .map(|x| self.constant(F::from_canonical_u8(*x)))
-            .collect()
+        values.iter().map(|x| self.constant(F::from_canonical_u8(*x))).collect()
     }
 
     fn constant_u32_array(&mut self, values: &[u32]) -> Vec<Target> {
-        values
-            .iter()
-            .map(|x| self.constant(F::from_canonical_u32(*x)))
-            .collect()
+        values.iter().map(|x| self.constant(F::from_canonical_u32(*x))).collect()
     }
 
     fn constant_u64_array(&mut self, values: &[u64]) -> Vec<Target> {
-        values
-            .iter()
-            .map(|x| self.constant(F::from_noncanonical_u64(*x)))
-            .collect()
+        values.iter().map(|x| self.constant(F::from_noncanonical_u64(*x))).collect()
     }
 
     fn constant_felt_array(&mut self, values: &[F]) -> Vec<Target> {
@@ -313,11 +257,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderHelpersCore<F, 
     }
 
     fn le_bytes_to_u64_u56_target(&mut self, bytes: &[Target]) -> Target {
-        assert_eq!(
-            bytes.len(),
-            8,
-            "le_bytes_to_u64_u56_target transforms 8 bytes to a u56 target"
-        );
+        assert_eq!(bytes.len(), 8, "le_bytes_to_u64_u56_target transforms 8 bytes to a u56 target");
         let zero = self.zero();
 
         // make sure the top byte is zero to prevent overflows
@@ -336,11 +276,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderHelpersCore<F, 
     }
 
     fn le_bytes_to_u48_target(&mut self, bytes: &[Target]) -> Target {
-        assert_eq!(
-            bytes.len(),
-            6,
-            "le_bytes_to_u48_target transforms 6 bytes to a u48 target"
-        );
+        assert_eq!(bytes.len(), 6, "le_bytes_to_u48_target transforms 6 bytes to a u48 target");
         let t256 = F::from_canonical_u32(256);
 
         let mut sum = bytes[5];
@@ -353,11 +289,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderHelpersCore<F, 
     }
 
     fn le_bytes_to_u56_target(&mut self, bytes: &[Target]) -> Target {
-        assert_eq!(
-            bytes.len(),
-            7,
-            "le_bytes_to_u56_target transforms 7 bytes to a u56 target"
-        );
+        assert_eq!(bytes.len(), 7, "le_bytes_to_u56_target transforms 7 bytes to a u56 target");
 
         let t256 = F::from_canonical_u32(256);
 
@@ -370,10 +302,9 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderHelpersCore<F, 
         sum = self.mul_const_add(t256, sum, bytes[0]);
         sum
     }
-    
+
     fn split_low_high_32bits(&mut self, x: Target) -> (Target, Target) {
         let (a_low, a_high) = self.split_low_high(x, 32, 64);
         (a_low, a_high)
-
     }
 }

@@ -1,7 +1,9 @@
-//! WebSocket Client Example: Real-time Event Subscription and Telemetry Integration
+//! WebSocket Client Example: Real-time Event Subscription and Telemetry
+//! Integration
 //!
 //! This example demonstrates:
-//! 1. Connecting to the new specialized WebSocket endpoints (`/ws/user_event`, `/ws/worker_event`)
+//! 1. Connecting to the new specialized WebSocket endpoints (`/ws/user_event`,
+//!    `/ws/worker_event`)
 //! 2. Setting up subscription filters for specific events
 //! 3. Sending test events to the telemetry endpoint (`/telemetry/events`)
 //! 4. Receiving real-time events via WebSocket
@@ -31,17 +33,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Server address: localhost:3000\n");
 
     // Connect to both WebSocket endpoints
-    println!(
-        "🔌 Connecting to User Event WebSocket: {}",
-        USER_EVENT_WS_URL
-    );
+    println!("🔌 Connecting to User Event WebSocket: {}", USER_EVENT_WS_URL);
     let (user_ws_stream, _) = connect_async(USER_EVENT_WS_URL).await?;
     println!("✅ User Event WebSocket connection established!");
 
-    println!(
-        "🔌 Connecting to Worker Event WebSocket: {}",
-        WORKER_EVENT_WS_URL
-    );
+    println!("🔌 Connecting to Worker Event WebSocket: {}", WORKER_EVENT_WS_URL);
     let (worker_ws_stream, _) = connect_async(WORKER_EVENT_WS_URL).await?;
     println!("✅ Worker Event WebSocket connection established!");
 
@@ -59,18 +55,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let user_filter_msg = serde_json::to_string(&user_filter_update)?;
 
     user_ws_sender.send(Message::Text(user_filter_msg.into())).await?;
-    println!(
-        "🔧 User Event filters set: user_id={:?}",
-        user_filters.user_id
-    );
+    println!("🔧 User Event filters set: user_id={:?}", user_filters.user_id);
 
     // Set up subscription filters for worker events
     let worker_filters = WorkerEventFilters {
         realm_id: Some("16384".to_string()),
-        worker_pubkey: Some(vec![
-            "test_worker_key_1".to_string(),
-            "test_worker_key_2".to_string(),
-        ]),
+        worker_pubkey: Some(vec!["test_worker_key_1".to_string(), "test_worker_key_2".to_string()]),
     };
 
     let worker_filter_update = UpdateWorkerEventConfigurationMessage {
@@ -78,9 +68,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
     let worker_filter_msg = serde_json::to_string(&worker_filter_update)?;
 
-    worker_ws_sender
-        .send(Message::Text(worker_filter_msg.into()))
-        .await?;
+    worker_ws_sender.send(Message::Text(worker_filter_msg.into())).await?;
     println!(
         "🔧 Worker Event filters set: realm_id={:?}, worker_pubkey={:?}",
         worker_filters.realm_id, worker_filters.worker_pubkey
@@ -116,18 +104,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             println!("   Event type: {:?}", event.event_type);
                             println!("   Timestamp: {}", event.timestamp);
 
-                            if let Ok(user_event) =
-                                serde_json::from_value::<serde_json::Value>(event.data.clone())
-                            {
+                            if let Ok(user_event) = serde_json::from_value::<serde_json::Value>(event.data.clone()) {
                                 println!("   User event details:");
-                                println!(
-                                    "     - User ID: {}",
-                                    user_event.get("user_id").unwrap_or(&json!("unknown"))
-                                );
-                                println!(
-                                    "     - Transaction Type: {}",
-                                    user_event.get("tx_type").unwrap_or(&json!("unknown"))
-                                );
+                                println!("     - User ID: {}", user_event.get("user_id").unwrap_or(&json!("unknown")));
+                                println!("     - Transaction Type: {}", user_event.get("tx_type").unwrap_or(&json!("unknown")));
                                 if let Some(metadata) = user_event.get("metadata") {
                                     println!("     - Metadata: {}", metadata);
                                 }
@@ -182,22 +162,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             println!("   Event type: {:?}", event.event_type);
                             println!("   Timestamp: {}", event.timestamp);
 
-                            if let Ok(worker_event) =
-                                serde_json::from_value::<serde_json::Value>(event.data.clone())
-                            {
+                            if let Ok(worker_event) = serde_json::from_value::<serde_json::Value>(event.data.clone()) {
                                 println!("   Worker event details:");
-                                println!(
-                                    "     - Realm ID: {}",
-                                    worker_event.get("realm_id").unwrap_or(&json!(null))
-                                );
-                                println!(
-                                    "     - Status: {}",
-                                    worker_event.get("status").unwrap_or(&json!("unknown"))
-                                );
-                                println!(
-                                    "     - Source: {}",
-                                    worker_event.get("source").unwrap_or(&json!("unknown"))
-                                );
+                                println!("     - Realm ID: {}", worker_event.get("realm_id").unwrap_or(&json!(null)));
+                                println!("     - Status: {}", worker_event.get("status").unwrap_or(&json!("unknown")));
+                                println!("     - Source: {}", worker_event.get("source").unwrap_or(&json!("unknown")));
                                 if let Some(public_key) = worker_event.get("public_key") {
                                     println!("     - Public Key: {}", public_key);
                                 }
@@ -239,10 +208,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             // Stop after receiving some events for demo purposes
             if received_count >= 8 {
-                println!(
-                    "🎯 [WORKER] Received {} events, stopping...",
-                    received_count
-                );
+                println!("🎯 [WORKER] Received {} events, stopping...", received_count);
                 break;
             }
         }
@@ -260,9 +226,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("💡 This example showed:");
     println!("   - Connection to specialized WebSocket endpoints:");
     println!("     • /ws/user_event - for user events with user_id filtering");
-    println!(
-        "     • /ws/worker_event - for worker events with realm_id and worker_pubkey filtering"
-    );
+    println!("     • /ws/worker_event - for worker events with realm_id and worker_pubkey filtering");
     println!("   - Real-time event subscription with specialized filtering");
     println!("   - Telemetry event publishing");
     println!("   - Live event reception and parsing from both endpoints");
@@ -333,9 +297,7 @@ struct WebSocketClient {
 
 impl WebSocketClient {
     fn new() -> Self {
-        Self {
-            http_client: Client::new(),
-        }
+        Self { http_client: Client::new() }
     }
 
     /// Send test events to the telemetry endpoint
@@ -426,11 +388,7 @@ impl WebSocketClient {
         if response.status().is_success() {
             println!("✅ Batch {} events sent successfully", batch_id);
         } else {
-            println!(
-                "❌ Failed to send batch {} events: {}",
-                batch_id,
-                response.status()
-            );
+            println!("❌ Failed to send batch {} events: {}", batch_id, response.status());
         }
 
         Ok(())

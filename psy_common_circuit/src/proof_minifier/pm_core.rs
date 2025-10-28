@@ -15,15 +15,11 @@ use psy_core::utils::debug_timer::DebugTimer;
 
 use super::pm_custom::PMCircuitCustomizer;
 
-pub fn get_circuit_fingerprint_generic<
-    const D: usize,
-    F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F>,
->(
+pub fn get_circuit_fingerprint_generic<const D: usize, F: RichField + Extendable<D>, C: GenericConfig<D, F = F>>(
     verifier_data: &VerifierOnlyCircuitData<C, D>,
 ) -> HashOut<F>
 where
-    <C as GenericConfig<D>>::Hasher: Hasher<F> +AlgebraicHasher<F>,
+    <C as GenericConfig<D>>::Hasher: Hasher<F> + AlgebraicHasher<F>,
 {
     let mut all: Vec<F> = vec![];
     for sc in verifier_data.constants_sigmas_cap.0.iter() {
@@ -41,34 +37,22 @@ where
     output
 }
 #[derive(Debug)]
-pub struct QEDProofMinifier<
-    const D: usize,
-    F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F>,
-> where
-    <C as GenericConfig<D>>::Hasher:AlgebraicHasher<F>,
+pub struct QEDProofMinifier<const D: usize, F: RichField + Extendable<D>, C: GenericConfig<D, F = F>>
+where
+    <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
 {
     pub circuit_data: CircuitData<F, C, D>,
     pub circuit_fingerprint: HashOut<F>,
     pub proof_target: ProofWithPublicInputsTarget<D>,
 }
 
-impl<const D: usize, F: RichField + Extendable<D>, C: GenericConfig<D, F = F>>
-    QEDProofMinifier<D, F, C>
+impl<const D: usize, F: RichField + Extendable<D>, C: GenericConfig<D, F = F>> QEDProofMinifier<D, F, C>
 where
-    <C as GenericConfig<D>>::Hasher:AlgebraicHasher<F>,
+    <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
 {
-    pub fn new(
-        base_circuit_verifier_data: &VerifierOnlyCircuitData<C, D>,
-        base_circuit_common_data: &CommonCircuitData<F, D>,
-    ) -> Self {
+    pub fn new(base_circuit_verifier_data: &VerifierOnlyCircuitData<C, D>, base_circuit_common_data: &CommonCircuitData<F, D>) -> Self {
         let standard_config = CircuitConfig::standard_recursion_config();
-        Self::new_with_cfg(
-            standard_config,
-            base_circuit_verifier_data,
-            base_circuit_common_data,
-            None,
-        )
+        Self::new_with_cfg(standard_config, base_circuit_verifier_data, base_circuit_common_data, None)
     }
     pub fn new_with_cfg(
         config: CircuitConfig,
@@ -81,11 +65,7 @@ where
         let proof_target = builder.add_virtual_proof_with_pis(base_circuit_common_data);
 
         builder.register_public_inputs(&proof_target.public_inputs);
-        builder.verify_proof::<C>(
-            &proof_target,
-            &verifier_data_target,
-            base_circuit_common_data,
-        );
+        builder.verify_proof::<C>(&proof_target, &verifier_data_target, base_circuit_common_data);
 
         if add_gates.is_some() {
             add_gates.unwrap().iter().for_each(|g| {
@@ -115,11 +95,7 @@ where
         let proof_target = builder.add_virtual_proof_with_pis(base_circuit_common_data);
 
         builder.register_public_inputs(&proof_target.public_inputs);
-        builder.verify_proof::<C>(
-            &proof_target,
-            &verifier_data_target,
-            base_circuit_common_data,
-        );
+        builder.verify_proof::<C>(&proof_target, &verifier_data_target, base_circuit_common_data);
 
         if add_gates.is_some() {
             add_gates.unwrap().iter().for_each(|g| {
@@ -142,8 +118,8 @@ where
     }
     pub fn prove(
         &self,
-        base_proof: &ProofWithPublicInputs<F, C, D>, //verifier_data: &VerifierOnlyCircuitData<C, D>,
-                                                     //proof: &ProofWithPublicInputs<F, C, D>,
+        base_proof: &ProofWithPublicInputs<F, C, D>, /*verifier_data: &VerifierOnlyCircuitData<C, D>,
+                                                      *proof: &ProofWithPublicInputs<F, C, D>, */
     ) -> Result<ProofWithPublicInputs<F, C, D>> {
         let mut pw = PartialWitness::new();
         pw.set_proof_with_pis_target(&self.proof_target, base_proof)?;

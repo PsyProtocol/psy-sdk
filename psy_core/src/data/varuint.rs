@@ -52,9 +52,7 @@ pub fn decode_varuint(data: &[u8]) -> Result<u64, VaruintDecodingError> {
         if data.len() < 5 {
             return Err(VaruintDecodingError);
         }
-        Ok(u64::from_le_bytes([
-            data[1], data[2], data[3], data[4], 0, 0, 0, 0,
-        ]))
+        Ok(u64::from_le_bytes([data[1], data[2], data[3], data[4], 0, 0, 0, 0]))
     } else {
         if data.len() < 9 {
             return Err(VaruintDecodingError);

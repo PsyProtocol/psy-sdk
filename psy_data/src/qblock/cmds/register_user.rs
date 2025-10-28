@@ -14,18 +14,8 @@ pub struct QBCRegisterUser<F: RichField> {
 impl<F: RichField> QBCRegisterUser<F> {
     pub fn new_from_u64s(fingerprint: [u64; 4], public_key_param: [u64; 4]) -> Self {
         Self {
-            fingerprint: QHashOut::from_values(
-                fingerprint[0],
-                fingerprint[1],
-                fingerprint[2],
-                fingerprint[3],
-            ),
-            public_key_param: QHashOut::from_values(
-                public_key_param[0],
-                public_key_param[1],
-                public_key_param[2],
-                public_key_param[3],
-            ),
+            fingerprint: QHashOut::from_values(fingerprint[0], fingerprint[1], fingerprint[2], fingerprint[3]),
+            public_key_param: QHashOut::from_values(public_key_param[0], public_key_param[1], public_key_param[2], public_key_param[3]),
         }
     }
     pub fn new(fingerprint: QHashOut<F>, public_key_param: QHashOut<F>) -> Self {
@@ -47,7 +37,6 @@ impl<F: RichField> From<ZKPublicKeyInfo<F>> for QBCRegisterUser<F> {
         }
     }
 }
-
 
 impl<F: RichField> KVQSerializable for QBCRegisterUser<F> {
     fn to_bytes(&self) -> anyhow::Result<Vec<u8>> {

@@ -1,17 +1,21 @@
-use crate::cli::compile_cmd::{compile_workspace_full, CompileOptions};
 use clap::Args;
-use psy_package::Workspace;
-use psy_prover::session::gen_contract_deploy_and_circuits_for_functions;
-use psy_store::controllers::local::prepare_environment_with_real_contract;
-
-use crate::cli::doc_cmd::run_doc;
 use plonky2::field::{goldilocks_field::GoldilocksField, types::Field};
 use psy_common_circuit::circuits::zk_signature3::manager::SimpleQEDZKSignatureManager;
 use psy_core::{config::network_constants::GLOBAL_USER_TREE_HEIGHT, data::qhashout::QHashOut};
 use psy_crypto::signature::zk::wallet::SimpleQEDPrivateKey;
-use psy_data::{config::store_config::{C, D}, qblock::cmds::register_user::QBCRegisterUser};
+use psy_data::{
+    config::store_config::{QEDHasher, C, D},
+    qblock::cmds::register_user::QBCRegisterUser,
+};
 use psy_exec::vm::exec::QEDEvalSessionResult;
-use psy_data::config::store_config::QEDHasher;
+use psy_package::Workspace;
+use psy_prover::session::gen_contract_deploy_and_circuits_for_functions;
+use psy_store::controllers::local::prepare_environment_with_real_contract;
+
+use crate::cli::{
+    compile_cmd::{compile_workspace_full, CompileOptions},
+    doc_cmd::run_doc,
+};
 
 /// Executes a circuit to calculate its return value
 #[derive(Debug, Clone, Args)]
@@ -27,9 +31,7 @@ pub(crate) struct ExecuteCommand {
 }
 
 fn parse_vec_u64(s: &str) -> Result<Vec<u64>, String> {
-    s.split(',')
-        .map(|num| num.parse::<u64>().map_err(|e| e.to_string()))
-        .collect()
+    s.split(',').map(|num| num.parse::<u64>().map_err(|e| e.to_string())).collect()
 }
 
 pub(crate) async fn run(mut args: ExecuteCommand, workspace: Workspace) -> crate::errors::Result<()> {
@@ -37,8 +39,7 @@ pub(crate) async fn run(mut args: ExecuteCommand, workspace: Workspace) -> crate
         return run_doc(args, workspace).await;
     }
 
-    args.parameters
-        .resize(args.compile_options.method_names.len(), Vec::new());
+    args.parameters.resize(args.compile_options.method_names.len(), Vec::new());
 
     // Compile the full workspace in order to generate any build artifacts.
     let compile_results = compile_workspace_full(&workspace, &args.compile_options)?;
@@ -50,11 +51,8 @@ pub(crate) async fn run(mut args: ExecuteCommand, workspace: Workspace) -> crate
     let contract_state_tree_height = GLOBAL_USER_TREE_HEIGHT as usize;
 
     let deployer = QHashOut::rand();
-    let (circuits, deploy_cmd) = gen_contract_deploy_and_circuits_for_functions::<C, D>(
-        deployer,
-        contract_state_tree_height as u8,
-        &compile_results.circuit_definitions,
-    )?;
+    let (circuits, deploy_cmd) =
+        gen_contract_deploy_and_circuits_for_functions::<C, D>(deployer, contract_state_tree_height as u8, &compile_results.circuit_definitions)?;
 
     let mut lps = prepare_environment_with_real_contract(
         vec![QBCRegisterUser::new(wallet.get_zksig_circuit_fingerprint(), pub_key_param)],
@@ -62,7 +60,8 @@ pub(crate) async fn run(mut args: ExecuteCommand, workspace: Workspace) -> crate
         None,
         None,
         None,
-    ).await?;
+    )
+    .await?;
     let contract_id = GoldilocksField::from_canonical_u64(2);
 
     for ((def, parameters), circuit) in compile_results
@@ -71,15 +70,14 @@ pub(crate) async fn run(mut args: ExecuteCommand, workspace: Workspace) -> crate
         .zip(args.parameters.into_iter())
         .zip(circuits.into_iter())
     {
-        let cfc_input = QEDEvalSessionResult::new().exec_contract_call(
-            &mut lps,
-            contract_id,
-            &def,
-            parameters
-                .into_iter()
-                .map(GoldilocksField::from_noncanonical_u64)
-                .collect(),
-        ).await?;
+        let cfc_input = QEDEvalSessionResult::new()
+            .exec_contract_call(
+                &mut lps,
+                contract_id,
+                &def,
+                parameters.into_iter().map(GoldilocksField::from_noncanonical_u64).collect(),
+            )
+            .await?;
         println!("result_vm: {:?}", cfc_input.outputs);
 
         let proof = circuit.prove_base(&cfc_input).unwrap();

@@ -1,7 +1,4 @@
-use psy_ast::{
-    AttrNode, Comment, ExprId, Identifier, Location, NodeInfo, NodeType, Qualifier, TypeQualifier,
-    Visibility,
-};
+use psy_ast::{AttrNode, Comment, ExprId, Identifier, Location, NodeInfo, NodeType, Qualifier, TypeQualifier, Visibility};
 
 use crate::{ScopeId, TypeId, UNKOWN_TYPE};
 
@@ -43,11 +40,7 @@ impl CheckedFunctionParameter {
 impl CheckedFunctionNode {
     pub fn signature(&self) -> CheckedFunctionSignature {
         CheckedFunctionSignature {
-            parameters: self
-                .parameters
-                .iter()
-                .map(|parameter| parameter.ty.clone())
-                .collect(),
+            parameters: self.parameters.iter().map(|parameter| parameter.ty.clone()).collect(),
             return_type: self.return_type,
         }
     }

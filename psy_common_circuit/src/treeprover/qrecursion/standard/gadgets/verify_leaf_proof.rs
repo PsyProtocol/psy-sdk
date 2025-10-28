@@ -40,7 +40,7 @@ impl<const D: usize> VerifyLeafProofGadget<D> {
         verifier_data_cap_height: usize,
     ) -> Self
     where
-        <C as GenericConfig<D>>::Hasher: MerkleZeroHasher<HashOut<F>> +AlgebraicHasher<F>,
+        <C as GenericConfig<D>>::Hasher: MerkleZeroHasher<HashOut<F>> + AlgebraicHasher<F>,
     {
         let verifier_data = builder.add_virtual_verifier_data(verifier_data_cap_height);
         let proof_target = builder.add_virtual_proof_with_pis(proof_common_data);
@@ -49,11 +49,7 @@ impl<const D: usize> VerifyLeafProofGadget<D> {
 
         let proof_fingerprint = builder.get_circuit_fingerprint::<C::Hasher>(&verifier_data);
 
-        assert_eq!(
-            proof_target.public_inputs.len(),
-            4,
-            "leaf proofs should have 4 public inputs"
-        );
+        assert_eq!(proof_target.public_inputs.len(), 4, "leaf proofs should have 4 public inputs");
 
         let proof_public_input_hash = HashOutTarget {
             elements: [
@@ -66,13 +62,9 @@ impl<const D: usize> VerifyLeafProofGadget<D> {
 
         // leaf value should be hash(proof_fingerprint, proof_public_input_hash)
 
-        let expected_leaf_value =
-            builder.hash_two_to_one::<C::Hasher>(proof_fingerprint, proof_public_input_hash);
+        let expected_leaf_value = builder.hash_two_to_one::<C::Hasher>(proof_fingerprint, proof_public_input_hash);
 
-        let insert_leaf_proof = DeltaMerkleProofGadget::add_virtual_to_append_only::<C::Hasher, F, D>(
-            builder,
-            q_recursion_tree_height,
-        );
+        let insert_leaf_proof = DeltaMerkleProofGadget::add_virtual_to_append_only::<C::Hasher, F, D>(builder, q_recursion_tree_height);
 
         builder.connect_hashes(expected_leaf_value, insert_leaf_proof.new_value);
 
@@ -97,8 +89,10 @@ impl<const D: usize> VerifyLeafProofGadget<D> {
         insert_leaf_proof: &DeltaMerkleProofCore<QHashOut<F>>,
         proof: &ProofWithPublicInputs<F, C, D>,
         verifier_data: &VerifierOnlyCircuitData<C, D>,
-    ) -> anyhow::Result<()> where
-    <C as GenericConfig<D>>::Hasher:AlgebraicHasher<F>, {
+    ) -> anyhow::Result<()>
+    where
+        <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
+    {
         self.insert_leaf_proof.set_witness(
             witness,
             F::from_noncanonical_u64(insert_leaf_proof.index),

@@ -1,6 +1,8 @@
-use plonky2::field::extension::Extendable;
-use plonky2::field::ops::Square;
-use plonky2::field::types::{Field, Sample};
+use plonky2::field::{
+    extension::Extendable,
+    ops::Square,
+    types::{Field, Sample},
+};
 
 #[macro_export]
 macro_rules! test_field_arithmetic {
@@ -10,15 +12,12 @@ macro_rules! test_field_arithmetic {
 
             use num::bigint::BigUint;
             use plonky2::field::types::{Field, Sample};
-            use rand::rngs::OsRng;
-            use rand::Rng;
+            use rand::{rngs::OsRng, Rng};
 
             #[test]
             fn batch_inversion() {
                 for n in 0..20 {
-                    let xs = (1..=n as u64)
-                        .map(|i| <$field>::from_canonical_u64(i))
-                        .collect::<Vec<_>>();
+                    let xs = (1..=n as u64).map(|i| <$field>::from_canonical_u64(i)).collect::<Vec<_>>();
                     let invs = <$field>::batch_multiplicative_inverse(&xs);
                     assert_eq!(invs.len(), n);
                     for (x, inv) in xs.into_iter().zip(invs) {
@@ -26,7 +25,6 @@ macro_rules! test_field_arithmetic {
                     }
                 }
             }
-
 
             #[test]
             fn negation() {
@@ -126,16 +124,11 @@ pub(crate) fn test_inv_div<BF: Extendable<D>, const D: usize>() {
     assert_eq!((x * y) / z, x * (y / z));
 }
 
-
 #[allow(dead_code)]
 pub(crate) fn test_field_order<BF: Extendable<D>, const D: usize>() {
     let x = BF::Extension::rand();
-    assert_eq!(
-        x.exp_biguint(&(BF::Extension::order() - 1u8)),
-        BF::Extension::ONE
-    );
+    assert_eq!(x.exp_biguint(&(BF::Extension::order() - 1u8)), BF::Extension::ONE);
 }
-
 
 #[macro_export]
 macro_rules! test_field_extension {

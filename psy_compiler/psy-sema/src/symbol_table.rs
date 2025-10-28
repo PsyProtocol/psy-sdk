@@ -1,22 +1,18 @@
+use std::{
+    fmt::{Display, Formatter},
+    hash::Hash,
+    ops::{Index, IndexMut},
+    sync::OnceLock,
+};
+
 use anyhow::anyhow;
 use enum_as_inner::EnumAsInner;
 use indexmap::IndexMap;
 use psy_ast::*;
 use psy_common::{define_arena_id, FileId, TreeNode};
 use psy_vm::dpn::ops::context_trait::ContextFelt;
-use std::sync::OnceLock;
 
-use std::{
-    fmt::{Display, Formatter},
-    hash::Hash,
-    ops::{Index, IndexMut},
-};
-
-use crate::{
-    variable::CheckedVariable, CheckedGenericParameter, CheckedValueRef, ModuleId, ModuleKind,
-    Type, TypeId, TypeKey,
-};
-use crate::{Error, Result};
+use crate::{variable::CheckedVariable, CheckedGenericParameter, CheckedValueRef, Error, ModuleId, ModuleKind, Result, Type, TypeId, TypeKey};
 
 define_arena_id!(ScopeId);
 define_arena_id!(VarId);
@@ -250,19 +246,14 @@ impl<F: Clone + From<u32> + ContextFelt> SymbolTable<F> {
         }
     }
 
-    pub fn load_modules<'a>(
-        &mut self,
-        modules: impl IntoIterator<Item = &'a TreeNode<ModuleId, ModuleNode>>,
-    ) {
+    pub fn load_modules<'a>(&mut self, modules: impl IntoIterator<Item = &'a TreeNode<ModuleId, ModuleNode>>) {
         for module in modules {
             let data = module.data();
             self.modules.push(Module {
                 name: data.name,
                 id: module.id(),
                 scope_id: ScopeId(module.id().into()),
-                kind: ModuleKind::File {
-                    file_id: data.file_id,
-                },
+                kind: ModuleKind::File { file_id: data.file_id },
                 parent: module.parent(),
                 children: module.children().to_vec(),
                 visibility: data.visibility,
@@ -271,11 +262,7 @@ impl<F: Clone + From<u32> + ContextFelt> SymbolTable<F> {
             self.scopes.push(Scope {
                 kind: ScopeKind::Module,
                 parent: module.parent().map(|x| ScopeId(x.into())),
-                children: module
-                    .children()
-                    .into_iter()
-                    .map(|&x| ScopeId(x.into()))
-                    .collect(),
+                children: module.children().into_iter().map(|&x| ScopeId(x.into())).collect(),
                 variables: IndexMap::with_capacity(10),
                 consts: IndexMap::new(),
                 types: IndexMap::new(),
@@ -322,12 +309,7 @@ impl<F: Clone + From<u32> + ContextFelt> SymbolTable<F> {
         (self.types.len() + offset).into()
     }
 
-    pub fn add_type_id<K: Into<TypeKey>>(
-        &mut self,
-        scope_id: Option<ScopeId>,
-        name: K,
-        type_id: TypeId,
-    ) -> anyhow::Result<()> {
+    pub fn add_type_id<K: Into<TypeKey>>(&mut self, scope_id: Option<ScopeId>, name: K, type_id: TypeId) -> anyhow::Result<()> {
         let key = name.into();
         let scope_id = scope_id.or(self.current_scope_id()).unwrap();
 
@@ -345,12 +327,7 @@ impl<F: Clone + From<u32> + ContextFelt> SymbolTable<F> {
         Ok(type_id)
     }
 
-    pub fn add_type<K: Into<TypeKey>>(
-        &mut self,
-        scope_id: Option<ScopeId>,
-        name: K,
-        ty: Type,
-    ) -> Result<TypeId> {
+    pub fn add_type<K: Into<TypeKey>>(&mut self, scope_id: Option<ScopeId>, name: K, ty: Type) -> Result<TypeId> {
         let key = name.into();
         let type_id = TypeId(self.types.len());
         self.add_type_id(scope_id, key, type_id)?;
@@ -358,20 +335,11 @@ impl<F: Clone + From<u32> + ContextFelt> SymbolTable<F> {
         Ok(type_id)
     }
 
-    pub fn modify_type(
-        &mut self,
-        type_id: TypeId,
-        f: impl FnOnce(&mut Type) -> Result<()>,
-    ) -> Result<()> {
+    pub fn modify_type(&mut self, type_id: TypeId, f: impl FnOnce(&mut Type) -> Result<()>) -> Result<()> {
         f(&mut self[type_id])
     }
 
-    pub fn get_or_add_type<K: Into<TypeKey>>(
-        &mut self,
-        scope_id: Option<ScopeId>,
-        name: K,
-        ty: Type,
-    ) -> Result<TypeId> {
+    pub fn get_or_add_type<K: Into<TypeKey>>(&mut self, scope_id: Option<ScopeId>, name: K, ty: Type) -> Result<TypeId> {
         let key = name.into();
         let scope_id = scope_id.or(self.current_scope_id());
         if let Some(type_id) = self.get_type_id(scope_id, key.clone()) {
@@ -384,11 +352,7 @@ impl<F: Clone + From<u32> + ContextFelt> SymbolTable<F> {
         }
     }
 
-    pub fn add_type_variable(
-        &mut self,
-        kind: ScopeKind,
-        ty: CheckedGenericParameter,
-    ) -> Result<TypeId> {
+    pub fn add_type_variable(&mut self, kind: ScopeKind, ty: CheckedGenericParameter) -> Result<TypeId> {
         let key: TypeKey = ty.name.into();
         if let Some(_) = self.find(None, vec![kind], |scope| scope.types.get(&key).cloned()) {
             return Err(Error::TypeAlreadyDefined {
@@ -479,23 +443,12 @@ impl<F: Clone + From<u32> + ContextFelt> SymbolTable<F> {
         self.end_scope();
     }
 
-    pub fn get_type_id<K: Into<TypeKey>>(
-        &self,
-        start_scope: Option<ScopeId>,
-        name: K,
-    ) -> Option<TypeId> {
+    pub fn get_type_id<K: Into<TypeKey>>(&self, start_scope: Option<ScopeId>, name: K) -> Option<TypeId> {
         let name: TypeKey = name.into();
-        self.find(start_scope, vec![ScopeKind::Module], |scope| {
-            scope.types.get(&name).cloned()
-        })
+        self.find(start_scope, vec![ScopeKind::Module], |scope| scope.types.get(&name).cloned())
     }
 
-    pub fn find<R>(
-        &self,
-        start_scope: Option<ScopeId>,
-        end_scope_kinds: Vec<ScopeKind>,
-        f: impl Fn(&Scope<F>) -> Option<R>,
-    ) -> Option<R> {
+    pub fn find<R>(&self, start_scope: Option<ScopeId>, end_scope_kinds: Vec<ScopeKind>, f: impl Fn(&Scope<F>) -> Option<R>) -> Option<R> {
         let mut current_scope_id = start_scope.or(self.current_scope_id());
 
         while let Some(scope_id) = current_scope_id {
@@ -511,19 +464,11 @@ impl<F: Clone + From<u32> + ContextFelt> SymbolTable<F> {
         None
     }
 
-    pub fn get_variable<I: Into<IdentId>>(
-        &self,
-        start_scope: Option<ScopeId>,
-        key: I,
-    ) -> Option<VarId> {
+    pub fn get_variable<I: Into<IdentId>>(&self, start_scope: Option<ScopeId>, key: I) -> Option<VarId> {
         let key = key.into();
         let var_id = self.find(
             start_scope,
-            vec![
-                ScopeKind::Function,
-                ScopeKind::ImplMethod,
-                ScopeKind::TraitMethod,
-            ],
+            vec![ScopeKind::Function, ScopeKind::ImplMethod, ScopeKind::TraitMethod],
             |scope| scope.variables.get(&key).cloned(),
         )?;
         Some(var_id)
@@ -532,11 +477,7 @@ impl<F: Clone + From<u32> + ContextFelt> SymbolTable<F> {
     pub fn get_value(&self, var_id: VarId) -> Option<CheckedValueRef<F>> {
         let scope_id = self[var_id].scope_id;
         let key = self[var_id].name;
-        self.frames
-            .last()
-            .unwrap()
-            .get_value(scope_id, key.id)
-            .cloned()
+        self.frames.last().unwrap().get_value(scope_id, key.id).cloned()
     }
 
     pub fn set_value(&mut self, var_id: VarId, value: CheckedValueRef<F>) -> Result<()> {
@@ -544,32 +485,17 @@ impl<F: Clone + From<u32> + ContextFelt> SymbolTable<F> {
         let key = self[var_id].name;
         let location = self[var_id].location;
 
-        if self
-            .frames
-            .last()
-            .unwrap()
-            .get_value(scope_id, key.id)
-            .is_some()
-            && (!self[var_id.clone()].qualifier.is_mutable)
-        {
+        if self.frames.last().unwrap().get_value(scope_id, key.id).is_some() && (!self[var_id.clone()].qualifier.is_mutable) {
             return Err(Error::ImmutableVariable {
                 location: location,
                 variable: key.id,
             });
         }
-        self.frames
-            .last_mut()
-            .unwrap()
-            .set_value(scope_id, key.id, value);
+        self.frames.last_mut().unwrap().set_value(scope_id, key.id, value);
         Ok(())
     }
 
-    pub fn set_variable(
-        &mut self,
-        scope_id: ScopeId,
-        key: impl Into<IdentId>,
-        value: CheckedValueRef<F>,
-    ) -> Result<()> {
+    pub fn set_variable(&mut self, scope_id: ScopeId, key: impl Into<IdentId>, value: CheckedValueRef<F>) -> Result<()> {
         let var_id = self[scope_id].variables.get(&key.into()).unwrap();
         return self.set_value(var_id.clone(), value);
     }

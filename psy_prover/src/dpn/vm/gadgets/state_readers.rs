@@ -8,22 +8,23 @@ use plonky2::{
 };
 use psy_common_circuit::{
     builder::{
-        connect::CircuitBuilderConnectHelpers, hash::core::CircuitBuilderHashCore,
-        math::core::CircuitBuilderCoreMathHelpers, select::CircuitBuilderSelectHelpers,
+        connect::CircuitBuilderConnectHelpers, hash::core::CircuitBuilderHashCore, math::core::CircuitBuilderCoreMathHelpers,
+        select::CircuitBuilderSelectHelpers,
     },
     hash::merkle::gadgets::{
-        delta_merkle_proof::DeltaMerkleProofGadget, merkle_proof::MerkleProofGadget,
-        sub_slot_delta_merkle_proof_batch::SubSlotDeltaMerkleProofBatchGadget,
-        sub_slot_merkle_proof_batch::SubSlotMerkleProofBatchGadget,
-        historical_root_merkle_proof::HistoricalRootMerkleProofGadget,
+        delta_merkle_proof::DeltaMerkleProofGadget, historical_root_merkle_proof::HistoricalRootMerkleProofGadget, merkle_proof::MerkleProofGadget,
+        sub_slot_delta_merkle_proof_batch::SubSlotDeltaMerkleProofBatchGadget, sub_slot_merkle_proof_batch::SubSlotMerkleProofBatchGadget,
     },
     traits::{CreatableTarget, ToTargets},
 };
-use psy_core::{config::network_constants::{CHECKPOINT_TREE_HEIGHT, DEFERRED_TRANSACTION_TREE_HEIGHT, GLOBAL_CONTRACT_TREE_HEIGHT, GLOBAL_USER_TREE_HEIGHT}, data::{base_types::hash256::Hash256, qhashout::QHashOut}};
+use psy_core::{
+    config::network_constants::{CHECKPOINT_TREE_HEIGHT, DEFERRED_TRANSACTION_TREE_HEIGHT, GLOBAL_CONTRACT_TREE_HEIGHT, GLOBAL_USER_TREE_HEIGHT},
+    data::{base_types::hash256::Hash256, qhashout::QHashOut},
+};
 use psy_crypto::hash::core::sha256;
 use psy_network_circuit::gadgets::qdata::{
-    checkpoint_state_roots::QEDCheckpointGlobalStateRootsGadget, contract_function_call::DPNProvingSessionSimpleMethodCallGadget, user::QEDUserLeafGadget,
-    checkpoint_stats::QEDCheckpointLeafStatsGadget
+    checkpoint_state_roots::QEDCheckpointGlobalStateRootsGadget, checkpoint_stats::QEDCheckpointLeafStatsGadget,
+    contract_function_call::DPNProvingSessionSimpleMethodCallGadget, user::QEDUserLeafGadget,
 };
 use psy_vm::dpn::ops::state_cmd::data::DPNStateCmd;
 use serde::{Deserialize, Serialize};
@@ -38,30 +39,21 @@ pub struct ClearEntireTreeGadget {
 }
 
 impl ClearEntireTreeGadget {
-    pub fn create_virtual<F: RichField + Extendable<D>, const D: usize>(
-        builder: &mut CircuitBuilder<F, D>,
-    ) -> Self {
+    pub fn create_virtual<F: RichField + Extendable<D>, const D: usize>(builder: &mut CircuitBuilder<F, D>) -> Self {
         Self {
             state_tree_height: builder.add_virtual_target(),
             zero_hash: builder.add_virtual_hash(),
         }
     }
 
-    pub fn set_witness<W: Witness<F>, F: RichField>(
-        &self,
-        witness: &mut W,
-        state_tree_height: u64,
-        zero_hash: QHashOut<F>,
-    ) -> anyhow::Result<()> {
+    pub fn set_witness<W: Witness<F>, F: RichField>(&self, witness: &mut W, state_tree_height: u64, zero_hash: QHashOut<F>) -> anyhow::Result<()> {
         witness.set_target(self.state_tree_height, F::from_canonical_u64(state_tree_height));
         witness.set_hash_target(self.zero_hash, zero_hash.into());
         Ok(())
     }
 }
 
-#[derive(
-    Serialize_repr, Deserialize_repr, PartialEq, Debug, Clone, Copy, Eq, Hash, PartialOrd, Ord,
-)]
+#[derive(Serialize_repr, Deserialize_repr, PartialEq, Debug, Clone, Copy, Eq, Hash, PartialOrd, Ord)]
 #[repr(u8)]
 pub enum StateReaderReferenceKeyType {
     MerkleProof = 0,
@@ -94,10 +86,7 @@ impl TryFrom<u8> for StateReaderReferenceKeyType {
             4 => Ok(StateReaderReferenceKeyType::CheckpointStateRoots),
             5 => Ok(StateReaderReferenceKeyType::HistoricalProof),
             6 => Ok(StateReaderReferenceKeyType::ClearEntireTree),
-            _ => Err(anyhow::format_err!(
-                "Invalid StateReaderReferenceKeyType value: {}",
-                value
-            )),
+            _ => Err(anyhow::format_err!("Invalid StateReaderReferenceKeyType value: {}", value)),
         }
     }
 }
@@ -154,14 +143,9 @@ impl TryFrom<u64> for StateReaderReferenceKey {
         let gadget_type = StateReaderReferenceKeyType::try_from((value >> 56u64) as u8)?;
         let gadget_index = (value & 0x00ffffffffffffffu64) as usize;
 
-        Ok(Self {
-            gadget_type,
-            gadget_index,
-        })
+        Ok(Self { gadget_type, gadget_index })
     }
 }
-
-
 
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone, Copy, Eq, Hash, PartialOrd, Ord)]
 pub struct CKInvokeDeferredMethodCall {
@@ -181,7 +165,6 @@ impl CKInvokeDeferredMethodCall {
             input_target_ids_hash: sha256::CoreSha256Hasher::hash_u64s(input_target_ids),
         }
     }
-
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone, Copy, Eq, Hash, PartialOrd, Ord)]
@@ -327,10 +310,7 @@ pub struct CKClearEntireTree {
 }
 impl StateCommandCacheKey {
     pub fn new_read_current_contract_slot(slot_target_id: u64, write_epoch: u32) -> Self {
-        Self::ReadCurrentContractSlot(CKReadCurrentContractSlot {
-            slot_target_id,
-            write_epoch,
-        })
+        Self::ReadCurrentContractSlot(CKReadCurrentContractSlot { slot_target_id, write_epoch })
     }
     pub fn new_read_current_contract_single(sub_slot_target_id: u64, write_epoch: u32) -> Self {
         Self::ReadCurrentContractSingle(CKReadCurrentContractSingle {
@@ -338,12 +318,7 @@ impl StateCommandCacheKey {
             write_epoch,
         })
     }
-    pub fn new_read_current_contract_range(
-        sub_slot_target_id: u64,
-        length: u32,
-        slot_offset_index: u64,
-        write_epoch: u32
-    ) -> Self {
+    pub fn new_read_current_contract_range(sub_slot_target_id: u64, length: u32, slot_offset_index: u64, write_epoch: u32) -> Self {
         Self::ReadCurrentContractRange(CKReadCurrentContractRange {
             sub_slot_target_id,
             length,
@@ -351,22 +326,14 @@ impl StateCommandCacheKey {
             write_epoch,
         })
     }
-    pub fn new_write_current_contract_slot(
-        slot_target_id: u64,
-        condition_target_id: u64,
-        write_epoch: u32,
-    ) -> Self {
+    pub fn new_write_current_contract_slot(slot_target_id: u64, condition_target_id: u64, write_epoch: u32) -> Self {
         Self::WriteCurrentContractSlot(CKWriteCurrentContractSlot {
             slot_target_id,
             condition_target_id,
             write_epoch,
         })
     }
-    pub fn new_write_current_contract_single(
-        sub_slot_target_id: u64,
-        condition_target_id: u64,
-        write_epoch: u32,
-    ) -> Self {
+    pub fn new_write_current_contract_single(sub_slot_target_id: u64, condition_target_id: u64, write_epoch: u32) -> Self {
         Self::WriteCurrentContractSingle(CKWriteCurrentContractSingle {
             sub_slot_target_id,
             condition_target_id,
@@ -388,31 +355,20 @@ impl StateCommandCacheKey {
             write_epoch,
         })
     }
-    pub fn new_read_self_user_external_contract_root(
-        contract_target_id: u64,
-        contract_call_epoch: u32,
-    ) -> Self {
+    pub fn new_read_self_user_external_contract_root(contract_target_id: u64, contract_call_epoch: u32) -> Self {
         Self::ReadSelfUserExternalContractRoot(CKReadSelfUserExternalContractRoot {
             contract_target_id,
             contract_call_epoch,
         })
     }
-    pub fn new_read_self_user_external_contract_slot(
-        contract_target_id: u64,
-        slot_target_id: u64,
-        contract_call_epoch: u32,
-    ) -> Self {
+    pub fn new_read_self_user_external_contract_slot(contract_target_id: u64, slot_target_id: u64, contract_call_epoch: u32) -> Self {
         Self::ReadSelfUserExternalContractSlot(CKReadSelfUserExternalContractSlot {
             contract_target_id,
             slot_target_id,
             contract_call_epoch,
         })
     }
-    pub fn new_read_self_user_external_contract_single(
-        contract_target_id: u64,
-        sub_slot_target_id: u64,
-        contract_call_epoch: u32,
-    ) -> Self {
+    pub fn new_read_self_user_external_contract_single(contract_target_id: u64, sub_slot_target_id: u64, contract_call_epoch: u32) -> Self {
         Self::ReadSelfUserExternalContractSingle(CKReadSelfUserExternalContractSingle {
             contract_target_id,
             sub_slot_target_id,
@@ -446,11 +402,7 @@ impl StateCommandCacheKey {
             contract_target_id,
         })
     }
-    pub fn new_read_other_user_contract_slot(
-        user_target_id: u64,
-        contract_target_id: u64,
-        slot_target_id: u64,
-    ) -> Self {
+    pub fn new_read_other_user_contract_slot(user_target_id: u64, contract_target_id: u64, slot_target_id: u64) -> Self {
         Self::ReadOtherUserContractContractSlot(CKReadOtherUserContractContractSlot {
             user_target_id,
             contract_target_id,
@@ -472,12 +424,7 @@ impl StateCommandCacheKey {
             slot_offset_index,
         })
     }
-    pub fn new_read_other_user_contract_single(
-        user_id: u64,
-        contract_id: u64,
-        sub_slot_target_id: u64,
-        write_epoch: u32,
-    ) -> Self {
+    pub fn new_read_other_user_contract_single(user_id: u64, contract_id: u64, sub_slot_target_id: u64, write_epoch: u32) -> Self {
         Self::ReadOtherUserContractContractSingle(CKReadOtherUserContractContractSingle {
             user_target_id: user_id,
             contract_target_id: contract_id,
@@ -486,9 +433,7 @@ impl StateCommandCacheKey {
         })
     }
     pub fn new_get_checkpoint_stats(checkpoint_id: u64) -> Self {
-        Self::GetCheckpointStats(CKGetCheckpointStats {
-            checkpoint_id,
-        })
+        Self::GetCheckpointStats(CKGetCheckpointStats { checkpoint_id })
     }
     pub fn new_clear_entire_tree_with_condition(condition: u64, write_epoch: u32) -> Self {
         Self::ClearEntireTree(CKClearEntireTree { condition, write_epoch })
@@ -529,7 +474,6 @@ pub struct StateReaderGadget {
     pub session_proof_tree_height: usize,
     pub force_four_align: bool,
 }
-
 
 impl StateReaderGadget {
     pub fn new(
@@ -576,10 +520,7 @@ impl StateReaderGadget {
 
     // resolvers
 
-    pub fn resolve_merkle_proof_gadget(
-        &self,
-        key: &StateCommandCacheKey,
-    ) -> Option<&MerkleProofGadget> {
+    pub fn resolve_merkle_proof_gadget(&self, key: &StateCommandCacheKey) -> Option<&MerkleProofGadget> {
         if self.gadget_map.contains_key(key) {
             let value = self.gadget_map[key];
             if value.gadget_type == StateReaderReferenceKeyType::MerkleProof {
@@ -588,22 +529,14 @@ impl StateReaderGadget {
         }
         None
     }
-    pub fn insert_merkle_proof_gadget(
-        &mut self,
-        key: StateCommandCacheKey,
-        gadget: MerkleProofGadget,
-    ) -> StateReaderReferenceKey {
+    pub fn insert_merkle_proof_gadget(&mut self, key: StateCommandCacheKey, gadget: MerkleProofGadget) -> StateReaderReferenceKey {
         let ref_key = StateReaderReferenceKey::new_merkle_proof_key(self.merkle_proofs.len());
         self.merkle_proofs.push(gadget);
         self.gadget_map.insert(key, ref_key);
         ref_key
     }
 
-    pub fn resolve_or_insert_merkle_proof_gadget<
-        H:AlgebraicHasher<F>,
-        F: RichField + Extendable<D>,
-        const D: usize,
-    >(
+    pub fn resolve_or_insert_merkle_proof_gadget<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
         &mut self,
         builder: &mut CircuitBuilder<F, D>,
         key: StateCommandCacheKey,
@@ -620,10 +553,7 @@ impl StateReaderGadget {
         (true, self.merkle_proofs.last().unwrap())
     }
 
-    pub fn resolve_delta_merkle_proof_gadget(
-        &self,
-        key: &StateCommandCacheKey,
-    ) -> Option<&DeltaMerkleProofGadget> {
+    pub fn resolve_delta_merkle_proof_gadget(&self, key: &StateCommandCacheKey) -> Option<&DeltaMerkleProofGadget> {
         if self.gadget_map.contains_key(key) {
             let value = self.gadget_map[key];
             if value.gadget_type == StateReaderReferenceKeyType::DeltaMerkleProof {
@@ -632,22 +562,13 @@ impl StateReaderGadget {
         }
         None
     }
-    pub fn insert_delta_merkle_proof_gadget(
-        &mut self,
-        key: StateCommandCacheKey,
-        gadget: DeltaMerkleProofGadget,
-    ) -> StateReaderReferenceKey {
-        let ref_key =
-            StateReaderReferenceKey::new_delta_merkle_proof_key(self.delta_merkle_proofs.len());
+    pub fn insert_delta_merkle_proof_gadget(&mut self, key: StateCommandCacheKey, gadget: DeltaMerkleProofGadget) -> StateReaderReferenceKey {
+        let ref_key = StateReaderReferenceKey::new_delta_merkle_proof_key(self.delta_merkle_proofs.len());
         self.delta_merkle_proofs.push(gadget);
         self.gadget_map.insert(key, ref_key);
         ref_key
     }
-    pub fn resolve_or_insert_delta_merkle_proof_gadget<
-        H:AlgebraicHasher<F>,
-        F: RichField + Extendable<D>,
-        const D: usize,
-    >(
+    pub fn resolve_or_insert_delta_merkle_proof_gadget<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
         &mut self,
         builder: &mut CircuitBuilder<F, D>,
         key: StateCommandCacheKey,
@@ -664,10 +585,7 @@ impl StateReaderGadget {
         self.delta_merkle_proofs.last().unwrap()
     }
 
-    pub fn resolve_user_leaf_gadget(
-        &self,
-        key: &StateCommandCacheKey,
-    ) -> Option<&QEDUserLeafGadget> {
+    pub fn resolve_user_leaf_gadget(&self, key: &StateCommandCacheKey) -> Option<&QEDUserLeafGadget> {
         if self.gadget_map.contains_key(key) {
             let value = self.gadget_map[key];
             if value.gadget_type == StateReaderReferenceKeyType::UserLeaf {
@@ -676,11 +594,7 @@ impl StateReaderGadget {
         }
         None
     }
-    pub fn insert_user_leaf_gadget(
-        &mut self,
-        key: StateCommandCacheKey,
-        gadget: QEDUserLeafGadget,
-    ) -> StateReaderReferenceKey {
+    pub fn insert_user_leaf_gadget(&mut self, key: StateCommandCacheKey, gadget: QEDUserLeafGadget) -> StateReaderReferenceKey {
         let ref_key = StateReaderReferenceKey::new_user_leaf_key(self.user_leaves.len());
         self.user_leaves.push(gadget);
         self.gadget_map.insert(key, ref_key);
@@ -721,27 +635,17 @@ impl StateReaderGadget {
 
     // end resolvers
 
-    pub fn get_self_user_external_contract_root<
-        H:AlgebraicHasher<F>,
-        F: RichField + Extendable<D>,
-        const D: usize,
-    >(
+    pub fn get_self_user_external_contract_root<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
         &mut self,
         builder: &mut CircuitBuilder<F, D>,
         dpn: &SimpleDPNBuilder<F, D>,
         contract_target_id: u64,
     ) -> HashOutTarget {
-        let read_root_ck = StateCommandCacheKey::new_read_self_user_external_contract_root(
-            contract_target_id,
-            self.write_epoch,
-        );
+        let read_root_ck = StateCommandCacheKey::new_read_self_user_external_contract_root(contract_target_id, self.write_epoch);
         let uct_root = self.user_contract_tree_state_root;
         let expected_contract_state_tree_root = {
-            let (is_new_uct, mp_uct) = self.resolve_or_insert_merkle_proof_gadget::<H, F, D>(
-                builder,
-                read_root_ck,
-                GLOBAL_CONTRACT_TREE_HEIGHT as usize,
-            );
+            let (is_new_uct, mp_uct) =
+                self.resolve_or_insert_merkle_proof_gadget::<H, F, D>(builder, read_root_ck, GLOBAL_CONTRACT_TREE_HEIGHT as usize);
             let expected_contract_state_tree_root = mp_uct.value.clone();
             if is_new_uct {
                 builder.connect_hashes(mp_uct.root, uct_root);
@@ -757,11 +661,7 @@ impl StateReaderGadget {
         expected_contract_state_tree_root
     }
 
-    pub fn get_self_user_external_contract_slot_hash<
-        H:AlgebraicHasher<F>,
-        F: RichField + Extendable<D>,
-        const D: usize,
-    >(
+    pub fn get_self_user_external_contract_slot_hash<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
         &mut self,
         builder: &mut CircuitBuilder<F, D>,
         dpn: &SimpleDPNBuilder<F, D>,
@@ -770,70 +670,37 @@ impl StateReaderGadget {
         contract_state_tree_height: usize,
     ) -> HashOutTarget {
         let contract_state_tree_ck =
-            StateCommandCacheKey::new_read_self_user_external_contract_slot(
-                contract_target_id,
-                slot_target_id,
-                self.contract_call_epoch,
-            );
+            StateCommandCacheKey::new_read_self_user_external_contract_slot(contract_target_id, slot_target_id, self.contract_call_epoch);
         let (is_new_contract_state_tree, mp_cst_value, mp_cst_root, mp_cst_index) = {
-            let (is_new_contract_state_tree, mp_cst) = self
-                .resolve_or_insert_merkle_proof_gadget::<H, F, D>(
-                    builder,
-                    contract_state_tree_ck,
-                    contract_state_tree_height as usize,
-                );
-            (
-                is_new_contract_state_tree,
-                mp_cst.value,
-                mp_cst.root,
-                mp_cst.index,
-            )
+            let (is_new_contract_state_tree, mp_cst) =
+                self.resolve_or_insert_merkle_proof_gadget::<H, F, D>(builder, contract_state_tree_ck, contract_state_tree_height as usize);
+            (is_new_contract_state_tree, mp_cst.value, mp_cst.root, mp_cst.index)
         };
 
         let slot_value = mp_cst_value;
         if is_new_contract_state_tree {
-            let expected_contract_state_tree_root = self
-                .get_self_user_external_contract_root::<H, F, D>(builder, dpn, contract_target_id);
+            let expected_contract_state_tree_root = self.get_self_user_external_contract_root::<H, F, D>(builder, dpn, contract_target_id);
             builder.connect_hashes(mp_cst_root, expected_contract_state_tree_root);
 
             let slot_index = dpn.resolve_target(slot_target_id);
             builder.connect(slot_index, mp_cst_index);
-            self.result_map
-                .insert(contract_state_tree_ck, slot_value.elements.to_vec());
+            self.result_map.insert(contract_state_tree_ck, slot_value.elements.to_vec());
         }
         slot_value
     }
 
-
-    pub fn get_other_user_leaf_hash<
-        H:AlgebraicHasher<F>,
-        F: RichField + Extendable<D>,
-        const D: usize,
-    >(
+    pub fn get_other_user_leaf_hash<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
         &mut self,
         builder: &mut CircuitBuilder<F, D>,
         dpn: &SimpleDPNBuilder<F, D>,
         user_target_id: u64,
     ) -> HashOutTarget {
-        let user_tree_ck =
-            StateCommandCacheKey::new_read_other_user_leaf_hash(
-                user_target_id
-            );
+        let user_tree_ck = StateCommandCacheKey::new_read_other_user_leaf_hash(user_target_id);
         let (is_new, mp_user_tree_root, mp_user_tree_value, mp_user_tree_index) = {
-            let (is_new, mp_user_tree) = self
-                .resolve_or_insert_merkle_proof_gadget::<H, F, D>(
-                    builder,
-                    user_tree_ck,
-                    GLOBAL_USER_TREE_HEIGHT as usize,
-                );
-            (
-                is_new,
-                mp_user_tree.root,
-                mp_user_tree.value,
-                mp_user_tree.index,
-            )
+            let (is_new, mp_user_tree) =
+                self.resolve_or_insert_merkle_proof_gadget::<H, F, D>(builder, user_tree_ck, GLOBAL_USER_TREE_HEIGHT as usize);
+            (is_new, mp_user_tree.root, mp_user_tree.value, mp_user_tree.index)
         };
-
 
         if is_new {
             builder.connect_hashes(mp_user_tree_root, self.chain_state_roots.user_tree_root);
@@ -843,27 +710,16 @@ impl StateReaderGadget {
         mp_user_tree_value
     }
 
-
-    pub fn get_other_user_leaf<
-        H:AlgebraicHasher<F>,
-        F: RichField + Extendable<D>,
-        const D: usize,
-    >(
+    pub fn get_other_user_leaf<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
         &mut self,
         builder: &mut CircuitBuilder<F, D>,
         dpn: &SimpleDPNBuilder<F, D>,
         user_target_id: u64,
     ) -> &QEDUserLeafGadget {
-        let expected_leaf_hash = {
-            self.get_other_user_leaf_hash::<H, F, D>(builder, dpn, user_target_id)
-        };
-        let user_leaf_ck =
-            StateCommandCacheKey::new_read_other_user_leaf(
-                user_target_id
-            );
+        let expected_leaf_hash = { self.get_other_user_leaf_hash::<H, F, D>(builder, dpn, user_target_id) };
+        let user_leaf_ck = StateCommandCacheKey::new_read_other_user_leaf(user_target_id);
 
-            let (is_new, leaf) = self.resolve_or_insert_user_leaf_gadget::<F, D>(builder, user_leaf_ck);
-
+        let (is_new, leaf) = self.resolve_or_insert_user_leaf_gadget::<F, D>(builder, user_leaf_ck);
 
         if is_new {
             let actual_leaf_hash = leaf.to_hash::<H, F, D>(builder);
@@ -873,31 +729,17 @@ impl StateReaderGadget {
         leaf
     }
 
-
-
-
-    pub fn get_other_user_contract_state_root<
-        H:AlgebraicHasher<F>,
-        F: RichField + Extendable<D>,
-        const D: usize,
-    >(
+    pub fn get_other_user_contract_state_root<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
         &mut self,
         builder: &mut CircuitBuilder<F, D>,
         dpn: &SimpleDPNBuilder<F, D>,
         user_target_id: u64,
         contract_target_id: u64,
     ) -> HashOutTarget {
-        let expected_user_contract_tree_root = {
-            self.get_other_user_leaf::<H, F, D>(builder, dpn, user_target_id).user_state_tree_root
-        };
-        let uct_ck =
-            StateCommandCacheKey::new_read_other_user_contract_root(
-                user_target_id,
-                contract_target_id,
-            );
+        let expected_user_contract_tree_root = { self.get_other_user_leaf::<H, F, D>(builder, dpn, user_target_id).user_state_tree_root };
+        let uct_ck = StateCommandCacheKey::new_read_other_user_contract_root(user_target_id, contract_target_id);
 
         let (is_new, mp_uct) = self.resolve_or_insert_merkle_proof_gadget::<H, F, D>(builder, uct_ck, GLOBAL_CONTRACT_TREE_HEIGHT as usize);
-
 
         if is_new {
             let expected_contract_id = dpn.resolve_target(contract_target_id);
@@ -908,11 +750,7 @@ impl StateReaderGadget {
         }
         mp_uct.value
     }
-    pub fn get_other_user_contract_state_slot_hash<
-        H:AlgebraicHasher<F>,
-        F: RichField + Extendable<D>,
-        const D: usize,
-    >(
+    pub fn get_other_user_contract_state_slot_hash<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
         &mut self,
         builder: &mut CircuitBuilder<F, D>,
         dpn: &SimpleDPNBuilder<F, D>,
@@ -921,23 +759,15 @@ impl StateReaderGadget {
         slot_target_id: u64,
         contract_state_tree_height: usize,
     ) -> HashOutTarget {
-        let expected_contract_state_tree_root = {
-            self.get_other_user_contract_state_root::<H, F, D>(builder, dpn, user_target_id, contract_target_id)
-        };
+        let expected_contract_state_tree_root =
+            { self.get_other_user_contract_state_root::<H, F, D>(builder, dpn, user_target_id, contract_target_id) };
 
-        let cst_ck =
-            StateCommandCacheKey::new_read_other_user_contract_slot(
-                user_target_id,
-                contract_target_id,
-                slot_target_id,
-            );
+        let cst_ck = StateCommandCacheKey::new_read_other_user_contract_slot(user_target_id, contract_target_id, slot_target_id);
 
         let (is_new, mp_cst) = self.resolve_or_insert_merkle_proof_gadget::<H, F, D>(builder, cst_ck, contract_state_tree_height);
 
-
         if is_new {
             let expected_contract_id = dpn.resolve_target(slot_target_id);
-
 
             builder.connect(expected_contract_id, mp_cst.index);
 
@@ -946,11 +776,7 @@ impl StateReaderGadget {
         mp_cst.value
     }
 
-    pub fn get_other_user_contract_state_slot_range<
-        H: AlgebraicHasher<F>,
-        F: RichField + Extendable<D>,
-        const D: usize,
-    >(
+    pub fn get_other_user_contract_state_slot_range<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
         &mut self,
         builder: &mut CircuitBuilder<F, D>,
         dpn: &SimpleDPNBuilder<F, D>,
@@ -960,22 +786,10 @@ impl StateReaderGadget {
         contract_state_tree_height: usize,
         length: usize,
     ) -> Vec<Target> {
-        let expected_contract_state_tree_root = {
-            self.get_other_user_contract_state_root::<H, F, D>(
-                builder,
-                dpn,
-                user_target_id,
-                contract_target_id,
-            )
-        };
+        let expected_contract_state_tree_root =
+            { self.get_other_user_contract_state_root::<H, F, D>(builder, dpn, user_target_id, contract_target_id) };
 
-        let r_ck = StateCommandCacheKey::new_read_other_user_contract_range(
-            user_target_id,
-            contract_target_id,
-            sub_slot_target_id,
-            length as u32,
-            0,
-        );
+        let r_ck = StateCommandCacheKey::new_read_other_user_contract_range(user_target_id, contract_target_id, sub_slot_target_id, length as u32, 0);
 
         if self.result_map.contains_key(&r_ck) {
             self.result_map.get(&r_ck).unwrap().to_owned()
@@ -1007,11 +821,7 @@ impl StateReaderGadget {
         }
     }
 
-    pub fn get_self_user_external_contract_state_slot_single<
-        H: AlgebraicHasher<F>,
-        F: RichField + Extendable<D>,
-        const D: usize,
-    >(
+    pub fn get_self_user_external_contract_state_slot_single<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
         &mut self,
         builder: &mut CircuitBuilder<F, D>,
         dpn: &SimpleDPNBuilder<F, D>,
@@ -1019,23 +829,11 @@ impl StateReaderGadget {
         sub_slot_target_id: u64,
         contract_state_tree_height: usize,
     ) -> Target {
-        let ck = StateCommandCacheKey::new_read_self_user_external_contract_single(
-            contract_target_id,
-            sub_slot_target_id,
-            self.contract_call_epoch,
-        );
+        let ck = StateCommandCacheKey::new_read_self_user_external_contract_single(contract_target_id, sub_slot_target_id, self.contract_call_epoch);
 
-        let expected_contract_state_tree_root = self.get_self_user_external_contract_root::<H, F, D>(
-            builder,
-            dpn,
-            contract_target_id,
-        );
+        let expected_contract_state_tree_root = self.get_self_user_external_contract_root::<H, F, D>(builder, dpn, contract_target_id);
 
-        let (is_new, mp_cst) = self.resolve_or_insert_merkle_proof_gadget::<H, F, D>(
-            builder,
-            ck,
-            contract_state_tree_height,
-        );
+        let (is_new, mp_cst) = self.resolve_or_insert_merkle_proof_gadget::<H, F, D>(builder, ck, contract_state_tree_height);
 
         if is_new {
             let sub_slot_index = dpn.resolve_target(sub_slot_target_id);
@@ -1050,11 +848,7 @@ impl StateReaderGadget {
         }
     }
 
-    pub fn get_self_user_external_contract_state_slot_range<
-        H: AlgebraicHasher<F>,
-        F: RichField + Extendable<D>,
-        const D: usize,
-    >(
+    pub fn get_self_user_external_contract_state_slot_range<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
         &mut self,
         builder: &mut CircuitBuilder<F, D>,
         dpn: &SimpleDPNBuilder<F, D>,
@@ -1074,11 +868,7 @@ impl StateReaderGadget {
         if self.result_map.contains_key(&r_ck) {
             self.result_map.get(&r_ck).unwrap().to_owned()
         } else {
-            let expected_contract_state_tree_root = self.get_self_user_external_contract_root::<H, F, D>(
-                builder,
-                dpn,
-                contract_target_id,
-            );
+            let expected_contract_state_tree_root = self.get_self_user_external_contract_root::<H, F, D>(builder, dpn, contract_target_id);
 
             let sub_slot_index = dpn.resolve_target(sub_slot_target_id);
             let (values, mps) = {
@@ -1109,11 +899,8 @@ impl StateReaderGadget {
         }
     }
 
-
-
-
     pub fn injest_symbolic_state_command<
-        H:AlgebraicHasher<F> + psy_crypto::hash::traits::hasher::MerkleZeroHasher<HashOut<F>>,
+        H: AlgebraicHasher<F> + psy_crypto::hash::traits::hasher::MerkleZeroHasher<HashOut<F>>,
         F: RichField + Extendable<D>,
         const D: usize,
     >(
@@ -1124,10 +911,7 @@ impl StateReaderGadget {
     ) -> Vec<Target> {
         let value = match cmd {
             DPNStateCmd::SetContractStateSlotHash(c) => {
-                let dmp = DeltaMerkleProofGadget::add_virtual_to::<H, F, D>(
-                    builder,
-                    self.contract_state_tree_height,
-                );
+                let dmp = DeltaMerkleProofGadget::add_virtual_to::<H, F, D>(builder, self.contract_state_tree_height);
 
                 let value = HashOutTarget {
                     elements: dpn.resolve_targets_sized::<4>(&c.value),
@@ -1135,125 +919,80 @@ impl StateReaderGadget {
                 let condition = dpn.resolve_bool(builder, c.condition);
                 let slot_index = dpn.resolve_target(c.slot_index);
 
-                builder.connect_hashes_if_true(
-                    condition,
-                    dmp.old_root,
-                    self.end_contract_state_root,
-                );
+                builder.connect_hashes_if_true(condition, dmp.old_root, self.end_contract_state_root);
                 builder.connect_hashes_if_true(condition, dmp.new_value, value);
                 builder.connect_if_true(condition, dmp.index, slot_index);
 
-                let new_end_state_root =
-                    builder.select_hash(condition, dmp.new_root, self.end_contract_state_root);
+                let new_end_state_root = builder.select_hash(condition, dmp.new_root, self.end_contract_state_root);
                 self.end_contract_state_root = new_end_state_root;
 
-
-                let ck = StateCommandCacheKey::new_write_current_contract_slot(
-                    c.slot_index,
-                    c.condition,
-                    self.write_epoch,
-                );
+                let ck = StateCommandCacheKey::new_write_current_contract_slot(c.slot_index, c.condition, self.write_epoch);
                 self.write_epoch += 1;
 
                 let _ref_key = self.insert_delta_merkle_proof_gadget(ck, dmp);
 
                 value.elements.to_vec()
-            },
+            }
             DPNStateCmd::SetContractStateSlotSingle(c) => {
-                let dmp = DeltaMerkleProofGadget::add_virtual_to::<H, F, D>(
-                    builder,
-                    self.contract_state_tree_height,
-                );
+                let dmp = DeltaMerkleProofGadget::add_virtual_to::<H, F, D>(builder, self.contract_state_tree_height);
 
                 let condition = dpn.resolve_bool(builder, c.condition);
                 let sub_slot_index = dpn.resolve_target(c.sub_slot_index);
                 let value = dpn.resolve_target(c.value);
                 let (slot_index, inner_index) = builder.div_rem4(sub_slot_index);
-                // modify a single element in the hash (ie. set hash.elements[inner_index] = value)
+                // modify a single element in the hash (ie. set hash.elements[inner_index] =
+                // value)
                 let modded_hash = builder.set_target_in_hash(dmp.old_value, inner_index, value);
 
-                builder.connect_hashes_if_true(
-                    condition,
-                    dmp.old_root,
-                    self.end_contract_state_root,
-                );
+                builder.connect_hashes_if_true(condition, dmp.old_root, self.end_contract_state_root);
                 builder.connect_hashes_if_true(condition, dmp.new_value, modded_hash);
                 builder.connect_if_true(condition, dmp.index, slot_index);
 
-                let new_end_state_root =
-                    builder.select_hash(condition, dmp.new_root, self.end_contract_state_root);
+                let new_end_state_root = builder.select_hash(condition, dmp.new_root, self.end_contract_state_root);
                 self.end_contract_state_root = new_end_state_root;
 
-
-                let ck = StateCommandCacheKey::new_write_current_contract_single(
-                    c.sub_slot_index,
-                    c.condition,
-                    self.write_epoch,
-                );
+                let ck = StateCommandCacheKey::new_write_current_contract_single(c.sub_slot_index, c.condition, self.write_epoch);
 
                 self.write_epoch += 1;
                 let _ref_key = self.insert_delta_merkle_proof_gadget(ck, dmp);
 
                 vec![value]
-            },
+            }
             DPNStateCmd::SetContractStateSlotRange(c) => {
                 let condition = dpn.resolve_bool(builder, c.condition);
                 let sub_slot_index = dpn.resolve_target(c.sub_slot_index);
                 let values = dpn.resolve_targets(&c.value);
 
-
                 let (values, dmps) = {
-
-                let gadget= SubSlotDeltaMerkleProofBatchGadget::add_virtual_to::<H,F,D>(
-                    builder,
-                    self.contract_state_tree_height,
-                    sub_slot_index,
-                    values,
-                    self.force_four_align
-                );
-                (gadget.values, gadget.delta_merkle_proof_gadgets)
-
+                    let gadget = SubSlotDeltaMerkleProofBatchGadget::add_virtual_to::<H, F, D>(
+                        builder,
+                        self.contract_state_tree_height,
+                        sub_slot_index,
+                        values,
+                        self.force_four_align,
+                    );
+                    (gadget.values, gadget.delta_merkle_proof_gadgets)
                 };
-                builder.connect_hashes_if_true(
-                    condition,
-                    dmps[0].old_root,
-                    self.end_contract_state_root,
-                );
+                builder.connect_hashes_if_true(condition, dmps[0].old_root, self.end_contract_state_root);
 
-                let new_end_state_root =
-                    builder.select_hash(condition, dmps.last().unwrap().new_root, self.end_contract_state_root);
+                let new_end_state_root = builder.select_hash(condition, dmps.last().unwrap().new_root, self.end_contract_state_root);
                 self.end_contract_state_root = new_end_state_root;
                 let values_len = values.len() as u32;
                 for (i, dmp) in dmps.into_iter().enumerate() {
-
-                    let ck = StateCommandCacheKey::new_write_current_contract_range(
-                        c.sub_slot_index,
-                        c.condition,
-                        values_len,
-                        i as u64,
-                        self.write_epoch,
-                    );
+                    let ck =
+                        StateCommandCacheKey::new_write_current_contract_range(c.sub_slot_index, c.condition, values_len, i as u64, self.write_epoch);
                     let _ref_key = self.insert_delta_merkle_proof_gadget(ck, dmp);
                 }
 
-
                 self.write_epoch += 1;
                 values
-
-            },
+            }
             DPNStateCmd::InvokeExternalContractFunctionSync(c) => todo!(),
             DPNStateCmd::GetSelfUserCurrentContractStateSlotHash(c) => {
-                let ck = StateCommandCacheKey::new_read_current_contract_slot(
-                    c.slot_index,
-                    self.write_epoch,
-                );
+                let ck = StateCommandCacheKey::new_read_current_contract_slot(c.slot_index, self.write_epoch);
 
                 let end_contract_state_root = self.end_contract_state_root;
-                let (is_new, mp) = self.resolve_or_insert_merkle_proof_gadget::<H, F, D>(
-                    builder,
-                    ck,
-                    self.contract_state_tree_height,
-                );
+                let (is_new, mp) = self.resolve_or_insert_merkle_proof_gadget::<H, F, D>(builder, ck, self.contract_state_tree_height);
                 let mp_value = mp.value.elements.to_vec();
 
                 if is_new {
@@ -1268,17 +1007,10 @@ impl StateReaderGadget {
                 }
             }
             DPNStateCmd::GetSelfUserCurrentContractStateSlotSingle(c) => {
-                let ck = StateCommandCacheKey::new_read_current_contract_single(
-                    c.sub_slot_index,
-                    self.write_epoch,
-                );
+                let ck = StateCommandCacheKey::new_read_current_contract_single(c.sub_slot_index, self.write_epoch);
 
                 let end_contract_state_root = self.end_contract_state_root;
-                let (is_new, mp) = self.resolve_or_insert_merkle_proof_gadget::<H, F, D>(
-                    builder,
-                    ck,
-                    self.contract_state_tree_height,
-                );
+                let (is_new, mp) = self.resolve_or_insert_merkle_proof_gadget::<H, F, D>(builder, ck, self.contract_state_tree_height);
 
                 if is_new {
                     let sub_slot_index = dpn.resolve_target(c.sub_slot_index);
@@ -1294,64 +1026,37 @@ impl StateReaderGadget {
                 }
             }
             DPNStateCmd::GetSelfUserCurrentContractStateSlotRange(c) => {
-
-                let r_ck = StateCommandCacheKey::new_read_current_contract_range(
-                    c.sub_slot_index,
-                    c.length,
-                    0,
-                    self.write_epoch,
-                );
+                let r_ck = StateCommandCacheKey::new_read_current_contract_range(c.sub_slot_index, c.length, 0, self.write_epoch);
                 if self.result_map.contains_key(&r_ck) {
                     self.result_map.get(&r_ck).unwrap().to_owned()
-                }else{
+                } else {
                     let sub_slot_index = dpn.resolve_target(c.sub_slot_index);
-                let (values, mps) = {
-
-                    let gadget= SubSlotMerkleProofBatchGadget::add_virtual_to::<H,F,D>(
-                        builder,
-                        self.contract_state_tree_height,
-                        c.length as usize,
-                        sub_slot_index,
-                        self.force_four_align
-                    );
-                    (gadget.values, gadget.merkle_proof_gadgets)
-
-                    };
-                    builder.connect_hashes(
-                        mps[0].root,
-                        self.end_contract_state_root,
-                    );
-                    for (i, mp) in mps.into_iter().enumerate() {
-
-                        let ck = StateCommandCacheKey::new_read_current_contract_range(
-                            c.sub_slot_index,
-                            c.length,
-                            i as u64,
-                            self.write_epoch,
+                    let (values, mps) = {
+                        let gadget = SubSlotMerkleProofBatchGadget::add_virtual_to::<H, F, D>(
+                            builder,
+                            self.contract_state_tree_height,
+                            c.length as usize,
+                            sub_slot_index,
+                            self.force_four_align,
                         );
+                        (gadget.values, gadget.merkle_proof_gadgets)
+                    };
+                    builder.connect_hashes(mps[0].root, self.end_contract_state_root);
+                    for (i, mp) in mps.into_iter().enumerate() {
+                        let ck = StateCommandCacheKey::new_read_current_contract_range(c.sub_slot_index, c.length, i as u64, self.write_epoch);
                         let _ref_key = self.insert_merkle_proof_gadget(ck, mp);
                     }
                     self.result_map.insert(r_ck, values.clone());
                     values
-
                 }
-
-
-            },
+            }
             DPNStateCmd::GetSelfUserExternalContractStateSlotHash(c) => {
-                let read_root_ck = StateCommandCacheKey::new_read_self_user_external_contract_root(
-                    c.contract_id,
-                    self.write_epoch,
-                );
+                let read_root_ck = StateCommandCacheKey::new_read_self_user_external_contract_root(c.contract_id, self.write_epoch);
                 let uct_root = self.user_contract_tree_state_root;
                 let call_epoch = self.contract_call_epoch;
                 let expected_contract_state_tree_root = {
-                    let (is_new_uct, mp_uct) = self
-                        .resolve_or_insert_merkle_proof_gadget::<H, F, D>(
-                            builder,
-                            read_root_ck,
-                            GLOBAL_CONTRACT_TREE_HEIGHT as usize,
-                        );
+                    let (is_new_uct, mp_uct) =
+                        self.resolve_or_insert_merkle_proof_gadget::<H, F, D>(builder, read_root_ck, GLOBAL_CONTRACT_TREE_HEIGHT as usize);
                     let expected_contract_state_tree_root = mp_uct.value.clone();
                     if is_new_uct {
                         builder.connect_hashes(mp_uct.root, uct_root);
@@ -1365,27 +1070,17 @@ impl StateReaderGadget {
                     expected_contract_state_tree_root
                 };
 
-                let contract_state_tree_ck =
-                    StateCommandCacheKey::new_read_self_user_external_contract_slot(
-                        c.contract_id,
-                        c.slot_index,
-                        call_epoch,
-                    );
+                let contract_state_tree_ck = StateCommandCacheKey::new_read_self_user_external_contract_slot(c.contract_id, c.slot_index, call_epoch);
 
-                let (is_new_contract_state_tree, mp_cst) = self
-                    .resolve_or_insert_merkle_proof_gadget::<H, F, D>(
-                        builder,
-                        contract_state_tree_ck,
-                        c.contract_state_tree_height as usize,
-                    );
+                let (is_new_contract_state_tree, mp_cst) =
+                    self.resolve_or_insert_merkle_proof_gadget::<H, F, D>(builder, contract_state_tree_ck, c.contract_state_tree_height as usize);
 
                 let slot_value = mp_cst.value.elements.to_vec();
                 if is_new_contract_state_tree {
                     builder.connect_hashes(mp_cst.root, expected_contract_state_tree_root);
                     let slot_index = dpn.resolve_target(c.slot_index);
                     builder.connect(slot_index, mp_cst.index);
-                    self.result_map
-                        .insert(contract_state_tree_ck, slot_value.clone());
+                    self.result_map.insert(contract_state_tree_ck, slot_value.clone());
                 }
                 slot_value
             }
@@ -1399,37 +1094,21 @@ impl StateReaderGadget {
                     c.contract_state_tree_height as usize,
                 );
                 vec![single_value]
-            },
-            DPNStateCmd::GetSelfUserExternalContractStateSlotRange(c) => {
-                self.get_self_user_external_contract_state_slot_range::<H, F, D>(
-                    builder,
-                    dpn,
-                    c.contract_id,
-                    c.sub_slot_index,
-                    c.contract_state_tree_height as usize,
-                    c.length as usize,
-                )
-            },
+            }
+            DPNStateCmd::GetSelfUserExternalContractStateSlotRange(c) => self.get_self_user_external_contract_state_slot_range::<H, F, D>(
+                builder,
+                dpn,
+                c.contract_id,
+                c.sub_slot_index,
+                c.contract_state_tree_height as usize,
+                c.length as usize,
+            ),
             DPNStateCmd::GetOtherUserContractStateSlotSingle(c) => {
-                let ck = StateCommandCacheKey::new_read_other_user_contract_single(
-                    c.user_id,
-                    c.contract_id,
-                    c.sub_slot_index,
-                    self.write_epoch,
-                );
+                let ck = StateCommandCacheKey::new_read_other_user_contract_single(c.user_id, c.contract_id, c.sub_slot_index, self.write_epoch);
 
-                let expected_contract_state_tree_root = self.get_other_user_contract_state_root::<H, F, D>(
-                    builder,
-                    dpn,
-                    c.user_id,
-                    c.contract_id,
-                );
+                let expected_contract_state_tree_root = self.get_other_user_contract_state_root::<H, F, D>(builder, dpn, c.user_id, c.contract_id);
 
-                let (is_new, mp_cst) = self.resolve_or_insert_merkle_proof_gadget::<H, F, D>(
-                    builder,
-                    ck,
-                    c.contract_state_tree_height as usize,
-                );
+                let (is_new, mp_cst) = self.resolve_or_insert_merkle_proof_gadget::<H, F, D>(builder, ck, c.contract_state_tree_height as usize);
 
                 if is_new {
                     let sub_slot_index = dpn.resolve_target(c.sub_slot_index);
@@ -1443,28 +1122,34 @@ impl StateReaderGadget {
                     self.result_map[&ck].to_vec()
                 }
             }
-            DPNStateCmd::GetOtherUserContractStateSlotRange(c) => self
-                .get_other_user_contract_state_slot_range::<H,F,D>(
-                    builder,
-                    dpn,
-                    c.user_id,
-                    c.contract_id,
-                    c.sub_slot_index,
-                    c.contract_state_tree_height as usize,
-                    c.length as usize,
-                ),
-            DPNStateCmd::GetOtherUserContractStateSlotHash(c) => {
-                self.get_other_user_contract_state_slot_hash::<H, F, D>(
+            DPNStateCmd::GetOtherUserContractStateSlotRange(c) => self.get_other_user_contract_state_slot_range::<H, F, D>(
+                builder,
+                dpn,
+                c.user_id,
+                c.contract_id,
+                c.sub_slot_index,
+                c.contract_state_tree_height as usize,
+                c.length as usize,
+            ),
+            DPNStateCmd::GetOtherUserContractStateSlotHash(c) => self
+                .get_other_user_contract_state_slot_hash::<H, F, D>(
                     builder,
                     dpn,
                     c.user_id,
                     c.contract_id,
                     c.slot_index,
-                    c.contract_state_tree_height as usize
-                ).elements.to_vec()
-            },
+                    c.contract_state_tree_height as usize,
+                )
+                .elements
+                .to_vec(),
             DPNStateCmd::InvokeExternalContractFunctionDeferred(c) => {
-                let ck = StateCommandCacheKey::InvokeDeferredMethodCall(CKInvokeDeferredMethodCall::new(c.condition, c.contract_id, c.method_id, self.deferred_tx_count, &c.input_args));
+                let ck = StateCommandCacheKey::InvokeDeferredMethodCall(CKInvokeDeferredMethodCall::new(
+                    c.condition,
+                    c.contract_id,
+                    c.method_id,
+                    self.deferred_tx_count,
+                    &c.input_args,
+                ));
                 let condition_target = dpn.resolve_bool(builder, c.condition);
                 let contract_id_target = dpn.resolve_target(c.contract_id);
                 let method_id_target = dpn.resolve_target(c.method_id);
@@ -1490,7 +1175,7 @@ impl StateReaderGadget {
                 self.deferred_tx_count += 1;
 
                 tx_hash.elements.to_vec()
-            },
+            }
             DPNStateCmd::GetCheckpointLeafStats(c) => {
                 let ck = StateCommandCacheKey::new_get_checkpoint_stats(c.checkpoint_id);
 
@@ -1501,17 +1186,12 @@ impl StateReaderGadget {
 
                     let requested_checkpoint_stats = QEDCheckpointLeafStatsGadget::create_virtual(builder);
 
-                    let historical_proof = HistoricalRootMerkleProofGadget::add_virtual_to_zero_gt::<H, F, D>(
-                        builder,
-                        CHECKPOINT_TREE_HEIGHT as usize
-                    );
+                    let historical_proof =
+                        HistoricalRootMerkleProofGadget::add_virtual_to_zero_gt::<H, F, D>(builder, CHECKPOINT_TREE_HEIGHT as usize);
 
                     builder.connect(historical_proof.index, requested_checkpoint_id);
 
-                    builder.connect_hashes(
-                        historical_proof.current_root,
-                        self.checkpoint_tree_root
-                    );
+                    builder.connect_hashes(historical_proof.current_root, self.checkpoint_tree_root);
 
                     let checkpoint_stats_hash = requested_checkpoint_stats.to_hash::<H, F, D>(builder);
 
@@ -1520,10 +1200,7 @@ impl StateReaderGadget {
 
                     let checkpoint_leaf_hash = builder.hash_two_to_one::<H>(state_roots_hash, checkpoint_stats_hash);
 
-                    builder.connect_hashes(
-                        historical_proof.current_value,
-                        checkpoint_leaf_hash
-                    );
+                    builder.connect_hashes(historical_proof.current_value, checkpoint_leaf_hash);
 
                     self.insert_checkpoint_stats_gadget(
                         ck.clone(),
@@ -1554,7 +1231,7 @@ impl StateReaderGadget {
 
                     result
                 }
-            },
+            }
             DPNStateCmd::ClearEntireTree(c) => {
                 let ck = StateCommandCacheKey::new_clear_entire_tree_with_condition(c.condition, self.write_epoch);
 
@@ -1586,7 +1263,7 @@ impl StateReaderGadget {
 
                 self.write_epoch += 1;
                 result
-            },
+            }
         };
         value
     }

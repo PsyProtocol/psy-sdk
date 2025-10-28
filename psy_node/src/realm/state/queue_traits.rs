@@ -1,7 +1,8 @@
-use async_trait::async_trait;
 use anyhow::Result;
+use async_trait::async_trait;
 use plonky2::hash::hash_types::RichField;
 use psy_store::queue::{QueueId, QueueStats};
+
 use crate::common_v2::traits::realm::{RealmEdgeUserUpdateSubmission, UniqueQueueId};
 
 #[async_trait]
@@ -15,7 +16,6 @@ pub trait EdgeSubmissionQueue<F: RichField>: Send + Sync {
     async fn get_queue_stats(&self, checkpoint: &UniqueQueueId) -> Result<QueueStats>;
     async fn has_messages(&self, checkpoint: &UniqueQueueId) -> Result<bool>;
     async fn get_message_count(&self, checkpoint: &UniqueQueueId) -> Result<u64>;
-
 }
 
 #[async_trait]

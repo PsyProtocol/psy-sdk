@@ -1,18 +1,18 @@
 use plonky2::hash::hash_types::RichField;
-//use psy_core::config::network_constants::QEDTreeConfig;
-use crate::qdata::{checkpoint::{QEDCheckpointLeaf, QEDL2BlockState}, contract::{ContractCodeDefinition, QEDContractLeaf}, user::QEDUserLeaf};
 
+//use psy_core::config::network_constants::QEDTreeConfig;
+use crate::qdata::{
+    checkpoint::{QEDCheckpointLeaf, QEDL2BlockState},
+    contract::{ContractCodeDefinition, QEDContractLeaf},
+    user::QEDUserLeaf,
+};
 
 #[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
 #[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
 pub trait QMetaDataStoreReaderSync<F: RichField>: Send + Sync {
     async fn get_user_leaf_data(&self, checkpoint_id: u64, user_id: u64) -> anyhow::Result<QEDUserLeaf<F>>;
     async fn get_user_leaf_data_f(&self, checkpoint_id: F, user_id: F) -> anyhow::Result<QEDUserLeaf<F>> {
-        <Self as QMetaDataStoreReaderSync<F>>::get_user_leaf_data(
-            self,
-            checkpoint_id.to_canonical_u64(),
-            user_id.to_canonical_u64(),
-        ).await
+        <Self as QMetaDataStoreReaderSync<F>>::get_user_leaf_data(self, checkpoint_id.to_canonical_u64(), user_id.to_canonical_u64()).await
     }
 
     async fn get_contract_leaf_data(&self, contract_id: u64) -> anyhow::Result<QEDContractLeaf<F>>;
@@ -20,8 +20,8 @@ pub trait QMetaDataStoreReaderSync<F: RichField>: Send + Sync {
         <Self as QMetaDataStoreReaderSync<F>>::get_contract_leaf_data(self, contract_id.to_canonical_u64()).await
     }
 
-    async  fn get_checkpoint_leaf_data(&self, checkpoint_id: u64) -> anyhow::Result<QEDCheckpointLeaf<F>>;
-    async  fn get_checkpoint_leaf_data_f(&self, checkpoint_id: F) -> anyhow::Result<QEDCheckpointLeaf<F>> {
+    async fn get_checkpoint_leaf_data(&self, checkpoint_id: u64) -> anyhow::Result<QEDCheckpointLeaf<F>>;
+    async fn get_checkpoint_leaf_data_f(&self, checkpoint_id: F) -> anyhow::Result<QEDCheckpointLeaf<F>> {
         <Self as QMetaDataStoreReaderSync<F>>::get_checkpoint_leaf_data(self, checkpoint_id.to_canonical_u64()).await
     }
 
@@ -53,11 +53,7 @@ pub trait QMetaDataStoreWriterSync<F: RichField> {
 
     fn set_checkpoint_leaf_data(&self, checkpoint_id: u64, leaf_data: &QEDCheckpointLeaf<F>) -> anyhow::Result<()>;
     fn set_checkpoint_leaf_data_f(&self, checkpoint_id: F, leaf_data: &QEDCheckpointLeaf<F>) -> anyhow::Result<()> {
-        <Self as QMetaDataStoreWriterSync<F>>::set_checkpoint_leaf_data(
-            self,
-            checkpoint_id.to_canonical_u64(),
-            leaf_data,
-        )
+        <Self as QMetaDataStoreWriterSync<F>>::set_checkpoint_leaf_data(self, checkpoint_id.to_canonical_u64(), leaf_data)
     }
 
     fn set_contract_code_definition(&self, checkpoint_id: u64, contract_id: u64, definition: &ContractCodeDefinition) -> anyhow::Result<()>;

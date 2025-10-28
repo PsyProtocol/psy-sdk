@@ -1,8 +1,10 @@
 use std::marker::PhantomData;
 
-use psy_vm::dpn::ops::sym_felt::QStateInitializable;
-use psy_vm::dpn::ops::utils::SparseArray;
-use psy_vm::dpn::ops::{context_trait::DPNContext, sym_felt::SymFeltRef};
+use psy_vm::dpn::ops::{
+    context_trait::DPNContext,
+    sym_felt::{QStateInitializable, SymFeltRef},
+    utils::SparseArray,
+};
 use psylang_macros::{qcontract, FeltSized};
 
 type Felt = SymFeltRef;
@@ -26,31 +28,14 @@ impl psy_vm::dpn::ops::sym_felt::QStateInitializable for SimpleContractState {
         let mut cur_offset = 0u64;
         let mut nw_pointer = SymFeltRef::new_constant(cur_offset);
         nw_pointer = context.op_add(state_pointer, SymFeltRef::new_constant(cur_offset));
-        let r#f_t_0 = <Felt as QStateInitializable>::create_stateful_at(
-            context,
-            nw_pointer,
-            contract_state_tree_height,
-            contract_id,
-            user_id,
-        );
+        let r#f_t_0 = <Felt as QStateInitializable>::create_stateful_at(context, nw_pointer, contract_state_tree_height, contract_id, user_id);
         cur_offset = cur_offset + <Felt as FeltSized>::size();
         nw_pointer = context.op_add(state_pointer, SymFeltRef::new_constant(cur_offset));
-        let r#f_t_1 = <Felt as QStateInitializable>::create_stateful_at(
-            context,
-            nw_pointer,
-            contract_state_tree_height,
-            contract_id,
-            user_id,
-        );
+        let r#f_t_1 = <Felt as QStateInitializable>::create_stateful_at(context, nw_pointer, contract_state_tree_height, contract_id, user_id);
         cur_offset = cur_offset + <Felt as FeltSized>::size();
         nw_pointer = context.op_add(state_pointer, SymFeltRef::new_constant(cur_offset));
-        let r#f_t_2 = <SparseArray<Felt, 12> as QStateInitializable>::create_stateful_at(
-            context,
-            nw_pointer,
-            contract_state_tree_height,
-            contract_id,
-            user_id,
-        );
+        let r#f_t_2 =
+            <SparseArray<Felt, 12> as QStateInitializable>::create_stateful_at(context, nw_pointer, contract_state_tree_height, contract_id, user_id);
         cur_offset = cur_offset + <SparseArray<Felt, 12> as FeltSized>::size();
         Self {
             x: r#f_t_0,
@@ -65,9 +50,7 @@ pub struct SimpleContractStateful<C: DPNContext<Felt>> {
 }
 impl<C: DPNContext<Felt>> SimpleContractStateful<C> {
     pub fn new() -> Self {
-        Self {
-            _phantom: PhantomData,
-        }
+        Self { _phantom: PhantomData }
     }
 }
 
@@ -176,10 +159,7 @@ mod test {
         let z = contract.simple_math(&mut ctx, a, b);
         let result = exec_eval_simple(vec![v_a, v_b], &ctx, Some(vec![z]));
 
-        assert_eq!(
-            result[0],
-            real_simple_math(gl(v_a), gl(v_b)).to_canonical_u64()
-        );
+        assert_eq!(result[0], real_simple_math(gl(v_a), gl(v_b)).to_canonical_u64());
     }
     fn run_test_simple_if(v_a: u64, v_b: u64) {
         let mut ctx = QExecContext::new();
@@ -189,10 +169,7 @@ mod test {
         let z = contract.if_test_2(&mut ctx, a, b);
         let result = exec_eval_simple(vec![v_a, v_b], &ctx, Some(vec![z]));
 
-        assert_eq!(
-            result[0],
-            real_if_test_2(gl(v_a), gl(v_b)).to_canonical_u64()
-        );
+        assert_eq!(result[0], real_if_test_2(gl(v_a), gl(v_b)).to_canonical_u64());
     }
 
     #[test]

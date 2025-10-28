@@ -1,13 +1,11 @@
-use kvq::memory::simple::KVQSimpleMemoryBackingStore;
 use std::sync::Arc;
+
+use kvq::memory::simple::KVQSimpleMemoryBackingStore;
 use plonky2::hash::poseidon::PoseidonHash;
 use psy_core::{data::qhashout::QHashOut, utils::debug_timer::DebugTimer};
 use psy_data::{
     config::store_config::UserTreeStore,
-    models::kvq_merkle::model::{
-        KVQFixedConfigMerkleTreeModelCore,
-        KVQFixedConfigMerkleTreeModelReaderCore,
-    },
+    models::kvq_merkle::model::{KVQFixedConfigMerkleTreeModelCore, KVQFixedConfigMerkleTreeModelReaderCore},
 };
 
 fn test_kvq_simple_store_arc() -> anyhow::Result<()> {
@@ -22,8 +20,7 @@ fn test_kvq_simple_store_arc() -> anyhow::Result<()> {
     t.lap("start modifications");
 
     for i in 0..100000 {
-        let _tmp =
-            UserTreeStore::<Arc<KVQSimpleMemoryBackingStore>>::set_leaf_fc(&st, 2, i, QHashOut::from_values(i + 5, 6, 7, 8))?;
+        let _tmp = UserTreeStore::<Arc<KVQSimpleMemoryBackingStore>>::set_leaf_fc(&st, 2, i, QHashOut::from_values(i + 5, 6, 7, 8))?;
     }
     t.batch_average("end modifications", "set_user_leaf", 100000);
 

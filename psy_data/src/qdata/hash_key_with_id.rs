@@ -24,10 +24,7 @@ impl<const TABLE_TYPE: u16> KVQSerializable for Hash4x64KeyWithId<TABLE_TYPE> {
 
     fn from_bytes(bytes: &[u8]) -> anyhow::Result<Self> {
         if bytes.len() != 42 {
-            anyhow::bail!(
-                "expected 42 bytes for deserializing Hash4x64KeyWithId, got {} bytes",
-                bytes.len()
-            );
+            anyhow::bail!("expected 42 bytes for deserializing Hash4x64KeyWithId, got {} bytes", bytes.len());
         }
 
         let elements_0 = u64::from_be_bytes(bytes[2..10].try_into().unwrap());
@@ -46,10 +43,7 @@ impl<const TABLE_TYPE: u16> KVQSerializable for Hash4x64KeyWithId<TABLE_TYPE> {
 }
 impl<const TABLE_TYPE: u16> Hash4x64KeyWithId<TABLE_TYPE> {
     pub fn new<H: Into<Hash4x64Key<TABLE_TYPE>>>(hash: H, id: u64) -> Self {
-        Self {
-            hash: hash.into(),
-            id,
-        }
+        Self { hash: hash.into(), id }
     }
 }
 

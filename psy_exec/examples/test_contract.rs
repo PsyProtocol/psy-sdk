@@ -1,24 +1,25 @@
 use std::marker::PhantomData;
 
 use kvq::memory::simple::KVQSimpleMemoryBackingStore;
-use psy_store::node::coordinator::QEDCoordinatorStoreWriterAsyncImm;
 use plonky2::field::{goldilocks_field::GoldilocksField, types::Field};
 use psy_core::data::qhashout::QHashOut;
 use psy_crypto::hash::utils::gen_dapen_contract_function_method_id;
 use psy_data::{
+    config::store_config::QEDHasher,
     protocol::circuit_fingerprints::QEDWorkerToolboxCoreCircuitFingerprints,
-    qblock::cmds::{
-        core::QEDBlockCommands, deploy_contract::QBCDeployContract, register_user::QBCRegisterUser,
+    qblock::{
+        cmds::{core::QEDBlockCommands, deploy_contract::QBCDeployContract, register_user::QBCRegisterUser},
+        process::simple::SimpleBlockProcessor,
     },
     qdata::contract::{ContractCodeDefinition, ContractFunctionCodeDefinition},
+    qstore::imm::cmd_processor::QEDReadCommandProcessorSync,
+    traits::qdatastore::qtreedata::QEDComboDataStoreReaderWriterSync,
 };
 use psy_exec::vm::exec::QEDEvalSessionResult;
-use psy_data::{
-    config::store_config::QEDHasher, qblock::process::simple::SimpleBlockProcessor, qstore::imm::cmd_processor::QEDReadCommandProcessorSync, traits::qdatastore::
-        qtreedata::
-            QEDComboDataStoreReaderWriterSync
+use psy_store::{
+    controllers::local::{prepare_environment_with_real_contract, proving_session::QEDLocalProvingSessionStore},
+    node::coordinator::QEDCoordinatorStoreWriterAsyncImm,
 };
-use psy_store::controllers::local::{proving_session::QEDLocalProvingSessionStore, prepare_environment_with_real_contract};
 use psy_vm::dpn::{
     ops::{context_trait::DPNContext, exec_context::QExecContext, sym_felt::SymFeltRef},
     vm::{compile::QEDCompileResult, def::DPNFunctionCircuitDefinition},
@@ -32,9 +33,7 @@ pub struct SimpleContractStateless<C: DPNContext<Felt>> {
 }
 impl<C: DPNContext<Felt>> SimpleContractStateless<C> {
     pub fn new() -> Self {
-        Self {
-            _phantom: PhantomData,
-        }
+        Self { _phantom: PhantomData }
     }
 }
 
@@ -47,13 +46,7 @@ impl<C: DPNContext<Felt>> SimpleContractStateless<C> {
         ctx.assert_true(z > 12, "z must be gt than 12");
         z
     }
-    pub fn simple_state_update(
-        &mut self,
-        ctx: &mut C,
-        read_index: Felt,
-        write_index: Felt,
-        write_value: Felt,
-    ) -> Felt {
+    pub fn simple_state_update(&mut self, ctx: &mut C, read_index: Felt, write_index: Felt, write_value: Felt) -> Felt {
         let read_value = ctx.get_state_hash_at(read_index);
         let read_vv = read_value[0];
         if write_value > 100 {
@@ -77,7 +70,6 @@ impl<C: DPNContext<Felt>> SimpleContractStateless<C> {
     }
 }
 
-
 async fn test_run_contract_fn<R: QEDReadCommandProcessorSync<GoldilocksField> + Send + Sync>(
     contract_id: GoldilocksField,
     fn_circuit_def: &DPNFunctionCircuitDefinition,
@@ -85,7 +77,7 @@ async fn test_run_contract_fn<R: QEDReadCommandProcessorSync<GoldilocksField> + 
     inputs: &[GoldilocksField],
 ) -> anyhow::Result<Vec<GoldilocksField>> {
     let outputs = QEDEvalSessionResult::new()
-        .exec_contract_call( lps, contract_id,&fn_circuit_def, inputs.to_vec())
+        .exec_contract_call(lps, contract_id, &fn_circuit_def, inputs.to_vec())
         .await?
         .outputs;
 
@@ -101,20 +93,10 @@ fn test_compile_contract() -> anyhow::Result<DPNFunctionCircuitDefinition> {
     let c = ctx.add_input();
     let z = contract.simple_state_update(&mut ctx, a, b, c);
     let outputs = vec![z];
-    let method_args = [
-        ("a".to_string(), 1usize),
-        ("b".to_string(), 1),
-        ("c".to_string(), 1),
-    ];
+    let method_args = [("a".to_string(), 1usize), ("b".to_string(), 1), ("c".to_string(), 1)];
     let method_name = "simple_math".to_string();
     let method_id = gen_dapen_contract_function_method_id(method_name.clone(), &method_args);
-    let fn_circuit_def = QEDCompileResult::compile_exec(
-        "simple_math".to_string(),
-        method_id,
-        &ctx.store,
-        &ctx,
-        &outputs,
-    );
+    let fn_circuit_def = QEDCompileResult::compile_exec("simple_math".to_string(), method_id, &ctx.store, &ctx, &outputs);
 
     Ok(fn_circuit_def)
 }
@@ -123,7 +105,7 @@ async fn main() {
     let compiled = test_compile_contract().unwrap();
     let contract_id = GoldilocksField::ONE;
 
-    let deployer_key = QBCRegisterUser::new_from_u64s([1;4], [13371, 13372, 13373, 13374]);
+    let deployer_key = QBCRegisterUser::new_from_u64s([1; 4], [13371, 13372, 13373, 13374]);
     let deploy_contract = QBCDeployContract {
         deployer: deployer_key.get_public_key::<QEDHasher>(),
         code_definition: ContractCodeDefinition {
@@ -140,9 +122,9 @@ async fn main() {
 
     let mut lps = prepare_environment_with_real_contract(
         vec![
-            QBCRegisterUser::new_from_u64s([1;4], [1;4]),
+            QBCRegisterUser::new_from_u64s([1; 4], [1; 4]),
             deployer_key,
-            QBCRegisterUser::new(QHashOut::rand(),QHashOut::rand()),
+            QBCRegisterUser::new(QHashOut::rand(), QHashOut::rand()),
         ],
         vec![deploy_contract],
         Some(1),

@@ -1,10 +1,11 @@
-use core::fmt::{self, Debug, Display, Formatter};
-use core::hash::{Hash, Hasher};
-use core::iter::{Product, Sum};
-use core::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
+use core::{
+    fmt::{self, Debug, Display, Formatter},
+    hash::{Hash, Hasher},
+    iter::{Product, Sum},
+    ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign},
+};
 
-use num::bigint::BigUint;
-use num::{Integer, One};
+use num::{bigint::BigUint, Integer, One};
 use plonky2::field::types::{Field, PrimeField, Sample};
 use serde::{Deserialize, Serialize};
 
@@ -60,12 +61,7 @@ impl Bn128Scalar {
     pub const ZERO: Self = Self([0; 4]);
     pub const ONE: Self = Self([1, 0, 0, 0]);
     pub const TWO: Self = Self([2, 0, 0, 0]);
-    pub const NEG_ONE: Self = Self([
-        0x43e1f593f0000000,
-        0x2833e84879b97091,
-        0xb85045b68181585d,
-        0x30644e72e131a029,
-    ]);
+    pub const NEG_ONE: Self = Self([0x43e1f593f0000000, 0x2833e84879b97091, 0xb85045b68181585d, 0x30644e72e131a029]);
 
     pub const NONRESIDUE: Self = todo!();
 
@@ -73,12 +69,7 @@ impl Bn128Scalar {
         todo!()
     }
 
-    pub const ORDER: [u64; 4] = [
-        0x43e1f593f0000001,
-        0x2833e84879b97091,
-        0xb85045b68181585d,
-        0x30644e72e131a029,
-    ];
+    pub const ORDER: [u64; 4] = [0x43e1f593f0000001, 0x2833e84879b97091, 0xb85045b68181585d, 0x30644e72e131a029];
 
     pub const MONTGOMERY_INV: [u64; 4] = [1, 0, 0, 0];
 
@@ -112,7 +103,9 @@ impl Bn128Scalar {
         let digits = val.to_u64_digits();
         let mut result = [0u64; 4];
         for (i, &digit) in digits.iter().enumerate() {
-            if i >= 4 { break; }
+            if i >= 4 {
+                break;
+            }
             result[i] = digit;
         }
         Self(result).reduce()
@@ -139,8 +132,7 @@ impl Bn128Scalar {
 
     pub fn order() -> BigUint {
         BigUint::from_slice(&[
-            0xf0000001, 0x43e1f593, 0x79b97091, 0x2833e848,
-            0x8181585d, 0xb85045b6, 0xe131a029, 0x30644e72,
+            0xf0000001, 0x43e1f593, 0x79b97091, 0x2833e848, 0x8181585d, 0xb85045b6, 0xe131a029, 0x30644e72,
         ])
     }
 
@@ -206,9 +198,7 @@ impl Bn128Scalar {
     }
 
     pub fn multiplicative_group_factors() -> Vec<(BigUint, usize)> {
-        vec![
-            (BigUint::from(2u32), Self::TWO_ADICITY),
-        ]
+        vec![(BigUint::from(2u32), Self::TWO_ADICITY)]
     }
 }
 
@@ -386,16 +376,23 @@ impl From<u128> for Bn128Scalar {
 
 impl From<bool> for Bn128Scalar {
     fn from(b: bool) -> Self {
-        if b { Self::ONE } else { Self::ZERO }
+        if b {
+            Self::ONE
+        } else {
+            Self::ZERO
+        }
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use num::{BigUint, One as NumOne, Zero as NumZero};
+    use plonky2::field::{
+        ops::Square,
+        types::{Field, PrimeField, Sample},
+    };
+
     use super::*;
-    use num::{BigUint, Zero as NumZero, One as NumOne};
-    use plonky2::field::types::{Field, PrimeField, Sample};
-    use plonky2::field::ops::Square;
     use crate::test_field_arithmetic;
 
     test_field_arithmetic!(crate::crypto::bn254::field::bn128_scalar::Bn128Scalar);
@@ -409,20 +406,14 @@ mod tests {
         assert_eq!(Bn128Scalar::TWO.0, [2, 0, 0, 0]);
 
         let p = Bn128Scalar::characteristic();
-        let expected_p = BigUint::parse_bytes(
-            b"21888242871839275222246405745257275088548364400416034343698204186575808495617",
-            10
-        ).unwrap();
+        let expected_p = BigUint::parse_bytes(b"21888242871839275222246405745257275088548364400416034343698204186575808495617", 10).unwrap();
         assert_eq!(p, expected_p);
     }
 
     #[test]
     fn test_scalar_vs_base_field() {
         let scalar_order = Bn128Scalar::characteristic();
-        let base_order = BigUint::parse_bytes(
-            b"21888242871839275222246405745257275088696311157297823662689037894645226208583",
-            10
-        ).unwrap();
+        let base_order = BigUint::parse_bytes(b"21888242871839275222246405745257275088696311157297823662689037894645226208583", 10).unwrap();
         assert_ne!(scalar_order, base_order);
     }
 

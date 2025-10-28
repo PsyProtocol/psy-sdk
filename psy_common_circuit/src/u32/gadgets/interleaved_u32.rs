@@ -1,12 +1,14 @@
-use plonky2::field::extension::Extendable;
-use plonky2::hash::hash_types::RichField;
-use plonky2::iop::target::{BoolTarget, Target};
-use plonky2::plonk::circuit_builder::CircuitBuilder;
+use plonky2::{
+    field::extension::Extendable,
+    hash::hash_types::RichField,
+    iop::target::{BoolTarget, Target},
+    plonk::circuit_builder::CircuitBuilder,
+};
 
-use super::super::gadgets::arithmetic_u32::{CircuitBuilderU32, U32Target};
-use super::super::gates::interleave_u32::U32InterleaveGate;
-use super::super::gates::uninterleave_to_b32::UninterleaveToB32Gate;
-use super::super::gates::uninterleave_to_u32::UninterleaveToU32Gate;
+use super::super::{
+    gadgets::arithmetic_u32::{CircuitBuilderU32, U32Target},
+    gates::{interleave_u32::U32InterleaveGate, uninterleave_to_b32::UninterleaveToB32Gate, uninterleave_to_u32::UninterleaveToU32Gate},
+};
 
 pub struct B32Target(pub Target);
 
@@ -43,17 +45,10 @@ pub trait CircuitBuilderB32<F: RichField + Extendable<D>, const D: usize> {
     fn xor_u64(&mut self, x: &[U32Target; 2], y: &[U32Target; 2]) -> [U32Target; 2];
     fn and_u64(&mut self, x: &[U32Target; 2], y: &[U32Target; 2]) -> [U32Target; 2];
     fn unsafe_xor_many_u64(&mut self, x: &[[U32Target; 2]]) -> [U32Target; 2];
-    fn conditional_u64(
-        &mut self,
-        x: &[U32Target; 2],
-        y: &[U32Target; 2],
-        x_or_y: BoolTarget,
-    ) -> [U32Target; 2];
+    fn conditional_u64(&mut self, x: &[U32Target; 2], y: &[U32Target; 2], x_or_y: BoolTarget) -> [U32Target; 2];
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderB32<F, D>
-    for CircuitBuilder<F, D>
-{
+impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderB32<F, D> for CircuitBuilder<F, D> {
     // not := 0xFFFFFFFF - x
     fn not_u32(&mut self, a: U32Target) -> U32Target {
         let zero = self.zero_u32();
@@ -102,10 +97,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderB32<F, D>
         let gate = UninterleaveToU32Gate::new_from_config(&self.config);
         let (row, copy) = self.find_slot(gate, &[], &[]);
 
-        self.connect(
-            Target::wire(row, gate.wire_ith_x_interleaved(copy)),
-            x_dirty,
-        );
+        self.connect(Target::wire(row, gate.wire_ith_x_interleaved(copy)), x_dirty);
 
         let x_evens = U32Target(Target::wire(row, gate.wire_ith_x_evens(copy)));
         let x_odds = U32Target(Target::wire(row, gate.wire_ith_x_odds(copy)));
@@ -117,10 +109,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderB32<F, D>
         let gate = UninterleaveToB32Gate::new_from_config(&self.config);
         let (row, copy) = self.find_slot(gate, &[], &[]);
 
-        self.connect(
-            Target::wire(row, gate.wire_ith_x_interleaved(copy)),
-            x_dirty,
-        );
+        self.connect(Target::wire(row, gate.wire_ith_x_interleaved(copy)), x_dirty);
 
         let x_evens = B32Target(Target::wire(row, gate.wire_ith_x_evens(copy)));
         let x_odds = B32Target(Target::wire(row, gate.wire_ith_x_odds(copy)));
@@ -131,16 +120,27 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderB32<F, D>
     /// Important! This function is unsafe!
     /// It fails for 3+ inputs all set to 0xffffffff
     ///
-    /// More generally, it fails if the sum of the three interleaved inputs for a given iteration exceeds the Goldilocks field characteristic.
-    /// In these cases, the sum gets reduced mod the field order and will produce.
-    /// If we assume the outputs for a 3-way add of interleaved u32 inputs are uniformly distributed in [0, 2^64-1] (don't think this is actually true but I think close enough),
-    /// then the odds of this happening are 1 - ((2^64-2^32+1) / (2^64-1)) = 2.3283064e-10, so it's unlikely to inhibit an honest prover trying to prove something actually correct.
+    /// More generally, it fails if the sum of the three interleaved inputs for
+    /// a given iteration exceeds the Goldilocks field characteristic.
+    /// In these cases, the sum gets reduced mod the field order and will
+    /// produce. If we assume the outputs for a 3-way add of interleaved u32
+    /// inputs are uniformly distributed in [0, 2^64-1] (don't think this is
+    /// actually true but I think close enough), then the odds of this
+    /// happening are 1 - ((2^64-2^32+1) / (2^64-1)) = 2.3283064e-10, so it's
+    /// unlikely to inhibit an honest prover trying to prove something actually
+    /// correct.
     ///
-    /// However, please keep in mind that adversarially this makes it possible in some cases to prove an invalid input hashes to the same result as a valid input.
-    /// For example, this circuit can incorrectly prove that 0xffffffff XOR 0xffffffff XOR 0xffffffff is equal to 0x0000fffe.
-    /// If you have three inputs whose XOR actually *do* evaluate to 0x0000fffe, then a malicious prover can substitute 0xffffffff for the actual inputs and still produce a valid proof.
-    /// Cases like this basically require the first half of the real result to be all 0's, so odds of roughly 1/(2^16) per input triple that this exploit appears
-    /// Currently we haven't thought of any particular attacks that can exploit this, but once again should be kept in mind.
+    /// However, please keep in mind that adversarially this makes it possible
+    /// in some cases to prove an invalid input hashes to the same result as a
+    /// valid input. For example, this circuit can incorrectly prove that
+    /// 0xffffffff XOR 0xffffffff XOR 0xffffffff is equal to 0x0000fffe.
+    /// If you have three inputs whose XOR actually *do* evaluate to 0x0000fffe,
+    /// then a malicious prover can substitute 0xffffffff for the actual inputs
+    /// and still produce a valid proof. Cases like this basically require
+    /// the first half of the real result to be all 0's, so odds of roughly
+    /// 1/(2^16) per input triple that this exploit appears Currently we
+    /// haven't thought of any particular attacks that can exploit this, but
+    /// once again should be kept in mind.
     fn unsafe_xor_many_u32(&mut self, x: &[U32Target]) -> U32Target {
         match x.len() {
             0 => self.zero_u32(),
@@ -223,18 +223,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderB32<F, D>
 
     fn unsafe_xor_many_u64(&mut self, x: &[[U32Target; 2]]) -> [U32Target; 2] {
         [
-            self.unsafe_xor_many_u32(
-                x.iter()
-                    .map(|el| el[0])
-                    .collect::<Vec<U32Target>>()
-                    .as_slice(),
-            ),
-            self.unsafe_xor_many_u32(
-                x.iter()
-                    .map(|el| el[1])
-                    .collect::<Vec<U32Target>>()
-                    .as_slice(),
-            ),
+            self.unsafe_xor_many_u32(x.iter().map(|el| el[0]).collect::<Vec<U32Target>>().as_slice()),
+            self.unsafe_xor_many_u32(x.iter().map(|el| el[1]).collect::<Vec<U32Target>>().as_slice()),
         ]
     }
 
@@ -257,16 +247,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderB32<F, D>
         self.mul_add_u32(y, not_z, maybe_x).0
     }
 
-    fn conditional_u64(
-        &mut self,
-        x: &[U32Target; 2],
-        y: &[U32Target; 2],
-        z: BoolTarget,
-    ) -> [U32Target; 2] {
-        [
-            self.conditional_u32(x[0], y[0], z),
-            self.conditional_u32(x[1], y[1], z),
-        ]
+    fn conditional_u64(&mut self, x: &[U32Target; 2], y: &[U32Target; 2], z: BoolTarget) -> [U32Target; 2] {
+        [self.conditional_u32(x[0], y[0], z), self.conditional_u32(x[1], y[1], z)]
     }
 
     fn lsh_u64(&mut self, x: &[U32Target; 2], n: u8) -> [U32Target; 2] {
@@ -325,16 +307,20 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderB32<F, D>
 #[cfg(test)]
 mod tests {
     use anyhow::Result;
-    use plonky2::field::types::{Field, PrimeField64};
-    use plonky2::iop::witness::PartialWitness;
-    use plonky2::plonk::circuit_data::CircuitConfig;
-    use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
+    use plonky2::{
+        field::types::{Field, PrimeField64},
+        iop::witness::PartialWitness,
+        plonk::{
+            circuit_data::CircuitConfig,
+            config::{GenericConfig, PoseidonGoldilocksConfig},
+        },
+    };
 
-    use super::super::super::witness::WitnessU32;
-    use super::*;
+    use super::{super::super::witness::WitnessU32, *};
 
     #[test]
-    /// One hard-coded test case for now. Are there any weird edge cases that should also be explicitly covered?
+    /// One hard-coded test case for now. Are there any weird edge cases that
+    /// should also be explicitly covered?
     pub fn test_interleave_u32() -> Result<()> {
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
@@ -349,8 +335,7 @@ mod tests {
         let mut builder = CircuitBuilder::<F, D>::new(config);
 
         let x_value: u32 = 0b1111_1111_1111_1111_1111_1111_1111_1100;
-        let x_interleaved_value_expected: u64 =
-            0b0101_0101_0101_0101_0101_0101_0101_0101_0101_0101_0101_0101_0101_0101_0101_0000;
+        let x_interleaved_value_expected: u64 = 0b0101_0101_0101_0101_0101_0101_0101_0101_0101_0101_0101_0101_0101_0101_0101_0000;
 
         let x_target = builder.constant_u32(x_value);
         let x_interleaved_target = builder.interleave_u32(x_target);
@@ -367,7 +352,8 @@ mod tests {
     }
 
     #[test]
-    /// One hard-coded test case for now. Are there any weird edge cases that should also be explicitly covered?
+    /// One hard-coded test case for now. Are there any weird edge cases that
+    /// should also be explicitly covered?
     pub fn test_uninterleave_to_u32() -> Result<()> {
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
@@ -378,8 +364,7 @@ mod tests {
         let pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, D>::new(config);
 
-        let x_interleaved_value: u64 =
-            0b1111_0101_0101_0101_0101_0101_0101_0101_0101_0101_0101_0101_0101_0101_0101_0101;
+        let x_interleaved_value: u64 = 0b1111_0101_0101_0101_0101_0101_0101_0101_0101_0101_0101_0101_0101_0101_0101_0101;
         let x_evens_value_expected: u64 = 0b1100_0000_0000_0000_0000_0000_0000_0000;
         let x_odds_value_expected: u64 = 0b1111_1111_1111_1111_1111_1111_1111_1111;
 
@@ -400,7 +385,8 @@ mod tests {
     }
 
     #[test]
-    /// One hard-coded test case for now. Are there any weird edge cases that should also be explicitly covered?
+    /// One hard-coded test case for now. Are there any weird edge cases that
+    /// should also be explicitly covered?
     pub fn test_uninterleave_to_b32() -> Result<()> {
         const D: usize = 2;
         type C = PoseidonGoldilocksConfig;
@@ -411,12 +397,9 @@ mod tests {
         let pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, D>::new(config);
 
-        let x_interleaved_value: u64 =
-            0b1111_0101_0101_0101_0101_0101_0101_0101_0101_0101_0101_0101_0101_0101_0101_0101;
-        let x_evens_value_expected: u64 =
-            0b0101_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000;
-        let x_odds_value_expected: u64 =
-            0b0101_0101_0101_0101_0101_0101_0101_0101_0101_0101_0101_0101_0101_0101_0101_0101;
+        let x_interleaved_value: u64 = 0b1111_0101_0101_0101_0101_0101_0101_0101_0101_0101_0101_0101_0101_0101_0101_0101;
+        let x_evens_value_expected: u64 = 0b0101_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000;
+        let x_odds_value_expected: u64 = 0b0101_0101_0101_0101_0101_0101_0101_0101_0101_0101_0101_0101_0101_0101_0101_0101;
 
         let x_interleaved_target = builder.constant(F::from_canonical_u64(x_interleaved_value));
         let (x_evens_target, x_odds_target) = builder.uninterleave_to_b32(x_interleaved_target);
@@ -741,7 +724,11 @@ mod tests {
         for (low, high) in tests {
             let res = ((low + (high << 32)) << 2) & 0xffffffffffffffff;
             let new_low = res & 0x00000000ffffffff;
-            let new_high = if res & 0xffffffff00000000 != 0 { (res & 0xffffffff00000000) >> 32 } else { 0 };
+            let new_high = if res & 0xffffffff00000000 != 0 {
+                (res & 0xffffffff00000000) >> 32
+            } else {
+                0
+            };
 
             // test circuit
             let mut pw = PartialWitness::new();
@@ -782,7 +769,11 @@ mod tests {
         for (low, high) in tests {
             let res = ((low + (high << 32)) >> 2) & 0xffffffffffffffff;
             let new_low = res & 0x00000000ffffffff;
-            let new_high = if res & 0xffffffff00000000 != 0 { (res & 0xffffffff00000000) >> 32 } else { 0 };
+            let new_high = if res & 0xffffffff00000000 != 0 {
+                (res & 0xffffffff00000000) >> 32
+            } else {
+                0
+            };
 
             // test circuit
             let mut pw = PartialWitness::new();

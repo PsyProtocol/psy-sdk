@@ -1,8 +1,7 @@
-use kvq::traits::{KVQBinaryStore, KVQPair};
-use reth_libmdbx::{
-    Cursor, Database, Environment, EnvironmentFlags, Geometry, Mode, SyncMode, TransactionKind, WriteFlags, RO, RW
-};
 use std::{ops::RangeInclusive, path::PathBuf};
+
+use kvq::traits::{KVQBinaryStore, KVQPair};
+use reth_libmdbx::{Cursor, Database, Environment, EnvironmentFlags, Geometry, Mode, SyncMode, TransactionKind, WriteFlags, RO, RW};
 
 #[derive(Debug)]
 pub struct KVQlibmdbxStore {
@@ -81,24 +80,15 @@ impl KVQlibmdbxStore {
 
     pub fn begin_read(&self) -> anyhow::Result<Transaction<RO>> {
         let txn = self.env.begin_ro_txn()?;
-        Ok(Transaction {
-            db: txn.open_db(None)?,
-            txn,
-        })
+        Ok(Transaction { db: txn.open_db(None)?, txn })
     }
 
     pub fn begin_write(&self) -> anyhow::Result<Transaction<RW>> {
         let txn = self.env.begin_rw_txn()?;
-        Ok(Transaction {
-            db: txn.open_db(None)?,
-            txn,
-        })
+        Ok(Transaction { db: txn.open_db(None)?, txn })
     }
 
-    pub fn with_read_txn<R>(
-        &self,
-        f: impl FnOnce(&Transaction<RO>) -> anyhow::Result<R>,
-    ) -> anyhow::Result<R> {
+    pub fn with_read_txn<R>(&self, f: impl FnOnce(&Transaction<RO>) -> anyhow::Result<R>) -> anyhow::Result<R> {
         let txn = self.env.begin_ro_txn()?;
         let db = txn.open_db(None)?;
         let txn = Transaction { txn, db };
@@ -107,10 +97,7 @@ impl KVQlibmdbxStore {
         Ok(result)
     }
 
-    pub fn with_write_txn<R>(
-        &self,
-        f: impl FnOnce(&mut Transaction<RW>) -> anyhow::Result<R>,
-    ) -> anyhow::Result<R> {
+    pub fn with_write_txn<R>(&self, f: impl FnOnce(&mut Transaction<RW>) -> anyhow::Result<R>) -> anyhow::Result<R> {
         let txn = self.env.begin_rw_txn()?;
         let db = txn.open_db(None)?;
         let mut txn = Transaction { txn, db };
@@ -137,35 +124,19 @@ impl KVQBinaryStore for KVQlibmdbxStore {
         self.with_read_txn(|txn| txn.get_leq(key, fuzzy_bytes))
     }
 
-    fn get_fuzzy_range_leq_kv(
-        &self,
-        key: &Vec<u8>,
-        fuzzy_bytes: usize,
-    ) -> anyhow::Result<Vec<KVQPair<Vec<u8>, Vec<u8>>>> {
+    fn get_fuzzy_range_leq_kv(&self, key: &Vec<u8>, fuzzy_bytes: usize) -> anyhow::Result<Vec<KVQPair<Vec<u8>, Vec<u8>>>> {
         self.with_read_txn(|txn| txn.get_fuzzy_range_leq_kv(key, fuzzy_bytes))
     }
 
-    fn get_leq_kv(
-        &self,
-        key: &Vec<u8>,
-        fuzzy_bytes: usize,
-    ) -> anyhow::Result<Option<KVQPair<Vec<u8>, Vec<u8>>>> {
+    fn get_leq_kv(&self, key: &Vec<u8>, fuzzy_bytes: usize) -> anyhow::Result<Option<KVQPair<Vec<u8>, Vec<u8>>>> {
         self.with_read_txn(|txn| txn.get_leq_kv(key, fuzzy_bytes))
     }
 
-    fn get_many_leq(
-        &self,
-        keys: &[Vec<u8>],
-        fuzzy_bytes: usize,
-    ) -> anyhow::Result<Vec<Option<Vec<u8>>>> {
+    fn get_many_leq(&self, keys: &[Vec<u8>], fuzzy_bytes: usize) -> anyhow::Result<Vec<Option<Vec<u8>>>> {
         self.with_read_txn(|txn| txn.get_many_leq(keys, fuzzy_bytes))
     }
 
-    fn get_many_leq_kv(
-        &self,
-        keys: &[Vec<u8>],
-        fuzzy_bytes: usize,
-    ) -> anyhow::Result<Vec<Option<KVQPair<Vec<u8>, Vec<u8>>>>> {
+    fn get_many_leq_kv(&self, keys: &[Vec<u8>], fuzzy_bytes: usize) -> anyhow::Result<Vec<Option<KVQPair<Vec<u8>, Vec<u8>>>>> {
         self.with_read_txn(|txn| txn.get_many_leq_kv(keys, fuzzy_bytes))
     }
     fn set(&self, key: Vec<u8>, value: Vec<u8>) -> anyhow::Result<()> {
@@ -190,11 +161,7 @@ impl KVQBinaryStore for KVQlibmdbxStore {
         self.with_write_txn(|txn| txn.set_many_split_ref(keys, values))
     }
 
-    fn set_and_delete_many(
-        &self,
-        keys_to_set: &[KVQPair<&Vec<u8>, &Vec<u8>>],
-        keys_to_delete: &[Vec<u8>]
-    ) -> anyhow::Result<()> {
+    fn set_and_delete_many(&self, keys_to_set: &[KVQPair<&Vec<u8>, &Vec<u8>>], keys_to_delete: &[Vec<u8>]) -> anyhow::Result<()> {
         self.with_write_txn(|txn| {
             txn.set_many_ref(keys_to_set)?;
             txn.delete_many(keys_to_delete)?;
@@ -235,9 +202,7 @@ impl KVQBinaryStore for Transaction<RO> {
         let key_len = base_key.len();
 
         if fuzzy_bytes > key_len {
-            return Err(anyhow::anyhow!(
-                "Fuzzy bytes must be less than or equal to key length"
-            ));
+            return Err(anyhow::anyhow!("Fuzzy bytes must be less than or equal to key length"));
         }
 
         for i in 0..fuzzy_bytes {
@@ -263,19 +228,13 @@ impl KVQBinaryStore for Transaction<RO> {
         Ok(last_value)
     }
 
-    fn get_leq_kv(
-        &self,
-        key: &Vec<u8>,
-        fuzzy_bytes: usize,
-    ) -> anyhow::Result<Option<KVQPair<Vec<u8>, Vec<u8>>>> {
+    fn get_leq_kv(&self, key: &Vec<u8>, fuzzy_bytes: usize) -> anyhow::Result<Option<KVQPair<Vec<u8>, Vec<u8>>>> {
         let key_end = key.clone();
         let mut base_key = key.clone();
         let key_len = base_key.len();
 
         if fuzzy_bytes > key_len {
-            return Err(anyhow::anyhow!(
-                "Fuzzy bytes must be less than or equal to key length"
-            ));
+            return Err(anyhow::anyhow!("Fuzzy bytes must be less than or equal to key length"));
         }
 
         for i in 0..fuzzy_bytes {
@@ -301,11 +260,7 @@ impl KVQBinaryStore for Transaction<RO> {
         Ok(last_kv)
     }
 
-    fn get_many_leq(
-        &self,
-        keys: &[Vec<u8>],
-        fuzzy_bytes: usize,
-    ) -> anyhow::Result<Vec<Option<Vec<u8>>>> {
+    fn get_many_leq(&self, keys: &[Vec<u8>], fuzzy_bytes: usize) -> anyhow::Result<Vec<Option<Vec<u8>>>> {
         let mut results = Vec::with_capacity(keys.len());
         for key in keys {
             let result = self.get_leq(key, fuzzy_bytes)?;
@@ -314,11 +269,7 @@ impl KVQBinaryStore for Transaction<RO> {
         Ok(results)
     }
 
-    fn get_many_leq_kv(
-        &self,
-        keys: &[Vec<u8>],
-        fuzzy_bytes: usize,
-    ) -> anyhow::Result<Vec<Option<KVQPair<Vec<u8>, Vec<u8>>>>> {
+    fn get_many_leq_kv(&self, keys: &[Vec<u8>], fuzzy_bytes: usize) -> anyhow::Result<Vec<Option<KVQPair<Vec<u8>, Vec<u8>>>>> {
         let mut results = Vec::with_capacity(keys.len());
         for key in keys {
             let result = self.get_leq_kv(key, fuzzy_bytes)?;
@@ -327,19 +278,13 @@ impl KVQBinaryStore for Transaction<RO> {
         Ok(results)
     }
 
-    fn get_fuzzy_range_leq_kv(
-        &self,
-        key: &Vec<u8>,
-        fuzzy_bytes: usize,
-    ) -> anyhow::Result<Vec<KVQPair<Vec<u8>, Vec<u8>>>> {
+    fn get_fuzzy_range_leq_kv(&self, key: &Vec<u8>, fuzzy_bytes: usize) -> anyhow::Result<Vec<KVQPair<Vec<u8>, Vec<u8>>>> {
         let key_end = key.clone();
         let mut base_key = key.clone();
         let key_len = base_key.len();
 
         if fuzzy_bytes > key_len {
-            return Err(anyhow::anyhow!(
-                "Fuzzy bytes must be less than or equal to key length"
-            ));
+            return Err(anyhow::anyhow!("Fuzzy bytes must be less than or equal to key length"));
         }
 
         for i in 0..fuzzy_bytes {
@@ -367,55 +312,35 @@ impl KVQBinaryStore for Transaction<RO> {
 
     //warning: This is a read-only transaction, so all write operations will fail.
     fn set(&self, _key: Vec<u8>, _value: Vec<u8>) -> anyhow::Result<()> {
-        Err(anyhow::anyhow!(
-            "Attempted to write using a read-only LMDB transaction"
-        ))
+        Err(anyhow::anyhow!("Attempted to write using a read-only LMDB transaction"))
     }
 
     fn set_ref(&self, _key: &Vec<u8>, _value: &Vec<u8>) -> anyhow::Result<()> {
-        Err(anyhow::anyhow!(
-            "Attempted to write using a read-only LMDB transaction"
-        ))
+        Err(anyhow::anyhow!("Attempted to write using a read-only LMDB transaction"))
     }
 
     fn set_many_ref(&self, _items: &[KVQPair<&Vec<u8>, &Vec<u8>>]) -> anyhow::Result<()> {
-        Err(anyhow::anyhow!(
-            "Attempted to write using a read-only LMDB transaction"
-        ))
+        Err(anyhow::anyhow!("Attempted to write using a read-only LMDB transaction"))
     }
 
     fn set_many_vec(&self, _items: Vec<KVQPair<Vec<u8>, Vec<u8>>>) -> anyhow::Result<()> {
-        Err(anyhow::anyhow!(
-            "Attempted to write using a read-only LMDB transaction"
-        ))
+        Err(anyhow::anyhow!("Attempted to write using a read-only LMDB transaction"))
     }
 
     fn delete(&self, _key: &Vec<u8>) -> anyhow::Result<bool> {
-        Err(anyhow::anyhow!(
-            "Attempted to delete using a read-only LMDB transaction"
-        ))
+        Err(anyhow::anyhow!("Attempted to delete using a read-only LMDB transaction"))
     }
 
     fn delete_many(&self, _keys: &[Vec<u8>]) -> anyhow::Result<Vec<bool>> {
-        Err(anyhow::anyhow!(
-            "Attempted to delete using a read-only LMDB transaction"
-        ))
+        Err(anyhow::anyhow!("Attempted to delete using a read-only LMDB transaction"))
     }
 
     fn set_many_split_ref(&self, _keys: &[Vec<u8>], _values: &[Vec<u8>]) -> anyhow::Result<()> {
-        Err(anyhow::anyhow!(
-            "Attempted to write using a read-only LMDB transaction"
-        ))
+        Err(anyhow::anyhow!("Attempted to write using a read-only LMDB transaction"))
     }
 
-    fn set_and_delete_many(
-        &self,
-        _keys_to_set: &[KVQPair<&Vec<u8>, &Vec<u8>>],
-        _keys_to_delete: &[Vec<u8>]
-    ) -> anyhow::Result<()> {
-        Err(anyhow::anyhow!(
-            "Attempted to write using a read-only LMDB transaction"
-        ))
+    fn set_and_delete_many(&self, _keys_to_set: &[KVQPair<&Vec<u8>, &Vec<u8>>], _keys_to_delete: &[Vec<u8>]) -> anyhow::Result<()> {
+        Err(anyhow::anyhow!("Attempted to write using a read-only LMDB transaction"))
     }
 }
 
@@ -453,9 +378,7 @@ impl KVQBinaryStore for Transaction<RW> {
         let key_len = base_key.len();
 
         if fuzzy_bytes > key_len {
-            return Err(anyhow::anyhow!(
-                "Fuzzy bytes must be less than or equal to key length"
-            ));
+            return Err(anyhow::anyhow!("Fuzzy bytes must be less than or equal to key length"));
         }
 
         for i in 0..fuzzy_bytes {
@@ -481,19 +404,13 @@ impl KVQBinaryStore for Transaction<RW> {
         Ok(last_value)
     }
 
-    fn get_fuzzy_range_leq_kv(
-        &self,
-        key: &Vec<u8>,
-        fuzzy_bytes: usize,
-    ) -> anyhow::Result<Vec<KVQPair<Vec<u8>, Vec<u8>>>> {
+    fn get_fuzzy_range_leq_kv(&self, key: &Vec<u8>, fuzzy_bytes: usize) -> anyhow::Result<Vec<KVQPair<Vec<u8>, Vec<u8>>>> {
         let key_end = key.clone();
         let mut base_key = key.clone();
         let key_len = base_key.len();
 
         if fuzzy_bytes > key_len {
-            return Err(anyhow::anyhow!(
-                "Fuzzy bytes must be less than or equal to key length"
-            ));
+            return Err(anyhow::anyhow!("Fuzzy bytes must be less than or equal to key length"));
         }
 
         for i in 0..fuzzy_bytes {
@@ -519,19 +436,13 @@ impl KVQBinaryStore for Transaction<RW> {
         Ok(result)
     }
 
-    fn get_leq_kv(
-        &self,
-        key: &Vec<u8>,
-        fuzzy_bytes: usize,
-    ) -> anyhow::Result<Option<KVQPair<Vec<u8>, Vec<u8>>>> {
+    fn get_leq_kv(&self, key: &Vec<u8>, fuzzy_bytes: usize) -> anyhow::Result<Option<KVQPair<Vec<u8>, Vec<u8>>>> {
         let key_end = key.clone();
         let mut base_key = key.clone();
         let key_len = base_key.len();
 
         if fuzzy_bytes > key_len {
-            return Err(anyhow::anyhow!(
-                "Fuzzy bytes must be less than or equal to key length"
-            ));
+            return Err(anyhow::anyhow!("Fuzzy bytes must be less than or equal to key length"));
         }
 
         for i in 0..fuzzy_bytes {
@@ -557,11 +468,7 @@ impl KVQBinaryStore for Transaction<RW> {
         Ok(last_kv)
     }
 
-    fn get_many_leq(
-        &self,
-        keys: &[Vec<u8>],
-        fuzzy_bytes: usize,
-    ) -> anyhow::Result<Vec<Option<Vec<u8>>>> {
+    fn get_many_leq(&self, keys: &[Vec<u8>], fuzzy_bytes: usize) -> anyhow::Result<Vec<Option<Vec<u8>>>> {
         let mut results = Vec::with_capacity(keys.len());
         for key in keys {
             results.push(self.get_leq(key, fuzzy_bytes)?);
@@ -569,11 +476,7 @@ impl KVQBinaryStore for Transaction<RW> {
         Ok(results)
     }
 
-    fn get_many_leq_kv(
-        &self,
-        keys: &[Vec<u8>],
-        fuzzy_bytes: usize,
-    ) -> anyhow::Result<Vec<Option<KVQPair<Vec<u8>, Vec<u8>>>>> {
+    fn get_many_leq_kv(&self, keys: &[Vec<u8>], fuzzy_bytes: usize) -> anyhow::Result<Vec<Option<KVQPair<Vec<u8>, Vec<u8>>>>> {
         let mut results = Vec::with_capacity(keys.len());
         for key in keys {
             results.push(self.get_leq_kv(key, fuzzy_bytes)?);
@@ -587,15 +490,13 @@ impl KVQBinaryStore for Transaction<RW> {
     }
 
     fn set_ref(&self, key: &Vec<u8>, value: &Vec<u8>) -> anyhow::Result<()> {
-        self.txn
-            .put(self.db.dbi(), key, value, WriteFlags::empty())?;
+        self.txn.put(self.db.dbi(), key, value, WriteFlags::empty())?;
         Ok(())
     }
 
     fn set_many_ref(&self, items: &[KVQPair<&Vec<u8>, &Vec<u8>>]) -> anyhow::Result<()> {
         for item in items {
-            self.txn
-                .put(self.db.dbi(), item.key, item.value, WriteFlags::empty())?;
+            self.txn.put(self.db.dbi(), item.key, item.value, WriteFlags::empty())?;
         }
         Ok(())
     }
@@ -628,13 +529,10 @@ impl KVQBinaryStore for Transaction<RW> {
 
     fn set_many_split_ref(&self, keys: &[Vec<u8>], values: &[Vec<u8>]) -> anyhow::Result<()> {
         if keys.len() != values.len() {
-            return Err(anyhow::anyhow!(
-                "Keys and values must be of the same length"
-            ));
+            return Err(anyhow::anyhow!("Keys and values must be of the same length"));
         }
         for (key, value) in keys.iter().zip(values.iter()) {
-            self.txn
-                .put(self.db.dbi(), key, value, WriteFlags::empty())?;
+            self.txn.put(self.db.dbi(), key, value, WriteFlags::empty())?;
         }
         Ok(())
     }

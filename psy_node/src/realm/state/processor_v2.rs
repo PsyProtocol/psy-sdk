@@ -1,8 +1,9 @@
 use std::sync::Arc;
+
 use plonky2::plonk::config::PoseidonGoldilocksConfig;
 use psy_crypto::common::generic_circuit_verifier::GenericCircuitVerifier;
-use psy_store::queue::task_queue::QProvingTaskStoreImpl;
-use psy_store::store::QEDStore;
+use psy_store::{queue::task_queue::QProvingTaskStoreImpl, store::QEDStore};
+
 use crate::realm::state::processor::RealmConfig;
 
 type C = PoseidonGoldilocksConfig;

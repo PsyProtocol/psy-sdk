@@ -1,12 +1,10 @@
-use psy_ast::*;
-
 use indexmap::IndexMap;
+use psy_ast::*;
 use psy_vm::dpn::ops::context_trait::ContextFelt;
 
 use crate::{
-    CheckedDefinitionNode, CheckedFunctionNode, CheckedFunctionParameter, CheckedGenericParameter,
-    CheckedStructNode, CheckedTraitNode, CheckedVariable, Error, Implementer, Result, ScopeKind,
-    Type, TypeChecker, TypeCheckerVisitorContext, VOID_TYPE,
+    CheckedDefinitionNode, CheckedFunctionNode, CheckedFunctionParameter, CheckedGenericParameter, CheckedStructNode, CheckedTraitNode,
+    CheckedVariable, Error, Implementer, Result, ScopeKind, Type, TypeChecker, TypeCheckerVisitorContext, VOID_TYPE,
 };
 
 impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
@@ -44,27 +42,19 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
         ctx.add_type_reference(type_id, checked_function.name.location, false);
 
         let ty = Type::Function(checked_function);
-        ctx.symbols
-            .add_type(ctx.symbols.parent_scope_id(), function_node.name, ty)?;
+        ctx.symbols.add_type(ctx.symbols.parent_scope_id(), function_node.name, ty)?;
 
         let checked_def_id = self
             .program
             .defs
-            .alloc_item(CheckedDefinitionNode::Function(
-                ctx.symbols[type_id].as_function().cloned().unwrap(),
-            ));
-        self.unchecked_checked
-            .insert(def_id.into(), checked_def_id.into());
+            .alloc_item(CheckedDefinitionNode::Function(ctx.symbols[type_id].as_function().cloned().unwrap()));
+        self.unchecked_checked.insert(def_id.into(), checked_def_id.into());
 
         ctx.symbols.end_scope();
         Ok(checked_def_id)
     }
 
-    pub fn typecheck_struct_predecl(
-        &mut self,
-        def_id: DefId,
-        ctx: &mut TypeCheckerVisitorContext<F, C>,
-    ) -> Result<DefId> {
+    pub fn typecheck_struct_predecl(&mut self, def_id: DefId, ctx: &mut TypeCheckerVisitorContext<F, C>) -> Result<DefId> {
         if let Some(NodeId::Def(def_id)) = self.unchecked_checked.get(&def_id.into()) {
             return Ok(*def_id);
         }
@@ -89,24 +79,19 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
         ctx.add_type_reference(type_id, checked_struct.name.location, false);
 
         let ty = Type::Struct(checked_struct);
-        ctx.symbols
-            .add_type(ctx.symbols.parent_scope_id(), struct_node.name, ty)?;
+        ctx.symbols.add_type(ctx.symbols.parent_scope_id(), struct_node.name, ty)?;
 
-        let checked_def_id = self.program.defs.alloc_item(CheckedDefinitionNode::Struct(
-            ctx.symbols[type_id].as_struct().cloned().unwrap(),
-        ));
-        self.unchecked_checked
-            .insert(def_id.into(), checked_def_id.into());
+        let checked_def_id = self
+            .program
+            .defs
+            .alloc_item(CheckedDefinitionNode::Struct(ctx.symbols[type_id].as_struct().cloned().unwrap()));
+        self.unchecked_checked.insert(def_id.into(), checked_def_id.into());
 
         ctx.symbols.end_scope();
         Ok(checked_def_id)
     }
 
-    pub fn typecheck_trait_predecl(
-        &mut self,
-        def_id: DefId,
-        ctx: &mut TypeCheckerVisitorContext<F, C>,
-    ) -> Result<DefId> {
+    pub fn typecheck_trait_predecl(&mut self, def_id: DefId, ctx: &mut TypeCheckerVisitorContext<F, C>) -> Result<DefId> {
         if let Some(NodeId::Def(def_id)) = self.unchecked_checked.get(&def_id.into()) {
             return Ok(*def_id);
         }
@@ -120,12 +105,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
             ctx.push_node_id(NodeId::from(function_id));
             self.infcx.enter_scope();
 
-            let method_id = self.typecheck_function_predecl(
-                function_id,
-                ScopeKind::TraitMethod,
-                ScopeKind::Trait,
-                ctx,
-            )?;
+            let method_id = self.typecheck_function_predecl(function_id, ScopeKind::TraitMethod, ScopeKind::Trait, ctx)?;
 
             self.infcx.exit_scope();
             ctx.pop_node_id();
@@ -149,8 +129,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
         ctx.add_type_reference(type_id, checked_trait.name.location, false);
 
         let ty = Type::Trait(checked_trait);
-        ctx.symbols
-            .add_type(ctx.symbols.parent_scope_id(), trait_node.name, ty)?;
+        ctx.symbols.add_type(ctx.symbols.parent_scope_id(), trait_node.name, ty)?;
 
         ctx.symbols.add_type_variable(
             ScopeKind::Trait,
@@ -162,32 +141,23 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
             ),
         )?;
 
-        let checked_def_id = self.program.defs.alloc_item(CheckedDefinitionNode::Trait(
-            ctx.symbols[type_id].as_trait().cloned().unwrap(),
-        ));
-        self.unchecked_checked
-            .insert(def_id.into(), checked_def_id.into());
+        let checked_def_id = self
+            .program
+            .defs
+            .alloc_item(CheckedDefinitionNode::Trait(ctx.symbols[type_id].as_trait().cloned().unwrap()));
+        self.unchecked_checked.insert(def_id.into(), checked_def_id.into());
 
         ctx.symbols.end_scope();
         Ok(checked_def_id)
     }
 
     // so that the other modules can import
-    pub fn typecheck_definition_predecl(
-        &mut self,
-        def_id: DefId,
-        ctx: &mut TypeCheckerVisitorContext<F, C>,
-    ) -> Result<()> {
+    pub fn typecheck_definition_predecl(&mut self, def_id: DefId, ctx: &mut TypeCheckerVisitorContext<F, C>) -> Result<()> {
         ctx.push_node_id(NodeId::from(def_id));
         let node_type = ctx.definition(def_id).node_type();
         match node_type {
             NodeType::FunctionDef => {
-                self.typecheck_function_predecl(
-                    def_id,
-                    ScopeKind::Function,
-                    ScopeKind::Function,
-                    ctx,
-                )?;
+                self.typecheck_function_predecl(def_id, ScopeKind::Function, ScopeKind::Function, ctx)?;
             }
             NodeType::StructDef => {
                 self.typecheck_struct_predecl(def_id, ctx)?;
@@ -210,21 +180,12 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
     }
 
     // so that the other module can access function signature and struct fields etc
-    pub fn typecheck_definition_header(
-        &mut self,
-        def_id: DefId,
-        ctx: &mut TypeCheckerVisitorContext<F, C>,
-    ) -> Result<()> {
+    pub fn typecheck_definition_header(&mut self, def_id: DefId, ctx: &mut TypeCheckerVisitorContext<F, C>) -> Result<()> {
         ctx.push_node_id(NodeId::from(def_id));
         match ctx.definition(def_id).node_type() {
             NodeType::FunctionDef => {
                 self.infcx.enter_context();
-                self.typecheck_function_signature(
-                    def_id,
-                    ScopeKind::Function,
-                    ScopeKind::Function,
-                    ctx,
-                )?;
+                self.typecheck_function_signature(def_id, ScopeKind::Function, ScopeKind::Function, ctx)?;
                 self.infcx.exit_context();
             }
             NodeType::StructDef => {
@@ -254,11 +215,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
     }
 
     // so that interpreter can execute the function body
-    pub fn typecheck_definition_body(
-        &mut self,
-        def_id: DefId,
-        ctx: &mut TypeCheckerVisitorContext<F, C>,
-    ) -> Result<()> {
+    pub fn typecheck_definition_body(&mut self, def_id: DefId, ctx: &mut TypeCheckerVisitorContext<F, C>) -> Result<()> {
         ctx.push_node_id(NodeId::from(def_id));
         match ctx.definition(def_id).node_type() {
             NodeType::FunctionDef => {
@@ -296,12 +253,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
         ctx: &mut TypeCheckerVisitorContext<F, C>,
     ) -> Result<()> {
         let function = ctx.definition(def_id).as_function().cloned().unwrap();
-        let checked_def_id = self
-            .unchecked_checked
-            .get(&def_id.into())
-            .unwrap()
-            .into_def()
-            .unwrap();
+        let checked_def_id = self.unchecked_checked.get(&def_id.into()).unwrap().into_def().unwrap();
         let type_id = self.program[checked_def_id].as_function().unwrap().type_id;
         let scope_id = ctx.symbols[type_id].scope_id();
 
@@ -309,11 +261,8 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
 
         let mut checked_generic_parameters = Vec::with_capacity(function.generic_parameters.len());
         for generic_parameter in &function.generic_parameters {
-            let checked_generic_parameter =
-                self.typecheck_generic_parameter(generic_parameter, ctx)?;
-            let type_id = ctx
-                .symbols
-                .add_type_variable(generic_scope_kind, checked_generic_parameter)?;
+            let checked_generic_parameter = self.typecheck_generic_parameter(generic_parameter, ctx)?;
+            let type_id = ctx.symbols.add_type_variable(generic_scope_kind, checked_generic_parameter)?;
             checked_generic_parameters.push(type_id);
         }
 
@@ -321,20 +270,11 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
 
         for parameter in &function.parameters {
             let parameter_type = self.typecheck(&parameter.ty, ctx)?;
-            let variable = CheckedVariable::new(
-                parameter.name,
-                parameter_type,
-                parameter.qualifier,
-                scope_id,
-                parameter.location,
-            );
-            let var_id =
-                ctx.symbols
-                    .declare_variable(variable)
-                    .ok_or(Error::VariableAlreadyDefined {
-                        location: function.location,
-                        variable: parameter.name.id,
-                    })?;
+            let variable = CheckedVariable::new(parameter.name, parameter_type, parameter.qualifier, scope_id, parameter.location);
+            let var_id = ctx.symbols.declare_variable(variable).ok_or(Error::VariableAlreadyDefined {
+                location: function.location,
+                variable: parameter.name.id,
+            })?;
             ctx.add_variable_reference(var_id, parameter.name.location, false);
             parameters.push(CheckedFunctionParameter::new(
                 parameter.name,
@@ -350,14 +290,13 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
             VOID_TYPE
         };
 
-        self.program
-            .modify_definition(checked_def_id, |def: &mut CheckedDefinitionNode| {
-                let checked_function_mut = def.as_function_mut().unwrap();
-                checked_function_mut.parameters = parameters.clone();
-                checked_function_mut.return_type = return_type;
-                checked_function_mut.generic_parameters = checked_generic_parameters.clone();
-                Ok(())
-            })?;
+        self.program.modify_definition(checked_def_id, |def: &mut CheckedDefinitionNode| {
+            let checked_function_mut = def.as_function_mut().unwrap();
+            checked_function_mut.parameters = parameters.clone();
+            checked_function_mut.return_type = return_type;
+            checked_function_mut.generic_parameters = checked_generic_parameters.clone();
+            Ok(())
+        })?;
         ctx.symbols.modify_type(type_id, |ty: &mut Type| {
             let ty_mut = ty.as_function_mut().unwrap();
             ty_mut.generic_parameters = checked_generic_parameters;
@@ -372,23 +311,11 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
         Ok(())
     }
 
-    pub fn typecheck_function_body(
-        &mut self,
-        def_id: DefId,
-        ctx: &mut TypeCheckerVisitorContext<F, C>,
-    ) -> Result<()> {
+    pub fn typecheck_function_body(&mut self, def_id: DefId, ctx: &mut TypeCheckerVisitorContext<F, C>) -> Result<()> {
         let function = ctx.definition(def_id).as_function().cloned().unwrap();
-        let checked_def_id = self
-            .unchecked_checked
-            .get(&def_id.into())
-            .unwrap()
-            .into_def()
-            .unwrap();
+        let checked_def_id = self.unchecked_checked.get(&def_id.into()).unwrap().into_def().unwrap();
         let type_id = self.program[checked_def_id].as_function().unwrap().type_id;
-        let expected_return_type = self.program[checked_def_id]
-            .as_function()
-            .unwrap()
-            .return_type;
+        let expected_return_type = self.program[checked_def_id].as_function().unwrap().return_type;
 
         ctx.symbols.enter_scope(ctx.symbols[type_id].scope_id());
 
@@ -407,12 +334,11 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
             None
         };
 
-        self.program
-            .modify_definition(checked_def_id, |def: &mut CheckedDefinitionNode| {
-                let checked_function_mut = def.as_function_mut().unwrap();
-                checked_function_mut.body = checked_body;
-                Ok(())
-            })?;
+        self.program.modify_definition(checked_def_id, |def: &mut CheckedDefinitionNode| {
+            let checked_function_mut = def.as_function_mut().unwrap();
+            checked_function_mut.body = checked_body;
+            Ok(())
+        })?;
         ctx.symbols.modify_type(type_id, |ty: &mut Type| {
             let ty_mut = ty.as_function_mut().unwrap();
             ty_mut.body = checked_body;
@@ -423,18 +349,9 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
         Ok(())
     }
 
-    pub fn typecheck_trait_body(
-        &mut self,
-        def_id: DefId,
-        ctx: &mut TypeCheckerVisitorContext<F, C>,
-    ) -> Result<()> {
+    pub fn typecheck_trait_body(&mut self, def_id: DefId, ctx: &mut TypeCheckerVisitorContext<F, C>) -> Result<()> {
         let trait_node = ctx.definition(def_id).as_trait().cloned().unwrap();
-        let checked_def_id = self
-            .unchecked_checked
-            .get(&def_id.into())
-            .unwrap()
-            .into_def()
-            .unwrap();
+        let checked_def_id = self.unchecked_checked.get(&def_id.into()).unwrap().into_def().unwrap();
         let checked_trait_node = self.program[checked_def_id].as_trait().cloned().unwrap();
         let type_id = checked_trait_node.type_id;
 
@@ -452,18 +369,9 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
         Ok(())
     }
 
-    pub fn typecheck_impl_body(
-        &mut self,
-        def_id: DefId,
-        ctx: &mut TypeCheckerVisitorContext<F, C>,
-    ) -> Result<()> {
+    pub fn typecheck_impl_body(&mut self, def_id: DefId, ctx: &mut TypeCheckerVisitorContext<F, C>) -> Result<()> {
         let impl_node = ctx.definition(def_id).as_impl().cloned().unwrap();
-        let checked_def_id = self
-            .unchecked_checked
-            .get(&def_id.into())
-            .unwrap()
-            .into_def()
-            .unwrap();
+        let checked_def_id = self.unchecked_checked.get(&def_id.into()).unwrap().into_def().unwrap();
         let checked_impl_node = self.program[checked_def_id].as_impl().cloned().unwrap();
 
         ctx.symbols.enter_scope(checked_impl_node.scope_id);
@@ -480,22 +388,10 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeChecker<F, C> {
         Ok(())
     }
 
-    pub fn typecheck_trait_impl_body(
-        &mut self,
-        def_id: DefId,
-        ctx: &mut TypeCheckerVisitorContext<F, C>,
-    ) -> Result<()> {
+    pub fn typecheck_trait_impl_body(&mut self, def_id: DefId, ctx: &mut TypeCheckerVisitorContext<F, C>) -> Result<()> {
         let trait_impl_node = ctx.definition(def_id).as_trait_impl().cloned().unwrap();
-        let checked_def_id = self
-            .unchecked_checked
-            .get(&def_id.into())
-            .unwrap()
-            .into_def()
-            .unwrap();
-        let checked_trait_impl_node = self.program[checked_def_id]
-            .as_trait_impl()
-            .cloned()
-            .unwrap();
+        let checked_def_id = self.unchecked_checked.get(&def_id.into()).unwrap().into_def().unwrap();
+        let checked_trait_impl_node = self.program[checked_def_id].as_trait_impl().cloned().unwrap();
 
         ctx.symbols.enter_scope(checked_trait_impl_node.scope_id);
 

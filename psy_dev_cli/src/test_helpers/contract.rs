@@ -12,18 +12,20 @@ use psy_core::{
     ups::circuits::LocalCircuitId,
     utils::debug_timer::DebugTimer,
 };
-use psy_crypto::hash::{
-    traits::hasher::MerkleZeroHasher, utils::gen_dapen_contract_function_method_id,
-};
+use psy_crypto::hash::{traits::hasher::MerkleZeroHasher, utils::gen_dapen_contract_function_method_id};
 use psy_data::{
     qblock::cmds::deploy_contract::QBCDeployContract, qdata::contract::ContractCodeDefinition,
+    qstore::imm::cmd_processor::QEDReadCommandProcessorSync,
 };
 use psy_prover::{
-    dpn::circuits::cfc::DapenContractFunctionCircuit, session::gen_contract_deploy_and_circuits_for_functions, ups::{circuit_manager::core::{QCircuitManager, QEDUPSStepCircuitManager}, session::UserProvingSessionManager}
+    dpn::circuits::cfc::DapenContractFunctionCircuit,
+    session::gen_contract_deploy_and_circuits_for_functions,
+    ups::{
+        circuit_manager::core::{QCircuitManager, QEDUPSStepCircuitManager},
+        session::UserProvingSessionManager,
+    },
 };
-use psy_data::qstore::imm::cmd_processor::QEDReadCommandProcessorSync;
 use psy_store::controllers::local::session_info::SessionCircuitInfoStore;
-
 use psy_vm::dpn::{
     ops::{context_trait::DPNContext, exec_context::QExecContext, sym_felt::SymFeltRef},
     vm::{compile::QEDCompileResult, def::DPNFunctionCircuitDefinition},
@@ -37,9 +39,7 @@ pub struct SimpleContractStateful<C: DPNContext<Felt>> {
 }
 impl<C: DPNContext<Felt>> SimpleContractStateful<C> {
     pub fn new() -> Self {
-        Self {
-            _phantom: PhantomData,
-        }
+        Self { _phantom: PhantomData }
     }
 }
 
@@ -51,15 +51,7 @@ impl<C: DPNContext<Felt>> SimpleContractStateful<C> {
         let current_balance = self_user_leaf[0];
 
         let new_balance = current_balance + amount;
-        ctx.cset_state_hash_at(
-            ctx.get_user_id(),
-            [
-                new_balance,
-                self_user_leaf[1],
-                self_user_leaf[2],
-                self_user_leaf[3],
-            ],
-        );
+        ctx.cset_state_hash_at(ctx.get_user_id(), [new_balance, self_user_leaf[1], self_user_leaf[2], self_user_leaf[3]]);
 
         new_balance
     }
@@ -74,15 +66,7 @@ impl<C: DPNContext<Felt>> SimpleContractStateful<C> {
         let new_balance = current_balance - amount;
         ctx.assert_true((new_balance < current_balance).into(), "user balance overflow");
 
-        ctx.cset_state_hash_at(
-            self_user_id,
-            [
-                new_balance,
-                self_user_leaf[1],
-                self_user_leaf[2],
-                self_user_leaf[3],
-            ],
-        );
+        ctx.cset_state_hash_at(self_user_id, [new_balance, self_user_leaf[1], self_user_leaf[2], self_user_leaf[3]]);
 
         let p2p_leaf = ctx.get_state_hash_at(recipient);
         let previous_total_sent_to_recipient = p2p_leaf[2];
@@ -93,15 +77,7 @@ impl<C: DPNContext<Felt>> SimpleContractStateful<C> {
             "sent amount overflow",
         );
 
-        ctx.cset_state_hash_at(
-            recipient,
-            [
-                p2p_leaf[0],
-                p2p_leaf[1],
-                new_total_sent_to_recipient,
-                p2p_leaf[3],
-            ],
-        );
+        ctx.cset_state_hash_at(recipient, [p2p_leaf[0], p2p_leaf[1], new_total_sent_to_recipient, p2p_leaf[3]]);
         current_balance
     }
     pub fn simple_claim(&mut self, ctx: &mut C, sender: Felt) -> Felt {
@@ -114,12 +90,7 @@ impl<C: DPNContext<Felt>> SimpleContractStateful<C> {
         let loc_transfer_info_for_sender = ctx.get_state_hash_at(sender);
         let loc_previous_total_recieved_from_sender = loc_transfer_info_for_sender[0];
 
-        let sender_transfer_info_leaf_for_me = ctx.get_other_user_contract_state_hash_at(
-            0,
-            sender,
-            ctx.get_contract_id(),
-            self_user_id,
-        );
+        let sender_transfer_info_leaf_for_me = ctx.get_other_user_contract_state_hash_at(0, sender, ctx.get_contract_id(), self_user_id);
 
         let sender_total_sent_to_me = sender_transfer_info_leaf_for_me[2];
 
@@ -145,10 +116,7 @@ impl<C: DPNContext<Felt>> SimpleContractStateful<C> {
         let new_balance = tokens_to_claim + current_balance;
         ctx.assert_true((current_balance < new_balance).into(), "balance overflow");
 
-        ctx.cset_state_hash_at(
-            self_user_id,
-            [new_balance, self_leaf[1], self_leaf[2], self_leaf[3]],
-        );
+        ctx.cset_state_hash_at(self_user_id, [new_balance, self_leaf[1], self_leaf[2], self_leaf[3]]);
 
         new_balance
     }
@@ -163,13 +131,7 @@ fn compile_simple_mint_debug() -> anyhow::Result<DPNFunctionCircuitDefinition> {
     let method_args = [("amount".to_string(), 1usize)];
     let method_name = "simple_mint_debug".to_string();
     let method_id = gen_dapen_contract_function_method_id(method_name.clone(), &method_args);
-    let fn_circuit_def = QEDCompileResult::compile_exec(
-        "simple_mint_debug".to_string(),
-        method_id,
-        &ctx.store,
-        &ctx,
-        &outputs,
-    );
+    let fn_circuit_def = QEDCompileResult::compile_exec("simple_mint_debug".to_string(), method_id, &ctx.store, &ctx, &outputs);
 
     Ok(fn_circuit_def)
 }
@@ -180,19 +142,10 @@ fn compile_simple_transfer() -> anyhow::Result<DPNFunctionCircuitDefinition> {
     let amount = ctx.add_input();
     let z = contract.simple_transfer(&mut ctx, recipient, amount);
     let outputs = vec![z];
-    let method_args = [
-        ("recipient".to_string(), 1usize),
-        ("amount".to_string(), 1usize),
-    ];
+    let method_args = [("recipient".to_string(), 1usize), ("amount".to_string(), 1usize)];
     let method_name = "simple_transfer".to_string();
     let method_id = gen_dapen_contract_function_method_id(method_name.clone(), &method_args);
-    let fn_circuit_def = QEDCompileResult::compile_exec(
-        "simple_transfer".to_string(),
-        method_id,
-        &ctx.store,
-        &ctx,
-        &outputs,
-    );
+    let fn_circuit_def = QEDCompileResult::compile_exec("simple_transfer".to_string(), method_id, &ctx.store, &ctx, &outputs);
 
     Ok(fn_circuit_def)
 }
@@ -206,13 +159,7 @@ fn compile_simple_claim() -> anyhow::Result<DPNFunctionCircuitDefinition> {
     let method_args = [("sender".to_string(), 1usize)];
     let method_name = "simple_claim".to_string();
     let method_id = gen_dapen_contract_function_method_id(method_name.clone(), &method_args);
-    let fn_circuit_def = QEDCompileResult::compile_exec(
-        "simple_claim".to_string(),
-        method_id,
-        &ctx.store,
-        &ctx,
-        &outputs,
-    );
+    let fn_circuit_def = QEDCompileResult::compile_exec("simple_claim".to_string(), method_id, &ctx.store, &ctx, &outputs);
 
     Ok(fn_circuit_def)
 }
@@ -220,14 +167,14 @@ fn compile_simple_claim() -> anyhow::Result<DPNFunctionCircuitDefinition> {
 #[derive(Debug)]
 pub struct SimpleTestContractItem<C: GenericConfig<D>, const D: usize>
 where
-    C::Hasher: AlgebraicHasher<C::F>
+    C::Hasher: AlgebraicHasher<C::F>,
 {
     pub circuit: DapenContractFunctionCircuit<C, D>,
     pub def: DPNFunctionCircuitDefinition,
 }
 pub struct SimpleTestContract<C: GenericConfig<D>, const D: usize>
 where
-    C::Hasher: AlgebraicHasher<C::F>
+    C::Hasher: AlgebraicHasher<C::F>,
 {
     pub funcs: Vec<SimpleTestContractItem<C, D>>,
 }
@@ -245,11 +192,7 @@ where
     pub fn add_func(&mut self, func: SimpleTestContractItem<C, D>) {
         self.funcs.push(func);
     }
-    pub fn add_func_def(
-        &mut self,
-        circuit: DapenContractFunctionCircuit<C, D>,
-        def: DPNFunctionCircuitDefinition,
-    ) {
+    pub fn add_func_def(&mut self, circuit: DapenContractFunctionCircuit<C, D>, def: DPNFunctionCircuitDefinition) {
         self.funcs.push(SimpleTestContractItem { circuit, def });
     }
     pub fn register_funcs(&self, contract_id: u32, scs: &mut SessionCircuitInfoStore<C::F>) {
@@ -284,7 +227,8 @@ impl SimpleTestContract<C, D> {
                     // &f.circuit,
                     &f.def,
                     inputs,
-                ).await?;
+                )
+                .await?;
                 return Ok(());
             }
         }
@@ -313,11 +257,8 @@ where
 
     let contract_state_tree_height = GLOBAL_USER_TREE_HEIGHT as usize;
 
-    let (result_circuits, deploy_cmd) = gen_contract_deploy_and_circuits_for_functions::<C, D>(
-        deployer,
-        contract_state_tree_height as u8,
-        &defs_array,
-    )?;
+    let (result_circuits, deploy_cmd) =
+        gen_contract_deploy_and_circuits_for_functions::<C, D>(deployer, contract_state_tree_height as u8, &defs_array)?;
     let mut result_circuits = result_circuits;
     timer.lap("finished building fn circuits");
     let [simple_mint_debug_def, simple_transfer_def, simple_claim_def] = defs_array;
@@ -371,11 +312,7 @@ where
 
     let contract_state_tree_height = GLOBAL_USER_TREE_HEIGHT as usize;
 
-    let (result_circuits, deploy_cmd) = gen_contract_deploy_and_circuits_for_functions(
-        deployer,
-        contract_state_tree_height as u8,
-        &defs_array,
-    )?;
+    let (result_circuits, deploy_cmd) = gen_contract_deploy_and_circuits_for_functions(deployer, contract_state_tree_height as u8, &defs_array)?;
     let mut result_circuits = result_circuits;
     timer.lap("finished building fn circuits");
     let [simple_mint_debug_def, simple_transfer_def, simple_claim_def] = defs_array;

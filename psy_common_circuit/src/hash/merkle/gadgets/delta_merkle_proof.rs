@@ -1,4 +1,3 @@
-
 use plonky2::{
     field::{extension::Extendable, types::Field},
     hash::hash_types::{HashOut, HashOutTarget, RichField},
@@ -8,14 +7,13 @@ use plonky2::{
 pub const NUM_HASH_OUT_ELEMENTS: usize = 4;
 use bitflags::bitflags;
 use psy_core::data::qhashout::QHashOut;
-use psy_crypto::hash::{merkle::core::{DeltaMerkleProof, DeltaMerkleProofBase, DeltaMerkleProofCore}, traits::hasher::MerkleZeroHasher};
-
-use crate::builder::{
-    connect::CircuitBuilderConnectHelpers, hash::core::CircuitBuilderHashCore,
-    optional_inputs::CircuitBuilderOptionalInputs,
+use psy_crypto::hash::{
+    merkle::core::{DeltaMerkleProof, DeltaMerkleProofBase, DeltaMerkleProofCore},
+    traits::hasher::MerkleZeroHasher,
 };
 
 use super::merkle_proof::MerkleProofGadget;
+use crate::builder::{connect::CircuitBuilderConnectHelpers, hash::core::CircuitBuilderHashCore, optional_inputs::CircuitBuilderOptionalInputs};
 
 bitflags! {
   #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
@@ -51,41 +49,25 @@ pub struct OptionalDeltaMerkleProofGadget {
 }
 
 impl DeltaMerkleProofGadget {
-    pub fn add_virtual_to_u8h<
-        H:AlgebraicHasher<F>,
-        F: RichField + Extendable<D>,
-        const D: usize,
-    >(
+    pub fn add_virtual_to_u8h<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
         height: u8,
     ) -> Self {
         Self::add_virtual_to::<H, F, D>(builder, height as usize)
     }
-    pub fn add_virtual_to<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
+    pub fn add_virtual_to<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
         height: usize,
     ) -> Self {
         let index = builder.add_virtual_target();
         let old_value = builder.add_virtual_hash();
         let new_value = builder.add_virtual_hash();
-        let siblings = (0..height)
-            .map(|_| builder.add_virtual_hash())
-            .collect::<Vec<_>>();
+        let siblings = (0..height).map(|_| builder.add_virtual_hash()).collect::<Vec<_>>();
         //builder.range_check(index, height);
         let index_bits = builder.split_le(index, height);
 
-        let old_root = MerkleProofGadget::compute_root_bits::<H, F, D>(
-            builder,
-            &index_bits,
-            old_value,
-            &siblings,
-        );
-        let new_root = MerkleProofGadget::compute_root_bits::<H, F, D>(
-            builder,
-            &index_bits,
-            new_value,
-            &siblings,
-        );
+        let old_root = MerkleProofGadget::compute_root_bits::<H, F, D>(builder, &index_bits, old_value, &siblings);
+        let new_root = MerkleProofGadget::compute_root_bits::<H, F, D>(builder, &index_bits, new_value, &siblings);
         Self {
             old_root,
             old_value,
@@ -96,20 +78,14 @@ impl DeltaMerkleProofGadget {
             option_flags: DeltaMerkleProofGadgetOptionFlags::none_value_placeholder,
         }
     }
-    pub fn add_virtual_to_append_only<
-        H: MerkleZeroHasher<HashOut<F>> +AlgebraicHasher<F>,
-        F: RichField + Extendable<D>,
-        const D: usize,
-    >(
+    pub fn add_virtual_to_append_only<H: MerkleZeroHasher<HashOut<F>> + AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
         height: usize,
     ) -> Self {
         let index = builder.add_virtual_target();
         let old_value = builder.add_virtual_hash();
         let new_value = builder.add_virtual_hash();
-        let siblings = (0..height)
-            .map(|_| builder.add_virtual_hash())
-            .collect::<Vec<_>>();
+        let siblings = (0..height).map(|_| builder.add_virtual_hash()).collect::<Vec<_>>();
         //builder.range_check(index, height);
         let index_bits = builder.split_le(index, height);
         let z_hash_target = builder.constant_hash(HashOut {
@@ -124,18 +100,8 @@ impl DeltaMerkleProofGadget {
             builder.connect_hashes_if_false(index_bits[i], siblings[i], zero_hash_target);
         }
 
-        let old_root = MerkleProofGadget::compute_root_bits::<H, F, D>(
-            builder,
-            &index_bits,
-            old_value,
-            &siblings,
-        );
-        let new_root = MerkleProofGadget::compute_root_bits::<H, F, D>(
-            builder,
-            &index_bits,
-            new_value,
-            &siblings,
-        );
+        let old_root = MerkleProofGadget::compute_root_bits::<H, F, D>(builder, &index_bits, old_value, &siblings);
+        let new_root = MerkleProofGadget::compute_root_bits::<H, F, D>(builder, &index_bits, new_value, &siblings);
         Self {
             old_root,
             old_value,
@@ -146,20 +112,14 @@ impl DeltaMerkleProofGadget {
             option_flags: DeltaMerkleProofGadgetOptionFlags::none_value_placeholder,
         }
     }
-    pub fn add_virtual_to_push_sparse_list<
-        H: MerkleZeroHasher<HashOut<F>> +AlgebraicHasher<F>,
-        F: RichField + Extendable<D>,
-        const D: usize,
-    >(
+    pub fn add_virtual_to_push_sparse_list<H: MerkleZeroHasher<HashOut<F>> + AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
         height: usize,
     ) -> Self {
         let index = builder.add_virtual_target();
         let old_value = builder.add_virtual_hash();
         let new_value = builder.add_virtual_hash();
-        let siblings = (0..height)
-            .map(|_| builder.add_virtual_hash())
-            .collect::<Vec<_>>();
+        let siblings = (0..height).map(|_| builder.add_virtual_hash()).collect::<Vec<_>>();
         //builder.range_check(index, height);
         let index_bits = builder.split_le(index, height);
         let z_hash_target = builder.constant_hash(HashOut {
@@ -170,23 +130,14 @@ impl DeltaMerkleProofGadget {
 
         for i in 0..height {
             let zero_hash_target = builder.constant_hash(H::get_zero_hash(i));
-            // we only really need to make sure the the leaves to the right of the tree are 0
-            // builder.ensure_hash_not_equal_if(index_bits[i], siblings[i], zero_hash_target);
+            // we only really need to make sure the the leaves to the right of the tree are
+            // 0 builder.ensure_hash_not_equal_if(index_bits[i], siblings[i],
+            // zero_hash_target);
             builder.connect_hashes_if_false(index_bits[i], siblings[i], zero_hash_target);
         }
 
-        let old_root = MerkleProofGadget::compute_root_bits::<H, F, D>(
-            builder,
-            &index_bits,
-            old_value,
-            &siblings,
-        );
-        let new_root = MerkleProofGadget::compute_root_bits::<H, F, D>(
-            builder,
-            &index_bits,
-            new_value,
-            &siblings,
-        );
+        let old_root = MerkleProofGadget::compute_root_bits::<H, F, D>(builder, &index_bits, old_value, &siblings);
+        let new_root = MerkleProofGadget::compute_root_bits::<H, F, D>(builder, &index_bits, new_value, &siblings);
         Self {
             old_root,
             old_value,
@@ -197,20 +148,14 @@ impl DeltaMerkleProofGadget {
             option_flags: DeltaMerkleProofGadgetOptionFlags::none_value_placeholder,
         }
     }
-    pub fn add_virtual_to_pop_right<
-        H: MerkleZeroHasher<HashOut<F>> +AlgebraicHasher<F>,
-        F: RichField + Extendable<D>,
-        const D: usize,
-    >(
+    pub fn add_virtual_to_pop_right<H: MerkleZeroHasher<HashOut<F>> + AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
         height: usize,
     ) -> Self {
         let index = builder.add_virtual_target();
         let old_value = builder.add_virtual_hash();
         let new_value = builder.add_virtual_hash();
-        let siblings = (0..height)
-            .map(|_| builder.add_virtual_hash())
-            .collect::<Vec<_>>();
+        let siblings = (0..height).map(|_| builder.add_virtual_hash()).collect::<Vec<_>>();
         //builder.range_check(index, height);
         let index_bits = builder.split_le(index, height);
         let z_hash_target = builder.constant_hash(HashOut {
@@ -229,18 +174,8 @@ impl DeltaMerkleProofGadget {
             builder.connect_hashes_if_false(index_bits[i], siblings[i], zero_hash_target);
         }
 
-        let old_root = MerkleProofGadget::compute_root_bits::<H, F, D>(
-            builder,
-            &index_bits,
-            old_value,
-            &siblings,
-        );
-        let new_root = MerkleProofGadget::compute_root_bits::<H, F, D>(
-            builder,
-            &index_bits,
-            new_value,
-            &siblings,
-        );
+        let old_root = MerkleProofGadget::compute_root_bits::<H, F, D>(builder, &index_bits, old_value, &siblings);
+        let new_root = MerkleProofGadget::compute_root_bits::<H, F, D>(builder, &index_bits, new_value, &siblings);
         Self {
             old_root,
             old_value,
@@ -251,20 +186,14 @@ impl DeltaMerkleProofGadget {
             option_flags: DeltaMerkleProofGadgetOptionFlags::none_value_placeholder,
         }
     }
-    pub fn add_virtual_to_dequeue_left<
-        H: MerkleZeroHasher<HashOut<F>> +AlgebraicHasher<F>,
-        F: RichField + Extendable<D>,
-        const D: usize,
-    >(
+    pub fn add_virtual_to_dequeue_left<H: MerkleZeroHasher<HashOut<F>> + AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
         height: usize,
     ) -> Self {
         let index = builder.add_virtual_target();
         let old_value = builder.add_virtual_hash();
         let new_value = builder.add_virtual_hash();
-        let siblings = (0..height)
-            .map(|_| builder.add_virtual_hash())
-            .collect::<Vec<_>>();
+        let siblings = (0..height).map(|_| builder.add_virtual_hash()).collect::<Vec<_>>();
         //builder.range_check(index, height);
         let index_bits = builder.split_le(index, height);
         let z_hash_target = builder.constant_hash(HashOut {
@@ -283,18 +212,8 @@ impl DeltaMerkleProofGadget {
             builder.connect_hashes_if_true(index_bits[i], siblings[i], zero_hash_target);
         }
 
-        let old_root = MerkleProofGadget::compute_root_bits::<H, F, D>(
-            builder,
-            &index_bits,
-            old_value,
-            &siblings,
-        );
-        let new_root = MerkleProofGadget::compute_root_bits::<H, F, D>(
-            builder,
-            &index_bits,
-            new_value,
-            &siblings,
-        );
+        let old_root = MerkleProofGadget::compute_root_bits::<H, F, D>(builder, &index_bits, old_value, &siblings);
+        let new_root = MerkleProofGadget::compute_root_bits::<H, F, D>(builder, &index_bits, new_value, &siblings);
         Self {
             old_root,
             old_value,
@@ -306,7 +225,7 @@ impl DeltaMerkleProofGadget {
         }
     }
     pub fn add_virtual_to_append_only_skip_left<
-        H: MerkleZeroHasher<HashOut<F>> +AlgebraicHasher<F>,
+        H: MerkleZeroHasher<HashOut<F>> + AlgebraicHasher<F>,
         F: RichField + Extendable<D>,
         const D: usize,
     >(
@@ -316,9 +235,7 @@ impl DeltaMerkleProofGadget {
         let index = builder.add_virtual_target();
         let old_value = builder.add_virtual_hash();
         let new_value = builder.add_virtual_hash();
-        let siblings = (0..height)
-            .map(|_| builder.add_virtual_hash())
-            .collect::<Vec<_>>();
+        let siblings = (0..height).map(|_| builder.add_virtual_hash()).collect::<Vec<_>>();
         //builder.range_check(index, height);
         let index_bits = builder.split_le(index, height);
         let one = builder.one();
@@ -340,18 +257,8 @@ impl DeltaMerkleProofGadget {
             builder.connect_hashes_if_false(index_bits[i], siblings[i], zero_hash_target);
         }
 
-        let old_root = MerkleProofGadget::compute_root_bits::<H, F, D>(
-            builder,
-            &index_bits,
-            old_value,
-            &siblings,
-        );
-        let new_root = MerkleProofGadget::compute_root_bits::<H, F, D>(
-            builder,
-            &index_bits,
-            new_value,
-            &siblings,
-        );
+        let old_root = MerkleProofGadget::compute_root_bits::<H, F, D>(builder, &index_bits, old_value, &siblings);
+        let new_root = MerkleProofGadget::compute_root_bits::<H, F, D>(builder, &index_bits, new_value, &siblings);
         Self {
             old_root,
             old_value,
@@ -362,26 +269,15 @@ impl DeltaMerkleProofGadget {
             option_flags: DeltaMerkleProofGadgetOptionFlags::none_value_placeholder,
         }
     }
-    pub fn add_virtual_to_with_options<
-        H:AlgebraicHasher<F>,
-        F: RichField + Extendable<D>,
-        const D: usize,
-    >(
+    pub fn add_virtual_to_with_options<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
         height: usize,
         options: OptionalDeltaMerkleProofGadget,
     ) -> Self {
         let mut option_flags: u64 = 0;
-        let old_value = builder.add_virtual_hash_if_none_op(
-            options.old_value,
-            &mut option_flags,
-            DeltaMerkleProofGadgetOptionFlags::old_value.bits(),
-        );
-        let index = builder.add_virtual_target_if_none_op(
-            options.index,
-            &mut option_flags,
-            DeltaMerkleProofGadgetOptionFlags::index.bits(),
-        );
+        let old_value =
+            builder.add_virtual_hash_if_none_op(options.old_value, &mut option_flags, DeltaMerkleProofGadgetOptionFlags::old_value.bits());
+        let index = builder.add_virtual_target_if_none_op(options.index, &mut option_flags, DeltaMerkleProofGadgetOptionFlags::index.bits());
 
         let siblings = builder.add_virtual_hashes_if_none_op(
             options.siblings,
@@ -389,27 +285,14 @@ impl DeltaMerkleProofGadget {
             &mut option_flags,
             DeltaMerkleProofGadgetOptionFlags::siblings.bits(),
         );
-        let new_value = builder.add_virtual_hash_if_none_op(
-            options.new_value,
-            &mut option_flags,
-            DeltaMerkleProofGadgetOptionFlags::new_value.bits(),
-        );
+        let new_value =
+            builder.add_virtual_hash_if_none_op(options.new_value, &mut option_flags, DeltaMerkleProofGadgetOptionFlags::new_value.bits());
 
         builder.range_check(index, height);
         let index_bits = builder.split_le(index, height);
 
-        let old_root = MerkleProofGadget::compute_root_bits::<H, F, D>(
-            builder,
-            &index_bits,
-            old_value,
-            &siblings,
-        );
-        let new_root = MerkleProofGadget::compute_root_bits::<H, F, D>(
-            builder,
-            &index_bits,
-            new_value,
-            &siblings,
-        );
+        let old_root = MerkleProofGadget::compute_root_bits::<H, F, D>(builder, &index_bits, old_value, &siblings);
+        let new_root = MerkleProofGadget::compute_root_bits::<H, F, D>(builder, &index_bits, new_value, &siblings);
         if options.old_root.is_some() {
             builder.connect_hashes(options.old_root.unwrap(), old_root);
         }
@@ -434,30 +317,18 @@ impl DeltaMerkleProofGadget {
         new_value: QHashOut<F>,
         siblings: &[QHashOut<F>],
     ) -> anyhow::Result<()> {
-        if !self
-            .option_flags
-            .contains(DeltaMerkleProofGadgetOptionFlags::index)
-        {
+        if !self.option_flags.contains(DeltaMerkleProofGadgetOptionFlags::index) {
             witness.set_target(self.index, index)?;
         }
-        if !self
-            .option_flags
-            .contains(DeltaMerkleProofGadgetOptionFlags::old_value)
-        {
+        if !self.option_flags.contains(DeltaMerkleProofGadgetOptionFlags::old_value) {
             witness.set_hash_target(self.old_value, old_value.0)?;
         }
-        if !self
-            .option_flags
-            .contains(DeltaMerkleProofGadgetOptionFlags::siblings)
-        {
+        if !self.option_flags.contains(DeltaMerkleProofGadgetOptionFlags::siblings) {
             for (i, sibling) in self.siblings.iter().enumerate() {
                 witness.set_hash_target(*sibling, siblings[i].0)?;
             }
         }
-        if !self
-            .option_flags
-            .contains(DeltaMerkleProofGadgetOptionFlags::new_value)
-        {
+        if !self.option_flags.contains(DeltaMerkleProofGadgetOptionFlags::new_value) {
             witness.set_hash_target(self.new_value, new_value.0)?;
         }
         Ok(())
@@ -470,60 +341,28 @@ impl DeltaMerkleProofGadget {
         old_value: HashOut<F>,
         new_value: HashOut<F>,
         siblings: &[HashOut<F>],
-    )  -> anyhow::Result<()> {
-        if !self
-            .option_flags
-            .contains(DeltaMerkleProofGadgetOptionFlags::index)
-        {
+    ) -> anyhow::Result<()> {
+        if !self.option_flags.contains(DeltaMerkleProofGadgetOptionFlags::index) {
             witness.set_target(self.index, index)?;
         }
-        if !self
-            .option_flags
-            .contains(DeltaMerkleProofGadgetOptionFlags::old_value)
-        {
+        if !self.option_flags.contains(DeltaMerkleProofGadgetOptionFlags::old_value) {
             witness.set_hash_target(self.old_value, old_value)?;
         }
-        if !self
-            .option_flags
-            .contains(DeltaMerkleProofGadgetOptionFlags::siblings)
-        {
+        if !self.option_flags.contains(DeltaMerkleProofGadgetOptionFlags::siblings) {
             for (i, sibling) in self.siblings.iter().enumerate() {
                 witness.set_hash_target(*sibling, siblings[i])?;
             }
         }
-        if !self
-            .option_flags
-            .contains(DeltaMerkleProofGadgetOptionFlags::new_value)
-        {
+        if !self.option_flags.contains(DeltaMerkleProofGadgetOptionFlags::new_value) {
             witness.set_hash_target(self.new_value, new_value)?;
         }
         Ok(())
     }
-    pub fn set_witness_proof<W: Witness<F>, F: RichField>(
-        &self,
-        witness: &mut W,
-        input: &DeltaMerkleProof<F>,
-    )  -> anyhow::Result<()> {
-        self.set_witness(
-            witness,
-            input.index,
-            input.old_value,
-            input.new_value,
-            &input.siblings,
-        )
+    pub fn set_witness_proof<W: Witness<F>, F: RichField>(&self, witness: &mut W, input: &DeltaMerkleProof<F>) -> anyhow::Result<()> {
+        self.set_witness(witness, input.index, input.old_value, input.new_value, &input.siblings)
     }
-    pub fn set_witness_base_proof<W: Witness<F>, F: RichField>(
-        &self,
-        witness: &mut W,
-        input: &DeltaMerkleProofBase<F>,
-    ) -> anyhow::Result<()> {
-        self.set_witness(
-            witness,
-            input.index,
-            input.old_value,
-            input.new_value,
-            &input.siblings,
-        )
+    pub fn set_witness_base_proof<W: Witness<F>, F: RichField>(&self, witness: &mut W, input: &DeltaMerkleProofBase<F>) -> anyhow::Result<()> {
+        self.set_witness(witness, input.index, input.old_value, input.new_value, &input.siblings)
     }
     pub fn set_witness_core_proof_q<W: Witness<F>, F: Field>(
         &self,
@@ -538,11 +377,7 @@ impl DeltaMerkleProofGadget {
             &input.siblings,
         )
     }
-    pub fn set_witness_core_proof<W: Witness<F>, F: Field>(
-        &self,
-        witness: &mut W,
-        input: &DeltaMerkleProofCore<HashOut<F>>,
-    ) -> anyhow::Result<()> {
+    pub fn set_witness_core_proof<W: Witness<F>, F: Field>(&self, witness: &mut W, input: &DeltaMerkleProofCore<HashOut<F>>) -> anyhow::Result<()> {
         self.set_witness_hash_out(
             witness,
             F::from_noncanonical_u64(input.index),
@@ -555,17 +390,20 @@ impl DeltaMerkleProofGadget {
 
 #[cfg(test)]
 mod tests {
-    use plonky2::field::types::Field;
-    use plonky2::hash::poseidon::PoseidonHash;
-    use plonky2::iop::witness::PartialWitness;
-    use plonky2::plonk::circuit_builder::CircuitBuilder;
-    use plonky2::plonk::circuit_data::CircuitConfig;
-    use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
+    use plonky2::{
+        field::types::Field,
+        hash::poseidon::PoseidonHash,
+        iop::witness::PartialWitness,
+        plonk::{
+            circuit_builder::CircuitBuilder,
+            circuit_data::CircuitConfig,
+            config::{GenericConfig, PoseidonGoldilocksConfig},
+        },
+    };
     use psy_crypto::hash::merkle::core::DeltaMerkleProof;
 
-    use crate::hash::merkle::gadgets::delta_merkle_proof::DeltaMerkleProofGadget;
-
     use super::OptionalDeltaMerkleProofGadget;
+    use crate::hash::merkle::gadgets::delta_merkle_proof::DeltaMerkleProofGadget;
 
     const D: usize = 2;
     type C = PoseidonGoldilocksConfig;
@@ -879,10 +717,7 @@ mod tests {
     fn create_dmp_circuit_for_proof_a(dmp: &DeltaMerkleProof<F>) {
         let config = CircuitConfig::standard_recursion_config();
         let mut builder = CircuitBuilder::<F, D>::new(config);
-        let dmp_gadget = DeltaMerkleProofGadget::add_virtual_to::<PoseidonHash, F, D>(
-            &mut builder,
-            dmp.siblings.len(),
-        );
+        let dmp_gadget = DeltaMerkleProofGadget::add_virtual_to::<PoseidonHash, F, D>(&mut builder, dmp.siblings.len());
         let old_root = builder.constant_hash(dmp.old_root.0);
         let new_root = builder.constant_hash(dmp.new_root.0);
         builder.connect_hashes(dmp_gadget.old_root, old_root);
@@ -989,8 +824,7 @@ mod tests {
 
     #[test]
     fn test_delta_merkle_proof_circuit() {
-        let parsed_test_cases =
-            serde_json::from_str::<Vec<DeltaMerkleProof<F>>>(TEST_CASES_JSON).unwrap();
+        let parsed_test_cases = serde_json::from_str::<Vec<DeltaMerkleProof<F>>>(TEST_CASES_JSON).unwrap();
         for test_case in &parsed_test_cases {
             create_dmp_circuit_for_proof_a(test_case);
             create_dmp_circuit_for_proof_b(test_case);
@@ -999,8 +833,7 @@ mod tests {
     #[test]
     #[should_panic]
     fn test_delta_merkle_proof_circuit_failures() {
-        let parsed_test_cases =
-            serde_json::from_str::<Vec<DeltaMerkleProof<F>>>(TEST_CASES_JSON).unwrap();
+        let parsed_test_cases = serde_json::from_str::<Vec<DeltaMerkleProof<F>>>(TEST_CASES_JSON).unwrap();
         for test_case in &parsed_test_cases {
             delta_merkle_proof_should_fail_a(test_case);
             delta_merkle_proof_should_fail_b(test_case);

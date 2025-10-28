@@ -13,8 +13,7 @@ use crate::{
             hash256bytes::{CircuitBuilderHash256Bytes, Hash256BytesTarget},
         },
         hash_ops::{
-            add_arr_2, add_arr_2_const, add_arr_3, and_arr, bool_vec_to_arr_s, not_arr, or_arr,
-            rol_arr, split_le_no_drain, xor2_arr, xor3_arr,
+            add_arr_2, add_arr_2_const, add_arr_3, and_arr, bool_vec_to_arr_s, not_arr, or_arr, rol_arr, split_le_no_drain, xor2_arr, xor3_arr,
         },
     },
 };
@@ -22,9 +21,7 @@ use crate::{
 pub trait CircuitBuilderHashRipemd160<F: RichField + Extendable<D>, const D: usize> {
     fn hash_ripemd160_hash256_bytes(&mut self, value: Hash256BytesTarget) -> Hash160BytesTarget;
 }
-impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderHashRipemd160<F, D>
-    for CircuitBuilder<F, D>
-{
+impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderHashRipemd160<F, D> for CircuitBuilder<F, D> {
     fn hash_ripemd160_hash256_bytes(&mut self, value: Hash256BytesTarget) -> Hash160BytesTarget {
         let bit_decomposed = self.hash256_bytes_to_u32_bits(value);
         let bits = ripemd160_hash_pad_u32_bits(self, &bit_decomposed);
@@ -39,11 +36,7 @@ pub fn ripemd160_op_f_arr<F: RichField + Extendable<D>, const D: usize, const S:
     z: [BoolTarget; S],
     builder: &mut CircuitBuilder<F, D>,
 ) -> [BoolTarget; S] {
-    let t = if input_t < 80 {
-        input_t
-    } else {
-        80 - (input_t % 80) - 1
-    };
+    let t = if input_t < 80 { input_t } else { 80 - (input_t % 80) - 1 };
 
     if t < 16 {
         xor3_arr(x, y, z, builder)
@@ -117,13 +110,8 @@ pub fn ripemd160_op_c_arr<F: RichField + Extendable<D>, const D: usize, const S:
     let a_plus_f_result = add_arr_2(a, f_result, builder);
     let x_plus_k_t = add_arr_2_const(x, ripemd160_const_k(input_t as usize) as u64, builder);
     let a_plus_f_result_plus_x_plus_k_t = add_arr_2(a_plus_f_result, x_plus_k_t, builder);
-    let a_plus_f_result_plus_x_plus_k_t_rol_s = rol_arr(
-        a_plus_f_result_plus_x_plus_k_t,
-        RIPEMD160_CONST_S[input_t] as usize,
-        builder,
-    );
-    let a_plus_f_result_plus_x_plus_k_t_rol_e_plus_e =
-        add_arr_2(a_plus_f_result_plus_x_plus_k_t_rol_s, e, builder);
+    let a_plus_f_result_plus_x_plus_k_t_rol_s = rol_arr(a_plus_f_result_plus_x_plus_k_t, RIPEMD160_CONST_S[input_t] as usize, builder);
+    let a_plus_f_result_plus_x_plus_k_t_rol_e_plus_e = add_arr_2(a_plus_f_result_plus_x_plus_k_t_rol_s, e, builder);
 
     a_plus_f_result_plus_x_plus_k_t_rol_e_plus_e
 }
@@ -133,10 +121,8 @@ pub fn ripemd160_round<F: RichField + Extendable<D>, const D: usize, const S: us
     round_initial_hash_targets_input: [Target; 5],
     payload_target: [Target; 16],
 ) -> [Target; 5] {
-    let mut round_hash_targets = round_initial_hash_targets_input
-        .map(|t| bool_vec_to_arr_s::<S>(&split_le_no_drain::<F, D>(builder, t, 32)));
-    let x =
-        payload_target.map(|t| bool_vec_to_arr_s::<S>(&split_le_no_drain::<F, D>(builder, t, 32)));
+    let mut round_hash_targets = round_initial_hash_targets_input.map(|t| bool_vec_to_arr_s::<S>(&split_le_no_drain::<F, D>(builder, t, 32)));
+    let x = payload_target.map(|t| bool_vec_to_arr_s::<S>(&split_le_no_drain::<F, D>(builder, t, 32)));
     let mut aa = round_hash_targets[0];
     let mut aaa = round_hash_targets[0];
 
@@ -152,16 +138,7 @@ pub fn ripemd160_round<F: RichField + Extendable<D>, const D: usize, const S: us
     let mut ee = round_hash_targets[4];
     let mut eee = round_hash_targets[4];
     for t in 0..80 {
-        aa = ripemd160_op_c_arr::<F, D, S>(
-            t,
-            aa,
-            bb,
-            cc,
-            dd,
-            ee,
-            x[i + RIPEMD160_CONST_X[t] as usize],
-            builder,
-        );
+        aa = ripemd160_op_c_arr::<F, D, S>(t, aa, bb, cc, dd, ee, x[i + RIPEMD160_CONST_X[t] as usize], builder);
         let tmp = ee;
         ee = dd;
         dd = rol_arr(cc, 10, builder);
@@ -171,16 +148,7 @@ pub fn ripemd160_round<F: RichField + Extendable<D>, const D: usize, const S: us
     }
 
     for t in 80..160 {
-        aaa = ripemd160_op_c_arr::<F, D, S>(
-            t,
-            aaa,
-            bbb,
-            ccc,
-            ddd,
-            eee,
-            x[i + RIPEMD160_CONST_X[t] as usize],
-            builder,
-        );
+        aaa = ripemd160_op_c_arr::<F, D, S>(t, aaa, bbb, ccc, ddd, eee, x[i + RIPEMD160_CONST_X[t] as usize], builder);
         let tmp = eee;
         eee = ddd;
         ddd = rol_arr(ccc, 10, builder);
@@ -209,8 +177,7 @@ pub fn ripemd160_rounds<F: RichField + Extendable<D>, const D: usize, const S: u
         .map(|t| bool_vec_to_arr_s::<S>(&split_le_no_drain::<F, D>(builder, t, 32)));
 
     for i in 0..payload_targets.len() {
-        let x = payload_targets[i]
-            .map(|t| bool_vec_to_arr_s::<S>(&split_le_no_drain::<F, D>(builder, t, 32)));
+        let x = payload_targets[i].map(|t| bool_vec_to_arr_s::<S>(&split_le_no_drain::<F, D>(builder, t, 32)));
         let mut aa = round_hash_targets[0];
         let mut aaa = round_hash_targets[0];
 
@@ -226,16 +193,7 @@ pub fn ripemd160_rounds<F: RichField + Extendable<D>, const D: usize, const S: u
         let mut ee = round_hash_targets[4];
         let mut eee = round_hash_targets[4];
         for t in 0..80 {
-            aa = ripemd160_op_c_arr::<F, D, S>(
-                t,
-                aa,
-                bb,
-                cc,
-                dd,
-                ee,
-                x[i * 16 + RIPEMD160_CONST_X[t] as usize],
-                builder,
-            );
+            aa = ripemd160_op_c_arr::<F, D, S>(t, aa, bb, cc, dd, ee, x[i * 16 + RIPEMD160_CONST_X[t] as usize], builder);
             let tmp = ee;
             ee = dd;
             dd = rol_arr(cc, 10, builder);
@@ -245,16 +203,7 @@ pub fn ripemd160_rounds<F: RichField + Extendable<D>, const D: usize, const S: u
         }
 
         for t in 80..160 {
-            aaa = ripemd160_op_c_arr::<F, D, S>(
-                t,
-                aaa,
-                bbb,
-                ccc,
-                ddd,
-                eee,
-                x[i * 16 + RIPEMD160_CONST_X[t] as usize],
-                builder,
-            );
+            aaa = ripemd160_op_c_arr::<F, D, S>(t, aaa, bbb, ccc, ddd, eee, x[i * 16 + RIPEMD160_CONST_X[t] as usize], builder);
             let tmp = eee;
             eee = ddd;
             ddd = rol_arr(ccc, 10, builder);
@@ -304,16 +253,7 @@ pub fn ripemd160_rounds_no_16<F: RichField + Extendable<D>, const D: usize, cons
         let mut ee = round_hash_targets[4];
         let mut eee = round_hash_targets[4];
         for t in 0..80 {
-            aa = ripemd160_op_c_arr::<F, D, S>(
-                t,
-                aa,
-                bb,
-                cc,
-                dd,
-                ee,
-                x[i + RIPEMD160_CONST_X[t] as usize],
-                builder,
-            );
+            aa = ripemd160_op_c_arr::<F, D, S>(t, aa, bb, cc, dd, ee, x[i + RIPEMD160_CONST_X[t] as usize], builder);
             let tmp = ee;
             ee = dd;
             dd = rol_arr(cc, 10, builder);
@@ -323,16 +263,7 @@ pub fn ripemd160_rounds_no_16<F: RichField + Extendable<D>, const D: usize, cons
         }
 
         for t in 80..160 {
-            aaa = ripemd160_op_c_arr::<F, D, S>(
-                t,
-                aaa,
-                bbb,
-                ccc,
-                ddd,
-                eee,
-                x[i + RIPEMD160_CONST_X[t] as usize],
-                builder,
-            );
+            aaa = ripemd160_op_c_arr::<F, D, S>(t, aaa, bbb, ccc, ddd, eee, x[i + RIPEMD160_CONST_X[t] as usize], builder);
             let tmp = eee;
             eee = ddd;
             ddd = rol_arr(ccc, 10, builder);
@@ -378,16 +309,7 @@ pub fn ripemd160_rounds_no_16_bits<F: RichField + Extendable<D>, const D: usize,
         let mut ee = round_hash_targets[4];
         let mut eee = round_hash_targets[4];
         for t in 0..80 {
-            aa = ripemd160_op_c_arr::<F, D, S>(
-                t,
-                aa,
-                bb,
-                cc,
-                dd,
-                ee,
-                x[i + RIPEMD160_CONST_X[t] as usize],
-                builder,
-            );
+            aa = ripemd160_op_c_arr::<F, D, S>(t, aa, bb, cc, dd, ee, x[i + RIPEMD160_CONST_X[t] as usize], builder);
             let tmp = ee;
             ee = dd;
             dd = rol_arr(cc, 10, builder);
@@ -397,16 +319,7 @@ pub fn ripemd160_rounds_no_16_bits<F: RichField + Extendable<D>, const D: usize,
         }
 
         for t in 80..160 {
-            aaa = ripemd160_op_c_arr::<F, D, S>(
-                t,
-                aaa,
-                bbb,
-                ccc,
-                ddd,
-                eee,
-                x[i + RIPEMD160_CONST_X[t] as usize],
-                builder,
-            );
+            aaa = ripemd160_op_c_arr::<F, D, S>(t, aaa, bbb, ccc, ddd, eee, x[i + RIPEMD160_CONST_X[t] as usize], builder);
             let tmp = eee;
             eee = ddd;
             ddd = rol_arr(ccc, 10, builder);
@@ -445,16 +358,9 @@ pub fn ripemd160_hash_pad_u32<F: RichField + Extendable<D>, const D: usize>(
         .collect::<Vec<_>>();
 
     let bit_length_target = builder.constant(F::from_canonical_u32(bit_length as u32));
-    let count_target = builder.constant(F::from_canonical_u32(
-        ((bit_length as u64) / (4294967296u64)) as u32,
-    ));
+    let count_target = builder.constant(F::from_canonical_u32(((bit_length as u64) / (4294967296u64)) as u32));
 
-    let payload_targets = vec![
-        u32_inputs.to_vec(),
-        pad_targets,
-        vec![bit_length_target, count_target],
-    ]
-    .concat();
+    let payload_targets = vec![u32_inputs.to_vec(), pad_targets, vec![bit_length_target, count_target]].concat();
     ripemd160_rounds_no_16::<F, D, 32>(builder, &payload_targets)
 }
 
@@ -480,11 +386,6 @@ pub fn ripemd160_hash_pad_u32_bits<F: RichField + Extendable<D>, const D: usize>
     let bit_length_target = builder.constant_u32_bits(bit_length as u32);
     let count_target = builder.constant_u32_bits(((bit_length as u64) / (4294967296u64)) as u32);
 
-    let payload_targets = vec![
-        u32_inputs.to_vec(),
-        pad_targets,
-        vec![bit_length_target, count_target],
-    ]
-    .concat();
+    let payload_targets = vec![u32_inputs.to_vec(), pad_targets, vec![bit_length_target, count_target]].concat();
     ripemd160_rounds_no_16_bits::<F, D, 32>(builder, &payload_targets)
 }

@@ -16,9 +16,7 @@ impl SimpleZeroPadEncryptionHelper {
         Self { key }
     }
     pub fn new_rand() -> Self {
-        Self {
-            key: Hash256::rand(),
-        }
+        Self { key: Hash256::rand() }
     }
     pub fn new_no_encrypt() -> Self {
         Self { key: Hash256::ZERO }

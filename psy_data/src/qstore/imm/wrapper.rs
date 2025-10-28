@@ -1,10 +1,11 @@
-use std::{marker::PhantomData, sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard}};
+use std::{
+    marker::PhantomData,
+    sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard},
+};
 
 use plonky2::hash::hash_types::RichField;
 
 use super::cmd_processor::QEDReadCommandProcessorSyncMut;
-
-
 
 #[derive(Clone)]
 pub struct QEDReadCommandProcessorArcImmutableWrapper<F: RichField, P: QEDReadCommandProcessorSyncMut<F>> {
@@ -31,7 +32,7 @@ impl<F: RichField, P: QEDReadCommandProcessorSyncMut<F>> QEDReadCommandProcessor
             .map_err(|err| anyhow::anyhow!("Error reading from immutable store: {:?}", err))
     }
 }
-/* 
+/*
 impl<F: RichField, P: QEDReadCommandProcessorSyncMut<F>> QEDReadCommandProcessorSync<F> for QEDReadCommandProcessorArcImmutableWrapper<F, P> {
     fn resolve_batch(&self, input: &QEDReadCommandBatchInput) -> anyhow::Result<QEDReadCommandBatchOutput<F>> {
         self.write()?.resolve_batch_mut(input)

@@ -1,77 +1,45 @@
 use core::marker::PhantomData;
 
 use itertools::Itertools;
-use plonky2::field::extension::Extendable;
-use plonky2::field::types::Field;
-use plonky2::hash::hash_types::RichField;
-use plonky2::iop::target::Target;
-use plonky2::plonk::circuit_builder::CircuitBuilder;
-
-use crate::u32::arithmetic_u32::{CircuitBuilderU32, U32Target};
+use plonky2::{
+    field::{extension::Extendable, types::Field},
+    hash::hash_types::RichField,
+    iop::target::Target,
+    plonk::circuit_builder::CircuitBuilder,
+};
 
 use super::{biguint::BigUintTarget, nonnative::NonNativeTarget};
+use crate::u32::arithmetic_u32::{CircuitBuilderU32, U32Target};
 pub trait CircuitBuilderSplit<F: RichField + Extendable<D>, const D: usize> {
     fn split_u32_to_4_bit_limbs(&mut self, val: U32Target) -> Vec<Target>;
 
-    fn split_nonnative_to_4_bit_limbs<FF: Field>(
-        &mut self,
-        val: &NonNativeTarget<FF>,
-    ) -> Vec<Target>;
+    fn split_nonnative_to_4_bit_limbs<FF: Field>(&mut self, val: &NonNativeTarget<FF>) -> Vec<Target>;
 
-    fn split_nonnative_to_2_bit_limbs<FF: Field>(
-        &mut self,
-        val: &NonNativeTarget<FF>,
-    ) -> Vec<Target>;
+    fn split_nonnative_to_2_bit_limbs<FF: Field>(&mut self, val: &NonNativeTarget<FF>) -> Vec<Target>;
 
     // Note: assumes its inputs are 4-bit limbs, and does not range-check.
-    fn recombine_nonnative_4_bit_limbs<FF: Field>(
-        &mut self,
-        limbs: Vec<Target>,
-    ) -> NonNativeTarget<FF>;
+    fn recombine_nonnative_4_bit_limbs<FF: Field>(&mut self, limbs: Vec<Target>) -> NonNativeTarget<FF>;
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderSplit<F, D>
-    for CircuitBuilder<F, D>
-{
+impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderSplit<F, D> for CircuitBuilder<F, D> {
     fn split_u32_to_4_bit_limbs(&mut self, val: U32Target) -> Vec<Target> {
         let two_bit_limbs = self.split_le_base::<4>(val.0, 16);
         let four = self.constant(F::from_canonical_usize(4));
-        let combined_limbs = two_bit_limbs
-            .iter()
-            .tuples()
-            .map(|(&a, &b)| self.mul_add(b, four, a))
-            .collect();
+        let combined_limbs = two_bit_limbs.iter().tuples().map(|(&a, &b)| self.mul_add(b, four, a)).collect();
 
         combined_limbs
     }
 
-    fn split_nonnative_to_4_bit_limbs<FF: Field>(
-        &mut self,
-        val: &NonNativeTarget<FF>,
-    ) -> Vec<Target> {
-        val.value
-            .limbs
-            .iter()
-            .flat_map(|&l| self.split_u32_to_4_bit_limbs(l))
-            .collect()
+    fn split_nonnative_to_4_bit_limbs<FF: Field>(&mut self, val: &NonNativeTarget<FF>) -> Vec<Target> {
+        val.value.limbs.iter().flat_map(|&l| self.split_u32_to_4_bit_limbs(l)).collect()
     }
 
-    fn split_nonnative_to_2_bit_limbs<FF: Field>(
-        &mut self,
-        val: &NonNativeTarget<FF>,
-    ) -> Vec<Target> {
-        val.value
-            .limbs
-            .iter()
-            .flat_map(|&l| self.split_le_base::<4>(l.0, 16))
-            .collect()
+    fn split_nonnative_to_2_bit_limbs<FF: Field>(&mut self, val: &NonNativeTarget<FF>) -> Vec<Target> {
+        val.value.limbs.iter().flat_map(|&l| self.split_le_base::<4>(l.0, 16)).collect()
     }
 
     // Note: assumes its inputs are 4-bit limbs, and does not range-check.
-    fn recombine_nonnative_4_bit_limbs<FF: Field>(
-        &mut self,
-        limbs: Vec<Target>,
-    ) -> NonNativeTarget<FF> {
+    fn recombine_nonnative_4_bit_limbs<FF: Field>(&mut self, limbs: Vec<Target>) -> NonNativeTarget<FF> {
         let base = self.constant_u32(1 << 4);
         let u32_limbs = limbs
             .chunks(8)
@@ -95,15 +63,17 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderSplit<F, D>
 #[cfg(test)]
 mod tests {
     use anyhow::Result;
-    use plonky2::field::secp256k1_scalar::Secp256K1Scalar;
-    use plonky2::field::types::Sample;
-    use plonky2::iop::witness::PartialWitness;
-    use plonky2::plonk::circuit_data::CircuitConfig;
-    use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
-
-    use crate::crypto::secp256k1::ecdsa::gadgets::nonnative::CircuitBuilderNonNative;
+    use plonky2::{
+        field::{secp256k1_scalar::Secp256K1Scalar, types::Sample},
+        iop::witness::PartialWitness,
+        plonk::{
+            circuit_data::CircuitConfig,
+            config::{GenericConfig, PoseidonGoldilocksConfig},
+        },
+    };
 
     use super::*;
+    use crate::crypto::secp256k1::ecdsa::gadgets::nonnative::CircuitBuilderNonNative;
 
     #[test]
     fn test_split_nonnative() -> Result<()> {
@@ -119,8 +89,7 @@ mod tests {
         let x = FF::rand();
         let x_target = builder.constant_nonnative(x);
         let split = builder.split_nonnative_to_4_bit_limbs(&x_target);
-        let combined: NonNativeTarget<Secp256K1Scalar> =
-            builder.recombine_nonnative_4_bit_limbs(split);
+        let combined: NonNativeTarget<Secp256K1Scalar> = builder.recombine_nonnative_4_bit_limbs(split);
         builder.connect_nonnative(&x_target, &combined);
 
         let data = builder.build::<C>();

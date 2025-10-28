@@ -26,10 +26,7 @@ impl<F: RichField, const TABLE_TYPE: u16> KVQSerializable for StagingDeltaRecord
 
     fn from_bytes(bytes: &[u8]) -> anyhow::Result<Self> {
         if bytes.len() != 38 {
-            anyhow::bail!(
-                "expected 38 bytes for deserializing StagingDeltaRecordKey, got {} bytes",
-                bytes.len()
-            );
+            anyhow::bail!("expected 38 bytes for deserializing StagingDeltaRecordKey, got {} bytes", bytes.len());
         }
 
         let elements = [

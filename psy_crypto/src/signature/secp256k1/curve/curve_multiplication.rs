@@ -36,11 +36,7 @@ impl<C: Curve> ProjectivePoint<C> {
     }
 
     #[must_use]
-    pub fn mul_with_precomputation(
-        &self,
-        scalar: C::ScalarField,
-        precomputation: MultiplicationPrecomputation<C>,
-    ) -> Self {
+    pub fn mul_with_precomputation(&self, scalar: C::ScalarField, precomputation: MultiplicationPrecomputation<C>) -> Self {
         // Yao's method; see https://koclab.cs.ucsb.edu/teaching/ecc/eccPapers/Doche-ch09.pdf
         let precomputed_powers = precomputation.powers;
 

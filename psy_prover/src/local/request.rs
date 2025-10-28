@@ -1,42 +1,43 @@
-use plonky2::field::goldilocks_field::GoldilocksField;
-use plonky2::hash::hash_types::RichField;
-use plonky2::plonk::config::GenericConfig;
-use plonky2::plonk::config::PoseidonGoldilocksConfig;
-use plonky2::plonk::proof::ProofWithPublicInputs;
-use psy_core::data::alt::AltVerifierOnlyCircuitData;
-use psy_core::data::base_types::hash160::Hash160;
-use psy_core::data::base_types::hash256::Hash256;
-use psy_core::data::qhashout::QHashOut;
-use psy_crypto::common::witnesses::qrecursion::header::QRecursionAggStandardHeader;
-use psy_crypto::common::witnesses::qrecursion::proof_data::QStandardBinaryTreeCircuitType;
-use psy_crypto::hash::merkle::core::DeltaMerkleProofCore;
-use psy_crypto::hash::merkle::core::MerkleProofCore;
-use psy_crypto::signature::secp256k1::core::QEDCompressedSecp256K1Signature;
-use psy_crypto::signature::zk::data::ZKPublicKeyInfo;
-use psy_data::guta::api::SubmitGUTARealmResultAPINoProofInput;
-use psy_data::guta::end_cap_input::SubmitUserEndCapNonProofInput;
-use psy_data::qblock::cmds::deploy_contract::QBCDeployContract;
-use psy_data::qdata::checkpoint::QEDCheckpointLeaf;
-use psy_data::qdata::checkpoint::QEDL2BlockState;
-use psy_data::qdata::contract::ContractCodeDefinition;
-use psy_data::qdata::contract::QEDContractLeaf;
-use psy_data::qdata::user::QEDUserLeaf;
-use psy_data::ups::start_step::UPSStartStepInput;
-use psy_data::ups::ups_cfc_standard_step::UPSCFCDeferredTransactionCircuitInput;
-use psy_data::ups::ups_cfc_standard_step::UPSCFCStandardTransactionCircuitInput;
-use psy_data::ups::ups_end_cap::UPSEndCapFromProofTreeGadgetInput;
-use psy_exec::vm::cfc_input::DapenContractFunctionCircuitInput;
-use serde::Deserialize;
-use serde::Deserializer;
-use serde::Serialize;
-use serde::Serializer;
-use serde_with::serde_as;
 use std::borrow::Cow;
+
+use plonky2::{
+    field::goldilocks_field::GoldilocksField,
+    hash::hash_types::RichField,
+    plonk::{
+        config::{GenericConfig, PoseidonGoldilocksConfig},
+        proof::ProofWithPublicInputs,
+    },
+};
+use psy_core::data::{
+    alt::AltVerifierOnlyCircuitData,
+    base_types::{hash160::Hash160, hash256::Hash256},
+    qhashout::QHashOut,
+};
+use psy_crypto::{
+    common::witnesses::qrecursion::{header::QRecursionAggStandardHeader, proof_data::QStandardBinaryTreeCircuitType},
+    hash::merkle::core::{DeltaMerkleProofCore, MerkleProofCore},
+    signature::{secp256k1::core::QEDCompressedSecp256K1Signature, zk::data::ZKPublicKeyInfo},
+};
+use psy_data::{
+    guta::{api::SubmitGUTARealmResultAPINoProofInput, end_cap_input::SubmitUserEndCapNonProofInput},
+    qblock::cmds::deploy_contract::QBCDeployContract,
+    qdata::{
+        checkpoint::{QEDCheckpointLeaf, QEDL2BlockState},
+        contract::{ContractCodeDefinition, QEDContractLeaf},
+        user::QEDUserLeaf,
+    },
+    ups::{
+        start_step::UPSStartStepInput,
+        ups_cfc_standard_step::{UPSCFCDeferredTransactionCircuitInput, UPSCFCStandardTransactionCircuitInput},
+        ups_end_cap::UPSEndCapFromProofTreeGadgetInput,
+    },
+};
+use psy_exec::vm::cfc_input::DapenContractFunctionCircuitInput;
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use serde_with::serde_as;
 use ts_rs::TS;
 
-use crate::wallet::software_defined_circuit::{
-    QSoftwareDefinedSignatureInput, QSoftwareDefinedSignatureWitnessInput,
-};
+use crate::wallet::software_defined_circuit::{QSoftwareDefinedSignatureInput, QSoftwareDefinedSignatureWitnessInput};
 const D: usize = 2;
 type C = PoseidonGoldilocksConfig;
 
@@ -529,10 +530,7 @@ pub struct QRegisterUserRPCRequest<F: RichField> {
 
 impl<F: RichField> QRegisterUserRPCRequest<F> {
     pub fn new_batch(public_keys: &[ZKPublicKeyInfo<F>]) -> Vec<Self> {
-        public_keys
-            .iter()
-            .map(|pk| QRegisterUserRPCRequest { public_key: *pk })
-            .collect()
+        public_keys.iter().map(|pk| QRegisterUserRPCRequest { public_key: *pk }).collect()
     }
 }
 
@@ -1385,9 +1383,7 @@ pub enum QRPCRequest<F: RichField> {
     QUserContractStateTreeLeafHashRPCRequest((u32, QUserContractStateTreeLeafHashRPCRequest)),
     QUserContractStateTreeLeafHashFRPCRequest((u32, QUserContractStateTreeLeafHashFRPCRequest<F>)),
     QUserContractStateTreeMerkleProofRPCRequest((u32, QUserContractStateTreeMerkleProofRPCRequest)),
-    QUserContractStateTreeMerkleProofFRPCRequest(
-        (u32, QUserContractStateTreeMerkleProofFRPCRequest<F>),
-    ),
+    QUserContractStateTreeMerkleProofFRPCRequest((u32, QUserContractStateTreeMerkleProofFRPCRequest<F>)),
 
     QUserContractTreeRootRPCRequest((u32, QUserContractTreeRootRPCRequest)),
     QUserContractTreeRootFRPCRequest((u32, QUserContractTreeRootFRPCRequest<F>)),
@@ -1400,9 +1396,7 @@ pub enum QRPCRequest<F: RichField> {
     QUserRegistrationTreeLeafHashRPCRequest((u32, QUserRegistrationTreeLeafHashRPCRequest)),
     QUserRegistrationTreeLeafHashFRPCRequest((u32, QUserRegistrationTreeLeafHashFRPCRequest<F>)),
     QUserRegistrationTreeMerkleProofRPCRequest((u32, QUserRegistrationTreeMerkleProofRPCRequest)),
-    QUserRegistrationTreeMerkleProofFRPCRequest(
-        (u32, QUserRegistrationTreeMerkleProofFRPCRequest<F>),
-    ),
+    QUserRegistrationTreeMerkleProofFRPCRequest((u32, QUserRegistrationTreeMerkleProofFRPCRequest<F>)),
     QUserTreeRootRPCRequest((u32, QUserTreeRootRPCRequest)),
     QUserTreeRootFRPCRequest((u32, QUserTreeRootFRPCRequest<F>)),
     QUserTreeLeafHashRPCRequest((u32, QUserTreeLeafHashRPCRequest)),
@@ -1414,9 +1408,7 @@ pub enum QRPCRequest<F: RichField> {
     QContractFunctionTreeLeafHashRPCRequest((u32, QContractFunctionTreeLeafHashRPCRequest)),
     QContractFunctionTreeLeafHashFRPCRequest((u32, QContractFunctionTreeLeafHashFRPCRequest<F>)),
     QContractFunctionTreeMerkleProofRPCRequest((u32, QContractFunctionTreeMerkleProofRPCRequest)),
-    QContractFunctionTreeMerkleProofFRPCRequest(
-        (u32, QContractFunctionTreeMerkleProofFRPCRequest<F>),
-    ),
+    QContractFunctionTreeMerkleProofFRPCRequest((u32, QContractFunctionTreeMerkleProofFRPCRequest<F>)),
     QContractTreeRootRPCRequest((u32, QContractTreeRootRPCRequest)),
     QContractTreeRootFRPCRequest((u32, QContractTreeRootFRPCRequest<F>)),
     QContractTreeLeafHashRPCRequest((u32, QContractTreeLeafHashRPCRequest)),

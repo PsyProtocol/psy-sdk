@@ -1,12 +1,27 @@
-use plonky2::{hash::hash_types::{HashOut, HashOutTarget}, iop::witness::{PartialWitness, WitnessWrite}, plonk::{circuit_builder::CircuitBuilder, circuit_data::{CircuitConfig, CircuitData, CommonCircuitData, VerifierOnlyCircuitData}, config::{AlgebraicHasher, GenericConfig}, proof::ProofWithPublicInputs}};
-use crate::{builder::pad_circuit::pad_circuit_degree, circuits::traits::qstandard::QStandardCircuit, proof_minifier::pm_core::get_circuit_fingerprint_generic, treeprover::qrecursion::standard::gadgets::{agg_proof_header::QRecursionAggStandardHeaderGadget, verify_leaf_proof::VerifyLeafProofGadget}};
+use plonky2::{
+    hash::hash_types::{HashOut, HashOutTarget},
+    iop::witness::{PartialWitness, WitnessWrite},
+    plonk::{
+        circuit_builder::CircuitBuilder,
+        circuit_data::{CircuitConfig, CircuitData, CommonCircuitData, VerifierOnlyCircuitData},
+        config::{AlgebraicHasher, GenericConfig},
+        proof::ProofWithPublicInputs,
+    },
+};
 use psy_core::data::qhashout::QHashOut;
 use psy_crypto::hash::{merkle::core::DeltaMerkleProofCore, traits::hasher::MerkleZeroHasher};
+
+use crate::{
+    builder::pad_circuit::pad_circuit_degree,
+    circuits::traits::qstandard::QStandardCircuit,
+    proof_minifier::pm_core::get_circuit_fingerprint_generic,
+    treeprover::qrecursion::standard::gadgets::{agg_proof_header::QRecursionAggStandardHeaderGadget, verify_leaf_proof::VerifyLeafProofGadget},
+};
 
 #[derive(Debug)]
 pub struct QRecursionStandardSingleLeafCircuit<C: GenericConfig<D>, const D: usize>
 where
-    C::Hasher:AlgebraicHasher<C::F>,
+    C::Hasher: AlgebraicHasher<C::F>,
 {
     pub agg_circuit_whitelist_root: HashOutTarget,
     pub single_leaf_gadget: VerifyLeafProofGadget<D>,
@@ -15,11 +30,10 @@ where
     pub circuit_data: CircuitData<C::F, C, D>,
     pub fingerprint: QHashOut<C::F>,
     // end circuit data
-
 }
 impl<C: GenericConfig<D>, const D: usize> QRecursionStandardSingleLeafCircuit<C, D>
 where
-    C::Hasher:AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>>,
+    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>>,
 {
     pub fn new(
         //coset_gate: &GateRef<C::F, D>,
@@ -27,16 +41,11 @@ where
         verifier_data_cap_height: usize,
         child_common_data: &CommonCircuitData<C::F, D>,
     ) -> Self {
-        
         let config = CircuitConfig::standard_recursion_config();
         let mut builder = CircuitBuilder::<C::F, D>::new(config);
 
-        let single_leaf_gadget = VerifyLeafProofGadget::<D>::add_virtual_to::<C, C::F>(
-            &mut builder, 
-            q_recursion_tree_height, 
-            child_common_data, 
-            verifier_data_cap_height,
-        );
+        let single_leaf_gadget =
+            VerifyLeafProofGadget::<D>::add_virtual_to::<C, C::F>(&mut builder, q_recursion_tree_height, child_common_data, verifier_data_cap_height);
         let agg_circuit_whitelist_root = builder.add_virtual_hash();
 
         let self_header_gadget = QRecursionAggStandardHeaderGadget {
@@ -69,26 +78,21 @@ where
         single_insert_leaf_proof: &DeltaMerkleProofCore<QHashOut<C::F>>,
         single_proof: &ProofWithPublicInputs<C::F, C, D>,
         single_verifier_data: &VerifierOnlyCircuitData<C, D>,
-
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         let mut pw = PartialWitness::<C::F>::new();
-        
+
         pw.set_hash_target(self.agg_circuit_whitelist_root, agg_circuit_whitelist_root.0)?;
 
-        self.single_leaf_gadget.set_witness(
-            &mut pw,
-            single_insert_leaf_proof,
-            single_proof,
-            single_verifier_data
-        )?;
-        
+        self.single_leaf_gadget
+            .set_witness(&mut pw, single_insert_leaf_proof, single_proof, single_verifier_data)?;
+
         self.circuit_data.prove(pw)
     }
 }
 
 impl<C: GenericConfig<D>, const D: usize> QStandardCircuit<C, D> for QRecursionStandardSingleLeafCircuit<C, D>
 where
-    C::Hasher:AlgebraicHasher<C::F>,
+    C::Hasher: AlgebraicHasher<C::F>,
 {
     fn get_fingerprint(&self) -> QHashOut<C::F> {
         self.fingerprint
@@ -102,7 +106,6 @@ where
         &self.circuit_data.common
     }
 }
-
 
 /*
 impl<C: GenericConfig<D>, const D: usize>

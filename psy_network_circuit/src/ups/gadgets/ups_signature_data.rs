@@ -4,36 +4,30 @@ use plonky2::{
     iop::{target::Target, witness::Witness},
     plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher},
 };
-use psy_common_circuit::{builder::{core::CircuitBuilderHelpersCore, hash::core::CircuitBuilderHashCore}, 
-    traits::{AlgebraicHashableTarget, WitnessValueFor}}
-;
+use psy_common_circuit::{
+    builder::{core::CircuitBuilderHelpersCore, hash::core::CircuitBuilderHashCore},
+    traits::{AlgebraicHashableTarget, WitnessValueFor},
+};
 use psy_core::config::network_constants::QED_SIG_ACTION_SIGN_UPS_END_CAP;
 use psy_data::qdata::ups_signature::QEDUserProvingSessionSignatureDataCompact;
 
-use crate::gadgets::{qdata::user_contract_state::{SignContextGadget, UserContractStateGadget}, sig_action::{compute_sig_action_hash_circuit, SimpleQEDSigAction}};
-
-
-
+use crate::gadgets::{
+    qdata::user_contract_state::{SignContextGadget, UserContractStateGadget},
+    sig_action::{compute_sig_action_hash_circuit, SimpleQEDSigAction},
+};
 
 #[derive(Clone, Debug)]
 pub struct QEDUserProvingSessionSignatureDataCompactGadget {
-
     // start require witness
     pub start_user_leaf_hash: HashOutTarget,
     pub end_user_leaf_hash: HashOutTarget,
     pub checkpoint_leaf_hash: HashOutTarget,
     pub tx_stack_hash: HashOutTarget,
     pub tx_count: Target,
-
     // start computed
-
-    
 }
 impl QEDUserProvingSessionSignatureDataCompactGadget {
-    pub fn add_virtual_to<F: RichField + Extendable<D>, const D: usize>(
-        builder: &mut CircuitBuilder<F, D>,
-    ) -> Self {
-
+    pub fn add_virtual_to<F: RichField + Extendable<D>, const D: usize>(builder: &mut CircuitBuilder<F, D>) -> Self {
         let start_user_leaf_hash = builder.add_virtual_hash();
         let end_user_leaf_hash = builder.add_virtual_hash();
         let checkpoint_leaf_hash = builder.add_virtual_hash();
@@ -55,8 +49,6 @@ impl QEDUserProvingSessionSignatureDataCompactGadget {
         tx_stack_hash: HashOutTarget,
         tx_count: Target,
     ) -> Self {
-
-        
         Self {
             start_user_leaf_hash,
             end_user_leaf_hash,
@@ -70,33 +62,15 @@ impl QEDUserProvingSessionSignatureDataCompactGadget {
         witness: &mut impl Witness<F>,
         target: &QEDUserProvingSessionSignatureDataCompact<F>,
     ) -> anyhow::Result<()> {
-        witness.set_hash_target(
-            self.start_user_leaf_hash,
-            target.start_user_leaf_hash.0,
-        )?;
-        witness.set_hash_target(
-            self.end_user_leaf_hash,
-            target.end_user_leaf_hash.0,
-        )?;
-        witness.set_hash_target(
-            self.checkpoint_leaf_hash,
-            target.checkpoint_leaf_hash.0,
-        )?;
-        witness.set_hash_target(
-            self.tx_stack_hash,
-            target.tx_stack_hash.0,
-        )?;
-        witness.set_target(
-            self.tx_count,
-            target.tx_count,
-        )
+        witness.set_hash_target(self.start_user_leaf_hash, target.start_user_leaf_hash.0)?;
+        witness.set_hash_target(self.end_user_leaf_hash, target.end_user_leaf_hash.0)?;
+        witness.set_hash_target(self.checkpoint_leaf_hash, target.checkpoint_leaf_hash.0)?;
+        witness.set_hash_target(self.tx_stack_hash, target.tx_stack_hash.0)?;
+        witness.set_target(self.tx_count, target.tx_count)
     }
 
-    pub fn to_hash<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(&self, builder: &mut CircuitBuilder<F, D>) -> HashOutTarget {
-        let user_leaf_change_combo = builder.hash_two_to_one::<H>(
-            self.start_user_leaf_hash,
-            self.end_user_leaf_hash,
-        );
+    pub fn to_hash<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(&self, builder: &mut CircuitBuilder<F, D>) -> HashOutTarget {
+        let user_leaf_change_combo = builder.hash_two_to_one::<H>(self.start_user_leaf_hash, self.end_user_leaf_hash);
         let tx_sized_hash = builder.hash_n_to_hash_no_pad::<H>(vec![
             self.tx_count,
             self.tx_stack_hash.elements[0],
@@ -105,41 +79,27 @@ impl QEDUserProvingSessionSignatureDataCompactGadget {
             self.tx_stack_hash.elements[3],
         ]);
 
-        let state_context_combo = builder.hash_two_to_one::<H>(
-            self.checkpoint_leaf_hash,
-            user_leaf_change_combo,
-        );
+        let state_context_combo = builder.hash_two_to_one::<H>(self.checkpoint_leaf_hash, user_leaf_change_combo);
 
-        builder.hash_two_to_one::<H>(
-            state_context_combo,
-            tx_sized_hash
-        )
+        builder.hash_two_to_one::<H>(state_context_combo, tx_sized_hash)
     }
-    pub fn get_sig_action_with_user_info<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
+    pub fn get_sig_action_with_user_info<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
         &self,
         builder: &mut CircuitBuilder<F, D>,
         network_magic: u64,
         user_id: Target,
         nonce: Target,
         sign_context: &SignContextGadget,
-
     ) -> SimpleQEDSigAction {
-
         let network_magic_target = builder.constant_u64(network_magic);
         let sig_action = builder.constant_u64(QED_SIG_ACTION_SIGN_UPS_END_CAP);
-        let ups_end_data_hash = self.to_hash::<H,F,D>(builder);
-        
+        let ups_end_data_hash = self.to_hash::<H, F, D>(builder);
+
         let mut action_arguments = ups_end_data_hash.elements.to_vec();
         action_arguments.extend_from_slice(&sign_context.to_targets());
-        
-        let sig_action_hash = compute_sig_action_hash_circuit::<H,F,D>(
-            builder,
-            network_magic_target,
-            user_id,
-            sig_action,
-            nonce,
-            &action_arguments
-        );
+
+        let sig_action_hash =
+            compute_sig_action_hash_circuit::<H, F, D>(builder, network_magic_target, user_id, sig_action, nonce, &action_arguments);
 
         SimpleQEDSigAction {
             network_magic: network_magic_target,
@@ -149,12 +109,13 @@ impl QEDUserProvingSessionSignatureDataCompactGadget {
             action_arguments,
             sig_action_hash,
         }
-        
-
     }
 }
 impl AlgebraicHashableTarget for QEDUserProvingSessionSignatureDataCompactGadget {
-    fn to_hash_target<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(&self, builder: &mut CircuitBuilder<F, D>) -> HashOutTarget {
+    fn to_hash_target<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
+        &self,
+        builder: &mut CircuitBuilder<F, D>,
+    ) -> HashOutTarget {
         self.to_hash::<H, F, D>(builder)
     }
 }

@@ -1,13 +1,9 @@
+use async_trait::async_trait;
 use kvq::traits::{KVQPair, KVQSerializable};
 use psy_crypto::hash::{merkle::core::MerkleProofCore, traits::hasher::MerkleZeroHasherWithMarkedLeaf};
 
-use crate::models::kvq_merkle::{key::KVQMerkleNodeKey, model::KVQMerkleTreeModelReaderCore};
-
 use super::{MerkleNodeStoreImmutableAsync, MerkleNodeStoreReaderImmutableAsync};
-
-
-use async_trait::async_trait;
-
+use crate::models::kvq_merkle::{key::KVQMerkleNodeKey, model::KVQMerkleTreeModelReaderCore};
 
 #[async_trait]
 pub trait QEDMerkleTreeModelReaderCoreAsync<
@@ -24,43 +20,33 @@ pub trait QEDMerkleTreeModelReaderCoreAsync<
             Some(x) => {
                 if x.key == key.to_owned() {
                     return Ok(x.value);
-                }else{
+                } else {
                     anyhow::bail!("node not found");
                 }
-            },
+            }
             None => anyhow::bail!("node not found"),
         }
     }
-    async fn get_node_optional(
-        store: &S,
-        key: &KVQMerkleNodeKey<TABLE_TYPE>,
-    ) -> anyhow::Result<Option<KVQPair<KVQMerkleNodeKey<TABLE_TYPE>, Hash>>> {
+    async fn get_node_optional(store: &S, key: &KVQMerkleNodeKey<TABLE_TYPE>) -> anyhow::Result<Option<KVQPair<KVQMerkleNodeKey<TABLE_TYPE>, Hash>>> {
         let n = store.get_node_if_exists(key).await?;
 
         Ok(n)
-
     }
-    async fn get_node(
-        store: &S,
-        tree_height: usize,
-        key: &KVQMerkleNodeKey<TABLE_TYPE>,
-    ) -> anyhow::Result<Hash> {
+    async fn get_node(store: &S, tree_height: usize, key: &KVQMerkleNodeKey<TABLE_TYPE>) -> anyhow::Result<Hash> {
         match store.get_node_if_exists(key).await? {
             Some(r) => Ok(r.value),
-            None => if MARK_LEAVES && key.level as usize == tree_height {
-                Ok(Hasher::get_zero_hash_marked(tree_height-(key.level as usize)))
-            }else{
-                Ok(Hasher::get_zero_hash(tree_height-(key.level as usize)))
-            },
+            None => {
+                if MARK_LEAVES && key.level as usize == tree_height {
+                    Ok(Hasher::get_zero_hash_marked(tree_height - (key.level as usize)))
+                } else {
+                    Ok(Hasher::get_zero_hash(tree_height - (key.level as usize)))
+                }
+            }
         }
     }
-    async fn get_nodes(
-        store: &S,
-        tree_height: usize,
-        keys: &[KVQMerkleNodeKey<TABLE_TYPE>],
-    ) -> anyhow::Result<Vec<Hash>> {
+    async fn get_nodes(store: &S, tree_height: usize, keys: &[KVQMerkleNodeKey<TABLE_TYPE>]) -> anyhow::Result<Vec<Hash>> {
         let result = store.get_node_values(keys).await?;
-        
+
         Ok(result
             .into_iter()
             .enumerate()
@@ -84,25 +70,19 @@ pub trait QEDMerkleTreeModelReaderCoreAsync<
 
         if level_difference == 0 {
             let value = Self::get_node(store, real_tree_height, leaf_key).await?;
-            return Ok(MerkleProofCore{
+            return Ok(MerkleProofCore {
                 root: value,
                 value,
                 index: leaf_key.index,
                 siblings: Vec::new(),
             });
-
         }
-        let mut node_keys = Vec::with_capacity(2+level_difference);
+        let mut node_keys = Vec::with_capacity(2 + level_difference);
         node_keys.push(*leaf_key);
         node_keys.append(&mut leaf_key.siblings_above(level_difference));
         node_keys.push(leaf_key.parent_at_level(root_level));
-        
 
-        let nodes = Self::get_nodes(
-            store,
-            real_tree_height,
-            &node_keys,
-        ).await?;
+        let nodes = Self::get_nodes(store, real_tree_height, &node_keys).await?;
         let value = nodes[0];
         let root_ind = nodes.len() - 1;
         let siblings = nodes[1..root_ind].to_vec();
@@ -114,15 +94,8 @@ pub trait QEDMerkleTreeModelReaderCoreAsync<
             index: leaf_key.index,
         })
     }
-    async fn get_leaf(
-        store: &S,
-        key: &KVQMerkleNodeKey<TABLE_TYPE>,
-    ) -> anyhow::Result<MerkleProofCore<Hash>> {
-        let nodes = Self::get_nodes(
-            store,
-            key.level as usize,
-            &vec![vec![*key], key.siblings(), vec![key.root()]].concat(),
-        ).await?;
+    async fn get_leaf(store: &S, key: &KVQMerkleNodeKey<TABLE_TYPE>) -> anyhow::Result<MerkleProofCore<Hash>> {
+        let nodes = Self::get_nodes(store, key.level as usize, &vec![vec![*key], key.siblings(), vec![key.root()]].concat()).await?;
         let value = nodes[0];
         let root_ind = nodes.len() - 1;
         let siblings = nodes[1..root_ind].to_vec();

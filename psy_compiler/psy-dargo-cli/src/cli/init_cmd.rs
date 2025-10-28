@@ -1,9 +1,10 @@
-use crate::errors::{CliError, Result};
+use std::path::PathBuf;
 
-use super::{write_to_file, DargoConfig};
 use clap::Args;
 use psy_package::{CrateName, PackageType};
-use std::path::PathBuf;
+
+use super::{write_to_file, DargoConfig};
+use crate::errors::{CliError, Result};
 
 /// Create a project in the current directory.
 #[derive(Debug, Clone, Args)]
@@ -29,26 +30,17 @@ pub(crate) fn run(args: InitCommand, config: DargoConfig) -> Result<()> {
         Some(name) => name,
         None => {
             let name = config.program_dir.file_name().unwrap().to_str().unwrap();
-            name.parse()
-                .map_err(|_| CliError::InvalidPackageName(name.into()))?
+            name.parse().map_err(|_| CliError::InvalidPackageName(name.into()))?
         }
     };
 
-    let package_type = if args.lib {
-        PackageType::Library
-    } else {
-        PackageType::Binary
-    };
+    let package_type = if args.lib { PackageType::Library } else { PackageType::Binary };
     initialize_project(config.program_dir, package_name, package_type);
     Ok(())
 }
 
 /// Initializes a new project in `package_dir`.
-pub(crate) fn initialize_project(
-    package_dir: PathBuf,
-    package_name: CrateName,
-    package_type: PackageType,
-) {
+pub(crate) fn initialize_project(package_dir: PathBuf, package_name: CrateName, package_type: PackageType) {
     let src_dir = package_dir.join("src");
 
     let toml_contents = format!(
@@ -61,7 +53,8 @@ authors = [""]
     );
 
     write_to_file(toml_contents.as_bytes(), &package_dir.join("Dargo.toml")).unwrap();
-    // This uses the `match` syntax instead of `if` so we get a compile error when we add new package types (which likely need new template files)
+    // This uses the `match` syntax instead of `if` so we get a compile error when
+    // we add new package types (which likely need new template files)
     match package_type {
         PackageType::Binary => {
             write_to_file(BIN_EXAMPLE.as_bytes(), &src_dir.join("main.qed")).unwrap();
@@ -70,8 +63,5 @@ authors = [""]
             write_to_file(LIB_EXAMPLE.as_bytes(), &src_dir.join("lib.qed")).unwrap();
         }
     };
-    println!(
-        "Project successfully created! It is located at {}",
-        package_dir.display()
-    );
+    println!("Project successfully created! It is located at {}", package_dir.display());
 }

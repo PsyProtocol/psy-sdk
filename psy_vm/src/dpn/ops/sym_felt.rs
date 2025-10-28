@@ -1,47 +1,56 @@
-use std::fmt::{Debug, Display};
-use std::hash::Hasher;
-
-use std::ops::{
-    Add, AddAssign, BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Div, DivAssign, Mul, MulAssign, Neg, Not, Rem, RemAssign, Shl, ShlAssign, Shr, ShrAssign, Sub, SubAssign
+use std::{
+    fmt::{Debug, Display},
+    hash::Hasher,
+    ops::{
+        Add, AddAssign, BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Div, DivAssign, Mul, MulAssign, Neg, Not, Rem, RemAssign,
+        Shl, ShlAssign, Shr, ShrAssign, Sub, SubAssign,
+    },
 };
 
-use plonky2::field::types::{Field, PrimeField64};
-use plonky2::field::{goldilocks_field::GoldilocksField, types::Field64};
+use plonky2::field::{
+    goldilocks_field::GoldilocksField,
+    types::{Field, Field64, PrimeField64},
+};
 use serde::{Deserialize, Serialize};
 use twox_hash::xxh3::HasherExt;
-use super::context_trait::{ContextFelt, DPNContext, FeltSized};
-use super::op_types::{DPNBuiltInDataType, DPNOpType};
+
+use super::{
+    context_trait::{ContextFelt, DPNContext, FeltSized},
+    op_types::{DPNBuiltInDataType, DPNOpType},
+};
 
 pub const SYM_FELT_REF_STORE_TYPE_MASK: u128 = 0xffff0000000000000000000000000000u128;
 pub const SYM_FELT_REF_STORE_VALUE_MASK: u128 = 0x0000ffffffffffffffffffffffffffffu128;
 
-pub const CONSTANT_TRUE_OP: u128 = (DPNOpType::ConstantTrue as u128)<<112;
-pub const CONSTANT_FALSE_OP: u128 = (DPNOpType::ConstantFalse as u128)<<112;
+pub const CONSTANT_TRUE_OP: u128 = (DPNOpType::ConstantTrue as u128) << 112;
+pub const CONSTANT_FALSE_OP: u128 = (DPNOpType::ConstantFalse as u128) << 112;
 
 #[derive(Clone, Serialize, Deserialize, PartialEq, Hash, PartialOrd, Ord, Eq, Copy)]
 pub struct SymFeltRef(pub u128);
 impl SymFeltRef {
     pub fn new_input(index: u64, input_type: DPNBuiltInDataType) -> SymFeltRef {
         match input_type {
-            DPNBuiltInDataType::Target => SymFeltRef((DPNOpType::InputTarget as u128)<<112 | index as u128),
-            DPNBuiltInDataType::U32Target => SymFeltRef((DPNOpType::U32InputTarget as u128)<<112 | index as u128),
-            DPNBuiltInDataType::Bool => SymFeltRef((DPNOpType::BoolInputTarget as u128)<<112 | index as u128),
+            DPNBuiltInDataType::Target => SymFeltRef((DPNOpType::InputTarget as u128) << 112 | index as u128),
+            DPNBuiltInDataType::U32Target => SymFeltRef((DPNOpType::U32InputTarget as u128) << 112 | index as u128),
+            DPNBuiltInDataType::Bool => SymFeltRef((DPNOpType::BoolInputTarget as u128) << 112 | index as u128),
             _ => unreachable!(),
         }
     }
     pub const fn new_constant(value: u64) -> SymFeltRef {
-        //assert!(value < GoldilocksField::ORDER, "Constant value {} is too large", value);
-        SymFeltRef((DPNOpType::Constant as u128)<<112 | (value%GoldilocksField::ORDER) as u128)
+        //assert!(value < GoldilocksField::ORDER, "Constant value {} is too large",
+        // value);
+        SymFeltRef((DPNOpType::Constant as u128) << 112 | (value % GoldilocksField::ORDER) as u128)
     }
     pub const fn new_constant_u32(value: u32) -> SymFeltRef {
-        //assert!(value < GoldilocksField::ORDER, "Constant value {} is too large", value);
-        SymFeltRef((DPNOpType::ConstantU32 as u128)<<112 | value as u128)
+        //assert!(value < GoldilocksField::ORDER, "Constant value {} is too large",
+        // value);
+        SymFeltRef((DPNOpType::ConstantU32 as u128) << 112 | value as u128)
     }
     pub fn cns<T: Into<SymFeltRef>>(val: T) -> SymFeltRef {
         val.into()
     }
     pub fn new_constant_reduce(value: u128) -> SymFeltRef {
-        SymFeltRef((DPNOpType::Constant as u128)<<112 | (value%(GoldilocksField::ORDER as u128)) as u128)
+        SymFeltRef((DPNOpType::Constant as u128) << 112 | (value % (GoldilocksField::ORDER as u128)) as u128)
     }
     pub fn is_constant_type(&self) -> bool {
         let op_type = self.get_op_type();
@@ -79,11 +88,11 @@ impl SymFeltRef {
         self.0 & SYM_FELT_REF_STORE_VALUE_MASK
     }
     pub fn new_valueless(op_type: DPNOpType) -> SymFeltRef {
-        SymFeltRef((op_type as u128)<<112)
+        SymFeltRef((op_type as u128) << 112)
     }
 
     pub fn get_op_type(&self) -> DPNOpType {
-        ((self.0>>112) as u16).into()
+        ((self.0 >> 112) as u16).into()
     }
     pub fn needs_store(&self) -> bool {
         let type_id = (self.0 >> 112) as u16;
@@ -118,27 +127,26 @@ impl SymFeltRef {
             && type_id != DPNOpType::BoolInputTarget as u16
     }
     pub fn constant_true() -> SymFeltRef {
-        SymFeltRef((DPNOpType::ConstantTrue as u128)<<112)
+        SymFeltRef((DPNOpType::ConstantTrue as u128) << 112)
     }
     pub fn constant_false() -> SymFeltRef {
-        SymFeltRef((DPNOpType::ConstantFalse as u128)<<112)
+        SymFeltRef((DPNOpType::ConstantFalse as u128) << 112)
     }
     pub fn constant_bool(val: bool) -> SymFeltRef {
         if val {
             SymFeltRef::constant_true()
-        }else{
+        } else {
             SymFeltRef::constant_false()
         }
     }
     pub fn get_inline_def(&self) -> SymFeltDef {
         assert!(self.needs_store() == false, "Cannot get inline ref for non-store ref");
-        SymFeltDef{
+        SymFeltDef {
             op_type: self.get_op_type(),
             const_param: self.get_constant_value(),
             inputs: vec![],
         }
     }
-
 }
 
 impl Debug for SymFeltRef {
@@ -160,18 +168,13 @@ impl Debug for SymFeltRef {
                 write!(f, "false")
             }
             DPNOpType::U32InputTarget => {
-                write!(f, "{}",  self.get_input_index())
+                write!(f, "{}", self.get_input_index())
             }
             DPNOpType::ConstantU32 => {
                 write!(f, "{}u32", self.get_constant_value())
             }
             _ => {
-                write!(
-                    f,
-                    "{:?}({:?})",
-                    self.get_op_type(),
-                    self.0 & SYM_FELT_REF_STORE_VALUE_MASK
-                )
+                write!(f, "{:?}({:?})", self.get_op_type(), self.0 & SYM_FELT_REF_STORE_VALUE_MASK)
             }
         }
     }
@@ -186,25 +189,31 @@ impl Display for SymFeltRef {
 impl Add for SymFeltRef {
     type Output = Self;
     fn add(self, other: Self) -> Self {
-        SymFeltRef::new_constant((self.get_u64() + other.get_u64())%GoldilocksField::ORDER)
+        SymFeltRef::new_constant((self.get_u64() + other.get_u64()) % GoldilocksField::ORDER)
     }
 }
 impl Sub for SymFeltRef {
     type Output = Self;
     fn sub(self, other: Self) -> Self {
-        SymFeltRef::new_constant((GoldilocksField::from_noncanonical_u64(self.get_u64()) - GoldilocksField::from_noncanonical_u64(other.get_u64())).to_canonical_u64())
+        SymFeltRef::new_constant(
+            (GoldilocksField::from_noncanonical_u64(self.get_u64()) - GoldilocksField::from_noncanonical_u64(other.get_u64())).to_canonical_u64(),
+        )
     }
 }
 impl Mul for SymFeltRef {
     type Output = Self;
     fn mul(self, other: Self) -> Self {
-        SymFeltRef::new_constant((GoldilocksField::from_noncanonical_u64(self.get_u64()) * GoldilocksField::from_noncanonical_u64(other.get_u64())).to_canonical_u64())
+        SymFeltRef::new_constant(
+            (GoldilocksField::from_noncanonical_u64(self.get_u64()) * GoldilocksField::from_noncanonical_u64(other.get_u64())).to_canonical_u64(),
+        )
     }
 }
 impl Div for SymFeltRef {
     type Output = Self;
     fn div(self, other: Self) -> Self {
-        SymFeltRef::new_constant((GoldilocksField::from_noncanonical_u64(self.get_u64()) / GoldilocksField::from_noncanonical_u64(other.get_u64())).to_canonical_u64())
+        SymFeltRef::new_constant(
+            (GoldilocksField::from_noncanonical_u64(self.get_u64()) / GoldilocksField::from_noncanonical_u64(other.get_u64())).to_canonical_u64(),
+        )
     }
 }
 impl Rem for SymFeltRef {
@@ -216,31 +225,31 @@ impl Rem for SymFeltRef {
 impl BitAnd for SymFeltRef {
     type Output = Self;
     fn bitand(self, other: Self) -> Self {
-        SymFeltRef::new_constant((self.get_u64() & other.get_u64())&0xFFFFFFFFu64)
+        SymFeltRef::new_constant((self.get_u64() & other.get_u64()) & 0xFFFFFFFFu64)
     }
 }
 impl BitOr for SymFeltRef {
     type Output = Self;
     fn bitor(self, other: Self) -> Self {
-        SymFeltRef::new_constant((self.get_u64() | other.get_u64())&0xFFFFFFFFu64)
+        SymFeltRef::new_constant((self.get_u64() | other.get_u64()) & 0xFFFFFFFFu64)
     }
 }
 impl BitXor for SymFeltRef {
     type Output = Self;
     fn bitxor(self, other: Self) -> Self {
-        SymFeltRef::new_constant((self.get_u64() ^ other.get_u64())&0xFFFFFFFFu64)
+        SymFeltRef::new_constant((self.get_u64() ^ other.get_u64()) & 0xFFFFFFFFu64)
     }
 }
 impl Shl for SymFeltRef {
     type Output = Self;
     fn shl(self, other: Self) -> Self {
-        SymFeltRef::new_constant((self.get_u64() << other.get_u64())&0xFFFFFFFFu64)
+        SymFeltRef::new_constant((self.get_u64() << other.get_u64()) & 0xFFFFFFFFu64)
     }
 }
 impl Shr for SymFeltRef {
     type Output = Self;
     fn shr(self, other: Self) -> Self {
-        SymFeltRef::new_constant((self.get_u64() >> other.get_u64())&0xFFFFFFFFu64)
+        SymFeltRef::new_constant((self.get_u64() >> other.get_u64()) & 0xFFFFFFFFu64)
     }
 }
 impl Not for SymFeltRef {
@@ -257,22 +266,28 @@ impl Neg for SymFeltRef {
 }
 impl AddAssign for SymFeltRef {
     fn add_assign(&mut self, other: Self) {
-        *self = SymFeltRef::new_constant((self.get_u64() + other.get_u64())%GoldilocksField::ORDER)
+        *self = SymFeltRef::new_constant((self.get_u64() + other.get_u64()) % GoldilocksField::ORDER)
     }
 }
 impl SubAssign for SymFeltRef {
     fn sub_assign(&mut self, other: Self) {
-        *self = SymFeltRef::new_constant((GoldilocksField::from_canonical_u64(self.get_u64()) - GoldilocksField::from_canonical_u64(other.get_u64())).to_canonical_u64())
+        *self = SymFeltRef::new_constant(
+            (GoldilocksField::from_canonical_u64(self.get_u64()) - GoldilocksField::from_canonical_u64(other.get_u64())).to_canonical_u64(),
+        )
     }
 }
 impl MulAssign for SymFeltRef {
     fn mul_assign(&mut self, other: Self) {
-        *self = SymFeltRef::new_constant((GoldilocksField::from_canonical_u64(self.get_u64()) * GoldilocksField::from_canonical_u64(other.get_u64())).to_canonical_u64())
+        *self = SymFeltRef::new_constant(
+            (GoldilocksField::from_canonical_u64(self.get_u64()) * GoldilocksField::from_canonical_u64(other.get_u64())).to_canonical_u64(),
+        )
     }
 }
 impl DivAssign for SymFeltRef {
     fn div_assign(&mut self, other: Self) {
-        *self = SymFeltRef::new_constant((GoldilocksField::from_canonical_u64(self.get_u64()) / GoldilocksField::from_canonical_u64(other.get_u64())).to_canonical_u64())
+        *self = SymFeltRef::new_constant(
+            (GoldilocksField::from_canonical_u64(self.get_u64()) / GoldilocksField::from_canonical_u64(other.get_u64())).to_canonical_u64(),
+        )
     }
 }
 impl RemAssign for SymFeltRef {
@@ -282,52 +297,58 @@ impl RemAssign for SymFeltRef {
 }
 impl BitAndAssign for SymFeltRef {
     fn bitand_assign(&mut self, other: Self) {
-        *self = SymFeltRef::new_constant((self.get_u64() & other.get_u64())&0xFFFFFFFFu64)
+        *self = SymFeltRef::new_constant((self.get_u64() & other.get_u64()) & 0xFFFFFFFFu64)
     }
 }
 impl BitOrAssign for SymFeltRef {
     fn bitor_assign(&mut self, other: Self) {
-        *self = SymFeltRef::new_constant((self.get_u64() | other.get_u64())&0xFFFFFFFFu64)
+        *self = SymFeltRef::new_constant((self.get_u64() | other.get_u64()) & 0xFFFFFFFFu64)
     }
 }
 impl BitXorAssign for SymFeltRef {
     fn bitxor_assign(&mut self, other: Self) {
-        *self = SymFeltRef::new_constant((self.get_u64() ^ other.get_u64())&0xFFFFFFFFu64)
+        *self = SymFeltRef::new_constant((self.get_u64() ^ other.get_u64()) & 0xFFFFFFFFu64)
     }
 }
 impl ShlAssign for SymFeltRef {
     fn shl_assign(&mut self, other: Self) {
-        *self = SymFeltRef::new_constant((self.get_u64() << other.get_u64())&0xFFFFFFFFu64)
+        *self = SymFeltRef::new_constant((self.get_u64() << other.get_u64()) & 0xFFFFFFFFu64)
     }
 }
 impl ShrAssign for SymFeltRef {
     fn shr_assign(&mut self, other: Self) {
-        *self = SymFeltRef::new_constant((self.get_u64() >> other.get_u64())&0xFFFFFFFFu64)
+        *self = SymFeltRef::new_constant((self.get_u64() >> other.get_u64()) & 0xFFFFFFFFu64)
     }
 }
 
 impl Add<u64> for SymFeltRef {
     type Output = Self;
     fn add(self, other: u64) -> Self {
-        SymFeltRef::new_constant((self.get_u64() + other)%GoldilocksField::ORDER)
+        SymFeltRef::new_constant((self.get_u64() + other) % GoldilocksField::ORDER)
     }
 }
 impl Sub<u64> for SymFeltRef {
     type Output = Self;
     fn sub(self, other: u64) -> Self {
-        SymFeltRef::new_constant((GoldilocksField::from_noncanonical_u64(self.get_u64()) - GoldilocksField::from_noncanonical_u64(other)).to_canonical_u64())
+        SymFeltRef::new_constant(
+            (GoldilocksField::from_noncanonical_u64(self.get_u64()) - GoldilocksField::from_noncanonical_u64(other)).to_canonical_u64(),
+        )
     }
 }
 impl Mul<u64> for SymFeltRef {
     type Output = Self;
     fn mul(self, other: u64) -> Self {
-        SymFeltRef::new_constant((GoldilocksField::from_noncanonical_u64(self.get_u64()) * GoldilocksField::from_noncanonical_u64(other)).to_canonical_u64())
+        SymFeltRef::new_constant(
+            (GoldilocksField::from_noncanonical_u64(self.get_u64()) * GoldilocksField::from_noncanonical_u64(other)).to_canonical_u64(),
+        )
     }
 }
 impl Div<u64> for SymFeltRef {
     type Output = Self;
     fn div(self, other: u64) -> Self {
-        SymFeltRef::new_constant((GoldilocksField::from_noncanonical_u64(self.get_u64()) / GoldilocksField::from_noncanonical_u64(other)).to_canonical_u64())
+        SymFeltRef::new_constant(
+            (GoldilocksField::from_noncanonical_u64(self.get_u64()) / GoldilocksField::from_noncanonical_u64(other)).to_canonical_u64(),
+        )
     }
 }
 impl Rem<u64> for SymFeltRef {
@@ -339,56 +360,62 @@ impl Rem<u64> for SymFeltRef {
 impl BitAnd<u64> for SymFeltRef {
     type Output = Self;
     fn bitand(self, other: u64) -> Self {
-        SymFeltRef::new_constant((self.get_u64() & other)&0xFFFFFFFFu64)
+        SymFeltRef::new_constant((self.get_u64() & other) & 0xFFFFFFFFu64)
     }
 }
 impl BitOr<u64> for SymFeltRef {
     type Output = Self;
     fn bitor(self, other: u64) -> Self {
-        SymFeltRef::new_constant((self.get_u64() | other)&0xFFFFFFFFu64)
+        SymFeltRef::new_constant((self.get_u64() | other) & 0xFFFFFFFFu64)
     }
 }
 impl BitXor<u64> for SymFeltRef {
     type Output = Self;
     fn bitxor(self, other: u64) -> Self {
-        SymFeltRef::new_constant((self.get_u64() ^ other)&0xFFFFFFFFu64)
+        SymFeltRef::new_constant((self.get_u64() ^ other) & 0xFFFFFFFFu64)
     }
 }
 impl Shl<u64> for SymFeltRef {
     type Output = Self;
     fn shl(self, other: u64) -> Self {
-        SymFeltRef::new_constant((self.get_u64() << other)&0xFFFFFFFFu64)
+        SymFeltRef::new_constant((self.get_u64() << other) & 0xFFFFFFFFu64)
     }
 }
 impl Shr<u64> for SymFeltRef {
     type Output = Self;
     fn shr(self, other: u64) -> Self {
-        SymFeltRef::new_constant((self.get_u64() >> other)&0xFFFFFFFFu64)
+        SymFeltRef::new_constant((self.get_u64() >> other) & 0xFFFFFFFFu64)
     }
 }
 
 impl Add<SymFeltRef> for u64 {
     type Output = SymFeltRef;
     fn add(self, other: SymFeltRef) -> SymFeltRef {
-       SymFeltRef::new_constant((self + other.get_u64())%GoldilocksField::ORDER)
+        SymFeltRef::new_constant((self + other.get_u64()) % GoldilocksField::ORDER)
     }
 }
 impl Sub<SymFeltRef> for u64 {
     type Output = SymFeltRef;
     fn sub(self, other: SymFeltRef) -> SymFeltRef {
-        SymFeltRef::new_constant((GoldilocksField::from_noncanonical_u64(self) - GoldilocksField::from_noncanonical_u64(other.get_u64())).to_canonical_u64())
+        SymFeltRef::new_constant(
+            (GoldilocksField::from_noncanonical_u64(self) - GoldilocksField::from_noncanonical_u64(other.get_u64())).to_canonical_u64(),
+        )
     }
 }
 impl Mul<SymFeltRef> for u64 {
     type Output = SymFeltRef;
     fn mul(self, other: SymFeltRef) -> SymFeltRef {
-        SymFeltRef::new_constant((GoldilocksField::from_noncanonical_u64(self) * GoldilocksField::from_noncanonical_u64(other.get_u64())).to_canonical_u64())
+        SymFeltRef::new_constant(
+            (GoldilocksField::from_noncanonical_u64(self) * GoldilocksField::from_noncanonical_u64(other.get_u64())).to_canonical_u64(),
+        )
     }
 }
 impl Div<SymFeltRef> for u64 {
     type Output = SymFeltRef;
     fn div(self, other: SymFeltRef) -> SymFeltRef {
-        SymFeltRef::new_constant((GoldilocksField::from_noncanonical_u64(self) / GoldilocksField::from_noncanonical_u64(other.get_u64())).to_canonical_u64())
+        SymFeltRef::new_constant(
+            (GoldilocksField::from_noncanonical_u64(self) / GoldilocksField::from_noncanonical_u64(other.get_u64())).to_canonical_u64(),
+        )
     }
 }
 impl Rem<SymFeltRef> for u64 {
@@ -400,36 +427,36 @@ impl Rem<SymFeltRef> for u64 {
 impl BitAnd<SymFeltRef> for u64 {
     type Output = SymFeltRef;
     fn bitand(self, other: SymFeltRef) -> SymFeltRef {
-        SymFeltRef::new_constant((self & other.get_u64())&0xFFFFFFFFu64)
+        SymFeltRef::new_constant((self & other.get_u64()) & 0xFFFFFFFFu64)
     }
 }
 impl BitOr<SymFeltRef> for u64 {
     type Output = SymFeltRef;
     fn bitor(self, other: SymFeltRef) -> SymFeltRef {
-        SymFeltRef::new_constant((self | other.get_u64())&0xFFFFFFFFu64)
+        SymFeltRef::new_constant((self | other.get_u64()) & 0xFFFFFFFFu64)
     }
 }
 impl BitXor<SymFeltRef> for u64 {
     type Output = SymFeltRef;
     fn bitxor(self, other: SymFeltRef) -> SymFeltRef {
-        SymFeltRef::new_constant((self ^ other.get_u64())&0xFFFFFFFFu64)
+        SymFeltRef::new_constant((self ^ other.get_u64()) & 0xFFFFFFFFu64)
     }
 }
 impl Shl<SymFeltRef> for u64 {
     type Output = SymFeltRef;
     fn shl(self, other: SymFeltRef) -> SymFeltRef {
-        SymFeltRef::new_constant((self << other.get_u64())&0xFFFFFFFFu64)
+        SymFeltRef::new_constant((self << other.get_u64()) & 0xFFFFFFFFu64)
     }
 }
 impl Shr<SymFeltRef> for u64 {
     type Output = SymFeltRef;
     fn shr(self, other: SymFeltRef) -> SymFeltRef {
-        SymFeltRef::new_constant((self >> other.get_u64())&0xFFFFFFFFu64)
+        SymFeltRef::new_constant((self >> other.get_u64()) & 0xFFFFFFFFu64)
     }
 }
 impl AddAssign<SymFeltRef> for u64 {
     fn add_assign(&mut self, other: SymFeltRef) {
-        *self = *self + other.get_u64()%GoldilocksField::ORDER
+        *self = *self + other.get_u64() % GoldilocksField::ORDER
     }
 }
 impl SubAssign<SymFeltRef> for u64 {
@@ -454,47 +481,53 @@ impl RemAssign<SymFeltRef> for u64 {
 }
 impl BitAndAssign<SymFeltRef> for u64 {
     fn bitand_assign(&mut self, other: SymFeltRef) {
-        *self = (*self & other.get_u64())&0xFFFFFFFFu64
+        *self = (*self & other.get_u64()) & 0xFFFFFFFFu64
     }
 }
 impl BitOrAssign<SymFeltRef> for u64 {
     fn bitor_assign(&mut self, other: SymFeltRef) {
-        *self = (*self | other.get_u64())&0xFFFFFFFFu64
+        *self = (*self | other.get_u64()) & 0xFFFFFFFFu64
     }
 }
 impl BitXorAssign<SymFeltRef> for u64 {
     fn bitxor_assign(&mut self, other: SymFeltRef) {
-        *self = (*self ^ other.get_u64())&0xFFFFFFFFu64
+        *self = (*self ^ other.get_u64()) & 0xFFFFFFFFu64
     }
 }
 impl ShlAssign<SymFeltRef> for u64 {
     fn shl_assign(&mut self, other: SymFeltRef) {
-        *self = (*self << other.get_u64())&0xFFFFFFFFu64
+        *self = (*self << other.get_u64()) & 0xFFFFFFFFu64
     }
 }
 impl ShrAssign<SymFeltRef> for u64 {
     fn shr_assign(&mut self, other: SymFeltRef) {
-        *self = (*self >> other.get_u64())&0xFFFFFFFFu64
+        *self = (*self >> other.get_u64()) & 0xFFFFFFFFu64
     }
 }
 impl AddAssign<u64> for SymFeltRef {
     fn add_assign(&mut self, other: u64) {
-        *self = SymFeltRef::new_constant((self.get_u64() + other)%GoldilocksField::ORDER)
+        *self = SymFeltRef::new_constant((self.get_u64() + other) % GoldilocksField::ORDER)
     }
 }
 impl SubAssign<u64> for SymFeltRef {
     fn sub_assign(&mut self, other: u64) {
-        *self = SymFeltRef::new_constant((GoldilocksField::from_canonical_u64(self.get_u64()) - GoldilocksField::from_canonical_u64(other)).to_canonical_u64())
+        *self = SymFeltRef::new_constant(
+            (GoldilocksField::from_canonical_u64(self.get_u64()) - GoldilocksField::from_canonical_u64(other)).to_canonical_u64(),
+        )
     }
 }
 impl MulAssign<u64> for SymFeltRef {
     fn mul_assign(&mut self, other: u64) {
-        *self = SymFeltRef::new_constant((GoldilocksField::from_canonical_u64(self.get_u64()) * GoldilocksField::from_canonical_u64(other)).to_canonical_u64())
+        *self = SymFeltRef::new_constant(
+            (GoldilocksField::from_canonical_u64(self.get_u64()) * GoldilocksField::from_canonical_u64(other)).to_canonical_u64(),
+        )
     }
 }
 impl DivAssign<u64> for SymFeltRef {
     fn div_assign(&mut self, other: u64) {
-        *self = SymFeltRef::new_constant((GoldilocksField::from_canonical_u64(self.get_u64()) / GoldilocksField::from_canonical_u64(other)).to_canonical_u64())
+        *self = SymFeltRef::new_constant(
+            (GoldilocksField::from_canonical_u64(self.get_u64()) / GoldilocksField::from_canonical_u64(other)).to_canonical_u64(),
+        )
     }
 }
 impl RemAssign<u64> for SymFeltRef {
@@ -504,27 +537,27 @@ impl RemAssign<u64> for SymFeltRef {
 }
 impl BitAndAssign<u64> for SymFeltRef {
     fn bitand_assign(&mut self, other: u64) {
-        *self = SymFeltRef::new_constant((self.get_u64() & other)&0xFFFFFFFFu64)
+        *self = SymFeltRef::new_constant((self.get_u64() & other) & 0xFFFFFFFFu64)
     }
 }
 impl BitOrAssign<u64> for SymFeltRef {
     fn bitor_assign(&mut self, other: u64) {
-        *self = SymFeltRef::new_constant((self.get_u64() | other)&0xFFFFFFFFu64)
+        *self = SymFeltRef::new_constant((self.get_u64() | other) & 0xFFFFFFFFu64)
     }
 }
 impl BitXorAssign<u64> for SymFeltRef {
     fn bitxor_assign(&mut self, other: u64) {
-        *self = SymFeltRef::new_constant((self.get_u64() ^ other)&0xFFFFFFFFu64)
+        *self = SymFeltRef::new_constant((self.get_u64() ^ other) & 0xFFFFFFFFu64)
     }
 }
 impl ShlAssign<u64> for SymFeltRef {
     fn shl_assign(&mut self, other: u64) {
-        *self = SymFeltRef::new_constant((self.get_u64() << other)&0xFFFFFFFFu64)
+        *self = SymFeltRef::new_constant((self.get_u64() << other) & 0xFFFFFFFFu64)
     }
 }
 impl ShrAssign<u64> for SymFeltRef {
     fn shr_assign(&mut self, other: u64) {
-        *self = SymFeltRef::new_constant((self.get_u64() >> other)&0xFFFFFFFFu64)
+        *self = SymFeltRef::new_constant((self.get_u64() >> other) & 0xFFFFFFFFu64)
     }
 }
 impl PartialEq<u64> for SymFeltRef {
@@ -539,41 +572,41 @@ impl PartialOrd<u64> for SymFeltRef {
 }
 impl From<u8> for SymFeltRef {
     fn from(val: u8) -> SymFeltRef {
-        SymFeltRef((val as u128) | ((DPNOpType::Constant as u128)<<112))
+        SymFeltRef((val as u128) | ((DPNOpType::Constant as u128) << 112))
     }
 }
 impl From<u16> for SymFeltRef {
     fn from(val: u16) -> SymFeltRef {
-        SymFeltRef((val as u128) | ((DPNOpType::Constant as u128)<<112))
+        SymFeltRef((val as u128) | ((DPNOpType::Constant as u128) << 112))
     }
 }
 impl From<u32> for SymFeltRef {
     fn from(val: u32) -> SymFeltRef {
-        SymFeltRef((val as u128) | ((DPNOpType::Constant as u128)<<112))
+        SymFeltRef((val as u128) | ((DPNOpType::Constant as u128) << 112))
     }
 }
 
 impl From<u64> for SymFeltRef {
     fn from(val: u64) -> SymFeltRef {
-        SymFeltRef((val as u128) | ((DPNOpType::Constant as u128)<<112))
+        SymFeltRef((val as u128) | ((DPNOpType::Constant as u128) << 112))
     }
 }
 
 impl From<i32> for SymFeltRef {
     fn from(val: i32) -> SymFeltRef {
         assert!(val >= 0, "Negative values are not supported");
-        SymFeltRef((val as u128) | ((DPNOpType::Constant as u128)<<112))
+        SymFeltRef((val as u128) | ((DPNOpType::Constant as u128) << 112))
     }
 }
 impl From<i64> for SymFeltRef {
     fn from(val: i64) -> SymFeltRef {
         assert!(val >= 0, "Negative values are not supported");
-        SymFeltRef((val as u128) | ((DPNOpType::Constant as u128)<<112))
+        SymFeltRef((val as u128) | ((DPNOpType::Constant as u128) << 112))
     }
 }
 impl From<bool> for SymFeltRef {
     fn from(val: bool) -> SymFeltRef {
-       SymFeltRef::constant_bool(val)
+        SymFeltRef::constant_bool(val)
     }
 }
 
@@ -584,15 +617,11 @@ impl ContextFelt for SymFeltRef {
     fn cns_inverse(value: u64) -> Self {
         SymFeltRef::new_constant(GoldilocksField::from_noncanonical_u64(value).inverse().to_canonical_u64())
     }
-    
+
     fn get_u64(&self) -> u64 {
         self.get_constant_value()
     }
 }
-
-
-
-
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Hash, PartialOrd, Ord, Eq)]
 pub struct SymFeltRefValue {
@@ -604,14 +633,13 @@ pub struct SymFeltRefValue {
 impl SymFeltRefValue {
     pub fn get_ref_key(&self) -> SymFeltRef {
         if self.op_type == DPNOpType::Constant || self.op_type == DPNOpType::InputTarget {
-            return SymFeltRef(((self.op_type as u128)<<112) | self.const_param as u128);
-        }else{
+            return SymFeltRef(((self.op_type as u128) << 112) | self.const_param as u128);
+        } else {
             let mut hasher = twox_hash::Xxh3Hash128::default();
             hasher.write(&bincode::serialize(&self).unwrap());
-            SymFeltRef((hasher.finish_ext() & SYM_FELT_REF_STORE_VALUE_MASK) | ((self.op_type as u128)<<112))
+            SymFeltRef((hasher.finish_ext() & SYM_FELT_REF_STORE_VALUE_MASK) | ((self.op_type as u128) << 112))
         }
     }
-
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Hash, PartialOrd, Ord, Eq)]
@@ -625,21 +653,18 @@ impl SymFeltDef {
     pub fn to_code_string(&self) -> String {
         if self.op_type == DPNOpType::Constant {
             return format!("{}", self.const_param);
-        }else if self.op_type == DPNOpType::InputTarget {
+        } else if self.op_type == DPNOpType::InputTarget {
             return format!("input{}", self.const_param);
-        }else if self.op_type == DPNOpType::ConstantTrue {
+        } else if self.op_type == DPNOpType::ConstantTrue {
             return format!("true");
-        }else if self.op_type == DPNOpType::ConstantFalse {
+        } else if self.op_type == DPNOpType::ConstantFalse {
             return format!("false");
         }
         let op_type_string = self.op_type.to_string();
         let args = self.inputs.iter().map(|x| x.to_code_string()).collect::<Vec<String>>().join(", ");
         format!("{}({})", op_type_string, args)
-
     }
 }
-
-
 
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, Eq, PartialEq)]
 pub struct SymRefAssertion {
@@ -647,10 +672,6 @@ pub struct SymRefAssertion {
     pub right: SymFeltRef,
     pub message: &'static str,
 }
-
-
-
-
 
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, Eq, PartialEq)]
 pub struct SetSymFeltRef {
@@ -674,32 +695,47 @@ impl SetSymFeltRef {
     }
 }
 
-
-impl FeltSized for SymFeltRef{
+impl FeltSized for SymFeltRef {
     fn size() -> u64 {
         1
     }
 }
 
-
 pub trait QStateInitializable: FeltSized {
-    fn create_stateful_at<CTXT: DPNContext<SymFeltRef>>(context: &mut CTXT, state_pointer: SymFeltRef, contract_state_tree_height: u16, contract_id: SymFeltRef, user_id: SymFeltRef) -> Self;
+    fn create_stateful_at<CTXT: DPNContext<SymFeltRef>>(
+        context: &mut CTXT,
+        state_pointer: SymFeltRef,
+        contract_state_tree_height: u16,
+        contract_id: SymFeltRef,
+        user_id: SymFeltRef,
+    ) -> Self;
 }
 
-
 impl QStateInitializable for SymFeltRef {
-    fn create_stateful_at<CTXT: DPNContext<SymFeltRef>>(context: &mut CTXT, state_pointer: SymFeltRef, contract_state_tree_height: u16, contract_id: SymFeltRef, user_id: SymFeltRef) -> Self {
+    fn create_stateful_at<CTXT: DPNContext<SymFeltRef>>(
+        context: &mut CTXT,
+        state_pointer: SymFeltRef,
+        contract_state_tree_height: u16,
+        contract_id: SymFeltRef,
+        user_id: SymFeltRef,
+    ) -> Self {
         context.op_get_state_felt(contract_state_tree_height, contract_id, user_id, state_pointer)
     }
 }
 
 impl<T: QStateInitializable, const N: usize> QStateInitializable for [T; N] {
-    fn create_stateful_at<CTXT: DPNContext<SymFeltRef>>(context: &mut CTXT, state_pointer: SymFeltRef, contract_state_tree_height: u16, contract_id: SymFeltRef, user_id: SymFeltRef) -> Self {
-        core::array::from_fn(|i|{
+    fn create_stateful_at<CTXT: DPNContext<SymFeltRef>>(
+        context: &mut CTXT,
+        state_pointer: SymFeltRef,
+        contract_state_tree_height: u16,
+        contract_id: SymFeltRef,
+        user_id: SymFeltRef,
+    ) -> Self {
+        core::array::from_fn(|i| {
             let offset = if i == 0 {
                 state_pointer
-            }else{
-                let constant_i = SymFeltRef::new_constant((i as u64)*T::size());
+            } else {
+                let constant_i = SymFeltRef::new_constant((i as u64) * T::size());
                 context.op_add(state_pointer, constant_i)
             };
             T::create_stateful_at(context, offset, contract_state_tree_height, contract_id, user_id)

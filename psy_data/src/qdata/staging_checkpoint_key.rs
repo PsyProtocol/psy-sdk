@@ -43,10 +43,7 @@ impl<const TABLE_TYPE: u16> KVQSerializable for StagingCheckpointKey<TABLE_TYPE>
 
     fn from_bytes(bytes: &[u8]) -> anyhow::Result<Self> {
         if bytes.len() != 26 {
-            anyhow::bail!(
-                "expected 26 bytes for deserializing StagingCheckpointKey, got {} bytes",
-                bytes.len()
-            );
+            anyhow::bail!("expected 26 bytes for deserializing StagingCheckpointKey, got {} bytes", bytes.len());
         }
         let mut checkpoint_id_be_bytes = [0u8; 8];
         checkpoint_id_be_bytes.copy_from_slice(&bytes[2..10]);

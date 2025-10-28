@@ -1,8 +1,9 @@
-use super::id::QProvingJobDataID;
-use super::traits::QProofStoreReaderAsync;
+use std::time::Duration;
+
 use async_trait::async_trait;
 use plonky2::plonk::{config::GenericConfig, proof::ProofWithPublicInputs};
-use std::time::Duration;
+
+use super::{id::QProvingJobDataID, traits::QProofStoreReaderAsync};
 
 #[async_trait]
 pub trait WorkerEventReceiverAsyncImm {

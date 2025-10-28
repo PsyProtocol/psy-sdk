@@ -1,18 +1,18 @@
 use core::panic;
+use std::ops::Neg;
 
-use plonky2::field::{goldilocks_field::GoldilocksField, types::{Field, Field64, PrimeField64}};
+use plonky2::field::{
+    goldilocks_field::GoldilocksField,
+    types::{Field, Field64, PrimeField64},
+};
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use ts_rs::TS;
-use std::ops::Neg;
 const INDEX_BITS: u64 = 32;
 const INDEX_MASK: u64 = (1u64 << INDEX_BITS) - 1u64;
 
 pub fn decode_indexed_op_id(id: u64) -> (DPNBuiltInDataType, usize) {
-    (
-        DPNBuiltInDataType::from(id >> INDEX_BITS),
-        (id & INDEX_MASK) as usize,
-    )
+    (DPNBuiltInDataType::from(id >> INDEX_BITS), (id & INDEX_MASK) as usize)
 }
 pub fn encode_indexed_op_id(data_type: DPNBuiltInDataType, index: usize) -> u64 {
     ((data_type as u64) << INDEX_BITS) | (index as u64)
@@ -194,40 +194,80 @@ impl DPNOpType {
         assert!(a < GoldilocksField::ORDER, "value {} is not a valid Felt", a);
         assert!(b < GoldilocksField::ORDER, "value {} is not a valid Felt", b);
         match self {
-            DPNOpType::Add =>(GoldilocksField::from_canonical_u64(a) + GoldilocksField::from_canonical_u64(b)).to_canonical_u64(),
+            DPNOpType::Add => (GoldilocksField::from_canonical_u64(a) + GoldilocksField::from_canonical_u64(b)).to_canonical_u64(),
             DPNOpType::Sub => (GoldilocksField::from_canonical_u64(a) - GoldilocksField::from_canonical_u64(b)).to_canonical_u64(),
-            DPNOpType::Mul =>  (GoldilocksField::from_canonical_u64(a) * GoldilocksField::from_canonical_u64(b)).to_canonical_u64(),
-            DPNOpType::Div =>  (GoldilocksField::from_canonical_u64(a) / GoldilocksField::from_canonical_u64(b)).to_canonical_u64(),
-            DPNOpType::Xor => GoldilocksField::from_noncanonical_u64(a^b).0,
-            DPNOpType::Eq => if a == b {1} else {0},
-            DPNOpType::Lte => if a <= b {1} else {0},
-            DPNOpType::Gte => if a >= b {1} else {0},
-            DPNOpType::Gt => if a > b {1} else {0},
-            DPNOpType::Lt => if a < b {1} else {0},
-            DPNOpType::Exp| DPNOpType::ExpConstantPower | DPNOpType::ExpConstantBase => (GoldilocksField::from_canonical_u64(a).exp_u64(b)).to_canonical_u64(),
-            DPNOpType::Mod => a%b,
-            DPNOpType::U32And => (a&b)&0xffffffffu64,
-            DPNOpType::U32Or => (a|b)&0xffffffffu64,
-            DPNOpType::U32Xor => (a^b)&0xffffffffu64,
-            DPNOpType::U32ShiftLeft => (a<<b)&0xffffffffu64,
-            DPNOpType::U32ShiftRight => (a>>b)&0xffffffffu64,
-            DPNOpType::BoolAnd => (a&b)&1,
-            DPNOpType::BoolOr => (a|b)&1,
+            DPNOpType::Mul => (GoldilocksField::from_canonical_u64(a) * GoldilocksField::from_canonical_u64(b)).to_canonical_u64(),
+            DPNOpType::Div => (GoldilocksField::from_canonical_u64(a) / GoldilocksField::from_canonical_u64(b)).to_canonical_u64(),
+            DPNOpType::Xor => GoldilocksField::from_noncanonical_u64(a ^ b).0,
+            DPNOpType::Eq => {
+                if a == b {
+                    1
+                } else {
+                    0
+                }
+            }
+            DPNOpType::Lte => {
+                if a <= b {
+                    1
+                } else {
+                    0
+                }
+            }
+            DPNOpType::Gte => {
+                if a >= b {
+                    1
+                } else {
+                    0
+                }
+            }
+            DPNOpType::Gt => {
+                if a > b {
+                    1
+                } else {
+                    0
+                }
+            }
+            DPNOpType::Lt => {
+                if a < b {
+                    1
+                } else {
+                    0
+                }
+            }
+            DPNOpType::Exp | DPNOpType::ExpConstantPower | DPNOpType::ExpConstantBase => {
+                (GoldilocksField::from_canonical_u64(a).exp_u64(b)).to_canonical_u64()
+            }
+            DPNOpType::Mod => a % b,
+            DPNOpType::U32And => (a & b) & 0xffffffffu64,
+            DPNOpType::U32Or => (a | b) & 0xffffffffu64,
+            DPNOpType::U32Xor => (a ^ b) & 0xffffffffu64,
+            DPNOpType::U32ShiftLeft => (a << b) & 0xffffffffu64,
+            DPNOpType::U32ShiftRight => (a >> b) & 0xffffffffu64,
+            DPNOpType::BoolAnd => (a & b) & 1,
+            DPNOpType::BoolOr => (a | b) & 1,
             DPNOpType::U32Add => a + b,
             DPNOpType::U32Sub => a - b,
             DPNOpType::U32Mul => a * b,
             DPNOpType::U32Div => a / b,
             DPNOpType::U32Mod => a % b,
             DPNOpType::U32Exp => (GoldilocksField::from_canonical_u64(a).exp_u64(b)).to_canonical_u64(),
-            DPNOpType::U32ShiftLeft | DPNOpType::U32ShiftLeftConstantBitDistance | DPNOpType::U32ShiftLeftConstantValue => (a<<b)&0xffffffffu64,
-            DPNOpType::U32ShiftRight | DPNOpType::U32ShiftRightConstantBitDistance | DPNOpType::U32ShiftRightConstantValue => (a>>b)&0xffffffffu64,
+            DPNOpType::U32ShiftLeft | DPNOpType::U32ShiftLeftConstantBitDistance | DPNOpType::U32ShiftLeftConstantValue => (a << b) & 0xffffffffu64,
+            DPNOpType::U32ShiftRight | DPNOpType::U32ShiftRightConstantBitDistance | DPNOpType::U32ShiftRightConstantValue => {
+                (a >> b) & 0xffffffffu64
+            }
             _ => panic!("DPNOpType::eval_binary_constant not implemented for {:?}", self),
         }
     }
     pub fn eval_unary_constant(&self, a: u64) -> u64 {
         assert!(a < GoldilocksField::ORDER, "value {} is not a valid Felt", a);
         match self {
-            DPNOpType::BoolNot => if a == 0 {1} else {0},
+            DPNOpType::BoolNot => {
+                if a == 0 {
+                    1
+                } else {
+                    0
+                }
+            }
             DPNOpType::UnaryInverse => GoldilocksField::from_noncanonical_u64(a).inverse().to_canonical_u64(),
             DPNOpType::UnaryNegative => GoldilocksField::from_noncanonical_u64(a).neg().to_canonical_u64(),
             _ => panic!("DPNOpType::eval_unary_constant not implemented for {:?}", self),
@@ -308,7 +348,7 @@ impl DPNOpType {
             DPNOpType::HashTwoToOne => DPNBuiltInDataType::HashOut,
         }
     }
-    pub fn is_inputless(&self) -> bool{
+    pub fn is_inputless(&self) -> bool {
         match self {
             DPNOpType::ConstantTrue => true,
             DPNOpType::ConstantFalse => true,
@@ -356,7 +396,7 @@ impl DPNOpType {
             DPNOpType::GetStateCommandResultSingle => true,
             DPNOpType::GetStateCommandResultArray => true,
             DPNOpType::GetStateCommandResultHash => true,
-            
+
             _ => false,
         }
     }

@@ -5,7 +5,6 @@ use crate::dpn::ops::op_types::DPNBuiltInDataType;
 #[derive(Serialize_repr, Deserialize_repr, Clone, Copy, Debug, Eq, PartialEq, Hash, Ord, PartialOrd)]
 #[repr(u8)]
 pub enum DPNStateCommandType {
-
     // set state commands (0-7)
     SetContractStateSlotHash = 0,
     SetContractStateSlotSingle = 1,
@@ -16,15 +15,12 @@ pub enum DPNStateCommandType {
     InvokeExternalContractFunctionSync = 8,
     InvokeExternalContractFunctionDeferred = 9,
 
-
-
     // the get state commands below are sensitive to order relative to set state commands and external calls (16-23)
     GetSelfUserCurrentContractStateSlotHash = 16,
     GetSelfUserCurrentContractStateSlotSingle = 17,
     GetSelfUserCurrentContractStateSlotRange = 18,
 
     // the state commands below are sensitive to order relative to external calls only (24-31)
-
     GetSelfUserExternalContractStateSlotHash = 24,
     GetSelfUserExternalContractStateSlotSingle = 25,
     GetSelfUserExternalContractStateSlotRange = 26,
@@ -36,7 +32,6 @@ pub enum DPNStateCommandType {
 
     // checkpoint state commands (not order sensitive) (40-47)
     GetCheckpointLeafStats = 40,
-
 }
 
 impl From<u8> for DPNStateCommandType {

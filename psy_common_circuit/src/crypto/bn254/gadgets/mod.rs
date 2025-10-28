@@ -12,6 +12,6 @@ pub mod windowed_mul;
 pub use g1::{CircuitBuilderG1, G1AffineTarget};
 pub use g2::{CircuitBuilderG2, G2AffineTarget};
 pub use nonnative_fp::{CircuitBuilderNonNative, NonNativeTarget};
-pub use nonnative_fp2::{CircuitBuilderNonNativeExt2, NonNativeTargetExt2};
 pub use nonnative_fp12::{CircuitBuilderNonNativeExt12, NonNativeTargetExt12};
+pub use nonnative_fp2::{CircuitBuilderNonNativeExt2, NonNativeTargetExt2};
 pub use pairing::{CircuitBuilderCurveG2, G2PreComputeTarget};

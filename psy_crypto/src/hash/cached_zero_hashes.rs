@@ -1,18 +1,12 @@
 use plonky2::{field::goldilocks_field::GoldilocksField, hash::hash_types::HashOut};
 use psy_core::data::qhashout::QHashOut;
-use super::traits::hasher::{
-        MerkleZeroHasherWithCache, MerkleZeroHasherWithCacheMarkedLeaf, PoseidonHasher,
-    };
+
+use super::traits::hasher::{MerkleZeroHasherWithCache, MerkleZeroHasherWithCacheMarkedLeaf, PoseidonHasher};
 
 impl MerkleZeroHasherWithCache<HashOut<GoldilocksField>> for PoseidonHasher {
     const CACHED_ZERO_HASHES: [HashOut<GoldilocksField>; 128] = [
         HashOut {
-            elements: [
-                GoldilocksField(0),
-                GoldilocksField(0),
-                GoldilocksField(0),
-                GoldilocksField(0),
-            ],
+            elements: [GoldilocksField(0), GoldilocksField(0), GoldilocksField(0), GoldilocksField(0)],
         },
         HashOut {
             elements: [
@@ -1036,12 +1030,7 @@ impl MerkleZeroHasherWithCache<HashOut<GoldilocksField>> for PoseidonHasher {
 impl MerkleZeroHasherWithCacheMarkedLeaf<HashOut<GoldilocksField>> for PoseidonHasher {
     const CACHED_MARKED_LEAF_ZERO_HASHES: [HashOut<GoldilocksField>; 128] = [
         HashOut {
-            elements: [
-                GoldilocksField(0),
-                GoldilocksField(0),
-                GoldilocksField(0),
-                GoldilocksField(0),
-            ],
+            elements: [GoldilocksField(0), GoldilocksField(0), GoldilocksField(0), GoldilocksField(0)],
         },
         HashOut {
             elements: [
@@ -2065,12 +2054,7 @@ impl MerkleZeroHasherWithCacheMarkedLeaf<HashOut<GoldilocksField>> for PoseidonH
 impl MerkleZeroHasherWithCache<QHashOut<GoldilocksField>> for PoseidonHasher {
     const CACHED_ZERO_HASHES: [QHashOut<GoldilocksField>; 128] = [
         QHashOut(HashOut {
-            elements: [
-                GoldilocksField(0),
-                GoldilocksField(0),
-                GoldilocksField(0),
-                GoldilocksField(0),
-            ],
+            elements: [GoldilocksField(0), GoldilocksField(0), GoldilocksField(0), GoldilocksField(0)],
         }),
         QHashOut(HashOut {
             elements: [
@@ -3094,12 +3078,7 @@ impl MerkleZeroHasherWithCache<QHashOut<GoldilocksField>> for PoseidonHasher {
 impl MerkleZeroHasherWithCacheMarkedLeaf<QHashOut<GoldilocksField>> for PoseidonHasher {
     const CACHED_MARKED_LEAF_ZERO_HASHES: [QHashOut<GoldilocksField>; 128] = [
         QHashOut(HashOut {
-            elements: [
-                GoldilocksField(0),
-                GoldilocksField(0),
-                GoldilocksField(0),
-                GoldilocksField(0),
-            ],
+            elements: [GoldilocksField(0), GoldilocksField(0), GoldilocksField(0), GoldilocksField(0)],
         }),
         QHashOut(HashOut {
             elements: [

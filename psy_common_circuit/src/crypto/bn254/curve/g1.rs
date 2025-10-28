@@ -1,9 +1,10 @@
-use crate::crypto::secp256k1::ecdsa::curve::curve_types::{AffinePoint, Curve};
 use plonky2::field::types::Field;
 use serde::{Deserialize, Serialize};
 
-use crate::crypto::bn254::field::bn128_base::Bn128Base;
-use crate::crypto::bn254::field::bn128_scalar::Bn128Scalar;
+use crate::crypto::{
+    bn254::field::{bn128_base::Bn128Base, bn128_scalar::Bn128Scalar},
+    secp256k1::ecdsa::curve::curve_types::{AffinePoint, Curve},
+};
 
 #[derive(Debug, Copy, Clone, Deserialize, Eq, Hash, PartialEq, Serialize)]
 pub struct G1;
@@ -13,12 +14,7 @@ impl Curve for G1 {
     type ScalarField = Bn128Scalar;
 
     const A: Bn128Base = Bn128Base::ZERO;
-    const B: Bn128Base = Bn128Base([
-        0x7a17caa950ad28d7,
-        0x1f6ac17ae15521b9,
-        0x334bea4e696bd284,
-        0x2a1f6744ce179d8e,
-    ]);
+    const B: Bn128Base = Bn128Base([0x7a17caa950ad28d7, 0x1f6ac17ae15521b9, 0x334bea4e696bd284, 0x2a1f6744ce179d8e]);
     const GENERATOR_AFFINE: AffinePoint<Self> = AffinePoint {
         x: BN128_GENERATOR_X,
         y: BN128_GENERATOR_Y,
@@ -31,11 +27,13 @@ const BN128_GENERATOR_Y: Bn128Base = Bn128Base::TWO;
 
 #[cfg(test)]
 mod tests {
-    use crate::crypto::bn254::curve::g1::G1;
-    use crate::crypto::bn254::field::bn128_scalar::Bn128Scalar;
     use num::BigUint;
-    use crate::crypto::secp256k1::ecdsa::curve::curve_types::{AffinePoint, Curve, ProjectivePoint};
     use plonky2::field::types::{Field, PrimeField};
+
+    use crate::crypto::{
+        bn254::{curve::g1::G1, field::bn128_scalar::Bn128Scalar},
+        secp256k1::ecdsa::curve::curve_types::{AffinePoint, Curve, ProjectivePoint},
+    };
 
     #[test]
     fn test_generator() {
@@ -61,13 +59,8 @@ mod tests {
 
     #[test]
     fn test_g1_multiplication() {
-        let lhs = Bn128Scalar::from_noncanonical_biguint(BigUint::from_slice(&[
-            1111, 2222, 3333, 4444, 5555, 6666, 7777, 8888,
-        ]));
-        assert_eq!(
-            G1::convert(lhs) * G1::GENERATOR_PROJECTIVE,
-            mul_naive(lhs, G1::GENERATOR_PROJECTIVE)
-        );
+        let lhs = Bn128Scalar::from_noncanonical_biguint(BigUint::from_slice(&[1111, 2222, 3333, 4444, 5555, 6666, 7777, 8888]));
+        assert_eq!(G1::convert(lhs) * G1::GENERATOR_PROJECTIVE, mul_naive(lhs, G1::GENERATOR_PROJECTIVE));
     }
 
     fn mul_naive(lhs: Bn128Scalar, rhs: ProjectivePoint<G1>) -> ProjectivePoint<G1> {

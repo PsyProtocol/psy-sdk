@@ -1,7 +1,6 @@
 use anyhow::ensure;
 use kvq::traits::KVQSerializable;
-use plonky2::hash::hash_types::RichField;
-use plonky2::field::goldilocks_field::GoldilocksField;
+use plonky2::{field::goldilocks_field::GoldilocksField, hash::hash_types::RichField};
 use psy_core::{config::network_constants::CONTRACT_FUNCTION_TREE_HEIGHT, data::qhashout::QHashOut};
 use psy_crypto::hash::{merkle::utils::simple_merkle_tree::SimpleMerkleTree, traits::hasher::MerkleZeroHasher};
 use serde::{Deserialize, Serialize};
@@ -9,7 +8,7 @@ use ts_rs::TS;
 
 use crate::qdata::contract::ContractCodeDefinition;
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash,TS)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, TS)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
 #[ts(export, concrete(F = GoldilocksField))]
 pub struct QBCDeployContract<F: RichField> {
@@ -19,27 +18,17 @@ pub struct QBCDeployContract<F: RichField> {
 }
 
 impl<F: RichField> QBCDeployContract<F> {
-    pub fn new(
-        deployer: QHashOut<F>,
-        code_definition: ContractCodeDefinition,
-        function_whitelist: Vec<QHashOut<F>>,
-    ) -> Self {
+    pub fn new(deployer: QHashOut<F>, code_definition: ContractCodeDefinition, function_whitelist: Vec<QHashOut<F>>) -> Self {
         Self {
             deployer,
             code_definition,
             function_whitelist,
         }
     }
-    pub fn into_with_whitelist_root<H: MerkleZeroHasher<QHashOut<F>>>(self) -> anyhow::Result<QBCDeployContractWithRoot<F>>{
-        QBCDeployContractWithRoot::<F>::new::<H>(
-            self.deployer,
-            self.code_definition,
-            self.function_whitelist,
-        )
-
+    pub fn into_with_whitelist_root<H: MerkleZeroHasher<QHashOut<F>>>(self) -> anyhow::Result<QBCDeployContractWithRoot<F>> {
+        QBCDeployContractWithRoot::<F>::new::<H>(self.deployer, self.code_definition, self.function_whitelist)
     }
 }
-
 
 impl<F: RichField> KVQSerializable for QBCDeployContract<F> {
     fn to_bytes(&self) -> anyhow::Result<Vec<u8>> {
@@ -50,10 +39,6 @@ impl<F: RichField> KVQSerializable for QBCDeployContract<F> {
         bincode::deserialize(bytes).map_err(|e| anyhow::anyhow!(e))
     }
 }
-
-
-
-
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
@@ -77,10 +62,7 @@ impl<F: RichField> QBCDeployContractWithRoot<F> {
         let zero = QHashOut::from_values(0, 0, 0, 0);
         for i in 0..code_definition.functions.len() {
             let base = i * 4;
-            ensure!(
-                function_whitelist[base + 3] == zero,
-                "function whitelist placeholder must be zero"
-            );
+            ensure!(function_whitelist[base + 3] == zero, "function whitelist placeholder must be zero");
         }
         let mut whitelist_tree = SimpleMerkleTree::<H, QHashOut<F>>::new(CONTRACT_FUNCTION_TREE_HEIGHT);
         for (i, leaf) in function_whitelist.iter().enumerate() {
@@ -96,7 +78,6 @@ impl<F: RichField> QBCDeployContractWithRoot<F> {
         })
     }
 }
-
 
 impl<F: RichField> KVQSerializable for QBCDeployContractWithRoot<F> {
     fn to_bytes(&self) -> anyhow::Result<Vec<u8>> {

@@ -2,12 +2,10 @@ use psy_ast::Location;
 use tower_lsp::lsp_types::{Position, Range};
 use unicode_segmentation::UnicodeSegmentation;
 
-/// Returns a string from a range of human characters (graphemes). Respects unicode.
+/// Returns a string from a range of human characters (graphemes). Respects
+/// unicode.
 pub fn str_range(s: &str, range: &std::ops::Range<usize>) -> String {
-    s.graphemes(true)
-        .skip(range.start)
-        .take(range.len())
-        .collect()
+    s.graphemes(true).skip(range.start).take(range.len()).collect()
 }
 
 pub fn span_to_range(location: &Location, source: &str) -> Range {

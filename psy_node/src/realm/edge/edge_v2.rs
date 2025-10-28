@@ -1,34 +1,34 @@
-use crate::realm::edge::sync::spawn_realm_job_update_task;
-use super::rpc::RealmEdgeRpcServer;
-use super::{C, D, WATCHER_NODE_ID_PREFIX};
-use crate::common::jobs::JobSchedulerRpcServer;
-use crate::common::verifier::get_cached_generic_verifier;
-use crate::realm::handler::RealmEdgeHandler;
-use crate::realm::state::edge::RealmEdgeContext;
-use crate::realm::state::processor::RealmConfig;
+use std::sync::Arc;
+
 use anyhow::Result;
 use hyper::Method;
 use jsonrpsee::server::ServerBuilder;
-use psy_store::queue::new_redis_async_pool;
-use psy_store::queue::task_queue::QProvingTaskStoreImpl;
-use psy_store::queue::ProofStoreRedisAsync;
-use psy_store::store::QEDStore;
-use std::sync::Arc;
-use crate::realm::edge::sync::spawn_active_checkpoint_sync_task;
+use psy_store::{
+    queue::{new_redis_async_pool, task_queue::QProvingTaskStoreImpl, ProofStoreRedisAsync},
+    store::QEDStore,
+};
 use tower_http::cors::{Any, CorsLayer};
 use tracing::{debug, info};
-use crate::common::whitelist::{WhiteList, WhiteListCache};
-use crate::realm::{creat_redis_store, RealmEdgeConfig, F};
-use crate::realm::state::edge_queue_helper::RealmEdgeQueueHelper;
-use crate::realm::state::queue_factory::QueueFactory;
-use crate::watcher::watcher_client::WatcherClient;
 
+use super::{rpc::RealmEdgeRpcServer, C, D, WATCHER_NODE_ID_PREFIX};
+use crate::{
+    common::{
+        jobs::JobSchedulerRpcServer,
+        verifier::get_cached_generic_verifier,
+        whitelist::{WhiteList, WhiteListCache},
+    },
+    realm::{
+        creat_redis_store,
+        edge::sync::{spawn_active_checkpoint_sync_task, spawn_realm_job_update_task},
+        handler::RealmEdgeHandler,
+        state::{edge::RealmEdgeContext, edge_queue_helper::RealmEdgeQueueHelper, processor::RealmConfig, queue_factory::QueueFactory},
+        RealmEdgeConfig, F,
+    },
+    watcher::watcher_client::WatcherClient,
+};
 
 pub async fn run_realm_edge_v2(config: RealmEdgeConfig) -> anyhow::Result<()> {
-    info!(
-        "Starting Realm Edge node with realm_id: {}",
-        config.realm.realm_id
-    );
+    info!("Starting Realm Edge node with realm_id: {}", config.realm.realm_id);
 
     debug!("Realm Edge node config: {:?}", config);
 
@@ -38,7 +38,7 @@ pub async fn run_realm_edge_v2(config: RealmEdgeConfig) -> anyhow::Result<()> {
     let task_store = QProvingTaskStoreImpl::new(
         config.redis.redis_uri.as_str(),
         config.redis.pool_size.unwrap_or(20),
-        &config.queue.queue_biz_key
+        &config.queue.queue_biz_key,
     )
     .await?;
 
@@ -55,7 +55,8 @@ pub async fn run_realm_edge_v2(config: RealmEdgeConfig) -> anyhow::Result<()> {
         config.redis.pool_size.unwrap_or(10),
         config.realm.realm_id,
         store_reader.clone(),
-    ).await?;
+    )
+    .await?;
 
     debug!("created store reader successfully!");
     // Create proof verifier
@@ -70,14 +71,7 @@ pub async fn run_realm_edge_v2(config: RealmEdgeConfig) -> anyhow::Result<()> {
     // let sync_queue = proof_store.clone();
 
     // Create Edge node context
-    let edge_ctx = RealmEdgeContext::new(
-        realm_config,
-        store_reader.clone(),
-        checkpoint_queue,
-        proof_store.clone(),
-        proof_verifier,
-    )
-        .await?;
+    let edge_ctx = RealmEdgeContext::new(realm_config, store_reader.clone(), checkpoint_queue, proof_store.clone(), proof_verifier).await?;
 
     let cors_opts = CorsLayer::new()
         .allow_methods([Method::POST, Method::OPTIONS])
@@ -86,10 +80,7 @@ pub async fn run_realm_edge_v2(config: RealmEdgeConfig) -> anyhow::Result<()> {
     let cors = tower::ServiceBuilder::new().layer(cors_opts);
 
     // Start RPC server
-    let server_handle = ServerBuilder::default()
-        .set_http_middleware(cors)
-        .build(&config.rpc.listen_addr)
-        .await?;
+    let server_handle = ServerBuilder::default().set_http_middleware(cors).build(&config.rpc.listen_addr).await?;
     let job_notify_queue = proof_store.clone();
 
     // let whitelist = WhiteList::from_file(&config.config_path)?;
@@ -101,11 +92,11 @@ pub async fn run_realm_edge_v2(config: RealmEdgeConfig) -> anyhow::Result<()> {
         &config.redis.redis_uri,
         config.redis.pool_size.unwrap_or(20),
         &config.queue.queue_biz_key,
-        Some(&format!("{}{}", WATCHER_NODE_ID_PREFIX, config.realm.realm_id))
-    ).await?;
+        Some(&format!("{}{}", WATCHER_NODE_ID_PREFIX, config.realm.realm_id)),
+    )
+    .await?;
     let watcher_client = Arc::new(watcher);
     info!("✅ Watcher client initialized successfully");
-
 
     let handler = RealmEdgeHandler::new(
         edge_ctx.clone(),
@@ -121,10 +112,7 @@ pub async fn run_realm_edge_v2(config: RealmEdgeConfig) -> anyhow::Result<()> {
     rpc_module.merge(job_rpc_module)?;
     let handle = server_handle.start(rpc_module);
 
-    info!(
-        "Realm Edge node started on {}",
-        config.rpc.listen_addr.clone()
-    );
+    info!("Realm Edge node started on {}", config.rpc.listen_addr.clone());
 
     // Spawn task to send proof to coordinator
     // spawn_realm_job_update_task(
@@ -136,8 +124,8 @@ pub async fn run_realm_edge_v2(config: RealmEdgeConfig) -> anyhow::Result<()> {
     // )
     //     .await?;
 
-    // spawn_active_checkpoint_sync_task(realm_config.realm_id, store_reader, sync_queue, config.rpc.coordinator_addr)
-    //     .await?;
+    // spawn_active_checkpoint_sync_task(realm_config.realm_id, store_reader,
+    // sync_queue, config.rpc.coordinator_addr)     .await?;
 
     // Keep server running¶
     handle.stopped().await;

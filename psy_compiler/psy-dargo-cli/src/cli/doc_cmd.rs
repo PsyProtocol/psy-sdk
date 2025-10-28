@@ -1,29 +1,28 @@
 #![allow(unused)]
 
-use crate::cli::compile_cmd::compile_workspace_full;
-use crate::cli::execute_cmd::ExecuteCommand;
+use std::{clone::Clone, collections::HashMap, ops::Deref};
+
 use num_bigint::BigUint;
 use plonky2::field::{goldilocks_field::GoldilocksField, types::Field};
 use psy_ast::{ModuleId, VisitorContext};
 use psy_common_circuit::circuits::zk_signature3::manager::SimpleQEDZKSignatureManager;
-use psy_core::config::network_constants::GLOBAL_USER_TREE_HEIGHT;
-use psy_core::data::qhashout::QHashOut;
+use psy_core::{config::network_constants::GLOBAL_USER_TREE_HEIGHT, data::qhashout::QHashOut};
 use psy_crypto::signature::zk::wallet::SimpleQEDPrivateKey;
-use psy_package::Workspace;
-use psy_data::qblock::cmds::register_user::QBCRegisterUser;
-use psy_exec::vm::exec::QEDEvalSessionResult;
-use psy_prover::session::gen_contract_deploy_and_circuits_for_functions;
-use psy_sema::{
-    CheckedFunctionNode, Implementer, TypeChecker, TypeCheckerVisitorContext, TypeId, TypeKey,
+use psy_data::{
+    config::store_config::{QEDHasher, C, D},
+    qblock::cmds::register_user::QBCRegisterUser,
 };
-use psy_data::config::store_config::{QEDHasher, C, D};
+use psy_exec::vm::exec::QEDEvalSessionResult;
+use psy_package::Workspace;
+use psy_prover::session::gen_contract_deploy_and_circuits_for_functions;
+use psy_sema::{CheckedFunctionNode, Implementer, TypeChecker, TypeCheckerVisitorContext, TypeId, TypeKey};
 use psy_store::controllers::local::prepare_environment_with_real_contract;
-use psy_vm::dpn::ops::exec_context::QExecContext;
-use psy_vm::dpn::ops::sym_felt::SymFeltRef;
-use psy_vm::dpn::vm::def::DPNFunctionCircuitDefinition;
-use std::clone::Clone;
-use std::collections::HashMap;
-use std::ops::Deref;
+use psy_vm::dpn::{
+    ops::{exec_context::QExecContext, sym_felt::SymFeltRef},
+    vm::def::DPNFunctionCircuitDefinition,
+};
+
+use crate::cli::{compile_cmd::compile_workspace_full, execute_cmd::ExecuteCommand};
 
 pub fn find_contract_method_by_name(
     ctx: &mut TypeCheckerVisitorContext<SymFeltRef, QExecContext>,
@@ -32,10 +31,7 @@ pub fn find_contract_method_by_name(
 ) -> Option<TypeId> {
     let scope_id = ctx.symbols[ModuleId::root()].scope_id;
     let method_ident_id = ctx.intern(method_name);
-    ctx.symbols[scope_id]
-        .types
-        .get::<TypeKey>(&method_ident_id.into())
-        .cloned()
+    ctx.symbols[scope_id].types.get::<TypeKey>(&method_ident_id.into()).cloned()
 }
 
 pub fn extract_function_metadata_from_context(
@@ -167,13 +163,7 @@ impl Comment {
             return None;
         }
 
-        Some(
-            content
-                .strip_prefix(&prefix)
-                .unwrap_or("")
-                .trim()
-                .to_string(),
-        )
+        Some(content.strip_prefix(&prefix).unwrap_or("").trim().to_string())
     }
 }
 
@@ -231,14 +221,7 @@ impl FunctionNode {
 
     pub fn get_all_metadata(&self) -> HashMap<String, String> {
         let mut metadata = HashMap::new();
-        let known_keys = [
-            "description",
-            "author",
-            "version",
-            "tags",
-            "complexity",
-            "example",
-        ];
+        let known_keys = ["description", "author", "version", "tags", "complexity", "example"];
 
         for key in known_keys.iter() {
             if let Some(value) = self.get_metadata(key) {
@@ -253,9 +236,7 @@ impl FunctionNode {
                 let potential_key = &content[..colon_idx].trim();
                 if !known_keys.contains(&potential_key)
                     && !["input", "output"].contains(&potential_key)
-                    && potential_key
-                        .chars()
-                        .all(|c| c.is_ascii_alphanumeric() || c == '_')
+                    && potential_key.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
                 {
                     if let Some(value) = comment.parse_metadata_content(potential_key) {
                         metadata.insert(potential_key.to_string(), value);
@@ -279,17 +260,12 @@ impl Deref for FunctionNode {
 pub(crate) async fn run_doc(args: ExecuteCommand, workspace: Workspace) -> crate::errors::Result<()> {
     // Compile the full workspace in order to generate any build artifacts.
     let compilation_result = compile_workspace_full(&workspace, &args.compile_options)?;
-    let mut comment_input_parameters =
-        HashMap::with_capacity(compilation_result.circuit_definitions.len());
-    let mut comment_output_parameters =
-        HashMap::with_capacity(compilation_result.circuit_definitions.len());
+    let mut comment_input_parameters = HashMap::with_capacity(compilation_result.circuit_definitions.len());
+    let mut comment_output_parameters = HashMap::with_capacity(compilation_result.circuit_definitions.len());
     for result in &compilation_result.circuit_definitions {
         if let Some(fun) = compilation_result.function_metadata.get(&result.name) {
             let input_params = fun.get_input_parameters_from_comments();
-            let field_params = input_params
-                .iter()
-                .map(|p| convert_param_to_field(p))
-                .collect::<Vec<_>>();
+            let field_params = input_params.iter().map(|p| convert_param_to_field(p)).collect::<Vec<_>>();
 
             comment_input_parameters.insert(result.name.clone(), field_params);
             comment_output_parameters.insert(
@@ -319,11 +295,8 @@ pub(crate) async fn run_doc(args: ExecuteCommand, workspace: Workspace) -> crate
     let contract_state_tree_height = GLOBAL_USER_TREE_HEIGHT as usize;
 
     let deployer = QHashOut::rand();
-    let (circuits, deploy_cmd) = gen_contract_deploy_and_circuits_for_functions::<C, D>(
-        deployer,
-        contract_state_tree_height as u8,
-        &compilation_result.circuit_definitions,
-    )?;
+    let (circuits, deploy_cmd) =
+        gen_contract_deploy_and_circuits_for_functions::<C, D>(deployer, contract_state_tree_height as u8, &compilation_result.circuit_definitions)?;
 
     let mut lps = prepare_environment_with_real_contract(
         vec![QBCRegisterUser::new(wallet.get_zksig_circuit_fingerprint(), pub_key_param)],
@@ -331,20 +304,14 @@ pub(crate) async fn run_doc(args: ExecuteCommand, workspace: Workspace) -> crate
         None,
         None,
         None,
-    ).await?;
+    )
+    .await?;
 
-    for (def, circuit) in compilation_result
-        .circuit_definitions
-        .into_iter()
-        .zip(circuits.into_iter())
-    {
+    for (def, circuit) in compilation_result.circuit_definitions.into_iter().zip(circuits.into_iter()) {
         if let Some(param) = comment_input_parameters.get(&def.name) {
-            let cfc_input = QEDEvalSessionResult::new().exec_contract_call(
-                &mut lps,
-                GoldilocksField::from_canonical_u64(2),
-                &def,
-                param.clone(),
-            ).await?;
+            let cfc_input = QEDEvalSessionResult::new()
+                .exec_contract_call(&mut lps, GoldilocksField::from_canonical_u64(2), &def, param.clone())
+                .await?;
             if let Some(output_param) = comment_output_parameters.get(&def.name).cloned() {
                 if !output_param.is_empty() {
                     assert_eq!(
@@ -356,10 +323,7 @@ pub(crate) async fn run_doc(args: ExecuteCommand, workspace: Workspace) -> crate
             }
             let proof = circuit.prove_base(&cfc_input).unwrap();
             if args.compile_options.debug {
-                println!(
-                    "file:{:?}, input: {:?}",
-                    args.compile_options.entry_path, param
-                );
+                println!("file:{:?}, input: {:?}", args.compile_options.entry_path, param);
                 println!("result_vm input: {:?}", cfc_input.inputs);
                 println!("result_vm output: {:?}", cfc_input.outputs);
                 println!("public_inputs: {:?}", &proof.public_inputs);
@@ -372,43 +336,29 @@ pub(crate) async fn run_doc(args: ExecuteCommand, workspace: Workspace) -> crate
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::cli::compile_cmd::CompileOptions;
+    use std::{collections::BTreeMap, default::Default, path::PathBuf};
+
     use num_traits::Num;
     use plonky2::field::fft::ifft;
     use psy_ast::Location;
     use psy_package::{CrateName, Package, PackageType};
-    use std::collections::BTreeMap;
-    use std::default::Default;
-    use std::path::PathBuf;
+
+    use super::*;
+    use crate::cli::compile_cmd::CompileOptions;
 
     #[test]
     fn test_parse_input_values() {
-        let comment = Comment::from(psy_ast::Comment::new_line(
-            "input: 1, 2, 3".to_string(),
-            Location::default(),
-        ));
+        let comment = Comment::from(psy_ast::Comment::new_line("input: 1, 2, 3".to_string(), Location::default()));
         let input_values = comment.parse_input_values();
         assert_eq!(
             input_values,
-            vec![
-                CommentParamValue::U32(1),
-                CommentParamValue::U32(2),
-                CommentParamValue::U32(3)
-            ]
+            vec![CommentParamValue::U32(1), CommentParamValue::U32(2), CommentParamValue::U32(3)]
         );
-        let comment = Comment::from(psy_ast::Comment::new_line(
-            "input: true, false, 10".to_string(),
-            Location::default(),
-        ));
+        let comment = Comment::from(psy_ast::Comment::new_line("input: true, false, 10".to_string(), Location::default()));
         let input_values = comment.parse_input_values();
         assert_eq!(
             input_values,
-            vec![
-                CommentParamValue::Bool(true),
-                CommentParamValue::Bool(false),
-                CommentParamValue::U32(10)
-            ]
+            vec![CommentParamValue::Bool(true), CommentParamValue::Bool(false), CommentParamValue::U32(10)]
         );
         let comment = Comment::from(psy_ast::Comment::new_line(
             "input: 0x123456789abcdef, 0xabcdef123456789".to_string(),
@@ -448,9 +398,7 @@ mod tests {
                 parameters: vec![],
                 doc: true,
             };
-            if let Err(err) = tokio::task::block_in_place(|| {
-                tokio::runtime::Handle::current().block_on(run_doc(args, workspace))
-            }) {
+            if let Err(err) = tokio::task::block_in_place(|| tokio::runtime::Handle::current().block_on(run_doc(args, workspace))) {
                 panic!("file: {:?}, {:?}", path, err);
             }
             #[allow(static_mut_refs)]

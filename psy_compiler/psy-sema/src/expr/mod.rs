@@ -20,10 +20,9 @@ pub use index::*;
 pub use intrinsic::*;
 pub use lambda::*;
 pub use path::*;
+use psy_ast::{Location, NodeInfo, NodeType};
 pub use r#match::*;
 pub use unary::*;
-
-use psy_ast::{Location, NodeInfo, NodeType};
 
 use crate::{CheckedValueNode, TypeId, BOOL_TYPE, FELT_TYPE, U32_TYPE};
 
@@ -97,12 +96,8 @@ impl<F> CheckedExprNode<F> {
                 CheckedIntrinsicExprNode::GetLastNonce { type_id, .. } => type_id.clone(),
                 CheckedIntrinsicExprNode::GetUserPublicKeyHash { type_id, .. } => type_id.clone(),
                 CheckedIntrinsicExprNode::GetStateHashAt { type_id, .. } => type_id.clone(),
-                CheckedIntrinsicExprNode::GetOtherContractStateHashAt { type_id, .. } => {
-                    type_id.clone()
-                }
-                CheckedIntrinsicExprNode::GetOtherUserContractStateHashAt { type_id, .. } => {
-                    type_id.clone()
-                }
+                CheckedIntrinsicExprNode::GetOtherContractStateHashAt { type_id, .. } => type_id.clone(),
+                CheckedIntrinsicExprNode::GetOtherUserContractStateHashAt { type_id, .. } => type_id.clone(),
                 CheckedIntrinsicExprNode::CSetStateHashAt { type_id, .. } => type_id.clone(),
                 CheckedIntrinsicExprNode::StorageRead { type_id, .. } => type_id.clone(),
                 CheckedIntrinsicExprNode::StorageWrite { type_id, .. } => type_id.clone(),
@@ -164,12 +159,8 @@ impl<F> CheckedExprNode<F> {
                 CheckedIntrinsicExprNode::GetLastNonce { location, .. } => location.clone(),
                 CheckedIntrinsicExprNode::GetUserPublicKeyHash { location, .. } => location.clone(),
                 CheckedIntrinsicExprNode::GetStateHashAt { location, .. } => location.clone(),
-                CheckedIntrinsicExprNode::GetOtherContractStateHashAt { location, .. } => {
-                    location.clone()
-                }
-                CheckedIntrinsicExprNode::GetOtherUserContractStateHashAt { location, .. } => {
-                    location.clone()
-                }
+                CheckedIntrinsicExprNode::GetOtherContractStateHashAt { location, .. } => location.clone(),
+                CheckedIntrinsicExprNode::GetOtherUserContractStateHashAt { location, .. } => location.clone(),
                 CheckedIntrinsicExprNode::CSetStateHashAt { location, .. } => location.clone(),
                 CheckedIntrinsicExprNode::StorageRead { location, .. } => location.clone(),
                 CheckedIntrinsicExprNode::StorageWrite { location, .. } => location.clone(),
@@ -177,9 +168,7 @@ impl<F> CheckedExprNode<F> {
                 CheckedIntrinsicExprNode::HashTwoToOne { location, .. } => location.clone(),
                 CheckedIntrinsicExprNode::MemTransmute { location, .. } => location.clone(),
                 CheckedIntrinsicExprNode::MemSizeOf {
-                    query_type: _ty,
-                    location,
-                    ..
+                    query_type: _ty, location, ..
                 } => location.clone(),
                 CheckedIntrinsicExprNode::StorageReadRange { location, .. } => location.clone(),
                 CheckedIntrinsicExprNode::StorageWriteRange { location, .. } => location.clone(),

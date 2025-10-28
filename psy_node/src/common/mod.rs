@@ -2,8 +2,10 @@ use plonky2::{
     field::goldilocks_field::GoldilocksField,
     plonk::{config::PoseidonGoldilocksConfig, proof::ProofWithPublicInputs},
 };
-use psy_core::data::qhashout::QHashOut;
-use psy_core::job::id::{QProvingJobDataID, ProvingJobCircuitType};
+use psy_core::{
+    data::qhashout::QHashOut,
+    job::id::{ProvingJobCircuitType, QProvingJobDataID},
+};
 use psy_data::config::store_config::QEDProof;
 use tracing::info;
 
@@ -20,9 +22,9 @@ pub fn log_proof_details(prefix: &str, job_id: QProvingJobDataID, proof: &QEDPro
 
     match job_id.circuit_type {
         // 19 public inputs: [commitment(4), worker_public_key(4), pm_jobs_completed(3), circuit_whitelist(4), state_transition_hash(4)]
-        ProvingJobCircuitType::AppendUserRegistrationTree |
-        ProvingJobCircuitType::DummyAppendUserRegistrationTreeAggregate |
-        ProvingJobCircuitType::BatchDeployContracts => {
+        ProvingJobCircuitType::AppendUserRegistrationTree
+        | ProvingJobCircuitType::DummyAppendUserRegistrationTreeAggregate
+        | ProvingJobCircuitType::BatchDeployContracts => {
             if proof.public_inputs.len() >= 19 {
                 let commitment = QHashOut::<GoldilocksField>::from_felt_slice(&proof.public_inputs[0..4]);
                 let worker_public_key = QHashOut::<GoldilocksField>::from_felt_slice(&proof.public_inputs[4..8]);
@@ -32,8 +34,10 @@ pub fn log_proof_details(prefix: &str, job_id: QProvingJobDataID, proof: &QEDPro
 
                 info!("{} - [0..4] Commitment: {}", prefix, commitment);
                 info!("{} - [4..8] Worker public key: {}", prefix, worker_public_key);
-                info!("{} - [8..11] PM jobs completed: [{}, {}, {}]", prefix,
-                    pm_jobs_completed[0], pm_jobs_completed[1], pm_jobs_completed[2]);
+                info!(
+                    "{} - [8..11] PM jobs completed: [{}, {}, {}]",
+                    prefix, pm_jobs_completed[0], pm_jobs_completed[1], pm_jobs_completed[2]
+                );
                 info!("{} - [11..15] Circuit whitelist: {}", prefix, circuit_whitelist);
                 info!("{} - [15..19] State transition hash: {}", prefix, state_transition_hash);
 
@@ -61,8 +65,10 @@ pub fn log_proof_details(prefix: &str, job_id: QProvingJobDataID, proof: &QEDPro
                 info!("{} - Type: User Registration Aggregation Circuit", prefix);
                 info!("{} - [0..4] Commitment: {}", prefix, commitment);
                 info!("{} - [4..8] Worker public key: {}", prefix, worker_public_key);
-                info!("{} - [8..11] PM jobs completed: [{}, {}, {}]", prefix,
-                    pm_jobs_completed[0], pm_jobs_completed[1], pm_jobs_completed[2]);
+                info!(
+                    "{} - [8..11] PM jobs completed: [{}, {}, {}]",
+                    prefix, pm_jobs_completed[0], pm_jobs_completed[1], pm_jobs_completed[2]
+                );
                 info!("{} - [11..15] Allowed circuit hashes root: {}", prefix, allowed_circuit_hashes_root);
                 info!("{} - [15..19] State transition hash: {}", prefix, state_transition_hash);
             }
@@ -80,14 +86,17 @@ pub fn log_proof_details(prefix: &str, job_id: QProvingJobDataID, proof: &QEDPro
                 info!("{} - Type: Deploy Contracts Aggregation Circuit", prefix);
                 info!("{} - [0..4] Commitment: {}", prefix, commitment);
                 info!("{} - [4..8] Worker public key: {}", prefix, worker_public_key);
-                info!("{} - [8..11] PM jobs completed: [{}, {}, {}]", prefix,
-                    pm_jobs_completed[0], pm_jobs_completed[1], pm_jobs_completed[2]);
+                info!(
+                    "{} - [8..11] PM jobs completed: [{}, {}, {}]",
+                    prefix, pm_jobs_completed[0], pm_jobs_completed[1], pm_jobs_completed[2]
+                );
                 info!("{} - [11..15] Allowed circuit hashes root: {}", prefix, allowed_circuit_hashes_root);
                 info!("{} - [15..19] State transition hash: {}", prefix, state_transition_hash);
             }
         }
 
-        // Special 19 public inputs for AggUserRegisterDeployContractsGUTA: [state_transition_hash(4), user_registration_final(4), deploy_contracts_final(4), guta_final(4), pm_jobs_completed(3)]
+        // Special 19 public inputs for AggUserRegisterDeployContractsGUTA: [state_transition_hash(4), user_registration_final(4),
+        // deploy_contracts_final(4), guta_final(4), pm_jobs_completed(3)]
         ProvingJobCircuitType::AggUserRegisterDeployContractsGUTA => {
             if proof.public_inputs.len() >= 19 {
                 let state_transition_hash = QHashOut::<GoldilocksField>::from_felt_slice(&proof.public_inputs[0..4]);
@@ -101,23 +110,25 @@ pub fn log_proof_details(prefix: &str, job_id: QProvingJobDataID, proof: &QEDPro
                 info!("{} - [4..8] User registration final: {}", prefix, user_registration_final);
                 info!("{} - [8..12] Deploy contracts final: {}", prefix, deploy_contracts_final);
                 info!("{} - [12..16] GUTA final: {}", prefix, guta_final);
-                info!("{} - [16..19] PM jobs completed: [{}, {}, {}]", prefix,
-                    pm_jobs_completed[0], pm_jobs_completed[1], pm_jobs_completed[2]);
+                info!(
+                    "{} - [16..19] PM jobs completed: [{}, {}, {}]",
+                    prefix, pm_jobs_completed[0], pm_jobs_completed[1], pm_jobs_completed[2]
+                );
             }
         }
 
         // 15 public inputs for GUTA circuits: [commitment(4), worker_public_key(4), pm_jobs_completed(3), guta_header_hash(4)]
-        ProvingJobCircuitType::GUTATwoGUTA |
-        ProvingJobCircuitType::GUTATwoEndCap |
-        ProvingJobCircuitType::GUTALeftGUTARightEndCap |
-        ProvingJobCircuitType::GUTALeftEndCapRightGUTA |
-        ProvingJobCircuitType::GUTAVerifyToCap |
-        ProvingJobCircuitType::GUTANoChange |
-        ProvingJobCircuitType::GUTASingleEndCap |
-        ProvingJobCircuitType::GUTAOnlyRegisterUsers |
-        ProvingJobCircuitType::GUTATwoGUTAWithCheckpointUpgrade |
-        ProvingJobCircuitType::GUTAVerifyToCapWithCheckpointUpgrade |
-        ProvingJobCircuitType::GUTARegisterUsers => {
+        ProvingJobCircuitType::GUTATwoGUTA
+        | ProvingJobCircuitType::GUTATwoEndCap
+        | ProvingJobCircuitType::GUTALeftGUTARightEndCap
+        | ProvingJobCircuitType::GUTALeftEndCapRightGUTA
+        | ProvingJobCircuitType::GUTAVerifyToCap
+        | ProvingJobCircuitType::GUTANoChange
+        | ProvingJobCircuitType::GUTASingleEndCap
+        | ProvingJobCircuitType::GUTAOnlyRegisterUsers
+        | ProvingJobCircuitType::GUTATwoGUTAWithCheckpointUpgrade
+        | ProvingJobCircuitType::GUTAVerifyToCapWithCheckpointUpgrade
+        | ProvingJobCircuitType::GUTARegisterUsers => {
             if proof.public_inputs.len() >= 15 {
                 let commitment = QHashOut::<GoldilocksField>::from_felt_slice(&proof.public_inputs[0..4]);
                 let worker_public_key = QHashOut::<GoldilocksField>::from_felt_slice(&proof.public_inputs[4..8]);
@@ -127,8 +138,10 @@ pub fn log_proof_details(prefix: &str, job_id: QProvingJobDataID, proof: &QEDPro
                 info!("{} - Type: GUTA Circuit", prefix);
                 info!("{} - [0..4] Commitment: {}", prefix, commitment);
                 info!("{} - [4..8] Worker public key: {}", prefix, worker_public_key);
-                info!("{} - [8..11] PM jobs completed: [{}, {}, {}]", prefix,
-                    pm_jobs_completed[0], pm_jobs_completed[1], pm_jobs_completed[2]);
+                info!(
+                    "{} - [8..11] PM jobs completed: [{}, {}, {}]",
+                    prefix, pm_jobs_completed[0], pm_jobs_completed[1], pm_jobs_completed[2]
+                );
                 info!("{} - [11..15] GUTA header hash: {}", prefix, guta_header_hash);
             }
         }
@@ -137,8 +150,8 @@ pub fn log_proof_details(prefix: &str, job_id: QProvingJobDataID, proof: &QEDPro
     }
 }
 
-pub mod slot;
 pub mod clock;
-pub mod retry;
-pub mod whitelist;
 pub mod health;
+pub mod retry;
+pub mod slot;
+pub mod whitelist;

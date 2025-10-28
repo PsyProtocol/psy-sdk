@@ -25,8 +25,8 @@ use plonky2::{
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use serde_with::serde_as;
+use strum_macros::{AsRefStr, Display};
 use uuid::Uuid;
-use strum_macros::{Display, AsRefStr};
 
 use super::{mode::QWorkerMode, traits::QProofStoreAsyncImm};
 
@@ -41,24 +41,14 @@ impl<T: QProofStoreAsyncImm> QJobRewardDataProvider for T {
     async fn get_job_commitment(&self, job_id: QProvingJobDataID) -> anyhow::Result<QHashOut<F>> {
         let public_inputs = self.get_public_input_by_id::<PoseidonGoldilocksConfig, 2>(job_id.get_output_id()).await?;
         Ok(QHashOut(HashOut {
-            elements: [
-                public_inputs[0],
-                public_inputs[1],
-                public_inputs[2],
-                public_inputs[3],
-            ],
+            elements: [public_inputs[0], public_inputs[1], public_inputs[2], public_inputs[3]],
         }))
     }
 
     async fn get_job_worker_public_key(&self, job_id: QProvingJobDataID) -> anyhow::Result<QHashOut<F>> {
         let public_inputs = self.get_public_input_by_id::<PoseidonGoldilocksConfig, 2>(job_id.get_output_id()).await?;
         Ok(QHashOut(HashOut {
-            elements: [
-                public_inputs[4],
-                public_inputs[5],
-                public_inputs[6],
-                public_inputs[7],
-            ],
+            elements: [public_inputs[4], public_inputs[5], public_inputs[6], public_inputs[7]],
         }))
     }
 }
@@ -571,7 +561,10 @@ impl QProvingJobGraph {
                 let sibling_commitment = provider.get_job_commitment(sibling_id).await?;
                 let sibling_worker_public_key = provider.get_job_worker_public_key(sibling_id).await?;
                 let sibling_reward_leaf = provider.get_job_worker_public_key(parent).await?;
-                (QHashOut(PoseidonHash::two_to_one(sibling_commitment.into(), sibling_worker_public_key.into())), sibling_reward_leaf)
+                (
+                    QHashOut(PoseidonHash::two_to_one(sibling_commitment.into(), sibling_worker_public_key.into())),
+                    sibling_reward_leaf,
+                )
             } else if deps_vec.len() == 1 {
                 let parent_reward_leaf = provider.get_job_worker_public_key(parent).await?;
                 (QHashOut(HashOut { elements: [F::ZERO; 4] }), parent_reward_leaf)
@@ -823,7 +816,6 @@ impl QProvingJobDataID {
     }
 }
 
-
 impl fmt::Display for QProvingJobDataID {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if f.alternate() {
@@ -834,14 +826,20 @@ impl fmt::Display for QProvingJobDataID {
             f,
             "QJob[topic={:?}(0x{:02X}), goal={} (0x{:016X}), slot={} (0x{:016X}), circuit={:?}(0x{:02X}, gid=0x{:08X}), \
 group=0x{:08X}, subgroup=0x{:08X}, task=0x{:08X}, dtype={:?}(0x{:02X}), didx=0x{:02X}]",
-            self.topic,                       self.topic.to_u8(),
-            self.goal_id,                     self.goal_id,
-            self.slot_id,                     self.slot_id,
-            self.circuit_type,                self.circuit_type.to_u8(), self.circuit_type.to_circuit_group_id(),
+            self.topic,
+            self.topic.to_u8(),
+            self.goal_id,
+            self.goal_id,
+            self.slot_id,
+            self.slot_id,
+            self.circuit_type,
+            self.circuit_type.to_u8(),
+            self.circuit_type.to_circuit_group_id(),
             self.group_id,
             self.sub_group_id,
             self.task_index,
-            self.data_type,                   self.data_type.to_u8(),
+            self.data_type,
+            self.data_type.to_u8(),
             self.data_index
         )
     }
@@ -989,7 +987,14 @@ impl QProvingJobDataID {
             0,
         )
     }
-    pub fn core_op_witness(checkpoint_id: u64, slot_id: u64, group_id: u32, circuit_type: ProvingJobCircuitType, sub_group_id: u32, task_index: u32) -> Self {
+    pub fn core_op_witness(
+        checkpoint_id: u64,
+        slot_id: u64,
+        group_id: u32,
+        circuit_type: ProvingJobCircuitType,
+        sub_group_id: u32,
+        task_index: u32,
+    ) -> Self {
         Self::new(
             QJobTopic::GenerateStandardProof,
             checkpoint_id,
@@ -1054,7 +1059,14 @@ impl QProvingJobDataID {
             data_index: 0,
         }
     }
-    pub fn new_proof_job_id(goal_id: u64, slot_id: u64, group_id: u32, circuit_type: ProvingJobCircuitType, sub_group_id: u32, task_index: u32) -> Self {
+    pub fn new_proof_job_id(
+        goal_id: u64,
+        slot_id: u64,
+        group_id: u32,
+        circuit_type: ProvingJobCircuitType,
+        sub_group_id: u32,
+        task_index: u32,
+    ) -> Self {
         Self {
             topic: QJobTopic::GenerateStandardProof,
             goal_id,
@@ -1067,7 +1079,7 @@ impl QProvingJobDataID {
             data_index: 0,
         }
     }
-    
+
     pub fn new_groth16_proof_job_id(goal_id: u64, group_id: u32, circuit_type: ProvingJobCircuitType, sub_group_id: u32, task_index: u32) -> Self {
         Self {
             topic: QJobTopic::GenerateGroth16Proof,
@@ -1352,7 +1364,11 @@ impl VariableHeightRewardMerkleProof {
         let index = self.index.to_canonical_u64();
 
         if proof_height > 0 && self.top_siblings.len() < proof_height {
-            panic!("Proof height {} but top_siblings only has {} elements", proof_height, self.top_siblings.len());
+            panic!(
+                "Proof height {} but top_siblings only has {} elements",
+                proof_height,
+                self.top_siblings.len()
+            );
         }
 
         let mut nullifier_base = 0u64;
@@ -1418,7 +1434,7 @@ mod tests {
             }],
             sibling_branch: QHashOut(PoseidonHash::two_to_one(
                 QHashOut::from_values(5, 6, 7, 8).into(),
-                QHashOut::from_values(9, 10, 11, 12).into()
+                QHashOut::from_values(9, 10, 11, 12).into(),
             )),
             reward_leaf: QHashOut::from_values(13, 14, 15, 16),
             proof_height: F::from_canonical_usize(1),
@@ -1478,7 +1494,7 @@ mod tests {
             ],
             sibling_branch: QHashOut(PoseidonHash::two_to_one(
                 QHashOut::from_values(17, 18, 19, 20).into(),
-                QHashOut::from_values(21, 22, 23, 24).into()
+                QHashOut::from_values(21, 22, 23, 24).into(),
             )),
             reward_leaf: QHashOut::from_values(25, 26, 27, 28),
             proof_height: F::from_canonical_usize(2),
@@ -1497,7 +1513,7 @@ mod tests {
             top_siblings: vec![],
             sibling_branch: QHashOut(PoseidonHash::two_to_one(
                 QHashOut::from_values(1, 2, 3, 4).into(),
-                QHashOut::from_values(5, 6, 7, 8).into()
+                QHashOut::from_values(5, 6, 7, 8).into(),
             )),
             reward_leaf: QHashOut::from_values(9, 10, 11, 12),
             proof_height: F::from_canonical_usize(0),
@@ -1519,7 +1535,7 @@ mod tests {
             }],
             sibling_branch: QHashOut(PoseidonHash::two_to_one(
                 QHashOut::from_values(1, 2, 3, 4).into(),
-                QHashOut::from_values(5, 6, 7, 8).into()
+                QHashOut::from_values(5, 6, 7, 8).into(),
             )),
             reward_leaf: QHashOut::from_values(9, 10, 11, 12),
             proof_height: F::from_canonical_usize(1),
@@ -1581,7 +1597,7 @@ mod tests {
             }],
             sibling_branch: QHashOut(PoseidonHash::two_to_one(
                 QHashOut::from_values(5, 6, 7, 8).into(),
-                QHashOut::from_values(9, 10, 11, 12).into()
+                QHashOut::from_values(9, 10, 11, 12).into(),
             )),
             reward_leaf: QHashOut::from_values(13, 14, 15, 16),
             proof_height: F::from_canonical_usize(1),
@@ -1595,7 +1611,7 @@ mod tests {
             }],
             sibling_branch: QHashOut(PoseidonHash::two_to_one(
                 QHashOut::from_values(5, 6, 7, 8).into(),
-                QHashOut::from_values(9, 10, 11, 12).into()
+                QHashOut::from_values(9, 10, 11, 12).into(),
             )),
             reward_leaf: QHashOut::from_values(13, 14, 15, 16),
             proof_height: F::from_canonical_usize(1),
@@ -1651,7 +1667,7 @@ mod tests {
             top_siblings: vec![], // Empty siblings but proof_height = 20 should panic
             sibling_branch: QHashOut(PoseidonHash::two_to_one(
                 QHashOut::from_values(1, 2, 3, 4).into(),
-                QHashOut::from_values(5, 6, 7, 8).into()
+                QHashOut::from_values(5, 6, 7, 8).into(),
             )),
             reward_leaf: QHashOut::from_values(9, 10, 11, 12),
             proof_height: F::from_canonical_usize(20), // > top_siblings.len()
@@ -1668,7 +1684,7 @@ mod tests {
             top_siblings: vec![], // Empty siblings but proof_height = 1 should panic
             sibling_branch: QHashOut(PoseidonHash::two_to_one(
                 QHashOut::from_values(1, 2, 3, 4).into(),
-                QHashOut::from_values(5, 6, 7, 8).into()
+                QHashOut::from_values(5, 6, 7, 8).into(),
             )),
             reward_leaf: QHashOut::from_values(9, 10, 11, 12),
             proof_height: F::from_canonical_usize(1),
@@ -1832,10 +1848,13 @@ mod tests {
 
         // Since job_c is a root with two dependencies, it should have left and right
         // branches
-        assert_eq!(proof.sibling_branch, QHashOut(PoseidonHash::two_to_one(
-            QHashOut::from_values(1, 2, 3, 4).into(),
-            QHashOut::from_values(5, 6, 7, 8).into()
-        )));
+        assert_eq!(
+            proof.sibling_branch,
+            QHashOut(PoseidonHash::two_to_one(
+                QHashOut::from_values(1, 2, 3, 4).into(),
+                QHashOut::from_values(5, 6, 7, 8).into()
+            ))
+        );
     }
 
     #[tokio::test]
@@ -1983,7 +2002,7 @@ mod tests {
             }],
             sibling_branch: QHashOut(PoseidonHash::two_to_one(
                 QHashOut::from_values(10, 11, 12, 13).into(),
-                QHashOut::from_values(14, 15, 16, 17).into()
+                QHashOut::from_values(14, 15, 16, 17).into(),
             )),
             reward_leaf: QHashOut::from_values(18, 19, 20, 21),
             proof_height: F::from_canonical_usize(1),
@@ -1996,10 +2015,7 @@ mod tests {
                 sibling_branch: QHashOut::from_values(22, 23, 24, 25),
                 sibling_reward_leaf: QHashOut::from_values(26, 27, 28, 29),
             }],
-            sibling_branch: QHashOut(PoseidonHash::two_to_one(
-                QHashOut::ZERO.into(),
-                QHashOut::ZERO.into()
-            )),
+            sibling_branch: QHashOut(PoseidonHash::two_to_one(QHashOut::ZERO.into(), QHashOut::ZERO.into())),
             reward_leaf: QHashOut::ZERO,
             proof_height: F::from_canonical_usize(1),
             index: F::from_canonical_usize(1), // This should put combined proof on right
@@ -2043,7 +2059,7 @@ mod tests {
             top_siblings: vec![], // Height 0 proof
             sibling_branch: QHashOut(PoseidonHash::two_to_one(
                 QHashOut::from_values(100, 101, 102, 103).into(),
-                QHashOut::from_values(104, 105, 106, 107).into()
+                QHashOut::from_values(104, 105, 106, 107).into(),
             )),
             reward_leaf: QHashOut::from_values(108, 109, 110, 111),
             proof_height: F::from_canonical_usize(0), // Leaf proof
@@ -2057,10 +2073,7 @@ mod tests {
                 sibling_branch: QHashOut::from_values(200, 201, 202, 203),
                 sibling_reward_leaf: QHashOut::from_values(204, 205, 206, 207),
             }],
-            sibling_branch: QHashOut(PoseidonHash::two_to_one(
-                QHashOut::ZERO.into(),
-                QHashOut::ZERO.into()
-            )),
+            sibling_branch: QHashOut(PoseidonHash::two_to_one(QHashOut::ZERO.into(), QHashOut::ZERO.into())),
             reward_leaf: QHashOut::ZERO,
             proof_height: F::from_canonical_usize(1),
             index: F::from_canonical_usize(1), // This puts it in right position at top level
@@ -2184,7 +2197,7 @@ mod combine_tests {
             }],
             sibling_branch: QHashOut(PoseidonHash::two_to_one(
                 QHashOut::from_values(9, 10, 11, 12).into(),
-                QHashOut::from_values(13, 14, 15, 16).into()
+                QHashOut::from_values(13, 14, 15, 16).into(),
             )),
             reward_leaf: QHashOut::from_values(17, 18, 19, 20),
             proof_height: F::from_canonical_usize(1),
@@ -2199,9 +2212,9 @@ mod combine_tests {
             }],
             sibling_branch: QHashOut(PoseidonHash::two_to_one(
                 QHashOut::from_values(29, 30, 31, 32).into(), // Should be ignored
-                QHashOut::from_values(33, 34, 35, 36).into()  // Should be ignored
+                QHashOut::from_values(33, 34, 35, 36).into(), // Should be ignored
             )),
-            reward_leaf: QHashOut::from_values(37, 38, 39, 40),  // Should be ignored
+            reward_leaf: QHashOut::from_values(37, 38, 39, 40), // Should be ignored
             proof_height: F::from_canonical_usize(1),
             index: F::from_canonical_usize(1),
         };
@@ -2214,10 +2227,13 @@ mod combine_tests {
         assert_eq!(combined.top_siblings.len(), 2); // 1 + 1 = 2
 
         // Verify sibling_branch, reward_leaf come from bottom proof
-        assert_eq!(combined.sibling_branch, QHashOut(PoseidonHash::two_to_one(
-            QHashOut::from_values(9, 10, 11, 12).into(),
-            QHashOut::from_values(13, 14, 15, 16).into()
-        )));
+        assert_eq!(
+            combined.sibling_branch,
+            QHashOut(PoseidonHash::two_to_one(
+                QHashOut::from_values(9, 10, 11, 12).into(),
+                QHashOut::from_values(13, 14, 15, 16).into()
+            ))
+        );
         assert_eq!(combined.reward_leaf, QHashOut::from_values(17, 18, 19, 20));
     }
 
@@ -2237,7 +2253,7 @@ mod combine_tests {
             ],
             sibling_branch: QHashOut(PoseidonHash::two_to_one(
                 QHashOut::from_values(100, 100, 100, 100).into(),
-                QHashOut::from_values(200, 200, 200, 200).into()
+                QHashOut::from_values(200, 200, 200, 200).into(),
             )),
             reward_leaf: QHashOut::from_values(300, 300, 300, 300),
             proof_height: F::from_canonical_usize(2),
@@ -2252,9 +2268,9 @@ mod combine_tests {
             }],
             sibling_branch: QHashOut(PoseidonHash::two_to_one(
                 QHashOut::from_values(400, 400, 400, 400).into(), // Ignored
-                QHashOut::from_values(500, 500, 500, 500).into()  // Ignored
+                QHashOut::from_values(500, 500, 500, 500).into(), // Ignored
             )),
-            reward_leaf: QHashOut::from_values(600, 600, 600, 600),  // Ignored
+            reward_leaf: QHashOut::from_values(600, 600, 600, 600), // Ignored
             proof_height: F::from_canonical_usize(1),
             index: F::from_canonical_usize(1), // Binary: 1
         };
@@ -2267,10 +2283,13 @@ mod combine_tests {
         assert_eq!(combined.top_siblings.len(), 3); // 2 + 1 = 3
 
         // Verify data source correctness
-        assert_eq!(combined.sibling_branch, QHashOut(PoseidonHash::two_to_one(
-            QHashOut::from_values(100, 100, 100, 100).into(),
-            QHashOut::from_values(200, 200, 200, 200).into()
-        )));
+        assert_eq!(
+            combined.sibling_branch,
+            QHashOut(PoseidonHash::two_to_one(
+                QHashOut::from_values(100, 100, 100, 100).into(),
+                QHashOut::from_values(200, 200, 200, 200).into()
+            ))
+        );
         assert_eq!(combined.reward_leaf, QHashOut::from_values(300, 300, 300, 300));
 
         // Verify siblings order
@@ -2289,7 +2308,7 @@ mod combine_tests {
             }],
             sibling_branch: QHashOut(PoseidonHash::two_to_one(
                 QHashOut::from_values(30, 30, 30, 30).into(),
-                QHashOut::from_values(40, 40, 40, 40).into()
+                QHashOut::from_values(40, 40, 40, 40).into(),
             )),
             reward_leaf: QHashOut::from_values(50, 50, 50, 50),
             proof_height: F::from_canonical_usize(1),
@@ -2301,9 +2320,9 @@ mod combine_tests {
             top_siblings: vec![],
             sibling_branch: QHashOut(PoseidonHash::two_to_one(
                 QHashOut::from_values(60, 60, 60, 60).into(), // Ignored
-                QHashOut::from_values(70, 70, 70, 70).into()  // Ignored
+                QHashOut::from_values(70, 70, 70, 70).into(), // Ignored
             )),
-            reward_leaf: QHashOut::from_values(80, 80, 80, 80),  // Ignored
+            reward_leaf: QHashOut::from_values(80, 80, 80, 80), // Ignored
             proof_height: F::from_canonical_usize(0),
             index: F::from_canonical_usize(0),
         };
@@ -2315,10 +2334,13 @@ mod combine_tests {
         assert_eq!(combined.index.to_canonical_u64() as usize, 1); // 1 | (0 << 1) = 1
         assert_eq!(combined.top_siblings.len(), 1); // 1 + 0 = 1
 
-        assert_eq!(combined.sibling_branch, QHashOut(PoseidonHash::two_to_one(
-            QHashOut::from_values(30, 30, 30, 30).into(),
-            QHashOut::from_values(40, 40, 40, 40).into()
-        )));
+        assert_eq!(
+            combined.sibling_branch,
+            QHashOut(PoseidonHash::two_to_one(
+                QHashOut::from_values(30, 30, 30, 30).into(),
+                QHashOut::from_values(40, 40, 40, 40).into()
+            ))
+        );
         assert_eq!(combined.reward_leaf, QHashOut::from_values(50, 50, 50, 50));
     }
 
@@ -2332,7 +2354,7 @@ mod combine_tests {
             }],
             sibling_branch: QHashOut(PoseidonHash::two_to_one(
                 QHashOut::from_values(5, 6, 7, 8).into(),
-                QHashOut::from_values(9, 10, 11, 12).into()
+                QHashOut::from_values(9, 10, 11, 12).into(),
             )),
             reward_leaf: QHashOut::from_values(13, 14, 15, 16),
             proof_height: F::from_canonical_usize(1),
@@ -2346,9 +2368,9 @@ mod combine_tests {
             }],
             sibling_branch: QHashOut(PoseidonHash::two_to_one(
                 QHashOut::from_values(0, 0, 0, 0).into(), // Ignored
-                QHashOut::from_values(0, 0, 0, 0).into()  // Ignored
+                QHashOut::from_values(0, 0, 0, 0).into(), // Ignored
             )),
-            reward_leaf: QHashOut::from_values(0, 0, 0, 0),  // Ignored
+            reward_leaf: QHashOut::from_values(0, 0, 0, 0), // Ignored
             proof_height: F::from_canonical_usize(1),
             index: F::from_canonical_usize(0),
         };
@@ -2374,7 +2396,7 @@ mod combine_tests {
             }],
             sibling_branch: QHashOut(PoseidonHash::two_to_one(
                 QHashOut::from_values(5, 6, 7, 8).into(),
-                QHashOut::from_values(9, 10, 11, 12).into()
+                QHashOut::from_values(9, 10, 11, 12).into(),
             )),
             reward_leaf: QHashOut::from_values(13, 14, 15, 16),
             proof_height: F::from_canonical_usize(1),
@@ -2388,9 +2410,9 @@ mod combine_tests {
             }],
             sibling_branch: QHashOut(PoseidonHash::two_to_one(
                 QHashOut::from_values(0, 0, 0, 0).into(), // This should be ignored
-                QHashOut::from_values(0, 0, 0, 0).into()  // This should be ignored
+                QHashOut::from_values(0, 0, 0, 0).into(), // This should be ignored
             )),
-            reward_leaf: QHashOut::from_values(0, 0, 0, 0),  // This should be ignored
+            reward_leaf: QHashOut::from_values(0, 0, 0, 0), // This should be ignored
             proof_height: F::from_canonical_usize(1),
             index: F::from_canonical_usize(0),
         };

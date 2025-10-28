@@ -4,10 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::qblock::cmds::deploy_contract::QBCDeployContract;
 
-
-#[derive(
-    Serialize, Deserialize, PartialEq, Debug, Clone, Eq, Hash,
-)]
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone, Eq, Hash)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
 pub struct QEDAPIDeployContractRequest<F: RichField> {
     pub deploy_cmd: QBCDeployContract<F>,
@@ -15,9 +12,7 @@ pub struct QEDAPIDeployContractRequest<F: RichField> {
 
 impl<F: RichField> QEDAPIDeployContractRequest<F> {
     pub fn new(deploy_cmd: QBCDeployContract<F>) -> Self {
-        Self {
-            deploy_cmd,
-        }
+        Self { deploy_cmd }
     }
 }
 

@@ -1,9 +1,15 @@
 use async_trait::async_trait;
-use psy_core::{data::qhashout::QHashOut, job::{id::QProvingJobDataID, traits::{QProofStoreReaderAsync, QProofStoreReaderSync}}};
 use plonky2::plonk::{
     circuit_data::{CommonCircuitData, VerifierOnlyCircuitData},
     config::GenericConfig,
     proof::ProofWithPublicInputs,
+};
+use psy_core::{
+    data::qhashout::QHashOut,
+    job::{
+        id::QProvingJobDataID,
+        traits::{QProofStoreReaderAsync, QProofStoreReaderSync},
+    },
 };
 use psy_crypto::common::circuit_library::CircuitInfoLibrary;
 use serde::{de::DeserializeOwned, Serialize};
@@ -48,18 +54,8 @@ pub trait QStandardCircuit<C: GenericConfig<D>, const D: usize> {
         );*/
         tracing::info!("{}: \"{:?}\",", name, self.get_common_circuit_data_ref());
     }
-    fn get_verifier_triplet(
-        &self,
-    ) -> (
-        &CommonCircuitData<C::F, D>,
-        &VerifierOnlyCircuitData<C, D>,
-        QHashOut<C::F>,
-    ) {
-        (
-            self.get_common_circuit_data_ref(),
-            self.get_verifier_config_ref(),
-            self.get_fingerprint(),
-        )
+    fn get_verifier_triplet(&self) -> (&CommonCircuitData<C::F, D>, &VerifierOnlyCircuitData<C, D>, QHashOut<C::F>) {
+        (self.get_common_circuit_data_ref(), self.get_verifier_config_ref(), self.get_fingerprint())
     }
 }
 
@@ -77,49 +73,28 @@ pub trait QStandardCircuitProvableWithProofStoreSync<
     const D: usize,
 >: QStandardCircuit<C, D>
 {
-    fn prove_with_proof_store_sync(
-        &self,
-        store: &S,
-        input: &I,
-    ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>>;
+    fn prove_with_proof_store_sync(&self, store: &S, input: &I) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>>;
 }
-pub trait QStandardCircuitProvableSerializedWithProofStoreSync<
-    S: QProofStoreReaderSync,
-    C: GenericConfig<D>,
-    const D: usize,
->: QStandardCircuit<C, D>
+pub trait QStandardCircuitProvableSerializedWithProofStoreSync<S: QProofStoreReaderSync, C: GenericConfig<D>, const D: usize>:
+    QStandardCircuit<C, D>
 {
-    fn prove_with_proof_store_sync(
-        &self,
-        store: &S,
-        input: &[u8],
-    ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>>;
+    fn prove_with_proof_store_sync(&self, store: &S, input: &[u8]) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>>;
 }
 #[async_trait]
-pub trait QStandardCircuitProvableWithProofStoreAsync<
-    S: QProofStoreReaderAsync,
-    I: Serialize + Clone,
-    C: GenericConfig<D>,
-    const D: usize,
->: QStandardCircuit<C, D>
+pub trait QStandardCircuitProvableWithProofStoreAsync<S: QProofStoreReaderAsync, I: Serialize + Clone, C: GenericConfig<D>, const D: usize>:
+    QStandardCircuit<C, D>
 {
-    async fn prove_with_proof_store_async(
-        &self,
-        store: &S,
-        input: &I,
-    ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>>;
+    async fn prove_with_proof_store_async(&self, store: &S, input: &I) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>>;
 }
-
 
 pub trait VerifierDataStore<C: GenericConfig<D>, const D: usize> {
     fn get_verifier_data_by_fingerprint(&self, fingerprint: QHashOut<C::F>) -> Option<&VerifierOnlyCircuitData<C, D>>;
 }
 
-
 #[async_trait]
 pub trait QStandardCircuitProvableWithProofStoreAndRefLibraryAsync<
     S: QProofStoreReaderAsync + Send + Sync,
-    L: CircuitInfoLibrary<C,D> + Send + Sync,
+    L: CircuitInfoLibrary<C, D> + Send + Sync,
     C: GenericConfig<D>,
     const D: usize,
 >: QStandardCircuit<C, D>
@@ -132,4 +107,3 @@ pub trait QStandardCircuitProvableWithProofStoreAndRefLibraryAsync<
         worker_public_key: QHashOut<C::F>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>>;
 }
-

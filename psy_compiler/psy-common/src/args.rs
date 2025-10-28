@@ -16,9 +16,7 @@ pub struct InterpreterArgs {
 }
 
 fn parse_vec_u64(s: &str) -> Result<Vec<u64>, String> {
-    s.split(',')
-        .map(|num| num.parse::<u64>().map_err(|e| e.to_string()))
-        .collect()
+    s.split(',').map(|num| num.parse::<u64>().map_err(|e| e.to_string())).collect()
 }
 
 #[derive(Clone, Debug, Args)]

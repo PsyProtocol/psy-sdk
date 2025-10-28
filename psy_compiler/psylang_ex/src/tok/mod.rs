@@ -1,5 +1,10 @@
-use psy_vm::dpn::ops::{context_trait::DPNContext, sym_felt::SymFeltRef, utils::{QStatefulContract, SparseArray, U252}};
 use std::marker::PhantomData;
+
+use psy_vm::dpn::ops::{
+    context_trait::DPNContext,
+    sym_felt::SymFeltRef,
+    utils::{QStatefulContract, SparseArray, U252},
+};
 
 type Felt = SymFeltRef;
 

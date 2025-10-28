@@ -1,20 +1,17 @@
 use chrono::{DateTime, Utc};
 use sqlx::PgPool;
 
-use crate::models::{UserEvent, UserEventTxType, UserInfo};
-use crate::Result;
+use crate::{
+    models::{UserEvent, UserEventTxType, UserInfo},
+    Result,
+};
 
 pub struct UserRepository;
 pub struct UserEventRepository;
 
 impl UserRepository {
     /// Create a new user
-    pub async fn create(
-        pool: &PgPool,
-        public_key: &str,
-        twitter_handle: Option<&str>,
-        label: Option<&str>,
-    ) -> Result<UserInfo> {
+    pub async fn create(pool: &PgPool, public_key: &str, twitter_handle: Option<&str>, label: Option<&str>) -> Result<UserInfo> {
         let row = sqlx::query!(
             r#"
             INSERT INTO user_info (public_key, twitter_handle, label)
@@ -141,9 +138,7 @@ impl UserEventRepository {
         .fetch_one(pool)
         .await?;
 
-        let tx_type = row.tx_type
-            .parse()
-            .map_err(|e| anyhow::anyhow!("Failed to parse tx_type: {}", e))?;
+        let tx_type = row.tx_type.parse().map_err(|e| anyhow::anyhow!("Failed to parse tx_type: {}", e))?;
 
         Ok(UserEvent {
             user_id: row.user_id,
@@ -203,7 +198,8 @@ impl UserEventRepository {
         let events: Result<Vec<UserEvent>> = rows
             .into_iter()
             .map(|row| {
-                let tx_type = row.get::<String, _>("tx_type")
+                let tx_type = row
+                    .get::<String, _>("tx_type")
                     .parse()
                     .map_err(|e| anyhow::anyhow!("Failed to parse tx_type: {}", e))?;
 
@@ -254,10 +250,7 @@ impl UserEventRepository {
     }
 
     /// Get GUTA user events for a specific checkpoint (for reward calculation)
-    pub async fn get_guta_events_by_checkpoint(
-        pool: &PgPool,
-        checkpoint_id: i64,
-    ) -> Result<Vec<UserEvent>> {
+    pub async fn get_guta_events_by_checkpoint(pool: &PgPool, checkpoint_id: i64) -> Result<Vec<UserEvent>> {
         let rows = sqlx::query!(
             r#"
             SELECT
@@ -276,9 +269,7 @@ impl UserEventRepository {
         let events: Result<Vec<UserEvent>> = rows
             .into_iter()
             .map(|row| {
-                let tx_type = row.tx_type
-                    .parse()
-                    .map_err(|e| anyhow::anyhow!("Failed to parse tx_type: {}", e))?;
+                let tx_type = row.tx_type.parse().map_err(|e| anyhow::anyhow!("Failed to parse tx_type: {}", e))?;
 
                 Ok(UserEvent {
                     user_id: row.user_id,

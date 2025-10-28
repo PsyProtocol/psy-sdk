@@ -1,36 +1,46 @@
-use std::env;
-use crate::realm::F;
-use std::sync::Arc;
-use std::time::Duration;
-use jsonrpsee::rpc_params;
-use jsonrpsee::core::client::ClientT;
-use jsonrpsee::http_client::{HttpClient, HttpClientBuilder};
-use plonky2::field::types::Field;
-use psy_core::data::qhashout::QHashOut;
-use psy_core::traits::to_qfelts::ToQFelts;
-use psy_crypto::hash::merkle::treeprover::subtree::SubTreeNodeStateTransition;
-use psy_data::guta::header::GlobalUserTreeAggregatorHeader;
-use psy_crypto::hash::traits::qhashable::QFieldHashable;
-use serde::{Serialize, Deserialize};
-use tracing::{info, error, warn, debug, trace};
-use psy_store::node::realm::QEDRealmStoreReaderAsync;
+use std::{env, sync::Arc, time::Duration};
+
 use anyhow::{anyhow, Result};
 use http::{HeaderMap, HeaderValue};
-use plonky2::plonk::config::PoseidonGoldilocksConfig;
-use plonky2::plonk::proof::ProofWithPublicInputs;
-use psy_core::config::network_constants::{COORDINATOR_USER_TREE_HEIGHT, REALM_PROCESSOR_TO_EDGE_CHANNEL};
-use psy_core::job::drain_queue::CheckpointDrainQueueEmitterAsyncImm;
-use psy_data::models::checkpoint::sync_info::CheckpointError;
-use psy_data::qdata::checkpoint::CheckpointSyncInfo;
-use psy_core::job::history_queue::{CheckpointHistoryQueueEmitterAsyncImm, CheckpointHistoryQueueConsumerAsyncImm};
-use psy_core::job::id::{ProvingJobDataId, QProvingJobDataID};
-use psy_core::job::traits::QProofStoreAsyncImm;
-use psy_data::config::store_config::{QEDFelt, QEDHasher};
-use psy_data::guta::api::{GUTARealmCheckpointResult, SubmitGUTARealmResultAPINoProofInput};
+use jsonrpsee::{
+    core::client::ClientT,
+    http_client::{HttpClient, HttpClientBuilder},
+    rpc_params,
+};
+use plonky2::{
+    field::types::Field,
+    plonk::{config::PoseidonGoldilocksConfig, proof::ProofWithPublicInputs},
+};
+use psy_core::{
+    config::network_constants::{COORDINATOR_USER_TREE_HEIGHT, REALM_PROCESSOR_TO_EDGE_CHANNEL},
+    data::qhashout::QHashOut,
+    job::{
+        drain_queue::CheckpointDrainQueueEmitterAsyncImm,
+        history_queue::{CheckpointHistoryQueueConsumerAsyncImm, CheckpointHistoryQueueEmitterAsyncImm},
+        id::{ProvingJobDataId, QProvingJobDataID},
+        traits::QProofStoreAsyncImm,
+    },
+    traits::to_qfelts::ToQFelts,
+};
+use psy_crypto::hash::{merkle::treeprover::subtree::SubTreeNodeStateTransition, traits::qhashable::QFieldHashable};
+use psy_data::{
+    config::store_config::{QEDFelt, QEDHasher},
+    guta::{
+        api::{GUTARealmCheckpointResult, SubmitGUTARealmResultAPINoProofInput},
+        header::GlobalUserTreeAggregatorHeader,
+    },
+    models::checkpoint::sync_info::CheckpointError,
+    qdata::checkpoint::CheckpointSyncInfo,
+};
 use psy_node_utils::generate_jwt_token;
-use psy_store::queue::ProofStoreRedisAsync;
-use crate::common::retry::{RetryConfig, Retryable};
-use crate::realm::state::edge::RealmEdgeContext;
+use psy_store::{node::realm::QEDRealmStoreReaderAsync, queue::ProofStoreRedisAsync};
+use serde::{Deserialize, Serialize};
+use tracing::{debug, error, info, trace, warn};
+
+use crate::{
+    common::retry::{RetryConfig, Retryable},
+    realm::{state::edge::RealmEdgeContext, F},
+};
 
 const SYNC_INTERVAL: Duration = Duration::from_millis(200);
 
@@ -53,12 +63,7 @@ where
     SR: QEDRealmStoreReaderAsync<F> + Sync + Send + 'static,
     IQ: CheckpointHistoryQueueEmitterAsyncImm + CheckpointHistoryQueueConsumerAsyncImm + Sync + Send + 'static,
 {
-    pub fn new(
-        realm_id: u32,
-        store_reader: Arc<SR>,
-        interval_sync_queue: Arc<IQ>,
-        coordinator_addr: &str,
-    ) -> Result<Self> {
+    pub fn new(realm_id: u32, store_reader: Arc<SR>, interval_sync_queue: Arc<IQ>, coordinator_addr: &str) -> Result<Self> {
         let client = HttpClientBuilder::default()
             .build(coordinator_addr)
             .map_err(|e| anyhow::anyhow!("Failed to create RPC client to coordinator {}: {:?}", coordinator_addr, e))?;
@@ -92,8 +97,7 @@ where
 
             info!(
                 "Local checkpoint ID: {}, latest checkpoint ID: {}",
-                self.current_local_checkpoint_id,
-                self.latest_checkpoint_id
+                self.current_local_checkpoint_id, self.latest_checkpoint_id
             );
 
             self.sync_missing_checkpoints().await;
@@ -111,7 +115,7 @@ where
             }
             Err(e) => {
                 warn!("Failed to get latest L2 block state: {:?}", e);
-                if let Ok(CheckpointError::NotFound) = e.downcast::<CheckpointError>(){
+                if let Ok(CheckpointError::NotFound) = e.downcast::<CheckpointError>() {
                     self.current_local_checkpoint_id = 0;
                     self.is_genesis = false;
                 } else {
@@ -123,10 +127,11 @@ where
     }
 
     async fn fetch_coordinator_latest_checkpoint(&mut self) -> bool {
-        match self.client.request::<LatestCheckpointResponse, _>(
-            "qed_get_latest_checkpoint",
-            rpc_params![]
-        ).await {
+        match self
+            .client
+            .request::<LatestCheckpointResponse, _>("qed_get_latest_checkpoint", rpc_params![])
+            .await
+        {
             Ok(latest_checkpoint) => {
                 self.latest_checkpoint_id = latest_checkpoint.checkpoint_id;
                 if self.is_up_to_date() {
@@ -147,8 +152,7 @@ where
     }
 
     fn is_up_to_date(&self) -> bool {
-        self.current_local_checkpoint_id >= self.latest_checkpoint_id
-        && self.is_genesis
+        self.current_local_checkpoint_id >= self.latest_checkpoint_id && self.is_genesis
     }
 
     fn next_checkpoint_id(&self) -> u64 {
@@ -165,10 +169,11 @@ where
             debug!("Attempting to fetch checkpoint {} from coordinator...", next_checkpoint_id);
 
             let params = rpc_params![self.realm_id, next_checkpoint_id];
-            match self.client.request::<Option<CheckpointSyncInfo<F>>, _>(
-                "qed_get_checkpoint_sync_info",
-                params
-            ).await {
+            match self
+                .client
+                .request::<Option<CheckpointSyncInfo<F>>, _>("qed_get_checkpoint_sync_info", params)
+                .await
+            {
                 Ok(Some(sync_info)) => {
                     if !self.process_checkpoint_sync_info(sync_info, next_checkpoint_id).await {
                         break;
@@ -186,11 +191,7 @@ where
         }
     }
 
-    async fn process_checkpoint_sync_info(
-        &mut self,
-        sync_info: CheckpointSyncInfo<F>,
-        next_checkpoint_id: u64,
-    ) -> bool {
+    async fn process_checkpoint_sync_info(&mut self, sync_info: CheckpointSyncInfo<F>, next_checkpoint_id: u64) -> bool {
         let latest_checkpoint_id = sync_info.latest_checkpoint_id;
         self.latest_checkpoint_id = latest_checkpoint_id;
         if self.is_up_to_date() {
@@ -216,7 +217,10 @@ where
                 if self.current_local_checkpoint_id == latest_checkpoint_id {
                     return false;
                 }
-                debug!("Successfully pushed sync info. Continuing fetch loop for checkpoint {}.", self.current_local_checkpoint_id);
+                debug!(
+                    "Successfully pushed sync info. Continuing fetch loop for checkpoint {}.",
+                    self.current_local_checkpoint_id
+                );
                 true
             }
             Err(e) => {
@@ -237,12 +241,7 @@ pub async fn spawn_active_checkpoint_sync_task<
     coordinator_addr: String,
 ) -> Result<()> {
     info!(coordinator = %coordinator_addr, interval = ?SYNC_INTERVAL, "Spawning active checkpoint sync task");
-    let sync_manager = CheckpointSyncManager::new(
-        realm_id,
-        store_reader,
-        interval_sync_queue,
-        &coordinator_addr,
-    )?;
+    let sync_manager = CheckpointSyncManager::new(realm_id, store_reader, interval_sync_queue, &coordinator_addr)?;
 
     tokio::spawn(async move {
         sync_manager.run_sync_loop().await;
@@ -273,9 +272,12 @@ pub async fn spawn_realm_job_update_task<
     let mut last_checkpoint = match ctx.get_checkpoint_id_async().await {
         Ok(checkpoint) => {
             let next_checkpoint = checkpoint + 1;
-            info!("Starting realm job update task from checkpoint: {} (latest local: {})", next_checkpoint, checkpoint);
+            info!(
+                "Starting realm job update task from checkpoint: {} (latest local: {})",
+                next_checkpoint, checkpoint
+            );
             next_checkpoint
-        },
+        }
         Err(e) => {
             warn!("Failed to get latest local checkpoint, starting from 0: {}", e);
             0u64
@@ -285,10 +287,7 @@ pub async fn spawn_realm_job_update_task<
         loop {
             // Listen for new proof job IDs from the history queue
             match proof_store
-                .wait_for_next_item_imm::<ProvingJobDataId>(
-                    REALM_PROCESSOR_TO_EDGE_CHANNEL,
-                    last_checkpoint,
-                )
+                .wait_for_next_item_imm::<ProvingJobDataId>(REALM_PROCESSOR_TO_EDGE_CHANNEL, last_checkpoint)
                 .await
             {
                 Ok(job_id) => {
@@ -311,7 +310,8 @@ pub async fn spawn_realm_job_update_task<
     Ok(())
 }
 
-/// Handles sending realm proofs to coordinator with optimized HTTP client reuse and retry mechanisms
+/// Handles sending realm proofs to coordinator with optimized HTTP client reuse
+/// and retry mechanisms
 pub struct RealmProofSender {
     realm_id: u64,
     http_client: HttpClient,
@@ -329,9 +329,7 @@ impl RealmProofSender {
         let mut headers = HeaderMap::new();
         headers.insert("Authorization", header_value);
 
-        let http_client = HttpClientBuilder::default()
-            .set_headers(headers)
-            .build(&coordinator_addr)?;
+        let http_client = HttpClientBuilder::default().set_headers(headers).build(&coordinator_addr)?;
 
         Ok(Self {
             realm_id,
@@ -352,13 +350,15 @@ impl RealmProofSender {
     ) -> Result<()> {
         info!(?job_info.job_id, "send_realm_proof start");
         // Get bytes with retry
-        // let bytes = self.get_bytes_with_retry(proof_store.clone(), job_info.job_id).await?;
+        // let bytes = self.get_bytes_with_retry(proof_store.clone(),
+        // job_info.job_id).await?;
         let bytes = ctx.proof_store.get_bytes_by_id(job_info.job_id).await?;
         // Deserialize realm result
         let realm_result: GUTARealmCheckpointResult<QEDFelt> = bincode::deserialize(&bytes)?;
         // Get proof with retry
-        let proof =  ctx.proof_store.get_proof_by_id(realm_result.proof_id.get_output_id()).await?;
-        // let proof = self.get_proof_with_retry(proof_store, realm_result.proof_id.get_output_id()).await?;
+        let proof = ctx.proof_store.get_proof_by_id(realm_result.proof_id.get_output_id()).await?;
+        // let proof = self.get_proof_with_retry(proof_store,
+        // realm_result.proof_id.get_output_id()).await?;
         let input = SubmitGUTARealmResultAPINoProofInput::<QEDFelt> {
             realm_id: self.realm_id,
             checkpoint_id: realm_result.checkpoint_id,
@@ -370,11 +370,16 @@ impl RealmProofSender {
 
         let real_checkpoint_id = input.checkpoint_id.saturating_sub(1);
         let realm_root_level = COORDINATOR_USER_TREE_HEIGHT;
-        let old_root = ctx.store_reader
+        let old_root = ctx
+            .store_reader
             .get_user_sub_tree_merkle_proof(real_checkpoint_id, realm_root_level, realm_root_level, self.realm_id)
-            .await?.root;
+            .await?
+            .root;
         if old_root != input.top_line_proof.old_root {
-            error!("invalid top line proof old root, expect: {}, got: {}", input.top_line_proof.old_root, old_root);
+            error!(
+                "invalid top line proof old root, expect: {}, got: {}",
+                input.top_line_proof.old_root, old_root
+            );
             anyhow::bail!("invalid top line proof old root");
         }
         if input.top_line_proof.old_root != input.top_line_proof.old_value
@@ -416,20 +421,15 @@ impl RealmProofSender {
     }
 
     /// Get bytes from proof store with retry mechanism
-    async fn get_bytes_with_retry<PS: QProofStoreAsyncImm>(
-        &self,
-        proof_store: Arc<PS>,
-        job_id: QProvingJobDataID,
-    ) -> Result<Vec<u8>> {
+    async fn get_bytes_with_retry<PS: QProofStoreAsyncImm>(&self, proof_store: Arc<PS>, job_id: QProvingJobDataID) -> Result<Vec<u8>> {
         self.retry_with_backoff("get_bytes_by_id", || async {
             match proof_store.get_bytes_by_id(job_id).await {
                 Ok(bytes) if !bytes.is_empty() => Ok(bytes),
-                Ok(_) => {
-                    Err(anyhow!("empty bytes"))
-                }
+                Ok(_) => Err(anyhow!("empty bytes")),
                 Err(err) => Err(err),
             }
-        }).await
+        })
+        .await
     }
 
     /// Get proof from proof store with retry mechanism
@@ -438,9 +438,8 @@ impl RealmProofSender {
         proof_store: Arc<PS>,
         proof_id: QProvingJobDataID,
     ) -> Result<ProofWithPublicInputs<QEDFelt, PoseidonGoldilocksConfig, 2>> {
-        self.retry_with_backoff("get_proof_by_id", || async {
-            proof_store.get_proof_by_id(proof_id).await
-        }).await
+        self.retry_with_backoff("get_proof_by_id", || async { proof_store.get_proof_by_id(proof_id).await })
+            .await
     }
 
     /// Submit request to coordinator with retry mechanism
@@ -463,9 +462,10 @@ impl RealmProofSender {
                         return Ok(());
                     }
                     Err(err)
-                },
+                }
             }
-        }).await
+        })
+        .await
     }
 }
 

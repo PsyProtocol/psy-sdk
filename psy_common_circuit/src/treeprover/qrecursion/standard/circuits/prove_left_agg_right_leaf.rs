@@ -1,12 +1,35 @@
-use plonky2::{gates::{constant::ConstantGate, gate::GateRef}, hash::hash_types::HashOut, iop::witness::PartialWitness, plonk::{circuit_builder::CircuitBuilder, circuit_data::{CircuitConfig, CircuitData, CommonCircuitData, VerifierOnlyCircuitData}, config::{AlgebraicHasher, GenericConfig}, proof::ProofWithPublicInputs}};
-use crate::{circuits::traits::qstandard::QStandardCircuit, proof_minifier::pm_core::get_circuit_fingerprint_generic, treeprover::qrecursion::standard::gadgets::{agg_proof_header::QRecursionAggStandardHeaderGadget, verify_agg_proof::VerifyAggProofGadget, verify_leaf_proof::VerifyLeafProofGadget}};
+use plonky2::{
+    gates::{constant::ConstantGate, gate::GateRef},
+    hash::hash_types::HashOut,
+    iop::witness::PartialWitness,
+    plonk::{
+        circuit_builder::CircuitBuilder,
+        circuit_data::{CircuitConfig, CircuitData, CommonCircuitData, VerifierOnlyCircuitData},
+        config::{AlgebraicHasher, GenericConfig},
+        proof::ProofWithPublicInputs,
+    },
+};
 use psy_core::data::qhashout::QHashOut;
-use psy_crypto::{common::witnesses::qrecursion::header::QRecursionAggStandardHeader, hash::{merkle::core::{DeltaMerkleProofCore, MerkleProofCore}, traits::hasher::MerkleZeroHasher}};
+use psy_crypto::{
+    common::witnesses::qrecursion::header::QRecursionAggStandardHeader,
+    hash::{
+        merkle::core::{DeltaMerkleProofCore, MerkleProofCore},
+        traits::hasher::MerkleZeroHasher,
+    },
+};
+
+use crate::{
+    circuits::traits::qstandard::QStandardCircuit,
+    proof_minifier::pm_core::get_circuit_fingerprint_generic,
+    treeprover::qrecursion::standard::gadgets::{
+        agg_proof_header::QRecursionAggStandardHeaderGadget, verify_agg_proof::VerifyAggProofGadget, verify_leaf_proof::VerifyLeafProofGadget,
+    },
+};
 
 #[derive(Debug)]
 pub struct QRecursionStandardLeftAggRightLeafCircuit<C: GenericConfig<D>, const D: usize>
 where
-    C::Hasher:AlgebraicHasher<C::F>,
+    C::Hasher: AlgebraicHasher<C::F>,
 {
     pub left_agg_gadget: VerifyAggProofGadget<D>,
     pub right_leaf_gadget: VerifyLeafProofGadget<D>,
@@ -16,11 +39,10 @@ where
     pub circuit_data: CircuitData<C::F, C, D>,
     pub fingerprint: QHashOut<C::F>,
     // end circuit data
-
 }
 impl<C: GenericConfig<D>, const D: usize> QRecursionStandardLeftAggRightLeafCircuit<C, D>
 where
-    C::Hasher:AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>>,
+    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>>,
 {
     pub fn new(
         //coset_gate: &GateRef<C::F, D>,
@@ -47,27 +69,19 @@ where
         let config = CircuitConfig::standard_recursion_config();
         let mut builder = CircuitBuilder::<C::F, D>::new(config);
 
-        let left_agg_gadget = VerifyAggProofGadget::<D>::add_virtual_to::<C, C::F>(
-            &mut builder, 
-            agg_child_common_data, 
-            agg_verifier_data_cap_height,
-        );
+        let left_agg_gadget = VerifyAggProofGadget::<D>::add_virtual_to::<C, C::F>(&mut builder, agg_child_common_data, agg_verifier_data_cap_height);
         let right_leaf_gadget = VerifyLeafProofGadget::<D>::add_virtual_to::<C, C::F>(
-            &mut builder, 
-            q_recursion_tree_height, 
-            leaf_child_common_data, 
+            &mut builder,
+            q_recursion_tree_height,
+            leaf_child_common_data,
             leaf_verifier_data_cap_height,
         );
-
 
         // left agg and right leaf insertion should be back to back
         builder.connect_hashes(
             left_agg_gadget.agg_proof_header_gadget.state_transition_end,
             right_leaf_gadget.insert_leaf_proof.old_root,
         );
-
-
-
 
         // use the agg_circuit_whitelist_root from the left agg proof
         let agg_circuit_whitelist_root = left_agg_gadget.agg_whitelist_merkle_proof.root;
@@ -78,7 +92,7 @@ where
             agg_circuit_whitelist_root,
         };
         let self_public_inputs_hash = self_header_gadget.get_combined_hash::<C::Hasher, C::F, D>(&mut builder);
-        
+
         builder.register_public_inputs(&self_public_inputs_hash.elements);
         //builder.add_qed_type_a_common_gates(Some(coset_gate.clone()));
         //pad_circuit_degree::<C::F, D>(&mut builder, 12);
@@ -108,7 +122,6 @@ where
         right_verifier_data: &VerifierOnlyCircuitData<C, D>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         let mut pw = PartialWitness::<C::F>::new();
-        
 
         self.left_agg_gadget.set_witness(
             &mut pw,
@@ -118,21 +131,16 @@ where
             left_verifier_data,
         )?;
 
+        self.right_leaf_gadget
+            .set_witness(&mut pw, right_insert_leaf_proof, right_proof, right_verifier_data)?;
 
-        self.right_leaf_gadget.set_witness(
-            &mut pw,
-            right_insert_leaf_proof,
-            right_proof,
-            right_verifier_data
-        )?;
-        
         self.circuit_data.prove(pw)
     }
 }
 
 impl<C: GenericConfig<D>, const D: usize> QStandardCircuit<C, D> for QRecursionStandardLeftAggRightLeafCircuit<C, D>
 where
-    C::Hasher:AlgebraicHasher<C::F>,
+    C::Hasher: AlgebraicHasher<C::F>,
 {
     fn get_fingerprint(&self) -> QHashOut<C::F> {
         self.fingerprint
@@ -146,7 +154,6 @@ where
         &self.circuit_data.common
     }
 }
-
 
 /*
 impl<C: GenericConfig<D>, const D: usize>

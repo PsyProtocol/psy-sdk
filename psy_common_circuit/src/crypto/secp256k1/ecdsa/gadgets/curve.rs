@@ -1,14 +1,15 @@
+use plonky2::{
+    field::{extension::Extendable, types::Sample},
+    hash::hash_types::RichField,
+    iop::target::BoolTarget,
+    plonk::circuit_builder::CircuitBuilder,
+};
 use psy_crypto::signature::secp256k1::curve::curve_types::{AffinePoint, Curve, CurveScalar};
-use plonky2::field::extension::Extendable;
-use plonky2::field::types::Sample;
-use plonky2::hash::hash_types::RichField;
-use plonky2::iop::target::BoolTarget;
-use plonky2::plonk::circuit_builder::CircuitBuilder;
 
 use super::nonnative::{CircuitBuilderNonNative, NonNativeTarget};
 
-/// A Target representing an affine point on the curve `C`. We use incomplete arithmetic for efficiency,
-/// so we assume these points are not zero.
+/// A Target representing an affine point on the curve `C`. We use incomplete
+/// arithmetic for efficiency, so we assume these points are not zero.
 #[derive(Clone, Debug)]
 pub struct AffinePointTarget<C: Curve> {
     pub x: NonNativeTarget<C::BaseField>,
@@ -24,11 +25,7 @@ impl<C: Curve> AffinePointTarget<C> {
 pub trait CircuitBuilderCurve<F: RichField + Extendable<D>, const D: usize> {
     fn constant_affine_point<C: Curve>(&mut self, point: AffinePoint<C>) -> AffinePointTarget<C>;
 
-    fn connect_affine_point<C: Curve>(
-        &mut self,
-        lhs: &AffinePointTarget<C>,
-        rhs: &AffinePointTarget<C>,
-    );
+    fn connect_affine_point<C: Curve>(&mut self, lhs: &AffinePointTarget<C>, rhs: &AffinePointTarget<C>);
 
     fn add_virtual_affine_point_target<C: Curve>(&mut self) -> AffinePointTarget<C>;
 
@@ -37,44 +34,21 @@ pub trait CircuitBuilderCurve<F: RichField + Extendable<D>, const D: usize> {
 
     fn curve_neg<C: Curve>(&mut self, p: &AffinePointTarget<C>) -> AffinePointTarget<C>;
 
-    fn curve_conditional_neg<C: Curve>(
-        &mut self,
-        p: &AffinePointTarget<C>,
-        b: BoolTarget,
-    ) -> AffinePointTarget<C>;
+    fn curve_conditional_neg<C: Curve>(&mut self, p: &AffinePointTarget<C>, b: BoolTarget) -> AffinePointTarget<C>;
 
     fn curve_double<C: Curve>(&mut self, p: &AffinePointTarget<C>) -> AffinePointTarget<C>;
 
-    fn curve_repeated_double<C: Curve>(
-        &mut self,
-        p: &AffinePointTarget<C>,
-        n: usize,
-    ) -> AffinePointTarget<C>;
+    fn curve_repeated_double<C: Curve>(&mut self, p: &AffinePointTarget<C>, n: usize) -> AffinePointTarget<C>;
 
     /// Add two points, which are assumed to be non-equal.
-    fn curve_add<C: Curve>(
-        &mut self,
-        p1: &AffinePointTarget<C>,
-        p2: &AffinePointTarget<C>,
-    ) -> AffinePointTarget<C>;
+    fn curve_add<C: Curve>(&mut self, p1: &AffinePointTarget<C>, p2: &AffinePointTarget<C>) -> AffinePointTarget<C>;
 
-    fn curve_conditional_add<C: Curve>(
-        &mut self,
-        p1: &AffinePointTarget<C>,
-        p2: &AffinePointTarget<C>,
-        b: BoolTarget,
-    ) -> AffinePointTarget<C>;
+    fn curve_conditional_add<C: Curve>(&mut self, p1: &AffinePointTarget<C>, p2: &AffinePointTarget<C>, b: BoolTarget) -> AffinePointTarget<C>;
 
-    fn curve_scalar_mul<C: Curve>(
-        &mut self,
-        p: &AffinePointTarget<C>,
-        n: &NonNativeTarget<C::ScalarField>,
-    ) -> AffinePointTarget<C>;
+    fn curve_scalar_mul<C: Curve>(&mut self, p: &AffinePointTarget<C>, n: &NonNativeTarget<C::ScalarField>) -> AffinePointTarget<C>;
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderCurve<F, D>
-    for CircuitBuilder<F, D>
-{
+impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderCurve<F, D> for CircuitBuilder<F, D> {
     fn constant_affine_point<C: Curve>(&mut self, point: AffinePoint<C>) -> AffinePointTarget<C> {
         debug_assert!(!point.zero);
         AffinePointTarget {
@@ -83,11 +57,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderCurve<F, D>
         }
     }
 
-    fn connect_affine_point<C: Curve>(
-        &mut self,
-        lhs: &AffinePointTarget<C>,
-        rhs: &AffinePointTarget<C>,
-    ) {
+    fn connect_affine_point<C: Curve>(&mut self, lhs: &AffinePointTarget<C>, rhs: &AffinePointTarget<C>) {
         self.connect_nonnative(&lhs.x, &rhs.x);
         self.connect_nonnative(&lhs.y, &rhs.y);
     }
@@ -129,17 +99,10 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderCurve<F, D>
 
     fn curve_neg<C: Curve>(&mut self, p: &AffinePointTarget<C>) -> AffinePointTarget<C> {
         let neg_y = self.neg_nonnative(&p.y);
-        AffinePointTarget {
-            x: p.x.clone(),
-            y: neg_y,
-        }
+        AffinePointTarget { x: p.x.clone(), y: neg_y }
     }
 
-    fn curve_conditional_neg<C: Curve>(
-        &mut self,
-        p: &AffinePointTarget<C>,
-        b: BoolTarget,
-    ) -> AffinePointTarget<C> {
+    fn curve_conditional_neg<C: Curve>(&mut self, p: &AffinePointTarget<C>, b: BoolTarget) -> AffinePointTarget<C> {
         AffinePointTarget {
             x: p.x.clone(),
             y: self.nonnative_conditional_neg(&p.y, b),
@@ -170,11 +133,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderCurve<F, D>
         AffinePointTarget { x: x3, y: y3 }
     }
 
-    fn curve_repeated_double<C: Curve>(
-        &mut self,
-        p: &AffinePointTarget<C>,
-        n: usize,
-    ) -> AffinePointTarget<C> {
+    fn curve_repeated_double<C: Curve>(&mut self, p: &AffinePointTarget<C>, n: usize) -> AffinePointTarget<C> {
         let mut result = p.clone();
 
         for _ in 0..n {
@@ -184,11 +143,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderCurve<F, D>
         result
     }
 
-    fn curve_add<C: Curve>(
-        &mut self,
-        p1: &AffinePointTarget<C>,
-        p2: &AffinePointTarget<C>,
-    ) -> AffinePointTarget<C> {
+    fn curve_add<C: Curve>(&mut self, p1: &AffinePointTarget<C>, p2: &AffinePointTarget<C>) -> AffinePointTarget<C> {
         let AffinePointTarget { x: x1, y: y1 } = p1;
         let AffinePointTarget { x: x2, y: y2 } = p2;
 
@@ -206,12 +161,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderCurve<F, D>
         AffinePointTarget { x: x3, y: y3 }
     }
 
-    fn curve_conditional_add<C: Curve>(
-        &mut self,
-        p1: &AffinePointTarget<C>,
-        p2: &AffinePointTarget<C>,
-        b: BoolTarget,
-    ) -> AffinePointTarget<C> {
+    fn curve_conditional_add<C: Curve>(&mut self, p1: &AffinePointTarget<C>, p2: &AffinePointTarget<C>, b: BoolTarget) -> AffinePointTarget<C> {
         let not_b = self.not(b);
         let sum = self.curve_add(p1, p2);
         let x_if_true = self.mul_nonnative_by_bool(&sum.x, b);
@@ -225,16 +175,13 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderCurve<F, D>
         AffinePointTarget { x, y }
     }
 
-    fn curve_scalar_mul<C: Curve>(
-        &mut self,
-        p: &AffinePointTarget<C>,
-        n: &NonNativeTarget<C::ScalarField>,
-    ) -> AffinePointTarget<C> {
+    fn curve_scalar_mul<C: Curve>(&mut self, p: &AffinePointTarget<C>, n: &NonNativeTarget<C::ScalarField>) -> AffinePointTarget<C> {
         let bits = self.split_nonnative_to_bits(n);
 
         let rando = (CurveScalar(C::ScalarField::rand()) * C::GENERATOR_PROJECTIVE).to_affine();
         let randot = self.constant_affine_point(rando);
-        // Result starts at `rando`, which is later subtracted, because we don't support arithmetic with the zero point.
+        // Result starts at `rando`, which is later subtracted, because we don't support
+        // arithmetic with the zero point.
         let mut result = self.add_virtual_affine_point_target();
         self.connect_affine_point(&randot, &result);
 
@@ -272,18 +219,25 @@ mod tests {
     use core::ops::Neg;
 
     use anyhow::Result;
-    use psy_crypto::signature::secp256k1::curve::curve_types::{AffinePoint, Curve, CurveScalar};
-    use psy_crypto::signature::secp256k1::curve::secp256k1::Secp256K1;
-    use plonky2::field::secp256k1_base::Secp256K1Base;
-    use plonky2::field::secp256k1_scalar::Secp256K1Scalar;
-    use plonky2::field::types::{Field, Sample};
-    use plonky2::iop::witness::PartialWitness;
-    use plonky2::plonk::circuit_builder::CircuitBuilder;
-    use plonky2::plonk::circuit_data::CircuitConfig;
-    use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
+    use plonky2::{
+        field::{
+            secp256k1_base::Secp256K1Base,
+            secp256k1_scalar::Secp256K1Scalar,
+            types::{Field, Sample},
+        },
+        iop::witness::PartialWitness,
+        plonk::{
+            circuit_builder::CircuitBuilder,
+            circuit_data::CircuitConfig,
+            config::{GenericConfig, PoseidonGoldilocksConfig},
+        },
+    };
+    use psy_crypto::signature::secp256k1::curve::{
+        curve_types::{AffinePoint, Curve, CurveScalar},
+        secp256k1::Secp256K1,
+    };
 
-    use super::super::super::gadgets::curve::CircuitBuilderCurve;
-    use super::super::super::gadgets::nonnative::CircuitBuilderNonNative;
+    use super::super::super::gadgets::{curve::CircuitBuilderCurve, nonnative::CircuitBuilderNonNative};
 
     #[test]
     fn test_curve_point_is_valid() -> Result<()> {
@@ -481,8 +435,7 @@ mod tests {
         let pw = PartialWitness::new();
         let mut builder = CircuitBuilder::<F, D>::new(config);
 
-        let rando =
-            (CurveScalar(Secp256K1Scalar::rand()) * Secp256K1::GENERATOR_PROJECTIVE).to_affine();
+        let rando = (CurveScalar(Secp256K1Scalar::rand()) * Secp256K1::GENERATOR_PROJECTIVE).to_affine();
         let randot = builder.constant_affine_point(rando);
 
         let two_target = builder.constant_nonnative(Secp256K1Scalar::TWO);

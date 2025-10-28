@@ -11,10 +11,7 @@ pub enum VTFriReductionStrategy {
 impl VTFriReductionStrategy {
     pub fn to_code(&self) -> String {
         match self {
-            VTFriReductionStrategy::Fixed(v) => format!(
-                "VTFriReductionStrategy::Fixed(vec!{})",
-                serde_json::to_string(v).unwrap()
-            ),
+            VTFriReductionStrategy::Fixed(v) => format!("VTFriReductionStrategy::Fixed(vec!{})", serde_json::to_string(v).unwrap()),
             VTFriReductionStrategy::ConstantArityBits(a, b) => {
                 format!("VTFriReductionStrategy::ConstantArityBits({}, {})", *a, *b)
             }
@@ -32,9 +29,7 @@ impl From<FriReductionStrategy> for VTFriReductionStrategy {
     fn from(value: FriReductionStrategy) -> Self {
         match value {
             FriReductionStrategy::Fixed(v) => VTFriReductionStrategy::Fixed(v),
-            FriReductionStrategy::ConstantArityBits(a, b) => {
-                VTFriReductionStrategy::ConstantArityBits(a, b)
-            }
+            FriReductionStrategy::ConstantArityBits(a, b) => VTFriReductionStrategy::ConstantArityBits(a, b),
             FriReductionStrategy::MinSize(v) => VTFriReductionStrategy::MinSize(v),
         }
     }
@@ -44,9 +39,7 @@ impl Into<FriReductionStrategy> for VTFriReductionStrategy {
     fn into(self) -> FriReductionStrategy {
         match self {
             VTFriReductionStrategy::Fixed(v) => FriReductionStrategy::Fixed(v),
-            VTFriReductionStrategy::ConstantArityBits(a, b) => {
-                FriReductionStrategy::ConstantArityBits(a, b)
-            }
+            VTFriReductionStrategy::ConstantArityBits(a, b) => FriReductionStrategy::ConstantArityBits(a, b),
             VTFriReductionStrategy::MinSize(v) => FriReductionStrategy::MinSize(v),
         }
     }
@@ -63,7 +56,8 @@ pub struct VTFriConfig {
     /// Number of bits used for grinding.
     pub proof_of_work_bits: u32,
 
-    /// The reduction strategy to be applied at each layer during the commit phase.
+    /// The reduction strategy to be applied at each layer during the commit
+    /// phase.
     pub reduction_strategy: VTFriReductionStrategy,
 
     /// Number of query rounds to perform.
@@ -109,15 +103,17 @@ pub struct VTFriParams {
     /// User-specified FRI configuration.
     pub config: VTFriConfig,
 
-    /// Whether to use a hiding variant of Merkle trees (where random salts are added to leaves).
+    /// Whether to use a hiding variant of Merkle trees (where random salts are
+    /// added to leaves).
     pub hiding: bool,
 
     /// The degree of the purported codeword, measured in bits.
     pub degree_bits: usize,
 
-    /// The arity of each FRI reduction step, expressed as the log2 of the actual arity.
-    /// For example, `[3, 2, 1]` would describe a FRI reduction tree with 8-to-1 reduction, then
-    /// a 4-to-1 reduction, then a 2-to-1 reduction. After these reductions, the reduced polynomial
+    /// The arity of each FRI reduction step, expressed as the log2 of the
+    /// actual arity. For example, `[3, 2, 1]` would describe a FRI
+    /// reduction tree with 8-to-1 reduction, then a 4-to-1 reduction, then
+    /// a 2-to-1 reduction. After these reductions, the reduced polynomial
     /// is sent directly.
     pub reduction_arity_bits: Vec<usize>,
 }

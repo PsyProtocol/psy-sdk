@@ -14,13 +14,7 @@ pub struct CheckedVariable<F: Clone + From<u32> + ContextFelt> {
 }
 
 impl<F: Clone + From<u32> + ContextFelt> CheckedVariable<F> {
-    pub fn new(
-        name: Identifier,
-        ty: TypeId,
-        qualifier: TypeQualifier,
-        scope_id: ScopeId,
-        location: Location,
-    ) -> CheckedVariable<F> {
+    pub fn new(name: Identifier, ty: TypeId, qualifier: TypeQualifier, scope_id: ScopeId, location: Location) -> CheckedVariable<F> {
         Self {
             name,
             ty,

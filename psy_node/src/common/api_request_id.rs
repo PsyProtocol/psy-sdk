@@ -2,14 +2,11 @@ use std::time::Instant;
 
 use chrono::Utc;
 use kvq::traits::KVQSerializable;
+use rand::{thread_rng, Rng};
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 
-use rand::{thread_rng, Rng};
-
-#[derive(
-    Serialize_repr, Deserialize_repr, PartialEq, Debug, Clone, Copy, Eq, Hash, PartialOrd, Ord,
-)]
+#[derive(Serialize_repr, Deserialize_repr, PartialEq, Debug, Clone, Copy, Eq, Hash, PartialOrd, Ord)]
 #[repr(u8)]
 pub enum QAPIWriteRequestType {
     Unknown = 0,
@@ -45,10 +42,7 @@ impl TryFrom<u8> for QAPIWriteRequestType {
     }
 }
 
-
-#[derive(
-    Serialize_repr, Deserialize_repr, PartialEq, Debug, Clone, Copy, Eq, Hash, PartialOrd, Ord,
-)]
+#[derive(Serialize_repr, Deserialize_repr, PartialEq, Debug, Clone, Copy, Eq, Hash, PartialOrd, Ord)]
 #[repr(u8)]
 pub enum QAPIWriteRequestBlobType {
     Generic = 0,
@@ -88,9 +82,7 @@ impl TryFrom<u8> for QAPIWriteRequestBlobType {
     }
 }
 
-#[derive(
-    Serialize, Deserialize, PartialEq, Debug, Clone, Copy, Eq, Hash, PartialOrd, Ord,
-)]
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone, Copy, Eq, Hash, PartialOrd, Ord)]
 pub struct QEDAPIRequestIdGenerator {
     pub realm_id: u32,
     pub node_id: u32,
@@ -98,22 +90,14 @@ pub struct QEDAPIRequestIdGenerator {
 
 impl QEDAPIRequestIdGenerator {
     pub fn new(realm_id: u32, node_id: u32) -> Self {
-        Self {
-            realm_id,
-            node_id,
-        }
+        Self { realm_id, node_id }
     }
     pub fn new_request_id(&self, request_type: QAPIWriteRequestType, data_type: QAPIWriteRequestBlobType) -> QEDAPIWriteRequestId {
         QEDAPIWriteRequestId::new(request_type, data_type, self.realm_id, self.node_id)
     }
-    
 }
 
-
-
-#[derive(
-    Serialize, Deserialize, PartialEq, Debug, Clone, Copy, Eq, Hash, PartialOrd, Ord,
-)]
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone, Copy, Eq, Hash, PartialOrd, Ord)]
 pub struct QEDAPIWriteRequestId {
     pub request_type: QAPIWriteRequestType,
     pub data_type: QAPIWriteRequestBlobType,
@@ -133,7 +117,6 @@ impl KVQSerializable for QEDAPIWriteRequestId {
     }
 }
 
-
 impl QEDAPIWriteRequestId {
     pub fn new(request_type: QAPIWriteRequestType, data_type: QAPIWriteRequestBlobType, realm_id: u32, node_id: u32) -> Self {
         let random = thread_rng().gen::<u64>();
@@ -148,5 +131,4 @@ impl QEDAPIWriteRequestId {
             random,
         }
     }
-    
 }

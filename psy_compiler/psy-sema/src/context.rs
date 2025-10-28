@@ -1,15 +1,14 @@
 use std::collections::HashMap;
 
+use petgraph::graph::{DiGraph, NodeIndex as PetGraphIndex};
 use psy_ast::{
-    CrateId, DefId, DefinitionNode, ExprId, ExprNode, Ident, IdentId, InsertPosition, ModuleId, ModuleNode,
-    NodeId, NodeInfo, NodeType, Program, StmtId, StmtNode, VisitorContext,
+    CrateId, DefId, DefinitionNode, ExprId, ExprNode, Ident, IdentId, InsertPosition, ModuleId, ModuleNode, NodeId, NodeInfo, NodeType, Program,
+    StmtId, StmtNode, VisitorContext,
 };
 use psy_common::Graph;
 use psy_vm::dpn::ops::context_trait::ContextFelt;
 
 use crate::{LocationIndices, ReferenceId, SymbolTable, Type, TypeId};
-
-use petgraph::graph::{DiGraph, NodeIndex as PetGraphIndex};
 
 pub struct TypeCheckerVisitorContext<F: Clone + From<u32> + ContextFelt, C> {
     path_stack: Vec<NodeId>,
@@ -37,9 +36,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeCheckerVisitorContext<F, C> {
     }
 }
 
-impl<F: Clone + From<u32> + ContextFelt, C> VisitorContext<F, C>
-    for TypeCheckerVisitorContext<F, C>
-{
+impl<F: Clone + From<u32> + ContextFelt, C> VisitorContext<F, C> for TypeCheckerVisitorContext<F, C> {
     type Expr = ExprNode<F>;
 
     type Stmt = StmtNode;
@@ -157,11 +154,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeCheckerVisitorContext<F, C> {
             Type::Felt => 1usize,
             Type::Bool => 1usize,
             Type::U32 => 1usize,
-            Type::Struct(s) => s
-                .fields
-                .iter()
-                .map(|(_, field)| self.size_of(field.ty))
-                .sum(),
+            Type::Struct(s) => s.fields.iter().map(|(_, field)| self.size_of(field.ty)).sum(),
             _ => todo!(),
         }
     }

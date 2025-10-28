@@ -1,9 +1,7 @@
-use kvq::traits::{
-    KVQBinaryStoreAsync,
-    KVQPair,
-};
-use psy_store::store::scylla::kvq_store::ScyllaKVQStore;
 use std::sync::Arc;
+
+use kvq::traits::{KVQBinaryStoreAsync, KVQPair};
+use psy_store::store::scylla::kvq_store::ScyllaKVQStore;
 
 mod common;
 use common::*;
@@ -16,8 +14,7 @@ mod kvq_basic_tests {
     async fn test_kvq_store_creation() -> anyhow::Result<()> {
         let config = TestConfig::new().await?;
 
-        let store =
-            ScyllaKVQStore::new(&config.uri, &config.keyspace, &config.table_name).await?;
+        let store = ScyllaKVQStore::new(&config.uri, &config.keyspace, &config.table_name).await?;
 
         // Verify store was created successfully
         assert!(!config.keyspace.is_empty());
@@ -30,8 +27,7 @@ mod kvq_basic_tests {
     #[tokio::test]
     async fn test_kvq_basic_get_set() -> anyhow::Result<()> {
         let config = TestConfig::new().await?;
-        let mut store =
-            ScyllaKVQStore::new(&config.uri, &config.keyspace, &config.table_name).await?;
+        let mut store = ScyllaKVQStore::new(&config.uri, &config.keyspace, &config.table_name).await?;
 
         let key = b"test_key".to_vec();
         let value = b"test_value".to_vec();
@@ -57,8 +53,7 @@ mod kvq_basic_tests {
     #[tokio::test]
     async fn test_kvq_set_ref() -> anyhow::Result<()> {
         let config = TestConfig::new().await?;
-        let mut store =
-            ScyllaKVQStore::new(&config.uri, &config.keyspace, &config.table_name).await?;
+        let mut store = ScyllaKVQStore::new(&config.uri, &config.keyspace, &config.table_name).await?;
 
         let key = b"test_key".to_vec();
         let value = b"test_value".to_vec();
@@ -75,8 +70,7 @@ mod kvq_basic_tests {
     #[tokio::test]
     async fn test_kvq_get_many_exact() -> anyhow::Result<()> {
         let config = TestConfig::new().await?;
-        let mut store =
-            ScyllaKVQStore::new(&config.uri, &config.keyspace, &config.table_name).await?;
+        let mut store = ScyllaKVQStore::new(&config.uri, &config.keyspace, &config.table_name).await?;
 
         let keys = generate_test_keys(5);
         let values = generate_test_values(5);
@@ -97,8 +91,7 @@ mod kvq_basic_tests {
     #[tokio::test]
     async fn test_kvq_delete() -> anyhow::Result<()> {
         let config = TestConfig::new().await?;
-        let mut store =
-            ScyllaKVQStore::new(&config.uri, &config.keyspace, &config.table_name).await?;
+        let mut store = ScyllaKVQStore::new(&config.uri, &config.keyspace, &config.table_name).await?;
 
         let key = b"test_key".to_vec();
         let value = b"test_value".to_vec();
@@ -121,8 +114,7 @@ mod kvq_basic_tests {
     #[tokio::test]
     async fn test_kvq_delete_many() -> anyhow::Result<()> {
         let config = TestConfig::new().await?;
-        let mut store =
-            ScyllaKVQStore::new(&config.uri, &config.keyspace, &config.table_name).await?;
+        let mut store = ScyllaKVQStore::new(&config.uri, &config.keyspace, &config.table_name).await?;
 
         let keys = generate_test_keys(3);
         let values = generate_test_values(3);
@@ -155,8 +147,7 @@ mod kvq_immutable_tests {
     #[tokio::test]
     async fn test_kvq_immutable_set() -> anyhow::Result<()> {
         let config = TestConfig::new().await?;
-        let store =
-            ScyllaKVQStore::new(&config.uri, &config.keyspace, &config.table_name).await?;
+        let store = ScyllaKVQStore::new(&config.uri, &config.keyspace, &config.table_name).await?;
 
         let key = b"test_key".to_vec();
         let value = b"test_value".to_vec();
@@ -180,8 +171,7 @@ mod kvq_immutable_tests {
     #[tokio::test]
     async fn test_kvq_immutable_delete() -> anyhow::Result<()> {
         let config = TestConfig::new().await?;
-        let store =
-            ScyllaKVQStore::new(&config.uri, &config.keyspace, &config.table_name).await?;
+        let store = ScyllaKVQStore::new(&config.uri, &config.keyspace, &config.table_name).await?;
 
         let key = b"test_key".to_vec();
         let value = b"test_value".to_vec();
@@ -201,8 +191,7 @@ mod kvq_immutable_tests {
     #[tokio::test]
     async fn test_kvq_immutable_delete_many() -> anyhow::Result<()> {
         let config = TestConfig::new().await?;
-        let store =
-            ScyllaKVQStore::new(&config.uri, &config.keyspace, &config.table_name).await?;
+        let store = ScyllaKVQStore::new(&config.uri, &config.keyspace, &config.table_name).await?;
 
         let keys = generate_test_keys(3);
         let values = generate_test_values(3);
@@ -235,8 +224,7 @@ mod kvq_fuzzy_tests {
     #[tokio::test]
     async fn test_kvq_get_leq() -> anyhow::Result<()> {
         let config = TestConfig::new().await?;
-        let store =
-            ScyllaKVQStore::new(&config.uri, &config.keyspace, &config.table_name).await?;
+        let store = ScyllaKVQStore::new(&config.uri, &config.keyspace, &config.table_name).await?;
 
         // Set up test data with binary keys that can be compared
         let key1 = vec![1, 2, 3, 4, 5];
@@ -269,15 +257,10 @@ mod kvq_fuzzy_tests {
     #[tokio::test]
     async fn test_kvq_get_many_leq() -> anyhow::Result<()> {
         let config = TestConfig::new().await?;
-        let store =
-            ScyllaKVQStore::new(&config.uri, &config.keyspace, &config.table_name).await?;
+        let store = ScyllaKVQStore::new(&config.uri, &config.keyspace, &config.table_name).await?;
 
         // Set up test data
-        let keys = vec![
-            vec![1, 2, 3, 4, 5],
-            vec![1, 2, 3, 4, 6],
-            vec![1, 2, 3, 4, 7],
-        ];
+        let keys = vec![vec![1, 2, 3, 4, 5], vec![1, 2, 3, 4, 6], vec![1, 2, 3, 4, 7]];
         let values = vec![b"value1".to_vec(), b"value2".to_vec(), b"value3".to_vec()];
 
         for (key, value) in keys.iter().zip(values.iter()) {

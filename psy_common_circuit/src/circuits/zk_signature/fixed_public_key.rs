@@ -28,7 +28,7 @@ pub struct ZKSignatureCircuitInput<F: RichField> {
 #[derive(Debug)]
 pub struct ZKSignatureCircuitSimpleFixedPublicKey<C: GenericConfig<D>, const D: usize>
 where
-    C::Hasher:AlgebraicHasher<C::F>,
+    C::Hasher: AlgebraicHasher<C::F>,
 {
     pub proof_target: ProofWithPublicInputsTarget<D>,
     // end circuit targets
@@ -38,12 +38,9 @@ where
 }
 impl<C: GenericConfig<D>, const D: usize> ZKSignatureCircuitSimpleFixedPublicKey<C, D>
 where
-    C::Hasher:AlgebraicHasher<C::F>,
+    C::Hasher: AlgebraicHasher<C::F>,
 {
-    pub fn new_from_isc<ISC: QStandardCircuit<C, D>>(
-        inner_sig_circuit: &ISC,
-        public_key: QHashOut<C::F>,
-    ) -> Self {
+    pub fn new_from_isc<ISC: QStandardCircuit<C, D>>(inner_sig_circuit: &ISC, public_key: QHashOut<C::F>) -> Self {
         Self::new(
             inner_sig_circuit.get_common_circuit_data_ref(),
             inner_sig_circuit.get_verifier_config_ref(),
@@ -97,19 +94,15 @@ where
             fingerprint,
         }
     }
-    pub fn prove_base(
-        &self,
-        inner_proof: &ProofWithPublicInputs<C::F, C, D>,
-    ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
+    pub fn prove_base(&self, inner_proof: &ProofWithPublicInputs<C::F, C, D>) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         let mut pw = PartialWitness::new();
         pw.set_proof_with_pis_target(&self.proof_target, inner_proof)?;
         self.circuit_data.prove(pw)
     }
 }
-impl<C: GenericConfig<D>, const D: usize> QStandardCircuit<C, D>
-    for ZKSignatureCircuitSimpleFixedPublicKey<C, D>
+impl<C: GenericConfig<D>, const D: usize> QStandardCircuit<C, D> for ZKSignatureCircuitSimpleFixedPublicKey<C, D>
 where
-    C::Hasher:AlgebraicHasher<C::F>,
+    C::Hasher: AlgebraicHasher<C::F>,
 {
     fn get_fingerprint(&self) -> QHashOut<C::F> {
         self.fingerprint
@@ -123,16 +116,12 @@ where
         &self.circuit_data.common
     }
 }
-impl<C: GenericConfig<D>, const D: usize>
-    QStandardCircuitProvable<ProofWithPublicInputs<C::F, C, D>, C, D>
+impl<C: GenericConfig<D>, const D: usize> QStandardCircuitProvable<ProofWithPublicInputs<C::F, C, D>, C, D>
     for ZKSignatureCircuitSimpleFixedPublicKey<C, D>
 where
-    C::Hasher:AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>>,
+    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>>,
 {
-    fn prove_standard(
-        &self,
-        input: &ProofWithPublicInputs<C::F, C, D>,
-    ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
+    fn prove_standard(&self, input: &ProofWithPublicInputs<C::F, C, D>) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         self.prove_base(input)
     }
 }

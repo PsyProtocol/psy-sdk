@@ -1,4 +1,3 @@
-use crate::builder::{hash::core::CircuitBuilderHashCore, select::CircuitBuilderSelectHelpers};
 use bitflags::bitflags;
 use plonky2::{
     field::extension::Extendable,
@@ -10,9 +9,12 @@ use plonky2::{
     plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher},
 };
 use psy_core::data::qhashout::QHashOut;
-use psy_crypto::hash::{merkle::core::{MerkleProof, MerkleProofBase, MerkleProofCore}, traits::hasher::MerkleZeroHasher};
+use psy_crypto::hash::{
+    merkle::core::{MerkleProof, MerkleProofBase, MerkleProofCore},
+    traits::hasher::MerkleZeroHasher,
+};
 
-use crate::builder::optional_inputs::CircuitBuilderOptionalInputs;
+use crate::builder::{hash::core::CircuitBuilderHashCore, optional_inputs::CircuitBuilderOptionalInputs, select::CircuitBuilderSelectHelpers};
 
 pub const NUM_HASH_OUT_ELEMENTS: usize = 4;
 bitflags! {
@@ -40,45 +42,34 @@ pub struct OptionalMerkleProofGadget {
     pub index: Option<Target>,
     pub siblings: Option<Vec<HashOutTarget>>,
 }
-pub fn hash_merkle_leaves<F: RichField + Extendable<D>, const D: usize, H:AlgebraicHasher<F>>(
+pub fn hash_merkle_leaves<F: RichField + Extendable<D>, const D: usize, H: AlgebraicHasher<F>>(
     builder: &mut CircuitBuilder<F, D>,
     leaves: &[HashOutTarget],
 ) -> HashOutTarget {
     // log2(leaves.len())
     let height = leaves.len().next_power_of_two().trailing_zeros() as usize;
     // ensure leaves.len() is a power of 2
-    assert_eq!(
-        1 << height,
-        leaves.len(),
-        "leaves.len() must be a power of 2"
-    );
+    assert_eq!(1 << height, leaves.len(), "leaves.len() must be a power of 2");
     let mut state = leaves.to_vec();
     for _ in 0..height {
         let mut next_state = vec![];
         for i in (0..state.len()).step_by(2) {
             let left = state[i];
-            let right = if i + 1 < state.len() {
-                state[i + 1]
-            } else {
-                state[i]
-            };
-            next_state
-                .push(builder.hash_n_to_hash_no_pad::<H>([left.elements, right.elements].concat()));
+            let right = if i + 1 < state.len() { state[i + 1] } else { state[i] };
+            next_state.push(builder.hash_n_to_hash_no_pad::<H>([left.elements, right.elements].concat()));
         }
         state = next_state;
     }
     state[0]
 }
 impl MerkleProofGadget {
-    pub fn add_virtual_to<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
+    pub fn add_virtual_to<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
         height: usize,
     ) -> Self {
         let index = builder.add_virtual_target();
         let value = builder.add_virtual_hash();
-        let siblings = (0..height)
-            .map(|_| builder.add_virtual_hash())
-            .collect::<Vec<_>>();
+        let siblings = (0..height).map(|_| builder.add_virtual_hash()).collect::<Vec<_>>();
         let root = Self::compute_root::<H, F, D>(builder, index, value, &siblings);
         Self {
             root,
@@ -88,32 +79,16 @@ impl MerkleProofGadget {
             option_flags: MerkleProofGadgetOptionFlags::none_value_placeholder,
         }
     }
-    pub fn add_virtual_to_with_options<
-        H:AlgebraicHasher<F>,
-        F: RichField + Extendable<D>,
-        const D: usize,
-    >(
+    pub fn add_virtual_to_with_options<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
         height: usize,
         options: OptionalMerkleProofGadget,
     ) -> Self {
         let mut option_flags: u64 = 0;
-        let index = builder.add_virtual_target_if_none_op(
-            options.index,
-            &mut option_flags,
-            MerkleProofGadgetOptionFlags::index.bits(),
-        );
-        let value = builder.add_virtual_hash_if_none_op(
-            options.value,
-            &mut option_flags,
-            MerkleProofGadgetOptionFlags::value.bits(),
-        );
-        let siblings = builder.add_virtual_hashes_if_none_op(
-            options.siblings,
-            height,
-            &mut option_flags,
-            MerkleProofGadgetOptionFlags::siblings.bits(),
-        );
+        let index = builder.add_virtual_target_if_none_op(options.index, &mut option_flags, MerkleProofGadgetOptionFlags::index.bits());
+        let value = builder.add_virtual_hash_if_none_op(options.value, &mut option_flags, MerkleProofGadgetOptionFlags::value.bits());
+        let siblings =
+            builder.add_virtual_hashes_if_none_op(options.siblings, height, &mut option_flags, MerkleProofGadgetOptionFlags::siblings.bits());
 
         let root = Self::compute_root::<H, F, D>(builder, index, value, &siblings);
         if options.root.is_some() {
@@ -127,44 +102,35 @@ impl MerkleProofGadget {
             option_flags: MerkleProofGadgetOptionFlags::from_bits(option_flags).unwrap(),
         }
     }
-    pub fn add_virtual_to_append_only<H:AlgebraicHasher<F> + MerkleZeroHasher<HashOut<F>>, F: RichField + Extendable<D>, const D: usize>(
-      builder: &mut CircuitBuilder<F, D>,
-      height: usize,
+    pub fn add_virtual_to_append_only<H: AlgebraicHasher<F> + MerkleZeroHasher<HashOut<F>>, F: RichField + Extendable<D>, const D: usize>(
+        builder: &mut CircuitBuilder<F, D>,
+        height: usize,
     ) -> Self {
-      let (gadget, bits) = Self::add_virtual_to_get_index_bits::<H,F,D>(builder, height);
+        let (gadget, bits) = Self::add_virtual_to_get_index_bits::<H, F, D>(builder, height);
 
-      for (reverse_level, (bit, sibling)) in bits.iter().zip(gadget.siblings.iter()).enumerate() {
-        let zero_hash_at_level = builder.constant_hash(H::get_zero_hash(reverse_level));
+        for (reverse_level, (bit, sibling)) in bits.iter().zip(gadget.siblings.iter()).enumerate() {
+            let zero_hash_at_level = builder.constant_hash(H::get_zero_hash(reverse_level));
 
-        // if the bit is a zero, then the current path node is a left child, so the right child must be a zero hash
-        // if the bit is a one, then we leave the sibling alone
-        let required_hash = builder.select_hash(
-          *bit,
-          *sibling, // if the path is a 1 bit, then the sibling is before us and non zero
-          zero_hash_at_level // if the path is 0 bit, then the right sibling should have empty leaves
-        );
-        builder.connect_hashes(
-          required_hash,
-          *sibling
-        );
+            // if the bit is a zero, then the current path node is a left child, so the
+            // right child must be a zero hash if the bit is a one, then we
+            // leave the sibling alone
+            let required_hash = builder.select_hash(
+                *bit,
+                *sibling,           // if the path is a 1 bit, then the sibling is before us and non zero
+                zero_hash_at_level, // if the path is 0 bit, then the right sibling should have empty leaves
+            );
+            builder.connect_hashes(required_hash, *sibling);
+        }
 
-
-      }
-
-      gadget
-
-      
-
+        gadget
     }
-    pub fn add_virtual_to_get_index_bits<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
+    pub fn add_virtual_to_get_index_bits<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
         height: usize,
     ) -> (Self, Vec<BoolTarget>) {
         let index = builder.add_virtual_target();
         let value = builder.add_virtual_hash();
-        let siblings = (0..height)
-            .map(|_| builder.add_virtual_hash())
-            .collect::<Vec<_>>();
+        let siblings = (0..height).map(|_| builder.add_virtual_hash()).collect::<Vec<_>>();
         let height = siblings.len();
         builder.range_check(index, height);
         let index_bits = builder.split_le(index, height);
@@ -179,7 +145,7 @@ impl MerkleProofGadget {
         };
         (gadget, index_bits)
     }
-    pub fn compute_root<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
+    pub fn compute_root<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
         index: Target,
         value: HashOutTarget,
@@ -191,11 +157,7 @@ impl MerkleProofGadget {
 
         Self::compute_root_bits::<H, F, D>(builder, &index_bits, value, siblings)
     }
-    pub fn compute_root_bits<
-        H:AlgebraicHasher<F>,
-        F: RichField + Extendable<D>,
-        const D: usize,
-    >(
+    pub fn compute_root_bits<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
         index_bits: &[BoolTarget],
         value: HashOutTarget,
@@ -222,7 +184,7 @@ impl MerkleProofGadget {
             state = HashOutTarget {
                 elements: hash_outs,
             };*/
-/* 
+            /*
             let left = builder.select_hash(bit, sibling, state);
             let right = builder.select_hash(bit, state, sibling);
             state = builder.hash_n_to_hash_no_pad::<H>([left.elements, right.elements].concat())*/
@@ -238,26 +200,17 @@ impl MerkleProofGadget {
         value: QHashOut<F>,
         siblings: &[QHashOut<F>],
     ) -> anyhow::Result<()> {
-        if !self
-            .option_flags
-            .contains(MerkleProofGadgetOptionFlags::index)
-        {
+        if !self.option_flags.contains(MerkleProofGadgetOptionFlags::index) {
             witness.set_target(self.index, index)?;
         }
-        if !self
-            .option_flags
-            .contains(MerkleProofGadgetOptionFlags::value)
-        {
+        if !self.option_flags.contains(MerkleProofGadgetOptionFlags::value) {
             witness.set_hash_target(self.value, value.0)?;
         }
-        if !self
-            .option_flags
-            .contains(MerkleProofGadgetOptionFlags::siblings)
-        {
+        if !self.option_flags.contains(MerkleProofGadgetOptionFlags::siblings) {
             for (i, sibling) in self.siblings.iter().enumerate() {
-              if i >= siblings.len() {
-                panic!("siblings len is not equal to height");
-              }
+                if i >= siblings.len() {
+                    panic!("siblings len is not equal to height");
+                }
                 witness.set_hash_target(*sibling, siblings[i].0)?;
             }
         }
@@ -272,18 +225,10 @@ impl MerkleProofGadget {
     ) -> anyhow::Result<()> {
         self.set_witness_generic(witness, index, value, siblings)
     }
-    pub fn set_witness_proof<F: RichField>(
-        &self,
-        witness: &mut PartialWitness<F>,
-        input: &MerkleProof<F>,
-    ) -> anyhow::Result<()> {
+    pub fn set_witness_proof<F: RichField>(&self, witness: &mut PartialWitness<F>, input: &MerkleProof<F>) -> anyhow::Result<()> {
         self.set_witness(witness, input.index, input.value, &input.siblings)
     }
-    pub fn set_witness_base_proof<F: RichField>(
-        &self,
-        witness: &mut PartialWitness<F>,
-        input: &MerkleProofBase<F>,
-    ) -> anyhow::Result<()> {
+    pub fn set_witness_base_proof<F: RichField>(&self, witness: &mut PartialWitness<F>, input: &MerkleProofBase<F>) -> anyhow::Result<()> {
         self.set_witness(witness, input.index, input.value, &input.siblings)
     }
     pub fn set_witness_core_proof_q_generic<W: Witness<F>, F: RichField>(
@@ -291,40 +236,32 @@ impl MerkleProofGadget {
         witness: &mut W,
         input: &MerkleProofCore<QHashOut<F>>,
     ) -> anyhow::Result<()> {
-        self.set_witness_generic(
-            witness,
-            F::from_noncanonical_u64(input.index),
-            input.value,
-            &input.siblings,
-        )
+        self.set_witness_generic(witness, F::from_noncanonical_u64(input.index), input.value, &input.siblings)
     }
     pub fn set_witness_core_proof_q<F: RichField>(
         &self,
         witness: &mut PartialWitness<F>,
         input: &MerkleProofCore<QHashOut<F>>,
     ) -> anyhow::Result<()> {
-        self.set_witness(
-            witness,
-            F::from_noncanonical_u64(input.index),
-            input.value,
-            &input.siblings,
-        )
+        self.set_witness(witness, F::from_noncanonical_u64(input.index), input.value, &input.siblings)
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use plonky2::field::types::Field;
-    use plonky2::hash::poseidon::PoseidonHash;
-    use plonky2::iop::witness::PartialWitness;
-    use plonky2::plonk::circuit_builder::CircuitBuilder;
-    use plonky2::plonk::circuit_data::CircuitConfig;
-    use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
+    use plonky2::{
+        field::types::Field,
+        hash::poseidon::PoseidonHash,
+        iop::witness::PartialWitness,
+        plonk::{
+            circuit_builder::CircuitBuilder,
+            circuit_data::CircuitConfig,
+            config::{GenericConfig, PoseidonGoldilocksConfig},
+        },
+    };
     use psy_crypto::hash::merkle::core::MerkleProof;
 
-    use crate::hash::merkle::gadgets::merkle_proof::{
-        MerkleProofGadget, OptionalMerkleProofGadget,
-    };
+    use crate::hash::merkle::gadgets::merkle_proof::{MerkleProofGadget, OptionalMerkleProofGadget};
 
     const D: usize = 2;
     type C = PoseidonGoldilocksConfig;
@@ -1214,10 +1151,7 @@ mod tests {
     fn create_mp_circuit_for_proof_a(mp: &MerkleProof<F>) {
         let config = CircuitConfig::standard_recursion_config();
         let mut builder = CircuitBuilder::<F, D>::new(config);
-        let mp_gadget = MerkleProofGadget::add_virtual_to::<PoseidonHash, F, D>(
-            &mut builder,
-            mp.siblings.len(),
-        );
+        let mp_gadget = MerkleProofGadget::add_virtual_to::<PoseidonHash, F, D>(&mut builder, mp.siblings.len());
 
         builder.register_public_inputs(&mp_gadget.root.elements);
         let data = builder.build::<C>();
@@ -1310,8 +1244,7 @@ mod tests {
 
     #[test]
     fn test_merkle_proof_circuit() {
-        let parsed_test_cases =
-            serde_json::from_str::<Vec<MerkleProof<F>>>(TEST_CASES_JSON).unwrap();
+        let parsed_test_cases = serde_json::from_str::<Vec<MerkleProof<F>>>(TEST_CASES_JSON).unwrap();
         for test_case in &parsed_test_cases {
             create_mp_circuit_for_proof_a(test_case);
             create_mp_circuit_for_proof_b(test_case);
@@ -1320,8 +1253,7 @@ mod tests {
     #[test]
     #[should_panic]
     fn test_merkle_proof_circuit_failures() {
-        let parsed_test_cases =
-            serde_json::from_str::<Vec<MerkleProof<F>>>(TEST_CASES_JSON).unwrap();
+        let parsed_test_cases = serde_json::from_str::<Vec<MerkleProof<F>>>(TEST_CASES_JSON).unwrap();
         for test_case in &parsed_test_cases {
             merkle_proof_should_fail_a(test_case);
             merkle_proof_should_fail_b(test_case);

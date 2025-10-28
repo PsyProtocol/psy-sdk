@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 
-use psy_core::data::qhashout::QHashOut;
 use plonky2::{
     field::extension::Extendable,
     hash::hash_types::{HashOutTarget, RichField},
@@ -14,6 +13,7 @@ use plonky2::{
         config::GenericConfig,
     },
 };
+use psy_core::data::qhashout::QHashOut;
 use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
@@ -39,13 +39,11 @@ impl DebugCircuitTracer {
         self.trace_groups.insert(name.to_string(), value.to_vec());
     }
     pub fn trace_hash(&mut self, name: &str, value: HashOutTarget) {
-        self.trace_groups
-            .insert(name.to_string(), value.elements.to_vec());
+        self.trace_groups.insert(name.to_string(), value.elements.to_vec());
         self.trace_groups_hash.insert(name.to_string(), value);
     }
     pub fn trace_hash_s(&mut self, name: String, value: HashOutTarget) {
-        self.trace_groups
-            .insert(name.to_string(), value.elements.to_vec());
+        self.trace_groups.insert(name.to_string(), value.elements.to_vec());
         self.trace_groups_hash.insert(name, value);
     }
     pub fn trace_vec_s(&mut self, name: String, value: &[Target]) {
@@ -58,11 +56,7 @@ impl DebugCircuitTracer {
         self.trace_groups.insert(name.to_string(), vec![value]);
     }
 
-    pub fn resolve<W: Witness<F>, F: RichField>(
-        &self,
-        witness: &W,
-        targets_to_constants: &hashbrown::HashMap<Target, F>,
-    ) -> HashMap<String, Vec<F>> {
+    pub fn resolve<W: Witness<F>, F: RichField>(&self, witness: &W, targets_to_constants: &hashbrown::HashMap<Target, F>) -> HashMap<String, Vec<F>> {
         let mut result = HashMap::<String, Vec<F>>::new();
         self.trace_groups.iter().for_each(|(name, targets)| {
             let values = targets
@@ -80,11 +74,7 @@ impl DebugCircuitTracer {
         });
         result
     }
-    pub fn resolve_partition<
-        F: RichField + Extendable<D>,
-        C: GenericConfig<D, F = F>,
-        const D: usize,
-    >(
+    pub fn resolve_partition<F: RichField + Extendable<D>, C: GenericConfig<D, F = F>, const D: usize>(
         &self,
         witness: &PartialWitness<F>,
         prover_data: &ProverOnlyCircuitData<F, C, D>,
@@ -92,8 +82,7 @@ impl DebugCircuitTracer {
         targets_to_constants: &hashbrown::HashMap<Target, F>,
     ) -> DebugCircuitTraceResult<F> {
         let parition_witness = generate_partial_witness(witness.clone(), prover_data, common_data).unwrap();
-        let trace_groups =
-            self.resolve::<PartitionWitness<F>, F>(&parition_witness, targets_to_constants);
+        let trace_groups = self.resolve::<PartitionWitness<F>, F>(&parition_witness, targets_to_constants);
         let mut trace_groups_hash: HashMap<String, QHashOut<F>> = HashMap::new();
         self.trace_groups_hash.iter().for_each(|(k, _v)| {
             let val_vec = trace_groups.get(k).unwrap();

@@ -69,10 +69,7 @@ impl KVQSerializable for Serialized2DFeltBLS12381 {
 
     fn from_bytes(bytes: &[u8]) -> anyhow::Result<Self> {
         if bytes.len() != 48 {
-            anyhow::bail!(
-                "expected 48 bytes for deserializing Serialized2DFeltBLS12381, got {} bytes",
-                bytes.len()
-            );
+            anyhow::bail!("expected 48 bytes for deserializing Serialized2DFeltBLS12381, got {} bytes", bytes.len());
         }
         let mut inner_data = [0u8; 48];
         inner_data.copy_from_slice(bytes);

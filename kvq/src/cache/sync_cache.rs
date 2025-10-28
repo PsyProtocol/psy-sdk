@@ -1,9 +1,14 @@
-use std::collections::Bound::Included;
-use std::collections::BTreeMap;
-use std::sync::Arc;
+use std::{
+    collections::{BTreeMap, Bound::Included},
+    sync::Arc,
+};
+
 use parking_lot::RwLock;
-use crate::cache::{CacheValueType, KVQBinaryStoreCachedTrait};
-use crate::traits::{KVQBinaryStore, KVQPair};
+
+use crate::{
+    cache::{CacheValueType, KVQBinaryStoreCachedTrait},
+    traits::{KVQBinaryStore, KVQPair},
+};
 
 #[derive(Clone)]
 pub struct KVQBinaryStoreCached<S: KVQBinaryStore> {
@@ -33,8 +38,7 @@ impl<S: KVQBinaryStore> KVQBinaryStoreCached<S> {
                             value: b.clone(),
                         });
                     }
-                    CacheValueType::Removed => {
-                    }
+                    CacheValueType::Removed => {}
                 }
             }
         } else {
@@ -54,8 +58,7 @@ impl<S: KVQBinaryStore> KVQBinaryStoreCached<S> {
                             value: b.clone(),
                         });
                     }
-                    CacheValueType::Removed => {
-                    }
+                    CacheValueType::Removed => {}
                 }
             }
         }
@@ -74,7 +77,8 @@ impl<S: KVQBinaryStore> KVQBinaryStoreCachedTrait for KVQBinaryStoreCached<S> {
         }
     }
     fn get_non_removed_keys(&self) -> Vec<Vec<u8>> {
-        self.map.read()
+        self.map
+            .read()
             .iter()
             .filter(|x| match x.1 {
                 CacheValueType::Bytes(_) => true,
@@ -84,7 +88,8 @@ impl<S: KVQBinaryStore> KVQBinaryStoreCachedTrait for KVQBinaryStoreCached<S> {
             .collect::<Vec<_>>()
     }
     fn get_removed_keys(&self) -> Vec<Vec<u8>> {
-        self.map.read()
+        self.map
+            .read()
             .iter()
             .filter(|x| match x.1 {
                 CacheValueType::Bytes(_) => false,
@@ -95,20 +100,17 @@ impl<S: KVQBinaryStore> KVQBinaryStoreCachedTrait for KVQBinaryStoreCached<S> {
     }
     fn flush_changes(&self) -> anyhow::Result<(Vec<KVQPair<Vec<u8>, Vec<u8>>>, Vec<Vec<u8>>)> {
         let mut map = self.map.write();
-        let keys_to_set: Vec<KVQPair<&Vec<u8>, &Vec<u8>>> = map.iter().filter(|(_, vt)|{
-            match vt {
+        let keys_to_set: Vec<KVQPair<&Vec<u8>, &Vec<u8>>> = map
+            .iter()
+            .filter(|(_, vt)| match vt {
                 CacheValueType::Bytes(_) => true,
                 CacheValueType::Removed => false,
-            }
-        }).map(|(k, vt)|{
-            match vt {
-                CacheValueType::Bytes(b) => Ok(KVQPair{
-                    key: k,
-                    value: b,
-                }),
+            })
+            .map(|(k, vt)| match vt {
+                CacheValueType::Bytes(b) => Ok(KVQPair { key: k, value: b }),
                 CacheValueType::Removed => Err(anyhow::anyhow!("Cannot flush changes with removed keys")),
-            }
-        }).collect::<anyhow::Result<Vec<_>>>()?;
+            })
+            .collect::<anyhow::Result<Vec<_>>>()?;
 
         let removed_keys = map
             .iter()
@@ -119,10 +121,13 @@ impl<S: KVQBinaryStore> KVQBinaryStoreCachedTrait for KVQBinaryStoreCached<S> {
             .map(|x| x.0.to_owned())
             .collect::<Vec<_>>();
 
-        let set_keys = keys_to_set.iter().map(|x| KVQPair{
-            key: x.key.to_owned(),
-            value: x.value.to_owned(),
-        }).collect::<Vec<_>>();
+        let set_keys = keys_to_set
+            .iter()
+            .map(|x| KVQPair {
+                key: x.key.to_owned(),
+                value: x.value.to_owned(),
+            })
+            .collect::<Vec<_>>();
 
         map.clear();
         Ok((set_keys, removed_keys))
@@ -135,25 +140,24 @@ impl<S: KVQBinaryStore> KVQBinaryStoreCachedTrait for KVQBinaryStoreCached<S> {
     fn flush_simple(&self, checkpoint_id: Option<u64>) -> anyhow::Result<(Vec<KVQPair<Vec<u8>, Vec<u8>>>, Vec<Vec<u8>>)> {
         let (keys_to_set, removed_keys) = {
             let mut map = self.map.write();
-            let keys_to_set: Vec<KVQPair<Vec<u8>, Vec<u8>>> = map.iter().filter(|(_, vt)|{
-                match vt {
+            let keys_to_set: Vec<KVQPair<Vec<u8>, Vec<u8>>> = map
+                .iter()
+                .filter(|(_, vt)| match vt {
                     CacheValueType::Bytes(_) => true,
                     CacheValueType::Removed => false,
-                }
-            }).map(|(k, vt)|{
-                let mut k = k.clone();
-                if let Some(checkpoint_id) = checkpoint_id {
-                    let len = k.len();
-                    k[len-8..].copy_from_slice(&checkpoint_id.to_be_bytes())
-                }
-                match vt {
-                    CacheValueType::Bytes(b) => Ok(KVQPair{
-                        key: k,
-                        value: b.clone(),
-                    }),
-                    CacheValueType::Removed => Err(anyhow::anyhow!("Cannot flush changes with removed keys")),
-                }
-            }).collect::<anyhow::Result<Vec<_>>>()?;
+                })
+                .map(|(k, vt)| {
+                    let mut k = k.clone();
+                    if let Some(checkpoint_id) = checkpoint_id {
+                        let len = k.len();
+                        k[len - 8..].copy_from_slice(&checkpoint_id.to_be_bytes())
+                    }
+                    match vt {
+                        CacheValueType::Bytes(b) => Ok(KVQPair { key: k, value: b.clone() }),
+                        CacheValueType::Removed => Err(anyhow::anyhow!("Cannot flush changes with removed keys")),
+                    }
+                })
+                .collect::<anyhow::Result<Vec<_>>>()?;
 
             let removed_keys = map
                 .iter()
@@ -165,7 +169,7 @@ impl<S: KVQBinaryStore> KVQBinaryStoreCachedTrait for KVQBinaryStoreCached<S> {
                     let mut k = x.0.to_owned();
                     if let Some(checkpoint_id) = checkpoint_id {
                         let len = k.len();
-                        k[len-8..].copy_from_slice(&checkpoint_id.to_be_bytes())
+                        k[len - 8..].copy_from_slice(&checkpoint_id.to_be_bytes())
                     }
                     k
                 })
@@ -182,7 +186,7 @@ impl<S: KVQBinaryStore> KVQBinaryStoreCachedTrait for KVQBinaryStoreCached<S> {
             })
             .collect();
 
-        self.store.set_and_delete_many(&keys_to_set_ref,&removed_keys)?;
+        self.store.set_and_delete_many(&keys_to_set_ref, &removed_keys)?;
 
         self.map.write().clear();
         Ok((keys_to_set, removed_keys))
@@ -211,9 +215,7 @@ impl<S: KVQBinaryStore> KVQBinaryStore for KVQBinaryStoreCached<S> {
 
     fn get_leq(&self, key: &Vec<u8>, fuzzy_bytes: usize) -> anyhow::Result<Option<Vec<u8>>> {
         if fuzzy_bytes > key.len() {
-            return Err(anyhow::anyhow!(
-                "Fuzzy bytes must be less than or equal to key length"
-            ));
+            return Err(anyhow::anyhow!("Fuzzy bytes must be less than or equal to key length"));
         }
 
         let cache_candidate = self.get_leq_from_cache(key, fuzzy_bytes);
@@ -239,15 +241,9 @@ impl<S: KVQBinaryStore> KVQBinaryStore for KVQBinaryStoreCached<S> {
         }
     }
 
-    fn get_leq_kv(
-        &self,
-        key: &Vec<u8>,
-        fuzzy_bytes: usize,
-    ) -> anyhow::Result<Option<KVQPair<Vec<u8>, Vec<u8>>>> {
+    fn get_leq_kv(&self, key: &Vec<u8>, fuzzy_bytes: usize) -> anyhow::Result<Option<KVQPair<Vec<u8>, Vec<u8>>>> {
         if fuzzy_bytes > key.len() {
-            return Err(anyhow::anyhow!(
-                "Fuzzy bytes must be less than or equal to key length"
-            ));
+            return Err(anyhow::anyhow!("Fuzzy bytes must be less than or equal to key length"));
         }
 
         let cache_candidate = self.get_leq_from_cache(key, fuzzy_bytes);
@@ -273,11 +269,7 @@ impl<S: KVQBinaryStore> KVQBinaryStore for KVQBinaryStoreCached<S> {
         }
     }
 
-    fn get_many_leq(
-        &self,
-        keys: &[Vec<u8>],
-        fuzzy_bytes: usize,
-    ) -> anyhow::Result<Vec<Option<Vec<u8>>>> {
+    fn get_many_leq(&self, keys: &[Vec<u8>], fuzzy_bytes: usize) -> anyhow::Result<Vec<Option<Vec<u8>>>> {
         let mut results: Vec<Option<Vec<u8>>> = Vec::with_capacity(keys.len());
         for k in keys {
             let r = self.get_leq(k, fuzzy_bytes)?;
@@ -286,11 +278,7 @@ impl<S: KVQBinaryStore> KVQBinaryStore for KVQBinaryStoreCached<S> {
         Ok(results)
     }
 
-    fn get_many_leq_kv(
-        &self,
-        keys: &[Vec<u8>],
-        fuzzy_bytes: usize,
-    ) -> anyhow::Result<Vec<Option<KVQPair<Vec<u8>, Vec<u8>>>>> {
+    fn get_many_leq_kv(&self, keys: &[Vec<u8>], fuzzy_bytes: usize) -> anyhow::Result<Vec<Option<KVQPair<Vec<u8>, Vec<u8>>>>> {
         let mut results: Vec<Option<KVQPair<Vec<u8>, Vec<u8>>>> = Vec::with_capacity(keys.len());
         for k in keys {
             let r = self.get_leq_kv(k, fuzzy_bytes)?;
@@ -300,7 +288,7 @@ impl<S: KVQBinaryStore> KVQBinaryStore for KVQBinaryStoreCached<S> {
     }
 
     fn get_exact_if_exists(&self, key: &Vec<u8>) -> anyhow::Result<Option<Vec<u8>>> {
-        match {self.map.read().get(key)} {
+        match { self.map.read().get(key) } {
             Some(v) => match v {
                 CacheValueType::Bytes(b) => Ok(Some(b.to_owned())),
                 CacheValueType::Removed => Ok(None),
@@ -308,18 +296,12 @@ impl<S: KVQBinaryStore> KVQBinaryStore for KVQBinaryStoreCached<S> {
             None => self.store.get_exact_if_exists(key),
         }
     }
-    fn get_fuzzy_range_leq_kv(
-        &self,
-        key: &Vec<u8>,
-        fuzzy_bytes: usize,
-    ) -> anyhow::Result<Vec<KVQPair<Vec<u8>, Vec<u8>>>> {
+    fn get_fuzzy_range_leq_kv(&self, key: &Vec<u8>, fuzzy_bytes: usize) -> anyhow::Result<Vec<KVQPair<Vec<u8>, Vec<u8>>>> {
         let key_end = key.to_vec();
         let mut base_key = key.to_vec();
         let key_len = base_key.len();
         if fuzzy_bytes > key_len {
-            return Err(anyhow::anyhow!(
-                "Fuzzy bytes must be less than or equal to key length"
-            ));
+            return Err(anyhow::anyhow!("Fuzzy bytes must be less than or equal to key length"));
         }
 
         for i in 0..fuzzy_bytes {
@@ -336,10 +318,13 @@ impl<S: KVQBinaryStore> KVQBinaryStore for KVQBinaryStoreCached<S> {
         for (k, v) in map.range((Included(base_key), Included(key_end))) {
             match v {
                 CacheValueType::Bytes(b) => {
-                    results.insert(k.clone(), KVQPair {
-                        key: k.clone(),
-                        value: b.clone(),
-                    });
+                    results.insert(
+                        k.clone(),
+                        KVQPair {
+                            key: k.clone(),
+                            value: b.clone(),
+                        },
+                    );
                 }
                 CacheValueType::Removed => {
                     results.remove(k);
@@ -356,15 +341,11 @@ impl<S: KVQBinaryStore> KVQBinaryStore for KVQBinaryStoreCached<S> {
     }
 
     fn set_ref(&self, key: &Vec<u8>, value: &Vec<u8>) -> anyhow::Result<()> {
-        self.map.write()
-            .insert(key.clone(), CacheValueType::Bytes(value.clone()));
+        self.map.write().insert(key.clone(), CacheValueType::Bytes(value.clone()));
         Ok(())
     }
 
-    fn set_many_ref<'a>(
-        &self,
-        items: &[KVQPair<&'a Vec<u8>, &'a Vec<u8>>],
-    ) -> anyhow::Result<()> {
+    fn set_many_ref<'a>(&self, items: &[KVQPair<&'a Vec<u8>, &'a Vec<u8>>]) -> anyhow::Result<()> {
         let mut map = self.map.write();
         for item in items {
             map.insert(item.key.clone(), CacheValueType::Bytes(item.value.clone()));
@@ -381,7 +362,7 @@ impl<S: KVQBinaryStore> KVQBinaryStore for KVQBinaryStoreCached<S> {
     }
 
     fn delete(&self, key: &Vec<u8>) -> anyhow::Result<bool> {
-        let r = {self.map.write().insert(key.clone(), CacheValueType::Removed)};
+        let r = { self.map.write().insert(key.clone(), CacheValueType::Removed) };
         if r.is_none() {
             if self.proper_delete_return {
                 let r1 = self.get_exact_if_exists(key)?;

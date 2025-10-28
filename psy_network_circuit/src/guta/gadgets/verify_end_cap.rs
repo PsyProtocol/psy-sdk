@@ -9,14 +9,20 @@ use plonky2::{
         proof::{ProofWithPublicInputs, ProofWithPublicInputsTarget},
     },
 };
-use psy_common_circuit::{builder::{core::CircuitBuilderHelpersCore, hash::core::CircuitBuilderHashCore, verify::CircuitBuilderVerifyProofHelpers}, hash::merkle::gadgets::historical_root_merkle_proof::HistoricalRootMerkleProofGadget, treeprover::subtree::gadgets::subtree_core::SubTreeNodeStateTransitionGadget};
-use psy_core::{config::network_constants::{CHECKPOINT_TREE_HEIGHT, GLOBAL_USER_TREE_HEIGHT}, data::qhashout::QHashOut};
+use psy_common_circuit::{
+    builder::{core::CircuitBuilderHelpersCore, hash::core::CircuitBuilderHashCore, verify::CircuitBuilderVerifyProofHelpers},
+    hash::merkle::gadgets::historical_root_merkle_proof::HistoricalRootMerkleProofGadget,
+    treeprover::subtree::gadgets::subtree_core::SubTreeNodeStateTransitionGadget,
+};
+use psy_core::{
+    config::network_constants::{CHECKPOINT_TREE_HEIGHT, GLOBAL_USER_TREE_HEIGHT},
+    data::qhashout::QHashOut,
+};
 use psy_crypto::hash::{merkle::core::MerkleProofCore, traits::hasher::MerkleZeroHasher};
 use psy_data::{guta::stats::GUTAStats, qdata::ups_end_cap_result::UPSEndCapResultCompact};
 
-use crate::ups::gadgets::ups_end_cap_result::UPSEndCapResultCompactGadget;
-
 use super::{guta_header::GlobalUserTreeAggregatorHeaderGadget, guta_stats::GUTAStatsGadget, helpers::ToGUTAHeader};
+use crate::ups::gadgets::ups_end_cap_result::UPSEndCapResultCompactGadget;
 
 #[derive(Clone, Debug)]
 pub struct VerifyEndCapProofGadget<const D: usize> {
@@ -37,7 +43,7 @@ impl<const D: usize> VerifyEndCapProofGadget<D> {
         known_end_cap_fingerprint_hash: HashOutTarget,
     ) -> Self
     where
-        <C as GenericConfig<D>>::Hasher: MerkleZeroHasher<HashOut<F>> +AlgebraicHasher<F>,
+        <C as GenericConfig<D>>::Hasher: MerkleZeroHasher<HashOut<F>> + AlgebraicHasher<F>,
     {
         let verifier_data = builder.add_virtual_verifier_data(verifier_data_cap_height);
         let proof_target = builder.add_virtual_proof_with_pis(proof_common_data);
@@ -46,21 +52,16 @@ impl<const D: usize> VerifyEndCapProofGadget<D> {
 
         let proof_fingerprint = builder.get_circuit_fingerprint::<C::Hasher>(&verifier_data);
 
-
         // ensure the proof has the correct fingerprint
-        builder.connect_hashes(
-            known_end_cap_fingerprint_hash,
-            proof_fingerprint,
-        );
+        builder.connect_hashes(known_end_cap_fingerprint_hash, proof_fingerprint);
 
-        let checkpoint_historical_merkle_proof = HistoricalRootMerkleProofGadget::add_virtual_to_zero_gt::<C::Hasher, C::F, D>(builder, CHECKPOINT_TREE_HEIGHT as usize);
+        let checkpoint_historical_merkle_proof =
+            HistoricalRootMerkleProofGadget::add_virtual_to_zero_gt::<C::Hasher, C::F, D>(builder, CHECKPOINT_TREE_HEIGHT as usize);
 
         let end_cap_result_gadget = UPSEndCapResultCompactGadget::add_virtual_to::<F, D>(builder);
         let guta_stats = GUTAStatsGadget::add_virtual_to::<F, D>(builder);
 
-        tracing::debug!("🔒 end_cap_result_gadget: {:?}, guta_stats: {:?}",
-            end_cap_result_gadget, guta_stats);
-
+        tracing::debug!("🔒 end_cap_result_gadget: {:?}, guta_stats: {:?}", end_cap_result_gadget, guta_stats);
 
         // start: check child proof public inputs
 
@@ -71,13 +72,7 @@ impl<const D: usize> VerifyEndCapProofGadget<D> {
 
         tracing::debug!("🔍 expected_proof_public_inputs_hash: {:?}", expected_proof_public_inputs_hash);
 
-
-
-        assert_eq!(
-            proof_target.public_inputs.len(),
-            4,
-            "children proofs should have 4 public inputs"
-        );
+        assert_eq!(proof_target.public_inputs.len(), 4, "children proofs should have 4 public inputs");
         let proof_public_input_hash = HashOutTarget {
             elements: [
                 proof_target.public_inputs[0],
@@ -93,10 +88,13 @@ impl<const D: usize> VerifyEndCapProofGadget<D> {
         builder.connect_hashes(expected_proof_public_inputs_hash, proof_public_input_hash);
         // end: check child proof public inputs
 
-
-        // ensure the checkpoint root being used by the user is a valid checkpoint root in the tree (in the past)
-        tracing::debug!("🌳 checkpoint_historical_merkle_proof.historical_root: {:?}, end_cap_result_gadget.checkpoint_tree_root_hash: {:?}",
-            checkpoint_historical_merkle_proof.historical_root, end_cap_result_gadget.checkpoint_tree_root_hash);
+        // ensure the checkpoint root being used by the user is a valid checkpoint root
+        // in the tree (in the past)
+        tracing::debug!(
+            "🌳 checkpoint_historical_merkle_proof.historical_root: {:?}, end_cap_result_gadget.checkpoint_tree_root_hash: {:?}",
+            checkpoint_historical_merkle_proof.historical_root,
+            end_cap_result_gadget.checkpoint_tree_root_hash
+        );
 
         builder.connect_hashes(
             checkpoint_historical_merkle_proof.historical_root,
@@ -120,24 +118,20 @@ impl<const D: usize> VerifyEndCapProofGadget<D> {
         checkpoint_historical_merkle_proof: &MerkleProofCore<QHashOut<F>>,
         proof: &ProofWithPublicInputs<F, C, D>,
         verifier_data: &VerifierOnlyCircuitData<C, D>,
-    ) -> anyhow::Result<()> where
-    <C as GenericConfig<D>>::Hasher:AlgebraicHasher<F>, {
-        tracing::debug!("🔒 Verify End Cap set_witness - end_cap_result: {}, user_id: {}, checkpoint_tree_root: {}",
+    ) -> anyhow::Result<()>
+    where
+        <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
+    {
+        tracing::debug!(
+            "🔒 Verify End Cap set_witness - end_cap_result: {}, user_id: {}, checkpoint_tree_root: {}",
             serde_json::to_string_pretty(end_cap_result).unwrap(),
             serde_json::to_string_pretty(&end_cap_result.user_id).unwrap(),
-            serde_json::to_string_pretty(&end_cap_result.checkpoint_tree_root_hash).unwrap());
-        self.end_cap_result_gadget.set_witness(
-            witness,
-            end_cap_result,
-        )?;
-        self.guta_stats.set_witness(
-            witness,
-            guta_stats,
-        )?;
-        self.checkpoint_historical_merkle_proof.set_witness_proof_core(
-            witness,
-            checkpoint_historical_merkle_proof,
-        )?;
+            serde_json::to_string_pretty(&end_cap_result.checkpoint_tree_root_hash).unwrap()
+        );
+        self.end_cap_result_gadget.set_witness(witness, end_cap_result)?;
+        self.guta_stats.set_witness(witness, guta_stats)?;
+        self.checkpoint_historical_merkle_proof
+            .set_witness_proof_core(witness, checkpoint_historical_merkle_proof)?;
 
         witness.set_proof_with_pis_target(&self.proof_target, &proof)?;
         witness.set_verifier_data_target(&self.verifier_data, &verifier_data)
@@ -145,17 +139,20 @@ impl<const D: usize> VerifyEndCapProofGadget<D> {
 }
 
 impl<const D: usize> ToGUTAHeader<D> for VerifyEndCapProofGadget<D> {
-    fn get_guta_header<H: AlgebraicHasher<F>, F: RichField + Extendable<D>>(&self, builder: &mut CircuitBuilder<F, D>, default_guta_circuit_whitelist: HashOutTarget) -> GlobalUserTreeAggregatorHeaderGadget {
+    fn get_guta_header<H: AlgebraicHasher<F>, F: RichField + Extendable<D>>(
+        &self,
+        builder: &mut CircuitBuilder<F, D>,
+        default_guta_circuit_whitelist: HashOutTarget,
+    ) -> GlobalUserTreeAggregatorHeaderGadget {
         GlobalUserTreeAggregatorHeaderGadget {
             guta_circuit_whitelist: default_guta_circuit_whitelist,
             checkpoint_tree_root: self.checkpoint_historical_merkle_proof.current_root,
-            state_transition: SubTreeNodeStateTransitionGadget{
+            state_transition: SubTreeNodeStateTransitionGadget {
                 old_node_value: self.end_cap_result_gadget.start_user_leaf_hash,
                 new_node_value: self.end_cap_result_gadget.end_user_leaf_hash,
                 node_index: self.end_cap_result_gadget.user_id,
 
                 node_level: builder.constant_u8(GLOBAL_USER_TREE_HEIGHT),
-
             },
             stats: self.guta_stats.to_owned(),
         }

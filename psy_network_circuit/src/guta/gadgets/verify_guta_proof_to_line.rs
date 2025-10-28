@@ -13,7 +13,10 @@ use psy_core::data::qhashout::QHashOut;
 use psy_crypto::hash::{merkle::core::MerkleProofCore, traits::hasher::MerkleZeroHasher};
 use psy_data::guta::header::GlobalUserTreeAggregatorHeader;
 
-use super::{guta_header::GlobalUserTreeAggregatorHeaderGadget, guta_line::GUTAHeaderLineProofGadget, helpers::ToGUTAHeader, verify_guta_proof::VerifyGUTAProofGadget};
+use super::{
+    guta_header::GlobalUserTreeAggregatorHeaderGadget, guta_line::GUTAHeaderLineProofGadget, helpers::ToGUTAHeader,
+    verify_guta_proof::VerifyGUTAProofGadget,
+};
 
 #[derive(Clone, Debug)]
 pub struct VerifyGUTAProofToLineGadget<const D: usize> {
@@ -21,7 +24,6 @@ pub struct VerifyGUTAProofToLineGadget<const D: usize> {
     pub verify_guta_proof_gadget: VerifyGUTAProofGadget<D>,
     pub header_line_gadget: GUTAHeaderLineProofGadget,
     // end targets requiring witness
-
 }
 
 impl<const D: usize> VerifyGUTAProofToLineGadget<D> {
@@ -33,19 +35,14 @@ impl<const D: usize> VerifyGUTAProofToLineGadget<D> {
         global_user_tree_height: usize,
     ) -> Self
     where
-        <C as GenericConfig<D>>::Hasher: MerkleZeroHasher<HashOut<F>> +AlgebraicHasher<F>,
+        <C as GenericConfig<D>>::Hasher: MerkleZeroHasher<HashOut<F>> + AlgebraicHasher<F>,
     {
-
-        let verify_guta_proof_gadget = VerifyGUTAProofGadget::<D>::add_virtual_to::<C,F>(
-            builder,
-            proof_common_data,
-            verifier_data_cap_height
-        );
-        let header_line_gadget = GUTAHeaderLineProofGadget::add_virtual_to::<C::Hasher,F,D>(
+        let verify_guta_proof_gadget = VerifyGUTAProofGadget::<D>::add_virtual_to::<C, F>(builder, proof_common_data, verifier_data_cap_height);
+        let header_line_gadget = GUTAHeaderLineProofGadget::add_virtual_to::<C::Hasher, F, D>(
             builder,
             global_user_tree_realm_height,
             global_user_tree_height,
-            &verify_guta_proof_gadget.guta_proof_header_gadget
+            &verify_guta_proof_gadget.guta_proof_header_gadget,
         );
 
         tracing::debug!("📊 header_line_gadget.new_guta_header: {:?}", header_line_gadget.new_guta_header);
@@ -63,19 +60,13 @@ impl<const D: usize> VerifyGUTAProofToLineGadget<D> {
         proof: &ProofWithPublicInputs<F, C, D>,
         verifier_data: &VerifierOnlyCircuitData<C, D>,
         top_line_siblings: &[QHashOut<F>],
-    ) -> anyhow::Result<()> where
-    <C as GenericConfig<D>>::Hasher:AlgebraicHasher<F>, {
-        self.verify_guta_proof_gadget.set_witness(
-            witness,
-            guta_whitelist_merkle_proof,
-            guta_proof_header,
-            proof,
-            verifier_data
-        )?;
-        self.header_line_gadget.set_witness_params(
-            witness,
-            top_line_siblings
-        )
+    ) -> anyhow::Result<()>
+    where
+        <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
+    {
+        self.verify_guta_proof_gadget
+            .set_witness(witness, guta_whitelist_merkle_proof, guta_proof_header, proof, verifier_data)?;
+        self.header_line_gadget.set_witness_params(witness, top_line_siblings)
     }
     pub fn get_guta_header_line(&self) -> GlobalUserTreeAggregatorHeaderGadget {
         self.header_line_gadget.new_guta_header
@@ -83,7 +74,11 @@ impl<const D: usize> VerifyGUTAProofToLineGadget<D> {
 }
 
 impl<const D: usize> ToGUTAHeader<D> for VerifyGUTAProofToLineGadget<D> {
-    fn get_guta_header<H: AlgebraicHasher<F>, F: RichField + Extendable<D>>(&self, _builder: &mut CircuitBuilder<F, D>, _: HashOutTarget) -> GlobalUserTreeAggregatorHeaderGadget {
+    fn get_guta_header<H: AlgebraicHasher<F>, F: RichField + Extendable<D>>(
+        &self,
+        _builder: &mut CircuitBuilder<F, D>,
+        _: HashOutTarget,
+    ) -> GlobalUserTreeAggregatorHeaderGadget {
         self.get_guta_header_line()
     }
 }

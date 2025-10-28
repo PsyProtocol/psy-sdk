@@ -1,31 +1,27 @@
 use plonky2::hash::hash_types::RichField;
 use psy_core::data::qhashout::QHashOut;
 use psy_crypto::hash::merkle::core::MerkleProofCore;
-use crate::qdata::{
-    checkpoint::{QEDCheckpointLeaf, QEDL2BlockState},
-    contract::{ContractCodeDefinition, QEDContractLeaf},
-    user::QEDUserLeaf,
-};
-
-use crate::traits::qdatastore::qtreedata::QEDComboDataStoreReaderSync;
 
 use super::{
     cmd::{
-        QSRCmdGetCheckpointLeafData, QSRCmdGetContractCodeDefinition, QSRCmdGetContractLeafData,
-        QSRCmdGetL2BlockState, QSRCmdGetUserLeafData, QSRHashCmd, QSRMerkleCmd,
+        QSRCmdGetCheckpointLeafData, QSRCmdGetContractCodeDefinition, QSRCmdGetContractLeafData, QSRCmdGetL2BlockState, QSRCmdGetUserLeafData,
+        QSRHashCmd, QSRMerkleCmd,
     },
-    cmd_processor::{
-        QEDReadCommandBatchInput, QEDReadCommandBatchOutput, QEDReadCommandProcessorSync,
+    cmd_processor::{QEDReadCommandBatchInput, QEDReadCommandBatchOutput, QEDReadCommandProcessorSync},
+};
+use crate::{
+    qdata::{
+        checkpoint::{QEDCheckpointLeaf, QEDL2BlockState},
+        contract::{ContractCodeDefinition, QEDContractLeaf},
+        user::QEDUserLeaf,
     },
+    traits::qdatastore::qtreedata::QEDComboDataStoreReaderSync,
 };
 
 #[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
 #[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
 impl<F: RichField, R: QEDComboDataStoreReaderSync<F> + Sync> QEDReadCommandProcessorSync<F> for R {
-    async fn resolve_batch(
-        &self,
-        input: &QEDReadCommandBatchInput,
-    ) -> anyhow::Result<QEDReadCommandBatchOutput<F>> {
+    async fn resolve_batch(&self, input: &QEDReadCommandBatchInput) -> anyhow::Result<QEDReadCommandBatchOutput<F>> {
         let mut get_user_leaf = Vec::new();
         for x in &input.get_user_leaf {
             get_user_leaf.push(self.resolve_get_user_leaf(x).await?);
@@ -67,132 +63,72 @@ impl<F: RichField, R: QEDComboDataStoreReaderSync<F> + Sync> QEDReadCommandProce
 
     async fn resolve_get_hash(&self, input: &QSRHashCmd) -> anyhow::Result<QHashOut<F>> {
         match input {
-            QSRHashCmd::GetUserContractStateTreeRoot(c) => {
-                self.get_user_contract_tree_root(c.checkpoint_id, c.user_id).await
+            QSRHashCmd::GetUserContractStateTreeRoot(c) => self.get_user_contract_tree_root(c.checkpoint_id, c.user_id).await,
+            QSRHashCmd::GetUserContractStateTreeLeafHash(c) => {
+                self.get_user_contract_state_tree_leaf_hash(c.checkpoint_id, c.user_id, c.contract_id, c.height, c.leaf_id)
+                    .await
             }
-            QSRHashCmd::GetUserContractStateTreeLeafHash(c) => self
-                .get_user_contract_state_tree_leaf_hash(
-                    c.checkpoint_id,
-                    c.user_id,
-                    c.contract_id,
-                    c.height,
-                    c.leaf_id,
-                ).await,
-            QSRHashCmd::GetUserContractTreeRoot(c) => {
-                self.get_user_contract_tree_root(c.checkpoint_id, c.user_id).await
-            }
-            QSRHashCmd::GetUserContractTreeLeafHash(c) => {
-                self.get_user_contract_tree_leaf_hash(c.checkpoint_id, c.user_id, c.contract_id).await
-            }
+            QSRHashCmd::GetUserContractTreeRoot(c) => self.get_user_contract_tree_root(c.checkpoint_id, c.user_id).await,
+            QSRHashCmd::GetUserContractTreeLeafHash(c) => self.get_user_contract_tree_leaf_hash(c.checkpoint_id, c.user_id, c.contract_id).await,
             QSRHashCmd::GetUserTreeRoot(c) => self.get_user_tree_root(c.checkpoint_id).await,
-            QSRHashCmd::GetUserTreeLeafHash(c) => {
-                self.get_user_tree_leaf_hash(c.checkpoint_id, c.user_id).await
+            QSRHashCmd::GetUserTreeLeafHash(c) => self.get_user_tree_leaf_hash(c.checkpoint_id, c.user_id).await,
+            QSRHashCmd::GetContractFunctionTreeRoot(c) => self.get_contract_function_tree_root(c.checkpoint_id, c.contract_id).await,
+            QSRHashCmd::GetContractFunctionTreeLeafHash(c) => {
+                self.get_contract_function_tree_leaf_hash(c.checkpoint_id, c.contract_id, c.function_id)
+                    .await
             }
-            QSRHashCmd::GetContractFunctionTreeRoot(c) => {
-                self.get_contract_function_tree_root(c.checkpoint_id, c.contract_id).await
-            }
-            QSRHashCmd::GetContractFunctionTreeLeafHash(c) => self
-                .get_contract_function_tree_leaf_hash(
-                    c.checkpoint_id,
-                    c.contract_id,
-                    c.function_id,
-                ).await,
             QSRHashCmd::GetContractTreeRoot(c) => self.get_contract_tree_root(c.checkpoint_id).await,
-            QSRHashCmd::GetContractTreeLeafHash(c) => {
-                self.get_contract_tree_leaf_hash(c.checkpoint_id, c.contract_id).await
-            }
+            QSRHashCmd::GetContractTreeLeafHash(c) => self.get_contract_tree_leaf_hash(c.checkpoint_id, c.contract_id).await,
             QSRHashCmd::GetDepositTreeRoot(c) => self.get_deposit_tree_root(c.checkpoint_id).await,
-            QSRHashCmd::GetDepositTreeLeafHash(c) => {
-                self.get_deposit_tree_leaf_hash(c.checkpoint_id, c.deposit_id).await
-            }
+            QSRHashCmd::GetDepositTreeLeafHash(c) => self.get_deposit_tree_leaf_hash(c.checkpoint_id, c.deposit_id).await,
             QSRHashCmd::GetWithdrawalTreeRoot(c) => self.get_withdrawal_tree_root(c.checkpoint_id).await,
-            QSRHashCmd::GetWithdrawalTreeLeafHash(c) => {
-                self.get_withdrawal_tree_leaf_hash(c.checkpoint_id, c.withdrawal_id).await
-            }
+            QSRHashCmd::GetWithdrawalTreeLeafHash(c) => self.get_withdrawal_tree_leaf_hash(c.checkpoint_id, c.withdrawal_id).await,
             QSRHashCmd::GetCheckpointTreeRoot(c) => self.get_checkpoint_tree_root(c.checkpoint_id).await,
-            QSRHashCmd::GetCheckpointTreeLeafHash(c) => {
-                self.get_checkpoint_tree_leaf_hash(c.checkpoint_id, c.leaf_checkpoint_id).await
-            }
+            QSRHashCmd::GetCheckpointTreeLeafHash(c) => self.get_checkpoint_tree_leaf_hash(c.checkpoint_id, c.leaf_checkpoint_id).await,
             QSRHashCmd::GetUserRegistrationTreeRoot(c) => self.get_user_registration_tree_root(c.checkpoint_id).await,
             QSRHashCmd::GetUserRegistrationTreeLeafHash(c) => self.get_user_registration_tree_leaf_hash(c.checkpoint_id, c.leaf_index).await,
         }
     }
 
-    async fn resolve_get_merkle_proof(
-        &self,
-        input: &QSRMerkleCmd,
-    ) -> anyhow::Result<MerkleProofCore<QHashOut<F>>> {
+    async fn resolve_get_merkle_proof(&self, input: &QSRMerkleCmd) -> anyhow::Result<MerkleProofCore<QHashOut<F>>> {
         match input {
-            QSRMerkleCmd::GetUserContractStateTreeMerkleProof(c) => self
-                .get_user_contract_state_tree_merkle_proof(
-                    c.checkpoint_id,
-                    c.user_id,
-                    c.contract_id,
-                    c.height,
-                    c.leaf_id,
-                ).await,
+            QSRMerkleCmd::GetUserContractStateTreeMerkleProof(c) => {
+                self.get_user_contract_state_tree_merkle_proof(c.checkpoint_id, c.user_id, c.contract_id, c.height, c.leaf_id)
+                    .await
+            }
             QSRMerkleCmd::GetUserContractTreeMerkleProof(c) => {
                 self.get_user_contract_tree_merkle_proof(c.checkpoint_id, c.user_id, c.contract_id).await
             }
-            QSRMerkleCmd::GetUserTreeMerkleProof(c) => {
-                self.get_user_tree_merkle_proof(c.checkpoint_id, c.user_id).await
+            QSRMerkleCmd::GetUserTreeMerkleProof(c) => self.get_user_tree_merkle_proof(c.checkpoint_id, c.user_id).await,
+            QSRMerkleCmd::GetContractFunctionTreeMerkleProof(c) => {
+                self.get_contract_function_tree_merkle_proof(c.checkpoint_id, c.contract_id, c.function_id)
+                    .await
             }
-            QSRMerkleCmd::GetContractFunctionTreeMerkleProof(c) => self
-                .get_contract_function_tree_merkle_proof(
-                    c.checkpoint_id,
-                    c.contract_id,
-                    c.function_id,
-                ).await,
-            QSRMerkleCmd::GetContractTreeMerkleProof(c) => {
-                self.get_contract_tree_merkle_proof(c.checkpoint_id, c.contract_id).await
-            }
-            QSRMerkleCmd::GetDepositTreeMerkleProof(c) => {
-                self.get_deposit_tree_merkle_proof(c.checkpoint_id, c.deposit_id).await
-            }
-            QSRMerkleCmd::GetWithdrawalTreeMerkleProof(c) => {
-                self.get_withdrawal_tree_merkle_proof(c.checkpoint_id, c.withdrawal_id).await
-            }
-            QSRMerkleCmd::GetCheckpointTreeMerkleProof(c) => {
-                self.get_checkpoint_tree_merkle_proof(c.checkpoint_id, c.leaf_checkpoint_id).await
-            }
-            QSRMerkleCmd::GetUserRegistrationTreeMerkleProof(c) => {
-                self.get_user_registration_tree_merkle_proof(c.checkpoint_id, c.leaf_index).await
-            },
+            QSRMerkleCmd::GetContractTreeMerkleProof(c) => self.get_contract_tree_merkle_proof(c.checkpoint_id, c.contract_id).await,
+            QSRMerkleCmd::GetDepositTreeMerkleProof(c) => self.get_deposit_tree_merkle_proof(c.checkpoint_id, c.deposit_id).await,
+            QSRMerkleCmd::GetWithdrawalTreeMerkleProof(c) => self.get_withdrawal_tree_merkle_proof(c.checkpoint_id, c.withdrawal_id).await,
+            QSRMerkleCmd::GetCheckpointTreeMerkleProof(c) => self.get_checkpoint_tree_merkle_proof(c.checkpoint_id, c.leaf_checkpoint_id).await,
+            QSRMerkleCmd::GetUserRegistrationTreeMerkleProof(c) => self.get_user_registration_tree_merkle_proof(c.checkpoint_id, c.leaf_index).await,
         }
     }
 
-    async fn resolve_get_user_leaf(
-        &self,
-        input: &QSRCmdGetUserLeafData,
-    ) -> anyhow::Result<QEDUserLeaf<F>> {
+    async fn resolve_get_user_leaf(&self, input: &QSRCmdGetUserLeafData) -> anyhow::Result<QEDUserLeaf<F>> {
         self.get_user_leaf_data(input.checkpoint_id, input.user_id).await
     }
 
-    async fn resolve_get_contract_leaf(
-        &self,
-        input: &QSRCmdGetContractLeafData,
-    ) -> anyhow::Result<QEDContractLeaf<F>> {
+    async fn resolve_get_contract_leaf(&self, input: &QSRCmdGetContractLeafData) -> anyhow::Result<QEDContractLeaf<F>> {
         self.get_contract_leaf_data(input.contract_id).await
     }
 
-    async fn resolve_get_contract_code(
-        &self,
-        input: &QSRCmdGetContractCodeDefinition,
-    ) -> anyhow::Result<ContractCodeDefinition> {
+    async fn resolve_get_contract_code(&self, input: &QSRCmdGetContractCodeDefinition) -> anyhow::Result<ContractCodeDefinition> {
         self.get_contract_code_definition(input.contract_id).await
     }
 
-    async  fn resolve_get_checkpoint_leaf(
-        &self,
-        input: &QSRCmdGetCheckpointLeafData,
-    ) -> anyhow::Result<QEDCheckpointLeaf<F>> {
+    async fn resolve_get_checkpoint_leaf(&self, input: &QSRCmdGetCheckpointLeafData) -> anyhow::Result<QEDCheckpointLeaf<F>> {
         self.get_checkpoint_leaf_data(input.checkpoint_id).await
     }
 
-    async fn resolve_get_l2_block_state(
-        &self,
-        input: &QSRCmdGetL2BlockState,
-    ) -> anyhow::Result<QEDL2BlockState> {
+    async fn resolve_get_l2_block_state(&self, input: &QSRCmdGetL2BlockState) -> anyhow::Result<QEDL2BlockState> {
         self.get_l2_block_state(input.checkpoint_id).await
     }
 

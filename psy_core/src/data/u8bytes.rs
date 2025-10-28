@@ -1,9 +1,10 @@
+use std::fmt::Display;
+
 use hex::FromHexError;
 use rand::RngCore;
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 use ts_rs::TS;
-use std::fmt::Display;
 
 #[serde_as]
 #[derive(Serialize, Deserialize, PartialEq, Clone, Copy, Eq, PartialOrd, Ord, Debug, Hash)]
@@ -20,7 +21,7 @@ impl<const N: usize> Display for U8BytesFixed<N> {
 pub struct U8Bytes(
     #[serde_as(as = "serde_with::hex::Hex")]
     #[ts(as = "String")]
-    pub Vec<u8>
+    pub Vec<u8>,
 );
 
 impl U8Bytes {

@@ -1,23 +1,27 @@
-use std::sync::{
-    atomic::{AtomicUsize, Ordering},
-    Arc,
+use std::{
+    sync::{
+        atomic::{AtomicUsize, Ordering},
+        Arc,
+    },
+    time::{Duration, SystemTime, UNIX_EPOCH},
 };
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use anyhow::{anyhow, Result};
 use bb8::Pool;
 use bb8_redis::RedisConnectionManager;
 use chrono::{DateTime, Utc};
 use psy_core::job::id::QProvingJobDataID;
-use psy_store::node::coordinator::QEDCoordinatorStoreReaderAsync;
-use psy_store::node::realm::QEDRealmStoreReaderAsync;
-use psy_store::queue::task_queue::QProvingTaskStoreImpl;
-use psy_store::queue::{new_redis_async_pool, QueueId, RsmqQueue};
-use psy_store::store::QEDStore;
+use psy_store::{
+    node::{coordinator::QEDCoordinatorStoreReaderAsync, realm::QEDRealmStoreReaderAsync},
+    queue::{new_redis_async_pool, task_queue::QProvingTaskStoreImpl, QueueId, RsmqQueue},
+    store::QEDStore,
+};
 use redis::AsyncCommands;
 use rsmq::RsmqMessage;
-use tokio::sync::Semaphore;
-use tokio::time::{interval, timeout};
+use tokio::{
+    sync::Semaphore,
+    time::{interval, timeout},
+};
 use tracing::{debug, error, info, warn};
 
 use crate::watcher::{
@@ -87,15 +91,10 @@ impl WatcherService {
             &queue_name,
         ));
 
-        let rsmq_queue_id = QueueId::WatcherEvent {
-            queue_biz_key: queue_name,
-        };
+        let rsmq_queue_id = QueueId::WatcherEvent { queue_biz_key: queue_name };
         rsmq_queue.create_queue_if_not_exists(&rsmq_queue_id).await?;
 
-        let realm_id = config.node_type
-            .eq(&NodeType::Realm)
-            .then(|| config.node_id.parse())
-            .transpose()?;
+        let realm_id = config.node_type.eq(&NodeType::Realm).then(|| config.node_id.parse()).transpose()?;
 
         let api_client = Arc::new(ApiClient::new(
             config.api_endpoint.clone(),
@@ -114,9 +113,7 @@ impl WatcherService {
             Err(e) => warn!("Failed to fetch initial block height: {}. Continuing with height 0", e),
         }
 
-        let task_manager = Arc::new(
-            ScheduledTaskManager::new(redis_pool.clone(), config.node_id.clone()).await?,
-        );
+        let task_manager = Arc::new(ScheduledTaskManager::new(redis_pool.clone(), config.node_id.clone()).await?);
 
         Ok(Self {
             node_info,
@@ -197,10 +194,7 @@ impl WatcherService {
 
     async fn receive_next_message(&self) -> Result<Option<RsmqMessage<Vec<u8>>>> {
         self.rsmq_queue
-            .receive_message_with_id(
-                &self.rsmq_queue_id,
-                Some(MAX_SINGLE_MESSAGE_PROCESSING_TIME_SECS)
-            )
+            .receive_message_with_id(&self.rsmq_queue_id, Some(MAX_SINGLE_MESSAGE_PROCESSING_TIME_SECS))
             .await
     }
 
@@ -267,13 +261,7 @@ impl WatcherService {
         self.clear_redis_key(&format!("watcher:msg_attempts:{}", msg_id)).await;
     }
 
-    async fn handle_processing_failure(
-        &self,
-        msg_id: &str,
-        message: &WatcherMessage,
-        attempts: u32,
-        error: anyhow::Error,
-    ) {
+    async fn handle_processing_failure(&self, msg_id: &str, message: &WatcherMessage, attempts: u32, error: anyhow::Error) {
         let attempt_count = attempts + 1;
         error!("Failed to process message {} (attempt {}): {}", msg_id, attempt_count, error);
 
@@ -286,11 +274,7 @@ impl WatcherService {
     }
 
     async fn send_to_dead_letter_queue(&self, msg_id: &str, message: &WatcherMessage, error: anyhow::Error) {
-        warn!(
-            "Message {} failed {} times, moving to dead letter queue",
-            msg_id,
-            MAX_RETRY_ATTEMPTS
-        );
+        warn!("Message {} failed {} times, moving to dead letter queue", msg_id, MAX_RETRY_ATTEMPTS);
 
         self.move_to_dead_letter_queue(msg_id, message.clone(), error.to_string()).await;
         self.clear_redis_key(&format!("watcher:msg_attempts:{}", msg_id)).await;
@@ -342,33 +326,21 @@ impl WatcherService {
     async fn handle_backup_proof(&self, event: &crate::watcher::events::BackupProofEvent) -> Result<()> {
         info!("Processing proof backup: {:?}", event.job_id);
 
-        self.report_with_retry(
-            || self.api_client.send_proof_backup(event.clone()),
-            3,
-            Duration::from_secs(1),
-        ).await?;
+        self.report_with_retry(|| self.api_client.send_proof_backup(event.clone()), 3, Duration::from_secs(1))
+            .await?;
 
-        self.schedule_deletion(
-            event.job_id.clone(),
-            TaskType::DeleteProof,
-            event.delete_after_blocks,
-        ).await
+        self.schedule_deletion(event.job_id.clone(), TaskType::DeleteProof, event.delete_after_blocks)
+            .await
     }
 
     async fn handle_backup_witness(&self, event: &crate::watcher::events::BackupWitnessEvent) -> Result<()> {
         info!("Processing witness backup: {:?}", event.job_id);
 
-        self.report_with_retry(
-            || self.api_client.send_witness_backup(event.clone()),
-            3,
-            Duration::from_secs(1),
-        ).await?;
+        self.report_with_retry(|| self.api_client.send_witness_backup(event.clone()), 3, Duration::from_secs(1))
+            .await?;
 
-        self.schedule_deletion(
-            event.job_id.clone(),
-            TaskType::DeleteWitness,
-            event.delete_after_blocks,
-        ).await
+        self.schedule_deletion(event.job_id.clone(), TaskType::DeleteWitness, event.delete_after_blocks)
+            .await
     }
 
     async fn monitor_scheduled_tasks(self: Arc<Self>) -> Result<()> {
@@ -524,12 +496,8 @@ impl WatcherService {
 
     async fn fetch_block_height_from_db(&self) -> Result<u64> {
         let block_state = match self.config.node_type {
-            NodeType::Coordinator => {
-                QEDCoordinatorStoreReaderAsync::get_latest_l2_block_state(&self.psy_store).await?
-            }
-            NodeType::Realm => {
-                QEDRealmStoreReaderAsync::get_latest_l2_block_state(&self.psy_store).await?
-            }
+            NodeType::Coordinator => QEDCoordinatorStoreReaderAsync::get_latest_l2_block_state(&self.psy_store).await?,
+            NodeType::Realm => QEDRealmStoreReaderAsync::get_latest_l2_block_state(&self.psy_store).await?,
         };
 
         Ok(block_state.checkpoint_id)
@@ -558,7 +526,6 @@ impl WatcherService {
 
         let _: Result<i32, redis::RedisError> = conn.del(key).await;
     }
-
 
     async fn delete_redis_key(&self, key: &str) -> Result<()> {
         let deleted: i32 = self.redis_pool.get().await?.del(key).await?;
@@ -617,30 +584,19 @@ impl WatcherService {
 }
 
 async fn fetch_initial_block_height(node_type: &NodeType, store: &QEDStore) -> Result<u64> {
-
     let block_state = match node_type {
-        NodeType::Coordinator => {
-            QEDCoordinatorStoreReaderAsync::get_latest_l2_block_state(store).await?
-        }
-        NodeType::Realm => {
-            QEDRealmStoreReaderAsync::get_latest_l2_block_state(store).await?
-        }
+        NodeType::Coordinator => QEDCoordinatorStoreReaderAsync::get_latest_l2_block_state(store).await?,
+        NodeType::Realm => QEDRealmStoreReaderAsync::get_latest_l2_block_state(store).await?,
     };
 
     Ok(block_state.checkpoint_id)
 }
 
 pub fn current_timestamp() -> u64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap()
-        .as_secs()
+    SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs()
 }
 pub fn current_timestamp_mills() -> u64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap()
-        .as_millis() as u64
+    SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis() as u64
 }
 
 pub fn current_datetime() -> DateTime<Utc> {

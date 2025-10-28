@@ -2,6 +2,7 @@ use std::{fmt::Debug, marker::PhantomData};
 
 use psy_core::utils::math::ceil_div_usize;
 
+use super::common::SimpleMerkleNodeKey;
 use crate::hash::{
     merkle::{
         core::{DeltaMerkleProofCore, MerkleProofCore},
@@ -9,8 +10,6 @@ use crate::hash::{
     },
     traits::hasher::MerkleZeroHasher,
 };
-
-use super::common::SimpleMerkleNodeKey;
 
 #[derive(Debug, Clone)]
 pub struct SimpleMerkleTree<Hasher, Hash: Copy + PartialEq + Default> {
@@ -20,16 +19,12 @@ pub struct SimpleMerkleTree<Hasher, Hash: Copy + PartialEq + Default> {
     _hasher: PhantomData<Hasher>,
 }
 
-impl<Hasher: MerkleZeroHasher<Hash>, Hash: Copy + PartialEq + Default + Debug>
-    SimpleMerkleTree<Hasher, Hash>
-{
+impl<Hasher: MerkleZeroHasher<Hash>, Hash: Copy + PartialEq + Default + Debug> SimpleMerkleTree<Hasher, Hash> {
     pub fn new(height: u8) -> Self {
         Self {
             nodes: hashbrown::HashMap::new(),
             height,
-            zero_value_hashes: (0..(height + 1))
-                .map(|h| Hasher::get_zero_hash((height - h) as usize))
-                .collect(),
+            zero_value_hashes: (0..(height + 1)).map(|h| Hasher::get_zero_hash((height - h) as usize)).collect(),
             _hasher: PhantomData::default(),
         }
     }
@@ -50,10 +45,7 @@ impl<Hasher: MerkleZeroHasher<Hash>, Hash: Copy + PartialEq + Default + Debug>
         if self.nodes.contains_key(key) {
             self.nodes[key]
         } else {
-            assert!(
-                self.height >= key.level,
-                "requested node value of invalid key level for this tree"
-            );
+            assert!(self.height >= key.level, "requested node value of invalid key level for this tree");
             Hasher::get_zero_hash((self.height - key.level) as usize)
         }
     }
@@ -108,10 +100,7 @@ impl<Hasher: MerkleZeroHasher<Hash>, Hash: Copy + PartialEq + Default + Debug>
         }
     }
     pub fn find_next_append_index(&self) -> anyhow::Result<u64> {
-        if self
-            .get_root()
-            .eq(&Hasher::get_zero_hash(self.height as usize))
-        {
+        if self.get_root().eq(&Hasher::get_zero_hash(self.height as usize)) {
             return Ok(0);
         } else if self.height == 0 {
             anyhow::bail!("tree is full");
@@ -159,11 +148,7 @@ impl<Hasher: MerkleZeroHasher<Hash>, Hash: Copy + PartialEq + Default + Debug>
         }
     }
 
-    pub fn rehash_sub_tree_dmp(
-        &mut self,
-        sub_tree_height: u8,
-        sub_tree_index: u64,
-    ) -> DeltaMerkleProofCore<Hash> {
+    pub fn rehash_sub_tree_dmp(&mut self, sub_tree_height: u8, sub_tree_index: u64) -> DeltaMerkleProofCore<Hash> {
         let sub_tree_root_level = self.height - sub_tree_height;
         let sub_root_node = SimpleMerkleNodeKey::new(sub_tree_root_level, sub_tree_index);
         let old_sub_tree_root = self.get_node_value(&sub_root_node);
@@ -174,11 +159,7 @@ impl<Hasher: MerkleZeroHasher<Hash>, Hash: Copy + PartialEq + Default + Debug>
         let new_sub_tree_root = self.get_node_value(&sub_root_node);
         let new_tree_root = self.get_root();
 
-        let siblings = sub_root_node
-            .siblings()
-            .iter()
-            .map(|x| self.get_node_value(x))
-            .collect::<Vec<_>>();
+        let siblings = sub_root_node.siblings().iter().map(|x| self.get_node_value(x)).collect::<Vec<_>>();
 
         DeltaMerkleProofCore {
             old_root: old_tree_root,
@@ -204,23 +185,16 @@ impl<Hasher: MerkleZeroHasher<Hash>, Hash: Copy + PartialEq + Default + Debug>
 
         let sub_tree_root_level = self.height - sub_tree_height;
 
-        let mut child_base_key = SimpleMerkleNodeKey::new(
-            self.height,
-            (sub_tree_index) * (1u64 << (sub_tree_height as u64)),
-        );
+        let mut child_base_key = SimpleMerkleNodeKey::new(self.height, (sub_tree_index) * (1u64 << (sub_tree_height as u64)));
 
         let mut nodes_at_current_level = 1usize << (sub_tree_height - 1);
 
         let mut child_values = Vec::with_capacity(nodes_at_current_level);
 
         for i in 0..(nodes_at_current_level as u64) {
-            let left_key =
-                SimpleMerkleNodeKey::new(child_base_key.level, i * 2 + child_base_key.index);
+            let left_key = SimpleMerkleNodeKey::new(child_base_key.level, i * 2 + child_base_key.index);
 
-            let v = Hasher::two_to_one(
-                &self.get_node_value(&left_key),
-                &self.get_node_value(&left_key.sibling()),
-            );
+            let v = Hasher::two_to_one(&self.get_node_value(&left_key), &self.get_node_value(&left_key.sibling()));
 
             self.set_node_value(left_key.parent(), v);
             child_values.push(v);
@@ -231,12 +205,8 @@ impl<Hasher: MerkleZeroHasher<Hash>, Hash: Copy + PartialEq + Default + Debug>
         while child_base_key.level > sub_tree_root_level {
             let mut parent_values = Vec::with_capacity(nodes_at_current_level as usize);
             for i in 0..nodes_at_current_level {
-                let parent_key = SimpleMerkleNodeKey::new(
-                    child_base_key.level - 1,
-                    i as u64 + (child_base_key.index >> 1u64),
-                );
-                let parent_value =
-                    Hasher::two_to_one(&child_values[i * 2], &child_values[i * 2 + 1]);
+                let parent_key = SimpleMerkleNodeKey::new(child_base_key.level - 1, i as u64 + (child_base_key.index >> 1u64));
+                let parent_value = Hasher::two_to_one(&child_values[i * 2], &child_values[i * 2 + 1]);
 
                 self.set_node_value(parent_key, parent_value);
                 parent_values.push(parent_value);
@@ -251,33 +221,19 @@ impl<Hasher: MerkleZeroHasher<Hash>, Hash: Copy + PartialEq + Default + Debug>
         child_values[0]
     }
 
-    pub fn update_sub_tree(
-        &mut self,
-        sub_tree_height: u8,
-        sub_tree_index: u64,
-        sub_tree_offset_index: u64,
-        values: &[Hash],
-    ) -> anyhow::Result<Hash> {
+    pub fn update_sub_tree(&mut self, sub_tree_height: u8, sub_tree_index: u64, sub_tree_offset_index: u64, values: &[Hash]) -> anyhow::Result<Hash> {
         let leaves_per_sub_tree = 1u64 << (sub_tree_height as u64);
         if (sub_tree_offset_index + (values.len() as u64)) >= leaves_per_sub_tree {
             anyhow::bail!("cannot set more values in a sub tree than it can contain");
         }
         let offset_index = leaves_per_sub_tree * sub_tree_index + sub_tree_offset_index;
         for (i, v) in values.iter().enumerate() {
-            self.set_node_value(
-                SimpleMerkleNodeKey::new(self.height, offset_index + i as u64),
-                *v,
-            );
+            self.set_node_value(SimpleMerkleNodeKey::new(self.height, offset_index + i as u64), *v);
         }
         Ok(self.rehash_sub_tree(sub_tree_height, sub_tree_index))
     }
 
-    fn _set_sub_tree(
-        &mut self,
-        sub_tree_height: u8,
-        sub_tree_index: u64,
-        leaves: &[Hash],
-    ) -> anyhow::Result<()> {
+    fn _set_sub_tree(&mut self, sub_tree_height: u8, sub_tree_index: u64, leaves: &[Hash]) -> anyhow::Result<()> {
         if leaves.len() == 0 {}
 
         if leaves.len() > (1usize << (sub_tree_height)) {
@@ -291,21 +247,13 @@ impl<Hasher: MerkleZeroHasher<Hash>, Hash: Copy + PartialEq + Default + Debug>
 
         let offset_index = (1u64 << sub_tree_height) * sub_tree_index;
         for (i, v) in leaves.iter().enumerate() {
-            self.set_node_value(
-                SimpleMerkleNodeKey::new(self.height, offset_index + i as u64),
-                *v,
-            );
+            self.set_node_value(SimpleMerkleNodeKey::new(self.height, offset_index + i as u64), *v);
         }
         self.rehash_sub_tree(sub_tree_height, sub_tree_index);
 
         Ok(())
     }
-    fn _set_sub_tree_dmp(
-        &mut self,
-        sub_tree_height: u8,
-        sub_tree_index: u64,
-        leaves: &[Hash],
-    ) -> anyhow::Result<DeltaMerkleProofCore<Hash>> {
+    fn _set_sub_tree_dmp(&mut self, sub_tree_height: u8, sub_tree_index: u64, leaves: &[Hash]) -> anyhow::Result<DeltaMerkleProofCore<Hash>> {
         if leaves.len() == 0 {
             anyhow::bail!("cannot set a sub tree of 0 length");
         }
@@ -320,16 +268,13 @@ impl<Hasher: MerkleZeroHasher<Hash>, Hash: Copy + PartialEq + Default + Debug>
 
         let offset_index = (1u64 << sub_tree_height) * sub_tree_index;
         for (i, v) in leaves.iter().enumerate() {
-            self.set_node_value(
-                SimpleMerkleNodeKey::new(self.height, offset_index + i as u64),
-                *v,
-            );
+            self.set_node_value(SimpleMerkleNodeKey::new(self.height, offset_index + i as u64), *v);
         }
-        
+
         Ok(self.rehash_sub_tree_dmp(sub_tree_height, sub_tree_index))
     }
 
-    /* 
+    /*
 
     // slower version of spiderman append:
     pub fn append_leaves_spider_man2(
@@ -395,11 +340,7 @@ impl<Hasher: MerkleZeroHasher<Hash>, Hash: Copy + PartialEq + Default + Debug>
         Ok(results)
     }*/
 
-    pub fn append_leaves_spider_man(
-        &mut self,
-        sub_tree_height: u8,
-        leaves: &[Hash],
-    ) -> anyhow::Result<Vec<SpidermanUpdateProof<Hash>>> {
+    pub fn append_leaves_spider_man(&mut self, sub_tree_height: u8, leaves: &[Hash]) -> anyhow::Result<Vec<SpidermanUpdateProof<Hash>>> {
         let leaves_per_subtree = 1usize << sub_tree_height;
         let max_leaves = 1u64 << self.height;
         let append_index = self.find_next_append_index()?;
@@ -407,12 +348,9 @@ impl<Hasher: MerkleZeroHasher<Hash>, Hash: Copy + PartialEq + Default + Debug>
             anyhow::bail!("tree cannot fit an additional {} leaves", leaves.len());
         }
         let cur_sub_tree_id = append_index / (leaves_per_subtree as u64);
-        let cur_sub_tree_leaf_index =
-            ((append_index as u64) & ((leaves_per_subtree as u64) - 1u64)) as u64;
+        let cur_sub_tree_leaf_index = ((append_index as u64) & ((leaves_per_subtree as u64) - 1u64)) as u64;
 
-        let subtree_count =
-            ceil_div_usize((append_index as usize) + leaves.len(), leaves_per_subtree)
-                - (cur_sub_tree_id as usize);
+        let subtree_count = ceil_div_usize((append_index as usize) + leaves.len(), leaves_per_subtree) - (cur_sub_tree_id as usize);
 
         let mut results = Vec::with_capacity(subtree_count);
         if subtree_count == 0 {
@@ -446,10 +384,7 @@ impl<Hasher: MerkleZeroHasher<Hash>, Hash: Copy + PartialEq + Default + Debug>
         }
 
         for (i, l) in leaves[0..leaves_used.min(leaves.len())].iter().enumerate() {
-            self.set_node_value(
-                SimpleMerkleNodeKey::new(self.height, i as u64 + start_added_index),
-                *l,
-            );
+            self.set_node_value(SimpleMerkleNodeKey::new(self.height, i as u64 + start_added_index), *l);
         }
         let dmp = self.rehash_sub_tree_dmp(sub_tree_height, cur_sub_tree_id);
 
@@ -461,24 +396,18 @@ impl<Hasher: MerkleZeroHasher<Hash>, Hash: Copy + PartialEq + Default + Debug>
 
         if subtree_count > 2 {
             let ll = leaves_used;
-            let old_leaves = (0..leaves_per_subtree)
-                .map(|_| zero_hash)
-                .collect::<Vec<_>>();
+            let old_leaves = (0..leaves_per_subtree).map(|_| zero_hash).collect::<Vec<_>>();
 
             for t in 0..(subtree_count - 3) {
                 let base_ind = ll + t * leaves_per_subtree;
                 let new_leaves = leaves[base_ind..(base_ind + leaves_per_subtree)].to_vec();
                 let bb1 = (cur_sub_tree_id as usize + t + 1) * leaves_per_subtree;
                 for (i, l) in new_leaves.iter().enumerate() {
-                    self.set_node_value(
-                        SimpleMerkleNodeKey::new(self.height, (bb1 + i) as u64),
-                        *l,
-                    );
+                    self.set_node_value(SimpleMerkleNodeKey::new(self.height, (bb1 + i) as u64), *l);
                 }
 
                 results.push(SpidermanUpdateProof {
-                    top_line_proof: self
-                        .rehash_sub_tree_dmp(sub_tree_height, 1 + cur_sub_tree_id + t as u64),
+                    top_line_proof: self.rehash_sub_tree_dmp(sub_tree_height, 1 + cur_sub_tree_id + t as u64),
                     web_proof_old_leaves: old_leaves.clone(),
                     web_proof_new_leaves: new_leaves,
                 });
@@ -486,20 +415,16 @@ impl<Hasher: MerkleZeroHasher<Hash>, Hash: Copy + PartialEq + Default + Debug>
 
             // OPT: don't waste the old_leaves.clone()
 
-            let t = (subtree_count as usize)-3;
+            let t = (subtree_count as usize) - 3;
             let base_ind = ll + t * leaves_per_subtree;
             let new_leaves = leaves[base_ind..(base_ind + leaves_per_subtree)].to_vec();
             let bb1 = (cur_sub_tree_id as usize + t + 1) * leaves_per_subtree;
             for (i, l) in new_leaves.iter().enumerate() {
-                self.set_node_value(
-                    SimpleMerkleNodeKey::new(self.height, (bb1 + i) as u64),
-                    *l,
-                );
+                self.set_node_value(SimpleMerkleNodeKey::new(self.height, (bb1 + i) as u64), *l);
             }
 
             results.push(SpidermanUpdateProof {
-                top_line_proof: self
-                    .rehash_sub_tree_dmp(sub_tree_height, 1 + cur_sub_tree_id + t as u64),
+                top_line_proof: self.rehash_sub_tree_dmp(sub_tree_height, 1 + cur_sub_tree_id + t as u64),
                 web_proof_old_leaves: old_leaves,
                 web_proof_new_leaves: new_leaves,
             });
@@ -510,9 +435,7 @@ impl<Hasher: MerkleZeroHasher<Hash>, Hash: Copy + PartialEq + Default + Debug>
         if subtree_count > 1 {
             let zero_hash = Hasher::get_zero_hash(0);
 
-            let old_leaves = (0..leaves_per_subtree)
-                .map(|_| zero_hash)
-                .collect::<Vec<_>>();
+            let old_leaves = (0..leaves_per_subtree).map(|_| zero_hash).collect::<Vec<_>>();
 
             let mut new_leaves = Vec::with_capacity(leaves_per_subtree);
             new_leaves.extend_from_slice(&leaves[leaves_used..]);
@@ -522,12 +445,8 @@ impl<Hasher: MerkleZeroHasher<Hash>, Hash: Copy + PartialEq + Default + Debug>
             }
             let bb1 = ((cur_sub_tree_id as usize + subtree_count - 1) * leaves_per_subtree) as u64;
 
-            
             for (i, l) in leaves[leaves_used..].iter().enumerate() {
-                self.set_node_value(
-                    SimpleMerkleNodeKey::new(self.height, bb1+i as u64),
-                    *l,
-                );
+                self.set_node_value(SimpleMerkleNodeKey::new(self.height, bb1 + i as u64), *l);
             }
 
             /*
@@ -535,10 +454,7 @@ impl<Hasher: MerkleZeroHasher<Hash>, Hash: Copy + PartialEq + Default + Debug>
             for (i, l) in new_leaves.iter().enumerate() {
                 self.set_node_value(SimpleMerkleNodeKey::new(self.height, bb1 + i as u64), *l);
             }*/
-            let top_line_proof = self.rehash_sub_tree_dmp(
-                sub_tree_height,
-                cur_sub_tree_id + (subtree_count - 1) as u64,
-            );
+            let top_line_proof = self.rehash_sub_tree_dmp(sub_tree_height, cur_sub_tree_id + (subtree_count - 1) as u64);
             results.push(SpidermanUpdateProof {
                 top_line_proof: top_line_proof,
                 web_proof_old_leaves: old_leaves.clone(),
@@ -579,11 +495,7 @@ impl<Hasher: MerkleZeroHasher<Hash>, Hash: Copy + PartialEq + Default + Debug>
             index: index,
         }
     }
-    pub fn get_subtree_merkle_proof(
-        &self,
-        root_level: u8,
-        subtree_leaf_node: SimpleMerkleNodeKey,
-    ) -> MerkleProofCore<Hash> {
+    pub fn get_subtree_merkle_proof(&self, root_level: u8, subtree_leaf_node: SimpleMerkleNodeKey) -> MerkleProofCore<Hash> {
         if root_level > subtree_leaf_node.level {
             panic!("root_level > leaf node level");
         }
@@ -618,32 +530,27 @@ impl<Hasher: MerkleZeroHasher<Hash>, Hash: Copy + PartialEq + Default + Debug>
         }
     }
 
-    pub fn get_leaf_in_subtree(
-        &self,
-        root_level: u8,
-        leaf_level: u8,
-        leaf_index: u64,
-    ) -> MerkleProofCore<Hash> {
+    pub fn get_leaf_in_subtree(&self, root_level: u8, leaf_level: u8, leaf_index: u64) -> MerkleProofCore<Hash> {
         self.get_subtree_merkle_proof(root_level, SimpleMerkleNodeKey::new(leaf_level, leaf_index))
     }
 
-    pub fn gen_fast_tree_inclusion_proofs(
-        height: u8,
-        leaves: &[Hash],
-    ) -> anyhow::Result<Vec<MerkleProofCore<Hash>>> {
+    pub fn gen_fast_tree_inclusion_proofs(height: u8, leaves: &[Hash]) -> anyhow::Result<Vec<MerkleProofCore<Hash>>> {
         let max_leaves = (1u64 << (height as u64)) as usize;
         let leaves_count = leaves.len();
         if leaves_count > max_leaves {
-            anyhow::bail!("too many leaves for a tree of height {} (tried to add {} leaves, but max is {} leaves for this height)", height, leaves_count, max_leaves);
+            anyhow::bail!(
+                "too many leaves for a tree of height {} (tried to add {} leaves, but max is {} leaves for this height)",
+                height,
+                leaves_count,
+                max_leaves
+            );
         } else {
             let mut tmp_tree = Self::new(height);
             for i in 0..leaves_count {
                 tmp_tree.set_leaf(i as u64, leaves[i]);
             }
 
-            let inclusion_proofs = (0..leaves_count)
-                .map(|i| tmp_tree.get_leaf(i as u64))
-                .collect::<Vec<_>>();
+            let inclusion_proofs = (0..leaves_count).map(|i| tmp_tree.get_leaf(i as u64)).collect::<Vec<_>>();
 
             Ok(inclusion_proofs)
         }
@@ -655,12 +562,8 @@ mod tests {
     use plonky2::field::goldilocks_field::GoldilocksField;
     use psy_core::data::qhashout::QHashOut;
 
-    use crate::hash::{
-        merkle::utils::common::SimpleMerkleNodeKey,
-        traits::hasher::PoseidonHasher,
-    };
-
     use super::SimpleMerkleTree;
+    use crate::hash::{merkle::utils::common::SimpleMerkleNodeKey, traits::hasher::PoseidonHasher};
 
     #[test]
     fn test_merkle_tree_poseidon() {
@@ -676,17 +579,11 @@ mod tests {
         ];
 
         let dmp_0 = simple_tree.set_leaf(1, QHashOut::from_values(1, 2, 3, 4));
-        assert!(
-            dmp_0.verify::<Hasher>(),
-            "error verifying delta merkle proof in simple_tree"
-        );
+        assert!(dmp_0.verify::<Hasher>(), "error verifying delta merkle proof in simple_tree");
 
         for (index, value) in values {
             let dmp = simple_tree.set_leaf(index, value);
-            assert!(
-                dmp.verify::<Hasher>(),
-                "error verifying delta merkle proof in simple_tree"
-            );
+            assert!(dmp.verify::<Hasher>(), "error verifying delta merkle proof in simple_tree");
         }
         for (index, value) in values {
             let mp = simple_tree.get_leaf(index);
@@ -708,17 +605,11 @@ mod tests {
         ];
 
         let dmp_0 = simple_tree.set_leaf(1, QHashOut::from_values(1, 2, 3, 4));
-        assert!(
-            dmp_0.verify::<Hasher>(),
-            "error verifying delta merkle proof in simple_tree"
-        );
+        assert!(dmp_0.verify::<Hasher>(), "error verifying delta merkle proof in simple_tree");
 
         for (index, value) in values {
             let dmp = simple_tree.set_leaf(index, value);
-            assert!(
-                dmp.verify::<Hasher>(),
-                "error verifying delta merkle proof in simple_tree"
-            );
+            assert!(dmp.verify::<Hasher>(), "error verifying delta merkle proof in simple_tree");
         }
         for (index, value) in values {
             let mp = simple_tree.get_leaf(index);
@@ -733,9 +624,7 @@ mod tests {
         let mut tree_a = SimpleMerkleTree::<H, QHashOut<F>>::new(12);
         let mut tree_b = SimpleMerkleTree::<H, QHashOut<F>>::new(12);
 
-        let leaves_batch = (0..16)
-            .map(|i| QHashOut::from_values(i, 1337, 0, 1))
-            .collect::<Vec<_>>();
+        let leaves_batch = (0..16).map(|i| QHashOut::from_values(i, 1337, 0, 1)).collect::<Vec<_>>();
         for (i, l) in leaves_batch.iter().enumerate() {
             tree_a.set_leaf(i as u64, *l);
             tree_b.set_node_value(SimpleMerkleNodeKey::new(tree_b.height, i as u64), *l);
@@ -748,17 +637,14 @@ mod tests {
     }
 
     fn test_append_spiderman_simple(top_line_height: usize, web_tree_height: usize, append_leaf_ct: usize, start_index: usize) {
-        
-        let total_height = top_line_height+web_tree_height;
+        let total_height = top_line_height + web_tree_height;
 
         let mut tree = SimpleMerkleTree::<PoseidonHasher, QHashOut<GoldilocksField>>::new(total_height as u8);
 
-        for i in 0..start_index{
+        for i in 0..start_index {
             tree.set_leaf(i as u64, QHashOut::rand());
         }
-        let test_leaves = (0..append_leaf_ct).map(|_|{
-            QHashOut::rand()
-        }).collect::<Vec<_>>();
+        let test_leaves = (0..append_leaf_ct).map(|_| QHashOut::rand()).collect::<Vec<_>>();
 
         let spiderman_proofs = tree.append_leaves_spider_man(web_tree_height as u8, &test_leaves).unwrap();
         for p in spiderman_proofs.iter() {

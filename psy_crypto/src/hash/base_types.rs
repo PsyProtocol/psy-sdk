@@ -2,7 +2,6 @@ use psy_core::data::base_types::{hash160::Hash160, hash192::Hash192, hash256::Ha
 
 use super::merkle::core::{DeltaMerkleProofCore, MerkleProofCore};
 
-
 pub type MerkleProof160 = MerkleProofCore<Hash160>;
 pub type DeltaMerkleProof160 = DeltaMerkleProofCore<Hash160>;
 pub type MerkleProof192 = MerkleProofCore<Hash192>;

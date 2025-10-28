@@ -1,14 +1,18 @@
-use plonky2::field::extension::Extendable;
-use plonky2::field::types::PrimeField64;
-use plonky2::hash::hash_types::{HashOutTarget, RichField};
-use plonky2::iop::target::{BoolTarget, Target};
-use plonky2::iop::witness::Witness;
-use plonky2::plonk::circuit_builder::CircuitBuilder;
-
-use crate::traits::{ConnectableTarget, CreatableTarget, SwappableTarget, ToTargets};
-use crate::u32::arithmetic_u32::U32Target;
+use plonky2::{
+    field::{extension::Extendable, types::PrimeField64},
+    hash::hash_types::{HashOutTarget, RichField},
+    iop::{
+        target::{BoolTarget, Target},
+        witness::Witness,
+    },
+    plonk::circuit_builder::CircuitBuilder,
+};
 
 use super::hash256::Hash256Target;
+use crate::{
+    traits::{ConnectableTarget, CreatableTarget, SwappableTarget, ToTargets},
+    u32::arithmetic_u32::U32Target,
+};
 
 pub type Hash256BytesTarget = [Target; 32];
 
@@ -18,10 +22,7 @@ impl ToTargets for Hash256BytesTarget {
     }
 }
 
-pub fn read_hash256_bytes_target_from_array(
-    targets: &[Target],
-    offset: usize,
-) -> Hash256BytesTarget {
+pub fn read_hash256_bytes_target_from_array(targets: &[Target], offset: usize) -> Hash256BytesTarget {
     assert!(targets.len() >= offset + 32);
     core::array::from_fn(|i| targets[offset + i])
 }
@@ -43,18 +44,8 @@ impl<T: Witness<F>, F: PrimeField64> WitnessHash256Bytes<F> for T {
 pub trait CircuitBuilderHash256Bytes<F: RichField + Extendable<D>, const D: usize> {
     fn add_virtual_hash256_bytes_target(&mut self) -> Hash256BytesTarget;
     fn connect_hash256_bytes(&mut self, x: Hash256BytesTarget, y: Hash256BytesTarget);
-    fn connect_one_of_hash256_bytes(
-        &mut self,
-        x: Hash256BytesTarget,
-        y_0: Hash256BytesTarget,
-        y_1: Hash256BytesTarget,
-    );
-    fn select_hash256_bytes(
-        &mut self,
-        b: BoolTarget,
-        x: Hash256BytesTarget,
-        y: Hash256BytesTarget,
-    ) -> Hash256BytesTarget;
+    fn connect_one_of_hash256_bytes(&mut self, x: Hash256BytesTarget, y_0: Hash256BytesTarget, y_1: Hash256BytesTarget);
+    fn select_hash256_bytes(&mut self, b: BoolTarget, x: Hash256BytesTarget, y: Hash256BytesTarget) -> Hash256BytesTarget;
     fn hash256_bytes_to_hash256(&mut self, x: Hash256BytesTarget) -> Hash256Target;
     fn hash256_bytes_to_hash256_be(&mut self, x: Hash256BytesTarget) -> Hash256Target;
     fn hash256_bytes_to_hashout224(&mut self, x: Hash256BytesTarget) -> HashOutTarget;
@@ -63,9 +54,7 @@ pub trait CircuitBuilderHash256Bytes<F: RichField + Extendable<D>, const D: usiz
     fn constant_hash256_bytes(&mut self, value: &[u8]) -> Hash256BytesTarget;
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderHash256Bytes<F, D>
-    for CircuitBuilder<F, D>
-{
+impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderHash256Bytes<F, D> for CircuitBuilder<F, D> {
     fn add_virtual_hash256_bytes_target(&mut self) -> Hash256BytesTarget {
         // TODO: range check u8?
         core::array::from_fn(|_| self.add_virtual_target())
@@ -77,12 +66,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderHash256Bytes<F,
         });
     }
 
-    fn select_hash256_bytes(
-        &mut self,
-        b: BoolTarget,
-        x: Hash256BytesTarget,
-        y: Hash256BytesTarget,
-    ) -> Hash256BytesTarget {
+    fn select_hash256_bytes(&mut self, b: BoolTarget, x: Hash256BytesTarget, y: Hash256BytesTarget) -> Hash256BytesTarget {
         core::array::from_fn(|i| self.select(b, x[i], y[i]))
     }
 
@@ -97,9 +81,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderHash256Bytes<F,
                 U32Target(self.mul_add(value, c256, chunk[0]))
             })
             .collect::<Vec<U32Target>>();
-        [
-            result[0], result[1], result[2], result[3], result[4], result[5], result[6], result[7],
-        ]
+        [result[0], result[1], result[2], result[3], result[4], result[5], result[6], result[7]]
     }
 
     fn hash256_bytes_to_u32_bits(&mut self, x: Hash256BytesTarget) -> [[BoolTarget; 32]; 8] {
@@ -115,9 +97,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderHash256Bytes<F,
                 bits
             })
             .collect::<Vec<_>>();
-        [
-            result[0], result[1], result[2], result[3], result[4], result[5], result[6], result[7],
-        ]
+        [result[0], result[1], result[2], result[3], result[4], result[5], result[6], result[7]]
     }
 
     fn hash256_bytes_to_hashout224(&mut self, x: Hash256BytesTarget) -> HashOutTarget {
@@ -139,12 +119,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderHash256Bytes<F,
         }
     }
 
-    fn connect_one_of_hash256_bytes(
-        &mut self,
-        x: Hash256BytesTarget,
-        y_0: Hash256BytesTarget,
-        y_1: Hash256BytesTarget,
-    ) {
+    fn connect_one_of_hash256_bytes(&mut self, x: Hash256BytesTarget, y_0: Hash256BytesTarget, y_1: Hash256BytesTarget) {
         let result: [Target; 32] = core::array::from_fn(|i| {
             let x_minus_y_0 = self.sub(x[i], y_0[i]);
             let x_minus_y_1 = self.sub(x[i], y_1[i]);
@@ -166,9 +141,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderHash256Bytes<F,
                 U32Target(self.mul_add(value, c256, chunk[3]))
             })
             .collect::<Vec<U32Target>>();
-        [
-            result[7], result[6], result[5], result[4], result[3], result[2], result[1], result[0],
-        ]
+        [result[7], result[6], result[5], result[4], result[3], result[2], result[1], result[0]]
     }
 
     fn hash256_bytes_to_hashout(&mut self, x: Hash256BytesTarget) -> HashOutTarget {
@@ -199,7 +172,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderHash256Bytes<F,
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use std::str::FromStr;
+
     use plonky2::{
         field::goldilocks_field::GoldilocksField,
         iop::witness::PartialWitness,
@@ -210,7 +184,8 @@ mod tests {
         },
     };
     use psy_core::data::{base_types::hash256::Hash256, qhashout::QHashOut};
-    use std::str::FromStr;
+
+    use super::*;
 
     type F = GoldilocksField;
     type C = PoseidonGoldilocksConfig;
@@ -219,9 +194,7 @@ mod tests {
     #[test]
     fn test_hash256_to_qhashout_consistency() -> anyhow::Result<()> {
         // Test the consistency between Rust conversion and circuit conversion
-        let test_qhashout = QHashOut::<F>::from_str(
-            "83955402ec7f375d1d6e8f3bf59753fe0af1e7c62bb4b662716a2524d3e2d186",
-        )?;
+        let test_qhashout = QHashOut::<F>::from_str("83955402ec7f375d1d6e8f3bf59753fe0af1e7c62bb4b662716a2524d3e2d186")?;
 
         println!("Original QHashOut: {}", test_qhashout);
         println!("QHashOut elements: {:?}", test_qhashout.0.elements);
@@ -283,9 +256,7 @@ mod tests {
     #[test]
     fn test_msg_bytes_processing() -> anyhow::Result<()> {
         // Test the specific message processing in DogeQEDSignatureGadget
-        let msg_qhashout = QHashOut::<F>::from_str(
-            "83955402ec7f375d1d6e8f3bf59753fe0af1e7c62bb4b662716a2524d3e2d186",
-        )?;
+        let msg_qhashout = QHashOut::<F>::from_str("83955402ec7f375d1d6e8f3bf59753fe0af1e7c62bb4b662716a2524d3e2d186")?;
 
         println!("Message QHashOut: {}", msg_qhashout);
 
@@ -322,8 +293,9 @@ mod tests {
         println!("Expected (should be same as input): {}", msg_qhashout);
 
         // They should be equal if conversions are consistent
-        // Note: This assertion will fail because to_le_bytes() and hash256_bytes_to_hashout()
-        // are not inverse operations - this is by design
+        // Note: This assertion will fail because to_le_bytes() and
+        // hash256_bytes_to_hashout() are not inverse operations - this is by
+        // design
         println!("Note: msg_qhashout != circuit_msg_hash is expected due to byte order differences");
 
         Ok(())
@@ -332,9 +304,7 @@ mod tests {
     #[test]
     fn test_hash256_bytes_to_hash256_be_consistency() -> anyhow::Result<()> {
         // Test hash256_bytes_to_hash256_be function consistency
-        let test_qhashout = QHashOut::<F>::from_str(
-            "83955402ec7f375d1d6e8f3bf59753fe0af1e7c62bb4b662716a2524d3e2d186",
-        )?;
+        let test_qhashout = QHashOut::<F>::from_str("83955402ec7f375d1d6e8f3bf59753fe0af1e7c62bb4b662716a2524d3e2d186")?;
 
         println!("Original QHashOut: {}", test_qhashout);
 
@@ -371,30 +341,19 @@ mod tests {
 }
 
 impl SwappableTarget for Hash256BytesTarget {
-    fn swap<F: RichField + Extendable<D>, const D: usize>(
-        builder: &mut CircuitBuilder<F, D>,
-        swap: BoolTarget,
-        left: Self,
-        right: Self,
-    ) -> Self {
+    fn swap<F: RichField + Extendable<D>, const D: usize>(builder: &mut CircuitBuilder<F, D>, swap: BoolTarget, left: Self, right: Self) -> Self {
         builder.select_hash256_bytes(swap, right, left)
     }
 }
 
 impl CreatableTarget for Hash256BytesTarget {
-    fn create_virtual<F: RichField + Extendable<D>, const D: usize>(
-        builder: &mut CircuitBuilder<F, D>,
-    ) -> Self {
+    fn create_virtual<F: RichField + Extendable<D>, const D: usize>(builder: &mut CircuitBuilder<F, D>) -> Self {
         builder.add_virtual_hash256_bytes_target()
     }
 }
 
 impl ConnectableTarget for Hash256BytesTarget {
-    fn connect<F: RichField + Extendable<D>, const D: usize>(
-        &self,
-        builder: &mut CircuitBuilder<F, D>,
-        connect_value: Self,
-    ) {
+    fn connect<F: RichField + Extendable<D>, const D: usize>(&self, builder: &mut CircuitBuilder<F, D>, connect_value: Self) {
         builder.connect_hash256_bytes(*self, connect_value)
     }
 }

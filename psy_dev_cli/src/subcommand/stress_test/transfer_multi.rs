@@ -12,18 +12,18 @@ use plonky2::field::goldilocks_field::GoldilocksField;
 use psy_core::data::qhashout::QHashOut;
 use psy_crypto::hash::traits::qhashable::QFieldHashable as _;
 use psy_data::config::store_config::QEDHasher;
-use tracing::{error, info, warn};
-
-use crate::subcommand::{
-    stress_test::{load_rpc_config, wait_for_new_block},
-    StressTestArgs,
-};
 use psy_prover::{
     local::{
         args::{ContractCallArgs, SignType},
         provider::RpcConfig,
     },
     session::session::WalletSession,
+};
+use tracing::{error, info, warn};
+
+use crate::subcommand::{
+    stress_test::{load_rpc_config, wait_for_new_block},
+    StressTestArgs,
 };
 
 #[derive(Clone)]
@@ -62,18 +62,15 @@ impl StressTestStats {
             self.transactions_failed.fetch_add(1, Ordering::Relaxed);
         }
 
-        self.total_duration_ms
-            .fetch_add(duration_ms, Ordering::Relaxed);
+        self.total_duration_ms.fetch_add(duration_ms, Ordering::Relaxed);
 
         // Update min duration
         let mut current_min = self.min_duration_ms.load(Ordering::Relaxed);
         while duration_ms < current_min {
-            match self.min_duration_ms.compare_exchange_weak(
-                current_min,
-                duration_ms,
-                Ordering::Relaxed,
-                Ordering::Relaxed,
-            ) {
+            match self
+                .min_duration_ms
+                .compare_exchange_weak(current_min, duration_ms, Ordering::Relaxed, Ordering::Relaxed)
+            {
                 Ok(_) => break,
                 Err(x) => current_min = x,
             }
@@ -82,12 +79,10 @@ impl StressTestStats {
         // Update max duration
         let mut current_max = self.max_duration_ms.load(Ordering::Relaxed);
         while duration_ms > current_max {
-            match self.max_duration_ms.compare_exchange_weak(
-                current_max,
-                duration_ms,
-                Ordering::Relaxed,
-                Ordering::Relaxed,
-            ) {
+            match self
+                .max_duration_ms
+                .compare_exchange_weak(current_max, duration_ms, Ordering::Relaxed, Ordering::Relaxed)
+            {
                 Ok(_) => break,
                 Err(x) => current_max = x,
             }
@@ -106,22 +101,14 @@ impl StressTestStats {
             total_transactions: sent,
             successful_transactions: successful,
             failed_transactions: failed,
-            success_rate: if sent > 0 {
-                successful as f64 / sent as f64
-            } else {
-                0.0
-            },
+            success_rate: if sent > 0 { successful as f64 / sent as f64 } else { 0.0 },
             tps: if total_elapsed_ms > 0 {
                 sent as f64 / (total_elapsed_ms as f64 / 1000.0)
             } else {
                 0.0
             },
             avg_duration_ms: if sent > 0 { total_duration / sent } else { 0 },
-            min_duration_ms: if min_duration == u64::MAX {
-                0
-            } else {
-                min_duration
-            },
+            min_duration_ms: if min_duration == u64::MAX { 0 } else { min_duration },
             max_duration_ms: max_duration,
             total_elapsed_ms,
         }
@@ -144,10 +131,7 @@ impl StressTestReport {
     fn print(&self) {
         println!("\n📊 ===== QED STRESS TEST REPORT =====");
         println!("🎯 Test Scenario: Full User Lifecycle (Register → Mint → Transfer → Claim)");
-        println!(
-            "⏱️  Total Duration: {:.2} seconds",
-            self.total_elapsed_ms as f64 / 1000.0
-        );
+        println!("⏱️  Total Duration: {:.2} seconds", self.total_elapsed_ms as f64 / 1000.0);
         println!("📤 Total Scenarios Completed: {}", self.total_transactions);
         println!("✅ Successful Scenarios: {}", self.successful_transactions);
         println!("❌ Failed Scenarios: {}", self.failed_transactions);
@@ -159,15 +143,9 @@ impl StressTestReport {
         println!("🎭 User Operations Performed:");
         println!("   🔑 New Users Generated: {}", self.total_transactions * 2);
         println!("   🪙 Mint Operations: {}", self.successful_transactions);
-        println!(
-            "   💸 Transfer Operations: {}",
-            self.successful_transactions
-        );
+        println!("   💸 Transfer Operations: {}", self.successful_transactions);
         println!("   🎁 Claim Operations: {}", self.successful_transactions);
-        println!(
-            "   🔄 Blocks Produced: {}",
-            self.successful_transactions * 4
-        );
+        println!("   🔄 Blocks Produced: {}", self.successful_transactions * 4);
         println!("========================================\n");
     }
 }
@@ -194,13 +172,7 @@ pub async fn run(args: StressTestArgs) -> Result<()> {
         info!("🔄 Starting task {}", task_id);
         let task_counter = tasks_counter.clone();
         let handle = thread::spawn(async move || {
-            let result = run_transfer_multi_task_sync(
-                task_id,
-                rpc_config_clone,
-                stats_clone,
-                should_stop_clone,
-                task_counter,
-            ).await;
+            let result = run_transfer_multi_task_sync(task_id, rpc_config_clone, stats_clone, should_stop_clone, task_counter).await;
 
             // Send completion signal
             let _ = tx_clone.send((task_id, result));
@@ -240,12 +212,8 @@ pub async fn run(args: StressTestArgs) -> Result<()> {
             tokio::time::sleep(Duration::from_secs(10)).await;
 
             let current_sent = stats_for_reporter.transactions_sent.load(Ordering::Relaxed);
-            let current_successful = stats_for_reporter
-                .transactions_successful
-                .load(Ordering::Relaxed);
-            let current_failed = stats_for_reporter
-                .transactions_failed
-                .load(Ordering::Relaxed);
+            let current_successful = stats_for_reporter.transactions_successful.load(Ordering::Relaxed);
+            let current_failed = stats_for_reporter.transactions_failed.load(Ordering::Relaxed);
 
             let rate = if current_sent > last_sent {
                 (current_sent - last_sent) as f64 / 5.0
@@ -308,10 +276,7 @@ pub async fn run(args: StressTestArgs) -> Result<()> {
     let final_groups_completed = tasks_counter.load(Ordering::Relaxed);
     let report = stats.get_report(total_elapsed);
 
-    info!(
-        "🎯 Total completed transaction tasks: {}",
-        final_groups_completed
-    );
+    info!("🎯 Total completed transaction tasks: {}", final_groups_completed);
     report.print();
 
     Ok(())
@@ -330,10 +295,7 @@ async fn run_transfer_multi_task_sync(
     let mut wallet_session = match WalletSession::new(&rpc_config).await {
         Ok(ws) => ws,
         Err(e) => {
-            error!(
-                "Failed to create wallet session for task {}: {:?}",
-                task_id, e
-            );
+            error!("Failed to create wallet session for task {}: {:?}", task_id, e);
             return Err(e);
         }
     };
@@ -344,23 +306,13 @@ async fn run_transfer_multi_task_sync(
         let start = Instant::now();
         task_counter.fetch_add(1, Ordering::Relaxed);
 
-        let success = match execute_transfer_multi_transaction_sync(
-            &mut wallet_session,
-            task_id,
-            transaction_count,
-        ).await {
+        let success = match execute_transfer_multi_transaction_sync(&mut wallet_session, task_id, transaction_count).await {
             Ok(_) => {
-                info!(
-                    "✅ Task {} transaction {} completed",
-                    task_id, transaction_count
-                );
+                info!("✅ Task {} transaction {} completed", task_id, transaction_count);
                 true
             }
             Err(e) => {
-                warn!(
-                    "❌ Task {} transaction {} failed: {:?}",
-                    task_id, transaction_count, e
-                );
+                warn!("❌ Task {} transaction {} failed: {:?}", task_id, transaction_count, e);
                 false
             }
         };
@@ -370,18 +322,11 @@ async fn run_transfer_multi_task_sync(
         transaction_count += 1;
     }
 
-    info!(
-        "🏁 Task {} completed {} transactions",
-        task_id, transaction_count
-    );
+    info!("🏁 Task {} completed {} transactions", task_id, transaction_count);
     Ok(())
 }
 
-async fn execute_transfer_multi_transaction_sync(
-    wallet_session: &mut WalletSession,
-    task_id: usize,
-    transaction_count: u64,
-) -> Result<()> {
+async fn execute_transfer_multi_transaction_sync(wallet_session: &mut WalletSession, task_id: usize, transaction_count: u64) -> Result<()> {
     info!(
         "🎯 Executing complete test scenario - Task {}, Transaction {}",
         task_id, transaction_count
@@ -407,9 +352,7 @@ async fn execute_transfer_multi_transaction_sync(
     // println!("pk_hash_to3: {}", pk_hash_to3);
 
     if !wait_for_new_block(&wallet_session.st_provider, 2).await? {
-        return Err(anyhow::format_err!(
-            "register user timeout waiting for checkpoint"
-        ));
+        return Err(anyhow::format_err!("register user timeout waiting for checkpoint"));
     }
     info!("🔑 Task {} - Registered user_from and user_to", task_id);
 
@@ -473,9 +416,7 @@ async fn execute_transfer_multi_transaction_sync(
     info!("End to execute multi contract call");
 
     if !wait_for_new_block(&wallet_session.st_provider, 1).await? {
-        return Err(anyhow::format_err!(
-            "multi contract call timeout waiting for checkpoint"
-        ));
+        return Err(anyhow::format_err!("multi contract call timeout waiting for checkpoint"));
     }
 
     // claim
@@ -499,9 +440,7 @@ async fn execute_transfer_multi_transaction_sync(
     }
 
     if !wait_for_new_block(&wallet_session.st_provider, 1).await? {
-        return Err(anyhow::format_err!(
-            "claim timeout waiting for checkpoint"
-        ));
+        return Err(anyhow::format_err!("claim timeout waiting for checkpoint"));
     }
 
     info!("🔑 Task {} - Claimed user_to1 and user_to2", task_id);

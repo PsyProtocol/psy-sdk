@@ -88,9 +88,7 @@ fn run_test_1() -> anyhow::Result<()> {
 }
 fn main() {
     run_test_1().unwrap();
-    
+
 }*/
 
-fn main() {
-    
-}
+fn main() {}

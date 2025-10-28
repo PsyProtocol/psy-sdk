@@ -12,20 +12,16 @@ use plonky2::{
 use super::{pm_core::QEDProofMinifier, pm_custom::PMCircuitCustomizer};
 
 #[derive(Debug)]
-pub struct QEDProofMinifierChain<
-    const D: usize,
-    F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F>,
-> where
-    <C as GenericConfig<D>>::Hasher:AlgebraicHasher<F>,
+pub struct QEDProofMinifierChain<const D: usize, F: RichField + Extendable<D>, C: GenericConfig<D, F = F>>
+where
+    <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
 {
     pub minifiers: Vec<QEDProofMinifier<D, F, C>>,
 }
 
-impl<const D: usize, F: RichField + Extendable<D>, C: GenericConfig<D, F = F>>
-    QEDProofMinifierChain<D, F, C>
+impl<const D: usize, F: RichField + Extendable<D>, C: GenericConfig<D, F = F>> QEDProofMinifierChain<D, F, C>
 where
-    <C as GenericConfig<D>>::Hasher:AlgebraicHasher<F>,
+    <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
 {
     pub fn new_with_cfg(
         base_circuit_verifier_data: &VerifierOnlyCircuitData<C, D>,
@@ -161,10 +157,7 @@ where
         if n_minifiers == 0 {
             return Self { minifiers: vec![] };
         }
-        let mut minifiers = vec![QEDProofMinifier::<D, F, C>::new(
-            base_circuit_verifier_data,
-            base_circuit_common_data,
-        )];
+        let mut minifiers = vec![QEDProofMinifier::<D, F, C>::new(base_circuit_verifier_data, base_circuit_common_data)];
         for i in 1..n_minifiers {
             minifiers.push(QEDProofMinifier::<D, F, C>::new(
                 &minifiers[i - 1].circuit_data.verifier_only,
@@ -226,8 +219,8 @@ where
     }
     pub fn prove(
         &self,
-        base_proof: &ProofWithPublicInputs<F, C, D>, //verifier_data: &VerifierOnlyCircuitData<C, D>,
-                                                     //proof: &ProofWithPublicInputs<F, C, D>,
+        base_proof: &ProofWithPublicInputs<F, C, D>, /*verifier_data: &VerifierOnlyCircuitData<C, D>,
+                                                      *proof: &ProofWithPublicInputs<F, C, D>, */
     ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>> {
         if self.minifiers.len() == 0 {
             return Ok(base_proof.clone());
@@ -245,9 +238,7 @@ where
     }
 
     pub fn get_fingerprint(&self) -> HashOut<F> {
-        self.minifiers[self.minifiers.len() - 1]
-            .circuit_fingerprint
-            .clone()
+        self.minifiers[self.minifiers.len() - 1].circuit_fingerprint.clone()
     }
     pub fn get_common_data(&self) -> &CommonCircuitData<F, D> {
         &self.minifiers[self.minifiers.len() - 1].circuit_data.common
@@ -257,13 +248,9 @@ where
     }
 
     pub fn get_verifier_data(&self) -> &VerifierOnlyCircuitData<C, D> {
-        &self.minifiers[self.minifiers.len() - 1]
-            .circuit_data
-            .verifier_only
+        &self.minifiers[self.minifiers.len() - 1].circuit_data.verifier_only
     }
     pub fn verify(&self, proof: ProofWithPublicInputs<F, C, D>) -> Result<(), anyhow::Error> {
-        self.minifiers[self.minifiers.len() - 1]
-            .circuit_data
-            .verify(proof)
+        self.minifiers[self.minifiers.len() - 1].circuit_data.verify(proof)
     }
 }

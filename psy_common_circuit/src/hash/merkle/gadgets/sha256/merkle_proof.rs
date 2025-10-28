@@ -1,11 +1,15 @@
-use plonky2::field::extension::Extendable;
-use plonky2::hash::hash_types::RichField;
-use plonky2::iop::target::{BoolTarget, Target};
-use plonky2::plonk::circuit_builder::CircuitBuilder;
+use plonky2::{
+    field::extension::Extendable,
+    hash::hash_types::RichField,
+    iop::target::{BoolTarget, Target},
+    plonk::circuit_builder::CircuitBuilder,
+};
 
-use crate::builder::hash::sha256::CircuitBuilderHashSha256;
-use crate::hash::base_types::hash256::{CircuitBuilderHash256, Hash256Target, WitnessHash256};
-use crate::u32::arithmetic_u32::U32Target;
+use crate::{
+    builder::hash::sha256::CircuitBuilderHashSha256,
+    hash::base_types::hash256::{CircuitBuilderHash256, Hash256Target, WitnessHash256},
+    u32::arithmetic_u32::U32Target,
+};
 
 pub fn compute_merkle_root<F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
@@ -32,13 +36,8 @@ pub struct MerkleProofSha256Gadget {
 }
 
 impl MerkleProofSha256Gadget {
-    pub fn add_virtual_to<F: RichField + Extendable<D>, const D: usize>(
-        builder: &mut CircuitBuilder<F, D>,
-        height: usize,
-    ) -> Self {
-        let siblings: Vec<Hash256Target> = (0..height)
-            .map(|_| builder.add_virtual_hash256_target())
-            .collect();
+    pub fn add_virtual_to<F: RichField + Extendable<D>, const D: usize>(builder: &mut CircuitBuilder<F, D>, height: usize) -> Self {
+        let siblings: Vec<Hash256Target> = (0..height).map(|_| builder.add_virtual_hash256_target()).collect();
 
         let value = builder.add_virtual_hash256_target();
         let index = builder.add_virtual_target();
@@ -59,7 +58,7 @@ impl MerkleProofSha256Gadget {
         index: u64,
         value: &[u8; 32],
         siblings: &[[u8; 32]],
-    )  -> anyhow::Result<()> {
+    ) -> anyhow::Result<()> {
         witness.set_hash256_target(&self.value, value)?;
         witness.set_target(self.index, F::from_noncanonical_u64(index))?;
         for (i, sibling) in self.siblings.iter().enumerate() {
@@ -71,14 +70,20 @@ impl MerkleProofSha256Gadget {
 
 #[cfg(test)]
 mod tests {
-    use plonky2::iop::witness::PartialWitness;
-    use plonky2::plonk::circuit_builder::CircuitBuilder;
-    use plonky2::plonk::circuit_data::CircuitConfig;
-    use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
+    use plonky2::{
+        iop::witness::PartialWitness,
+        plonk::{
+            circuit_builder::CircuitBuilder,
+            circuit_data::CircuitConfig,
+            config::{GenericConfig, PoseidonGoldilocksConfig},
+        },
+    };
     use psy_crypto::hash::base_types::MerkleProof256;
 
-    use crate::hash::base_types::hash256::{CircuitBuilderHash256, WitnessHash256};
-    use crate::hash::merkle::gadgets::sha256::merkle_proof::MerkleProofSha256Gadget;
+    use crate::hash::{
+        base_types::hash256::{CircuitBuilderHash256, WitnessHash256},
+        merkle::gadgets::sha256::merkle_proof::MerkleProofSha256Gadget,
+    };
 
     #[test]
     fn test_verify_small_merkle_proof() {
@@ -98,7 +103,8 @@ mod tests {
         let data = builder.build::<C>();
         tracing::info!(
             "circuit num_gates={}, quotient_degree_factor={}",
-            num_gates, data.common.quotient_degree_factor
+            num_gates,
+            data.common.quotient_degree_factor
         );
 
         let mut pw = PartialWitness::new();
@@ -114,8 +120,7 @@ mod tests {
           "value": "0000000000000000000000000000000000000000000000000000000000000003"
         }
         "#;
-        let proof: MerkleProof256 =
-            serde_json::from_str::<MerkleProof256>(proof_serialized).unwrap();
+        let proof: MerkleProof256 = serde_json::from_str::<MerkleProof256>(proof_serialized).unwrap();
         merkle_proof_gadget.set_witness_from_proof(&mut pw, &proof).unwrap();
         pw.set_hash256_target(&expected_root_target, &proof.root.0).unwrap();
 

@@ -1,13 +1,10 @@
-use clap::command;
-use clap::Parser;
-use clap::Subcommand;
-use psy_prover::local::args::ProveProxyArgs;
-use psy_prover::local::args::{ProverArgs, WalletSessionArgs};
+use clap::{command, Parser, Subcommand};
+use psy_prover::local::args::{ProveProxyArgs, ProverArgs, WalletSessionArgs};
 
 pub mod args;
 pub mod deploy_contract;
-pub mod prove_proxy;
 pub mod local_prover;
+pub mod prove_proxy;
 
 cfg_if::cfg_if! {
     if #[cfg(not(target_arch = "wasm32"))] {

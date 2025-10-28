@@ -1,18 +1,14 @@
 use std::str::FromStr;
-use psy_store::store::backend::BackendConfig;
+
 use anyhow::Result;
-use crate::watcher::watcher::NodeType;
 use clap::Args;
-use psy_store::queue::QueueId;
-use crate::realm::QueueConfig;
+use psy_store::{queue::QueueId, store::backend::BackendConfig};
+
+use crate::{realm::QueueConfig, watcher::watcher::NodeType};
 
 #[derive(Clone, Debug, Args)]
 pub struct WatcherArgs {
-    #[clap(
-        long = "node-id",
-        env = "WATCHER_NODE_ID",
-        help = "Unique identifier for this watcher instance"
-    )]
+    #[clap(long = "node-id", env = "WATCHER_NODE_ID", help = "Unique identifier for this watcher instance")]
     pub node_id: String,
 
     #[clap(

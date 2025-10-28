@@ -1,15 +1,3 @@
-use crate::{
-    hash::merkle::gadgets::sha256::{
-        delta_merkle_proof::DeltaMerkleProofSha256Gadget, merkle_proof::MerkleProofSha256Gadget,
-    },
-    traits::{ConnectableTarget, CreatableTarget, SwappableTarget, ToTargets, WitnessValueFor},
-    u32::{
-        arithmetic_u32::{CircuitBuilderU32, U32Target},
-        witness::WitnessU32,
-    },
-};
-use psy_core::{data::base_types::hash256::Hash256, utils::binary_helpers::{read_u32_be_at, read_u32_le_at}};
-
 use plonky2::{
     field::{extension::Extendable, types::PrimeField64},
     hash::hash_types::RichField,
@@ -19,7 +7,20 @@ use plonky2::{
     },
     plonk::circuit_builder::CircuitBuilder,
 };
+use psy_core::{
+    data::base_types::hash256::Hash256,
+    utils::binary_helpers::{read_u32_be_at, read_u32_le_at},
+};
 use psy_crypto::hash::base_types::{DeltaMerkleProof256, MerkleProof256};
+
+use crate::{
+    hash::merkle::gadgets::sha256::{delta_merkle_proof::DeltaMerkleProofSha256Gadget, merkle_proof::MerkleProofSha256Gadget},
+    traits::{ConnectableTarget, CreatableTarget, SwappableTarget, ToTargets, WitnessValueFor},
+    u32::{
+        arithmetic_u32::{CircuitBuilderU32, U32Target},
+        witness::WitnessU32,
+    },
+};
 
 pub type Hash256Target = [U32Target; 8];
 
@@ -36,7 +37,7 @@ pub trait WitnessHash256<F: PrimeField64>: Witness<F> {
 }
 
 impl<T: Witness<F>, F: PrimeField64> WitnessHash256<F> for T {
-    fn set_hash256_target_u32(&mut self, target: &Hash256Target, value: &[u32]) -> anyhow::Result<()>{
+    fn set_hash256_target_u32(&mut self, target: &Hash256Target, value: &[u32]) -> anyhow::Result<()> {
         self.set_u32_target(target[0], value[0])?;
         self.set_u32_target(target[1], value[1])?;
         self.set_u32_target(target[2], value[2])?;
@@ -49,7 +50,7 @@ impl<T: Witness<F>, F: PrimeField64> WitnessHash256<F> for T {
         Ok(())
     }
 
-    fn set_hash256_target(&mut self, target: &Hash256Target, value: &[u8]) -> anyhow::Result<()>{
+    fn set_hash256_target(&mut self, target: &Hash256Target, value: &[u8]) -> anyhow::Result<()> {
         self.set_u32_target(target[0], read_u32_be_at(value, 0))?;
         self.set_u32_target(target[1], read_u32_be_at(value, 4))?;
         self.set_u32_target(target[2], read_u32_be_at(value, 8))?;
@@ -77,17 +78,10 @@ impl<T: Witness<F>, F: PrimeField64> WitnessHash256<F> for T {
 pub trait CircuitBuilderHash256<F: RichField + Extendable<D>, const D: usize> {
     fn add_virtual_hash256_target(&mut self) -> Hash256Target;
     fn connect_hash256(&mut self, x: Hash256Target, y: Hash256Target);
-    fn select_hash256(
-        &mut self,
-        b: BoolTarget,
-        x: Hash256Target,
-        y: Hash256Target,
-    ) -> Hash256Target;
+    fn select_hash256(&mut self, b: BoolTarget, x: Hash256Target, y: Hash256Target) -> Hash256Target;
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderHash256<F, D>
-    for CircuitBuilder<F, D>
-{
+impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderHash256<F, D> for CircuitBuilder<F, D> {
     fn add_virtual_hash256_target(&mut self) -> Hash256Target {
         [
             self.add_virtual_u32_target(),
@@ -112,12 +106,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderHash256<F, D>
         self.connect_u32(x[7], y[7]);
     }
 
-    fn select_hash256(
-        &mut self,
-        b: BoolTarget,
-        x: Hash256Target,
-        y: Hash256Target,
-    ) -> Hash256Target {
+    fn select_hash256(&mut self, b: BoolTarget, x: Hash256Target, y: Hash256Target) -> Hash256Target {
         [
             self.select_u32(b, x[0], y[0]),
             self.select_u32(b, x[1], y[1]),
@@ -132,30 +121,19 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderHash256<F, D>
 }
 
 impl SwappableTarget for Hash256Target {
-    fn swap<F: RichField + Extendable<D>, const D: usize>(
-        builder: &mut CircuitBuilder<F, D>,
-        swap: BoolTarget,
-        left: Self,
-        right: Self,
-    ) -> Self {
+    fn swap<F: RichField + Extendable<D>, const D: usize>(builder: &mut CircuitBuilder<F, D>, swap: BoolTarget, left: Self, right: Self) -> Self {
         builder.select_hash256(swap, right, left)
     }
 }
 
 impl CreatableTarget for Hash256Target {
-    fn create_virtual<F: RichField + Extendable<D>, const D: usize>(
-        builder: &mut CircuitBuilder<F, D>,
-    ) -> Self {
+    fn create_virtual<F: RichField + Extendable<D>, const D: usize>(builder: &mut CircuitBuilder<F, D>) -> Self {
         builder.add_virtual_hash256_target()
     }
 }
 
 impl ConnectableTarget for Hash256Target {
-    fn connect<F: RichField + Extendable<D>, const D: usize>(
-        &self,
-        builder: &mut CircuitBuilder<F, D>,
-        connect_value: Self,
-    ) {
+    fn connect<F: RichField + Extendable<D>, const D: usize>(&self, builder: &mut CircuitBuilder<F, D>, connect_value: Self) {
         builder.connect_hash256(*self, connect_value)
     }
 }
@@ -177,11 +155,7 @@ impl DeltaMerkleProofSha256Gadget {
 }
 
 impl MerkleProofSha256Gadget {
-    pub fn set_witness_from_proof<F: RichField, W: WitnessHash256<F>>(
-        &self,
-        witness: &mut W,
-        merkle_proof: &MerkleProof256,
-    ) -> anyhow::Result<()> {
+    pub fn set_witness_from_proof<F: RichField, W: WitnessHash256<F>>(&self, witness: &mut W, merkle_proof: &MerkleProof256) -> anyhow::Result<()> {
         witness.set_hash256_target(&self.value, &merkle_proof.value.0)?;
         witness.set_target(self.index, F::from_noncanonical_u64(merkle_proof.index))?;
         for (i, sibling) in self.siblings.iter().enumerate() {

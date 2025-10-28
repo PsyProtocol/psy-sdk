@@ -1,4 +1,5 @@
-//! Worker Events Telemetry Example: /telemetry/events → /worker_events → /worker_events_aggregations
+//! Worker Events Telemetry Example: /telemetry/events → /worker_events →
+//! /worker_events_aggregations
 //!
 //! This example demonstrates the complete workflow:
 //! 1. Send worker events via /telemetry/events
@@ -98,10 +99,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .await?;
 
     let body: serde_json::Value = response.json().await?;
-    println!(
-        "✅ Telemetry response: {}",
-        serde_json::to_string_pretty(&body)?
-    );
+    println!("✅ Telemetry response: {}", serde_json::to_string_pretty(&body)?);
 
     // Add a small delay to ensure data is processed
     tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
@@ -111,66 +109,40 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Query all worker events
     println!("🔸 All worker events");
-    let response = client
-        .get(&format!("{}/worker_events", API_BASE))
-        .send()
-        .await?;
+    let response = client.get(&format!("{}/worker_events", API_BASE)).send().await?;
     let all_events: serde_json::Value = response.json().await?;
-    println!(
-        "All worker events count: {}",
-        all_events.as_array().unwrap().len()
-    );
+    println!("All worker events count: {}", all_events.as_array().unwrap().len());
 
     // Query by realm_id
     println!("\n🔸 Worker events for realm_id=0");
-    let response = client
-        .get(&format!("{}/worker_events?realm_id=0", API_BASE))
-        .send()
-        .await?;
+    let response = client.get(&format!("{}/worker_events?realm_id=0", API_BASE)).send().await?;
     let realm_events: serde_json::Value = response.json().await?;
-    println!(
-        "Realm 0 events count: {}",
-        realm_events.as_array().unwrap().len()
-    );
+    println!("Realm 0 events count: {}", realm_events.as_array().unwrap().len());
 
     // Query by status
     println!("\n🔸 Completed worker events");
-    let response = client
-        .get(&format!("{}/worker_events?status=COMPLETED", API_BASE))
-        .send()
-        .await?;
+    let response = client.get(&format!("{}/worker_events?status=COMPLETED", API_BASE)).send().await?;
     let completed_events: serde_json::Value = response.json().await?;
-    println!(
-        "Completed events count: {}",
-        completed_events.as_array().unwrap().len()
-    );
+    println!("Completed events count: {}", completed_events.as_array().unwrap().len());
 
     tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
     // Query by time range
     let start_time = now - chrono::Duration::minutes(5);
     let end_time = now + chrono::Duration::minutes(5);
-    println!(
-        "\n🔸 Worker events in time range from {} to {}",
-        start_time, end_time
-    );
+    println!("\n🔸 Worker events in time range from {} to {}", start_time, end_time);
     let response = client
-        .get(&format!(
-            "{}/worker_events?start_time={}&end_time={}",
-            API_BASE, start_time, end_time
-        ))
+        .get(&format!("{}/worker_events?start_time={}&end_time={}", API_BASE, start_time, end_time))
         .send()
         .await?;
     let time_filtered_events: serde_json::Value = response.json().await?;
-    println!(
-        "Time filtered events count: {}",
-        time_filtered_events.as_array().unwrap().len()
-    );
+    println!("Time filtered events count: {}", time_filtered_events.as_array().unwrap().len());
 
     // Query aggregated data 📈
     println!("\n📈 Querying worker events aggregations...");
 
-    // Note: Aggregations may not show data immediately due to TimescaleDB continuous aggregation refresh policies
-    // In a real scenario, data would be aggregated over longer time periods (hours/days)
+    // Note: Aggregations may not show data immediately due to TimescaleDB
+    // continuous aggregation refresh policies In a real scenario, data would be
+    // aggregated over longer time periods (hours/days)
 
     let aggregation_buckets = vec!["1h", "1d", "1w"];
 
@@ -194,11 +166,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             .await?;
 
         let aggregations: serde_json::Value = response.json().await?;
-        println!(
-            "📊 {} aggregations: {}",
-            bucket,
-            serde_json::to_string_pretty(&aggregations)?
-        );
+        println!("📊 {} aggregations: {}", bucket, serde_json::to_string_pretty(&aggregations)?);
     }
 
     // Step 4: Display summary statistics 📋
@@ -208,9 +176,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("📊 Global stats: {}", serde_json::to_string_pretty(&stats)?);
 
     println!("\n🎉 Worker events telemetry example completed successfully!");
-    println!(
-        "💡 To see aggregation data, run this example multiple times or wait for longer periods."
-    );
+    println!("💡 To see aggregation data, run this example multiple times or wait for longer periods.");
 
     Ok(())
 }

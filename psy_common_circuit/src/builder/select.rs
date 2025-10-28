@@ -5,44 +5,16 @@ use plonky2::{
     plonk::circuit_builder::CircuitBuilder,
 };
 
+use super::{comparison::CircuitBuilderComparison, core::CircuitBuilderHelpersCore};
 use crate::hash::base_types::hash256bytes::Hash256BytesTarget;
 
-use super::{comparison::CircuitBuilderComparison, core::CircuitBuilderHelpersCore};
-
 pub trait CircuitBuilderSelectHelpers<F: RichField + Extendable<D>, const D: usize> {
-    fn select_or_zero(
-        &mut self,
-        zero_condition: BoolTarget,
-        condition: BoolTarget,
-        true_value: Target,
-        false_value: Target,
-    ) -> Target;
-    fn select_in_hash(
-        &mut self,
-        hash: HashOutTarget,
-        index: Target,
-    ) -> Target;
-    fn select_in_array(
-        &mut self,
-        array: &[Target],
-        index: Target,
-    ) -> Target;
-    fn select_in_hash_array(
-        &mut self,
-        array: &[HashOutTarget],
-        index: Target,
-    ) -> HashOutTarget;
-    fn select_hash(
-        &mut self,
-        condition: BoolTarget,
-        true_value: HashOutTarget,
-        false_value: HashOutTarget,
-    ) -> HashOutTarget;
-    fn pick_from_hashes(
-        &mut self,
-        value: HashOutTarget,
-        allowed_hashes: &[HashOutTarget],
-    ) -> HashOutTarget;
+    fn select_or_zero(&mut self, zero_condition: BoolTarget, condition: BoolTarget, true_value: Target, false_value: Target) -> Target;
+    fn select_in_hash(&mut self, hash: HashOutTarget, index: Target) -> Target;
+    fn select_in_array(&mut self, array: &[Target], index: Target) -> Target;
+    fn select_in_hash_array(&mut self, array: &[HashOutTarget], index: Target) -> HashOutTarget;
+    fn select_hash(&mut self, condition: BoolTarget, true_value: HashOutTarget, false_value: HashOutTarget) -> HashOutTarget;
+    fn pick_from_hashes(&mut self, value: HashOutTarget, allowed_hashes: &[HashOutTarget]) -> HashOutTarget;
     fn select_hash_or_zero(
         &mut self,
         zero_condition: BoolTarget,
@@ -51,38 +23,19 @@ pub trait CircuitBuilderSelectHelpers<F: RichField + Extendable<D>, const D: usi
         false_value: HashOutTarget,
     ) -> HashOutTarget;
 
-    fn is_equal_hash_256_bytes(
-        &mut self,
-        x: Hash256BytesTarget,
-        y: Hash256BytesTarget,
-    ) -> BoolTarget;
+    fn is_equal_hash_256_bytes(&mut self, x: Hash256BytesTarget, y: Hash256BytesTarget) -> BoolTarget;
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderSelectHelpers<F, D>
-    for CircuitBuilder<F, D>
-{
-    fn select_or_zero(
-        &mut self,
-        zero_condition: BoolTarget,
-        condition: BoolTarget,
-        true_value: Target,
-        false_value: Target,
-    ) -> Target {
+impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderSelectHelpers<F, D> for CircuitBuilder<F, D> {
+    fn select_or_zero(&mut self, zero_condition: BoolTarget, condition: BoolTarget, true_value: Target, false_value: Target) -> Target {
         let not_zero = self.not(zero_condition);
         let value = self.select(condition, true_value, false_value);
         self.mul(not_zero.target, value)
     }
 
-    fn select_hash(
-        &mut self,
-        condition: BoolTarget,
-        true_value: HashOutTarget,
-        false_value: HashOutTarget,
-    ) -> HashOutTarget {
+    fn select_hash(&mut self, condition: BoolTarget, true_value: HashOutTarget, false_value: HashOutTarget) -> HashOutTarget {
         HashOutTarget {
-            elements: core::array::from_fn(|i| {
-                self.select(condition, true_value.elements[i], false_value.elements[i])
-            }),
+            elements: core::array::from_fn(|i| self.select(condition, true_value.elements[i], false_value.elements[i])),
         }
     }
 
@@ -100,11 +53,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderSelectHelpers<F
         }
     }
 
-    fn pick_from_hashes(
-        &mut self,
-        value: HashOutTarget,
-        allowed_hashes: &[HashOutTarget],
-    ) -> HashOutTarget {
+    fn pick_from_hashes(&mut self, value: HashOutTarget, allowed_hashes: &[HashOutTarget]) -> HashOutTarget {
         if allowed_hashes.len() == 0 {
             panic!("must pass at least one hash to select_from_hashes");
         }
@@ -117,27 +66,16 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderSelectHelpers<F
         last_allowed
     }
 
-    fn is_equal_hash_256_bytes(
-        &mut self,
-        x: Hash256BytesTarget,
-        y: Hash256BytesTarget,
-    ) -> BoolTarget {
+    fn is_equal_hash_256_bytes(&mut self, x: Hash256BytesTarget, y: Hash256BytesTarget) -> BoolTarget {
         let mut result = self.constant_bool(true);
         for i in 0..x.len() {
             let equal = self.is_equal(x[i], y[i]);
             result = self.and(equal, result);
         }
         result
-
     }
 
-    fn select_in_hash(
-        &mut self,
-        hash: HashOutTarget,
-        index: Target,
-    ) -> Target {
-
-
+    fn select_in_hash(&mut self, hash: HashOutTarget, index: Target) -> Target {
         let constant_0 = self.constant_u64(0);
         let constant_1 = self.constant_u64(1);
         let constant_2 = self.constant_u64(2);
@@ -156,11 +94,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderSelectHelpers<F
         value
     }
 
-    fn select_in_array(
-        &mut self,
-        array: &[Target],
-        index: Target,
-    ) -> Target {
+    fn select_in_array(&mut self, array: &[Target], index: Target) -> Target {
         let mut running_sum = self.zero();
 
         for (i, val) in array.iter().enumerate() {
@@ -171,11 +105,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderSelectHelpers<F
         running_sum
     }
 
-    fn select_in_hash_array(
-        &mut self,
-        array: &[HashOutTarget],
-        index: Target,
-    ) -> HashOutTarget {
+    fn select_in_hash_array(&mut self, array: &[HashOutTarget], index: Target) -> HashOutTarget {
         let zero = self.zero();
         let mut running_sum = [zero; 4];
 
@@ -187,8 +117,6 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderSelectHelpers<F
             running_sum[2] = self.mul_add(val.elements[2], index_eq_i, running_sum[2]);
             running_sum[3] = self.mul_add(val.elements[3], index_eq_i, running_sum[3]);
         }
-        HashOutTarget {
-            elements: running_sum,
-        }
+        HashOutTarget { elements: running_sum }
     }
 }

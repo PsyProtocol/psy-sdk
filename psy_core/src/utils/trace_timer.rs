@@ -78,9 +78,7 @@ impl TraceTimer {
 impl TraceTimer {
     pub fn new(name: &str) -> Self {
         let n = name.to_string();
-        Self {
-            name: n,
-        }
+        Self { name: n }
     }
     pub fn lap(&mut self, _event_name: &str) -> u64 {
         0

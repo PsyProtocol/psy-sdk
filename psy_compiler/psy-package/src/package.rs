@@ -1,9 +1,7 @@
+use std::{collections::BTreeMap, fmt::Display, path::PathBuf, str::FromStr};
+
 use serde::{Deserialize, Serialize};
 use smol_str::SmolStr;
-use std::collections::BTreeMap;
-use std::fmt::Display;
-use std::path::PathBuf;
-use std::str::FromStr;
 
 #[derive(Clone, Debug)]
 pub enum Dependency {

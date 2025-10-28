@@ -17,16 +17,12 @@ pub fn safe_hash_fixed_length<H: FieldQHasher<F>, F: RichField>(data: &[F]) -> Q
 pub fn gen_dapen_contract_function_method_id(method_name: String, args: &[(String, usize)]) -> u32 {
     // method id = sha256(methodName(arg0[arg0_size],arg1[arg1_size]))&0xffffffff
 
-    let arg_portion = args
-        .iter()
-        .map(|(arg_name, arg_size)| format!("{}[{}]", arg_name, arg_size))
-        .join(",");
-    
+    let arg_portion = args.iter().map(|(arg_name, arg_size)| format!("{}[{}]", arg_name, arg_size)).join(",");
+
     let preimage = format!("{}({})", method_name, arg_portion);
 
     let hash_raw = CoreSha256Hasher::hash_bytes(preimage.as_bytes());
-    let method_id =
-        u32::from_le_bytes([hash_raw.0[0], hash_raw.0[1], hash_raw.0[2], hash_raw.0[3]]);
+    let method_id = u32::from_le_bytes([hash_raw.0[0], hash_raw.0[1], hash_raw.0[2], hash_raw.0[3]]);
 
     method_id
 }

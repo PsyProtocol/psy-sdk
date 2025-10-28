@@ -1,8 +1,6 @@
 use psy_common::{define_arena_id, Arena, FileId};
 
-use crate::{
-    Comment, DefId, DefinitionNode, IdentId, Identifier, Location, NodeInfo, NodeType, Visibility,
-};
+use crate::{Comment, DefId, DefinitionNode, IdentId, Identifier, Location, NodeInfo, NodeType, Visibility};
 #[derive(Clone, Copy, Eq, Hash, PartialEq, Debug)]
 pub struct CrateId(pub usize);
 
@@ -107,10 +105,7 @@ impl ModuleNode {
 
     // FIXME: this is a workaround to get the std module
     pub fn is_std(&self) -> bool {
-        matches!(
-            self.name.id,
-            IdentId::STD | IdentId::PRELUDE | IdentId::PRIMITIVE
-        )
+        matches!(self.name.id, IdentId::STD | IdentId::PRELUDE | IdentId::PRIMITIVE)
     }
 
     pub fn is_self_primitive(&self) -> bool {

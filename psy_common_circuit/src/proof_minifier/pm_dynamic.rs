@@ -6,27 +6,20 @@ use plonky2::{
     iop::witness::{PartialWitness, WitnessWrite},
     plonk::{
         circuit_builder::CircuitBuilder,
-        circuit_data::{
-            CircuitConfig, CircuitData, CommonCircuitData, VerifierCircuitTarget,
-            VerifierOnlyCircuitData,
-        },
+        circuit_data::{CircuitConfig, CircuitData, CommonCircuitData, VerifierCircuitTarget, VerifierOnlyCircuitData},
         config::{AlgebraicHasher, GenericConfig},
         proof::{ProofWithPublicInputs, ProofWithPublicInputsTarget},
     },
 };
 use psy_core::utils::debug_timer::DebugTimer;
 
+use super::{pm_core::get_circuit_fingerprint_generic, pm_custom::PMCircuitCustomizer};
 use crate::builder::verify::CircuitBuilderVerifyProofHelpers;
 
-use super::{pm_core::get_circuit_fingerprint_generic, pm_custom::PMCircuitCustomizer};
-
 #[derive(Debug)]
-pub struct QEDProofMinifierDynamic<
-    const D: usize,
-    F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F>,
-> where
-    <C as GenericConfig<D>>::Hasher:AlgebraicHasher<F>,
+pub struct QEDProofMinifierDynamic<const D: usize, F: RichField + Extendable<D>, C: GenericConfig<D, F = F>>
+where
+    <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
 {
     pub circuit_data: CircuitData<F, C, D>,
     pub circuit_fingerprint: HashOut<F>,
@@ -35,23 +28,13 @@ pub struct QEDProofMinifierDynamic<
     pub verifier_data: Option<VerifierOnlyCircuitData<C, D>>,
 }
 
-impl<const D: usize, F: RichField + Extendable<D>, C: GenericConfig<D, F = F>>
-    QEDProofMinifierDynamic<D, F, C>
+impl<const D: usize, F: RichField + Extendable<D>, C: GenericConfig<D, F = F>> QEDProofMinifierDynamic<D, F, C>
 where
-    <C as GenericConfig<D>>::Hasher:AlgebraicHasher<F>,
+    <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
 {
-    pub fn new(
-        base_circuit_verifier_data: &VerifierOnlyCircuitData<C, D>,
-        base_circuit_common_data: &CommonCircuitData<F, D>,
-    ) -> Self {
+    pub fn new(base_circuit_verifier_data: &VerifierOnlyCircuitData<C, D>, base_circuit_common_data: &CommonCircuitData<F, D>) -> Self {
         let standard_config = CircuitConfig::standard_recursion_config();
-        Self::new_with_cfg(
-            standard_config,
-            base_circuit_verifier_data,
-            base_circuit_common_data,
-            None,
-            false,
-        )
+        Self::new_with_cfg(standard_config, base_circuit_verifier_data, base_circuit_common_data, None, false)
     }
     pub fn new_with_dynamic_constant_verifier(
         base_circuit_verifier_data: &VerifierOnlyCircuitData<C, D>,
@@ -78,24 +61,15 @@ where
         let verifier_data_target = if is_constant_verifier_data {
             builder.constant_verifier_data(base_circuit_verifier_data)
         } else {
-            builder
-                .add_virtual_verifier_data(base_circuit_verifier_data.constants_sigmas_cap.height())
+            builder.add_virtual_verifier_data(base_circuit_verifier_data.constants_sigmas_cap.height())
         };
         let proof_target = builder.add_virtual_proof_with_pis(base_circuit_common_data);
 
         builder.register_public_inputs(&proof_target.public_inputs);
-        builder.verify_proof::<C>(
-            &proof_target,
-            &verifier_data_target,
-            base_circuit_common_data,
-        );
+        builder.verify_proof::<C>(&proof_target, &verifier_data_target, base_circuit_common_data);
         if !is_constant_verifier_data {
-            let fingerprint_target =
-                builder.get_circuit_fingerprint::<C::Hasher>(&verifier_data_target);
-            let known_fingerprint =
-                builder.constant_hash(get_circuit_fingerprint_generic::<D, C::F, C>(
-                    base_circuit_verifier_data,
-                ));
+            let fingerprint_target = builder.get_circuit_fingerprint::<C::Hasher>(&verifier_data_target);
+            let known_fingerprint = builder.constant_hash(get_circuit_fingerprint_generic::<D, C::F, C>(base_circuit_verifier_data));
             builder.connect_hashes(fingerprint_target, known_fingerprint);
         }
 
@@ -113,11 +87,7 @@ where
             circuit_data,
             circuit_fingerprint,
             proof_target,
-            verifier_data_target: if is_constant_verifier_data {
-                None
-            } else {
-                Some(verifier_data_target)
-            },
+            verifier_data_target: if is_constant_verifier_data { None } else { Some(verifier_data_target) },
             verifier_data: if is_constant_verifier_data {
                 None
             } else {
@@ -137,17 +107,12 @@ where
         let verifier_data_target = if is_constant_verifier_data {
             builder.constant_verifier_data(base_circuit_verifier_data)
         } else {
-            builder
-                .add_virtual_verifier_data(base_circuit_verifier_data.constants_sigmas_cap.height())
+            builder.add_virtual_verifier_data(base_circuit_verifier_data.constants_sigmas_cap.height())
         };
         let proof_target = builder.add_virtual_proof_with_pis(base_circuit_common_data);
 
         builder.register_public_inputs(&proof_target.public_inputs);
-        builder.verify_proof::<C>(
-            &proof_target,
-            &verifier_data_target,
-            base_circuit_common_data,
-        );
+        builder.verify_proof::<C>(&proof_target, &verifier_data_target, base_circuit_common_data);
 
         if add_gates.is_some() {
             add_gates.unwrap().iter().for_each(|g| {
@@ -166,11 +131,7 @@ where
             circuit_data,
             circuit_fingerprint,
             proof_target,
-            verifier_data_target: if is_constant_verifier_data {
-                None
-            } else {
-                Some(verifier_data_target)
-            },
+            verifier_data_target: if is_constant_verifier_data { None } else { Some(verifier_data_target) },
             verifier_data: if is_constant_verifier_data {
                 None
             } else {
@@ -180,8 +141,8 @@ where
     }
     pub fn prove(
         &self,
-        base_proof: &ProofWithPublicInputs<F, C, D>, //verifier_data: &VerifierOnlyCircuitData<C, D>,
-                                                     //proof: &ProofWithPublicInputs<F, C, D>,
+        base_proof: &ProofWithPublicInputs<F, C, D>, /*verifier_data: &VerifierOnlyCircuitData<C, D>,
+                                                      *proof: &ProofWithPublicInputs<F, C, D>, */
     ) -> Result<ProofWithPublicInputs<F, C, D>> {
         let mut pw = PartialWitness::new();
         if self.verifier_data_target.is_some() {

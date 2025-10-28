@@ -3,17 +3,7 @@ use psy_core::job::id::QProvingJobDataID;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-#[derive(
-    Debug,
-    Clone,
-    Serialize,
-    Deserialize,
-    PartialEq,
-    Eq,
-    strum::EnumString,
-    strum::Display,
-    sqlx::Type,
-)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, strum::EnumString, strum::Display, sqlx::Type)]
 #[sqlx(type_name = "VARCHAR", rename_all = "SCREAMING_SNAKE_CASE")]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 #[strum(serialize_all = "SCREAMING_SNAKE_CASE")]
@@ -24,17 +14,7 @@ pub enum WorkerEventStatus {
     Failed,
 }
 
-#[derive(
-    Debug,
-    Clone,
-    Serialize,
-    Deserialize,
-    PartialEq,
-    Eq,
-    strum::EnumString,
-    strum::Display,
-    sqlx::Type,
-)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, strum::EnumString, strum::Display, sqlx::Type)]
 #[sqlx(type_name = "VARCHAR", rename_all = "SCREAMING_SNAKE_CASE")]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 #[strum(serialize_all = "SCREAMING_SNAKE_CASE")]
@@ -43,17 +23,7 @@ pub enum WorkerEventSource {
     Realm,
 }
 
-#[derive(
-    Debug,
-    Clone,
-    Serialize,
-    Deserialize,
-    PartialEq,
-    Eq,
-    strum::EnumString,
-    strum::Display,
-    sqlx::Type,
-)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, strum::EnumString, strum::Display, sqlx::Type)]
 #[sqlx(type_name = "VARCHAR", rename_all = "SCREAMING_SNAKE_CASE")]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 #[strum(serialize_all = "SCREAMING_SNAKE_CASE")]
@@ -160,20 +130,20 @@ pub struct GlobalRealmStats {
 // Worker statistics models
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkerStats {
-    pub public_key: String,       // Worker's public key
-    pub username: Option<String>, // Twitter handle from user_info table, or None if not found
+    pub public_key: String,                                       // Worker's public key
+    pub username: Option<String>,                                 // Twitter handle from user_info table, or None if not found
     pub processing_tasks: std::collections::HashMap<String, i64>, // realm_id -> task count
     pub total_processing_tasks: i64,
     pub total_rewards: i64, // Reserved field, currently 0
     pub total_proofs: i64,  // Number of proofs completed in the last 24 hours
     pub completed_24h: i64,
     pub failed_24h: i64,
-    pub total_rewards_24h: i64, // Total rewards earned in last 24 hours
-    pub total_completed: i64,   // Total completed tasks of all time
-    pub total_failed: i64,      // Total failed tasks of all time
-    pub completed_1h: i64,      // Completed tasks in last 1 hour
-    pub failed_1h: i64,         // Failed tasks in last 1 hour
-    pub avg_proof_time: i64,    // Average proof generation time in milliseconds
+    pub total_rewards_24h: i64,                   // Total rewards earned in last 24 hours
+    pub total_completed: i64,                     // Total completed tasks of all time
+    pub total_failed: i64,                        // Total failed tasks of all time
+    pub completed_1h: i64,                        // Completed tasks in last 1 hour
+    pub failed_1h: i64,                           // Failed tasks in last 1 hour
+    pub avg_proof_time: i64,                      // Average proof generation time in milliseconds
     pub last_completed_block_height: Option<i64>, // Block height of last completed worker event
     pub last_updated: DateTime<Utc>,
 }
@@ -230,11 +200,11 @@ pub struct WorkerLeaderboardEntry {
 // Worker rewards aggregation models
 #[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
 pub struct WorkerRewardsAggregation {
-    pub bucket: DateTime<Utc>,     // Time bucket for aggregation
-    pub public_key: String,        // Worker's public key
-    pub completed_proofs: i64,     // Number of completed proofs in this bucket
-    pub total_rewards: i64,        // Total rewards earned in this bucket (in psy)
-    pub max_checkpoint: i64,       // Maximum checkpoint ID in this bucket
+    pub bucket: DateTime<Utc>, // Time bucket for aggregation
+    pub public_key: String,    // Worker's public key
+    pub completed_proofs: i64, // Number of completed proofs in this bucket
+    pub total_rewards: i64,    // Total rewards earned in this bucket (in psy)
+    pub max_checkpoint: i64,   // Maximum checkpoint ID in this bucket
 }
 
 impl UserEvent {
@@ -254,8 +224,8 @@ impl UserEvent {
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq)]
 #[serde(rename_all = "snake_case")]
 pub enum JobFilterCategory {
-    All,            // All jobs
-    RewardOnly,     // Only reward-eligible jobs
+    All,        // All jobs
+    RewardOnly, // Only reward-eligible jobs
 }
 
 impl Default for JobFilterCategory {
@@ -278,14 +248,14 @@ impl JobFilterCategory {
 pub struct JobStatusSummary {
     pub status: String,
     pub job_count: i64,
-    pub percentage: Option<f64>,  // Using Option because it could be NULL
+    pub percentage: Option<f64>, // Using Option because it could be NULL
     pub last_update: Option<DateTime<Utc>>,
 }
 
 // Job status detailed model (from materialized view)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LatestJobStatus {
-    pub job_id: serde_json::Value,  // JSONB field
+    pub job_id: serde_json::Value, // JSONB field
     pub realm_id: Option<i64>,
     pub status: String,
     pub timestamp: DateTime<Utc>,

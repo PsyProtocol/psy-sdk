@@ -5,19 +5,26 @@ use plonky2::{
         hash_types::{HashOutTarget, RichField},
         poseidon::PoseidonHash,
     },
-    iop::{target::Target, witness::{PartialWitness, Witness, WitnessWrite}},
+    iop::{
+        target::Target,
+        witness::{PartialWitness, Witness, WitnessWrite},
+    },
     plonk::{
         circuit_builder::CircuitBuilder,
-        circuit_data::{
-            CircuitConfig, CircuitData, CommonCircuitData, VerifierCircuitTarget,
-            VerifierOnlyCircuitData,
-        },
+        circuit_data::{CircuitConfig, CircuitData, CommonCircuitData, VerifierCircuitTarget, VerifierOnlyCircuitData},
         config::{AlgebraicHasher, GenericConfig},
         proof::{ProofWithPublicInputs, ProofWithPublicInputsTarget},
     },
 };
-use psy_core::{config::network_constants::get_default_worker_public_key, data::qhashout::QHashOut, job::{id::QProvingJobDataID, traits::QProofStoreReaderAsync}};
-use psy_crypto::{common::circuit_library::CircuitInfoLibrary, hash::merkle::treeprover::{data::CircuitInputWithDependencies, AggStateTransitionInput}};
+use psy_core::{
+    config::network_constants::get_default_worker_public_key,
+    data::qhashout::QHashOut,
+    job::{id::QProvingJobDataID, traits::QProofStoreReaderAsync},
+};
+use psy_crypto::{
+    common::circuit_library::CircuitInfoLibrary,
+    hash::merkle::treeprover::{data::CircuitInputWithDependencies, AggStateTransitionInput},
+};
 
 use crate::{
     builder::{
@@ -26,7 +33,8 @@ use crate::{
     },
     circuits::traits::qstandard::{QStandardCircuit, QStandardCircuitProvableWithProofStoreAndRefLibraryAsync},
     proof_minifier::pm_core::get_circuit_fingerprint_generic,
-    treeprover::traits::TreeProverAggCircuit, traits::ToTargets,
+    traits::ToTargets,
+    treeprover::traits::TreeProverAggCircuit,
 };
 
 #[derive(Debug, Clone)]
@@ -46,9 +54,7 @@ pub struct AggStateTrackableCircuitHeaderGadget {
     pub state_transition_hash: HashOutTarget,
 }
 impl AggStateTrackableCircuitHeaderGadget {
-    pub fn add_virtual_to<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
-        builder: &mut CircuitBuilder<F, D>,
-    ) -> Self {
+    pub fn add_virtual_to<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(builder: &mut CircuitBuilder<F, D>) -> Self {
         let left_state_transition_start = builder.add_virtual_hash();
         let left_state_transition_end = builder.add_virtual_hash();
         let right_state_transition_start = builder.add_virtual_hash();
@@ -56,17 +62,13 @@ impl AggStateTrackableCircuitHeaderGadget {
         let leaf_fingerprint = builder.add_virtual_hash();
         let agg_fingerprint = builder.add_virtual_hash();
 
-        let allowed_circuit_hashes_root =
-            builder.hash_two_to_one::<H>(leaf_fingerprint, agg_fingerprint);
+        let allowed_circuit_hashes_root = builder.hash_two_to_one::<H>(leaf_fingerprint, agg_fingerprint);
 
-        let expected_left_child_transition_hash =
-            builder.hash_two_to_one::<H>(left_state_transition_start, left_state_transition_end);
+        let expected_left_child_transition_hash = builder.hash_two_to_one::<H>(left_state_transition_start, left_state_transition_end);
 
-        let expected_right_child_transition_hash =
-            builder.hash_two_to_one::<H>(right_state_transition_start, right_state_transition_end);
+        let expected_right_child_transition_hash = builder.hash_two_to_one::<H>(right_state_transition_start, right_state_transition_end);
 
-        let state_transition_hash =
-            builder.hash_two_to_one::<H>(left_state_transition_start, right_state_transition_end);
+        let state_transition_hash = builder.hash_two_to_one::<H>(left_state_transition_start, right_state_transition_end);
 
         // start constraints
         builder.connect_hashes(left_state_transition_end, right_state_transition_start);
@@ -97,22 +99,10 @@ impl AggStateTrackableCircuitHeaderGadget {
         witness.set_hash_target(self.agg_fingerprint, agg_fingerprint.0)?;
         witness.set_hash_target(self.leaf_fingerprint, leaf_fingerprint.0)?;
 
-        witness.set_hash_target(
-            self.left_state_transition_start,
-            input.left_input.state_transition_start.0,
-        )?;
-        witness.set_hash_target(
-            self.left_state_transition_end,
-            input.left_input.state_transition_end.0,
-        )?;
-        witness.set_hash_target(
-            self.right_state_transition_start,
-            input.right_input.state_transition_start.0,
-        )?;
-        witness.set_hash_target(
-            self.right_state_transition_end,
-            input.right_input.state_transition_end.0,
-        )
+        witness.set_hash_target(self.left_state_transition_start, input.left_input.state_transition_start.0)?;
+        witness.set_hash_target(self.left_state_transition_end, input.left_input.state_transition_end.0)?;
+        witness.set_hash_target(self.right_state_transition_start, input.right_input.state_transition_start.0)?;
+        witness.set_hash_target(self.right_state_transition_end, input.right_input.state_transition_end.0)
     }
 }
 
@@ -135,33 +125,21 @@ pub struct AggStateTransitionCircuit<C: GenericConfig<D>, const D: usize> {
 }
 impl<C: GenericConfig<D>, const D: usize> Clone for AggStateTransitionCircuit<C, D>
 where
-    C::Hasher:AlgebraicHasher<C::F>,
+    C::Hasher: AlgebraicHasher<C::F>,
 {
     fn clone(&self) -> Self {
-        Self::new(
-            &self.circuit_data.common,
-            self.circuit_data
-                .verifier_only
-                .constants_sigmas_cap
-                .height(),
-        )
+        Self::new(&self.circuit_data.common, self.circuit_data.verifier_only.constants_sigmas_cap.height())
     }
 }
 impl<C: GenericConfig<D>, const D: usize> AggStateTransitionCircuit<C, D>
 where
-    C::Hasher:AlgebraicHasher<C::F>,
+    C::Hasher: AlgebraicHasher<C::F>,
 {
-    pub fn new_base(
-        child_common_data: &CommonCircuitData<C::F, D>,
-        verifier_cap_height: usize,
-    ) -> Self {
+    pub fn new_base(child_common_data: &CommonCircuitData<C::F, D>, verifier_cap_height: usize) -> Self {
         let config = CircuitConfig::standard_recursion_config();
         let mut builder = CircuitBuilder::<C::F, D>::new(config);
 
-        let header_gadget =
-            AggStateTrackableCircuitHeaderGadget::add_virtual_to::<PoseidonHash, C::F, D>(
-                &mut builder,
-            );
+        let header_gadget = AggStateTrackableCircuitHeaderGadget::add_virtual_to::<PoseidonHash, C::F, D>(&mut builder);
 
         let worker_public_key = builder.add_virtual_hash();
 
@@ -187,11 +165,7 @@ where
                 left_proof.public_inputs[7],
             ],
         };
-        let left_child_pm_jobs_completed = [
-            left_proof.public_inputs[8],
-            left_proof.public_inputs[9],
-            left_proof.public_inputs[10]
-        ];
+        let left_child_pm_jobs_completed = [left_proof.public_inputs[8], left_proof.public_inputs[9], left_proof.public_inputs[10]];
         let left_child_allowed_circuit_hashes_root = HashOutTarget {
             elements: [
                 left_proof.public_inputs[11],
@@ -225,11 +199,7 @@ where
                 right_proof.public_inputs[7],
             ],
         };
-        let right_child_pm_jobs_completed = [
-            right_proof.public_inputs[8],
-            right_proof.public_inputs[9],
-            right_proof.public_inputs[10]
-        ];
+        let right_child_pm_jobs_completed = [right_proof.public_inputs[8], right_proof.public_inputs[9], right_proof.public_inputs[10]];
         let right_child_allowed_circuit_hashes_root = HashOutTarget {
             elements: [
                 right_proof.public_inputs[11],
@@ -255,47 +225,30 @@ where
         let left_final_commitment = builder.hash_two_to_one::<C::Hasher>(left_child_commitment, left_child_worker_public_key);
         let right_final_commitment = builder.hash_two_to_one::<C::Hasher>(right_child_commitment, right_child_worker_public_key);
         let commitment = builder.hash_two_to_one::<C::Hasher>(left_final_commitment, right_final_commitment);
-        builder.connect_hashes(
-            left_child_allowed_circuit_hashes_root,
-            header_gadget.allowed_circuit_hashes_root,
-        );
-        builder.connect_hashes(
-            right_child_allowed_circuit_hashes_root,
-            header_gadget.allowed_circuit_hashes_root,
-        );
-        builder.connect_hashes(
-            left_child_transition_hash,
-            header_gadget.expected_left_child_transition_hash,
-        );
-        builder.connect_hashes(
-            right_child_transition_hash,
-            header_gadget.expected_right_child_transition_hash,
-        );
+        builder.connect_hashes(left_child_allowed_circuit_hashes_root, header_gadget.allowed_circuit_hashes_root);
+        builder.connect_hashes(right_child_allowed_circuit_hashes_root, header_gadget.allowed_circuit_hashes_root);
+        builder.connect_hashes(left_child_transition_hash, header_gadget.expected_left_child_transition_hash);
+        builder.connect_hashes(right_child_transition_hash, header_gadget.expected_right_child_transition_hash);
         /*
         let x = builder.constant(C::F::ONE);
         let y = builder.constant(C::F::ZERO);
         let is_geq = builder.is_greater_than(32, x, y);
         builder.connect(is_geq.target, x);*/
-        //builder.verify_proof::<C>(&left_proof, &left_verifier_data, &child_common_data);
-        //builder.verify_proof::<C>(&right_proof, &right_verifier_data, &child_common_data);
+        //builder.verify_proof::<C>(&left_proof, &left_verifier_data,
+        // &child_common_data); builder.verify_proof::<C>(&right_proof,
+        // &right_verifier_data, &child_common_data);
 
         builder.verify_proof_with_fingerprint_enum::<C>(
             &left_proof,
             &left_verifier_data,
             child_common_data,
-            &[
-                header_gadget.agg_fingerprint,
-                header_gadget.leaf_fingerprint,
-            ],
+            &[header_gadget.agg_fingerprint, header_gadget.leaf_fingerprint],
         );
         builder.verify_proof_with_fingerprint_enum::<C>(
             &right_proof,
             &right_verifier_data,
             child_common_data,
-            &[
-                header_gadget.agg_fingerprint,
-                header_gadget.leaf_fingerprint,
-            ],
+            &[header_gadget.agg_fingerprint, header_gadget.leaf_fingerprint],
         );
 
         builder.register_public_inputs(&commitment.elements);
@@ -341,8 +294,7 @@ where
         println!("left_proof_public_inputs: {:?}", left_proof.public_inputs);
         println!("right_proof_public_inputs: {:?}", right_proof.public_inputs);
         println!("agg_input: {:?}",input);*/
-        self.header_gadget
-            .set_witness(&mut pw, input, agg_fingerprint, leaf_fingerprint)?;
+        self.header_gadget.set_witness(&mut pw, input, agg_fingerprint, leaf_fingerprint)?;
 
         pw.set_proof_with_pis_target(&self.left_proof, left_proof)?;
         pw.set_verifier_data_target(
@@ -370,9 +322,7 @@ where
         result
     }
 }
-impl<C: GenericConfig<D>, const D: usize> QStandardCircuit<C, D>
-    for AggStateTransitionCircuit<C, D>
-{
+impl<C: GenericConfig<D>, const D: usize> QStandardCircuit<C, D> for AggStateTransitionCircuit<C, D> {
     fn get_fingerprint(&self) -> QHashOut<C::F> {
         self.fingerprint
     }
@@ -386,7 +336,7 @@ impl<C: GenericConfig<D>, const D: usize> QStandardCircuit<C, D>
 
 impl<C: GenericConfig<D>, const D: usize> AggStateTransitionCircuit<C, D>
 where
-    C::Hasher:AlgebraicHasher<C::F>,
+    C::Hasher: AlgebraicHasher<C::F>,
 {
     pub fn prove_full_with_key(
         &self,
@@ -412,10 +362,9 @@ where
     }
 }
 
-impl<C: GenericConfig<D>, const D: usize> TreeProverAggCircuit<AggStateTransitionInput<C::F>, C, D>
-    for AggStateTransitionCircuit<C, D>
+impl<C: GenericConfig<D>, const D: usize> TreeProverAggCircuit<AggStateTransitionInput<C::F>, C, D> for AggStateTransitionCircuit<C, D>
 where
-    C::Hasher:AlgebraicHasher<C::F>,
+    C::Hasher: AlgebraicHasher<C::F>,
 {
     fn new(child_common_data: &CommonCircuitData<C::F, D>, verifier_cap_height: usize) -> Self {
         Self::new_base(child_common_data, verifier_cap_height)
@@ -446,15 +395,10 @@ where
 }
 
 #[async_trait]
-impl<
-        S: QProofStoreReaderAsync + Send + Sync,
-        L: CircuitInfoLibrary<C, D> + Send + Sync,
-        C: GenericConfig<D>,
-        const D: usize,
-    > QStandardCircuitProvableWithProofStoreAndRefLibraryAsync<S, L, C, D>
-    for AggStateTransitionCircuit<C, D>
+impl<S: QProofStoreReaderAsync + Send + Sync, L: CircuitInfoLibrary<C, D> + Send + Sync, C: GenericConfig<D>, const D: usize>
+    QStandardCircuitProvableWithProofStoreAndRefLibraryAsync<S, L, C, D> for AggStateTransitionCircuit<C, D>
 where
-    C::Hasher: AlgebraicHasher<C::F>
+    C::Hasher: AlgebraicHasher<C::F>,
 {
     async fn prove_with_proof_store_async(
         &self,
@@ -464,8 +408,7 @@ where
         worker_public_key: QHashOut<C::F>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         let r: CircuitInputWithDependencies<AggStateTransitionInput<C::F>> =
-            bincode::deserialize(&store.get_bytes_by_id(job_id.get_input_witness_id()).await?)
-                .map_err(|e| anyhow::anyhow!(e))?;
+            bincode::deserialize(&store.get_bytes_by_id(job_id.get_input_witness_id()).await?).map_err(|e| anyhow::anyhow!(e))?;
         if r.dependencies.len() != 2 {
             anyhow::bail!("invalid dependency count in two end guta input");
         }
@@ -489,7 +432,7 @@ where
             worker_public_key,
             &child_a_proof,
             &child_b_proof,
-            &r.input
+            &r.input,
         )?;
 
         Ok(result)

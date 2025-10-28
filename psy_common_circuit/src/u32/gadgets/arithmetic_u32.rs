@@ -1,18 +1,21 @@
 use core::marker::PhantomData;
-use plonky2::plonk::circuit_data::CommonCircuitData;
-use plonky2::util::serialization::{Buffer, IoResult, Read, Write};
 
-use plonky2::field::extension::Extendable;
-use plonky2::hash::hash_types::RichField;
-use plonky2::iop::generator::{GeneratedValues, SimpleGenerator};
-use plonky2::iop::target::{BoolTarget, Target};
-use plonky2::iop::witness::{PartitionWitness, Witness};
-use plonky2::plonk::circuit_builder::CircuitBuilder;
+use plonky2::{
+    field::extension::Extendable,
+    hash::hash_types::RichField,
+    iop::{
+        generator::{GeneratedValues, SimpleGenerator},
+        target::{BoolTarget, Target},
+        witness::{PartitionWitness, Witness},
+    },
+    plonk::{circuit_builder::CircuitBuilder, circuit_data::CommonCircuitData},
+    util::serialization::{Buffer, IoResult, Read, Write},
+};
 
-use super::super::gates::add_many_u32::U32AddManyGate;
-use super::super::gates::arithmetic_u32::U32ArithmeticGate;
-use super::super::gates::subtraction_u32::U32SubtractionGate;
-use super::super::witness::GeneratedValuesU32;
+use super::super::{
+    gates::{add_many_u32::U32AddManyGate, arithmetic_u32::U32ArithmeticGate, subtraction_u32::U32SubtractionGate},
+    witness::GeneratedValuesU32,
+};
 
 #[derive(Clone, Copy, Debug)]
 pub struct U32Target(pub Target);
@@ -22,7 +25,8 @@ pub trait CircuitBuilderU32<F: RichField + Extendable<D>, const D: usize> {
 
     fn add_virtual_u32_targets(&mut self, n: usize) -> Vec<U32Target>;
 
-    /// Returns a U32Target for the value `c`, which is assumed to be at most 32 bits.
+    /// Returns a U32Target for the value `c`, which is assumed to be at most 32
+    /// bits.
     fn constant_u32(&mut self, c: u32) -> U32Target;
 
     fn zero_u32(&mut self) -> U32Target;
@@ -38,12 +42,7 @@ pub trait CircuitBuilderU32<F: RichField + Extendable<D>, const D: usize> {
     /// Checks for special cases where the value of
     /// `x * y + z`
     /// can be determined without adding a `U32ArithmeticGate`.
-    fn arithmetic_u32_special_cases(
-        &mut self,
-        x: U32Target,
-        y: U32Target,
-        z: U32Target,
-    ) -> Option<(U32Target, U32Target)>;
+    fn arithmetic_u32_special_cases(&mut self, x: U32Target, y: U32Target, z: U32Target) -> Option<(U32Target, U32Target)>;
 
     // Returns x * y + z.
     fn mul_add_u32(&mut self, x: U32Target, y: U32Target, z: U32Target) -> (U32Target, U32Target);
@@ -56,15 +55,13 @@ pub trait CircuitBuilderU32<F: RichField + Extendable<D>, const D: usize> {
 
     fn add_many_u32(&mut self, to_add: &[U32Target]) -> (U32Target, U32Target);
 
-    fn add_u32s_with_carry(
-        &mut self,
-        to_add: &[U32Target],
-        carry: U32Target,
-    ) -> (U32Target, U32Target);
+    fn add_u32s_with_carry(&mut self, to_add: &[U32Target], carry: U32Target) -> (U32Target, U32Target);
 
     fn mul_u32(&mut self, a: U32Target, b: U32Target) -> (U32Target, U32Target);
 
-    // Returns x - y - borrow, as a pair (result, borrow), where borrow is 0 or 1 depending on whether borrowing from the next digit is required (iff y + borrow > x).
+    // Returns x - y - borrow, as a pair (result, borrow), where borrow is 0 or 1
+    // depending on whether borrowing from the next digit is required (iff y +
+    // borrow > x).
     fn sub_u32(&mut self, x: U32Target, y: U32Target, borrow: U32Target) -> (U32Target, U32Target);
 
     // Selects `x` or `y` based on `b`, i.e., this returns `if b { x } else { y }`.
@@ -77,21 +74,17 @@ pub trait CircuitBuilderU32<F: RichField + Extendable<D>, const D: usize> {
     fn u32_reverse_endian(&mut self, x: U32Target) -> U32Target;
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderU32<F, D>
-    for CircuitBuilder<F, D>
-{
+impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderU32<F, D> for CircuitBuilder<F, D> {
     fn add_virtual_u32_target(&mut self) -> U32Target {
         U32Target(self.add_virtual_target())
     }
 
     fn add_virtual_u32_targets(&mut self, n: usize) -> Vec<U32Target> {
-        self.add_virtual_targets(n)
-            .into_iter()
-            .map(U32Target)
-            .collect()
+        self.add_virtual_targets(n).into_iter().map(U32Target).collect()
     }
 
-    /// Returns a U32Target for the value `c`, which is assumed to be at most 32 bits.
+    /// Returns a U32Target for the value `c`, which is assumed to be at most 32
+    /// bits.
     fn constant_u32(&mut self, c: u32) -> U32Target {
         U32Target(self.constant(F::from_canonical_u32(c)))
     }
@@ -121,12 +114,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderU32<F, D>
     /// Checks for special cases where the value of
     /// `x * y + z`
     /// can be determined without adding a `U32ArithmeticGate`.
-    fn arithmetic_u32_special_cases(
-        &mut self,
-        x: U32Target,
-        y: U32Target,
-        z: U32Target,
-    ) -> Option<(U32Target, U32Target)> {
+    fn arithmetic_u32_special_cases(&mut self, x: U32Target, y: U32Target, z: U32Target) -> Option<(U32Target, U32Target)> {
         let x_const = self.target_as_constant(x.0);
         let y_const = self.target_as_constant(y.0);
         let z_const = self.target_as_constant(z.0);
@@ -185,14 +173,10 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderU32<F, D>
             _ => {
                 let num_addends = to_add.len();
                 let gate = U32AddManyGate::<F, D>::new_from_config(&self.config, num_addends);
-                let (row, copy) =
-                    self.find_slot(gate, &[F::from_canonical_usize(num_addends)], &[]);
+                let (row, copy) = self.find_slot(gate, &[F::from_canonical_usize(num_addends)], &[]);
 
                 for (j, &add) in to_add.iter().enumerate().take(num_addends) {
-                    self.connect(
-                        Target::wire(row, gate.wire_ith_op_jth_addend(copy, j)),
-                        add.0,
-                    );
+                    self.connect(Target::wire(row, gate.wire_ith_op_jth_addend(copy, j)), add.0);
                 }
                 let zero = self.zero();
                 self.connect(Target::wire(row, gate.wire_ith_carry(copy)), zero);
@@ -205,11 +189,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderU32<F, D>
         }
     }
 
-    fn add_u32s_with_carry(
-        &mut self,
-        to_add: &[U32Target],
-        carry: U32Target,
-    ) -> (U32Target, U32Target) {
+    fn add_u32s_with_carry(&mut self, to_add: &[U32Target], carry: U32Target) -> (U32Target, U32Target) {
         if to_add.len() == 1 {
             return self.add_u32(to_add[0], carry);
         }
@@ -220,10 +200,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderU32<F, D>
         let (row, copy) = self.find_slot(gate, &[F::from_canonical_usize(num_addends)], &[]);
 
         for (j, &add) in to_add.iter().enumerate().take(num_addends) {
-            self.connect(
-                Target::wire(row, gate.wire_ith_op_jth_addend(copy, j)),
-                add.0,
-            );
+            self.connect(Target::wire(row, gate.wire_ith_op_jth_addend(copy, j)), add.0);
         }
         self.connect(Target::wire(row, gate.wire_ith_carry(copy)), carry.0);
 
@@ -238,17 +215,16 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderU32<F, D>
         self.mul_add_u32(a, b, zero)
     }
 
-    // Returns x - y - borrow, as a pair (result, borrow), where borrow is 0 or 1 depending on whether borrowing from the next digit is required (iff y + borrow > x).
+    // Returns x - y - borrow, as a pair (result, borrow), where borrow is 0 or 1
+    // depending on whether borrowing from the next digit is required (iff y +
+    // borrow > x).
     fn sub_u32(&mut self, x: U32Target, y: U32Target, borrow: U32Target) -> (U32Target, U32Target) {
         let gate = U32SubtractionGate::<F, D>::new_from_config(&self.config);
         let (row, copy) = self.find_slot(gate, &[], &[]);
 
         self.connect(Target::wire(row, gate.wire_ith_input_x(copy)), x.0);
         self.connect(Target::wire(row, gate.wire_ith_input_y(copy)), y.0);
-        self.connect(
-            Target::wire(row, gate.wire_ith_input_borrow(copy)),
-            borrow.0,
-        );
+        self.connect(Target::wire(row, gate.wire_ith_input_borrow(copy)), borrow.0);
 
         let output_result = U32Target(Target::wire(row, gate.wire_ith_output_result(copy)));
         let output_borrow = U32Target(Target::wire(row, gate.wire_ith_output_borrow(copy)));
@@ -264,12 +240,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderU32<F, D>
         self.add_u32(a, b).0
     }
 
-    fn mul_const_add_u32(
-        &mut self,
-        const0: u32,
-        y: U32Target,
-        z: U32Target,
-    ) -> (U32Target, U32Target) {
+    fn mul_const_add_u32(&mut self, const0: u32, y: U32Target, z: U32Target) -> (U32Target, U32Target) {
         let const0 = self.constant_u32(const0);
         self.mul_add_u32(const0, y, z)
     }
@@ -306,9 +277,7 @@ struct SplitToU32Generator<F: RichField + Extendable<D>, const D: usize> {
     _phantom: PhantomData<F>,
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D>
-    for SplitToU32Generator<F, D>
-{
+impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D> for SplitToU32Generator<F, D> {
     fn dependencies(&self) -> Vec<Target> {
         vec![self.x]
     }
@@ -353,11 +322,14 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D>
 #[cfg(test)]
 mod tests {
     use anyhow::Result;
-    use plonky2::iop::witness::PartialWitness;
-    use plonky2::plonk::circuit_data::CircuitConfig;
-    use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
-    use rand::rngs::OsRng;
-    use rand::Rng;
+    use plonky2::{
+        iop::witness::PartialWitness,
+        plonk::{
+            circuit_data::CircuitConfig,
+            config::{GenericConfig, PoseidonGoldilocksConfig},
+        },
+    };
+    use rand::{rngs::OsRng, Rng};
 
     use super::*;
 

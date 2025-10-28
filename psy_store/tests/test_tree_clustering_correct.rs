@@ -1,9 +1,7 @@
 use anyhow::Result;
 use kvq::traits::{KVQBinaryStore, KVQBinaryStoreAsync, KVQSerializable};
-use psy_store::store::lmdbx::KVQlibmdbxStore;
-use psy_store::store::scylla::ScyllaStore;
-use psy_data::config::store_config::*;
-use psy_data::models::kvq_merkle::key::KVQMerkleNodeKey;
+use psy_data::{config::store_config::*, models::kvq_merkle::key::KVQMerkleNodeKey};
+use psy_store::store::{lmdbx::KVQlibmdbxStore, scylla::ScyllaStore};
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn test_tree_clustering_correct() -> Result<()> {
@@ -57,8 +55,7 @@ async fn test_tree_clustering_correct() -> Result<()> {
         mdbx_store.set_ref(&key_bytes, &value)?;
         <ScyllaStore as KVQBinaryStoreAsync>::set_ref(&scylla_store, &key_bytes, &value).await?;
 
-        println!("   Checkpoint {} - key bytes: {:?} (len={})",
-                 checkpoint_id, key_bytes, key_bytes.len());
+        println!("   Checkpoint {} - key bytes: {:?} (len={})", checkpoint_id, key_bytes, key_bytes.len());
     }
 
     println!("\n3. Testing get_leq with fuzzy_bytes = 8 (checkpoint_id size):");

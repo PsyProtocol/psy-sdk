@@ -1,19 +1,25 @@
-use plonky2::{field::extension::Extendable, hash::hash_types::{HashOutTarget, RichField}, iop::{target::Target, witness::Witness}, plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher}};
-use psy_common_circuit::{builder::{comparison::CircuitBuilderComparison, connect::CircuitBuilderConnectHelpers, core::CircuitBuilderHelpersCore, select::CircuitBuilderSelectHelpers}, treeprover::subtree::gadgets::subtree_core::SubTreeNodeStateTransitionGadget};
+use plonky2::{
+    field::extension::Extendable,
+    hash::hash_types::{HashOutTarget, RichField},
+    iop::{target::Target, witness::Witness},
+    plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher},
+};
+use psy_common_circuit::{
+    builder::{
+        comparison::CircuitBuilderComparison, connect::CircuitBuilderConnectHelpers, core::CircuitBuilderHelpersCore,
+        select::CircuitBuilderSelectHelpers,
+    },
+    treeprover::subtree::gadgets::subtree_core::SubTreeNodeStateTransitionGadget,
+};
 use psy_core::data::qhashout::QHashOut;
 use psy_data::guta::proof_input::GUTARegisterUserFullInput;
 
-
 use super::guta_register_user_full::GUTARegisterUserFullGadget;
-
-
-
 
 #[derive(Clone, Debug)]
 pub struct GUTARegisterUsersGadget {
     pub register_user_gadgets: Vec<GUTARegisterUserFullGadget>,
     pub register_user_count: Target,
-
 
     // computed
     pub user_registration_tree_root: HashOutTarget,
@@ -31,24 +37,21 @@ impl GUTARegisterUsersGadget {
         input_height_target: Option<Target>,
         max_users: usize,
     ) -> Self {
-
         assert!(max_users > 0, "must have non-zero number of users");
 
         let mut register_user_gadgets = Vec::with_capacity(max_users);
 
-        let first_user = GUTARegisterUserFullGadget::add_virtual_to::<H,F,D>(
+        let first_user = GUTARegisterUserFullGadget::add_virtual_to::<H, F, D>(
             builder,
             global_user_tree_realm_height,
             global_user_tree_height,
             default_user_state_tree_root,
-            input_height_target
+            input_height_target,
         );
 
         let register_user_count = builder.add_virtual_target();
 
         builder.assert_non_zero(register_user_count);
-
-
 
         let mut state_transition = first_user.get_state_transition(builder);
 
@@ -64,32 +67,23 @@ impl GUTARegisterUsersGadget {
         register_user_gadgets.push(first_user);
 
         for i in 1..max_users {
-            let user = GUTARegisterUserFullGadget::add_virtual_to::<H,F,D>(
+            let user = GUTARegisterUserFullGadget::add_virtual_to::<H, F, D>(
                 builder,
                 global_user_tree_realm_height,
                 global_user_tree_height,
                 default_user_state_tree_root,
-                new_input_height_target
+                new_input_height_target,
             );
             builder.connect(user.global_user_tree_proof_height, global_user_tree_proof_height);
 
             let current_user_count = builder.constant_u64(i as u64);
             let is_pivot_disabled_user = builder.is_equal(current_user_count, register_user_count);
 
-
             is_disabled = builder.or(is_disabled, is_pivot_disabled_user);
 
-            builder.connect_hashes_if_false(
-                is_disabled,
-                user.old_global_user_tree_root,
-                state_transition.new_node_value,
-            );
+            builder.connect_hashes_if_false(is_disabled, user.old_global_user_tree_root, state_transition.new_node_value);
 
-            state_transition.new_node_value = builder.select_hash(
-                is_disabled,
-                state_transition.new_node_value,
-                user.new_global_user_tree_root,
-            );
+            state_transition.new_node_value = builder.select_hash(is_disabled, state_transition.new_node_value, user.new_global_user_tree_root);
 
             // builder.connect_hashes_if_false(
             //     is_disabled,
@@ -98,12 +92,12 @@ impl GUTARegisterUsersGadget {
             // );
 
             // TODO: do we need this?
-            let computed_root_index = user.register_user_core_gadget.global_user_tree_update_proof.bit_info.get_root_parent_index(builder);
-            builder.connect_if_false(
-                is_disabled,
-                computed_root_index,
-                state_transition.node_index
-            );
+            let computed_root_index = user
+                .register_user_core_gadget
+                .global_user_tree_update_proof
+                .bit_info
+                .get_root_parent_index(builder);
+            builder.connect_if_false(is_disabled, computed_root_index, state_transition.node_index);
 
             register_user_gadgets.push(user);
         }
@@ -119,9 +113,7 @@ impl GUTARegisterUsersGadget {
         }
     }
 
-    pub fn get_state_transition(
-        &self,
-    ) -> SubTreeNodeStateTransitionGadget {
+    pub fn get_state_transition(&self) -> SubTreeNodeStateTransitionGadget {
         self.state_transition
     }
 
@@ -132,38 +124,31 @@ impl GUTARegisterUsersGadget {
         dummy_public_key: QHashOut<F>,
         dummy_user_leaf_hash: QHashOut<F>,
     ) -> anyhow::Result<()> {
-
         let inputs_len = guta_register_user_inputs.len();
-        
-        tracing::debug!("🔄 GUTA Register Users set_witness - inputs_len: {}, state_transition: {:?}", 
-            inputs_len, self.state_transition);
+
+        tracing::debug!(
+            "🔄 GUTA Register Users set_witness - inputs_len: {}, state_transition: {:?}",
+            inputs_len,
+            self.state_transition
+        );
 
         if inputs_len == 0 {
             anyhow::bail!("must provide at least one guta_register_user_input");
-        }else if inputs_len > self.register_user_gadgets.len() {
+        } else if inputs_len > self.register_user_gadgets.len() {
             anyhow::bail!("provided too many guta_register_user_inputs");
-        }else if inputs_len == self.register_user_gadgets.len() {
+        } else if inputs_len == self.register_user_gadgets.len() {
             for (input, g) in guta_register_user_inputs.iter().zip(self.register_user_gadgets.iter()) {
-                g.set_witness_params(
-                    witness,
-                    &input.user_registration_tree_merkle_proof,
-                    &input.global_user_tree_update_proof
-                )?;
+                g.set_witness_params(witness, &input.user_registration_tree_merkle_proof, &input.global_user_tree_update_proof)?;
             }
-            witness.set_target(
-                self.register_user_count,
-                F::from_canonical_usize(inputs_len),
-            )?;
+            witness.set_target(self.register_user_count, F::from_canonical_usize(inputs_len))?;
             return Ok(());
         }
-
 
         let dummy_value = GUTARegisterUserFullInput::new_dummy(
             guta_register_user_inputs[0].global_user_tree_update_proof.siblings.len(),
             dummy_user_leaf_hash,
             dummy_public_key,
         );
-
 
         for (i, g) in self.register_user_gadgets.iter().enumerate() {
             if i < inputs_len {
@@ -172,18 +157,14 @@ impl GUTARegisterUsersGadget {
                     &guta_register_user_inputs[i].user_registration_tree_merkle_proof,
                     &guta_register_user_inputs[i].global_user_tree_update_proof,
                 )?;
-            }else{
+            } else {
                 g.set_witness_params(
                     witness,
                     &dummy_value.user_registration_tree_merkle_proof,
-                    &dummy_value.global_user_tree_update_proof
+                    &dummy_value.global_user_tree_update_proof,
                 )?;
             }
         }
-        witness.set_target(
-            self.register_user_count,
-            F::from_canonical_usize(inputs_len),
-        )
+        witness.set_target(self.register_user_count, F::from_canonical_usize(inputs_len))
     }
-
 }

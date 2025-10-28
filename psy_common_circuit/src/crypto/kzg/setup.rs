@@ -1,9 +1,6 @@
-use crate::crypto::bn254::field::{
-    bn128_base::Bn128Base, bn128_scalar::Bn128Scalar, extension::quadratic::QuadraticExtension,
-};
-
-use crate::crypto::secp256k1::ecdsa::curve::curve_types::{
-    AffinePoint, Curve, CurveScalar, ProjectivePoint,
+use crate::crypto::{
+    bn254::field::{bn128_base::Bn128Base, bn128_scalar::Bn128Scalar, extension::quadratic::QuadraticExtension},
+    secp256k1::ecdsa::curve::curve_types::{AffinePoint, Curve, CurveScalar, ProjectivePoint},
 };
 
 #[derive(Clone, Debug)]
@@ -34,16 +31,13 @@ impl KZGSetup {
     /// L_i(x) = ∏_{j≠i} (x - ω^j) / (ω^i - ω^j)
     /// L_i(x) = (x^n - 1) / (n * (x - ω^i))
     /// L_i(τ) = (τ^n - 1) / (n * (τ - ω^i))
-    ///
     // [L_0(τ)G, L_1(τ)G, ..., L_{n-1}(τ)G]
     pub fn new_lagrange_setup(tau: Bn128Scalar, domain_size: usize) -> KZGParams {
-        use crate::crypto::bn254::curve::{g1::G1, g2::G2};
         use plonky2::field::types::Field;
 
-        assert!(
-            domain_size.is_power_of_two(),
-            "Domain size must be power of 2"
-        );
+        use crate::crypto::bn254::curve::{g1::G1, g2::G2};
+
+        assert!(domain_size.is_power_of_two(), "Domain size must be power of 2");
 
         // Compute primitive n-th root of unity ω
         let omega = Self::compute_primitive_root_of_unity(domain_size);
@@ -138,10 +132,7 @@ impl KZGParams {
         self.domain_size
     }
 
-    pub fn get_g1_powers(
-        &self,
-        degree: usize,
-    ) -> Option<&[AffinePoint<crate::crypto::bn254::curve::g1::G1>]> {
+    pub fn get_g1_powers(&self, degree: usize) -> Option<&[AffinePoint<crate::crypto::bn254::curve::g1::G1>]> {
         if degree <= self.lagrange_g1.len() {
             Some(&self.lagrange_g1[..degree])
         } else {
@@ -161,8 +152,9 @@ impl KZGParams {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use plonky2::field::types::Field;
+
+    use super::*;
 
     #[test]
     fn test_trusted_setup() {
@@ -224,13 +216,7 @@ mod tests {
             // Verify ω^k ≠ 1 for 0 < k < n
             let mut omega_power = omega;
             for k in 1..n {
-                assert_ne!(
-                    omega_power,
-                    Bn128Scalar::ONE,
-                    "ω^{} should not equal 1 for n={}",
-                    k,
-                    n
-                );
+                assert_ne!(omega_power, Bn128Scalar::ONE, "ω^{} should not equal 1 for n={}", k, n);
                 omega_power = omega_power * omega;
             }
         }
@@ -255,11 +241,7 @@ mod tests {
         // Verify all powers are distinct
         for i in 0..n {
             for j in i + 1..n {
-                assert_ne!(
-                    powers[i], powers[j],
-                    "Powers {} and {} should be distinct",
-                    i, j
-                );
+                assert_ne!(powers[i], powers[j], "Powers {} and {} should be distinct", i, j);
             }
         }
     }
@@ -315,12 +297,9 @@ mod tests {
 
         for i in 0..domain_size {
             let expected_li_tau = tau_n_minus_1 * (tau - roots[i]).inverse() * n_inv;
-            // We can't directly verify the G1 points, but we can check the computation logic
-            assert_ne!(
-                tau - roots[i],
-                Bn128Scalar::ZERO,
-                "tau should not equal any root of unity"
-            );
+            // We can't directly verify the G1 points, but we can check the computation
+            // logic
+            assert_ne!(tau - roots[i], Bn128Scalar::ZERO, "tau should not equal any root of unity");
         }
     }
 

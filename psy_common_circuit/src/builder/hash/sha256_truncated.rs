@@ -1,49 +1,27 @@
+use plonky2::{field::extension::Extendable, hash::hash_types::HashOutTarget, iop::target::BoolTarget, plonk::circuit_builder::CircuitBuilder};
 use psy_crypto::field::qfield::QRichField;
-use plonky2::field::extension::Extendable;
-use plonky2::hash::hash_types::HashOutTarget;
-use plonky2::iop::target::BoolTarget;
-use plonky2::plonk::circuit_builder::CircuitBuilder;
 
+use super::sha256::{big_sigma, ch, maj, sha256_round_constants, sha256_start_state, sigma, CircuitBuilderHashSha256};
 use crate::{
     hash::base_types::hash192::{CircuitBuilderHash192, Hash192Target},
     traits::GenericCircuitMerkleHasher,
     u32::arithmetic_u32::{CircuitBuilderU32, U32Target},
 };
 
-use super::sha256::{
-    big_sigma, ch, maj, sha256_round_constants, sha256_start_state, sigma, CircuitBuilderHashSha256,
-};
-
 pub trait CircuitBuilderTruncatedSha256<F: QRichField + Extendable<D>, const D: usize> {
     fn truncated_sha256(&mut self, data: &[U32Target]) -> Hash192Target;
-    fn two_to_one_truncated_sha256(
-        &mut self,
-        left: Hash192Target,
-        right: Hash192Target,
-    ) -> Hash192Target;
+    fn two_to_one_truncated_sha256(&mut self, left: Hash192Target, right: Hash192Target) -> Hash192Target;
     fn truncated_sha256_hash_out(&mut self, data: &[U32Target]) -> HashOutTarget;
-    fn two_to_one_truncated_sha256_hash_out(
-        &mut self,
-        left: HashOutTarget,
-        right: HashOutTarget,
-    ) -> HashOutTarget;
+    fn two_to_one_truncated_sha256_hash_out(&mut self, left: HashOutTarget, right: HashOutTarget) -> HashOutTarget;
 }
 
-impl<F: QRichField + Extendable<D>, const D: usize> CircuitBuilderTruncatedSha256<F, D>
-    for CircuitBuilder<F, D>
-{
+impl<F: QRichField + Extendable<D>, const D: usize> CircuitBuilderTruncatedSha256<F, D> for CircuitBuilder<F, D> {
     fn truncated_sha256(&mut self, data: &[U32Target]) -> Hash192Target {
         let result = self.hash_sha256_u32(data);
-        [
-            result[0], result[1], result[2], result[3], result[4], result[5],
-        ]
+        [result[0], result[1], result[2], result[3], result[4], result[5]]
     }
 
-    fn two_to_one_truncated_sha256(
-        &mut self,
-        left: Hash192Target,
-        right: Hash192Target,
-    ) -> Hash192Target {
+    fn two_to_one_truncated_sha256(&mut self, left: Hash192Target, right: Hash192Target) -> Hash192Target {
         let state = sha256_start_state(self);
         let k256 = sha256_round_constants(self);
 
@@ -61,12 +39,12 @@ impl<F: QRichField + Extendable<D>, const D: usize> CircuitBuilderTruncatedSha25
         let c384 = self.constant_u32(384); // 192+192
                                            // Process the 384-bit message
         let mut w: [U32Target; 16] = [
-            left[0], left[1], left[2], left[3], left[4], left[5], right[0], right[1], right[2],
-            right[3], right[4], right[5], cx80, zero, zero, c384,
+            left[0], left[1], left[2], left[3], left[4], left[5], right[0], right[1], right[2], right[3], right[4], right[5], cx80, zero, zero, c384,
         ];
 
         for i in 0..64 {
-            // Extend the first 16 words into the remaining 48 words w[16..63] of the message schedule array
+            // Extend the first 16 words into the remaining 48 words w[16..63] of the
+            // message schedule array
             if i >= 16 {
                 let s0 = sigma(self, w[(i + 1) & 0xf], 7, 18, 3);
                 let s1 = sigma(self, w[(i + 14) & 0xf], 17, 19, 10);
@@ -76,9 +54,7 @@ impl<F: QRichField + Extendable<D>, const D: usize> CircuitBuilderTruncatedSha25
             // Compression function main loop
             let big_s1_e = big_sigma(self, e, 6, 11, 25);
             let ch_efg = ch(self, e, f, g);
-            let temp1 = self
-                .add_many_u32(&[h, big_s1_e, ch_efg, k256[i], w[i & 0xf]])
-                .0;
+            let temp1 = self.add_many_u32(&[h, big_s1_e, ch_efg, k256[i], w[i & 0xf]]).0;
 
             let big_s0_a = big_sigma(self, a, 2, 13, 22);
             let maj_abc = maj(self, a, b, c);
@@ -91,7 +67,8 @@ impl<F: QRichField + Extendable<D>, const D: usize> CircuitBuilderTruncatedSha25
             d = c;
             c = b;
             b = a;
-            a = self.add_u32_lo(temp1, temp2); // add_many_u32 of 3 elements is the same
+            a = self.add_u32_lo(temp1, temp2); // add_many_u32 of 3 elements is
+                                               // the same
         }
 
         // Add the compressed chunk to the current hash value
@@ -110,11 +87,7 @@ impl<F: QRichField + Extendable<D>, const D: usize> CircuitBuilderTruncatedSha25
         self.hash192_to_hash_out(result)
     }
 
-    fn two_to_one_truncated_sha256_hash_out(
-        &mut self,
-        left: HashOutTarget,
-        right: HashOutTarget,
-    ) -> HashOutTarget {
+    fn two_to_one_truncated_sha256_hash_out(&mut self, left: HashOutTarget, right: HashOutTarget) -> HashOutTarget {
         let left_192 = self.hash_out_to_hash192(left);
         let right_192 = self.hash_out_to_hash192(right);
 
@@ -152,21 +125,7 @@ impl GenericCircuitMerkleHasher<Hash192Target> for Sha256Hasher192 {
     ) -> Hash192Target {
         let x = builder.select_hash192(swap, left, right);
         let y = builder.select_hash192(swap, right, left);
-        let preimage = [
-            x[0],
-            x[1],
-            x[2],
-            x[3],
-            x[4],
-            x[5],
-            y[0],
-            y[1],
-            y[2],
-            y[3],
-            y[4],
-            y[5],
-            builder.one_u32(),
-        ];
+        let preimage = [x[0], x[1], x[2], x[3], x[4], x[5], y[0], y[1], y[2], y[3], y[4], y[5], builder.one_u32()];
         builder.truncated_sha256(&preimage)
     }
 }
@@ -175,11 +134,11 @@ impl GenericCircuitMerkleHasher<Hash192Target> for Sha256Hasher192 {
 mod tests {
     use std::time::Instant;
 
-    use plonky2::field::goldilocks_field::GoldilocksField;
-    use plonky2::iop::witness::PartialWitness;
-    use plonky2::plonk::circuit_builder::CircuitBuilder;
-    use plonky2::plonk::circuit_data::CircuitConfig;
-    use plonky2::plonk::config::PoseidonGoldilocksConfig;
+    use plonky2::{
+        field::goldilocks_field::GoldilocksField,
+        iop::witness::PartialWitness,
+        plonk::{circuit_builder::CircuitBuilder, circuit_data::CircuitConfig, config::PoseidonGoldilocksConfig},
+    };
     use psy_core::data::base_types::hash192::Hash192;
 
     use crate::{
@@ -271,7 +230,9 @@ mod tests {
         let data = builder.build::<C>();
         tracing::info!(
             "two_to_one_truncated_sha256 num_gates={}, copy_constraints={}, quotient_degree_factor={}",
-            num_gates, copy_constraints, data.common.quotient_degree_factor
+            num_gates,
+            copy_constraints,
+            data.common.quotient_degree_factor
         );
 
         for t in tests {
@@ -287,10 +248,7 @@ mod tests {
             let start = Instant::now();
             let proof = data.prove(pw).unwrap();
             let end = start.elapsed();
-            tracing::info!(
-                "two_to_one_truncated_sha256 proved in {}ms",
-                end.as_millis()
-            );
+            tracing::info!("two_to_one_truncated_sha256 proved in {}ms", end.as_millis());
             assert!(data.verify(proof).is_ok());
         }
     }

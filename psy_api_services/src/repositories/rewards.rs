@@ -1,8 +1,10 @@
 use chrono::Utc;
 use sqlx::PgPool;
 
-use crate::models::{WorkerEventReward, WorkerRewards};
-use crate::Result;
+use crate::{
+    models::{WorkerEventReward, WorkerRewards},
+    Result,
+};
 
 pub struct WorkerRewardsRepository;
 pub struct WorkerEventRewardRepository;
@@ -10,11 +12,7 @@ pub struct WorkerEventRewardRepository;
 /// Worker Rewards Repository
 impl WorkerRewardsRepository {
     /// Get rewards for a specific worker by public key and checkpoint_id
-    pub async fn get_worker_rewards(
-        pool: &PgPool,
-        worker_public_key: &str,
-        checkpoint_id: i64,
-    ) -> Result<WorkerRewards> {
+    pub async fn get_worker_rewards(pool: &PgPool, worker_public_key: &str, checkpoint_id: i64) -> Result<WorkerRewards> {
         let now = Utc::now();
         let twenty_four_hours_ago = now - chrono::Duration::hours(24);
         let seven_days_ago = now - chrono::Duration::days(7);
@@ -131,10 +129,7 @@ impl WorkerEventRewardRepository {
     }
 
     /// Get rewards for worker events by event IDs
-    pub async fn get_rewards_by_event_ids(
-        pool: &PgPool,
-        worker_event_ids: &[uuid::Uuid],
-    ) -> Result<Vec<WorkerEventReward>> {
+    pub async fn get_rewards_by_event_ids(pool: &PgPool, worker_event_ids: &[uuid::Uuid]) -> Result<Vec<WorkerEventReward>> {
         let rewards = sqlx::query_as!(
             WorkerEventReward,
             r#"
@@ -152,11 +147,7 @@ impl WorkerEventRewardRepository {
     }
 
     /// Get all rewards for worker events in a checkpoint range
-    pub async fn get_rewards_by_checkpoint_range(
-        pool: &PgPool,
-        start_checkpoint: i64,
-        end_checkpoint: i64,
-    ) -> Result<Vec<WorkerEventReward>> {
+    pub async fn get_rewards_by_checkpoint_range(pool: &PgPool, start_checkpoint: i64, end_checkpoint: i64) -> Result<Vec<WorkerEventReward>> {
         let rewards = sqlx::query_as!(
             WorkerEventReward,
             r#"

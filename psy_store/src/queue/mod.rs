@@ -1,21 +1,20 @@
-pub mod rsmq_queue;
-pub mod pool;
 pub mod fred_queue;
+pub mod pool;
 pub mod redis_queue;
-pub mod task_queue;
 pub mod resilient_redis;
+pub mod rsmq_queue;
+pub mod task_queue;
 
-pub use pool::{new_fred_pool, new_redis_async_pool, new_resilient_redis_connection};
-pub use resilient_redis::{ResilientRedisConnection, ConnectionStats, CommandBuilder};
-pub use rsmq_queue::*;
 pub use fred_queue::{DrainQueueFred, ProofStoreFred};
-pub use redis_queue::{ProofStoreRedisAsync, BizKey, QueuePrefixKey, QPendingUserStoreAsyncImm};
+pub use pool::{new_fred_pool, new_redis_async_pool, new_resilient_redis_connection};
+pub use redis_queue::{BizKey, ProofStoreRedisAsync, QPendingUserStoreAsyncImm, QueuePrefixKey};
+pub use resilient_redis::{CommandBuilder, ConnectionStats, ResilientRedisConnection};
+pub use rsmq_queue::*;
 pub mod worker_queue_redis {
     pub mod redis_queue {
         pub use crate::queue::rsmq_queue::{
-            RedisQueue, QueueCmd, QueueNotification, CEQueueNotification,
-            Q_RPC_TOKEN_TRANSFER, Q_RPC_CLAIM_DEPOSIT, Q_RPC_ADD_WITHDRAWAL, Q_RPC_REGISTER_USER,
-            Q_CMD, Q_JOB, Q_NOTIFICATIONS, CE_NOTIFICATIONS, Q_HIDDEN, Q_DELAY, Q_CAP
+            CEQueueNotification, QueueCmd, QueueNotification, RedisQueue, CE_NOTIFICATIONS, Q_CAP, Q_CMD, Q_DELAY, Q_HIDDEN, Q_JOB, Q_NOTIFICATIONS,
+            Q_RPC_ADD_WITHDRAWAL, Q_RPC_CLAIM_DEPOSIT, Q_RPC_REGISTER_USER, Q_RPC_TOKEN_TRANSFER,
         };
     }
 }

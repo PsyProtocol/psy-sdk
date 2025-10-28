@@ -1,27 +1,27 @@
 use core::marker::PhantomData;
-use plonky2::util::serialization::{Buffer, IoResult, Read, Write};
 
 use itertools::unfold;
-use plonky2::field::extension::Extendable;
-use plonky2::field::packed::PackedField;
-use plonky2::field::types::Field;
-use plonky2::gates::gate::Gate;
-use plonky2::gates::packed_util::PackedEvaluableBase;
-use plonky2::gates::util::StridedConstraintConsumer;
-use plonky2::hash::hash_types::RichField;
-use plonky2::iop::ext_target::ExtensionTarget;
-use plonky2::iop::generator::{GeneratedValues, SimpleGenerator, WitnessGeneratorRef};
-use plonky2::iop::target::Target;
-use plonky2::iop::wire::Wire;
-use plonky2::iop::witness::{PartitionWitness, Witness, WitnessWrite};
-use plonky2::plonk::circuit_builder::CircuitBuilder;
-use plonky2::plonk::circuit_data::{CircuitConfig, CommonCircuitData};
-use plonky2::plonk::vars::{
-    EvaluationTargets, EvaluationVars, EvaluationVarsBase, EvaluationVarsBaseBatch,
-    EvaluationVarsBasePacked,
+use plonky2::{
+    field::{extension::Extendable, packed::PackedField, types::Field},
+    gates::{gate::Gate, packed_util::PackedEvaluableBase, util::StridedConstraintConsumer},
+    hash::hash_types::RichField,
+    iop::{
+        ext_target::ExtensionTarget,
+        generator::{GeneratedValues, SimpleGenerator, WitnessGeneratorRef},
+        target::Target,
+        wire::Wire,
+        witness::{PartitionWitness, Witness, WitnessWrite},
+    },
+    plonk::{
+        circuit_builder::CircuitBuilder,
+        circuit_data::{CircuitConfig, CommonCircuitData},
+        vars::{EvaluationTargets, EvaluationVars, EvaluationVarsBase, EvaluationVarsBaseBatch, EvaluationVarsBasePacked},
+    },
+    util::serialization::{Buffer, IoResult, Read, Write},
 };
 
-/// A gate to perform a basic mul-add on 32-bit values (we assume they are range-checked beforehand).
+/// A gate to perform a basic mul-add on 32-bit values (we assume they are
+/// range-checked beforehand).
 #[derive(Copy, Clone, Debug)]
 pub struct U32ArithmeticGate<F: RichField + Extendable<D>, const D: usize> {
     pub num_ops: usize,
@@ -115,8 +115,8 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for U32ArithmeticG
                 // If this is zero, the diff is invertible, so the high limb is not `u32::MAX`.
                 // inverse * diff - 1
                 let hi_not_max = inverse * diff - one;
-                // If this is zero, either the high limb is not `u32::MAX`, or the low limb is zero.
-                // hi_not_max * limb_0_u32
+                // If this is zero, either the high limb is not `u32::MAX`, or the low limb is
+                // zero. hi_not_max * limb_0_u32
                 let hi_not_max_or_lo_zero = hi_not_max * output_low;
 
                 constraints.push(hi_not_max_or_lo_zero);
@@ -133,9 +133,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for U32ArithmeticG
             for j in (0..Self::num_limbs()).rev() {
                 let this_limb = vars.local_wires[self.wire_ith_output_jth_limb(i, j)];
                 let max_limb = 1 << Self::limb_bits();
-                let product = (0..max_limb)
-                    .map(|x| this_limb - F::Extension::from_canonical_usize(x))
-                    .product();
+                let product = (0..max_limb).map(|x| this_limb - F::Extension::from_canonical_usize(x)).product();
                 constraints.push(product);
 
                 if j < midpoint {
@@ -151,11 +149,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for U32ArithmeticG
         constraints
     }
 
-    fn eval_unfiltered_base_one(
-        &self,
-        _vars: EvaluationVarsBase<F>,
-        _yield_constr: StridedConstraintConsumer<F>,
-    ) {
+    fn eval_unfiltered_base_one(&self, _vars: EvaluationVarsBase<F>, _yield_constr: StridedConstraintConsumer<F>) {
         panic!("use eval_unfiltered_base_packed instead");
     }
 
@@ -163,11 +157,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for U32ArithmeticG
         self.eval_unfiltered_base_batch_packed(vars_base)
     }
 
-    fn eval_unfiltered_circuit(
-        &self,
-        builder: &mut CircuitBuilder<F, D>,
-        vars: EvaluationTargets<D>,
-    ) -> Vec<ExtensionTarget<D>> {
+    fn eval_unfiltered_circuit(&self, builder: &mut CircuitBuilder<F, D>, vars: EvaluationTargets<D>) -> Vec<ExtensionTarget<D>> {
         let mut constraints = Vec::with_capacity(self.num_constraints());
 
         for i in 0..self.num_ops {
@@ -186,14 +176,14 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for U32ArithmeticG
                 let base: F::Extension = F::from_canonical_u64(1 << 32u64).into();
                 let base_target = builder.constant_extension(base);
                 let one = builder.one_extension();
-                let u32_max =
-                    builder.constant_extension(F::Extension::from_canonical_u32(u32::MAX));
+                let u32_max = builder.constant_extension(F::Extension::from_canonical_u32(u32::MAX));
 
                 // This is zero if and only if the high limb is `u32::MAX`.
                 let diff = builder.sub_extension(u32_max, output_high);
                 // If this is zero, the diff is invertible, so the high limb is not `u32::MAX`.
                 let hi_not_max = builder.mul_sub_extension(inverse, diff, one);
-                // If this is zero, either the high limb is not `u32::MAX`, or the low limb is zero.
+                // If this is zero, either the high limb is not `u32::MAX`, or the low limb is
+                // zero.
                 let hi_not_max_or_lo_zero = builder.mul_extension(hi_not_max, output_low);
 
                 constraints.push(hi_not_max_or_lo_zero);
@@ -206,27 +196,23 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for U32ArithmeticG
             let mut combined_low_limbs = builder.zero_extension();
             let mut combined_high_limbs = builder.zero_extension();
             let midpoint = Self::num_limbs() / 2;
-            let base = builder
-                .constant_extension(F::Extension::from_canonical_u64(1u64 << Self::limb_bits()));
+            let base = builder.constant_extension(F::Extension::from_canonical_u64(1u64 << Self::limb_bits()));
             for j in (0..Self::num_limbs()).rev() {
                 let this_limb = vars.local_wires[self.wire_ith_output_jth_limb(i, j)];
                 let max_limb = 1 << Self::limb_bits();
 
                 let mut product = builder.one_extension();
                 for x in 0..max_limb {
-                    let x_target =
-                        builder.constant_extension(F::Extension::from_canonical_usize(x));
+                    let x_target = builder.constant_extension(F::Extension::from_canonical_usize(x));
                     let diff = builder.sub_extension(this_limb, x_target);
                     product = builder.mul_extension(product, diff);
                 }
                 constraints.push(product);
 
                 if j < midpoint {
-                    combined_low_limbs =
-                        builder.mul_add_extension(base, combined_low_limbs, this_limb);
+                    combined_low_limbs = builder.mul_add_extension(base, combined_low_limbs, this_limb);
                 } else {
-                    combined_high_limbs =
-                        builder.mul_add_extension(base, combined_high_limbs, this_limb);
+                    combined_high_limbs = builder.mul_add_extension(base, combined_high_limbs, this_limb);
                 }
             }
 
@@ -240,7 +226,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for U32ArithmeticG
     fn generators(&self, row: usize, _local_constants: &[F]) -> Vec<WitnessGeneratorRef<F, D>> {
         (0..self.num_ops)
             .map(|i| {
-                let g = WitnessGeneratorRef::<F,D>::new(
+                let g = WitnessGeneratorRef::<F, D>::new(
                     U32ArithmeticGenerator {
                         gate: *self,
                         row,
@@ -270,11 +256,11 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for U32ArithmeticG
         self.num_ops * (4 + Self::num_limbs())
     }
 
-    fn serialize(&self, dst: &mut Vec<u8>, _common_data: &CommonCircuitData<F, D>) -> IoResult<()>{
+    fn serialize(&self, dst: &mut Vec<u8>, _common_data: &CommonCircuitData<F, D>) -> IoResult<()> {
         dst.write_usize(self.num_ops)
     }
 
-    fn deserialize(src: &mut Buffer, _common_data: &CommonCircuitData<F, D> ) -> IoResult<Self>
+    fn deserialize(src: &mut Buffer, _common_data: &CommonCircuitData<F, D>) -> IoResult<Self>
     where
         Self: Sized,
     {
@@ -286,9 +272,7 @@ impl<F: RichField + Extendable<D>, const D: usize> Gate<F, D> for U32ArithmeticG
     }
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> PackedEvaluableBase<F, D>
-    for U32ArithmeticGate<F, D>
-{
+impl<F: RichField + Extendable<D>, const D: usize> PackedEvaluableBase<F, D> for U32ArithmeticGate<F, D> {
     fn eval_unfiltered_base_packed<P: PackedField<Scalar = F>>(
         &self,
         vars: EvaluationVarsBasePacked<P>,
@@ -316,8 +300,8 @@ impl<F: RichField + Extendable<D>, const D: usize> PackedEvaluableBase<F, D>
                 // If this is zero, the diff is invertible, so the high limb is not `u32::MAX`.
                 // inverse * diff - 1
                 let hi_not_max = inverse * diff - one;
-                // If this is zero, either the high limb is not `u32::MAX`, or the low limb is zero.
-                // hi_not_max * limb_0_u32
+                // If this is zero, either the high limb is not `u32::MAX`, or the low limb is
+                // zero. hi_not_max * limb_0_u32
                 let hi_not_max_or_lo_zero = hi_not_max * output_low;
 
                 yield_constr.one(hi_not_max_or_lo_zero);
@@ -334,9 +318,7 @@ impl<F: RichField + Extendable<D>, const D: usize> PackedEvaluableBase<F, D>
             for j in (0..Self::num_limbs()).rev() {
                 let this_limb = vars.local_wires[self.wire_ith_output_jth_limb(i, j)];
                 let max_limb = 1 << Self::limb_bits();
-                let product = (0..max_limb)
-                    .map(|x| this_limb - F::from_canonical_usize(x))
-                    .product();
+                let product = (0..max_limb).map(|x| this_limb - F::from_canonical_usize(x)).product();
                 yield_constr.one(product);
 
                 if j < midpoint {
@@ -359,9 +341,7 @@ struct U32ArithmeticGenerator<F: RichField + Extendable<D>, const D: usize> {
     _phantom: PhantomData<F>,
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D>
-    for U32ArithmeticGenerator<F, D>
-{
+impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D> for U32ArithmeticGenerator<F, D> {
     fn dependencies(&self) -> Vec<Target> {
         let local_target = |column| Target::wire(self.row, column);
 
@@ -373,10 +353,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D>
     }
 
     fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) -> anyhow::Result<()> {
-        let local_wire = |column| Wire {
-            row: self.row,
-            column,
-        };
+        let local_wire = |column| Wire { row: self.row, column };
 
         let get_local_wire = |column| witness.get_wire(local_wire(column));
 
@@ -400,11 +377,7 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D>
         out_buffer.set_wire(output_low_wire, output_low)?;
 
         let diff = u32::MAX as u64 - output_high_u64;
-        let inverse = if diff == 0 {
-            F::ZERO
-        } else {
-            F::from_canonical_u64(diff).inverse()
-        };
+        let inverse = if diff == 0 { F::ZERO } else { F::from_canonical_u64(diff).inverse() };
         let inverse_wire = local_wire(self.gate.wire_ith_inverse(self.i));
         out_buffer.set_wire(inverse_wire, inverse)?;
 
@@ -429,14 +402,13 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D>
         "U32ArithmeticGenerator".to_string()
     }
 
-
-    fn serialize(&self, dst: &mut Vec<u8>, common_data: &CommonCircuitData<F, D>) -> IoResult<()>{
+    fn serialize(&self, dst: &mut Vec<u8>, common_data: &CommonCircuitData<F, D>) -> IoResult<()> {
         self.gate.serialize(dst, common_data)?;
         dst.write_usize(self.row)?;
         dst.write_usize(self.i)
     }
 
-    fn deserialize(src: &mut Buffer, common_data: &CommonCircuitData<F, D> ) -> IoResult<Self>
+    fn deserialize(src: &mut Buffer, common_data: &CommonCircuitData<F, D>) -> IoResult<Self>
     where
         Self: Sized,
     {
@@ -455,13 +427,13 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D>
 #[cfg(test)]
 mod tests {
     use anyhow::Result;
-    use plonky2::field::goldilocks_field::GoldilocksField;
-    use plonky2::field::types::Sample;
-    use plonky2::gates::gate_testing::{test_eval_fns, test_low_degree};
-    use plonky2::hash::hash_types::HashOut;
-    use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
-    use rand::rngs::OsRng;
-    use rand::Rng;
+    use plonky2::{
+        field::{goldilocks_field::GoldilocksField, types::Sample},
+        gates::gate_testing::{test_eval_fns, test_low_degree},
+        hash::hash_types::HashOut,
+        plonk::config::{GenericConfig, PoseidonGoldilocksConfig},
+    };
+    use rand::{rngs::OsRng, Rng};
 
     use super::*;
 
@@ -484,12 +456,7 @@ mod tests {
         })
     }
 
-    fn get_wires<
-        F: RichField + Extendable<D>,
-        FF: From<F>,
-        const D: usize,
-        const NUM_U32_ARITHMETIC_OPS: usize,
-    >(
+    fn get_wires<F: RichField + Extendable<D>, FF: From<F>, const D: usize, const NUM_U32_ARITHMETIC_OPS: usize>(
         multiplicands_0: Vec<u64>,
         multiplicands_1: Vec<u64>,
         addends: Vec<u64>,
@@ -509,21 +476,14 @@ mod tests {
             let output_low = output & ((1 << 32) - 1);
             let output_high = output >> 32;
             let diff = u32::MAX as u64 - output_high;
-            let inverse = if diff == 0 {
-                F::ZERO
-            } else {
-                F::from_canonical_u64(diff).inverse()
-            };
+            let inverse = if diff == 0 { F::ZERO } else { F::from_canonical_u64(diff).inverse() };
 
             let mut output_limbs = Vec::with_capacity(num_limbs);
             for _i in 0..num_limbs {
                 output_limbs.push(output % limb_base);
                 output /= limb_base;
             }
-            let mut output_limbs_f: Vec<_> = output_limbs
-                .into_iter()
-                .map(F::from_canonical_u64)
-                .collect();
+            let mut output_limbs_f: Vec<_> = output_limbs.into_iter().map(F::from_canonical_u64).collect();
 
             v0.push(F::from_canonical_u64(m0));
             v0.push(F::from_canonical_u64(m1));
@@ -546,15 +506,9 @@ mod tests {
         const NUM_U32_ARITHMETIC_OPS: usize = 3;
 
         let mut rng = OsRng;
-        let multiplicands_0: Vec<_> = (0..NUM_U32_ARITHMETIC_OPS)
-            .map(|_| rng.gen::<u32>() as u64)
-            .collect();
-        let multiplicands_1: Vec<_> = (0..NUM_U32_ARITHMETIC_OPS)
-            .map(|_| rng.gen::<u32>() as u64)
-            .collect();
-        let addends: Vec<_> = (0..NUM_U32_ARITHMETIC_OPS)
-            .map(|_| rng.gen::<u32>() as u64)
-            .collect();
+        let multiplicands_0: Vec<_> = (0..NUM_U32_ARITHMETIC_OPS).map(|_| rng.gen::<u32>() as u64).collect();
+        let multiplicands_1: Vec<_> = (0..NUM_U32_ARITHMETIC_OPS).map(|_| rng.gen::<u32>() as u64).collect();
+        let addends: Vec<_> = (0..NUM_U32_ARITHMETIC_OPS).map(|_| rng.gen::<u32>() as u64).collect();
 
         let gate = U32ArithmeticGate::<F, D> {
             num_ops: NUM_U32_ARITHMETIC_OPS,
@@ -563,11 +517,7 @@ mod tests {
 
         let vars = EvaluationVars {
             local_constants: &[],
-            local_wires: &get_wires::<F, FF, D, NUM_U32_ARITHMETIC_OPS>(
-                multiplicands_0,
-                multiplicands_1,
-                addends,
-            ),
+            local_wires: &get_wires::<F, FF, D, NUM_U32_ARITHMETIC_OPS>(multiplicands_0, multiplicands_1, addends),
             public_inputs_hash: &HashOut::rand(),
         };
 
@@ -598,11 +548,7 @@ mod tests {
 
         let vars = EvaluationVars {
             local_constants: &[],
-            local_wires: &get_wires::<F, FF, D, NUM_U32_ARITHMETIC_OPS>(
-                multiplicands_0,
-                multiplicands_1,
-                addends,
-            ),
+            local_wires: &get_wires::<F, FF, D, NUM_U32_ARITHMETIC_OPS>(multiplicands_0, multiplicands_1, addends),
             public_inputs_hash: &HashOut::rand(),
         };
 

@@ -1,12 +1,17 @@
-//! Worker Rewards Aggregations API Example: /rewards_aggregations/{worker_public_key}
+//! Worker Rewards Aggregations API Example:
+//! /rewards_aggregations/{worker_public_key}
 //!
 //! This example demonstrates the worker rewards aggregations system:
-//! 1. Create sample worker events with COMPLETED GUTA circuit types across different time periods
-//! 2. Background reward processing automatically calculates rewards and continuous aggregates
-//! 3. Query worker rewards aggregations using /rewards_aggregations/{worker_public_key}
+//! 1. Create sample worker events with COMPLETED GUTA circuit types across
+//!    different time periods
+//! 2. Background reward processing automatically calculates rewards and
+//!    continuous aggregates
+//! 3. Query worker rewards aggregations using
+//!    /rewards_aggregations/{worker_public_key}
 //! 4. Test different time buckets (1d, 1w, 1m) and time ranges
 //!
-//! Note: This API uses TimescaleDB continuous aggregates to provide pre-computed time-series data:
+//! Note: This API uses TimescaleDB continuous aggregates to provide
+//! pre-computed time-series data:
 //! - worker_rewards_1d: Daily aggregations
 //! - worker_rewards_1w: Weekly aggregations
 //! - worker_rewards_1m: Monthly aggregations
@@ -31,7 +36,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Define test worker
     let worker_key = "rewards_agg_test_0xabcdef123456789";
 
-    // Create worker events across different time periods to demonstrate aggregations
+    // Create worker events across different time periods to demonstrate
+    // aggregations
     let telemetry_payload = json!({
         "worker_events": [
             // Today - Multiple completed GUTA proofs
@@ -162,10 +168,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let body: serde_json::Value = response.json().await?;
     println!("✅ Sample worker events created successfully");
-    println!(
-        "📊 Events created: {}",
-        body.get("events_processed").unwrap_or(&json!(0))
-    );
+    println!("📊 Events created: {}", body.get("events_processed").unwrap_or(&json!(0)));
 
     // Wait for background reward processing and continuous aggregate updates
     println!("⏳ Waiting 20 seconds for reward processing and continuous aggregates to update...");
@@ -175,27 +178,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("\n📊 Testing different aggregation buckets...");
 
     let test_scenarios = vec![
-        (
-            "1d",
-            None,
-            None,
-            Some(10),
-            "Daily aggregations (last 10 days)",
-        ),
-        (
-            "1w",
-            None,
-            None,
-            Some(6),
-            "Weekly aggregations (last 6 weeks)",
-        ),
-        (
-            "1m",
-            None,
-            None,
-            Some(3),
-            "Monthly aggregations (last 3 months)",
-        ),
+        ("1d", None, None, Some(10), "Daily aggregations (last 10 days)"),
+        ("1w", None, None, Some(6), "Weekly aggregations (last 6 weeks)"),
+        ("1m", None, None, Some(3), "Monthly aggregations (last 3 months)"),
         (
             "1d",
             Some(now - Duration::days(7)),
@@ -208,10 +193,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     for (bucket, start_time, end_time, limit, description) in test_scenarios {
         println!("\n🔸 {}", description);
 
-        let mut url = format!(
-            "{}/rewards_aggregations/{}?bucket={}",
-            API_BASE, worker_key, bucket
-        );
+        let mut url = format!("{}/rewards_aggregations/{}?bucket={}", API_BASE, worker_key, bucket);
 
         if let Some(start) = start_time {
             url.push_str(&format!("&start_time={}", start.to_rfc3339()));
@@ -232,10 +214,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         match response.status().as_u16() {
             200 => {
                 let aggregations: Vec<WorkerRewardsAggregation> = response.json().await?;
-                println!(
-                    "✅ Success! Retrieved {} aggregation periods",
-                    aggregations.len()
-                );
+                println!("✅ Success! Retrieved {} aggregation periods", aggregations.len());
 
                 if aggregations.is_empty() {
                     println!("   📭 No aggregation data found for this time period");
@@ -247,11 +226,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     for (i, agg) in aggregations.iter().enumerate() {
                         if i < 5 {
                             // Show first 5 entries
-                            println!(
-                                "   {}. Bucket: {}",
-                                i + 1,
-                                agg.bucket.format("%Y-%m-%d %H:%M:%S")
-                            );
+                            println!("   {}. Bucket: {}", i + 1, agg.bucket.format("%Y-%m-%d %H:%M:%S"));
                             println!("      Worker: {}", agg.public_key);
                             println!(
                                 "      Proofs: {} | Rewards: {} psy | Max Checkpoint: {}",
@@ -270,10 +245,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     println!("   • Total Proofs: {}", total_proofs);
                     println!("   • Total Rewards: {} psy", total_rewards);
                     if total_proofs > 0 {
-                        println!(
-                            "   • Avg Rewards per Proof: {} psy",
-                            total_rewards / total_proofs
-                        );
+                        println!("   • Avg Rewards per Proof: {} psy", total_rewards / total_proofs);
                     }
 
                     // Validate data consistency
@@ -302,19 +274,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Test invalid bucket parameter
     println!("\n🧪 Testing invalid bucket parameter...");
     let response = client
-        .get(&format!(
-            "{}/rewards_aggregations/{}?bucket=invalid",
-            API_BASE, worker_key
-        ))
+        .get(&format!("{}/rewards_aggregations/{}?bucket=invalid", API_BASE, worker_key))
         .send()
         .await?;
 
     println!("Response status for invalid bucket: {}", response.status());
-    assert_eq!(
-        response.status().as_u16(),
-        400,
-        "Should return 400 Bad Request for invalid bucket"
-    );
+    assert_eq!(response.status().as_u16(), 400, "Should return 400 Bad Request for invalid bucket");
     println!("✅ Invalid bucket parameter handled correctly");
 
     println!("\n🎯 Key Features Demonstrated:");
@@ -343,7 +308,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 /// Helper function to create a sample QProvingJobDataID with GUTA circuit types
 fn create_guta_job_id(_job_name: &str, circuit_type_name: &str) -> serde_json::Value {
-    // Map circuit type name to the appropriate enum (actual GUTA types from the enum)
+    // Map circuit type name to the appropriate enum (actual GUTA types from the
+    // enum)
     let circuit_type = match circuit_type_name {
         "GUTATwoEndCap" => ProvingJobCircuitType::GUTATwoEndCap,
         "GUTATwoGUTA" => ProvingJobCircuitType::GUTATwoGUTA,

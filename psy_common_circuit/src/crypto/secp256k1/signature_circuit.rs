@@ -11,46 +11,36 @@ use plonky2::{
     },
 };
 use psy_core::utils::debug_timer::DebugTimer;
-
-use crate::proof_minifier::pm_chain::QEDProofMinifierChain;
-
-use super::gadget::Secp256K1CircuitGadget;
 use psy_crypto::signature::secp256k1::curve::{
     ecdsa::{ECDSAPublicKey, ECDSASignature},
     secp256k1::Secp256K1,
 };
 
-pub struct Secp256K1SignatureCircuit<
-    F: RichField + Extendable<D>,
-    C: GenericConfig<D, F = F> + 'static,
-    const D: usize,
-> where
-    <C as GenericConfig<D>>::Hasher:AlgebraicHasher<F>,
+use super::gadget::Secp256K1CircuitGadget;
+use crate::proof_minifier::pm_chain::QEDProofMinifierChain;
+
+pub struct Secp256K1SignatureCircuit<F: RichField + Extendable<D>, C: GenericConfig<D, F = F> + 'static, const D: usize>
+where
+    <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
 {
     pub signature_gadget: Secp256K1CircuitGadget,
     pub base_circuit_data: CircuitData<F, C, D>,
     pub minifier_chain: QEDProofMinifierChain<D, F, C>,
 }
 
-impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F> + 'static, const D: usize>
-    Secp256K1SignatureCircuit<F, C, D>
+impl<F: RichField + Extendable<D>, C: GenericConfig<D, F = F> + 'static, const D: usize> Secp256K1SignatureCircuit<F, C, D>
 where
-    <C as GenericConfig<D>>::Hasher:AlgebraicHasher<F>,
+    <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
 {
     pub fn new() -> Self {
         let config = CircuitConfig::standard_ecc_config();
         let mut builder = CircuitBuilder::<F, D>::new(config);
-        let signature_gadget =
-            Secp256K1CircuitGadget::add_virtual_to::<F, D, C::Hasher>(&mut builder);
+        let signature_gadget = Secp256K1CircuitGadget::add_virtual_to::<F, D, C::Hasher>(&mut builder);
 
         builder.register_public_inputs(&signature_gadget.combined_hash.elements);
         let circuit_data = builder.build::<C>();
 
-        let minifier_chain = QEDProofMinifierChain::<D, F, C>::new(
-            &circuit_data.verifier_only,
-            &circuit_data.common,
-            2,
-        );
+        let minifier_chain = QEDProofMinifierChain::<D, F, C>::new(&circuit_data.verifier_only, &circuit_data.common, 2);
 
         Self {
             base_circuit_data: circuit_data,
@@ -82,14 +72,15 @@ where
 mod tests {
 
     use anyhow::Result;
-    use psy_crypto::signature::secp256k1::curve::curve_types::{Curve, CurveScalar};
-    use psy_crypto::signature::secp256k1::curve::ecdsa::{
-        sign_message, ECDSAPublicKey, ECDSASecretKey,
+    use plonky2::{
+        field::{secp256k1_scalar::Secp256K1Scalar, types::Sample},
+        plonk::config::{GenericConfig, PoseidonGoldilocksConfig},
     };
-    use psy_crypto::signature::secp256k1::curve::secp256k1::Secp256K1;
-    use plonky2::field::secp256k1_scalar::Secp256K1Scalar;
-    use plonky2::field::types::Sample;
-    use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
+    use psy_crypto::signature::secp256k1::curve::{
+        curve_types::{Curve, CurveScalar},
+        ecdsa::{sign_message, ECDSAPublicKey, ECDSASecretKey},
+        secp256k1::Secp256K1,
+    };
 
     use super::Secp256K1SignatureCircuit;
 

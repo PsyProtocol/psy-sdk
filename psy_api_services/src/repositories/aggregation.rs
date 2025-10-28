@@ -1,8 +1,10 @@
 use chrono::{DateTime, Utc};
 use sqlx::{PgPool, Row};
 
-use crate::models::{UserEventAggregation, WorkerEventAggregation, WorkerEventSource, WorkerRewardsAggregation};
-use crate::Result;
+use crate::{
+    models::{UserEventAggregation, WorkerEventAggregation, WorkerEventSource, WorkerRewardsAggregation},
+    Result,
+};
 
 pub struct WorkerEventAggregationRepository;
 pub struct UserEventAggregationRepository;
@@ -99,7 +101,8 @@ impl UserEventAggregationRepository {
 
 /// Worker Rewards Aggregation Repository
 impl WorkerRewardsAggregationRepository {
-    /// Get worker rewards aggregations from materialized views with fallback to raw data
+    /// Get worker rewards aggregations from materialized views with fallback to
+    /// raw data
     pub async fn get_aggregations(
         pool: &PgPool,
         view_name: &str,
@@ -127,11 +130,7 @@ impl WorkerRewardsAggregationRepository {
             view_name
         );
 
-        tracing::debug!(
-            "Querying continuous aggregate {} for worker {}",
-            view_name,
-            worker_public_key
-        );
+        tracing::debug!("Querying continuous aggregate {} for worker {}", view_name, worker_public_key);
 
         let aggregations = sqlx::query_as::<_, WorkerRewardsAggregation>(&query)
             .bind(worker_public_key)
@@ -174,10 +173,7 @@ impl WorkerRewardsAggregationRepository {
         let total_records = check_query.count.unwrap_or(0);
 
         if total_records == 0 {
-            tracing::warn!(
-                "No rewards data found in worker_event_rewards table for worker {}",
-                worker_public_key
-            );
+            tracing::warn!("No rewards data found in worker_event_rewards table for worker {}", worker_public_key);
             return Ok(Vec::new());
         }
 
@@ -199,7 +195,8 @@ impl WorkerRewardsAggregationRepository {
         };
 
         // Build and execute the fallback query using dynamic SQL
-        // We use dynamic query here because sqlx has issues with time_bucket and intervals
+        // We use dynamic query here because sqlx has issues with time_bucket and
+        // intervals
         let fallback_query = format!(
             r#"
             SELECT
@@ -216,8 +213,7 @@ impl WorkerRewardsAggregationRepository {
             ORDER BY bucket DESC
             LIMIT $4
             "#,
-            interval,
-            interval
+            interval, interval
         );
 
         let rows = sqlx::query(&fallback_query)
@@ -268,10 +264,7 @@ impl WorkerRewardsAggregationRepository {
                 HAVING COUNT(*) > 0
             "#;
 
-            let single_row = sqlx::query(single_bucket_query)
-                .bind(worker_public_key)
-                .fetch_optional(pool)
-                .await?;
+            let single_row = sqlx::query(single_bucket_query).bind(worker_public_key).fetch_optional(pool).await?;
 
             if let Some(row) = single_row {
                 let bucket: DateTime<Utc> = row.try_get("bucket")?;
@@ -306,11 +299,9 @@ impl WorkerRewardsAggregationRepository {
         Ok(fallback_aggregations)
     }
 
-    /// Force refresh a continuous aggregate (useful for testing and manual intervention)
-    pub async fn refresh_aggregate(
-        pool: &PgPool,
-        view_name: &str,
-    ) -> Result<()> {
+    /// Force refresh a continuous aggregate (useful for testing and manual
+    /// intervention)
+    pub async fn refresh_aggregate(pool: &PgPool, view_name: &str) -> Result<()> {
         // Validate view name to prevent SQL injection
         let valid_views = vec!["worker_rewards_1d", "worker_rewards_1w", "worker_rewards_1m"];
         if !valid_views.contains(&view_name) {
@@ -320,43 +311,27 @@ impl WorkerRewardsAggregationRepository {
         tracing::info!("Manually refreshing continuous aggregate: {}", view_name);
 
         // Use CALL to invoke the refresh procedure
-        let query = format!(
-            "CALL refresh_continuous_aggregate('{}', NULL, NULL)",
-            view_name
-        );
+        let query = format!("CALL refresh_continuous_aggregate('{}', NULL, NULL)", view_name);
 
-        sqlx::query(&query)
-            .execute(pool)
-            .await
-            .map_err(|e| {
-                tracing::error!("Failed to refresh aggregate {}: {}", view_name, e);
-                anyhow::anyhow!("Failed to refresh aggregate {}: {}", view_name, e)
-            })?;
+        sqlx::query(&query).execute(pool).await.map_err(|e| {
+            tracing::error!("Failed to refresh aggregate {}: {}", view_name, e);
+            anyhow::anyhow!("Failed to refresh aggregate {}: {}", view_name, e)
+        })?;
 
         tracing::info!("Successfully refreshed continuous aggregate: {}", view_name);
         Ok(())
     }
 
     /// Check if a continuous aggregate has any data
-    pub async fn check_aggregate_has_data(
-        pool: &PgPool,
-        view_name: &str,
-        worker_public_key: &str,
-    ) -> Result<bool> {
+    pub async fn check_aggregate_has_data(pool: &PgPool, view_name: &str, worker_public_key: &str) -> Result<bool> {
         let valid_views = vec!["worker_rewards_1d", "worker_rewards_1w", "worker_rewards_1m"];
         if !valid_views.contains(&view_name) {
             return Err(anyhow::anyhow!("Invalid view name: {}", view_name));
         }
 
-        let query = format!(
-            "SELECT EXISTS(SELECT 1 FROM {} WHERE public_key = $1) as has_data",
-            view_name
-        );
+        let query = format!("SELECT EXISTS(SELECT 1 FROM {} WHERE public_key = $1) as has_data", view_name);
 
-        let result = sqlx::query_scalar::<_, bool>(&query)
-            .bind(worker_public_key)
-            .fetch_one(pool)
-            .await?;
+        let result = sqlx::query_scalar::<_, bool>(&query).bind(worker_public_key).fetch_one(pool).await?;
 
         Ok(result)
     }

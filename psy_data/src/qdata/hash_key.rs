@@ -3,7 +3,6 @@ use plonky2::hash::hash_types::{HashOut, RichField};
 use psy_core::data::qhashout::QHashOut;
 use serde::{Deserialize, Serialize};
 
-
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Hash4x64Key<const TABLE_TYPE: u16> {
     pub elements: [u64; 4],
@@ -11,7 +10,6 @@ pub struct Hash4x64Key<const TABLE_TYPE: u16> {
 
 impl<const TABLE_TYPE: u16> KVQSerializable for Hash4x64Key<TABLE_TYPE> {
     fn to_bytes(&self) -> anyhow::Result<Vec<u8>> {
-
         let mut result = Vec::with_capacity(34);
         result.push((TABLE_TYPE >> 8) as u8);
         result.push((TABLE_TYPE & 0xff) as u8);
@@ -24,32 +22,22 @@ impl<const TABLE_TYPE: u16> KVQSerializable for Hash4x64Key<TABLE_TYPE> {
 
     fn from_bytes(bytes: &[u8]) -> anyhow::Result<Self> {
         if bytes.len() != 34 {
-            anyhow::bail!(
-                "expected 34 bytes for deserializing Hash4x64Key, got {} bytes",
-                bytes.len()
-            );
+            anyhow::bail!("expected 34 bytes for deserializing Hash4x64Key, got {} bytes", bytes.len());
         }
 
         let elements_0 = u64::from_be_bytes(bytes[2..10].try_into().unwrap());
         let elements_1 = u64::from_be_bytes(bytes[10..18].try_into().unwrap());
         let elements_2 = u64::from_be_bytes(bytes[18..26].try_into().unwrap());
         let elements_3 = u64::from_be_bytes(bytes[26..34].try_into().unwrap());
-        
+
         Ok(Self {
-            elements: [
-                elements_0,
-                elements_1,
-                elements_2,
-                elements_3,
-            ]
+            elements: [elements_0, elements_1, elements_2, elements_3],
         })
     }
 }
 impl<const TABLE_TYPE: u16> Hash4x64Key<TABLE_TYPE> {
     pub fn new(elements: [u64; 4]) -> Self {
-        Self {
-            elements,
-        }
+        Self { elements }
     }
     pub fn from_qhash<F: RichField>(hash: QHashOut<F>) -> Self {
         let elements = [
@@ -58,9 +46,7 @@ impl<const TABLE_TYPE: u16> Hash4x64Key<TABLE_TYPE> {
             hash.0.elements[2].to_canonical_u64(),
             hash.0.elements[3].to_canonical_u64(),
         ];
-        Self {
-            elements,
-        }
+        Self { elements }
     }
 }
 
@@ -69,7 +55,6 @@ impl<F: RichField, const TABLE_TYPE: u16> From<QHashOut<F>> for Hash4x64Key<TABL
         Self::from_qhash(value)
     }
 }
-
 
 impl<F: RichField, const TABLE_TYPE: u16> From<Hash4x64Key<TABLE_TYPE>> for QHashOut<F> {
     fn from(value: Hash4x64Key<TABLE_TYPE>) -> Self {

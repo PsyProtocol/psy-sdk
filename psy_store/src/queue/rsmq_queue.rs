@@ -1,39 +1,38 @@
-use crate::queue::{BizKey, QueuePrefixKey};
-use crate::queue::{
-    PS_DRAIN_QUEUE_KEY_PREFIX, PS_HISTORY_QUEUE_KEY_PREFIX, PS_NOTIFICATIONS_QUEUE_KEY_PREFIX,
-    PS_WORKER_QUEUE_KEY_PREFIX,
+use std::{
+    collections::HashSet,
+    fmt::{Debug, Formatter},
+    str::FromStr,
+    sync::{Arc, RwLock},
+    time::Duration,
 };
+
+use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use kvq::traits::KVQSerializable;
-use psy_core::config::network_constants::COORDINATOR_EDGE_TO_PROCESSOR_CHANNEL;
-use psy_core::job::drain_queue::{
-    CheckpointDrainQueueConsumerAsyncImm, CheckpointDrainQueueEmitterAsyncImm, DQSerializable,
-};
-use psy_core::job::history_queue::{
-    CheckpointHistoryQueueConsumerAsyncImm, CheckpointHistoryQueueEmitterAsyncImm, HQSerializable,
-    HistoryQueueMetadata, HistoryQueueMetadataTagged,
-};
-use psy_core::job::id::{QProvingJobDataID, QWorkerJobBenchmark};
-use psy_core::job::traits::QProofStoreReaderAsync;
-use psy_core::job::worker_queue::{
-    WorkerEventReceiverAsyncImm, WorkerEventTransmitterAsyncImm,
-};
 use plonky2::plonk::{config::GenericConfig, proof::ProofWithPublicInputs};
-use rsmq::{
-    PoolOptions, PooledRsmq, RedisBytes, RsmqConnection, RsmqConnectionSync, RsmqError,
-    RsmqMessage, RsmqOptions, RsmqSync,
+use psy_core::{
+    config::network_constants::COORDINATOR_EDGE_TO_PROCESSOR_CHANNEL,
+    job::{
+        drain_queue::{CheckpointDrainQueueConsumerAsyncImm, CheckpointDrainQueueEmitterAsyncImm, DQSerializable},
+        history_queue::{
+            CheckpointHistoryQueueConsumerAsyncImm, CheckpointHistoryQueueEmitterAsyncImm, HQSerializable, HistoryQueueMetadata,
+            HistoryQueueMetadataTagged,
+        },
+        id::{QProvingJobDataID, QWorkerJobBenchmark},
+        traits::QProofStoreReaderAsync,
+        worker_queue::{WorkerEventReceiverAsyncImm, WorkerEventTransmitterAsyncImm},
+    },
 };
+use rsmq::{PoolOptions, PooledRsmq, RedisBytes, RsmqConnection, RsmqConnectionSync, RsmqError, RsmqMessage, RsmqOptions, RsmqSync};
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
-use std::collections::HashSet;
-use std::fmt::{Debug, Formatter};
-use std::str::FromStr;
-use std::sync::{Arc, RwLock};
-use std::time::Duration;
 use tokio::time::{interval, sleep};
 use tokio_util::sync::CancellationToken;
 use tracing::{debug, error, info};
-use anyhow::{anyhow, Result};
+
+use crate::queue::{
+    BizKey, QueuePrefixKey, PS_DRAIN_QUEUE_KEY_PREFIX, PS_HISTORY_QUEUE_KEY_PREFIX, PS_NOTIFICATIONS_QUEUE_KEY_PREFIX, PS_WORKER_QUEUE_KEY_PREFIX,
+};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum QueueId {
@@ -64,13 +63,9 @@ impl QueueId {
     pub fn get_queue_id(&self) -> String {
         match self {
             QueueId::WorkerEvent { queue_biz_key } => queue_biz_key.clone(),
-            QueueId::WorkerNotification {
-                notifications_queue_suffix,
-            } => notifications_queue_suffix.clone(),
+            QueueId::WorkerNotification { notifications_queue_suffix } => notifications_queue_suffix.clone(),
             QueueId::CheckpointDrain {
-                queue_biz_key,
-                channel_id,
-                ..
+                queue_biz_key, channel_id, ..
             } => {
                 format!("{}-{}", queue_biz_key, channel_id)
             }
@@ -82,7 +77,6 @@ impl QueueId {
             }
             QueueId::SyncProof { queue_biz_key } => queue_biz_key.clone(),
             QueueId::WatcherEvent { queue_biz_key } => queue_biz_key.clone(),
-
         }
     }
 }
@@ -97,7 +91,6 @@ pub struct QueueStats {
     pub created_at: u64,
     pub modified_at: u64,
 }
-
 
 // ===== RSMQ Pool Creation =====
 
@@ -165,11 +158,7 @@ impl Drop for RsmqQueue {
 }
 
 impl RsmqQueue {
-    pub async fn new(
-        redis_url: &str,
-        pool_size: usize,
-        biz_key: impl ToString,
-    ) -> Result<Self> {
+    pub async fn new(redis_url: &str, pool_size: usize, biz_key: impl ToString) -> Result<Self> {
         let pool = create_rsmq_pool(redis_url, pool_size).await?;
         let tracked_queues = Arc::new(RwLock::new(HashSet::new()));
         let cancellation_token = CancellationToken::new();
@@ -192,11 +181,7 @@ impl RsmqQueue {
     }
 
     /// Core logic for cleaning up idle queues
-    async fn cleanup_idle_queues(
-        pool: PooledRsmq,
-        tracked_queues: Arc<RwLock<HashSet<String>>>,
-        cancellation_token: CancellationToken,
-    ) {
+    async fn cleanup_idle_queues(pool: PooledRsmq, tracked_queues: Arc<RwLock<HashSet<String>>>, cancellation_token: CancellationToken) {
         const CLEANUP_INTERVAL: Duration = Duration::from_secs(5 * 60); // 5 minutes
         const IDLE_THRESHOLD: u64 = 60 * 60; // 1 hour in seconds
 
@@ -269,12 +254,10 @@ impl RsmqQueue {
         let queue_id = queue.get_queue_id();
         let ret = match self.pool.get_queue_attributes(&queue_id).await {
             Ok(_) => Ok(()),
-            Err(RsmqError::QueueNotFound) => {
-                match self.pool.create_queue(&queue_id, None, None, None).await {
-                    Ok(()) | Err(RsmqError::QueueExists) => Ok(()),
-                    Err(err) => Err(err.into()),
-                }
-            }
+            Err(RsmqError::QueueNotFound) => match self.pool.create_queue(&queue_id, None, None, None).await {
+                Ok(()) | Err(RsmqError::QueueExists) => Ok(()),
+                Err(err) => Err(err.into()),
+            },
             Err(err) => Err(err.into()),
         };
         if ret.is_ok() {
@@ -284,34 +267,20 @@ impl RsmqQueue {
         ret
     }
 
-    pub async fn send_message<E: Into<RedisBytes> + Send>(
-        &self,
-        queue: &QueueId,
-        message: E,
-    ) -> Result<()> {
+    pub async fn send_message<E: Into<RedisBytes> + Send>(&self, queue: &QueueId, message: E) -> Result<()> {
         self.create_queue_if_not_exists(queue).await?;
         let queue_id = queue.get_queue_id();
         self.pool.send_message(&queue_id, message, None).await?;
         Ok(())
     }
-    pub async fn receive_message(
-        &self,
-        queue: &QueueId,
-        hidden: Option<Duration>,
-    ) -> Result<Option<Vec<u8>>> {
+    pub async fn receive_message(&self, queue: &QueueId, hidden: Option<Duration>) -> Result<Option<Vec<u8>>> {
         self.create_queue_if_not_exists(queue).await?;
         let queue_id = queue.get_queue_id();
-        let message = self.pool
-            .receive_message::<Vec<u8>>(&queue_id, hidden)
-            .await?;
+        let message = self.pool.receive_message::<Vec<u8>>(&queue_id, hidden).await?;
         Ok(message.map(|msg| msg.message))
     }
 
-    pub async fn receive_message_with_id(
-        &self,
-        queue: &QueueId,
-        hidden: Option<Duration>,
-    ) -> Result<Option<RsmqMessage<Vec<u8>>>> {
+    pub async fn receive_message_with_id(&self, queue: &QueueId, hidden: Option<Duration>) -> Result<Option<RsmqMessage<Vec<u8>>>> {
         self.create_queue_if_not_exists(queue).await?;
         let queue_id = queue.get_queue_id();
         Ok(self.pool.receive_message(&queue_id, hidden).await?)
@@ -345,11 +314,7 @@ impl RsmqQueue {
     }
 
     /// Receive and deserialize an object from the queue
-    pub async fn receive_object<T: for<'de> Deserialize<'de>>(
-        &self,
-        queue: &QueueId,
-        hidden: Option<Duration>,
-    ) -> Result<Option<T>> {
+    pub async fn receive_object<T: for<'de> Deserialize<'de>>(&self, queue: &QueueId, hidden: Option<Duration>) -> Result<Option<T>> {
         match self.receive_message(queue, hidden).await? {
             Some(bytes) => Ok(Some(bincode::deserialize(&bytes)?)),
             None => Ok(None),
@@ -357,11 +322,7 @@ impl RsmqQueue {
     }
 
     /// Receive and deserialize a JSON object from the queue
-    pub async fn receive_json<T: for<'de> Deserialize<'de>>(
-        &self,
-        queue: &QueueId,
-        hidden: Option<Duration>,
-    ) -> Result<Option<T>> {
+    pub async fn receive_json<T: for<'de> Deserialize<'de>>(&self, queue: &QueueId, hidden: Option<Duration>) -> Result<Option<T>> {
         match self.receive_message(queue, hidden).await? {
             Some(bytes) => Ok(Some(serde_json::from_slice(&bytes)?)),
             None => Ok(None),
@@ -408,12 +369,7 @@ impl RsmqQueue {
     }
 
     /// Receive multiple objects (up to limit)
-    pub async fn receive_batch<T: for<'de> Deserialize<'de>>(
-        &self,
-        queue: &QueueId,
-        limit: usize,
-        hidden: Option<Duration>,
-    ) -> Result<Vec<T>> {
+    pub async fn receive_batch<T: for<'de> Deserialize<'de>>(&self, queue: &QueueId, limit: usize, hidden: Option<Duration>) -> Result<Vec<T>> {
         let mut results = Vec::with_capacity(limit.min(100));
         for _ in 0..limit {
             match self.receive_object(queue, hidden).await? {
@@ -468,24 +424,14 @@ impl RsmqQueue {
         }
     }
 
-    pub async fn change_message_visibility(
-        &self,
-        queue: &QueueId,
-        message_id: &str,
-        visibility: Duration,
-    ) -> Result<()> {
+    pub async fn change_message_visibility(&self, queue: &QueueId, message_id: &str, visibility: Duration) -> Result<()> {
         let queue_id = queue.get_queue_id();
 
         // RSMQ uses this Redis command internally
-        self.pool.change_message_visibility(
-            &queue_id,
-            message_id,
-            visibility
-        ).await?;
+        self.pool.change_message_visibility(&queue_id, message_id, visibility).await?;
 
         Ok(())
     }
-
 }
 
 // ===== Trait Implementations =====
@@ -507,14 +453,11 @@ impl CheckpointDrainQueueEmitterAsyncImm for RsmqQueue {
 
 #[async_trait]
 impl CheckpointDrainQueueConsumerAsyncImm for RsmqQueue {
-    async fn cdq_drain_imm<T: DQSerializable>(
-        &self,
-        channel_id: u64,
-    ) -> anyhow::Result<Vec<T>> {
+    async fn cdq_drain_imm<T: DQSerializable>(&self, channel_id: u64) -> anyhow::Result<Vec<T>> {
         let queue_id = QueueId::CheckpointDrain {
             queue_biz_key: self.worker_queue_key().clone(),
             channel_id,
-            checkpoint_id: 0,//todo remove this field
+            checkpoint_id: 0, //todo remove this field
         };
         let mut members = vec![];
         while let Some(message) = self.pop_message(&queue_id).await? {
@@ -523,10 +466,7 @@ impl CheckpointDrainQueueConsumerAsyncImm for RsmqQueue {
         members.into_iter().map(|x| T::from_bytes(&x)).collect()
     }
 
-    async fn cdq_peek_imm<T: DQSerializable>(
-        &self,
-        channel_id: u64,
-    ) -> anyhow::Result<Vec<T>> {
+    async fn cdq_peek_imm<T: DQSerializable>(&self, channel_id: u64) -> anyhow::Result<Vec<T>> {
         let queue_id = QueueId::CheckpointDrain {
             queue_biz_key: self.worker_queue_key().clone(),
             channel_id,
@@ -549,7 +489,8 @@ impl CheckpointDrainQueueConsumerAsyncImm for RsmqQueue {
             }
         }
 
-        // Reset visibility for all peeked messages to make them immediately available again
+        // Reset visibility for all peeked messages to make them immediately available
+        // again
         for msg_id in peeked_messages {
             // Set visibility to 0 to make message immediately available
             if let Err(e) = self.change_message_visibility(&queue_id, &msg_id, Duration::from_secs(0)).await {
@@ -561,10 +502,7 @@ impl CheckpointDrainQueueConsumerAsyncImm for RsmqQueue {
         Ok(members)
     }
 
-    async fn cdq_len_imm(
-        &self,
-        channel_id: u64,
-    ) -> anyhow::Result<usize> {
+    async fn cdq_len_imm(&self, channel_id: u64) -> anyhow::Result<usize> {
         let queue_id = QueueId::CheckpointDrain {
             queue_biz_key: self.worker_queue_key().clone(),
             channel_id,
@@ -594,11 +532,7 @@ impl CheckpointHistoryQueueEmitterAsyncImm for RsmqQueue {
 
 #[async_trait]
 impl CheckpointHistoryQueueConsumerAsyncImm for RsmqQueue {
-    async fn chq_items_gte<T: HQSerializable>(
-        &self,
-        channel_id: u64,
-        start_checkpoint_id: u64,
-    ) -> anyhow::Result<Vec<T>> {
+    async fn chq_items_gte<T: HQSerializable>(&self, channel_id: u64, start_checkpoint_id: u64) -> anyhow::Result<Vec<T>> {
         let queue_id = QueueId::CheckpointHistory {
             checkpoint_history_queue_prefix_key: self.checkpoint_history_queue_prefix_key().clone(),
             channel_id,
@@ -609,11 +543,7 @@ impl CheckpointHistoryQueueConsumerAsyncImm for RsmqQueue {
             let checkpoint_id = u64::from_le_bytes(bytes[..8].try_into()?);
             if let Some(cur_id) = current_checkpoint_id {
                 if cur_id + 1 != checkpoint_id {
-                    return Err(anyhow!(
-                        "Wrong checkpoint id, expect {}, but got {}",
-                        cur_id + 1,
-                        checkpoint_id
-                    ));
+                    return Err(anyhow!("Wrong checkpoint id, expect {}, but got {}", cur_id + 1, checkpoint_id));
                 }
             }
             current_checkpoint_id = Some(checkpoint_id);
@@ -625,11 +555,7 @@ impl CheckpointHistoryQueueConsumerAsyncImm for RsmqQueue {
         Ok(results)
     }
 
-    async fn wait_for_next_item_imm<T: HQSerializable>(
-        &self,
-        channel_id: u64,
-        start_checkpoint_id: u64,
-    ) -> anyhow::Result<T> {
+    async fn wait_for_next_item_imm<T: HQSerializable>(&self, channel_id: u64, start_checkpoint_id: u64) -> anyhow::Result<T> {
         let queue_id = QueueId::CheckpointHistory {
             checkpoint_history_queue_prefix_key: self.checkpoint_history_queue_prefix_key().clone(),
             channel_id,
@@ -733,13 +659,11 @@ impl KVQSerializable for CEQueueNotification {
 impl HistoryQueueMetadataTagged for CEQueueNotification {
     fn get_hq_metadata(&self) -> HistoryQueueMetadata {
         match self {
-            CEQueueNotification::StartProduceBlock { next_checkpoint } => {
-                HistoryQueueMetadata {
-                    channel_id: COORDINATOR_EDGE_TO_PROCESSOR_CHANNEL,
-                    checkpoint_id: *next_checkpoint,
-                    item_id: *next_checkpoint,
-                }
-            }
+            CEQueueNotification::StartProduceBlock { next_checkpoint } => HistoryQueueMetadata {
+                channel_id: COORDINATOR_EDGE_TO_PROCESSOR_CHANNEL,
+                checkpoint_id: *next_checkpoint,
+                item_id: *next_checkpoint,
+            },
         }
     }
 }
@@ -772,10 +696,7 @@ impl RedisQueue {
                 Q_NOTIFICATIONS,
                 CE_NOTIFICATIONS,
             ] {
-                if matches!(
-                    queue.get_queue_attributes(*q),
-                    Err(RsmqError::QueueNotFound)
-                ) {
+                if matches!(queue.get_queue_attributes(*q), Err(RsmqError::QueueNotFound)) {
                     let _ = queue.create_queue(*q, Q_HIDDEN, Q_DELAY, Q_CAP);
                 }
             }
@@ -785,10 +706,7 @@ impl RedisQueue {
     }
 
     pub fn ensure_queue(&mut self, name: &str) -> anyhow::Result<()> {
-        if matches!(
-            self.queue.get_queue_attributes(name),
-            Err(rsmq::RsmqError::QueueNotFound)
-        ) {
+        if matches!(self.queue.get_queue_attributes(name), Err(rsmq::RsmqError::QueueNotFound)) {
             // use Q_HIDDEN / Q_DELAY / Q_CAP
             self.queue.create_queue(name, Q_HIDDEN, Q_DELAY, Q_CAP)?;
             tracing::info!("🔧 RSMQ queue `{name}` created");

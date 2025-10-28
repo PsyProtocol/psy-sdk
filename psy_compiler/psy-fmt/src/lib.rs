@@ -1,8 +1,7 @@
-use psy_ast::BlockExprNode;
-use psy_ast::IfExprNode;
-use psy_ast::*;
-use psy_vm::dpn::ops::context_trait::{ContextFelt, DPNContext};
 use std::fmt::Debug;
+
+use psy_ast::{BlockExprNode, IfExprNode, *};
+use psy_vm::dpn::ops::context_trait::{ContextFelt, DPNContext};
 
 #[derive(Debug)]
 pub struct Formatter<'a, F: Clone + From<u32>, C> {
@@ -62,12 +61,7 @@ impl<'a, F: Clone + From<u32> + Debug, C> Formatter<'a, F, C> {
         self.output.push('\n');
     }
 
-    fn visit_unchecked_type(
-        &self,
-        node: &UncheckedType,
-        is_generic: bool,
-        ctx: &impl VisitorContext<F, C>,
-    ) -> String {
+    fn visit_unchecked_type(&self, node: &UncheckedType, is_generic: bool, ctx: &impl VisitorContext<F, C>) -> String {
         match node {
             UncheckedType::Basic(name) => format!("{}", ctx.ident(name)),
             UncheckedType::Path(name) => self.visit_path_node(name, ctx),
@@ -95,25 +89,13 @@ impl<'a, F: Clone + From<u32> + Debug, C> Formatter<'a, F, C> {
                         self.visit_unchecked_generic_parameters(generic_parameters, ctx)
                     );
                 }
-                format!(
-                    "{}{}",
-                    &ctx.ident(name),
-                    self.visit_unchecked_generic_parameters(generic_parameters, ctx)
-                )
+                format!("{}{}", &ctx.ident(name), self.visit_unchecked_generic_parameters(generic_parameters, ctx))
             }
             UncheckedType::Array(ty, size, _) => {
                 if is_generic {
-                    return format!(
-                        "<[{}; {}]>",
-                        self.visit_unchecked_type(ty, is_generic, ctx),
-                        size
-                    );
+                    return format!("<[{}; {}]>", self.visit_unchecked_type(ty, is_generic, ctx), size);
                 }
-                format!(
-                    "[{}; {}]",
-                    self.visit_unchecked_type(ty, is_generic, ctx),
-                    size
-                )
+                format!("[{}; {}]", self.visit_unchecked_type(ty, is_generic, ctx), size)
             }
             UncheckedType::Tuple(tys, _) => format!(
                 "({})",
@@ -130,11 +112,7 @@ impl<'a, F: Clone + From<u32> + Debug, C> Formatter<'a, F, C> {
                     .map(|p| format!("{}", self.visit_unchecked_type(&p, is_generic, ctx)))
                     .collect::<Vec<_>>()
                     .join(", ");
-                format!(
-                    "fn({}){}",
-                    parameters,
-                    self.visit_return_type(&sig.return_type, ctx),
-                )
+                format!("fn({}){}", parameters, self.visit_return_type(&sig.return_type, ctx),)
             }
             UncheckedType::TraitCast(type_path, trait_path, _) => {
                 format!(
@@ -146,11 +124,7 @@ impl<'a, F: Clone + From<u32> + Debug, C> Formatter<'a, F, C> {
         }
     }
 
-    fn visit_unchecked_generic_parameters(
-        &self,
-        generic_parameters: &[UncheckedType],
-        ctx: &impl VisitorContext<F, C>,
-    ) -> String {
+    fn visit_unchecked_generic_parameters(&self, generic_parameters: &[UncheckedType], ctx: &impl VisitorContext<F, C>) -> String {
         let generic_parameters = generic_parameters
             .iter()
             .map(|p| self.visit_unchecked_type(p, false, ctx))
@@ -162,11 +136,7 @@ impl<'a, F: Clone + From<u32> + Debug, C> Formatter<'a, F, C> {
         }
     }
 
-    fn visit_generic_parameters(
-        &self,
-        generic_parameters: &[GenericParameter],
-        ctx: &impl VisitorContext<F, C>,
-    ) -> String {
+    fn visit_generic_parameters(&self, generic_parameters: &[GenericParameter], ctx: &impl VisitorContext<F, C>) -> String {
         let generic_parameters = generic_parameters
             .iter()
             .map(|p| {
@@ -238,11 +208,7 @@ impl<'a, F: Clone + From<u32> + Debug, C> Formatter<'a, F, C> {
         format!("{}", if qualifier.is_mutable { "mut " } else { "" })
     }
 
-    fn visit_return_type(
-        &self,
-        return_type: &Option<UncheckedType>,
-        ctx: &impl VisitorContext<F, C>,
-    ) -> String {
+    fn visit_return_type(&self, return_type: &Option<UncheckedType>, ctx: &impl VisitorContext<F, C>) -> String {
         if let Some(ret) = return_type {
             format!(" -> {}", self.visit_unchecked_type(&ret, false, ctx))
         } else {
@@ -258,11 +224,7 @@ impl<'a, F: Clone + From<u32> + Debug, C> Formatter<'a, F, C> {
                     format!(
                         "#[{}({})]\n{}",
                         ctx.ident(attr.name),
-                        attr.properties
-                            .iter()
-                            .map(|p| ctx.ident(p).to_string())
-                            .collect::<Vec<_>>()
-                            .join(", "),
+                        attr.properties.iter().map(|p| ctx.ident(p).to_string()).collect::<Vec<_>>().join(", "),
                         self.read_indent(0)
                     )
                 } else {
@@ -277,9 +239,7 @@ impl<'a, F: Clone + From<u32> + Debug, C> Formatter<'a, F, C> {
     }
 }
 
-impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisitor<F, C>
-    for Formatter<'a, F, C>
-{
+impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisitor<F, C> for Formatter<'a, F, C> {
     type ExprResult = String;
     type StmtResult = String;
     type Context = DefaultVisitorContext<'a, F, C>;
@@ -289,11 +249,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
     type Definition = DefinitionNode;
     type DefinitionResult = String;
 
-    fn visit_stmt(
-        &mut self,
-        stmt_id: StmtId,
-        ctx: &mut Self::Context,
-    ) -> Result<Self::StmtResult, Self::Error> {
+    fn visit_stmt(&mut self, stmt_id: StmtId, ctx: &mut Self::Context) -> Result<Self::StmtResult, Self::Error> {
         ctx.push_node_id(NodeId::from(stmt_id));
         let res = match ctx.statement(stmt_id).node_type() {
             NodeType::WhileStmt => self.visit_while(stmt_id, ctx)?,
@@ -308,10 +264,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             }
             NodeType::ExpressionStmt => {
                 let expr_id = ctx.statement(stmt_id).as_expression().unwrap().clone();
-                format!(
-                    "{};",
-                    Self::StmtResult::from(self.visit_expr(expr_id, ctx)?)
-                )
+                format!("{};", Self::StmtResult::from(self.visit_expr(expr_id, ctx)?))
             }
             NodeType::IntrinsicStmt => self.visit_intrinsic_stmt(stmt_id, ctx)?,
             _ => unreachable!(),
@@ -320,24 +273,13 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         Ok(res)
     }
 
-    fn visit_use(
-        &mut self,
-        def_id: DefId,
-        ctx: &mut Self::Context,
-    ) -> Result<Self::DefinitionResult, Self::Error> {
+    fn visit_use(&mut self, def_id: DefId, ctx: &mut Self::Context) -> Result<Self::DefinitionResult, Self::Error> {
         let u = ctx.definition(def_id).as_use().cloned().unwrap();
 
         let mut path = vec![ctx.ident(u.kind).to_string()];
-        let segments = u
-            .segments
-            .iter()
-            .map(|&s| ctx.ident(s).to_string())
-            .collect::<Vec<_>>();
+        let segments = u.segments.iter().map(|&s| ctx.ident(s).to_string()).collect::<Vec<_>>();
         path.extend(segments);
-        let target = u
-            .target
-            .map(|t| ctx.ident(t).to_string())
-            .unwrap_or("*".to_string());
+        let target = u.target.map(|t| ctx.ident(t).to_string()).unwrap_or("*".to_string());
 
         Ok(format!(
             "{}{}use {}::{};",
@@ -348,11 +290,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         ))
     }
 
-    fn visit_path(
-        &mut self,
-        expr_id: ExprId,
-        ctx: &mut Self::Context,
-    ) -> Result<Self::ExprResult, Self::Error> {
+    fn visit_path(&mut self, expr_id: ExprId, ctx: &mut Self::Context) -> Result<Self::ExprResult, Self::Error> {
         let node = ctx.expression(expr_id).as_path().unwrap();
 
         let mut path = node
@@ -372,45 +310,25 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         Ok(format!("{}", path.join("::")))
     }
 
-    fn visit_index_access(
-        &mut self,
-        expr_id: ExprId,
-        ctx: &mut Self::Context,
-    ) -> Result<Self::ExprResult, Self::Error> {
+    fn visit_index_access(&mut self, expr_id: ExprId, ctx: &mut Self::Context) -> Result<Self::ExprResult, Self::Error> {
         let &IndexAccessNode {
             target: value,
             index,
             location: ref _location,
         } = ctx.expression(expr_id).as_index_access().unwrap();
-        Ok(format!(
-            "{}[{}]",
-            self.visit_expr(value, ctx)?,
-            self.visit_expr(index, ctx)?
-        ))
+        Ok(format!("{}[{}]", self.visit_expr(value, ctx)?, self.visit_expr(index, ctx)?))
     }
 
-    fn visit_member_access(
-        &mut self,
-        expr_id: ExprId,
-        ctx: &mut Self::Context,
-    ) -> Result<Self::ExprResult, Self::Error> {
+    fn visit_member_access(&mut self, expr_id: ExprId, ctx: &mut Self::Context) -> Result<Self::ExprResult, Self::Error> {
         let &MemberAccessNode {
             target: value,
             field,
             location: ref _location,
         } = ctx.expression(expr_id).as_member_access().unwrap();
-        Ok(format!(
-            "{}.{}",
-            self.visit_expr(value, ctx)?,
-            ctx.ident(field)
-        ))
+        Ok(format!("{}.{}", self.visit_expr(value, ctx)?, ctx.ident(field)))
     }
 
-    fn visit_value(
-        &mut self,
-        expr_id: ExprId,
-        ctx: &mut Self::Context,
-    ) -> Result<Self::ExprResult, Self::Error> {
+    fn visit_value(&mut self, expr_id: ExprId, ctx: &mut Self::Context) -> Result<Self::ExprResult, Self::Error> {
         // TODO: remove clone
         let node = ctx.expression(expr_id).as_value().unwrap().clone();
         Ok(match node {
@@ -442,20 +360,15 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
                     .collect::<Vec<_>>();
                 let field_values = field_values
                     .iter()
-                    .map(|(_, field_expr)| -> Result<Self::ExprResult, Self::Error> {
-                        self.visit_expr(*field_expr, ctx)
-                    })
+                    .map(|(_, field_expr)| -> Result<Self::ExprResult, Self::Error> { self.visit_expr(*field_expr, ctx) })
                     .collect::<Result<Vec<String>, Self::Error>>()?;
                 let fiels_content = field_names
                     .iter()
                     .zip(field_values.iter())
-                    .map(|(field_name, field_value)| {
-                        format!("{}{}: {},\n", self.read_indent(0), field_name, field_value)
-                    })
+                    .map(|(field_name, field_value)| format!("{}{}: {},\n", self.read_indent(0), field_name, field_value))
                     .collect::<String>();
                 self.dedent();
-                let generic_parameters =
-                    self.visit_unchecked_generic_parameters(&generic_parameters, ctx);
+                let generic_parameters = self.visit_unchecked_generic_parameters(&generic_parameters, ctx);
 
                 format!(
                     "new {}{} {{\n{}{}}}",
@@ -472,30 +385,17 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         })
     }
 
-    fn visit_binary(
-        &mut self,
-        expr_id: ExprId,
-        ctx: &mut Self::Context,
-    ) -> Result<Self::ExprResult, Self::Error> {
+    fn visit_binary(&mut self, expr_id: ExprId, ctx: &mut Self::Context) -> Result<Self::ExprResult, Self::Error> {
         let &BinaryNode {
             lhs,
             operator,
             rhs,
             location: ref _location,
         } = ctx.expression(expr_id).as_binary().unwrap();
-        Ok(format!(
-            "{} {} {}",
-            self.visit_expr(lhs, ctx)?,
-            operator,
-            self.visit_expr(rhs, ctx)?
-        ))
+        Ok(format!("{} {} {}", self.visit_expr(lhs, ctx)?, operator, self.visit_expr(rhs, ctx)?))
     }
 
-    fn visit_unary(
-        &mut self,
-        expr_id: ExprId,
-        ctx: &mut Self::Context,
-    ) -> Result<Self::ExprResult, Self::Error> {
+    fn visit_unary(&mut self, expr_id: ExprId, ctx: &mut Self::Context) -> Result<Self::ExprResult, Self::Error> {
         let &UnaryNode {
             operator,
             rhs,
@@ -504,11 +404,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         Ok(format!("{}{}", operator, self.visit_expr(rhs, ctx)?))
     }
 
-    fn visit_call(
-        &mut self,
-        expr_id: ExprId,
-        ctx: &mut Self::Context,
-    ) -> Result<Self::ExprResult, Self::Error> {
+    fn visit_call(&mut self, expr_id: ExprId, ctx: &mut Self::Context) -> Result<Self::ExprResult, Self::Error> {
         let &CallNode {
             callee: variable,
             ref args,
@@ -516,8 +412,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             location: ref _location,
         } = ctx.expression(expr_id).as_call().unwrap();
 
-        let generic_parameters_content =
-            self.visit_unchecked_generic_parameters(generic_parameters, ctx);
+        let generic_parameters_content = self.visit_unchecked_generic_parameters(generic_parameters, ctx);
         let args = args
             // TOOD: remove clone
             .clone()
@@ -537,19 +432,14 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         ))
     }
 
-    fn visit_member_call(
-        &mut self,
-        expr_id: ExprId,
-        ctx: &mut Self::Context,
-    ) -> Result<Self::ExprResult, Self::Error> {
+    fn visit_member_call(&mut self, expr_id: ExprId, ctx: &mut Self::Context) -> Result<Self::ExprResult, Self::Error> {
         let &MemberCallNode {
             callee: variable,
             ref args,
             ref generic_parameters,
             ..
         } = ctx.expression(expr_id).as_member_call().unwrap();
-        let generic_parameters_content =
-            self.visit_unchecked_generic_parameters(generic_parameters, ctx);
+        let generic_parameters_content = self.visit_unchecked_generic_parameters(generic_parameters, ctx);
         let args = args
             // TOOD: remove clone
             .clone()
@@ -557,19 +447,10 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             .map(|&arg| self.visit_expr(arg, ctx))
             .collect::<Result<Vec<_>, Self::Error>>()?
             .join(", ");
-        Ok(format!(
-            "{}{}({})",
-            self.visit_expr(variable, ctx)?,
-            generic_parameters_content,
-            args
-        ))
+        Ok(format!("{}{}({})", self.visit_expr(variable, ctx)?, generic_parameters_content, args))
     }
 
-    fn visit_cast(
-        &mut self,
-        expr_id: ExprId,
-        ctx: &mut Self::Context,
-    ) -> Result<Self::ExprResult, Self::Error> {
+    fn visit_cast(&mut self, expr_id: ExprId, ctx: &mut Self::Context) -> Result<Self::ExprResult, Self::Error> {
         let &CastNode {
             value,
             ref target_type,
@@ -584,11 +465,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         ))
     }
 
-    fn visit_while(
-        &mut self,
-        stmt_id: StmtId,
-        ctx: &mut Self::Context,
-    ) -> Result<Self::StmtResult, Self::Error> {
+    fn visit_while(&mut self, stmt_id: StmtId, ctx: &mut Self::Context) -> Result<Self::StmtResult, Self::Error> {
         let &WhileNode {
             predicate,
             body,
@@ -601,11 +478,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         Ok(format!("{}{}{}", comments_content, s, block))
     }
 
-    fn visit_assignment(
-        &mut self,
-        stmt_id: StmtId,
-        ctx: &mut Self::Context,
-    ) -> Result<Self::StmtResult, Self::Error> {
+    fn visit_assignment(&mut self, stmt_id: StmtId, ctx: &mut Self::Context) -> Result<Self::StmtResult, Self::Error> {
         let &AssignmentNode {
             target,
             operator,
@@ -623,18 +496,9 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         Ok(s)
     }
 
-    fn visit_variable(
-        &mut self,
-        stmt_id: StmtId,
-        ctx: &mut Self::Context,
-    ) -> Result<Self::StmtResult, Self::Error> {
-        let comments_content =
-            self.visit_comments(&ctx.statement(stmt_id).as_variable().unwrap().comments);
-        let var_type = self.visit_unchecked_type(
-            &ctx.statement(stmt_id).as_variable().unwrap().ty.clone(),
-            false,
-            ctx,
-        );
+    fn visit_variable(&mut self, stmt_id: StmtId, ctx: &mut Self::Context) -> Result<Self::StmtResult, Self::Error> {
+        let comments_content = self.visit_comments(&ctx.statement(stmt_id).as_variable().unwrap().comments);
+        let var_type = self.visit_unchecked_type(&ctx.statement(stmt_id).as_variable().unwrap().ty.clone(), false, ctx);
 
         let type_content = if var_type == "unknown" {
             "".to_string()
@@ -647,19 +511,14 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             comments_content,
             self.visit_type_qualifier(&ctx.statement(stmt_id).as_variable().unwrap().qualifier),
             // TODO: remove to_owned
-            ctx.ident(ctx.statement(stmt_id).as_variable().unwrap().name.id)
-                .to_owned(),
+            ctx.ident(ctx.statement(stmt_id).as_variable().unwrap().name.id).to_owned(),
             type_content,
             self.visit_expr(ctx.statement(stmt_id).as_variable().unwrap().value, ctx)?
         );
         Ok(s)
     }
 
-    fn visit_return(
-        &mut self,
-        stmt_id: StmtId,
-        ctx: &mut Self::Context,
-    ) -> Result<Self::StmtResult, Self::Error> {
+    fn visit_return(&mut self, stmt_id: StmtId, ctx: &mut Self::Context) -> Result<Self::StmtResult, Self::Error> {
         let ReturnNode {
             expr_id,
             comments,
@@ -677,11 +536,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         ))
     }
 
-    fn visit_impl(
-        &mut self,
-        def_id: DefId,
-        ctx: &mut Self::Context,
-    ) -> Result<Self::StmtResult, Self::Error> {
+    fn visit_impl(&mut self, def_id: DefId, ctx: &mut Self::Context) -> Result<Self::StmtResult, Self::Error> {
         let ImplNode {
             associated_types,
             generic_parameters,
@@ -732,11 +587,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         ))
     }
 
-    fn visit_function(
-        &mut self,
-        def_id: DefId,
-        ctx: &mut Self::Context,
-    ) -> Result<Self::DefinitionResult, Self::Error> {
+    fn visit_function(&mut self, def_id: DefId, ctx: &mut Self::Context) -> Result<Self::DefinitionResult, Self::Error> {
         let FunctionNode {
             name,
             parameters,
@@ -776,17 +627,10 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             Some(body) => self.visit_block_expr(body.clone(), ctx)?,
             None => "{ }".to_string(),
         };
-        Ok(format!(
-            "{}{}{}{}",
-            comments_content, attrs_content, s, block
-        ))
+        Ok(format!("{}{}{}{}", comments_content, attrs_content, s, block))
     }
 
-    fn visit_struct(
-        &mut self,
-        def_id: DefId,
-        ctx: &mut Self::Context,
-    ) -> Result<Self::DefinitionResult, Self::Error> {
+    fn visit_struct(&mut self, def_id: DefId, ctx: &mut Self::Context) -> Result<Self::DefinitionResult, Self::Error> {
         let StructNode {
             name,
             fields,
@@ -833,11 +677,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         ))
     }
 
-    fn visit_enum(
-        &mut self,
-        def_id: DefId,
-        ctx: &mut Self::Context,
-    ) -> Result<Self::DefinitionResult, Self::Error> {
+    fn visit_enum(&mut self, def_id: DefId, ctx: &mut Self::Context) -> Result<Self::DefinitionResult, Self::Error> {
         let EnumNode {
             name,
             generic_parameters,
@@ -862,12 +702,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
                         .map(|x| self.visit_unchecked_type(x, false, ctx))
                         .collect::<Vec<_>>()
                         .join(", ");
-                    format!(
-                        "{}{}({}),\n",
-                        self.read_indent(0),
-                        ctx.ident(ident_id),
-                        types
-                    )
+                    format!("{}{}({}),\n", self.read_indent(0), ctx.ident(ident_id), types)
                 }
                 EnumVariant::Struct(ident_id, fields) => {
                     self.indent();
@@ -909,11 +744,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         ))
     }
 
-    fn visit_trait(
-        &mut self,
-        def_id: DefId,
-        ctx: &mut Self::Context,
-    ) -> Result<Self::DefinitionResult, Self::Error> {
+    fn visit_trait(&mut self, def_id: DefId, ctx: &mut Self::Context) -> Result<Self::DefinitionResult, Self::Error> {
         let TraitNode {
             associated_types,
             name,
@@ -1018,29 +849,18 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         ))
     }
 
-    fn visit_intrinsic_expr(
-        &mut self,
-        node: ExprId,
-        ctx: &mut Self::Context,
-    ) -> Result<Self::ExprResult, Self::Error> {
+    fn visit_intrinsic_expr(&mut self, node: ExprId, ctx: &mut Self::Context) -> Result<Self::ExprResult, Self::Error> {
         let node = ctx.expression(node).as_intrinsic().cloned().unwrap();
         match node {
             IntrinsicExprNode::GetUserId { .. } => Ok("__ctx_get_user_id()".to_string()),
             IntrinsicExprNode::GetContractId { .. } => Ok("__ctx_get_contract_id()".to_string()),
-            IntrinsicExprNode::GetCallerContractId { .. } => {
-                Ok("__ctx_get_caller_contract_id()".to_string())
-            }
+            IntrinsicExprNode::GetCallerContractId { .. } => Ok("__ctx_get_caller_contract_id()".to_string()),
             IntrinsicExprNode::GetLastNonce { .. } => Ok("__ctx_get_last_nonce()".to_string()),
-            IntrinsicExprNode::GetCheckpointId { .. } => {
-                Ok("__ctx_get_checkpoint_id()".to_string())
+            IntrinsicExprNode::GetCheckpointId { .. } => Ok("__ctx_get_checkpoint_id()".to_string()),
+            IntrinsicExprNode::GetUserPublicKeyHash { .. } => Ok("__ctx_get_user_public_key_hash()".to_string()),
+            IntrinsicExprNode::GetStateHashAt { slot_index, .. } => {
+                Ok(format!("__ctx_get_state_hash_at({})", self.visit_expr(slot_index.clone(), ctx)?))
             }
-            IntrinsicExprNode::GetUserPublicKeyHash { .. } => {
-                Ok("__ctx_get_user_public_key_hash()".to_string())
-            }
-            IntrinsicExprNode::GetStateHashAt { slot_index, .. } => Ok(format!(
-                "__ctx_get_state_hash_at({})",
-                self.visit_expr(slot_index.clone(), ctx)?
-            )),
             IntrinsicExprNode::GetOtherContractStateHashAt {
                 contract_state_tree_height,
                 contract_id,
@@ -1065,26 +885,17 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
                 self.visit_expr(contract_id.clone(), ctx)?,
                 self.visit_expr(slot_index.clone(), ctx)?
             )),
-            IntrinsicExprNode::CSetStateHashAt {
-                slot_index,
-                new_value,
-                ..
-            } => Ok(format!(
+            IntrinsicExprNode::CSetStateHashAt { slot_index, new_value, .. } => Ok(format!(
                 "__ctx_cset_state_hash_at({}, {})",
                 self.visit_expr(slot_index.clone(), ctx)?,
                 self.visit_expr(new_value.clone(), ctx)?
             )),
-            IntrinsicExprNode::MemTransmute {
-                data, target_type, ..
-            } => Ok(format!(
+            IntrinsicExprNode::MemTransmute { data, target_type, .. } => Ok(format!(
                 "__mem_transmute#<{}>({})",
                 self.visit_unchecked_type(&target_type, false, ctx),
                 self.visit_expr(data, ctx)?,
             )),
-            IntrinsicExprNode::MemSizeOf { query_type: ty, .. } => Ok(format!(
-                "__mem_size_of#<{}>",
-                self.visit_unchecked_type(&ty, false, ctx)
-            )),
+            IntrinsicExprNode::MemSizeOf { query_type: ty, .. } => Ok(format!("__mem_size_of#<{}>", self.visit_unchecked_type(&ty, false, ctx))),
             IntrinsicExprNode::StorageRead {
                 contract_state_tree_height,
                 user_id,
@@ -1123,12 +934,12 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
                 self.visit_expr(offset, ctx)?,
                 self.visit_expr(values, ctx)?
             )),
-            IntrinsicExprNode::Hash { data, .. } => {
-                Ok(format!("hash({})", self.visit_expr(data, ctx)?,))
-            }
-            IntrinsicExprNode::HashTwoToOne { left, right, .. } => {
-                Ok(format!("hash_two_to_one({}, {})", self.visit_expr(left, ctx)?, self.visit_expr(right, ctx)?))
-            }
+            IntrinsicExprNode::Hash { data, .. } => Ok(format!("hash({})", self.visit_expr(data, ctx)?,)),
+            IntrinsicExprNode::HashTwoToOne { left, right, .. } => Ok(format!(
+                "hash_two_to_one({}, {})",
+                self.visit_expr(left, ctx)?,
+                self.visit_expr(right, ctx)?
+            )),
             IntrinsicExprNode::InvokeSync {
                 contract_id,
                 method_id,
@@ -1153,85 +964,49 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
                 self.visit_expr(method_id, ctx)?,
                 self.visit_expr(inputs, ctx)?,
             )),
-            IntrinsicExprNode::Secp256k1Verify {
-                pub_key,
-                msg,
-                sig,
-                ..
-            } => Ok(format!(
+            IntrinsicExprNode::Secp256k1Verify { pub_key, msg, sig, .. } => Ok(format!(
                 "__secp256k1_verify({}, {}, {})",
                 self.visit_expr(pub_key, ctx)?,
                 self.visit_expr(msg, ctx)?,
                 self.visit_expr(sig, ctx)?,
             )),
-            IntrinsicExprNode::GetCheckpointStats { checkpoint_id, .. } => Ok(format!(
-                "__ctx_get_checkpoint_stats({})",
-                self.visit_expr(checkpoint_id, ctx)?
-            )),
-            IntrinsicExprNode::GetRegisterUsersRoot { checkpoint_id, .. } => Ok(format!(
-                "__ctx_get_register_users_root({})",
-                self.visit_expr(checkpoint_id, ctx)?
-            )),
-            IntrinsicExprNode::GetGutasRoot { checkpoint_id, .. } => Ok(format!(
-                "__ctx_get_gutas_root({})",
-                self.visit_expr(checkpoint_id, ctx)?
-            )),
-            IntrinsicExprNode::GetDeployContractsRoot { checkpoint_id, .. } => Ok(format!(
-                "__ctx_get_deploy_contracts_root({})",
-                self.visit_expr(checkpoint_id, ctx)?
-            )),
-            IntrinsicExprNode::GetFeesCollected { checkpoint_id, .. } => Ok(format!(
-                "__ctx_get_fees_collected({})",
-                self.visit_expr(checkpoint_id, ctx)?
-            )),
-            IntrinsicExprNode::GetUserOpsProcessed { checkpoint_id, .. } => Ok(format!(
-                "__ctx_get_user_ops_processed({})",
-                self.visit_expr(checkpoint_id, ctx)?
-            )),
-            IntrinsicExprNode::GetTotalTransactions { checkpoint_id, .. } => Ok(format!(
-                "__ctx_get_total_transactions({})",
-                self.visit_expr(checkpoint_id, ctx)?
-            )),
-            IntrinsicExprNode::GetSlotsModified { checkpoint_id, .. } => Ok(format!(
-                "__ctx_get_slots_modified({})",
-                self.visit_expr(checkpoint_id, ctx)?
-            )),
-            IntrinsicExprNode::GetRegisterUsersCompleted { checkpoint_id, .. } => Ok(format!(
-                "__ctx_get_register_users_completed({})",
-                self.visit_expr(checkpoint_id, ctx)?
-            )),
-            IntrinsicExprNode::GetGutasCompleted { checkpoint_id, .. } => Ok(format!(
-                "__ctx_get_gutas_completed({})",
-                self.visit_expr(checkpoint_id, ctx)?
-            )),
-            IntrinsicExprNode::GetDeployContractsCompleted { checkpoint_id, .. } => Ok(format!(
-                "__ctx_get_deploy_contracts_completed({})",
-                self.visit_expr(checkpoint_id, ctx)?
-            )),
-            IntrinsicExprNode::SumBits {
-                bits,
-                ..
-            } => Ok(format!(
-                "__sum_bits({})",
-                self.visit_expr(bits, ctx)?,
-            )),
-            IntrinsicExprNode::SplitBits {
-                target,
-                num_bits,
-                ..
-            } => Ok(format!(
-                "__split_bits({}, {})",
-                self.visit_expr(target, ctx)?,
-                num_bits,
-            )),
+            IntrinsicExprNode::GetCheckpointStats { checkpoint_id, .. } => {
+                Ok(format!("__ctx_get_checkpoint_stats({})", self.visit_expr(checkpoint_id, ctx)?))
+            }
+            IntrinsicExprNode::GetRegisterUsersRoot { checkpoint_id, .. } => {
+                Ok(format!("__ctx_get_register_users_root({})", self.visit_expr(checkpoint_id, ctx)?))
+            }
+            IntrinsicExprNode::GetGutasRoot { checkpoint_id, .. } => Ok(format!("__ctx_get_gutas_root({})", self.visit_expr(checkpoint_id, ctx)?)),
+            IntrinsicExprNode::GetDeployContractsRoot { checkpoint_id, .. } => {
+                Ok(format!("__ctx_get_deploy_contracts_root({})", self.visit_expr(checkpoint_id, ctx)?))
+            }
+            IntrinsicExprNode::GetFeesCollected { checkpoint_id, .. } => {
+                Ok(format!("__ctx_get_fees_collected({})", self.visit_expr(checkpoint_id, ctx)?))
+            }
+            IntrinsicExprNode::GetUserOpsProcessed { checkpoint_id, .. } => {
+                Ok(format!("__ctx_get_user_ops_processed({})", self.visit_expr(checkpoint_id, ctx)?))
+            }
+            IntrinsicExprNode::GetTotalTransactions { checkpoint_id, .. } => {
+                Ok(format!("__ctx_get_total_transactions({})", self.visit_expr(checkpoint_id, ctx)?))
+            }
+            IntrinsicExprNode::GetSlotsModified { checkpoint_id, .. } => {
+                Ok(format!("__ctx_get_slots_modified({})", self.visit_expr(checkpoint_id, ctx)?))
+            }
+            IntrinsicExprNode::GetRegisterUsersCompleted { checkpoint_id, .. } => {
+                Ok(format!("__ctx_get_register_users_completed({})", self.visit_expr(checkpoint_id, ctx)?))
+            }
+            IntrinsicExprNode::GetGutasCompleted { checkpoint_id, .. } => {
+                Ok(format!("__ctx_get_gutas_completed({})", self.visit_expr(checkpoint_id, ctx)?))
+            }
+            IntrinsicExprNode::GetDeployContractsCompleted { checkpoint_id, .. } => {
+                Ok(format!("__ctx_get_deploy_contracts_completed({})", self.visit_expr(checkpoint_id, ctx)?))
+            }
+            IntrinsicExprNode::SumBits { bits, .. } => Ok(format!("__sum_bits({})", self.visit_expr(bits, ctx)?,)),
+            IntrinsicExprNode::SplitBits { target, num_bits, .. } => Ok(format!("__split_bits({}, {})", self.visit_expr(target, ctx)?, num_bits,)),
         }
     }
 
-    fn visit_intrinsic_stmt(
-        &mut self,
-        node: StmtId,
-        ctx: &mut Self::Context,
-    ) -> Result<Self::StmtResult, Self::Error> {
+    fn visit_intrinsic_stmt(&mut self, node: StmtId, ctx: &mut Self::Context) -> Result<Self::StmtResult, Self::Error> {
         let node = ctx.statement(node).as_intrinsic().cloned().unwrap();
         let s = match node {
             IntrinsicStmtNode::Assert {
@@ -1242,12 +1017,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             } => {
                 let expr = self.visit_expr(left, ctx)?;
                 let comments_content = self.visit_comments(&comments);
-                format!(
-                    "{}assert({}, \"{}\");",
-                    comments_content,
-                    expr,
-                    message.unwrap_or_default()
-                )
+                format!("{}assert({}, \"{}\");", comments_content, expr, message.unwrap_or_default())
             }
             IntrinsicStmtNode::AssertEq {
                 left,
@@ -1259,29 +1029,16 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
                 let left = self.visit_expr(left, ctx)?;
                 let right = self.visit_expr(right, ctx)?;
                 let comments_content = self.visit_comments(&comments);
-                format!(
-                    "{}assert_eq({}, {}, \"{}\");",
-                    comments_content,
-                    left,
-                    right,
-                    message.unwrap_or_default()
-                )
+                format!("{}assert_eq({}, {}, \"{}\");", comments_content, left, right, message.unwrap_or_default())
             }
             psy_ast::IntrinsicStmtNode::ClearEntireTree { comments, .. } => {
                 let comments_content = self.visit_comments(&comments);
-                format!(
-                    "{}__ctx_clear_entire_tree();",
-                    comments_content,
-                )
+                format!("{}__ctx_clear_entire_tree();", comments_content,)
             }
         };
         Ok(s)
     }
-    fn visit_module(
-        &mut self,
-        module_id: ModuleId,
-        ctx: &mut Self::Context,
-    ) -> Result<(), Self::Error> {
+    fn visit_module(&mut self, module_id: ModuleId, ctx: &mut Self::Context) -> Result<(), Self::Error> {
         ctx.push_node_id(NodeId::from(module_id));
 
         let module = ctx.module(module_id).clone();
@@ -1320,11 +1077,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         Ok(())
     }
 
-    fn visit_type_alias(
-        &mut self,
-        node: DefId,
-        ctx: &mut Self::Context,
-    ) -> Result<Self::DefinitionResult, Self::Error> {
+    fn visit_type_alias(&mut self, node: DefId, ctx: &mut Self::Context) -> Result<Self::DefinitionResult, Self::Error> {
         let node = ctx.definition(node).as_type_alias().cloned().unwrap();
         let comments_content = self.visit_comments(&node.comments);
         Ok(format!(
@@ -1335,33 +1088,21 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         ))
     }
 
-    fn visit_const(
-        &mut self,
-        node: DefId,
-        ctx: &mut Self::Context,
-    ) -> Result<Self::DefinitionResult, Self::Error> {
+    fn visit_const(&mut self, node: DefId, ctx: &mut Self::Context) -> Result<Self::DefinitionResult, Self::Error> {
         let node = ctx.definition(node).as_const().cloned().unwrap();
         let value = self.visit_expr(node.value, ctx)?;
 
         Ok(format!(
             "{}{}const {}:{} = {};",
             self.visit_comments(&node.comments),
-            if node.visibility.is_public() {
-                "pub "
-            } else {
-                ""
-            },
+            if node.visibility.is_public() { "pub " } else { "" },
             ctx.ident(node.name),
             self.visit_unchecked_type(&node.ty, false, ctx),
             value
         ))
     }
 
-    fn visit_for(
-        &mut self,
-        node: StmtId,
-        ctx: &mut Self::Context,
-    ) -> Result<Self::StmtResult, Self::Error> {
+    fn visit_for(&mut self, node: StmtId, ctx: &mut Self::Context) -> Result<Self::StmtResult, Self::Error> {
         let &ForNode {
             variable,
             start,
@@ -1382,11 +1123,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         Ok(format!("{}{}{}", comments_content, s, block))
     }
 
-    fn visit_match(
-        &mut self,
-        node: ExprId,
-        ctx: &mut Self::Context,
-    ) -> Result<Self::StmtResult, Self::Error> {
+    fn visit_match(&mut self, node: ExprId, ctx: &mut Self::Context) -> Result<Self::StmtResult, Self::Error> {
         let MatchNode {
             scrutinee,
             arms,
@@ -1415,20 +1152,12 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         Ok(m)
     }
 
-    fn visit_parentheses(
-        &mut self,
-        node: ExprId,
-        ctx: &mut Self::Context,
-    ) -> Result<Self::ExprResult, Self::Error> {
+    fn visit_parentheses(&mut self, node: ExprId, ctx: &mut Self::Context) -> Result<Self::ExprResult, Self::Error> {
         let inner_expr_id = ctx.expression(node).as_parentheses().unwrap().clone();
         Ok(format!("({})", self.visit_expr(inner_expr_id, ctx)?))
     }
 
-    fn visit_lambda_function(
-        &mut self,
-        node: ExprId,
-        ctx: &mut Self::Context,
-    ) -> Result<Self::ExprResult, Self::Error> {
+    fn visit_lambda_function(&mut self, node: ExprId, ctx: &mut Self::Context) -> Result<Self::ExprResult, Self::Error> {
         let LambdaFunctionNode {
             parameters,
             return_type,
@@ -1460,11 +1189,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         Ok(result)
     }
 
-    fn visit_trait_impl(
-        &mut self,
-        def_id: DefId,
-        ctx: &mut Self::Context,
-    ) -> Result<Self::StmtResult, Self::Error> {
+    fn visit_trait_impl(&mut self, def_id: DefId, ctx: &mut Self::Context) -> Result<Self::StmtResult, Self::Error> {
         let TraitImplNode {
             associated_types,
             generic_parameters,
@@ -1488,11 +1213,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
                     "{}{}{}type {} = {};\n",
                     self.read_indent(1),
                     comments_content,
-                    if ty.visibility.is_public() {
-                        "pub "
-                    } else {
-                        ""
-                    },
+                    if ty.visibility.is_public() { "pub " } else { "" },
                     ctx.ident(name.clone()),
                     self.visit_unchecked_type(&ty.ty, false, ctx)
                 )
@@ -1526,11 +1247,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         ))
     }
 
-    fn visit_block_expr(
-        &mut self,
-        node: ExprId,
-        ctx: &mut Self::Context,
-    ) -> Result<Self::ExprResult, Self::Error> {
+    fn visit_block_expr(&mut self, node: ExprId, ctx: &mut Self::Context) -> Result<Self::ExprResult, Self::Error> {
         let BlockExprNode {
             stmts,
             expr: return_expr,
@@ -1551,9 +1268,9 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
             }
         }
 
-        expr_comments.iter().for_each(|comment| {
-            block_expr_result.push_str(&format!("{}{}\n", current_indent, comment.content()))
-        });
+        expr_comments
+            .iter()
+            .for_each(|comment| block_expr_result.push_str(&format!("{}{}\n", current_indent, comment.content())));
         //add return expr
         match return_expr {
             Some(expr) => {
@@ -1570,11 +1287,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         Ok(block_expr_result)
     }
 
-    fn visit_if_expr(
-        &mut self,
-        node: ExprId,
-        ctx: &mut Self::Context,
-    ) -> Result<Self::ExprResult, Self::Error> {
+    fn visit_if_expr(&mut self, node: ExprId, ctx: &mut Self::Context) -> Result<Self::ExprResult, Self::Error> {
         let IfExprNode {
             if_branch,
             elseif_branches,
@@ -1588,11 +1301,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         result.push_str(&format!("{}\n", current_indent));
 
         for branch in elseif_branches.into_iter() {
-            result.push_str(&format!(
-                "{}else if {} ",
-                current_indent,
-                self.visit_expr(branch.predicate, ctx)?
-            ));
+            result.push_str(&format!("{}else if {} ", current_indent, self.visit_expr(branch.predicate, ctx)?));
             result.push_str(&format!("{}", self.visit_expr(branch.body, ctx)?));
             result.push_str(&format!("{}\n", current_indent));
         }
@@ -1604,11 +1313,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         Ok(result)
     }
 
-    fn visit_tuple(
-        &mut self,
-        node: ExprId,
-        ctx: &mut Self::Context,
-    ) -> Result<Self::ExprResult, Self::Error> {
+    fn visit_tuple(&mut self, node: ExprId, ctx: &mut Self::Context) -> Result<Self::ExprResult, Self::Error> {
         let tuple_node = ctx.expression(node).as_tuple().unwrap();
         let elements = tuple_node.elements.clone();
 
@@ -1621,11 +1326,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
         Ok(format!("({})", formatted_elements))
     }
 
-    fn visit_tuple_access(
-        &mut self,
-        node: ExprId,
-        ctx: &mut Self::Context,
-    ) -> Result<Self::ExprResult, Self::Error> {
+    fn visit_tuple_access(&mut self, node: ExprId, ctx: &mut Self::Context) -> Result<Self::ExprResult, Self::Error> {
         // get tuple access node, avoid borrowing ctx twice in closure
         let tuple_access_node = ctx.expression(node).as_tuple_access().unwrap();
         let target_expr_id = tuple_access_node.target;
@@ -1665,11 +1366,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> Formatt
         }
 
         if !is_first && !Self::is_inline_module(ctx, module_id) {
-            self.write_line(&format!(
-                "{}mod {};",
-                self.visit_visibility(&module.visibility),
-                &ctx.ident(module.name)
-            ));
+            self.write_line(&format!("{}mod {};", self.visit_visibility(&module.visibility), &ctx.ident(module.name)));
             return Ok(());
         }
 
@@ -1692,10 +1389,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> Formatt
         let module_definitions = module
             .definitions
             .iter()
-            .filter(|&def_id| {
-                !ctx.definition(*def_id).is_use()
-                    || ctx.definition(*def_id).as_use().unwrap().kind.id != IdentId::STD
-            })
+            .filter(|&def_id| !ctx.definition(*def_id).is_use() || ctx.definition(*def_id).as_use().unwrap().kind.id != IdentId::STD)
             .cloned()
             .collect::<Vec<_>>();
 

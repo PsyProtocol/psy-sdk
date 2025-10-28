@@ -9,10 +9,7 @@ use psy_common_circuit::{
     traits::{AlgebraicHashableTarget, CreatableTarget, FromTargets, ToTargets, WitnessValueFor},
 };
 use psy_core::config::network_constants::DEFERRED_CALL_MAGIC;
-use psy_data::dpn::proving_session::{
-    DPNProvingSessionCompactMethodCall, DPNProvingSessionSimpleMethodCall,
-};
-
+use psy_data::dpn::proving_session::{DPNProvingSessionCompactMethodCall, DPNProvingSessionSimpleMethodCall};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct DPNProvingSessionCompactMethodCallGadget {
@@ -24,12 +21,12 @@ pub struct DPNProvingSessionCompactMethodCallGadget {
 }
 
 impl DPNProvingSessionCompactMethodCallGadget {
-    pub fn new_from_inputs<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
+    pub fn new_from_inputs<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
         caller_contract_id: Target,
         contract_id: Target,
         method_id: Target,
-        inputs: &[Target]
+        inputs: &[Target],
     ) -> Self {
         let inputs_length = builder.constant_u64(inputs.len() as u64);
         let inputs_hash = builder.safe_hash_fixed_length::<H>(inputs);
@@ -41,9 +38,7 @@ impl DPNProvingSessionCompactMethodCallGadget {
             inputs_hash,
         }
     }
-    pub fn add_virtual_to<F: RichField + Extendable<D>, const D: usize>(
-        builder: &mut CircuitBuilder<F, D>,
-    ) -> Self {
+    pub fn add_virtual_to<F: RichField + Extendable<D>, const D: usize>(builder: &mut CircuitBuilder<F, D>) -> Self {
         let caller_contract_id = builder.add_virtual_target();
         let contract_id = builder.add_virtual_target();
         let method_id = builder.add_virtual_target();
@@ -58,21 +53,14 @@ impl DPNProvingSessionCompactMethodCallGadget {
             inputs_hash,
         }
     }
-    pub fn set_witness<F: RichField>(
-        &self,
-        witness: &mut impl Witness<F>,
-        target: &DPNProvingSessionCompactMethodCall<F>,
-    ) -> anyhow::Result<()> {
+    pub fn set_witness<F: RichField>(&self, witness: &mut impl Witness<F>, target: &DPNProvingSessionCompactMethodCall<F>) -> anyhow::Result<()> {
         witness.set_target(self.caller_contract_id, target.caller_contract_id)?;
         witness.set_target(self.contract_id, target.contract_id)?;
         witness.set_target(self.method_id, target.method_id)?;
         witness.set_target(self.inputs_length, target.inputs_length)?;
         witness.set_hash_target(self.inputs_hash, target.inputs_hash.0)
     }
-    pub fn to_hash<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
-        &self,
-        builder: &mut CircuitBuilder<F, D>,
-    ) -> HashOutTarget {
+    pub fn to_hash<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(&self, builder: &mut CircuitBuilder<F, D>) -> HashOutTarget {
         let magic_felt = builder.constant_u64(DEFERRED_CALL_MAGIC);
 
         let final_hash = builder.hash_n_to_hash_no_pad::<H>(vec![
@@ -90,14 +78,12 @@ impl DPNProvingSessionCompactMethodCallGadget {
     }
 }
 impl CreatableTarget for DPNProvingSessionCompactMethodCallGadget {
-    fn create_virtual<F: RichField + Extendable<D>, const D: usize>(
-        builder: &mut CircuitBuilder<F, D>,
-    ) -> Self {
+    fn create_virtual<F: RichField + Extendable<D>, const D: usize>(builder: &mut CircuitBuilder<F, D>) -> Self {
         Self::add_virtual_to(builder)
     }
 }
 impl AlgebraicHashableTarget for DPNProvingSessionCompactMethodCallGadget {
-    fn to_hash_target<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
+    fn to_hash_target<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
         &self,
         builder: &mut CircuitBuilder<F, D>,
     ) -> HashOutTarget {
@@ -121,7 +107,10 @@ impl ToTargets for DPNProvingSessionCompactMethodCallGadget {
 impl FromTargets for DPNProvingSessionCompactMethodCallGadget {
     fn from_targets(targets: &[Target]) -> Self {
         if targets.len() != 8 {
-            panic!("Invalid number of elements for DPNProvingSessionCompactMethodCallGadget, expected 8, got {}", targets.len());
+            panic!(
+                "Invalid number of elements for DPNProvingSessionCompactMethodCallGadget, expected 8, got {}",
+                targets.len()
+            );
         }
         Self {
             caller_contract_id: targets[0],
@@ -135,26 +124,14 @@ impl FromTargets for DPNProvingSessionCompactMethodCallGadget {
     }
 }
 
-impl<F: RichField> WitnessValueFor<DPNProvingSessionCompactMethodCallGadget, F, true>
-    for DPNProvingSessionCompactMethodCall<F>
-{
-    fn set_for_witness(
-        &self,
-        witness: &mut impl Witness<F>,
-        target: &DPNProvingSessionCompactMethodCallGadget,
-    )-> anyhow::Result<()> {
+impl<F: RichField> WitnessValueFor<DPNProvingSessionCompactMethodCallGadget, F, true> for DPNProvingSessionCompactMethodCall<F> {
+    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &DPNProvingSessionCompactMethodCallGadget) -> anyhow::Result<()> {
         target.set_witness(witness, self)
     }
 }
 
-impl<F: RichField> WitnessValueFor<DPNProvingSessionCompactMethodCallGadget, F, false>
-    for DPNProvingSessionCompactMethodCall<F>
-{
-    fn set_for_witness(
-        &self,
-        witness: &mut impl Witness<F>,
-        target: &DPNProvingSessionCompactMethodCallGadget,
-    ) -> anyhow::Result<()> {
+impl<F: RichField> WitnessValueFor<DPNProvingSessionCompactMethodCallGadget, F, false> for DPNProvingSessionCompactMethodCall<F> {
+    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &DPNProvingSessionCompactMethodCallGadget) -> anyhow::Result<()> {
         target.set_witness(witness, self)
     }
 }
@@ -168,16 +145,11 @@ pub struct DPNProvingSessionSimpleMethodCallGadget {
 }
 
 impl DPNProvingSessionSimpleMethodCallGadget {
-    pub fn add_virtual_to<F: RichField + Extendable<D>, const D: usize>(
-        builder: &mut CircuitBuilder<F, D>,
-        input_count: usize,
-    ) -> Self {
+    pub fn add_virtual_to<F: RichField + Extendable<D>, const D: usize>(builder: &mut CircuitBuilder<F, D>, input_count: usize) -> Self {
         let caller_contract_id = builder.add_virtual_target();
         let contract_id = builder.add_virtual_target();
         let method_id = builder.add_virtual_target();
-        let inputs = (0..input_count)
-            .map(|_| builder.add_virtual_target())
-            .collect::<Vec<Target>>();
+        let inputs = (0..input_count).map(|_| builder.add_virtual_target()).collect::<Vec<Target>>();
 
         Self {
             caller_contract_id,
@@ -186,7 +158,7 @@ impl DPNProvingSessionSimpleMethodCallGadget {
             inputs,
         }
     }
-    fn to_compact<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
+    fn to_compact<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
         &self,
         builder: &mut CircuitBuilder<F, D>,
     ) -> DPNProvingSessionCompactMethodCallGadget {
@@ -198,23 +170,16 @@ impl DPNProvingSessionSimpleMethodCallGadget {
             &self.inputs,
         )
     }
-    pub fn set_witness<F: RichField>(
-        &self,
-        witness: &mut impl Witness<F>,
-        target: &DPNProvingSessionSimpleMethodCall<F>,
-    ) -> anyhow::Result<()> {
+    pub fn set_witness<F: RichField>(&self, witness: &mut impl Witness<F>, target: &DPNProvingSessionSimpleMethodCall<F>) -> anyhow::Result<()> {
         witness.set_target(self.caller_contract_id, target.caller_contract_id)?;
         witness.set_target(self.contract_id, target.contract_id)?;
         witness.set_target(self.method_id, target.method_id)?;
         witness.set_target_arr(&self.inputs, &target.inputs)
     }
-    pub fn to_hash<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
-        &self,
-        builder: &mut CircuitBuilder<F, D>,
-    ) -> HashOutTarget {
+    pub fn to_hash<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(&self, builder: &mut CircuitBuilder<F, D>) -> HashOutTarget {
         self.to_compact::<H, F, D>(builder).to_hash::<H, F, D>(builder)
 
-        /* 
+        /*
         let inputs_length = self.inputs.len();
         let inputs_length_target = builder.constant_u64(inputs_length as u64);
 
@@ -242,7 +207,7 @@ impl DPNProvingSessionSimpleMethodCallGadget {
     }
 }
 impl AlgebraicHashableTarget for DPNProvingSessionSimpleMethodCallGadget {
-    fn to_hash_target<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
+    fn to_hash_target<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
         &self,
         builder: &mut CircuitBuilder<F, D>,
     ) -> HashOutTarget {
@@ -273,26 +238,14 @@ impl FromTargets for DPNProvingSessionSimpleMethodCallGadget {
     }
 }
 
-impl<F: RichField> WitnessValueFor<DPNProvingSessionSimpleMethodCallGadget, F, true>
-    for DPNProvingSessionSimpleMethodCall<F>
-{
-    fn set_for_witness(
-        &self,
-        witness: &mut impl Witness<F>,
-        target: &DPNProvingSessionSimpleMethodCallGadget,
-    ) -> anyhow::Result<()> {
+impl<F: RichField> WitnessValueFor<DPNProvingSessionSimpleMethodCallGadget, F, true> for DPNProvingSessionSimpleMethodCall<F> {
+    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &DPNProvingSessionSimpleMethodCallGadget) -> anyhow::Result<()> {
         target.set_witness(witness, self)
     }
 }
 
-impl<F: RichField> WitnessValueFor<DPNProvingSessionSimpleMethodCallGadget, F, false>
-    for DPNProvingSessionSimpleMethodCall<F>
-{
-    fn set_for_witness(
-        &self,
-        witness: &mut impl Witness<F>,
-        target: &DPNProvingSessionSimpleMethodCallGadget,
-    ) -> anyhow::Result<()> {
+impl<F: RichField> WitnessValueFor<DPNProvingSessionSimpleMethodCallGadget, F, false> for DPNProvingSessionSimpleMethodCall<F> {
+    fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &DPNProvingSessionSimpleMethodCallGadget) -> anyhow::Result<()> {
         target.set_witness(witness, self)
     }
 }

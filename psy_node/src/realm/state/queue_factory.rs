@@ -1,13 +1,15 @@
 // In psy_node/src/realm/state/queue_factory.rs
 
 use std::sync::Arc;
-use plonky2::hash::hash_types::RichField;
+
 use anyhow::Result;
-use psy_store::queue::{new_redis_async_pool, RsmqQueue};
-use psy_store::store::QEDStore;
-use crate::realm::state::duplicate_tracker::RedisDuplicateTracker;
-use crate::realm::state::edge_queue_helper::RealmEdgeQueueHelper;
-use crate::realm::state::queue_impl_rsmq::SubmissionQueue;
+use plonky2::hash::hash_types::RichField;
+use psy_store::{
+    queue::{new_redis_async_pool, RsmqQueue},
+    store::QEDStore,
+};
+
+use crate::realm::state::{duplicate_tracker::RedisDuplicateTracker, edge_queue_helper::RealmEdgeQueueHelper, queue_impl_rsmq::SubmissionQueue};
 
 pub struct QueueFactory;
 
@@ -18,9 +20,7 @@ impl QueueFactory {
         realm_id: u32,
         store: Arc<QEDStore>,
     ) -> Result<RealmEdgeQueueHelper<F>> {
-        let rsmq = Arc::new(
-            RsmqQueue::new(redis_url, pool_size, format!("realm_{}_queue", realm_id)).await?
-        );
+        let rsmq = Arc::new(RsmqQueue::new(redis_url, pool_size, format!("realm_{}_queue", realm_id)).await?);
 
         let redis_pool = new_redis_async_pool(redis_url, pool_size).await?;
 

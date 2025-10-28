@@ -1,5 +1,9 @@
-use std::{marker::Sync, sync::Arc, time::Instant};
-use std::time::Duration;
+use std::{
+    marker::Sync,
+    sync::Arc,
+    time::{Duration, Instant},
+};
+
 use anyhow::ensure;
 use chrono::Utc;
 use kvq::traits::KVQPair;
@@ -30,13 +34,17 @@ use psy_crypto::{
     },
     hash::{
         merkle::{
+            core::compute_historical_and_current_merkle_roots_core_gt,
             treeprover::{
                 data::CircuitInputWithDependencies, subtree::SubTreeNodeStateTransition, tree_helper::plan_tree_prover_from_leaves,
                 AggStateTransition, AggStateTransitionInput, AggWTLeafAggregator,
             },
             utils::common::{SimpleMerkleNode, SimpleMerkleNodeKey},
         },
-        traits::{hasher::{FieldQHasher, MerkleZeroHasher}, qhashable::QFieldHashable},
+        traits::{
+            hasher::{FieldQHasher, MerkleZeroHasher},
+            qhashable::QFieldHashable,
+        },
     },
     signature::zk::data::ZKPublicKeyInfo,
 };
@@ -45,7 +53,10 @@ use psy_data::{
     guta::{
         api::SubmitGUTARealmResultAPIQueueItem,
         header::GlobalUserTreeAggregatorHeader,
-        proof_input::{GUTANoChangeFullInput, VerifyGUTAToCapCircuitInputSimple, VerifyGUTAToCapUpgradeCheckpointCircuitInputSimple, VerifyTwoGUTAProofGadgetStandardInputSimple, VerifyTwoGUTAProofUpgradeCheckpointStandardInputSimple},
+        proof_input::{
+            GUTANoChangeFullInput, VerifyGUTAToCapCircuitInputSimple, VerifyGUTAToCapUpgradeCheckpointCircuitInputSimple,
+            VerifyTwoGUTAProofGadgetStandardInputSimple, VerifyTwoGUTAProofUpgradeCheckpointStandardInputSimple,
+        },
         stats::GUTAStats,
     },
     models::{checkpoint::user_public_keys::QEDUserPublicKeyHelperModelCore, kvq_merkle::model::KVQFixedConfigMerkleTreeModelReaderCore},
@@ -63,6 +74,7 @@ use psy_data::{
         contract::QEDContractLeaf,
         pm_jobs_completed_stats::PMJobsCompletedStats,
         pm_reward_commitment::PMRewardCommitment,
+        realm_status::BasicRealmStatus,
         user_public_key::QEDUserPublicKeyRecord,
     },
 };
@@ -73,15 +85,15 @@ use psy_store::{
         redis_queue::{CheckpointDrainQueueConsumerAsyncImmWithPosition, QueueOffsetState, MAX_CHECKPOINT_COUNT},
         task_queue::QProvingTaskStore,
     },
+    store::{
+        journal::{Journal, JournalStore},
+        QEDStore,
+    },
 };
-use psy_crypto::hash::merkle::core::compute_historical_and_current_merkle_roots_core_gt;
-use crate::common_v2::traits::realm::BasicRealmStatusOnCoordinator;
 use serde::{Deserialize, Serialize};
 use tracing::{debug, error, info, trace, warn};
-use psy_store::store::journal::{Journal, JournalStore};
-use psy_store::store::QEDStore;
-use crate::common::slot::SLOT_SIZE;
-use psy_data::qdata::realm_status::BasicRealmStatus;
+
+use crate::{common::slot::SLOT_SIZE, common_v2::traits::realm::BasicRealmStatusOnCoordinator};
 
 type F = QEDFelt;
 type C = PoseidonGoldilocksConfig;
@@ -201,7 +213,16 @@ impl<
         self.proof_verifier.verify_proof_of_type(circuit_type, proof)
     }
 
-    pub async fn handle_deploy_contracts(&self, checkpoint_id: u64, slot_id: u64) -> anyhow::Result<(Vec<Vec<QProvingJobDataID>>, AggStateTransition<F>, u32, BidirectionalGraph<QProvingJobDataID>)> {
+    pub async fn handle_deploy_contracts(
+        &self,
+        checkpoint_id: u64,
+        slot_id: u64,
+    ) -> anyhow::Result<(
+        Vec<Vec<QProvingJobDataID>>,
+        AggStateTransition<F>,
+        u32,
+        BidirectionalGraph<QProvingJobDataID>,
+    )> {
         let last_l2_blockstate = self.store.get_latest_l2_block_state().await?;
 
         let last_contract_tree_root = self.store.get_contract_tree_root(checkpoint_id).await?;
@@ -254,7 +275,10 @@ impl<
             )
             .await?;
         tracing::debug!("batch_append_contract_tree_imm cost time: {:?}", now.elapsed());
-        tracing::debug!("deploy contracts spiderman proofs: {}", serde_json::to_string_pretty(&spiderman_append_proofs).unwrap());
+        tracing::debug!(
+            "deploy contracts spiderman proofs: {}",
+            serde_json::to_string_pretty(&spiderman_append_proofs).unwrap()
+        );
         let wits = spiderman_append_proofs
             .into_iter()
             .zip(start_indexes)
@@ -284,7 +308,15 @@ impl<
                     contract_leaves.push(QEDContractLeaf::default());
                 }
 
-                self.push_deploy_contracts_request(checkpoint_id, slot_id, self.coordinator_config.coordinator_id, i as u32, &mut psb, spiderman_proof, contract_leaves)
+                self.push_deploy_contracts_request(
+                    checkpoint_id,
+                    slot_id,
+                    self.coordinator_config.coordinator_id,
+                    i as u32,
+                    &mut psb,
+                    spiderman_proof,
+                    contract_leaves,
+                )
             })
             .collect::<anyhow::Result<Vec<_>>>()?;
 
@@ -292,11 +324,21 @@ impl<
             plan_tree_prover_from_leaves::<F, ProofStoreBuilder, AggWTLeafAggregator, _, AggStateTransitionInput<F>>(
                 &wits,
                 &mut psb,
-                QProvingJobDataID::new_proof_job_id(checkpoint_id, slot_id, self.coordinator_config.coordinator_id, ProvingJobCircuitType::DummyBatchDeployContractsAggregate, 0, 0),
+                QProvingJobDataID::new_proof_job_id(
+                    checkpoint_id,
+                    slot_id,
+                    self.coordinator_config.coordinator_id,
+                    ProvingJobCircuitType::DummyBatchDeployContractsAggregate,
+                    0,
+                    0,
+                ),
                 last_contract_tree_root,
                 self.coordinator_config.deploy_contracts_circuit_whitelist,
             )?;
-        tracing::debug!("root_transition_batch_deploy_contract_tree: {}", serde_json::to_string_pretty(&root_transition_batch_deploy_contract_tree).unwrap());
+        tracing::debug!(
+            "root_transition_batch_deploy_contract_tree: {}",
+            serde_json::to_string_pretty(&root_transition_batch_deploy_contract_tree).unwrap()
+        );
 
         self.proof_store.set_bytes_by_id_batch(&psb.kvs).await?;
         let new_contract_tree_root = self.store.get_contract_tree_root(checkpoint_id).await?;
@@ -376,7 +418,16 @@ impl<
         let wits = spiderman_proofs
             .chunks(self.coordinator_config.register_user_tree_batch_size)
             .enumerate()
-            .map(|(i, c)| self.push_user_registration_request(checkpoint_id, slot_id, self.coordinator_config.coordinator_id, i as u32, &mut psb, c.to_vec()))
+            .map(|(i, c)| {
+                self.push_user_registration_request(
+                    checkpoint_id,
+                    slot_id,
+                    self.coordinator_config.coordinator_id,
+                    i as u32,
+                    &mut psb,
+                    c.to_vec(),
+                )
+            })
             .collect::<anyhow::Result<Vec<_>>>()?;
 
         let siblings = if wits.len() != 0 {
@@ -392,11 +443,21 @@ impl<
             plan_tree_prover_from_leaves::<F, ProofStoreBuilder, AggWTLeafAggregator, _, AggStateTransitionInput<F>>(
                 &wits,
                 &mut psb,
-                QProvingJobDataID::new_proof_job_id(checkpoint_id, slot_id, self.coordinator_config.coordinator_id, ProvingJobCircuitType::DummyAppendUserRegistrationTreeAggregate, 0, 0),
+                QProvingJobDataID::new_proof_job_id(
+                    checkpoint_id,
+                    slot_id,
+                    self.coordinator_config.coordinator_id,
+                    ProvingJobCircuitType::DummyAppendUserRegistrationTreeAggregate,
+                    0,
+                    0,
+                ),
                 last_user_registration_tree_root,
                 self.coordinator_config.register_users_circuit_whitelist,
             )?;
-        tracing::debug!("root_transition_append_user_registration_tree: {}", serde_json::to_string_pretty(&root_transition_append_user_registration_tree).unwrap());
+        tracing::debug!(
+            "root_transition_append_user_registration_tree: {}",
+            serde_json::to_string_pretty(&root_transition_append_user_registration_tree).unwrap()
+        );
 
         self.proof_store.set_bytes_by_id_batch(&psb.kvs).await?;
         let new_user_registration_tree_root = self.store.get_user_registration_tree_root(checkpoint_id).await?;
@@ -418,7 +479,11 @@ impl<
         &self,
         checkpoint_id: u64,
         slot_id: u64,
-    ) -> anyhow::Result<(Vec<Vec<QProvingJobDataID>>, GlobalUserTreeAggregatorHeader<F>, BidirectionalGraph<QProvingJobDataID>)> {
+    ) -> anyhow::Result<(
+        Vec<Vec<QProvingJobDataID>>,
+        GlobalUserTreeAggregatorHeader<F>,
+        BidirectionalGraph<QProvingJobDataID>,
+    )> {
         tracing::debug!(checkpoint_id = checkpoint_id, "Processing checkpoint");
         let (mut guta_queue_items, consumption_state) = self
             .checkpoint_queue
@@ -428,13 +493,19 @@ impl<
         let last_checkpoint_id = checkpoint_id.saturating_sub(1);
         let last_checkpoint_tree_root = self.store.get_checkpoint_tree_root(last_checkpoint_id).await?;
         tracing::debug!("last_checkpoint_tree_root: {}", last_checkpoint_tree_root);
-        let mut guta_queue_items = guta_queue_items.into_iter().filter(|x| {
-            let is = x.checkpoint_id <= checkpoint_id && x.checkpoint_id >= checkpoint_id.saturating_sub(2);
-            if !is {
-                warn!("Filtering GUTA queue items for checkpoint_id: {}, current guta checkpoint_id: {}", checkpoint_id, x.checkpoint_id);
-            }
-            is
-        }).collect::<Vec<_>>();
+        let mut guta_queue_items = guta_queue_items
+            .into_iter()
+            .filter(|x| {
+                let is = x.checkpoint_id <= checkpoint_id && x.checkpoint_id >= checkpoint_id.saturating_sub(2);
+                if !is {
+                    warn!(
+                        "Filtering GUTA queue items for checkpoint_id: {}, current guta checkpoint_id: {}",
+                        checkpoint_id, x.checkpoint_id
+                    );
+                }
+                is
+            })
+            .collect::<Vec<_>>();
 
         let (realm_ids, realm_statuses): (Vec<u64>, Vec<BasicRealmStatus<F>>) = guta_queue_items
             .iter()
@@ -490,7 +561,7 @@ impl<
                 0,
                 ProvingJobCircuitType::GUTANoChange,
                 ProvingJobDataType::InputWitness,
-                0
+                0,
             );
 
             self.proof_store
@@ -512,9 +583,13 @@ impl<
             if guta_queue_items[0].checkpoint_tree_root != last_checkpoint_tree_root {
                 tracing::warn!("Checkpoint tree root in GUTA queue item does not match last checkpoint tree root");
                 let real_guta_checkpoint_id = guta_queue_items[0].checkpoint_id.saturating_sub(1);
-                let historical_checkpoint_proof = self.store.get_checkpoint_tree_merkle_proof(last_checkpoint_id, real_guta_checkpoint_id).await?;
+                let historical_checkpoint_proof = self
+                    .store
+                    .get_checkpoint_tree_merkle_proof(last_checkpoint_id, real_guta_checkpoint_id)
+                    .await?;
                 ensure!(historical_checkpoint_proof.root == last_checkpoint_tree_root);
-                let (historical_root, current_root) = compute_historical_and_current_merkle_roots_core_gt::<QHashOut<F>, QEDHasher>(&historical_checkpoint_proof);
+                let (historical_root, current_root) =
+                    compute_historical_and_current_merkle_roots_core_gt::<QHashOut<F>, QEDHasher>(&historical_checkpoint_proof);
                 ensure!(current_root == historical_checkpoint_proof.root);
                 ensure!(current_root == last_checkpoint_tree_root);
                 ensure!(historical_root == guta_queue_items[0].checkpoint_tree_root);
@@ -528,7 +603,7 @@ impl<
                             new_node_value: guta_queue_items[0].top_line_proof.new_root,
                             node_index: F::from_noncanonical_u64(guta_queue_items[0].top_line_proof.index),
                             node_level: F::from_canonical_u64(
-                            (self.coordinator_config.realm_root_level as usize + guta_queue_items[0].top_line_proof.siblings.len()) as u64,
+                                (self.coordinator_config.realm_root_level as usize + guta_queue_items[0].top_line_proof.siblings.len()) as u64,
                             ),
                         },
                         stats: guta_queue_items[0].guta_stats,
@@ -588,7 +663,6 @@ impl<
                     graph.add_edge(id.get_output_id(), *dep);
                 }
                 return Ok((vec![vec![id]], r_with_deps.input.get_new_guta_header::<QEDHasher>(), graph));
-
             }
 
             let rw = VerifyGUTAToCapCircuitInputSimple {
@@ -695,12 +769,20 @@ impl<
             if l_dep_ind <= -1 && r_dep_ind <= -1 {
                 let l_dep_ind = -(l_dep_ind + 1) as usize;
                 let r_dep_ind = -(r_dep_ind + 1) as usize;
-                if guta_queue_items[l_dep_ind].checkpoint_tree_root != last_checkpoint_tree_root || guta_queue_items[r_dep_ind].checkpoint_tree_root != last_checkpoint_tree_root {
+                if guta_queue_items[l_dep_ind].checkpoint_tree_root != last_checkpoint_tree_root
+                    || guta_queue_items[r_dep_ind].checkpoint_tree_root != last_checkpoint_tree_root
+                {
                     tracing::debug!("LeftRightRealmGutaWithCheckpointUpgrade");
                     let real_left_guta_checkpoint_id = guta_queue_items[l_dep_ind].checkpoint_id.saturating_sub(1);
                     let real_right_guta_checkpoint_id = guta_queue_items[r_dep_ind].checkpoint_id.saturating_sub(1);
-                    let historical_checkpoint_proof_a = self.store.get_checkpoint_tree_merkle_proof(last_checkpoint_id, real_left_guta_checkpoint_id).await?;
-                    let historical_checkpoint_proof_b = self.store.get_checkpoint_tree_merkle_proof(last_checkpoint_id, real_right_guta_checkpoint_id).await?;
+                    let historical_checkpoint_proof_a = self
+                        .store
+                        .get_checkpoint_tree_merkle_proof(last_checkpoint_id, real_left_guta_checkpoint_id)
+                        .await?;
+                    let historical_checkpoint_proof_b = self
+                        .store
+                        .get_checkpoint_tree_merkle_proof(last_checkpoint_id, real_right_guta_checkpoint_id)
+                        .await?;
                     let input = VerifyTwoGUTAProofUpgradeCheckpointStandardInputSimple {
                         historical_checkpoint_proof_a,
                         historical_checkpoint_proof_b,
@@ -788,10 +870,7 @@ impl<
                         stats_b: r_stats,
                         nca_proof: res.nca_proofs[i].to_partial(),
                     },
-                    dependencies: vec![
-                        l_proof_id.get_output_id(),
-                        r_proof_id.get_output_id(),
-                    ],
+                    dependencies: vec![l_proof_id.get_output_id(), r_proof_id.get_output_id()],
                 };
                 let w_id = QProvingJobDataID::new(
                     QJobTopic::GenerateStandardProof,
@@ -814,7 +893,6 @@ impl<
                     key: w_id,
                     value: bincode::serialize(&x)?,
                 });
-
             } else if l_dep_ind > -1 {
                 let (l_proof_id, l_stats) = combo_stats[l_dep_ind as usize];
                 let r_dep_ind = -(r_dep_ind + 1) as usize;
@@ -823,8 +901,14 @@ impl<
                 if right_guta_item.checkpoint_tree_root != last_checkpoint_tree_root {
                     tracing::debug!("LeftCoordinatorGutaRightRealmGutaWithCheckpointUpgrade");
                     let real_last_guta_checkpoint_id = right_guta_item.checkpoint_id.saturating_sub(1);
-                    let historical_checkpoint_proof_a = self.store.get_checkpoint_tree_merkle_proof(last_checkpoint_id, last_checkpoint_id).await?;
-                    let historical_checkpoint_proof_b = self.store.get_checkpoint_tree_merkle_proof(last_checkpoint_id, real_last_guta_checkpoint_id).await?;
+                    let historical_checkpoint_proof_a = self
+                        .store
+                        .get_checkpoint_tree_merkle_proof(last_checkpoint_id, last_checkpoint_id)
+                        .await?;
+                    let historical_checkpoint_proof_b = self
+                        .store
+                        .get_checkpoint_tree_merkle_proof(last_checkpoint_id, real_last_guta_checkpoint_id)
+                        .await?;
                     let x = CircuitInputWithDependencies {
                         input: VerifyTwoGUTAProofUpgradeCheckpointStandardInputSimple {
                             historical_checkpoint_proof_a,
@@ -833,10 +917,7 @@ impl<
                             stats_b: right_guta_item.guta_stats.clone(),
                             nca_proof: res.nca_proofs[i].to_partial(),
                         },
-                        dependencies: vec![
-                            l_proof_id.get_output_id(),
-                            right_guta_item.proof_id,
-                        ],
+                        dependencies: vec![l_proof_id.get_output_id(), right_guta_item.proof_id],
                     };
                     x.input.check_witness()?;
                     let w_id = QProvingJobDataID::new(
@@ -861,7 +942,6 @@ impl<
                         key: w_id,
                         value: bincode::serialize(&x)?,
                     });
-
                 } else {
                     tracing::debug!("LeftCoordinatorGutaRightRealmGuta");
                     let x = CircuitInputWithDependencies {
@@ -872,10 +952,7 @@ impl<
                             stats_b: right_guta_item.guta_stats.clone(),
                             nca_proof: res.nca_proofs[i].to_partial(),
                         },
-                        dependencies: vec![
-                            l_proof_id.get_output_id(),
-                            right_guta_item.proof_id,
-                        ],
+                        dependencies: vec![l_proof_id.get_output_id(), right_guta_item.proof_id],
                     };
                     x.input.check_witness()?;
                     let w_id = QProvingJobDataID::new(
@@ -911,20 +988,23 @@ impl<
                 if left_guta_item.checkpoint_tree_root != last_checkpoint_tree_root {
                     tracing::debug!("LeftRealmGutaRightCoordinatorGutaWithCheckpointUpgrade");
                     let real_last_guta_checkpoint_id = left_guta_item.checkpoint_id.saturating_sub(1);
-                    let historical_checkpoint_proof_a = self.store.get_checkpoint_tree_merkle_proof(last_checkpoint_id, real_last_guta_checkpoint_id).await?;
-                    let historical_checkpoint_proof_b = self.store.get_checkpoint_tree_merkle_proof(last_checkpoint_id, last_checkpoint_id).await?;
+                    let historical_checkpoint_proof_a = self
+                        .store
+                        .get_checkpoint_tree_merkle_proof(last_checkpoint_id, real_last_guta_checkpoint_id)
+                        .await?;
+                    let historical_checkpoint_proof_b = self
+                        .store
+                        .get_checkpoint_tree_merkle_proof(last_checkpoint_id, last_checkpoint_id)
+                        .await?;
                     let x = CircuitInputWithDependencies {
                         input: VerifyTwoGUTAProofUpgradeCheckpointStandardInputSimple {
                             historical_checkpoint_proof_a,
                             historical_checkpoint_proof_b,
                             stats_a: left_guta_item.guta_stats.clone(),
-                            stats_b:  r_stats,
+                            stats_b: r_stats,
                             nca_proof: res.nca_proofs[i].to_partial(),
                         },
-                        dependencies: vec![
-                            left_guta_item.proof_id,
-                            r_proof_id.get_output_id(),
-                        ],
+                        dependencies: vec![left_guta_item.proof_id, r_proof_id.get_output_id()],
                     };
                     x.input.check_witness()?;
                     let w_id = QProvingJobDataID::new(
@@ -959,10 +1039,7 @@ impl<
                             stats_b: r_stats,
                             nca_proof: res.nca_proofs[i].to_partial(),
                         },
-                        dependencies: vec![
-                            left_guta_item.proof_id,
-                            r_proof_id.get_output_id(),
-                        ],
+                        dependencies: vec![left_guta_item.proof_id, r_proof_id.get_output_id()],
                     };
                     x.input.check_witness()?;
                     let w_id = QProvingJobDataID::new(
@@ -1068,15 +1145,18 @@ impl<
         tracing::debug!("Generated Deploy jobs: {:#?}", deploy_jobs);
         tracing::debug!("Generated registration jobs: {:#?}", user_registration_jobs);
         let notify_block_complete = QProvingJobDataID::notify_block_complete(new_checkpoint_id, slot_id, self.coordinator_config.coordinator_id);
-        let root_state_transition = QProvingJobDataID::block_state_transition_input_witness(new_checkpoint_id, slot_id, self.coordinator_config.coordinator_id);
+        let root_state_transition =
+            QProvingJobDataID::block_state_transition_input_witness(new_checkpoint_id, slot_id, self.coordinator_config.coordinator_id);
         let root_state_transition_task = QProvingTask::new(&[root_state_transition]);
         let notify_block_complete_task = QProvingTask::new(&[notify_block_complete]);
         self.task_store
             .write_next_tasks(&root_state_transition_task, &notify_block_complete_task)
             .await?;
 
-        let state_part_1_common_id = QProvingJobDataID::get_block_aggregate_jobs_group(new_checkpoint_id, slot_id, self.coordinator_config.coordinator_id, 0);
-        let state_part_1_id = QProvingJobDataID::block_agg_state_part_1_input_witness(new_checkpoint_id, slot_id, self.coordinator_config.coordinator_id);
+        let state_part_1_common_id =
+            QProvingJobDataID::get_block_aggregate_jobs_group(new_checkpoint_id, slot_id, self.coordinator_config.coordinator_id, 0);
+        let state_part_1_id =
+            QProvingJobDataID::block_agg_state_part_1_input_witness(new_checkpoint_id, slot_id, self.coordinator_config.coordinator_id);
         let state_part_1_task = QProvingTask::new(&[state_part_1_id]);
         let state_part_1_common_task = QProvingTask::new(&[state_part_1_common_id]);
         self.task_store
@@ -1084,9 +1164,12 @@ impl<
             .await?;
         self.task_store.write_next_tasks(&state_part_1_task, &state_part_1_common_task).await?;
 
-        let register_users_agg_job_id = QProvingJobDataID::get_block_aggregate_jobs_group(new_checkpoint_id, slot_id, self.coordinator_config.coordinator_id, 1);
-        let deploy_contracts_agg_job_id = QProvingJobDataID::get_block_aggregate_jobs_group(new_checkpoint_id, slot_id, self.coordinator_config.coordinator_id, 2);
-        let guta_agg_job_id = QProvingJobDataID::get_block_aggregate_jobs_group(new_checkpoint_id, slot_id, self.coordinator_config.coordinator_id, 3);
+        let register_users_agg_job_id =
+            QProvingJobDataID::get_block_aggregate_jobs_group(new_checkpoint_id, slot_id, self.coordinator_config.coordinator_id, 1);
+        let deploy_contracts_agg_job_id =
+            QProvingJobDataID::get_block_aggregate_jobs_group(new_checkpoint_id, slot_id, self.coordinator_config.coordinator_id, 2);
+        let guta_agg_job_id =
+            QProvingJobDataID::get_block_aggregate_jobs_group(new_checkpoint_id, slot_id, self.coordinator_config.coordinator_id, 3);
         let register_users_agg_task = QProvingTask::new(&[register_users_agg_job_id]);
         let deploy_contracts_agg_task = QProvingTask::new(&[deploy_contracts_agg_job_id]);
         let guta_agg_task = QProvingTask::new(&[guta_agg_job_id]);
@@ -1120,7 +1203,9 @@ impl<
         self.task_store.clear_task_graph().await?;
 
         let last_l2_blockstate = self.store.get_latest_l2_block_state().await?;
-        self.proof_store.cleanup_old_proofs(last_l2_blockstate.checkpoint_id, MAX_CHECKPOINT_COUNT as u64).await?;
+        self.proof_store
+            .cleanup_old_proofs(last_l2_blockstate.checkpoint_id, MAX_CHECKPOINT_COUNT as u64)
+            .await?;
         let last_user_registration_tree_root = self.store.get_user_registration_tree_root(last_l2_blockstate.checkpoint_id).await?;
         let last_contract_tree_root = self.store.get_contract_tree_root(last_l2_blockstate.checkpoint_id).await?;
         let last_checkpoint_leaf = self.store.get_checkpoint_leaf_data(last_l2_blockstate.checkpoint_id).await?;
@@ -1162,8 +1247,9 @@ impl<
             new_checkpoint_id
         );
         debug!("Waiting for GUTA aggregation job to complete for checkpoint {}", new_checkpoint_id);
-        // let remaining_time = Some(Duration::from_millis(LocalClock.get_current_slot_remaining_time()));
-        let remaining_time = Some(Duration::from_millis(5*SLOT_SIZE));
+        // let remaining_time =
+        // Some(Duration::from_millis(LocalClock.get_current_slot_remaining_time()));
+        let remaining_time = Some(Duration::from_millis(5 * SLOT_SIZE));
         let (register_users_proof, deploy_contracts_proof, guta_proof) = match tokio::join!(
             self.prover_queue.wait_for_job_proof::<C, D>(*root_user_registration_job, remaining_time),
             self.prover_queue.wait_for_job_proof::<C, D>(*root_deploy_job, remaining_time),
@@ -1218,8 +1304,14 @@ impl<
         let gutas_worker_public_key = QHashOut::try_from(&guta_proof.public_inputs[4..8])?;
 
         let pm_rewards_commitment = PMRewardCommitment {
-            register_users_root: QHashOut(QEDHasher::two_to_one(register_users_commitment.into(), register_users_worker_public_key.into())),
-            deploy_contracts_root: QHashOut(QEDHasher::two_to_one(deploy_contracts_commitment.into(), deploy_contracts_worker_public_key.into())),
+            register_users_root: QHashOut(QEDHasher::two_to_one(
+                register_users_commitment.into(),
+                register_users_worker_public_key.into(),
+            )),
+            deploy_contracts_root: QHashOut(QEDHasher::two_to_one(
+                deploy_contracts_commitment.into(),
+                deploy_contracts_worker_public_key.into(),
+            )),
             gutas_root: QHashOut(QEDHasher::two_to_one(gutas_commitment.into(), gutas_worker_public_key.into())),
         };
 
@@ -1295,7 +1387,9 @@ impl<
 
         // Wait for final block proving jobs
         debug!("Waiting for block proving jobs for checkpoint {}", new_checkpoint_id);
-        self.prover_queue.wait_for_block_proving_jobs_imm(new_checkpoint_id, Some(Duration::from_millis(5 * SLOT_SIZE))).await?;
+        self.prover_queue
+            .wait_for_block_proving_jobs_imm(new_checkpoint_id, Some(Duration::from_millis(5 * SLOT_SIZE)))
+            .await?;
         debug!("Block proving jobs completed for checkpoint {}", new_checkpoint_id);
 
         // Update L2 block state
@@ -1329,7 +1423,7 @@ impl<
 
         tracing::debug!(l2_sync = %serde_json::to_string_pretty(&l2_sync).unwrap(), "Checkpoint sync info");
         self.store.set_checkpoint_sync_info_imm(l2_sync.clone()).await?;
-        trace!("build block {}, slot {}, cost time: {:?}",new_checkpoint_id, slot, start.elapsed());
+        trace!("build block {}, slot {}, cost time: {:?}", new_checkpoint_id, slot, start.elapsed());
         Ok(())
     }
 
@@ -1344,20 +1438,18 @@ impl<
             return Ok(true);
         }
 
-        let user_reg_count = self
-            .checkpoint_queue
-            .cdq_len_imm(COORD_API_REGISTER_USER_CHANNEL_ID)
-            .await?;
+        let user_reg_count = self.checkpoint_queue.cdq_len_imm(COORD_API_REGISTER_USER_CHANNEL_ID).await?;
 
-        trace!("Checking user registration queue: {} items, checkpoint: {}", user_reg_count, checkpoint_id);
+        trace!(
+            "Checking user registration queue: {} items, checkpoint: {}",
+            user_reg_count,
+            checkpoint_id
+        );
         if user_reg_count > 0 {
             return Ok(true);
         }
 
-        let guta_count = self
-            .checkpoint_queue
-            .cdq_len_imm(self.coordinator_config.guta_channel_id)
-            .await?;
+        let guta_count = self.checkpoint_queue.cdq_len_imm(self.coordinator_config.guta_channel_id).await?;
 
         trace!("Checking GUTA queue: {} items, checkpoint: {}", guta_count, checkpoint_id);
         if guta_count > 0 {

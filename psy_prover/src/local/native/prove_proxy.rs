@@ -8,7 +8,8 @@ use plonky2::plonk::{
     proof::ProofWithPublicInputs,
 };
 use psy_common_circuit::circuits::{
-    l1_secp256k1_signature::L1Secp256K1SignatureCircuit, traits::qstandard::QStandardCircuit, zk_signature::inner, zk_signature3::core::QEDBasicZKSignatureCircuit
+    l1_secp256k1_signature::L1Secp256K1SignatureCircuit, traits::qstandard::QStandardCircuit, zk_signature::inner,
+    zk_signature3::core::QEDBasicZKSignatureCircuit,
 };
 use psy_core::{
     config::network_constants::UPS_SESSION_PROOF_TREE_HEIGHT,
@@ -24,11 +25,13 @@ use psy_crypto::{
     signature::{secp256k1, secp256k1::core::QEDCompressedSecp256K1Signature},
 };
 use psy_data::{
-    qdata::contract::ContractCodeDefinition, qstore::imm::{cmd::QSRCmdGetContractCodeDefinition, cmd_processor::QEDReadCommandProcessorSync}, ups::{
+    qdata::contract::ContractCodeDefinition,
+    qstore::imm::{cmd::QSRCmdGetContractCodeDefinition, cmd_processor::QEDReadCommandProcessorSync},
+    ups::{
         start_step::UPSStartStepInput,
         ups_cfc_standard_step::{UPSCFCDeferredTransactionCircuitInput, UPSCFCStandardTransactionCircuitInput},
         ups_end_cap::UPSEndCapFromProofTreeGadgetInput,
-    }
+    },
 };
 use psy_exec::vm::cfc_input::DapenContractFunctionCircuitInput;
 use psy_store::controllers::local::session_info::SessionCircuitInfoStore;
@@ -406,7 +409,7 @@ impl ProveProxyRpcServer for ProveProxyServerProvider {
     }
 
     async fn register_contract_circuits(&self, contract_id: u64, contract_code: ContractCodeDefinition) -> Result<(), ErrorObjectOwned> {
-       self.register_contract_circuits_inner(contract_id)
+        self.register_contract_circuits_inner(contract_id)
             .await
             .map_err(|err| ErrorObjectOwned::owned(1, "register contract circuits error", Some(err.to_string())))
     }

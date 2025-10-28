@@ -6,11 +6,7 @@ use plonky2::{
 
 use crate::builder::hash::core::CircuitBuilderHashCore;
 
-pub fn compute_partial_merkle_root_from_leaves_algebraic_circuit<
-    H:AlgebraicHasher<F>,
-    F: RichField + Extendable<D>,
-    const D: usize,
->(
+pub fn compute_partial_merkle_root_from_leaves_algebraic_circuit<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
     leaves: &[HashOutTarget],
 ) -> HashOutTarget {

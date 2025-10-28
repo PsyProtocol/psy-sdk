@@ -1,8 +1,7 @@
 use hashbrown::HashMap;
 
-use crate::dpn::ops::sym_felt::SymFeltRef;
-
 use super::traits::EvalCache;
+use crate::dpn::ops::sym_felt::SymFeltRef;
 
 pub struct SimpleEvalCache {
     pub felt_cache: HashMap<SymFeltRef, u64>,

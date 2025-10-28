@@ -1,20 +1,26 @@
-use num::{BigUint, Integer, Zero};
-use plonky2::field::extension::Extendable;
-use plonky2::field::types::{PrimeField, PrimeField64};
-use plonky2::hash::hash_types::RichField;
-use plonky2::iop::generator::{GeneratedValues, SimpleGenerator};
-use plonky2::iop::target::{BoolTarget, Target};
-use plonky2::iop::witness::{PartitionWitness, Witness};
-use plonky2::plonk::circuit_builder::CircuitBuilder;
-use plonky2::plonk::circuit_data::CommonCircuitData;
-use plonky2::util::serialization::Read;
-use plonky2::util::serialization::Write;
-use plonky2::util::serialization::{Buffer, IoResult};
 use std::marker::PhantomData;
 
-use crate::u32::arithmetic_u32::{CircuitBuilderU32, U32Target};
-use crate::u32::multiple_comparison::list_lte_u32_circuit;
-use crate::u32::witness::{GeneratedValuesU32, WitnessU32};
+use num::{BigUint, Integer, Zero};
+use plonky2::{
+    field::{
+        extension::Extendable,
+        types::{PrimeField, PrimeField64},
+    },
+    hash::hash_types::RichField,
+    iop::{
+        generator::{GeneratedValues, SimpleGenerator},
+        target::{BoolTarget, Target},
+        witness::{PartitionWitness, Witness},
+    },
+    plonk::{circuit_builder::CircuitBuilder, circuit_data::CommonCircuitData},
+    util::serialization::{Buffer, IoResult, Read, Write},
+};
+
+use crate::u32::{
+    arithmetic_u32::{CircuitBuilderU32, U32Target},
+    multiple_comparison::list_lte_u32_circuit,
+    witness::{GeneratedValuesU32, WitnessU32},
+};
 
 #[derive(Clone, Debug)]
 pub struct BigUintTarget {
@@ -38,11 +44,7 @@ pub trait CircuitBuilderBiguint<F: RichField + Extendable<D>, const D: usize> {
 
     fn connect_biguint(&mut self, lhs: &BigUintTarget, rhs: &BigUintTarget);
 
-    fn pad_biguints(
-        &mut self,
-        a: &BigUintTarget,
-        b: &BigUintTarget,
-    ) -> (BigUintTarget, BigUintTarget);
+    fn pad_biguints(&mut self, a: &BigUintTarget, b: &BigUintTarget) -> (BigUintTarget, BigUintTarget);
 
     fn cmp_biguint(&mut self, a: &BigUintTarget, b: &BigUintTarget) -> BoolTarget;
 
@@ -53,35 +55,26 @@ pub trait CircuitBuilderBiguint<F: RichField + Extendable<D>, const D: usize> {
     /// Add two `BigUintTarget`s.
     fn add_biguint(&mut self, a: &BigUintTarget, b: &BigUintTarget) -> BigUintTarget;
 
-    /// Subtract two `BigUintTarget`s. We assume that the first is larger than the second.
+    /// Subtract two `BigUintTarget`s. We assume that the first is larger than
+    /// the second.
     fn sub_biguint(&mut self, a: &BigUintTarget, b: &BigUintTarget) -> BigUintTarget;
 
     fn mul_biguint(&mut self, a: &BigUintTarget, b: &BigUintTarget) -> BigUintTarget;
 
     fn mul_biguint_by_bool(&mut self, a: &BigUintTarget, b: BoolTarget) -> BigUintTarget;
 
-    /// Returns x * y + z. This is no more efficient than mul-then-add; it's purely for convenience (only need to call one CircuitBuilder function).
-    fn mul_add_biguint(
-        &mut self,
-        x: &BigUintTarget,
-        y: &BigUintTarget,
-        z: &BigUintTarget,
-    ) -> BigUintTarget;
+    /// Returns x * y + z. This is no more efficient than mul-then-add; it's
+    /// purely for convenience (only need to call one CircuitBuilder function).
+    fn mul_add_biguint(&mut self, x: &BigUintTarget, y: &BigUintTarget, z: &BigUintTarget) -> BigUintTarget;
 
-    fn div_rem_biguint(
-        &mut self,
-        a: &BigUintTarget,
-        b: &BigUintTarget,
-    ) -> (BigUintTarget, BigUintTarget);
+    fn div_rem_biguint(&mut self, a: &BigUintTarget, b: &BigUintTarget) -> (BigUintTarget, BigUintTarget);
 
     fn div_biguint(&mut self, a: &BigUintTarget, b: &BigUintTarget) -> BigUintTarget;
 
     fn rem_biguint(&mut self, a: &BigUintTarget, b: &BigUintTarget) -> BigUintTarget;
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderBiguint<F, D>
-    for CircuitBuilder<F, D>
-{
+impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderBiguint<F, D> for CircuitBuilder<F, D> {
     fn constant_biguint(&mut self, value: &BigUint) -> BigUintTarget {
         let limb_values = value.to_u32_digits();
         let limbs = limb_values.iter().map(|&l| self.constant_u32(l)).collect();
@@ -107,11 +100,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderBiguint<F, D>
         }
     }
 
-    fn pad_biguints(
-        &mut self,
-        a: &BigUintTarget,
-        b: &BigUintTarget,
-    ) -> (BigUintTarget, BigUintTarget) {
+    fn pad_biguints(&mut self, a: &BigUintTarget, b: &BigUintTarget) -> (BigUintTarget, BigUintTarget) {
         if a.num_limbs() > b.num_limbs() {
             let mut padded_b = b.clone();
             for _ in b.num_limbs()..a.num_limbs() {
@@ -167,12 +156,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderBiguint<F, D>
         let mut combined_limbs = vec![];
         let mut carry = self.zero_u32();
         for i in 0..num_limbs {
-            let a_limb = (i < a.num_limbs())
-                .then(|| a.limbs[i])
-                .unwrap_or_else(|| self.zero_u32());
-            let b_limb = (i < b.num_limbs())
-                .then(|| b.limbs[i])
-                .unwrap_or_else(|| self.zero_u32());
+            let a_limb = (i < a.num_limbs()).then(|| a.limbs[i]).unwrap_or_else(|| self.zero_u32());
+            let b_limb = (i < b.num_limbs()).then(|| b.limbs[i]).unwrap_or_else(|| self.zero_u32());
 
             let (new_limb, new_carry) = self.add_many_u32(&[carry, a_limb, b_limb]);
             carry = new_carry;
@@ -180,9 +165,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderBiguint<F, D>
         }
         combined_limbs.push(carry);
 
-        BigUintTarget {
-            limbs: combined_limbs,
-        }
+        BigUintTarget { limbs: combined_limbs }
     }
 
     fn sub_biguint(&mut self, a: &BigUintTarget, b: &BigUintTarget) -> BigUintTarget {
@@ -199,9 +182,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderBiguint<F, D>
         }
         // Borrow should be zero here.
 
-        BigUintTarget {
-            limbs: result_limbs,
-        }
+        BigUintTarget { limbs: result_limbs }
     }
 
     fn mul_biguint(&mut self, a: &BigUintTarget, b: &BigUintTarget) -> BigUintTarget {
@@ -225,38 +206,23 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderBiguint<F, D>
         }
         combined_limbs.push(carry);
 
-        BigUintTarget {
-            limbs: combined_limbs,
-        }
+        BigUintTarget { limbs: combined_limbs }
     }
 
     fn mul_biguint_by_bool(&mut self, a: &BigUintTarget, b: BoolTarget) -> BigUintTarget {
         let t = b.target;
 
         BigUintTarget {
-            limbs: a
-                .limbs
-                .iter()
-                .map(|&l| U32Target(self.mul(l.0, t)))
-                .collect(),
+            limbs: a.limbs.iter().map(|&l| U32Target(self.mul(l.0, t))).collect(),
         }
     }
 
-    fn mul_add_biguint(
-        &mut self,
-        x: &BigUintTarget,
-        y: &BigUintTarget,
-        z: &BigUintTarget,
-    ) -> BigUintTarget {
+    fn mul_add_biguint(&mut self, x: &BigUintTarget, y: &BigUintTarget, z: &BigUintTarget) -> BigUintTarget {
         let prod = self.mul_biguint(x, y);
         self.add_biguint(&prod, z)
     }
 
-    fn div_rem_biguint(
-        &mut self,
-        a: &BigUintTarget,
-        b: &BigUintTarget,
-    ) -> (BigUintTarget, BigUintTarget) {
+    fn div_rem_biguint(&mut self, a: &BigUintTarget, b: &BigUintTarget) -> (BigUintTarget, BigUintTarget) {
         let a_len = a.limbs.len();
         let b_len = b.limbs.len();
         let div_num_limbs = a_len;
@@ -308,15 +274,17 @@ impl<T: Witness<F>, F: PrimeField64> WitnessBigUint<F> for T {
             .limbs
             .iter()
             .rev()
-            .fold(BigUint::zero(), |acc, limb| {
-                (acc << 32) + self.get_target(limb.0).to_canonical_biguint()
-            })
+            .fold(BigUint::zero(), |acc, limb| (acc << 32) + self.get_target(limb.0).to_canonical_biguint())
     }
 
     fn set_biguint_target(&mut self, target: &BigUintTarget, value: &BigUint) -> anyhow::Result<()> {
         let mut limbs = value.to_u32_digits();
         if limbs.len() > target.num_limbs() {
-            anyhow::bail!("invalid number of limbs passed to BigUintTarget: value has {} limbs but target only has {} limbs", limbs.len(), target.num_limbs());
+            anyhow::bail!(
+                "invalid number of limbs passed to BigUintTarget: value has {} limbs but target only has {} limbs",
+                limbs.len(),
+                target.num_limbs()
+            );
         }
         limbs.resize(target.num_limbs(), 0);
         for i in 0..target.num_limbs() {
@@ -351,19 +319,12 @@ struct BigUintDivRemGenerator<F: RichField + Extendable<D>, const D: usize> {
     _phantom: PhantomData<F>,
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D>
-    for BigUintDivRemGenerator<F, D>
-{
+impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D> for BigUintDivRemGenerator<F, D> {
     fn dependencies(&self) -> Vec<Target> {
-        self.a
-            .limbs
-            .iter()
-            .chain(&self.b.limbs)
-            .map(|&l| l.0)
-            .collect()
+        self.a.limbs.iter().chain(&self.b.limbs).map(|&l| l.0).collect()
     }
 
-    fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) -> anyhow::Result<() >{
+    fn run_once(&self, witness: &PartitionWitness<F>, out_buffer: &mut GeneratedValues<F>) -> anyhow::Result<()> {
         let a = witness.get_biguint_target(&self.a);
         let b = witness.get_biguint_target(&self.b);
         let (div, rem) = a.div_rem(&b);
@@ -423,12 +384,15 @@ impl<F: RichField + Extendable<D>, const D: usize> SimpleGenerator<F, D>
 mod tests {
     use anyhow::Result;
     use num::{BigUint, FromPrimitive, Integer};
-    use plonky2::iop::witness::PartialWitness;
-    use plonky2::plonk::circuit_builder::CircuitBuilder;
-    use plonky2::plonk::circuit_data::CircuitConfig;
-    use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
-    use rand::rngs::OsRng;
-    use rand::Rng;
+    use plonky2::{
+        iop::witness::PartialWitness,
+        plonk::{
+            circuit_builder::CircuitBuilder,
+            circuit_data::CircuitConfig,
+            config::{GenericConfig, PoseidonGoldilocksConfig},
+        },
+    };
+    use rand::{rngs::OsRng, Rng};
 
     use super::super::super::gadgets::biguint::{CircuitBuilderBiguint, WitnessBigUint};
 

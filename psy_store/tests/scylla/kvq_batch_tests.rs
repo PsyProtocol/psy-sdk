@@ -1,7 +1,4 @@
-use kvq::traits::{
-    KVQBinaryStoreAsync,
-    KVQPair,
-};
+use kvq::traits::{KVQBinaryStoreAsync, KVQPair};
 use psy_store::store::scylla::kvq_store::ScyllaKVQStore;
 
 mod common;
@@ -14,8 +11,7 @@ mod kvq_batch_tests {
     #[tokio::test]
     async fn test_kvq_set_many_ref_small_batch() -> anyhow::Result<()> {
         let config = TestConfig::new().await?;
-        let mut store =
-            ScyllaKVQStore::new(&config.uri, &config.keyspace, &config.table_name).await?;
+        let mut store = ScyllaKVQStore::new(&config.uri, &config.keyspace, &config.table_name).await?;
 
         let keys = generate_test_keys(5);
         let values = generate_test_values(5);
@@ -37,8 +33,7 @@ mod kvq_batch_tests {
     #[tokio::test]
     async fn test_kvq_set_many_ref_large_batch() -> anyhow::Result<()> {
         let config = TestConfig::new().await?;
-        let mut store =
-            ScyllaKVQStore::new(&config.uri, &config.keyspace, &config.table_name).await?;
+        let mut store = ScyllaKVQStore::new(&config.uri, &config.keyspace, &config.table_name).await?;
 
         let keys = generate_test_keys(20); // Large batch > 16
         let values = generate_test_values(20);
@@ -60,8 +55,7 @@ mod kvq_batch_tests {
     #[tokio::test]
     async fn test_kvq_set_many_vec() -> anyhow::Result<()> {
         let config = TestConfig::new().await?;
-        let mut store =
-            ScyllaKVQStore::new(&config.uri, &config.keyspace, &config.table_name).await?;
+        let mut store = ScyllaKVQStore::new(&config.uri, &config.keyspace, &config.table_name).await?;
 
         let items = generate_test_kvpairs(8);
 
@@ -81,8 +75,7 @@ mod kvq_batch_tests {
     #[tokio::test]
     async fn test_kvq_set_many_split_ref() -> anyhow::Result<()> {
         let config = TestConfig::new().await?;
-        let mut store =
-            ScyllaKVQStore::new(&config.uri, &config.keyspace, &config.table_name).await?;
+        let mut store = ScyllaKVQStore::new(&config.uri, &config.keyspace, &config.table_name).await?;
 
         let keys = generate_test_keys(6);
         let values = generate_test_values(6);
@@ -103,8 +96,7 @@ mod kvq_batch_tests {
     #[tokio::test]
     async fn test_kvq_set_many_split_ref_length_mismatch() -> anyhow::Result<()> {
         let config = TestConfig::new().await?;
-        let mut store =
-            ScyllaKVQStore::new(&config.uri, &config.keyspace, &config.table_name).await?;
+        let mut store = ScyllaKVQStore::new(&config.uri, &config.keyspace, &config.table_name).await?;
 
         let keys = generate_test_keys(3);
         let values = generate_test_values(5); // Different length
@@ -120,8 +112,7 @@ mod kvq_batch_tests {
     #[tokio::test]
     async fn test_kvq_set_many_ref_empty() -> anyhow::Result<()> {
         let config = TestConfig::new().await?;
-        let mut store =
-            ScyllaKVQStore::new(&config.uri, &config.keyspace, &config.table_name).await?;
+        let mut store = ScyllaKVQStore::new(&config.uri, &config.keyspace, &config.table_name).await?;
 
         let empty_items: Vec<KVQPair<&Vec<u8>, &Vec<u8>>> = vec![];
 
@@ -140,8 +131,7 @@ mod kvq_immutable_batch_tests {
     #[tokio::test]
     async fn test_kvq_set_many_ref_small_batch() -> anyhow::Result<()> {
         let config = TestConfig::new().await?;
-        let store =
-            ScyllaKVQStore::new(&config.uri, &config.keyspace, &config.table_name).await?;
+        let store = ScyllaKVQStore::new(&config.uri, &config.keyspace, &config.table_name).await?;
 
         let keys = generate_test_keys(10);
         let values = generate_test_values(10);
@@ -163,8 +153,7 @@ mod kvq_immutable_batch_tests {
     #[tokio::test]
     async fn test_kvq_set_many_ref_large_batch() -> anyhow::Result<()> {
         let config = TestConfig::new().await?;
-        let store =
-            ScyllaKVQStore::new(&config.uri, &config.keyspace, &config.table_name).await?;
+        let store = ScyllaKVQStore::new(&config.uri, &config.keyspace, &config.table_name).await?;
 
         let keys = generate_test_keys(25); // Large batch
         let values = generate_test_values(25);
@@ -186,8 +175,7 @@ mod kvq_immutable_batch_tests {
     #[tokio::test]
     async fn test_kvq_set_many_vec() -> anyhow::Result<()> {
         let config = TestConfig::new().await?;
-        let store =
-            ScyllaKVQStore::new(&config.uri, &config.keyspace, &config.table_name).await?;
+        let store = ScyllaKVQStore::new(&config.uri, &config.keyspace, &config.table_name).await?;
 
         let items = generate_test_kvpairs(7);
 
@@ -207,8 +195,7 @@ mod kvq_immutable_batch_tests {
     #[tokio::test]
     async fn test_kvq_set_many_split_ref() -> anyhow::Result<()> {
         let config = TestConfig::new().await?;
-        let store =
-            ScyllaKVQStore::new(&config.uri, &config.keyspace, &config.table_name).await?;
+        let store = ScyllaKVQStore::new(&config.uri, &config.keyspace, &config.table_name).await?;
 
         let keys = generate_test_keys(4);
         let values = generate_test_values(4);
@@ -229,8 +216,7 @@ mod kvq_immutable_batch_tests {
     #[tokio::test]
     async fn test_kvq_batch_performance_comparison() -> anyhow::Result<()> {
         let config = TestConfig::new().await?;
-        let store =
-            ScyllaKVQStore::new(&config.uri, &config.keyspace, &config.table_name).await?;
+        let store = ScyllaKVQStore::new(&config.uri, &config.keyspace, &config.table_name).await?;
 
         let keys = generate_test_keys(100);
         let values = generate_test_values(100);

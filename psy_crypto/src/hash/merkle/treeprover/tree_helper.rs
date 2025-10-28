@@ -1,3 +1,5 @@
+use std::fmt::Debug;
+
 use kvq::traits::KVQPair;
 use plonky2::hash::hash_types::RichField;
 use psy_core::{
@@ -14,11 +16,9 @@ use super::{
     data::{CircuitInputWithDependencies, CircuitInputWithJobId},
     generate_tree_inputs_with_position,
     tree_planner::BinaryTreePlanner,
-    AggStateTrackableInput, AggStateTrackableWithEventsInput, AggStateTransition,
-    AggStateTransitionWithEvents, DummyAggStateTransition, DummyAggStateTransitionWithEvents,
-    TPLeafAggregator, WithDummyStateTransition,
+    AggStateTrackableInput, AggStateTrackableWithEventsInput, AggStateTransition, AggStateTransitionWithEvents, DummyAggStateTransition,
+    DummyAggStateTransitionWithEvents, TPLeafAggregator, WithDummyStateTransition,
 };
-use std::fmt::Debug;
 
 pub fn get_dummy_tree_prover_ids_op_circuit(
     circuit_type: ProvingJobCircuitType,
@@ -39,15 +39,10 @@ pub fn get_dummy_tree_prover_ids_leaf_template(
     dummy_id: QProvingJobDataID,
     leaf_count: usize,
 ) -> Vec<Vec<QProvingJobDataID>> {
-    let leaves = (0..leaf_count)
-        .map(|i| leaf_template.with_task_index(i as u32))
-        .collect::<Vec<_>>();
+    let leaves = (0..leaf_count).map(|i| leaf_template.with_task_index(i as u32)).collect::<Vec<_>>();
     get_dummy_tree_prover_ids(&leaves, dummy_id)
 }
-pub fn get_dummy_tree_prover_ids(
-    leaves: &[QProvingJobDataID],
-    dummy_id: QProvingJobDataID,
-) -> Vec<Vec<QProvingJobDataID>> {
+pub fn get_dummy_tree_prover_ids(leaves: &[QProvingJobDataID], dummy_id: QProvingJobDataID) -> Vec<Vec<QProvingJobDataID>> {
     if leaves.len() == 0 {
         vec![vec![dummy_id]]
     } else {
@@ -58,9 +53,7 @@ pub fn get_dummy_tree_prover_ids(
         for level_nodes in levels.into_iter() {
             let mut level_job_ids: Vec<QProvingJobDataID> = Vec::with_capacity(level_nodes.len());
             for node in level_nodes.into_iter() {
-                let left_proof_id = job_ids[node.left_job.level as usize]
-                    [node.left_job.index as usize]
-                    .get_output_id();
+                let left_proof_id = job_ids[node.left_job.level as usize][node.left_job.index as usize].get_output_id();
                 let self_witness_id = left_proof_id.get_tree_parent_proof_input_id();
                 level_job_ids.push(self_witness_id);
             }
@@ -73,20 +66,17 @@ pub fn prepare_plan_tree_prover_from_leaves<
     F: RichField,
     LA: TPLeafAggregator<CircuitInputWithJobId<IL>, IO>,
     IL: Debug + Clone + Serialize + DeserializeOwned + PartialEq + AggStateTrackableInput<F>,
-    IO: Debug
-        + Clone
-        + Serialize
-        + DeserializeOwned
-        + PartialEq
-        + WithDummyStateTransition<F>
-        + AggStateTrackableInput<F>,
+    IO: Debug + Clone + Serialize + DeserializeOwned + PartialEq + WithDummyStateTransition<F> + AggStateTrackableInput<F>,
 >(
     leaves: &[CircuitInputWithJobId<IL>],
     dummy_id: QProvingJobDataID,
     dummy_state_root: QHashOut<F>,
     allowed_circuit_hashes_root: QHashOut<F>,
-) -> anyhow::Result<(Vec<KVQPair<QProvingJobDataID, Vec<u8>>>, Vec<Vec<QProvingJobDataID>>, AggStateTransition<F>)> {
-
+) -> anyhow::Result<(
+    Vec<KVQPair<QProvingJobDataID, Vec<u8>>>,
+    Vec<Vec<QProvingJobDataID>>,
+    AggStateTransition<F>,
+)> {
     if leaves.len() == 0 {
         //let dummy = IO::get_dummy_value(dummy_state_root);
         let dummy = DummyAggStateTransition {
@@ -99,23 +89,18 @@ pub fn prepare_plan_tree_prover_from_leaves<
         let dummy = IO::get_dummy_value(dummy_state_root);
 
         return Ok((
-            vec![KVQPair{
-                key: dummy_id,
-                value: dv,
-            }],
-            vec![vec![dummy_id]], dummy.get_state_transition()));
-    } else if leaves.len() == 1 {
-        return Ok((
-            vec![],
-            vec![vec![leaves[0].job_id]],
-            leaves[0].get_state_transition(),
+            vec![KVQPair { key: dummy_id, value: dv }],
+            vec![vec![dummy_id]],
+            dummy.get_state_transition(),
         ));
+    } else if leaves.len() == 1 {
+        return Ok((vec![], vec![vec![leaves[0].job_id]], leaves[0].get_state_transition()));
     }
 
     let levels = generate_tree_inputs_with_position::<LA, CircuitInputWithJobId<IL>, IO>(leaves);
 
-    let proof_store_set_count = levels.iter().map(|l|l.len()).sum::<usize>();
-    let mut future_ps_values = Vec::with_capacity(proof_store_set_count+5);
+    let proof_store_set_count = levels.iter().map(|l| l.len()).sum::<usize>();
+    let mut future_ps_values = Vec::with_capacity(proof_store_set_count + 5);
 
     let mut job_ids = vec![leaves.iter().map(|x| x.job_id).collect::<Vec<_>>()];
     let total_levels = levels.len();
@@ -126,12 +111,8 @@ pub fn prepare_plan_tree_prover_from_leaves<
         let total_nodes = level_nodes.len();
 
         for (index, node) in level_nodes.into_iter().enumerate() {
-            let left_proof_id = job_ids[node.tree_position.left_job.level as usize]
-                [node.tree_position.left_job.index as usize]
-                .get_output_id();
-            let right_proof_id = job_ids[node.tree_position.right_job.level as usize]
-                [node.tree_position.right_job.index as usize]
-                .get_output_id();
+            let left_proof_id = job_ids[node.tree_position.left_job.level as usize][node.tree_position.left_job.index as usize].get_output_id();
+            let right_proof_id = job_ids[node.tree_position.right_job.level as usize][node.tree_position.right_job.index as usize].get_output_id();
             let self_witness_id = left_proof_id.get_tree_parent_proof_input_id();
             let dependencies = vec![left_proof_id, right_proof_id];
             if (level + 1) == total_levels && (index + 1) == total_nodes {
@@ -141,7 +122,7 @@ pub fn prepare_plan_tree_prover_from_leaves<
                 input: node.input,
                 dependencies,
             })?;
-            future_ps_values.push(KVQPair{
+            future_ps_values.push(KVQPair {
                 key: self_witness_id,
                 value: input_data,
             });
@@ -158,13 +139,7 @@ pub fn plan_tree_prover_from_leaves<
     PS: QProofStore,
     LA: TPLeafAggregator<CircuitInputWithJobId<IL>, IO>,
     IL: Debug + Clone + Serialize + DeserializeOwned + PartialEq + AggStateTrackableInput<F>,
-    IO: Debug
-        + Clone
-        + Serialize
-        + DeserializeOwned
-        + PartialEq
-        + WithDummyStateTransition<F>
-        + AggStateTrackableInput<F>,
+    IO: Debug + Clone + Serialize + DeserializeOwned + PartialEq + WithDummyStateTransition<F> + AggStateTrackableInput<F>,
 >(
     leaves: &[CircuitInputWithJobId<IL>],
     proof_store: &mut PS,
@@ -189,11 +164,7 @@ pub fn plan_tree_prover_from_leaves<
     } else if leaves.len() == 1 {
         let mut graph = BidirectionalGraph::new();
         graph.add_node(leaves[0].job_id.get_output_id());
-        return Ok((
-            vec![vec![leaves[0].job_id]],
-            leaves[0].get_state_transition(),
-            graph,
-        ));
+        return Ok((vec![vec![leaves[0].job_id]], leaves[0].get_state_transition(), graph));
     }
 
     let levels = generate_tree_inputs_with_position::<LA, CircuitInputWithJobId<IL>, IO>(leaves);
@@ -212,12 +183,8 @@ pub fn plan_tree_prover_from_leaves<
         let total_nodes = level_nodes.len();
 
         for (index, node) in level_nodes.into_iter().enumerate() {
-            let left_proof_id = job_ids[node.tree_position.left_job.level as usize]
-                [node.tree_position.left_job.index as usize]
-                .get_output_id();
-            let right_proof_id = job_ids[node.tree_position.right_job.level as usize]
-                [node.tree_position.right_job.index as usize]
-                .get_output_id();
+            let left_proof_id = job_ids[node.tree_position.left_job.level as usize][node.tree_position.left_job.index as usize].get_output_id();
+            let right_proof_id = job_ids[node.tree_position.right_job.level as usize][node.tree_position.right_job.index as usize].get_output_id();
             let self_witness_id = left_proof_id.get_tree_parent_proof_input_id();
             let dependencies = vec![left_proof_id, right_proof_id];
             if (level + 1) == total_levels && (index + 1) == total_nodes {
@@ -246,20 +213,18 @@ pub fn plan_tree_prover_from_leaves_with_events<
     PS: QProofStore,
     LA: TPLeafAggregator<CircuitInputWithJobId<IL>, IO>,
     IL: Debug + Clone + Serialize + DeserializeOwned + PartialEq + AggStateTrackableWithEventsInput<F>,
-    IO: Debug
-        + Clone
-        + Serialize
-        + DeserializeOwned
-        + PartialEq
-        + WithDummyStateTransition<F>
-        + AggStateTrackableWithEventsInput<F>,
+    IO: Debug + Clone + Serialize + DeserializeOwned + PartialEq + WithDummyStateTransition<F> + AggStateTrackableWithEventsInput<F>,
 >(
     leaves: &[CircuitInputWithJobId<IL>],
     proof_store: &mut PS,
     dummy_id: QProvingJobDataID,
     dummy_state_root: QHashOut<F>,
     allowed_circuit_hashes_root: QHashOut<F>,
-) -> anyhow::Result<(Vec<Vec<QProvingJobDataID>>, AggStateTransitionWithEvents<F>, BidirectionalGraph<QProvingJobDataID>)> {
+) -> anyhow::Result<(
+    Vec<Vec<QProvingJobDataID>>,
+    AggStateTransitionWithEvents<F>,
+    BidirectionalGraph<QProvingJobDataID>,
+)> {
     if leaves.len() == 0 {
         let dummy = DummyAggStateTransitionWithEvents {
             state_transition_hash: dummy_state_root,
@@ -271,19 +236,11 @@ pub fn plan_tree_prover_from_leaves_with_events<
 
         let mut graph = BidirectionalGraph::new();
         graph.add_node(dummy_id.get_output_id());
-        return Ok((
-            vec![vec![dummy_id]],
-            dummy.get_state_transition_with_events(),
-            graph,
-        ));
+        return Ok((vec![vec![dummy_id]], dummy.get_state_transition_with_events(), graph));
     } else if leaves.len() == 1 {
         let mut graph = BidirectionalGraph::new();
         graph.add_node(leaves[0].job_id.get_output_id());
-        return Ok((
-            vec![vec![leaves[0].job_id]],
-            leaves[0].get_state_transition_with_events(),
-            graph,
-        ));
+        return Ok((vec![vec![leaves[0].job_id]], leaves[0].get_state_transition_with_events(), graph));
     }
 
     let levels = generate_tree_inputs_with_position::<LA, CircuitInputWithJobId<IL>, IO>(leaves);
@@ -300,12 +257,8 @@ pub fn plan_tree_prover_from_leaves_with_events<
         let mut level_job_ids: Vec<QProvingJobDataID> = Vec::with_capacity(level_nodes.len());
         let last_index = level_nodes.len();
         for (index, node) in level_nodes.into_iter().enumerate() {
-            let left_proof_id = job_ids[node.tree_position.left_job.level as usize]
-                [node.tree_position.left_job.index as usize]
-                .get_output_id();
-            let right_proof_id = job_ids[node.tree_position.right_job.level as usize]
-                [node.tree_position.right_job.index as usize]
-                .get_output_id();
+            let left_proof_id = job_ids[node.tree_position.left_job.level as usize][node.tree_position.left_job.index as usize].get_output_id();
+            let right_proof_id = job_ids[node.tree_position.right_job.level as usize][node.tree_position.right_job.index as usize].get_output_id();
             let self_witness_id = left_proof_id.get_tree_parent_proof_input_id();
             let dependencies = vec![left_proof_id, right_proof_id];
             if (level + 1) == total_levels && (index + 1) == last_index {
@@ -329,25 +282,21 @@ pub fn plan_tree_prover_from_leaves_with_events<
     Ok((job_ids, last_node_state, graph))
 }
 
-
-
 pub fn prepare_plan_tree_prover_from_leaves_with_events<
     F: RichField,
     LA: TPLeafAggregator<CircuitInputWithJobId<IL>, IO>,
     IL: Debug + Clone + Serialize + DeserializeOwned + PartialEq + AggStateTrackableWithEventsInput<F>,
-    IO: Debug
-        + Clone
-        + Serialize
-        + DeserializeOwned
-        + PartialEq
-        + WithDummyStateTransition<F>
-        + AggStateTrackableWithEventsInput<F>,
+    IO: Debug + Clone + Serialize + DeserializeOwned + PartialEq + WithDummyStateTransition<F> + AggStateTrackableWithEventsInput<F>,
 >(
     leaves: &[CircuitInputWithJobId<IL>],
     dummy_id: QProvingJobDataID,
     dummy_state_root: QHashOut<F>,
     allowed_circuit_hashes_root: QHashOut<F>,
-) -> anyhow::Result<(Vec<KVQPair<QProvingJobDataID, Vec<u8>>>, Vec<Vec<QProvingJobDataID>>, AggStateTransitionWithEvents<F>)> {
+) -> anyhow::Result<(
+    Vec<KVQPair<QProvingJobDataID, Vec<u8>>>,
+    Vec<Vec<QProvingJobDataID>>,
+    AggStateTransitionWithEvents<F>,
+)> {
     if leaves.len() == 0 {
         let dummy = DummyAggStateTransitionWithEvents {
             state_transition_hash: dummy_state_root,
@@ -357,27 +306,18 @@ pub fn prepare_plan_tree_prover_from_leaves_with_events<
         let dv = bincode::serialize(&dummy)?;
         let dummy = IO::get_dummy_value(dummy_state_root);
 
-
-
         return Ok((
-            vec![KVQPair{
-                key: dummy_id,
-                value: dv,
-            }],
+            vec![KVQPair { key: dummy_id, value: dv }],
             vec![vec![dummy_id]],
             dummy.get_state_transition_with_events(),
         ));
     } else if leaves.len() == 1 {
-        return Ok((
-            vec![],
-            vec![vec![leaves[0].job_id]],
-            leaves[0].get_state_transition_with_events(),
-        ));
+        return Ok((vec![], vec![vec![leaves[0].job_id]], leaves[0].get_state_transition_with_events()));
     }
 
     let levels = generate_tree_inputs_with_position::<LA, CircuitInputWithJobId<IL>, IO>(leaves);
-    let proof_store_set_count = levels.iter().map(|l|l.len()).sum::<usize>();
-    let mut future_ps_values = Vec::with_capacity(proof_store_set_count+5);
+    let proof_store_set_count = levels.iter().map(|l| l.len()).sum::<usize>();
+    let mut future_ps_values = Vec::with_capacity(proof_store_set_count + 5);
 
     let mut job_ids = vec![leaves.iter().map(|x| x.job_id).collect::<Vec<_>>()];
     let total_levels = levels.len();
@@ -386,12 +326,8 @@ pub fn prepare_plan_tree_prover_from_leaves_with_events<
         let mut level_job_ids: Vec<QProvingJobDataID> = Vec::with_capacity(level_nodes.len());
         let last_index = level_nodes.len();
         for (index, node) in level_nodes.into_iter().enumerate() {
-            let left_proof_id = job_ids[node.tree_position.left_job.level as usize]
-                [node.tree_position.left_job.index as usize]
-                .get_output_id();
-            let right_proof_id = job_ids[node.tree_position.right_job.level as usize]
-                [node.tree_position.right_job.index as usize]
-                .get_output_id();
+            let left_proof_id = job_ids[node.tree_position.left_job.level as usize][node.tree_position.left_job.index as usize].get_output_id();
+            let right_proof_id = job_ids[node.tree_position.right_job.level as usize][node.tree_position.right_job.index as usize].get_output_id();
             let self_witness_id = left_proof_id.get_tree_parent_proof_input_id();
             let dependencies = vec![left_proof_id, right_proof_id];
             if (level + 1) == total_levels && (index + 1) == last_index {
@@ -402,7 +338,7 @@ pub fn prepare_plan_tree_prover_from_leaves_with_events<
                 dependencies,
             })?;
             //proof_store.set_bytes_by_id(self_witness_id, &input_data)?;
-            future_ps_values.push(KVQPair{
+            future_ps_values.push(KVQPair {
                 key: self_witness_id,
                 value: input_data,
             });

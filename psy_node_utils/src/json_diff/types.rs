@@ -1,6 +1,6 @@
+use std::{collections::HashMap, fmt};
+
 use serde_json::Value;
-use std::collections::HashMap;
-use std::fmt;
 
 #[derive(Debug, PartialEq)]
 pub enum KeyNode {
@@ -21,18 +21,10 @@ impl KeyNode {
         let nil_key = |key: Option<String>| key.unwrap_or(String::new());
         match self {
             KeyNode::Nil => keys.push(nil_key(key_from_root)),
-            KeyNode::Value(a, b) => keys.push(format!(
-                "{} [ {} :: {} ]",
-                val_key(key_from_root),
-                a.to_string(),
-                b.to_string()
-            )),
+            KeyNode::Value(a, b) => keys.push(format!("{} [ {} :: {} ]", val_key(key_from_root), a.to_string(), b.to_string())),
             KeyNode::Node(map) => {
                 for (key, value) in map {
-                    value.absolute_keys(
-                        keys,
-                        Some(format!("{} {}", val_key(key_from_root.clone()), key)),
-                    )
+                    value.absolute_keys(keys, Some(format!("{} {}", val_key(key_from_root.clone()), key)))
                 }
             }
         }

@@ -6,15 +6,15 @@ use plonky2::{
         circuit_builder::CircuitBuilder,
         circuit_data::{CircuitConfig, CircuitData, CommonCircuitData, VerifierOnlyCircuitData},
         config::{AlgebraicHasher, GenericConfig},
-        proof::ProofWithPublicInputs, verifier_v2::verify_standard_proof,
+        proof::ProofWithPublicInputs,
+        verifier_v2::verify_standard_proof,
     },
 };
 use psy_common_circuit::{
     builder::hash::core::CircuitBuilderHashCore,
-    circuits::traits::qstandard::{
-        QStandardCircuit, QStandardCircuitProvableWithProofStoreAndRefLibraryAsync,
-    },
-    proof_minifier::{pm_chain_dynamic::QEDProofMinifierDynamicChain, pm_core::get_circuit_fingerprint_generic}, traits::ToTargets,
+    circuits::traits::qstandard::{QStandardCircuit, QStandardCircuitProvableWithProofStoreAndRefLibraryAsync},
+    proof_minifier::{pm_chain_dynamic::QEDProofMinifierDynamicChain, pm_core::get_circuit_fingerprint_generic},
+    traits::ToTargets,
 };
 use psy_core::{
     data::qhashout::QHashOut,
@@ -28,24 +28,25 @@ use psy_crypto::{
     hash::{
         merkle::{
             core::MerkleProofCore,
-            treeprover::{
-                data::CircuitInputWithDependencies, AggStateTransition,
-                TPAltCircuitFingerprintConfig,
-            },
+            treeprover::{data::CircuitInputWithDependencies, AggStateTransition, TPAltCircuitFingerprintConfig},
         },
-        traits::{hasher::{FieldQHasher, MerkleZeroHasher}, qhashable::QFieldHashable},
+        traits::{
+            hasher::{FieldQHasher, MerkleZeroHasher},
+            qhashable::QFieldHashable,
+        },
     },
 };
-use psy_data::{
-    guta::header::GlobalUserTreeAggregatorHeader,
-    protocol::circuit_inputs::agg_part_1::QCAggUserRegistartionDeployContractsGUTAInput,
-};
+use psy_data::{guta::header::GlobalUserTreeAggregatorHeader, protocol::circuit_inputs::agg_part_1::QCAggUserRegistartionDeployContractsGUTAInput};
 
-use crate::{coordinator::gadgets::verify_agg_user_registration_deploy_guta::VerifyAggUserRegistartionDeployContractsGUTAGadget, gadgets::qdata::pm_jobs_completed_stats::PMJobsCompletedStatsGadget};
+use crate::{
+    coordinator::gadgets::verify_agg_user_registration_deploy_guta::VerifyAggUserRegistartionDeployContractsGUTAGadget,
+    gadgets::qdata::pm_jobs_completed_stats::PMJobsCompletedStatsGadget,
+};
 
 #[derive(Debug)]
 pub struct VerifyAggUserRegistartionDeployContractsGUTACircuit<C: GenericConfig<D>, const D: usize>
-where C::Hasher:AlgebraicHasher<C::F>,
+where
+    C::Hasher: AlgebraicHasher<C::F>,
 {
     pub verifier_gadget: VerifyAggUserRegistartionDeployContractsGUTAGadget<D>,
 
@@ -70,8 +71,16 @@ where
         guta_verifier_data_cap_height: usize,
         guta_circuit_whitelist_root: QHashOut<C::F>,
     ) -> Self {
-        Self::new_with_config(user_reg_proof_common_data, user_reg_transition_circuit_config, deploy_contracts_proof_common_data, deploy_contracts_transition_circuit_config, guta_proof_common_data, guta_verifier_data_cap_height, guta_circuit_whitelist_root, true)
-
+        Self::new_with_config(
+            user_reg_proof_common_data,
+            user_reg_transition_circuit_config,
+            deploy_contracts_proof_common_data,
+            deploy_contracts_transition_circuit_config,
+            guta_proof_common_data,
+            guta_verifier_data_cap_height,
+            guta_circuit_whitelist_root,
+            true,
+        )
     }
     pub fn new_with_config(
         user_reg_proof_common_data: &CommonCircuitData<C::F, D>,
@@ -89,21 +98,18 @@ where
         let config = CircuitConfig::standard_recursion_config();
         let mut builder = CircuitBuilder::<C::F, D>::new(config);
 
-        let verifier_gadget =
-            VerifyAggUserRegistartionDeployContractsGUTAGadget::<D>::add_virtual_to::<C, C::F>(
-                &mut builder,
-                user_reg_proof_common_data,
-                user_reg_transition_circuit_config,
-                deploy_contracts_proof_common_data,
-                deploy_contracts_transition_circuit_config,
-                guta_proof_common_data,
-                guta_verifier_data_cap_height,
-                guta_circuit_whitelist_root,
-            );
+        let verifier_gadget = VerifyAggUserRegistartionDeployContractsGUTAGadget::<D>::add_virtual_to::<C, C::F>(
+            &mut builder,
+            user_reg_proof_common_data,
+            user_reg_transition_circuit_config,
+            deploy_contracts_proof_common_data,
+            deploy_contracts_transition_circuit_config,
+            guta_proof_common_data,
+            guta_verifier_data_cap_height,
+            guta_circuit_whitelist_root,
+        );
         tracing::debug!("verifier_gadget={:#?}", verifier_gadget);
-        let state_transition_hash = verifier_gadget
-            .header
-            .get_combined_hash::<C::Hasher, C::F, D>(&mut builder);
+        let state_transition_hash = verifier_gadget.header.get_combined_hash::<C::Hasher, C::F, D>(&mut builder);
 
         let register_users_commitment = HashOutTarget {
             elements: [
@@ -111,7 +117,7 @@ where
                 verifier_gadget.verify_register_users_gadget.proof_target.public_inputs[1],
                 verifier_gadget.verify_register_users_gadget.proof_target.public_inputs[2],
                 verifier_gadget.verify_register_users_gadget.proof_target.public_inputs[3],
-            ]
+            ],
         };
         let register_users_worker_public_key = HashOutTarget {
             elements: [
@@ -119,7 +125,7 @@ where
                 verifier_gadget.verify_register_users_gadget.proof_target.public_inputs[5],
                 verifier_gadget.verify_register_users_gadget.proof_target.public_inputs[6],
                 verifier_gadget.verify_register_users_gadget.proof_target.public_inputs[7],
-            ]
+            ],
         };
         let register_users_root = builder.hash_two_to_one::<C::Hasher>(register_users_commitment, register_users_worker_public_key);
 
@@ -129,7 +135,7 @@ where
                 verifier_gadget.verify_deploy_contract_gadget.proof_target.public_inputs[1],
                 verifier_gadget.verify_deploy_contract_gadget.proof_target.public_inputs[2],
                 verifier_gadget.verify_deploy_contract_gadget.proof_target.public_inputs[3],
-            ]
+            ],
         };
         let deploy_contracts_worker_public_key = HashOutTarget {
             elements: [
@@ -137,7 +143,7 @@ where
                 verifier_gadget.verify_deploy_contract_gadget.proof_target.public_inputs[5],
                 verifier_gadget.verify_deploy_contract_gadget.proof_target.public_inputs[6],
                 verifier_gadget.verify_deploy_contract_gadget.proof_target.public_inputs[7],
-            ]
+            ],
         };
         let deploy_contracts_root = builder.hash_two_to_one::<C::Hasher>(deploy_contracts_commitment, deploy_contracts_worker_public_key);
 
@@ -147,7 +153,7 @@ where
                 verifier_gadget.verify_guta_gadget.proof_target.public_inputs[1],
                 verifier_gadget.verify_guta_gadget.proof_target.public_inputs[2],
                 verifier_gadget.verify_guta_gadget.proof_target.public_inputs[3],
-            ]
+            ],
         };
         let gutas_worker_public_key = HashOutTarget {
             elements: [
@@ -155,7 +161,7 @@ where
                 verifier_gadget.verify_guta_gadget.proof_target.public_inputs[5],
                 verifier_gadget.verify_guta_gadget.proof_target.public_inputs[6],
                 verifier_gadget.verify_guta_gadget.proof_target.public_inputs[7],
-            ]
+            ],
         };
         let gutas_root = builder.hash_two_to_one::<C::Hasher>(gutas_commitment, gutas_worker_public_key);
 
@@ -172,19 +178,15 @@ where
 
         let base_circuit_data = builder.build::<C>();
 
-        let base_fingerprint = QHashOut(get_circuit_fingerprint_generic(
-            &base_circuit_data.verifier_only,
-        ));
+        let base_fingerprint = QHashOut(get_circuit_fingerprint_generic(&base_circuit_data.verifier_only));
         //println!("base_fingerprint: {:?}",base_fingerprint);
 
         let minifier_chain = if has_minifier {
-            Some(
-                QEDProofMinifierDynamicChain::<D, C::F, C>::new_with_dynamic_constant_verifier(
-                    &base_circuit_data.verifier_only,
-                    &base_circuit_data.common,
-                    &[false, false],
-                ),
-            )
+            Some(QEDProofMinifierDynamicChain::<D, C::F, C>::new_with_dynamic_constant_verifier(
+                &base_circuit_data.verifier_only,
+                &base_circuit_data.common,
+                &[false, false],
+            ))
         } else {
             None
         };
@@ -215,8 +217,14 @@ where
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         let mut pw = PartialWitness::<C::F>::new();
 
-        tracing::debug!("register_users_state_transition: {}", register_users_state_transition.get_combined_hash::<C::Hasher>());
-        tracing::debug!("deploy_contracts_state_transition: {}", deploy_contracts_state_transition.get_combined_hash::<C::Hasher>());
+        tracing::debug!(
+            "register_users_state_transition: {}",
+            register_users_state_transition.get_combined_hash::<C::Hasher>()
+        );
+        tracing::debug!(
+            "deploy_contracts_state_transition: {}",
+            deploy_contracts_state_transition.get_combined_hash::<C::Hasher>()
+        );
 
         self.verifier_gadget.set_witness_params(
             &mut pw,
@@ -236,22 +244,20 @@ where
 
         if self.enable_minifier {
             self.minifier_chain.as_ref().unwrap().prove(&res)
-        }else{
+        } else {
             Ok(res)
         }
-
     }
 }
 
-impl<C: GenericConfig<D>, const D: usize> QStandardCircuit<C, D>
-    for VerifyAggUserRegistartionDeployContractsGUTACircuit<C, D>
+impl<C: GenericConfig<D>, const D: usize> QStandardCircuit<C, D> for VerifyAggUserRegistartionDeployContractsGUTACircuit<C, D>
 where
     C::Hasher: AlgebraicHasher<C::F>,
 {
     fn get_fingerprint(&self) -> QHashOut<C::F> {
         if self.enable_minifier {
             QHashOut(self.minifier_chain.as_ref().unwrap().get_fingerprint())
-        }else{
+        } else {
             self.base_fingerprint
         }
     }
@@ -259,7 +265,7 @@ where
     fn get_verifier_config_ref(&self) -> &VerifierOnlyCircuitData<C, D> {
         if self.enable_minifier {
             self.minifier_chain.as_ref().unwrap().get_verifier_data()
-        }else{
+        } else {
             &self.base_circuit_data.verifier_only
         }
     }
@@ -267,21 +273,16 @@ where
     fn get_common_circuit_data_ref(&self) -> &CommonCircuitData<C::F, D> {
         if self.enable_minifier {
             self.minifier_chain.as_ref().unwrap().get_common_data()
-        }else{
+        } else {
             &self.base_circuit_data.common
         }
     }
 }
 #[async_trait]
-impl<
-        S: QProofStoreReaderAsync + Send + Sync,
-        L: CircuitInfoLibrary<C, D> + Send + Sync,
-        C: GenericConfig<D> + 'static,
-        const D: usize,
-    > QStandardCircuitProvableWithProofStoreAndRefLibraryAsync<S, L, C, D>
-    for VerifyAggUserRegistartionDeployContractsGUTACircuit<C, D>
+impl<S: QProofStoreReaderAsync + Send + Sync, L: CircuitInfoLibrary<C, D> + Send + Sync, C: GenericConfig<D> + 'static, const D: usize>
+    QStandardCircuitProvableWithProofStoreAndRefLibraryAsync<S, L, C, D> for VerifyAggUserRegistartionDeployContractsGUTACircuit<C, D>
 where
-    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>>
+    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>>,
 {
     async fn prove_with_proof_store_async(
         &self,
@@ -291,13 +292,11 @@ where
         worker_public_key: QHashOut<C::F>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         let r: CircuitInputWithDependencies<QCAggUserRegistartionDeployContractsGUTAInput<C::F>> =
-            bincode::deserialize(&store.get_bytes_by_id(job_id.get_input_witness_id()).await?)
-                .map_err(|e| anyhow::anyhow!(e))?;
+            bincode::deserialize(&store.get_bytes_by_id(job_id.get_input_witness_id()).await?).map_err(|e| anyhow::anyhow!(e))?;
 
         if r.dependencies.len() != 3 {
             anyhow::bail!("expected 3 dependencies");
         }
-
 
         let user_registration_proof = store.get_proof_by_id(r.dependencies[0]).await?;
         let deploy_contracts_proof = store.get_proof_by_id(r.dependencies[1]).await?;
@@ -311,8 +310,7 @@ where
         let deploy_contracts_verifier_data = library.get_verifier_data(deploy_contracts_type)?;
         let guta_verifier_data = library.get_verifier_data(guta_type)?;
 
-        let guta_inclusion_proof =
-            library.get_group_inclusion_proof(ProvingJobCircuitType::GUTATwoGUTA, guta_type)?;
+        let guta_inclusion_proof = library.get_group_inclusion_proof(ProvingJobCircuitType::GUTATwoGUTA, guta_type)?;
 
         let result = self.prove_base(
             &r.input.register_users_state_transition,

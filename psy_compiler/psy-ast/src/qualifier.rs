@@ -58,9 +58,6 @@ impl Display for TypeQualifier {
 
 impl TypeQualifier {
     pub fn new(is_mutable: bool, location: Location) -> TypeQualifier {
-        TypeQualifier {
-            is_mutable,
-            location,
-        }
+        TypeQualifier { is_mutable, location }
     }
 }

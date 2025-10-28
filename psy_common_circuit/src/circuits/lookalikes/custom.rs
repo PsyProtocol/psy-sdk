@@ -5,15 +5,19 @@ use plonky2::plonk::{
 };
 use psy_core::job::id::QCircuitCommonGatesType;
 
-use crate::
-    builder::{hash::core::CircuitBuilderHashCore, pad_circuit::{pad_circuit_degree, CircuitBuilderQEDCommonGates}}
-;
+use crate::builder::{
+    hash::core::CircuitBuilderHashCore,
+    pad_circuit::{pad_circuit_degree, CircuitBuilderQEDCommonGates},
+};
 
 pub fn get_lookalike_custom<C: GenericConfig<D>, const D: usize>(
     common_gates_type: QCircuitCommonGatesType,
     degree: usize,
     public_inputs: usize,
-) -> CircuitData<C::F, C, D> where C::Hasher: AlgebraicHasher<C::F> {
+) -> CircuitData<C::F, C, D>
+where
+    C::Hasher: AlgebraicHasher<C::F>,
+{
     let config = CircuitConfig::standard_recursion_config();
     let mut builder = CircuitBuilder::<C::F, D>::new(config);
     let input_hash = builder.add_virtual_hash();
@@ -38,11 +42,13 @@ pub fn get_lookalike_custom<C: GenericConfig<D>, const D: usize>(
     circuit_data
 }
 
-
 pub fn get_lookalike_custom_common<C: GenericConfig<D>, const D: usize>(
     common_gates_type: QCircuitCommonGatesType,
     degree: usize,
     public_inputs: usize,
-) -> CommonCircuitData<C::F, D> where C::Hasher: AlgebraicHasher<C::F> {
-    get_lookalike_custom::<C,D>(common_gates_type, degree, public_inputs).common
+) -> CommonCircuitData<C::F, D>
+where
+    C::Hasher: AlgebraicHasher<C::F>,
+{
+    get_lookalike_custom::<C, D>(common_gates_type, degree, public_inputs).common
 }

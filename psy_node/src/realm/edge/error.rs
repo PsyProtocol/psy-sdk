@@ -1,10 +1,7 @@
 use jsonrpsee::{
     core::RpcResult as JsonRpcResult,
     types::{
-        error::{
-            INTERNAL_ERROR_CODE, INVALID_PARAMS_CODE, INVALID_REQUEST_CODE, METHOD_NOT_FOUND_CODE,
-            UNKNOWN_ERROR_CODE,
-        },
+        error::{INTERNAL_ERROR_CODE, INVALID_PARAMS_CODE, INVALID_REQUEST_CODE, METHOD_NOT_FOUND_CODE, UNKNOWN_ERROR_CODE},
         ErrorObject, ErrorObjectOwned,
     },
 };
@@ -31,13 +28,9 @@ impl From<RpcError> for ErrorObjectOwned {
         match err {
             RpcError::InvalidInput(msg) => ErrorObject::owned(INVALID_PARAMS_CODE, msg, None::<()>),
             RpcError::NotFound(msg) => ErrorObject::owned(METHOD_NOT_FOUND_CODE, msg, None::<()>),
-            RpcError::PermissionDenied => {
-                ErrorObject::owned(INVALID_REQUEST_CODE, "Permission denied", None::<()>)
-            }
+            RpcError::PermissionDenied => ErrorObject::owned(INVALID_REQUEST_CODE, "Permission denied", None::<()>),
             RpcError::Internal(msg) => ErrorObject::owned(INTERNAL_ERROR_CODE, msg, None::<()>),
-            RpcError::Anyhow(msg) => {
-                ErrorObject::owned(UNKNOWN_ERROR_CODE, msg.to_string(), None::<()>)
-            }
+            RpcError::Anyhow(msg) => ErrorObject::owned(UNKNOWN_ERROR_CODE, msg.to_string(), None::<()>),
         }
     }
 }

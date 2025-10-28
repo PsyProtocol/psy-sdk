@@ -133,7 +133,7 @@ pub enum IntrinsicExprNode {
         contract_id: ExprId,
         method_id: ExprId,
         inputs: ExprId,
-        return_type:  UncheckedType,
+        return_type: UncheckedType,
         location: Location,
     },
     InvokeDeferred {

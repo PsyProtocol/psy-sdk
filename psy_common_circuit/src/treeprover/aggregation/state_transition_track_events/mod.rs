@@ -7,10 +7,7 @@ use plonky2::{
     iop::witness::{PartialWitness, Witness, WitnessWrite},
     plonk::{
         circuit_builder::CircuitBuilder,
-        circuit_data::{
-            CircuitConfig, CircuitData, CommonCircuitData, VerifierCircuitTarget,
-            VerifierOnlyCircuitData,
-        },
+        circuit_data::{CircuitConfig, CircuitData, CommonCircuitData, VerifierCircuitTarget, VerifierOnlyCircuitData},
         config::{AlgebraicHasher, GenericConfig},
         proof::{ProofWithPublicInputs, ProofWithPublicInputsTarget},
     },
@@ -19,10 +16,7 @@ use psy_core::data::qhashout::QHashOut;
 use psy_crypto::hash::merkle::treeprover::AggStateTransitionWithEventsInput;
 
 use crate::{
-    builder::{
-        hash::core::CircuitBuilderHashCore, pad_circuit::CircuitBuilderQEDCommonGates,
-        verify::CircuitBuilderVerifyProofHelpers,
-    },
+    builder::{hash::core::CircuitBuilderHashCore, pad_circuit::CircuitBuilderQEDCommonGates, verify::CircuitBuilderVerifyProofHelpers},
     circuits::traits::qstandard::QStandardCircuit,
     proof_minifier::pm_core::get_circuit_fingerprint_generic,
     treeprover::traits::TreeProverAggCircuit,
@@ -46,14 +40,11 @@ pub struct AggStateTrackableWithEventsCircuitHeaderGadget {
     pub state_transition_hash: HashOutTarget,
     pub event_transition_hash: HashOutTarget,
 
-
     pub expected_left_child_transition_hash: HashOutTarget,
     pub expected_right_child_transition_hash: HashOutTarget,
 }
 impl AggStateTrackableWithEventsCircuitHeaderGadget {
-    pub fn add_virtual_to<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
-        builder: &mut CircuitBuilder<F, D>,
-    ) -> Self {
+    pub fn add_virtual_to<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(builder: &mut CircuitBuilder<F, D>) -> Self {
         let left_state_transition_start = builder.add_virtual_hash();
         let left_state_transition_end = builder.add_virtual_hash();
         let right_state_transition_start = builder.add_virtual_hash();
@@ -64,17 +55,13 @@ impl AggStateTrackableWithEventsCircuitHeaderGadget {
         let leaf_fingerprint = builder.add_virtual_hash();
         let agg_fingerprint = builder.add_virtual_hash();
 
-        let allowed_circuit_hashes_root =
-            builder.hash_two_to_one::<H>(leaf_fingerprint, agg_fingerprint);
-        let state_transition_hash =
-            builder.hash_two_to_one::<H>(left_state_transition_start, right_state_transition_end);
+        let allowed_circuit_hashes_root = builder.hash_two_to_one::<H>(leaf_fingerprint, agg_fingerprint);
+        let state_transition_hash = builder.hash_two_to_one::<H>(left_state_transition_start, right_state_transition_end);
         let event_transition_hash = builder.hash_two_to_one::<H>(left_event_hash, right_event_hash);
 
-        let expected_left_child_transition_hash =
-            builder.hash_two_to_one::<H>(left_state_transition_start, left_state_transition_end);
+        let expected_left_child_transition_hash = builder.hash_two_to_one::<H>(left_state_transition_start, left_state_transition_end);
 
-        let expected_right_child_transition_hash =
-            builder.hash_two_to_one::<H>(right_state_transition_start, right_state_transition_end);
+        let expected_right_child_transition_hash = builder.hash_two_to_one::<H>(right_state_transition_start, right_state_transition_end);
 
         // start constraints
         builder.connect_hashes(left_state_transition_end, right_state_transition_start);
@@ -107,22 +94,10 @@ impl AggStateTrackableWithEventsCircuitHeaderGadget {
         witness.set_hash_target(self.agg_fingerprint, agg_fingerprint.0)?;
         witness.set_hash_target(self.leaf_fingerprint, leaf_fingerprint.0)?;
 
-        witness.set_hash_target(
-            self.left_state_transition_start,
-            input.left_input.state_transition_start.0,
-        )?;
-        witness.set_hash_target(
-            self.left_state_transition_end,
-            input.left_input.state_transition_end.0,
-        )?;
-        witness.set_hash_target(
-            self.right_state_transition_start,
-            input.right_input.state_transition_start.0,
-        )?;
-        witness.set_hash_target(
-            self.right_state_transition_end,
-            input.right_input.state_transition_end.0,
-        )?;
+        witness.set_hash_target(self.left_state_transition_start, input.left_input.state_transition_start.0)?;
+        witness.set_hash_target(self.left_state_transition_end, input.left_input.state_transition_end.0)?;
+        witness.set_hash_target(self.right_state_transition_start, input.right_input.state_transition_start.0)?;
+        witness.set_hash_target(self.right_state_transition_end, input.right_input.state_transition_end.0)?;
         witness.set_hash_target(self.left_event_hash, input.left_input.event_hash.0)?;
         witness.set_hash_target(self.right_event_hash, input.right_input.event_hash.0)
     }
@@ -144,34 +119,21 @@ pub struct AggStateTransitionWithEventsCircuit<C: GenericConfig<D>, const D: usi
 }
 impl<C: GenericConfig<D>, const D: usize> Clone for AggStateTransitionWithEventsCircuit<C, D>
 where
-    C::Hasher:AlgebraicHasher<C::F>,
+    C::Hasher: AlgebraicHasher<C::F>,
 {
     fn clone(&self) -> Self {
-        Self::new(
-            &self.circuit_data.common,
-            self.circuit_data
-                .verifier_only
-                .constants_sigmas_cap
-                .height(),
-        )
+        Self::new(&self.circuit_data.common, self.circuit_data.verifier_only.constants_sigmas_cap.height())
     }
 }
 impl<C: GenericConfig<D>, const D: usize> AggStateTransitionWithEventsCircuit<C, D>
 where
-    C::Hasher:AlgebraicHasher<C::F>,
+    C::Hasher: AlgebraicHasher<C::F>,
 {
-    pub fn new_base(
-        child_common_data: &CommonCircuitData<C::F, D>,
-        verifier_cap_height: usize,
-    ) -> Self {
+    pub fn new_base(child_common_data: &CommonCircuitData<C::F, D>, verifier_cap_height: usize) -> Self {
         let config = CircuitConfig::standard_recursion_config();
         let mut builder = CircuitBuilder::<C::F, D>::new(config);
 
-        let header_gadget = AggStateTrackableWithEventsCircuitHeaderGadget::add_virtual_to::<
-            PoseidonHash,
-            C::F,
-            D,
-        >(&mut builder);
+        let header_gadget = AggStateTrackableWithEventsCircuitHeaderGadget::add_virtual_to::<PoseidonHash, C::F, D>(&mut builder);
 
         let left_proof = builder.add_virtual_proof_with_pis(child_common_data);
         let left_verifier_data = builder.add_virtual_verifier_data(verifier_cap_height);
@@ -183,19 +145,13 @@ where
             &left_proof,
             &left_verifier_data,
             child_common_data,
-            &[
-                header_gadget.agg_fingerprint,
-                header_gadget.leaf_fingerprint,
-            ],
+            &[header_gadget.agg_fingerprint, header_gadget.leaf_fingerprint],
         );
         builder.verify_proof_with_fingerprint_enum::<C>(
             &right_proof,
             &right_verifier_data,
             child_common_data,
-            &[
-                header_gadget.agg_fingerprint,
-                header_gadget.leaf_fingerprint,
-            ],
+            &[header_gadget.agg_fingerprint, header_gadget.leaf_fingerprint],
         );
 
         let left_child_allowed_circuit_hashes_root = HashOutTarget {
@@ -246,30 +202,12 @@ where
                 left_proof.public_inputs[11],
             ],
         };
-        builder.connect_hashes(
-            left_child_allowed_circuit_hashes_root,
-            header_gadget.allowed_circuit_hashes_root,
-        );
-        builder.connect_hashes(
-            right_child_allowed_circuit_hashes_root,
-            header_gadget.allowed_circuit_hashes_root,
-        );
-        builder.connect_hashes(
-            left_child_transition_hash,
-            header_gadget.expected_left_child_transition_hash,
-        );
-        builder.connect_hashes(
-            right_child_transition_hash,
-            header_gadget.expected_right_child_transition_hash,
-        );
-        builder.connect_hashes(
-            left_child_event_hash,
-            header_gadget.left_event_hash,
-        );
-        builder.connect_hashes(
-            right_child_event_hash,
-            header_gadget.right_event_hash,
-        );
+        builder.connect_hashes(left_child_allowed_circuit_hashes_root, header_gadget.allowed_circuit_hashes_root);
+        builder.connect_hashes(right_child_allowed_circuit_hashes_root, header_gadget.allowed_circuit_hashes_root);
+        builder.connect_hashes(left_child_transition_hash, header_gadget.expected_left_child_transition_hash);
+        builder.connect_hashes(right_child_transition_hash, header_gadget.expected_right_child_transition_hash);
+        builder.connect_hashes(left_child_event_hash, header_gadget.left_event_hash);
+        builder.connect_hashes(right_child_event_hash, header_gadget.right_event_hash);
         builder.register_public_inputs(&header_gadget.allowed_circuit_hashes_root.elements);
         builder.register_public_inputs(&header_gadget.state_transition_hash.elements);
         builder.register_public_inputs(&header_gadget.event_transition_hash.elements);
@@ -307,8 +245,7 @@ where
         println!("agg_input: {:?}",input);
         */
         let mut pw = PartialWitness::<C::F>::new();
-        self.header_gadget
-            .set_witness(&mut pw, input, agg_fingerprint, leaf_fingerprint)?;
+        self.header_gadget.set_witness(&mut pw, input, agg_fingerprint, leaf_fingerprint)?;
 
         pw.set_proof_with_pis_target(&self.left_proof, left_proof)?;
         pw.set_verifier_data_target(
@@ -336,9 +273,7 @@ where
         result
     }
 }
-impl<C: GenericConfig<D>, const D: usize> QStandardCircuit<C, D>
-    for AggStateTransitionWithEventsCircuit<C, D>
-{
+impl<C: GenericConfig<D>, const D: usize> QStandardCircuit<C, D> for AggStateTransitionWithEventsCircuit<C, D> {
     fn get_fingerprint(&self) -> QHashOut<C::F> {
         self.fingerprint
     }
@@ -350,11 +285,10 @@ impl<C: GenericConfig<D>, const D: usize> QStandardCircuit<C, D>
     }
 }
 
-impl<C: GenericConfig<D>, const D: usize>
-    TreeProverAggCircuit<AggStateTransitionWithEventsInput<C::F>, C, D>
+impl<C: GenericConfig<D>, const D: usize> TreeProverAggCircuit<AggStateTransitionWithEventsInput<C::F>, C, D>
     for AggStateTransitionWithEventsCircuit<C, D>
 where
-    C::Hasher:AlgebraicHasher<C::F>,
+    C::Hasher: AlgebraicHasher<C::F>,
 {
     fn new(child_common_data: &CommonCircuitData<C::F, D>, verifier_cap_height: usize) -> Self {
         Self::new_base(child_common_data, verifier_cap_height)

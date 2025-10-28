@@ -16,9 +16,7 @@ impl CoreRipemd160Hasher {
         Hash160(result.into())
     }
     pub fn new() -> Self {
-        Self {
-            hasher: Ripemd160::new(),
-        }
+        Self { hasher: Ripemd160::new() }
     }
     pub fn update(&mut self, bytes: &[u8]) {
         self.hasher.update(bytes);

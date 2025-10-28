@@ -1,13 +1,14 @@
 use kvq::traits::KVQSerializable;
-use plonky2::{hash::hash_types::RichField, plonk::config::AlgebraicHasher};
-use plonky2::field::goldilocks_field::GoldilocksField;
-use psy_core::{data::qhashout::QHashOut, traits::to_qfelts::{QFeltSized, ToQFelts}};
+use plonky2::{field::goldilocks_field::GoldilocksField, hash::hash_types::RichField, plonk::config::AlgebraicHasher};
+use psy_core::{
+    data::qhashout::QHashOut,
+    traits::to_qfelts::{QFeltSized, ToQFelts},
+};
 use psy_crypto::hash::traits::{hasher::FieldQHasher, qhashable::QFieldHashable};
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
-
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Copy, Default,TS)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Copy, Default, TS)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
 #[ts(export, concrete(F = GoldilocksField))]
 pub struct QEDUserLeaf<F: RichField> {
@@ -31,7 +32,6 @@ impl<F: RichField> QEDUserLeaf<F> {
             user_id,
         }
     }
-
 }
 impl<F: RichField> KVQSerializable for QEDUserLeaf<F> {
     fn to_bytes(&self) -> anyhow::Result<Vec<u8>> {
@@ -105,11 +105,10 @@ impl<F: RichField> QFieldHashable<F> for QEDUserLeaf<F> {
             self.nonce,
             self.last_checkpoint_id,
             self.event_index,
-            self.user_id
+            self.user_id,
         ])
     }
 }
-
 
 impl<F: RichField> QEDUserLeaf<F> {
     pub fn alghash<H: AlgebraicHasher<F>>(&self) -> QHashOut<F> {
@@ -126,7 +125,7 @@ impl<F: RichField> QEDUserLeaf<F> {
             self.nonce,
             self.last_checkpoint_id,
             self.event_index,
-            self.user_id
+            self.user_id,
         ]))
     }
 }

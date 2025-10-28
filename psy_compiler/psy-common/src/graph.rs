@@ -1,6 +1,8 @@
-use std::collections::{HashMap, HashSet, VecDeque};
-use std::hash::Hash;
-use std::ops::Deref;
+use std::{
+    collections::{HashMap, HashSet, VecDeque},
+    hash::Hash,
+    ops::Deref,
+};
 
 use indexmap::IndexSet;
 
@@ -21,9 +23,7 @@ pub struct Graph<T> {
 
 impl<T: Clone + Eq + Hash> Graph<T> {
     pub fn new() -> Self {
-        Self {
-            edges: HashMap::new(),
-        }
+        Self { edges: HashMap::new() }
     }
 
     pub fn add_node(&mut self, node: T) {
@@ -68,12 +68,7 @@ impl<T: Clone + Eq + Hash> Graph<T> {
         }
     }
 
-    fn dfs_inner<'a>(
-        &'a self,
-        node: &'a T,
-        parent: Option<&'a T>,
-        visitor: &mut impl FnMut(&'a T, Option<&'a T>),
-    ) {
+    fn dfs_inner<'a>(&'a self, node: &'a T, parent: Option<&'a T>, visitor: &mut impl FnMut(&'a T, Option<&'a T>)) {
         visitor(node, parent);
 
         if let Some(neighbors) = self.edges.get(&node) {
@@ -83,10 +78,7 @@ impl<T: Clone + Eq + Hash> Graph<T> {
         }
     }
 
-    pub fn bfs<'a, E: From<Error>>(
-        &'a self,
-        visitor: &mut impl FnMut(&'a T) -> Result<(), E>,
-    ) -> Result<(), E> {
+    pub fn bfs<'a, E: From<Error>>(&'a self, visitor: &mut impl FnMut(&'a T) -> Result<(), E>) -> Result<(), E> {
         let starting_nodes = self.starting_nodes();
         let mut visited = HashMap::new();
         for node in starting_nodes {
@@ -120,10 +112,7 @@ impl<T: Clone + Eq + Hash> Graph<T> {
         Ok(())
     }
 
-    pub fn ts<'a, E: From<Error>>(
-        &'a self,
-        visitor: &mut impl FnMut(&'a T) -> Result<(), E>,
-    ) -> Result<(), E> {
+    pub fn ts<'a, E: From<Error>>(&'a self, visitor: &mut impl FnMut(&'a T) -> Result<(), E>) -> Result<(), E> {
         let starting_nodes = self.starting_nodes();
         let mut colors = HashMap::new();
         for node in starting_nodes {

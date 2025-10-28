@@ -1,18 +1,22 @@
-use crate::errors::ManifestError;
 use std::path::{Component, Path, PathBuf};
 
-/// Searches for a `Dargo.toml` file in the current directory and all parent directories.
-/// For example, if the current directory is `/workspace/package/src`, then this function
-/// will search for a `Dargo.toml` file in
+use crate::errors::ManifestError;
+
+/// Searches for a `Dargo.toml` file in the current directory and all parent
+/// directories. For example, if the current directory is
+/// `/workspace/package/src`, then this function will search for a `Dargo.toml`
+/// file in
 /// * `/workspace/package/src`,
 /// * `/workspace/package`,
 /// * `/workspace`.
 ///
-/// Returns the [PathBuf] of the `Dargo.toml` file if found, otherwise returns None.
+/// Returns the [PathBuf] of the `Dargo.toml` file if found, otherwise returns
+/// None.
 ///
-/// It will return innermost `Dargo.toml` file, which is the one closest to the current directory.
-/// For example, if the current directory is `/workspace/package/src`, then this function
-/// will return the `Dargo.toml` file in `/workspace/package/Dargo.toml`
+/// It will return innermost `Dargo.toml` file, which is the one closest to the
+/// current directory. For example, if the current directory is
+/// `/workspace/package/src`, then this function will return the `Dargo.toml`
+/// file in `/workspace/package/Dargo.toml`
 pub fn find_file_manifest(current_path: &Path) -> Option<PathBuf> {
     for path in current_path.ancestors() {
         if let Ok(toml_path) = get_package_manifest(path) {
@@ -22,16 +26,17 @@ pub fn find_file_manifest(current_path: &Path) -> Option<PathBuf> {
     None
 }
 
-/// Returns the [PathBuf] of the directory containing the `Dargo.toml` by searching from `current_path` to the root of its [Path],
-/// returning at the innermost directory found, i.e. the one corresponding to the package that contains the `current_path`.
+/// Returns the [PathBuf] of the directory containing the `Dargo.toml` by
+/// searching from `current_path` to the root of its [Path], returning at the
+/// innermost directory found, i.e. the one corresponding to the package that
+/// contains the `current_path`.
 ///
-/// Returns a [ManifestError] if no parent directories of `current_path` contain a manifest file.
+/// Returns a [ManifestError] if no parent directories of `current_path` contain
+/// a manifest file.
 pub fn find_file_manifest_root(current_path: &Path) -> Result<PathBuf, ManifestError> {
     match find_file_manifest(current_path) {
         Some(manifest_path) => {
-            let package_root = manifest_path
-                .parent()
-                .expect("infallible: manifest file path can't be root directory");
+            let package_root = manifest_path.parent().expect("infallible: manifest file path can't be root directory");
             Ok(package_root.to_path_buf())
         }
         None => Err(ManifestError::MissingFile(current_path.to_path_buf())),
@@ -41,27 +46,23 @@ pub fn find_file_manifest_root(current_path: &Path) -> Result<PathBuf, ManifestE
 /// Get the root of path, for example:
 /// * `C:\foo\bar` -> `C:\foo`
 /// * `//shared/foo/bar` -> `//shared/foo`
-/// * `/foo` -> `/foo`
-///   otherwise empty path.
+/// * `/foo` -> `/foo` otherwise empty path.
 pub fn path_root(path: &Path) -> PathBuf {
     let mut components = path.components();
     match (components.next(), components.next()) {
         // Preserve prefix if one exists
-        (Some(prefix @ Component::Prefix(_)), Some(root @ Component::RootDir)) => {
-            PathBuf::from(prefix.as_os_str()).join(root.as_os_str())
-        }
+        (Some(prefix @ Component::Prefix(_)), Some(root @ Component::RootDir)) => PathBuf::from(prefix.as_os_str()).join(root.as_os_str()),
         (Some(root @ Component::RootDir), _) => PathBuf::from(root.as_os_str()),
         _ => PathBuf::new(),
     }
 }
 
-/// Returns the [PathBuf] of the `Dargo.toml` file by searching from `current_path` and stopping at `root_path`.
+/// Returns the [PathBuf] of the `Dargo.toml` file by searching from
+/// `current_path` and stopping at `root_path`.
 ///
-/// Returns a [ManifestError] if no parent directories of `current_path` contain a manifest file.
-pub fn find_package_manifest(
-    root_path: &Path,
-    current_path: &Path,
-) -> Result<PathBuf, ManifestError> {
+/// Returns a [ManifestError] if no parent directories of `current_path` contain
+/// a manifest file.
+pub fn find_package_manifest(root_path: &Path, current_path: &Path) -> Result<PathBuf, ManifestError> {
     if current_path.starts_with(root_path) {
         let mut found_toml_paths = Vec::new();
         for path in current_path.ancestors() {
@@ -86,9 +87,11 @@ pub fn find_package_manifest(
     }
 }
 
-/// Returns the [PathBuf] of the `Dargo.toml` file in the `current_path` directory.
+/// Returns the [PathBuf] of the `Dargo.toml` file in the `current_path`
+/// directory.
 ///
-/// Returns a [ManifestError] if `current_path` does not contain a manifest file.
+/// Returns a [ManifestError] if `current_path` does not contain a manifest
+/// file.
 pub fn get_package_manifest(current_path: &Path) -> Result<PathBuf, ManifestError> {
     let toml_path = current_path.join("Dargo.toml");
     if toml_path.exists() {
@@ -100,10 +103,12 @@ pub fn get_package_manifest(current_path: &Path) -> Result<PathBuf, ManifestErro
 
 #[cfg(test)]
 mod tests {
-    use crate::errors::ManifestError;
-    use crate::files::find_file_manifest_root;
-    use std::path::{Path, PathBuf};
-    use std::str::FromStr;
+    use std::{
+        path::{Path, PathBuf},
+        str::FromStr,
+    };
+
+    use crate::{errors::ManifestError, files::find_file_manifest_root};
 
     /// Test that `find_file_manifest_root` handles all kinds of prefixes.
     #[test]
@@ -134,10 +139,7 @@ mod tests {
 
             for line in layout.lines() {
                 if let Some((prefix, item)) = line.split_once('-') {
-                    let item = item
-                        .replace(std::path::MAIN_SEPARATOR, "_")
-                        .trim()
-                        .to_string();
+                    let item = item.replace(std::path::MAIN_SEPARATOR, "_").trim().to_string();
 
                     let indent = prefix.len() / INDENT_SIZE;
 
@@ -166,9 +168,7 @@ mod tests {
                     // Create a file or a directory
                     let item_path = current_dir.join(&item);
                     if is_dir(&item) {
-                        std::fs::create_dir(&item_path).unwrap_or_else(|e| {
-                            panic!("failed to create dir {}: {e}", item_path.display())
-                        });
+                        std::fs::create_dir(&item_path).unwrap_or_else(|e| panic!("failed to create dir {}: {e}", item_path.display()));
                     } else {
                         std::fs::write(&item_path, "").expect("failed to create file");
                     }
@@ -184,13 +184,11 @@ mod tests {
         let path = |p: &str| tmp.path().join(p);
         // Check that an expected root is found
         let assert_ok = |current_dir: &str, exp: &str| {
-            let root =
-                find_file_manifest_root(&path(current_dir)).expect("should find a manifest root");
+            let root = find_file_manifest_root(&path(current_dir)).expect("should find a manifest root");
             assert_eq!(root, path(exp));
         };
         let assert_err = |current_dir: &str| {
-            find_file_manifest_root(&path(current_dir))
-                .expect_err("shouldn't find a manifest root");
+            find_file_manifest_root(&path(current_dir)).expect_err("shouldn't find a manifest root");
         };
         // Check that a root is not found
         let layout = r"

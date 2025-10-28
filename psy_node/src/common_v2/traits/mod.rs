@@ -2,7 +2,6 @@ pub mod realm;
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 
-
 #[derive(Serialize_repr, Deserialize_repr, PartialEq, Debug, Clone, Copy, Eq, Hash, PartialOrd, Ord)]
 #[repr(u8)]
 pub enum PRRealmToCoordinatorMessageType {
@@ -52,4 +51,3 @@ pub trait PRRealmToCoordinatorHandler: PRCoordinatorClient + Send + Sync {
     fn get_realm_checkpoint_id(&self) -> u64;
     fn get_realm_time_ms(&self) -> u64;
 }
-

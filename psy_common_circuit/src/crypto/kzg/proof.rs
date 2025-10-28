@@ -7,15 +7,16 @@ use plonky2::{
     plonk::circuit_builder::CircuitBuilder,
 };
 
-use crate::crypto::bn254::{
-    field::bn128_scalar::Bn128Scalar,
-    gadgets::{
-        g1::{CircuitBuilderG1, G1AffineTarget},
-        nonnative_fp::{CircuitBuilderNonNative, NonNativeTarget},
+use crate::crypto::{
+    bn254::{
+        field::bn128_scalar::Bn128Scalar,
+        gadgets::{
+            g1::{CircuitBuilderG1, G1AffineTarget},
+            nonnative_fp::{CircuitBuilderNonNative, NonNativeTarget},
+        },
     },
+    secp256k1::ecdsa::curve::curve_types::AffinePoint,
 };
-
-use crate::crypto::secp256k1::ecdsa::curve::curve_types::AffinePoint;
 
 #[derive(Clone, Debug)]
 pub struct KZGProofTarget<F: RichField + Extendable<D>, const D: usize> {

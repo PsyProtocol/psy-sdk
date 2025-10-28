@@ -6,10 +6,12 @@
 //! 3. Query worker rewards using /rewards/{worker_public_key}
 //! 4. Demonstrate claimed vs unclaimed rewards based on checkpoint_id
 //!
-//! Note: This example now works with the new worker_event_rewards table system where:
+//! Note: This example now works with the new worker_event_rewards table system
+//! where:
 //! - Only GUTA circuit types earn rewards (9 specific circuit types)
 //! - Each worker event has a 1:1 relationship with a worker event reward
-//! - Rewards are calculated and stored by the background reward processing service
+//! - Rewards are calculated and stored by the background reward processing
+//!   service
 
 use chrono::Utc;
 use psy_api_services::models::WorkerRewards;
@@ -149,10 +151,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let body: serde_json::Value = response.json().await?;
     println!("✅ Sample worker events created successfully");
-    println!(
-        "📊 Events created: {}",
-        body.get("events_processed").unwrap_or(&json!(0))
-    );
+    println!("📊 Events created: {}", body.get("events_processed").unwrap_or(&json!(0)));
 
     // Wait for background reward processing to calculate rewards
     // The RewardService runs every 10 seconds to process new GUTA worker events
@@ -164,35 +163,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Test different checkpoint scenarios
     let test_scenarios = vec![
-        (
-            worker1_key,
-            100,
-            "Worker 1 with checkpoint 100 (should have mixed claimed/unclaimed)",
-        ),
-        (
-            worker1_key,
-            50,
-            "Worker 1 with checkpoint 50 (should have mostly unclaimed)",
-        ),
-        (
-            worker1_key,
-            150,
-            "Worker 1 with checkpoint 150 (should have mostly claimed)",
-        ),
-        (
-            worker2_key,
-            50,
-            "Worker 2 with checkpoint 50 (should have some claimed)",
-        ),
+        (worker1_key, 100, "Worker 1 with checkpoint 100 (should have mixed claimed/unclaimed)"),
+        (worker1_key, 50, "Worker 1 with checkpoint 50 (should have mostly unclaimed)"),
+        (worker1_key, 150, "Worker 1 with checkpoint 150 (should have mostly claimed)"),
+        (worker2_key, 50, "Worker 2 with checkpoint 50 (should have some claimed)"),
     ];
 
     for (worker_key, checkpoint_id, description) in test_scenarios {
         println!("\n🔸 {}", description);
         let response = client
-            .get(&format!(
-                "{}/rewards/{}?checkpoint_id={}",
-                API_BASE, worker_key, checkpoint_id
-            ))
+            .get(&format!("{}/rewards/{}?checkpoint_id={}", API_BASE, worker_key, checkpoint_id))
             .send()
             .await?;
 
@@ -203,18 +183,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         // Calculate some insights using typed fields
         println!("💡 Analysis:");
-        println!(
-            "   • Claimed: {} proofs = {} psy",
-            rewards.claimed_proofs, rewards.claimed_rewards
-        );
-        println!(
-            "   • Unclaimed: {} proofs = {} psy",
-            rewards.unclaimed_proofs, rewards.unclaimed_rewards
-        );
-        println!(
-            "   • Total: {} proofs = {} psy",
-            rewards.total_proofs, rewards.total_rewards
-        );
+        println!("   • Claimed: {} proofs = {} psy", rewards.claimed_proofs, rewards.claimed_rewards);
+        println!("   • Unclaimed: {} proofs = {} psy", rewards.unclaimed_proofs, rewards.unclaimed_rewards);
+        println!("   • Total: {} proofs = {} psy", rewards.total_proofs, rewards.total_rewards);
         println!("   • Each proof = 5,000,000,000 psy (5×10⁹)");
 
         println!("⏰ Time-based Rewards:");
@@ -223,27 +194,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("   • Last 30 days: {} psy", rewards.total_rewards_30d);
 
         if rewards.total_proofs > 0 {
-            let claimed_percentage =
-                (rewards.claimed_proofs as f64) / (rewards.total_proofs as f64) * 100.0;
+            let claimed_percentage = (rewards.claimed_proofs as f64) / (rewards.total_proofs as f64) * 100.0;
             println!("   • {:.1}% of rewards are claimed", claimed_percentage);
 
             // Verify calculation consistency
-            assert_eq!(
-                rewards.total_proofs,
-                rewards.claimed_proofs + rewards.unclaimed_proofs
-            );
-            assert_eq!(
-                rewards.total_rewards,
-                rewards.claimed_rewards + rewards.unclaimed_rewards
-            );
-            assert_eq!(
-                rewards.claimed_rewards,
-                rewards.claimed_proofs * 5_000_000_000
-            );
-            assert_eq!(
-                rewards.unclaimed_rewards,
-                rewards.unclaimed_proofs * 5_000_000_000
-            );
+            assert_eq!(rewards.total_proofs, rewards.claimed_proofs + rewards.unclaimed_proofs);
+            assert_eq!(rewards.total_rewards, rewards.claimed_rewards + rewards.unclaimed_rewards);
+            assert_eq!(rewards.claimed_rewards, rewards.claimed_proofs * 5_000_000_000);
+            assert_eq!(rewards.unclaimed_rewards, rewards.unclaimed_proofs * 5_000_000_000);
             println!("   ✅ All calculations verified correct!");
         }
     }
@@ -260,16 +218,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("   ✓ Time-based rewards: 24h, 7d, 30d total rewards (claimed + unclaimed)");
 
     println!("\n🎉 Worker rewards API example completed successfully!");
-    println!(
-        "💡 Tip: Try different checkpoint_id values to see how claimed/unclaimed rewards change."
-    );
+    println!("💡 Tip: Try different checkpoint_id values to see how claimed/unclaimed rewards change.");
 
     Ok(())
 }
 
-/// Helper function to create a sample QProvingJobDataID with GUTA circuit types (earns rewards)
+/// Helper function to create a sample QProvingJobDataID with GUTA circuit types
+/// (earns rewards)
 fn create_guta_job_id(_job_name: &str, circuit_type_name: &str) -> serde_json::Value {
-    // Map circuit type name to the appropriate enum (actual GUTA types from the enum)
+    // Map circuit type name to the appropriate enum (actual GUTA types from the
+    // enum)
     let circuit_type = match circuit_type_name {
         "GUTATwoEndCap" => ProvingJobCircuitType::GUTATwoEndCap,
         "GUTATwoGUTA" => ProvingJobCircuitType::GUTATwoGUTA,
@@ -299,7 +257,8 @@ fn create_guta_job_id(_job_name: &str, circuit_type_name: &str) -> serde_json::V
     serde_json::to_value(job).unwrap()
 }
 
-/// Helper function to create a job ID with non-GUTA circuit type (should not count for rewards)
+/// Helper function to create a job ID with non-GUTA circuit type (should not
+/// count for rewards)
 fn create_non_guta_job_id(_job_name: &str) -> serde_json::Value {
     let job = QProvingJobDataID {
         topic: QJobTopic::GenerateStandardProof,

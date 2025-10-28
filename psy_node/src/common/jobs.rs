@@ -34,12 +34,7 @@ pub trait JobSchedulerRpc {
     async fn get_bytes_by_id(&self, job_id: QProvingJobDataID) -> RpcResult<Vec<u8>>;
 
     #[method(name = "set_proof_by_id")]
-    async fn set_proof_by_id(
-        &self,
-        job: QJob,
-        proof: QEDProof,
-        signed: SignedRequest<psy_data::config::store_config::QEDHash>,
-    ) -> RpcResult<()>;
+    async fn set_proof_by_id(&self, job: QJob, proof: QEDProof, signed: SignedRequest<psy_data::config::store_config::QEDHash>) -> RpcResult<()>;
 }
 
 #[derive(Clone)]
@@ -93,10 +88,7 @@ impl QProofStoreReaderAsync for JobClient {
         Ok(bytes)
     }
 
-    async fn get_public_input_by_id<C: GenericConfig<D>, const D: usize>(
-        &self,
-        id: QProvingJobDataID,
-    ) -> anyhow::Result<Vec<C::F>> {
+    async fn get_public_input_by_id<C: GenericConfig<D>, const D: usize>(&self, id: QProvingJobDataID) -> anyhow::Result<Vec<C::F>> {
         let proof_bytes = JobSchedulerRpcClient::get_proof_by_id(&self.rpc_client, id).await?;
         let proof: ProofWithPublicInputs<C::F, C, D> = bincode::deserialize(&proof_bytes).map_err(|e| anyhow::anyhow!(e))?;
         Ok(proof.public_inputs)

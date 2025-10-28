@@ -1,33 +1,38 @@
-use plonky2::field::goldilocks_field::GoldilocksField;
-use plonky2::plonk::config::GenericHashOut;
-use psy_core::config::network_constants::get_default_worker_public_key;
-use psy_core::data::base_types::hash256::Hash256;
-use psy_core::data::qhashout::QHashOut;
-use psy_crypto::common::simple_circuit_library::SimpleCircuitLibrary;
-use psy_crypto::hash::traits::qhashable::QFieldHashable;
-use psy_data::config::store_config::{QEDFelt, QEDHash, QEDHasher};
-use psy_node::common::verifier::get_cached_generic_verifier;
-use psy_node::common::retry::{RetryConfig, retry_with_backoff};
-use psy_node::worker::{
-    job_tracker::{JobLocation, WorkerJobTracker},
-    run_worker,
+use std::{
+    fs,
+    path::{Path, PathBuf},
+    str::FromStr,
+    sync::Arc,
+    time::Duration,
 };
+
 use kvq::traits::KVQSerializable;
-use psy_prover::ups::circuit_manager::core::QEDUPSStepCircuitManager;
-use psy_prover::wallet::secp_wallet::Wallet;
+use plonky2::{
+    field::{goldilocks_field::GoldilocksField, types::Field},
+    hash::hash_types::HashOut,
+    plonk::config::GenericHashOut,
+};
+use psy_core::{
+    config::network_constants::get_default_worker_public_key,
+    data::{base_types::hash256::Hash256, qhashout::QHashOut},
+};
+use psy_crypto::{common::simple_circuit_library::SimpleCircuitLibrary, hash::traits::qhashable::QFieldHashable};
+use psy_data::config::store_config::{QEDFelt, QEDHash, QEDHasher};
 use psy_network_circuit::coordinator::coordinator_helper::QEDCoordinatorCircuitManager;
-use std::fs;
-use std::path::{Path, PathBuf};
-use std::str::FromStr;
-use std::sync::Arc;
-use std::time::Duration;
-use plonky2::field::types::Field;
-use plonky2::hash::hash_types::HashOut;
-use tokio::sync::Mutex;
-use tokio::time::sleep;
-use tracing::{error, info};
-use tracing::log::warn;
-use psy_node::worker::client::WorkerCoordinatorClient;
+use psy_node::{
+    common::{
+        retry::{retry_with_backoff, RetryConfig},
+        verifier::get_cached_generic_verifier,
+    },
+    worker::{
+        client::WorkerCoordinatorClient,
+        job_tracker::{JobLocation, WorkerJobTracker},
+        run_worker,
+    },
+};
+use psy_prover::{ups::circuit_manager::core::QEDUPSStepCircuitManager, wallet::secp_wallet::Wallet};
+use tokio::{sync::Mutex, time::sleep};
+use tracing::{error, info, log::warn};
 
 type C = plonky2::plonk::config::PoseidonGoldilocksConfig;
 const D: usize = 2;
@@ -70,13 +75,9 @@ pub async fn run(
 
     let wallet = Arc::new(wallet);
 
-    let main_circuits =
-        psy_prover::ups::circuit_manager::core::QCircuitManager::Local(QEDUPSStepCircuitManager::<
-            C,
-            D,
-        >::new_with_config(
-            psy_core::config::network_constants::QED_NETWORK_MAGIC_REGTEST,
-        ));
+    let main_circuits = psy_prover::ups::circuit_manager::core::QCircuitManager::Local(QEDUPSStepCircuitManager::<C, D>::new_with_config(
+        psy_core::config::network_constants::QED_NETWORK_MAGIC_REGTEST,
+    ));
 
     let mut memory_wallet = psy_prover::wallet::memory_wallet::QEDMemoryWallet::new(vec![Box::new(main_circuits)]);
 
@@ -86,28 +87,23 @@ pub async fn run(
 
     let proof_verifier = Arc::new(get_cached_generic_verifier::<C, D>());
 
-    let worker_coordinator_client = WorkerCoordinatorClient::new(
-        &config.network.coordinator_configs[0].rpc_url[0],
-    ).await?;
+    let worker_coordinator_client = WorkerCoordinatorClient::new(&config.network.coordinator_configs[0].rpc_url[0]).await?;
 
     // Use retry_with_backoff from retry.rs
     let retry_config = RetryConfig {
         max_retries: 60,
-        base_delay_ms: 10000,  // 10 seconds
-        exponential_backoff: false,  // Keep constant delay like original
+        base_delay_ms: 10000,       // 10 seconds
+        exponential_backoff: false, // Keep constant delay like original
     };
 
-    let user_id = retry_with_backoff(
-        &retry_config,
-        &format!("get user ID for {}", worker_public_key),
-        || async {
-            worker_coordinator_client.get_user_id(&worker_public_key).await
-        },
-    ).await
-        .map_err(|e| {
-            error!("Failed to get user ID after all retries");
-            anyhow::anyhow!("Failed to retrieve user ID: {}", e)
-        })?;
+    let user_id = retry_with_backoff(&retry_config, &format!("get user ID for {}", worker_public_key), || async {
+        worker_coordinator_client.get_user_id(&worker_public_key).await
+    })
+    .await
+    .map_err(|e| {
+        error!("Failed to get user ID after all retries");
+        anyhow::anyhow!("Failed to retrieve user ID: {}", e)
+    })?;
 
     info!("Successfully retrieved user ID: {}", user_id);
 
@@ -118,9 +114,7 @@ pub async fn run(
         user_id_hash(recipient_user_id),
     ));
 
-    let job_tracker = Arc::new(Mutex::new(WorkerJobTracker::load_from_file(
-        worker_public_key,
-    )));
+    let job_tracker = Arc::new(Mutex::new(WorkerJobTracker::load_from_file(worker_public_key)));
 
     let mut handles = Vec::new();
 
@@ -179,8 +173,7 @@ pub async fn run(
 }
 
 pub fn user_id_hash(user_id: u64) -> QHashOut<F> {
-    use plonky2::hash::poseidon::PoseidonHash;
-    use plonky2::plonk::config::Hasher;
+    use plonky2::{hash::poseidon::PoseidonHash, plonk::config::Hasher};
 
     let hash_out = PoseidonHash::hash_no_pad(&[F::from_canonical_u64(user_id)]);
     QHashOut(HashOut { elements: hash_out.elements })

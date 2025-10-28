@@ -69,12 +69,12 @@ impl<const TABLE_TYPE: u16> KVQMerkleNodeKey<TABLE_TYPE> {
     pub fn node_list_in_same_tree(list: &[Self]) -> bool {
         if list.len() == 0 {
             false
-        }else if list.len() == 1 {
+        } else if list.len() == 1 {
             true
-        }else{
+        } else {
             let first = list[0];
             for key in list.iter() {
-                if !first.belongs_to_same_tree(key){
+                if !first.belongs_to_same_tree(key) {
                     return false;
                 }
             }
@@ -92,17 +92,14 @@ impl<const TABLE_TYPE: u16> KVQMerkleNodeKey<TABLE_TYPE> {
         }
     }
     pub fn is_same_node_location(&self, other: &Self) -> bool {
-        self.tree_id == other.tree_id &&
-        self.primary_id == other.primary_id &&
-        self.secondary_id == other.secondary_id &&
-        self.level == other.level &&
-        self.index == other.index
-
+        self.tree_id == other.tree_id
+            && self.primary_id == other.primary_id
+            && self.secondary_id == other.secondary_id
+            && self.level == other.level
+            && self.index == other.index
     }
     pub fn belongs_to_same_tree(&self, other: &Self) -> bool {
-        self.tree_id == other.tree_id &&
-        self.primary_id == other.primary_id &&
-        self.secondary_id == other.secondary_id
+        self.tree_id == other.tree_id && self.primary_id == other.primary_id && self.secondary_id == other.secondary_id
     }
     pub fn is_sibling_for(&self, other: &Self) -> bool {
         self.level == other.level &&
@@ -144,8 +141,8 @@ impl<const TABLE_TYPE: u16> KVQMerkleNodeKey<TABLE_TYPE> {
     pub fn siblings_to_level(&self, top_level: u8) -> Vec<KVQMerkleNodeKey<TABLE_TYPE>> {
         if top_level >= self.level {
             Vec::new()
-        }else{
-            let sibling_count = (self.level-top_level) as usize;
+        } else {
+            let sibling_count = (self.level - top_level) as usize;
             let mut result: Vec<KVQMerkleNodeKey<TABLE_TYPE>> = Vec::with_capacity(sibling_count);
             let mut current = *self;
             for _ in 0..sibling_count {
@@ -259,20 +256,19 @@ impl<const TABLE_TYPE: u16> KVQMerkleNodeKey<TABLE_TYPE> {
     pub fn is_direct_path_related(&self, other: &Self) -> bool {
         if other.level == self.level {
             self.index == other.index
-        }else if other.level < self.level {
+        } else if other.level < self.level {
             // opt?: (self.index>>(self.level-other.level)) == other.index
             self.parent_at_level(other.level).index == other.index
-
-        }else{
+        } else {
             other.parent_at_level(self.level).index == self.index
         }
     }
     pub fn is_on_the_right_of(&self, other: &Self) -> bool {
         if other.level == self.level {
             self.index > other.index
-        }else if other.level < self.level {
+        } else if other.level < self.level {
             self.parent_at_level(other.level).index > other.index
-        }else{
+        } else {
             self.index > other.parent_at_level(self.level).index
         }
     }
@@ -284,24 +280,20 @@ impl<const TABLE_TYPE: u16> KVQMerkleNodeKey<TABLE_TYPE> {
     }
     pub fn is_to_the_left_of(&self, other: &Self) -> bool {
         // Add validation to ensure nodes are from the same tree
-        if self.tree_id != other.tree_id ||
-        self.primary_id != other.primary_id ||
-        self.secondary_id != other.secondary_id {
+        if self.tree_id != other.tree_id || self.primary_id != other.primary_id || self.secondary_id != other.secondary_id {
             panic!(
                 "Cannot compare nodes from different trees: self({}, {}, {}) vs other({}, {}, {})",
-                self.tree_id, self.primary_id, self.secondary_id,
-                other.tree_id, other.primary_id, other.secondary_id
+                self.tree_id, self.primary_id, self.secondary_id, other.tree_id, other.primary_id, other.secondary_id
             );
         }
         if other.level == self.level {
             self.index < other.index
-        }else if other.level < self.level {
+        } else if other.level < self.level {
             self.parent_at_level(other.level).index < other.index
-        }else{
+        } else {
             self.index < other.parent_at_level(self.level).index
         }
     }
-
 
     pub fn parent_at_level(&self, level: u8) -> Self {
         if level > self.level {
@@ -312,16 +304,13 @@ impl<const TABLE_TYPE: u16> KVQMerkleNodeKey<TABLE_TYPE> {
                 level, self.level, self.index, level, self.level
             );
         }
-        self.n_th_ancestor(self.level-level)
+        self.n_th_ancestor(self.level - level)
     }
     pub fn n_th_ancestor(&self, levels_above: u8) -> Self {
         if levels_above >= self.level {
             self.root()
-        }else{
-            self.at_position(
-                self.level-levels_above,
-                self.index >> (levels_above as u64),
-            )
+        } else {
+            self.at_position(self.level - levels_above, self.index >> (levels_above as u64))
         }
     }
     pub fn find_nearest_common_ancestor(&self, other: &Self) -> Self {
@@ -352,17 +341,17 @@ impl<const TABLE_TYPE: u16> PartialOrd for KVQMerkleNodeKey<TABLE_TYPE> {
         }
 
         if self.level < other.level {
-            let other_index = other.index >> (other.level-self.level);
+            let other_index = other.index >> (other.level - self.level);
             if other_index != self.index {
                 return self.index.partial_cmp(&other_index);
-            }else{
+            } else {
                 return self.checkpoint_id.partial_cmp(&other.checkpoint_id);
             }
-        }else if self.level > other.level {
-            let self_index = self.index >> (self.level-other.level);
+        } else if self.level > other.level {
+            let self_index = self.index >> (self.level - other.level);
             if self_index != other.index {
                 return self_index.partial_cmp(&other.index);
-            }else{
+            } else {
                 return self.checkpoint_id.partial_cmp(&other.checkpoint_id);
             }
         }
@@ -389,17 +378,17 @@ impl<const TABLE_TYPE: u16> Ord for KVQMerkleNodeKey<TABLE_TYPE> {
         }
 
         if self.level < other.level {
-            let other_index = other.index >> (other.level-self.level);
+            let other_index = other.index >> (other.level - self.level);
             if other_index != self.index {
                 return self.index.cmp(&other_index);
-            }else{
+            } else {
                 return self.checkpoint_id.cmp(&other.checkpoint_id);
             }
-        }else if self.level > other.level {
-            let self_index = self.index >> (self.level-other.level);
+        } else if self.level > other.level {
+            let self_index = self.index >> (self.level - other.level);
             if self_index != other.index {
                 return self_index.cmp(&other.index);
-            }else{
+            } else {
                 return self.checkpoint_id.cmp(&other.checkpoint_id);
             }
         }
@@ -436,14 +425,7 @@ impl<const TABLE_TYPE: u16> KVQSerializable for KVQMerkleNodeKey<TABLE_TYPE> {
     }
 }
 impl<const TABLE_TYPE: u16> KVQMerkleNodeKey<TABLE_TYPE> {
-    pub fn new(
-        tree_id: u8,
-        primary_id: u64,
-        secondary_id: u32,
-        level: u8,
-        index: u64,
-        checkpoint_id: u64,
-    ) -> Self {
+    pub fn new(tree_id: u8, primary_id: u64, secondary_id: u32, level: u8, index: u64, checkpoint_id: u64) -> Self {
         Self {
             tree_id,
             primary_id,
@@ -453,22 +435,10 @@ impl<const TABLE_TYPE: u16> KVQMerkleNodeKey<TABLE_TYPE> {
             checkpoint_id,
         }
     }
-    pub fn from_position(
-        tree_id: u8,
-        primary_id: u64,
-        secondary_id: u32,
-        checkpoint_id: u64,
-        position: KVQTreeNodePosition,
-    ) -> Self {
+    pub fn from_position(tree_id: u8, primary_id: u64, secondary_id: u32, checkpoint_id: u64, position: KVQTreeNodePosition) -> Self {
         Self::from_position_ptr(tree_id, primary_id, secondary_id, checkpoint_id, &position)
     }
-    pub fn from_position_ptr(
-        tree_id: u8,
-        primary_id: u64,
-        secondary_id: u32,
-        checkpoint_id: u64,
-        position: &KVQTreeNodePosition,
-    ) -> Self {
+    pub fn from_position_ptr(tree_id: u8, primary_id: u64, secondary_id: u32, checkpoint_id: u64, position: &KVQTreeNodePosition) -> Self {
         Self {
             tree_id,
             primary_id,
@@ -478,11 +448,7 @@ impl<const TABLE_TYPE: u16> KVQMerkleNodeKey<TABLE_TYPE> {
             checkpoint_id,
         }
     }
-    pub fn from_identifier_position_ptr(
-        identifier: &KVQTreeIdentifier,
-        checkpoint_id: u64,
-        position: &KVQTreeNodePosition,
-    ) -> Self {
+    pub fn from_identifier_position_ptr(identifier: &KVQTreeIdentifier, checkpoint_id: u64, position: &KVQTreeNodePosition) -> Self {
         Self {
             tree_id: identifier.tree_id,
             primary_id: identifier.primary_id,
@@ -492,11 +458,7 @@ impl<const TABLE_TYPE: u16> KVQMerkleNodeKey<TABLE_TYPE> {
             checkpoint_id,
         }
     }
-    pub fn from_identifier_position(
-        identifier: &KVQTreeIdentifier,
-        checkpoint_id: u64,
-        position: KVQTreeNodePosition,
-    ) -> Self {
+    pub fn from_identifier_position(identifier: &KVQTreeIdentifier, checkpoint_id: u64, position: KVQTreeNodePosition) -> Self {
         Self {
             tree_id: identifier.tree_id,
             primary_id: identifier.primary_id,

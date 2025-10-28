@@ -1,9 +1,13 @@
-use std::fmt::Debug;
-use std::hash::{Hash, Hasher};
-use std::ops::Neg;
+use std::{
+    fmt::Debug,
+    hash::{Hash, Hasher},
+    ops::Neg,
+};
 
-use plonky2::field::ops::Square;
-use plonky2::field::types::{Field, PrimeField};
+use plonky2::field::{
+    ops::Square,
+    types::{Field, PrimeField},
+};
 use serde::{Deserialize, Serialize};
 
 // To avoid implementation conflicts from associated types,
@@ -31,9 +35,9 @@ pub trait Curve: 'static + Sync + Sized + Copy + Debug {
     }
 
     fn is_safe_curve() -> bool {
-        // Added additional check to prevent using vulnerabilties in case a discriminant is equal to 0.
-        (Self::A.cube().double().double() + Self::B.square().triple().triple().triple())
-            .is_nonzero()
+        // Added additional check to prevent using vulnerabilties in case a discriminant
+        // is equal to 0.
+        (Self::A.cube().double().double() + Self::B.square().triple().triple().triple()).is_nonzero()
     }
 }
 
@@ -65,11 +69,7 @@ impl<C: Curve> AffinePoint<C> {
 
     pub fn to_projective(&self) -> ProjectivePoint<C> {
         let Self { x, y, zero } = *self;
-        let z = if zero {
-            C::BaseField::ZERO
-        } else {
-            C::BaseField::ONE
-        };
+        let z = if zero { C::BaseField::ZERO } else { C::BaseField::ONE };
 
         ProjectivePoint { x, y, z }
     }
@@ -93,26 +93,14 @@ impl<C: Curve> AffinePoint<C> {
         let x3 = lambda.square() - self.x.double();
         let y3 = lambda * (x1 - x3) - y1;
 
-        Self {
-            x: x3,
-            y: y3,
-            zero: false,
-        }
+        Self { x: x3, y: y3, zero: false }
     }
 }
 
 impl<C: Curve> PartialEq for AffinePoint<C> {
     fn eq(&self, other: &Self) -> bool {
-        let AffinePoint {
-            x: x1,
-            y: y1,
-            zero: zero1,
-        } = *self;
-        let AffinePoint {
-            x: x2,
-            y: y2,
-            zero: zero2,
-        } = *other;
+        let AffinePoint { x: x1, y: y1, zero: zero1 } = *self;
+        let AffinePoint { x: x2, y: y2, zero: zero2 } = *other;
         if zero1 || zero2 {
             return zero1 == zero2;
         }
@@ -209,19 +197,12 @@ impl<C: Curve> ProjectivePoint<C> {
         let x3 = h * s;
         let y3 = w * (b - h) - rr.double();
         let z3 = s.cube();
-        Self {
-            x: x3,
-            y: y3,
-            z: z3,
-        }
+        Self { x: x3, y: y3, z: z3 }
     }
 
     pub fn add_slices(a: &[Self], b: &[Self]) -> Vec<Self> {
         assert_eq!(a.len(), b.len());
-        a.iter()
-            .zip(b.iter())
-            .map(|(&a_i, &b_i)| a_i + b_i)
-            .collect()
+        a.iter().zip(b.iter()).map(|(&a_i, &b_i)| a_i + b_i).collect()
     }
 
     #[must_use]
@@ -236,22 +217,15 @@ impl<C: Curve> ProjectivePoint<C> {
 
 impl<C: Curve> PartialEq for ProjectivePoint<C> {
     fn eq(&self, other: &Self) -> bool {
-        let ProjectivePoint {
-            x: x1,
-            y: y1,
-            z: z1,
-        } = *self;
-        let ProjectivePoint {
-            x: x2,
-            y: y2,
-            z: z2,
-        } = *other;
+        let ProjectivePoint { x: x1, y: y1, z: z1 } = *self;
+        let ProjectivePoint { x: x2, y: y2, z: z2 } = *other;
         if z1 == C::BaseField::ZERO || z2 == C::BaseField::ZERO {
             return z1 == z2;
         }
 
         // We want to compare (x1/z1, y1/z1) == (x2/z2, y2/z2).
-        // But to avoid field division, it is better to compare (x1*z2, y1*z2) == (x2*z1, y2*z1).
+        // But to avoid field division, it is better to compare (x1*z2, y1*z2) ==
+        // (x2*z1, y2*z1).
         x1 * z2 == x2 * z1 && y1 * z2 == y2 * z1
     }
 }

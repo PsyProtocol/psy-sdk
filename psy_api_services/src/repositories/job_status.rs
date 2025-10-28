@@ -3,8 +3,11 @@
 
 use chrono::{DateTime, Utc};
 use sqlx::{PgPool, Row};
-use crate::models::{JobStatusSummary, RealmJobStatusSummary};
-use crate::Result;
+
+use crate::{
+    models::{JobStatusSummary, RealmJobStatusSummary},
+    Result,
+};
 
 pub struct JobStatusRepository;
 
@@ -29,19 +32,15 @@ impl JobStatusRepository {
                 END
         "#;
 
-        let rows = sqlx::query(query)
-            .fetch_all(pool)
-            .await?;
+        let rows = sqlx::query(query).fetch_all(pool).await?;
 
         let summaries = rows
             .into_iter()
-            .map(|row| {
-                JobStatusSummary {
-                    status: row.get("status"),
-                    job_count: row.get("job_count"),
-                    percentage: row.try_get("percentage").ok(),
-                    last_update: row.try_get("last_update").ok(),
-                }
+            .map(|row| JobStatusSummary {
+                status: row.get("status"),
+                job_count: row.get("job_count"),
+                percentage: row.try_get("percentage").ok(),
+                last_update: row.try_get("last_update").ok(),
             })
             .collect();
 
@@ -49,10 +48,7 @@ impl JobStatusRepository {
     }
 
     /// Get job status summary within a time window
-    pub async fn get_job_status_summary_with_time_window(
-        pool: &PgPool,
-        since: DateTime<Utc>,
-    ) -> Result<Vec<JobStatusSummary>> {
+    pub async fn get_job_status_summary_with_time_window(pool: &PgPool, since: DateTime<Utc>) -> Result<Vec<JobStatusSummary>> {
         let query = r#"
             SELECT
                 status,
@@ -72,20 +68,15 @@ impl JobStatusRepository {
                 END
         "#;
 
-        let rows = sqlx::query(query)
-            .bind(since)
-            .fetch_all(pool)
-            .await?;
+        let rows = sqlx::query(query).bind(since).fetch_all(pool).await?;
 
         let summaries = rows
             .into_iter()
-            .map(|row| {
-                JobStatusSummary {
-                    status: row.get("status"),
-                    job_count: row.get("job_count"),
-                    percentage: row.try_get("percentage").ok(),
-                    last_update: row.try_get("last_update").ok(),
-                }
+            .map(|row| JobStatusSummary {
+                status: row.get("status"),
+                job_count: row.get("job_count"),
+                percentage: row.try_get("percentage").ok(),
+                last_update: row.try_get("last_update").ok(),
             })
             .collect();
 
@@ -93,10 +84,7 @@ impl JobStatusRepository {
     }
 
     /// Get job status summary by realm
-    pub async fn get_job_status_summary_by_realm(
-        pool: &PgPool,
-        realm_id: Option<i64>,
-    ) -> Result<Vec<JobStatusSummary>> {
+    pub async fn get_job_status_summary_by_realm(pool: &PgPool, realm_id: Option<i64>) -> Result<Vec<JobStatusSummary>> {
         let query = if realm_id.is_some() {
             r#"
                 SELECT
@@ -138,25 +126,18 @@ impl JobStatusRepository {
         };
 
         let rows = if let Some(realm_id) = realm_id {
-            sqlx::query(query)
-                .bind(realm_id)
-                .fetch_all(pool)
-                .await?
+            sqlx::query(query).bind(realm_id).fetch_all(pool).await?
         } else {
-            sqlx::query(query)
-                .fetch_all(pool)
-                .await?
+            sqlx::query(query).fetch_all(pool).await?
         };
 
         let summaries = rows
             .into_iter()
-            .map(|row| {
-                JobStatusSummary {
-                    status: row.get("status"),
-                    job_count: row.get("job_count"),
-                    percentage: row.try_get("percentage").ok(),
-                    last_update: row.try_get("last_update").ok(),
-                }
+            .map(|row| JobStatusSummary {
+                status: row.get("status"),
+                job_count: row.get("job_count"),
+                percentage: row.try_get("percentage").ok(),
+                last_update: row.try_get("last_update").ok(),
             })
             .collect();
 
@@ -164,9 +145,7 @@ impl JobStatusRepository {
     }
 
     /// Get all realm job status summaries
-    pub async fn get_all_realm_job_status_summary(
-        pool: &PgPool,
-    ) -> Result<Vec<RealmJobStatusSummary>> {
+    pub async fn get_all_realm_job_status_summary(pool: &PgPool) -> Result<Vec<RealmJobStatusSummary>> {
         let query = r#"
             SELECT
                 realm_id,
@@ -186,20 +165,16 @@ impl JobStatusRepository {
                 END
         "#;
 
-        let rows = sqlx::query(query)
-            .fetch_all(pool)
-            .await?;
+        let rows = sqlx::query(query).fetch_all(pool).await?;
 
         let summaries = rows
             .into_iter()
-            .map(|row| {
-                RealmJobStatusSummary {
-                    realm_id: row.try_get("realm_id").ok(),
-                    status: row.get("status"),
-                    job_count: row.get("job_count"),
-                    percentage: row.try_get("percentage").ok(),
-                    last_update: row.try_get("last_update").ok(),
-                }
+            .map(|row| RealmJobStatusSummary {
+                realm_id: row.try_get("realm_id").ok(),
+                status: row.get("status"),
+                job_count: row.get("job_count"),
+                percentage: row.try_get("percentage").ok(),
+                last_update: row.try_get("last_update").ok(),
             })
             .collect();
 
@@ -218,9 +193,7 @@ impl JobStatusRepository {
             GROUP BY status
         "#;
 
-        let rows = sqlx::query(query)
-            .fetch_all(pool)
-            .await?;
+        let rows = sqlx::query(query).fetch_all(pool).await?;
 
         let mut counts = HashMap::new();
         for row in rows {
@@ -252,9 +225,7 @@ impl JobStatusRepository {
             ) as has_data
         "#;
 
-        let row = sqlx::query(query)
-            .fetch_one(pool)
-            .await?;
+        let row = sqlx::query(query).fetch_one(pool).await?;
 
         let exists: bool = row.get("exists");
         let has_data: Option<bool> = row.try_get("has_data").ok();

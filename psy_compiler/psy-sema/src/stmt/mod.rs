@@ -8,12 +8,11 @@ mod r#while;
 pub use assignment::*;
 use enum_as_inner::EnumAsInner;
 pub use intrinsic::*;
+use psy_ast::{DefId, ExprId, NodeInfo, NodeType};
 pub use r#for::*;
 pub use r#return::*;
 pub use r#while::*;
 pub use variable::*;
-
-use psy_ast::{DefId, ExprId, NodeInfo, NodeType};
 
 use crate::{CheckedDefinitionNode, CheckedExprNode};
 

@@ -1,13 +1,14 @@
-use plonky2::field::goldilocks_field::GoldilocksField;
-use psy_core::data::qhashout::QHashOut;
-use psy_core::job::id::{QProvingJobDataID, ProvingJobCircuitType};
-use serde::{Deserialize, Serialize};
-use indexmap::IndexMap;
-use std::fs;
-use std::path::Path;
-use tracing::{error, info, warn, trace};
+use std::{fs, path::Path};
 
+use indexmap::IndexMap;
+use plonky2::field::goldilocks_field::GoldilocksField;
+use psy_core::{
+    data::qhashout::QHashOut,
+    job::id::{ProvingJobCircuitType, QProvingJobDataID},
+};
 pub use psy_prover::local::provider::{JobInfo, JobLocation};
+use serde::{Deserialize, Serialize};
+use tracing::{error, info, trace, warn};
 
 type F = GoldilocksField;
 
@@ -33,7 +34,8 @@ impl WorkerJobTracker {
 
     /// Check if a job type is supported for rewards claiming
     fn is_job_type_supported_for_rewards(circuit_type: ProvingJobCircuitType) -> bool {
-        matches!(circuit_type,
+        matches!(
+            circuit_type,
             // User Registration jobs (type 0)
             ProvingJobCircuitType::AppendUserRegistrationTree |
             ProvingJobCircuitType::AppendUserRegistrationTreeAggregate |
@@ -81,10 +83,7 @@ impl WorkerJobTracker {
                 }
             }
         } else {
-            info!(
-                "Job tracker file {} not found, creating new tracker",
-                filename
-            );
+            info!("Job tracker file {} not found, creating new tracker", filename);
             Self::new()
         }
     }
@@ -114,10 +113,7 @@ impl WorkerJobTracker {
 
         match location {
             JobLocation::Coordinator => {
-                self.coordinator
-                    .entry(checkpoint_id)
-                    .or_insert_with(Vec::new)
-                    .push(job_hex);
+                self.coordinator.entry(checkpoint_id).or_insert_with(Vec::new).push(job_hex);
                 info!(
                     "Added coordinator job {} (type: {:?}) to checkpoint {}",
                     job_id.to_hex_string(),
@@ -127,17 +123,13 @@ impl WorkerJobTracker {
             }
             JobLocation::Realm(realm_id) => {
                 let realm_id = realm_id as u32;
-                let realm_index = self
-                    .realms
-                    .iter()
-                    .position(|r| r.id == realm_id)
-                    .unwrap_or_else(|| {
-                        self.realms.push(RealmJobData {
-                            id: realm_id,
-                            checkpoints: IndexMap::new(),
-                        });
-                        self.realms.len() - 1
+                let realm_index = self.realms.iter().position(|r| r.id == realm_id).unwrap_or_else(|| {
+                    self.realms.push(RealmJobData {
+                        id: realm_id,
+                        checkpoints: IndexMap::new(),
                     });
+                    self.realms.len() - 1
+                });
 
                 self.realms[realm_index]
                     .checkpoints
@@ -183,10 +175,7 @@ impl WorkerJobTracker {
         let hex_str = hex_str.strip_prefix("0x").unwrap_or(hex_str);
         let bytes = hex::decode(hex_str)?;
         if bytes.len() != 24 {
-            anyhow::bail!(
-                "Invalid job ID length: expected 24 bytes, got {}",
-                bytes.len()
-            );
+            anyhow::bail!("Invalid job ID length: expected 24 bytes, got {}", bytes.len());
         }
         QProvingJobDataID::try_from_byte_vec(&bytes)
     }

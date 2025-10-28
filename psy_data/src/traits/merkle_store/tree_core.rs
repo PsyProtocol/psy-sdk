@@ -1,56 +1,52 @@
+use async_trait::async_trait;
 use kvq::traits::{KVQPair, KVQSerializable};
 use psy_core::utils::math::ceil_div_usize;
-use psy_crypto::hash::{merkle::{core::{DeltaMerkleProofCore, MerkleProofCore}, spiderman::SpidermanUpdateProof, utils::sub_tree_nca::{UpdateNCAProofsWithDependencies, UpdateNearestCommonAncestorProof}}, traits::hasher::MerkleZeroHasherWithMarkedLeaf};
+use psy_crypto::hash::{
+    merkle::{
+        core::{DeltaMerkleProofCore, MerkleProofCore},
+        spiderman::SpidermanUpdateProof,
+        utils::sub_tree_nca::{UpdateNCAProofsWithDependencies, UpdateNearestCommonAncestorProof},
+    },
+    traits::hasher::MerkleZeroHasherWithMarkedLeaf,
+};
 use serde::Serialize;
 
-use crate::models::kvq_merkle::{key::KVQMerkleNodeKey, model::KVQMerkleTreeModelReaderCore};
-
 use super::{reader_core::QEDMerkleTreeModelReaderCoreAsync, MerkleNodeStoreImmutableAsync};
-
-use async_trait::async_trait;
-
+use crate::models::kvq_merkle::{key::KVQMerkleNodeKey, model::KVQMerkleTreeModelReaderCore};
 
 #[async_trait]
 pub trait QMerkleTreeModelCoreImmutableAsync<
-S: MerkleNodeStoreImmutableAsync<Hash, TABLE_TYPE> + Send + Sync,
-Hash: Copy + Clone + Send + Sync + KVQSerializable + Default + PartialEq + Serialize,
-Hasher: MerkleZeroHasherWithMarkedLeaf<Hash>,
-const TABLE_TYPE: u16,
-const MARK_LEAVES: bool,
+    S: MerkleNodeStoreImmutableAsync<Hash, TABLE_TYPE> + Send + Sync,
+    Hash: Copy + Clone + Send + Sync + KVQSerializable + Default + PartialEq + Serialize,
+    Hasher: MerkleZeroHasherWithMarkedLeaf<Hash>,
+    const TABLE_TYPE: u16,
+    const MARK_LEAVES: bool,
 >: QEDMerkleTreeModelReaderCoreAsync<S, Hash, Hasher, TABLE_TYPE, MARK_LEAVES>
 {
-    async fn set_node_kv(
-        store: &S,
-        kv: &KVQPair<KVQMerkleNodeKey<TABLE_TYPE>, Hash>,
-    ) -> anyhow::Result<()> {
+    async fn set_node_kv(store: &S, kv: &KVQPair<KVQMerkleNodeKey<TABLE_TYPE>, Hash>) -> anyhow::Result<()> {
         store.set_node(kv).await?;
 
         Ok(())
     }
-    async fn set_node(
-        store: &S,
-        key: &KVQMerkleNodeKey<TABLE_TYPE>,
-        value: &Hash,
-    ) -> anyhow::Result<()> {
+    async fn set_node(store: &S, key: &KVQMerkleNodeKey<TABLE_TYPE>, value: &Hash) -> anyhow::Result<()> {
         store.set_node_params(key, *value).await?;
         Ok(())
     }
-    async fn set_nodes_ref<'a>(
-        store: &S,
-        nodes: &[KVQPair<&'a KVQMerkleNodeKey<TABLE_TYPE>, &'a Hash>],
-    ) -> anyhow::Result<()> {
-        store.set_nodes(&nodes.iter().map(|x|{
-            KVQPair{
-                key: x.key.to_owned(),
-                value: x.value.to_owned(),
-            }
-        }).collect::<Vec<_>>()).await?;
+    async fn set_nodes_ref<'a>(store: &S, nodes: &[KVQPair<&'a KVQMerkleNodeKey<TABLE_TYPE>, &'a Hash>]) -> anyhow::Result<()> {
+        store
+            .set_nodes(
+                &nodes
+                    .iter()
+                    .map(|x| KVQPair {
+                        key: x.key.to_owned(),
+                        value: x.value.to_owned(),
+                    })
+                    .collect::<Vec<_>>(),
+            )
+            .await?;
         Ok(())
     }
-    async fn set_nodes<'a>(
-        store: &S,
-        nodes: &[KVQPair<KVQMerkleNodeKey<TABLE_TYPE>, Hash>],
-    ) -> anyhow::Result<()> {
+    async fn set_nodes<'a>(store: &S, nodes: &[KVQPair<KVQMerkleNodeKey<TABLE_TYPE>, Hash>]) -> anyhow::Result<()> {
         store.set_nodes(nodes).await?;
         Ok(())
     }
@@ -71,17 +67,12 @@ const MARK_LEAVES: bool,
             checkpoint_id,
         };
 
-
-        let mut updates: Vec<KVQPair<KVQMerkleNodeKey<TABLE_TYPE>, Hash>> =
-            Vec::with_capacity(merkle_proof.siblings.len()*2+1);
+        let mut updates: Vec<KVQPair<KVQMerkleNodeKey<TABLE_TYPE>, Hash>> = Vec::with_capacity(merkle_proof.siblings.len() * 2 + 1);
         let mut k = base_leaf_key;
         let mut last_hash = merkle_proof.value;
 
         for sibling in merkle_proof.siblings.iter() {
-            updates.push(KVQPair::<KVQMerkleNodeKey<TABLE_TYPE>, Hash> {
-                key: k,
-                value: last_hash,
-            });
+            updates.push(KVQPair::<KVQMerkleNodeKey<TABLE_TYPE>, Hash> { key: k, value: last_hash });
             updates.push(KVQPair::<KVQMerkleNodeKey<TABLE_TYPE>, Hash> {
                 key: k.sibling(),
                 value: *sibling,
@@ -103,10 +94,7 @@ const MARK_LEAVES: bool,
             k = k.parent();
         }
 
-        updates.push(KVQPair::<KVQMerkleNodeKey<TABLE_TYPE>, Hash> {
-            key: k,
-            value: last_hash,
-        });
+        updates.push(KVQPair::<KVQMerkleNodeKey<TABLE_TYPE>, Hash> { key: k, value: last_hash });
         Self::set_nodes(store, &updates).await?;
         Ok(())
     }
@@ -136,21 +124,16 @@ const MARK_LEAVES: bool,
         Self::set_leaf(store, &key.at_checkpoint(new_checkpoint), value)
 
     }*/
-    async fn rehash_from_node_to_level(
-        store: &S,
-        tree_height: usize,
-        node: KVQMerkleNodeKey<TABLE_TYPE>,
-        root_level: u8
-    )-> anyhow::Result<()> {
+    async fn rehash_from_node_to_level(store: &S, tree_height: usize, node: KVQMerkleNodeKey<TABLE_TYPE>, root_level: u8) -> anyhow::Result<()> {
         // TODO: optimize to get all nodes at once
 
         let mut current = node;
         let mut current_value = Self::get_node(store, tree_height, &node).await?;
 
-        let mut updates: Vec<KVQPair<KVQMerkleNodeKey<TABLE_TYPE>, Hash>> = Vec::with_capacity((current.level-root_level) as usize);
+        let mut updates: Vec<KVQPair<KVQMerkleNodeKey<TABLE_TYPE>, Hash>> = Vec::with_capacity((current.level - root_level) as usize);
         while current.level > root_level {
             let parent_key = current.parent();
-            let sibling_value = Self::get_node(store, tree_height,&current.sibling()).await?;
+            let sibling_value = Self::get_node(store, tree_height, &current.sibling()).await?;
 
             let parent_value = if current.index & 1 == 0 {
                 if MARK_LEAVES && current.level == tree_height as u8 {
@@ -165,7 +148,10 @@ const MARK_LEAVES: bool,
                     Hasher::two_to_one(&sibling_value, &current_value)
                 }
             };
-            updates.push(KVQPair { key: parent_key, value: parent_value });
+            updates.push(KVQPair {
+                key: parent_key,
+                value: parent_value,
+            });
             current = parent_key;
             current_value = parent_value;
         }
@@ -179,7 +165,7 @@ const MARK_LEAVES: bool,
         new_value: Hash,
         root_level: u8,
         updates: &mut Vec<KVQPair<KVQMerkleNodeKey<TABLE_TYPE>, Hash>>,
-    )-> anyhow::Result<DeltaMerkleProofCore<Hash>> {
+    ) -> anyhow::Result<DeltaMerkleProofCore<Hash>> {
         let root_level = root_level.min(node.level);
         // TODO: optimize to get all nodes at once
         if root_level == node.level {
@@ -194,7 +180,7 @@ const MARK_LEAVES: bool,
                 siblings: Vec::new(),
             });
         }
-        let sub_height = (node.level-root_level) as usize;
+        let sub_height = (node.level - root_level) as usize;
         let mut siblings_old_value_root_keys = Vec::with_capacity(sub_height + 2);
         siblings_old_value_root_keys.extend_from_slice(&node.siblings_to_level(root_level));
         siblings_old_value_root_keys.push(node);
@@ -206,11 +192,9 @@ const MARK_LEAVES: bool,
         let old_value = siblings_and_old.pop().unwrap();
         let siblings = siblings_and_old;
 
-
-
         let mut current_value = old_value;
         let mut current = node;
-        updates.reserve(sub_height+1);
+        updates.reserve(sub_height + 1);
         updates.push(KVQPair { key: node, value: new_value });
 
         for sibling_value in siblings.iter() {
@@ -229,7 +213,10 @@ const MARK_LEAVES: bool,
                     Hasher::two_to_one(&sibling_value, &current_value)
                 }
             };
-            updates.push(KVQPair { key: parent_key, value: parent_value });
+            updates.push(KVQPair {
+                key: parent_key,
+                value: parent_value,
+            });
             current = parent_key;
             current_value = parent_value;
         }
@@ -243,66 +230,45 @@ const MARK_LEAVES: bool,
         })
     }
 
-
-    async fn rehash_sub_tree_top(
-        store: &S,
-        tree_height: usize,
-        first_node_at_level: &KVQMerkleNodeKey<TABLE_TYPE>,
-    ) -> anyhow::Result<()>{
+    async fn rehash_sub_tree_top(store: &S, tree_height: usize, first_node_at_level: &KVQMerkleNodeKey<TABLE_TYPE>) -> anyhow::Result<()> {
         if first_node_at_level.level == 0 {
             return Ok(());
         }
-        let current_leaf_keys_count = 1usize<<(first_node_at_level.level as usize);
-        let current_leaf_keys = (0..current_leaf_keys_count).map(|x| {
-            first_node_at_level.at_index(x as u64)
-        }).collect::<Vec<_>>();
+        let current_leaf_keys_count = 1usize << (first_node_at_level.level as usize);
+        let current_leaf_keys = (0..current_leaf_keys_count)
+            .map(|x| first_node_at_level.at_index(x as u64))
+            .collect::<Vec<_>>();
 
-        let mut updates: Vec<KVQPair<KVQMerkleNodeKey<TABLE_TYPE>, Hash>> = Vec::with_capacity(current_leaf_keys_count-1);
+        let mut updates: Vec<KVQPair<KVQMerkleNodeKey<TABLE_TYPE>, Hash>> = Vec::with_capacity(current_leaf_keys_count - 1);
 
-
-
-        let mut current_leaves =  Self::get_nodes(store, tree_height, &current_leaf_keys).await?;
+        let mut current_leaves = Self::get_nodes(store, tree_height, &current_leaf_keys).await?;
 
         let mut child_level = first_node_at_level.level;
         while child_level > 0 {
-            let new_leaf_keys_count = 1usize<<(child_level as usize - 1);
+            let new_leaf_keys_count = 1usize << (child_level as usize - 1);
             let mut new_leaves = Vec::with_capacity(new_leaf_keys_count);
 
             for i in 0..new_leaf_keys_count {
                 let value = if MARK_LEAVES && child_level == (tree_height as u8) {
-                    Hasher::two_to_one_marked_leaf(&current_leaves[i*2], &current_leaves[i*2+1])
-                }else{
-                    Hasher::two_to_one(&current_leaves[i*2], &current_leaves[i*2+1])
+                    Hasher::two_to_one_marked_leaf(&current_leaves[i * 2], &current_leaves[i * 2 + 1])
+                } else {
+                    Hasher::two_to_one(&current_leaves[i * 2], &current_leaves[i * 2 + 1])
                 };
                 new_leaves.push(value);
                 updates.push(KVQPair {
-                    key: first_node_at_level.at_position(child_level-1, (i as u64)>>1u64),
+                    key: first_node_at_level.at_position(child_level - 1, (i as u64) >> 1u64),
                     value,
                 })
             }
             child_level -= 1;
             current_leaves = new_leaves;
-
         }
 
         Self::set_nodes(store, &updates).await?;
 
         Ok(())
-
-
-
-
-
-
-
-
     }
-    async fn rehash_sub_tree(
-        store: &S,
-        tree_height: usize,
-        sub_root_key: &KVQMerkleNodeKey<TABLE_TYPE>,
-    ) -> anyhow::Result<()>{
-
+    async fn rehash_sub_tree(store: &S, tree_height: usize, sub_root_key: &KVQMerkleNodeKey<TABLE_TYPE>) -> anyhow::Result<()> {
         let sub_tree_height = tree_height - (sub_root_key.level as usize);
 
         if sub_tree_height == 0 {
@@ -311,7 +277,6 @@ const MARK_LEAVES: bool,
             let left_key = sub_root_key.left_child();
             let right_key = sub_root_key.right_child();
             let nodes = Self::get_nodes(store, tree_height, &[left_key, right_key]).await?;
-
 
             let sub_root_value = if MARK_LEAVES {
                 Hasher::two_to_one_marked_leaf(&nodes[0], &nodes[1])
@@ -322,18 +287,16 @@ const MARK_LEAVES: bool,
             return Ok(());
         }
 
-
         let mut child_base_key = sub_root_key.first_leaf_child(tree_height as u8);
 
         let mut nodes_at_current_level = 1usize << (sub_tree_height - 1);
 
         let mut child_values = Vec::with_capacity(nodes_at_current_level);
-        let mut child_keys = Vec::with_capacity(nodes_at_current_level*2);
-        let mut node_updates = Vec::with_capacity((1usize<<sub_tree_height)-1);
-
+        let mut child_keys = Vec::with_capacity(nodes_at_current_level * 2);
+        let mut node_updates = Vec::with_capacity((1usize << sub_tree_height) - 1);
 
         for i in 0..(nodes_at_current_level as u64) {
-            let left_key = child_base_key.at_index(i*2+child_base_key.index);
+            let left_key = child_base_key.at_index(i * 2 + child_base_key.index);
             child_keys.push(left_key);
             child_keys.push(left_key.sibling());
         }
@@ -344,14 +307,12 @@ const MARK_LEAVES: bool,
                 Hasher::two_to_one(&x[0], &x[1])
             };
 
-            let parent_key = child_base_key.at_index((i as u64)*2+child_base_key.index).parent();
+            let parent_key = child_base_key.at_index((i as u64) * 2 + child_base_key.index).parent();
 
-            node_updates.push(
-                KVQPair{
-                    key: parent_key,
-                    value: parent_value,
-                }
-            );
+            node_updates.push(KVQPair {
+                key: parent_key,
+                value: parent_value,
+            });
             child_values.push(parent_value);
         }
 
@@ -365,10 +326,13 @@ const MARK_LEAVES: bool,
 
                 let parent_value = if MARK_LEAVES {
                     Hasher::two_to_one_marked_leaf(&child_values[i * 2], &child_values[i * 2 + 1])
-                }else{
+                } else {
                     Hasher::two_to_one(&child_values[i * 2], &child_values[i * 2 + 1])
                 };
-                node_updates.push(KVQPair { key: parent_key, value: parent_value });
+                node_updates.push(KVQPair {
+                    key: parent_key,
+                    value: parent_value,
+                });
 
                 parent_values.push(parent_value);
             }
@@ -382,7 +346,6 @@ const MARK_LEAVES: bool,
         Self::rehash_from_node_to_level(store, tree_height, child_base_key, 0).await?;
 
         Ok(())
-
     }
 
     async fn smart_injest_nca(
@@ -390,84 +353,70 @@ const MARK_LEAVES: bool,
         tree_height: usize,
         root_level: u8,
         nodes: &mut Vec<KVQPair<KVQMerkleNodeKey<TABLE_TYPE>, Hash>>,
-    ) -> anyhow::Result<UpdateNCAProofsWithDependencies<Hash>>{
-
-
+    ) -> anyhow::Result<UpdateNCAProofsWithDependencies<Hash>> {
         if nodes.len() == 1 {
             let mut updates = Vec::new();
 
-            let dmp_a = Self::set_rehash_from_node_to_level_dmp_with_updates(store, tree_height, nodes[0].key, nodes[0].value, root_level, &mut updates).await?;
+            let dmp_a =
+                Self::set_rehash_from_node_to_level_dmp_with_updates(store, tree_height, nodes[0].key, nodes[0].value, root_level, &mut updates)
+                    .await?;
             let root_key = nodes[0].key;
             let root_value = nodes[0].value;
 
+            let link_proof = Self::set_rehash_from_node_to_level_dmp_with_updates(
+                store,
+                tree_height,
+                root_key,
+                root_value,
+                root_level.min(root_key.level),
+                &mut updates,
+            )
+            .await?;
 
-                let link_proof = Self::set_rehash_from_node_to_level_dmp_with_updates(
-                    store,
-                    tree_height,
-                    root_key,
-                    root_value,
-                    root_level.min(root_key.level),
-                    &mut updates,
-                ).await?;
+            Self::set_nodes(store, &updates).await?;
 
-                Self::set_nodes(store, &updates).await?;
-
-                return Ok(UpdateNCAProofsWithDependencies {
-                    nca_proofs: vec![UpdateNearestCommonAncestorProof{
-                        old_nearest_common_ancestor_value: dmp_a.old_value,
-                        new_nearest_common_ancestor_value: dmp_a.new_value,
-                        child_a: DeltaMerkleProofCore::single_value(root_key.index, dmp_a.old_value, dmp_a.new_value),
-                        child_b: DeltaMerkleProofCore::single_value(root_key.index, dmp_a.old_value, dmp_a.new_value),
-                        nearest_common_ancestor_level: root_key.level,
-                        nearest_common_ancestor_index: root_key.index,
-                        level_a: root_key.level,
-                        level_b: root_key.level,
-                    }],
-                    dependencies: vec![(-1, -1)],
-                    root_proof_index: 0,
+            return Ok(UpdateNCAProofsWithDependencies {
+                nca_proofs: vec![UpdateNearestCommonAncestorProof {
+                    old_nearest_common_ancestor_value: dmp_a.old_value,
+                    new_nearest_common_ancestor_value: dmp_a.new_value,
+                    child_a: DeltaMerkleProofCore::single_value(root_key.index, dmp_a.old_value, dmp_a.new_value),
+                    child_b: DeltaMerkleProofCore::single_value(root_key.index, dmp_a.old_value, dmp_a.new_value),
                     nearest_common_ancestor_level: root_key.level,
                     nearest_common_ancestor_index: root_key.index,
-                    link_level: root_level.min(root_key.level),
-                    link_index: if root_level < root_key.level {
-                        root_key.parent_at_level(root_level).index
-                    }else{
-                        root_key.index
-                    },
-                    link_proof:link_proof,
-                })
-
-
+                    level_a: root_key.level,
+                    level_b: root_key.level,
+                }],
+                dependencies: vec![(-1, -1)],
+                root_proof_index: 0,
+                nearest_common_ancestor_level: root_key.level,
+                nearest_common_ancestor_index: root_key.index,
+                link_level: root_level.min(root_key.level),
+                link_index: if root_level < root_key.level {
+                    root_key.parent_at_level(root_level).index
+                } else {
+                    root_key.index
+                },
+                link_proof: link_proof,
+            });
         }
 
         assert!(nodes.len() > 1, "can only call smart injest nca with multiple nodes");
 
-
-
-        nodes.sort_by(|a,b| {
-            a.key.cmp(&b.key)
-        });
-        let straggler = if nodes.len()&1 == 1 {
-            Some(nodes.pop().unwrap())
-        }else{
-            None
-        };
+        nodes.sort_by(|a, b| a.key.cmp(&b.key));
+        let straggler = if nodes.len() & 1 == 1 { Some(nodes.pop().unwrap()) } else { None };
         let nodes = nodes;
         let full_nodes_len = nodes.len();
 
         let mut nca_proofs: Vec<UpdateNearestCommonAncestorProof<Hash>> = Vec::with_capacity(nodes.len());
         let mut dependencies: Vec<(i64, i64)> = Vec::with_capacity(nodes.len());
-        let mut updates = Vec::with_capacity(nodes.len()*tree_height);
-        let first_rung_len = full_nodes_len/2;
+        let mut updates = Vec::with_capacity(nodes.len() * tree_height);
+        let first_rung_len = full_nodes_len / 2;
 
         let mut current_inds = Vec::with_capacity(first_rung_len);
-        let mut current_nodes =Vec::with_capacity(first_rung_len);
-
+        let mut current_nodes = Vec::with_capacity(first_rung_len);
 
         for i in 0..first_rung_len {
-            let (
-                node,
-                proof
-            ) = Self::smart_injest_nca_split_kv(store, tree_height, nodes[i*2], nodes[i*2+1], &mut updates).await?;
+            let (node, proof) = Self::smart_injest_nca_split_kv(store, tree_height, nodes[i * 2], nodes[i * 2 + 1], &mut updates).await?;
 
             current_nodes.push(node);
             current_inds.push(i);
@@ -478,29 +427,22 @@ const MARK_LEAVES: bool,
 
         let mut next_nca_proof_index = nca_proofs.len();
 
-
-
-
         while current_nodes.len() > 1 {
             let current_nodes_len = current_nodes.len();
-            let even_pairs = current_nodes_len/2;
-            let new_nodes_len = even_pairs+(current_nodes_len&1);
-            let has_odd = current_nodes_len&1 == 1;
-
+            let even_pairs = current_nodes_len / 2;
+            let new_nodes_len = even_pairs + (current_nodes_len & 1);
+            let has_odd = current_nodes_len & 1 == 1;
 
             let mut new_nodes = Vec::with_capacity(new_nodes_len);
             let mut new_inds = Vec::with_capacity(new_nodes_len);
 
-
             for i in 0..even_pairs {
-                let (
-                    node,
-                    proof
-                ) = Self::smart_injest_nca_split_kv(store, tree_height, current_nodes[i*2], current_nodes[i*2+1], &mut updates).await?;
+                let (node, proof) =
+                    Self::smart_injest_nca_split_kv(store, tree_height, current_nodes[i * 2], current_nodes[i * 2 + 1], &mut updates).await?;
 
                 new_nodes.push(node);
                 new_inds.push(next_nca_proof_index);
-                dependencies.push((current_inds[i*2] as i64, current_inds[i*2+1] as i64));
+                dependencies.push((current_inds[i * 2] as i64, current_inds[i * 2 + 1] as i64));
                 nca_proofs.push(proof);
 
                 next_nca_proof_index += 1;
@@ -515,10 +457,7 @@ const MARK_LEAVES: bool,
 
         match straggler {
             Some(x) => {
-                let (
-                    node,
-                    proof
-                ) = Self::smart_injest_nca_split_kv(store, tree_height, current_nodes[0], x, &mut updates).await?;
+                let (node, proof) = Self::smart_injest_nca_split_kv(store, tree_height, current_nodes[0], x, &mut updates).await?;
 
                 dependencies.push((current_inds[0] as i64, -1));
                 nca_proofs.push(proof);
@@ -530,14 +469,12 @@ const MARK_LEAVES: bool,
                     node.value,
                     root_level.min(node.key.level),
                     &mut updates,
-                ).await?;
+                )
+                .await?;
                 updates.push(node);
 
-
-
                 Self::set_nodes(store, &updates).await?;
-                let root_proof_index =  nca_proofs.len()-1;
-
+                let root_proof_index = nca_proofs.len() - 1;
 
                 Ok(UpdateNCAProofsWithDependencies {
                     nca_proofs,
@@ -547,19 +484,17 @@ const MARK_LEAVES: bool,
                     link_level: root_level.min(node.key.level),
                     link_index: if root_level < node.key.level {
                         node.key.parent_at_level(root_level).index
-                    }else{
+                    } else {
                         node.key.index
                     },
-                    link_proof:link_proof,
+                    link_proof: link_proof,
                     root_proof_index,
                 })
-            },
+            }
             None => {
-
                 let root_key = current_nodes[0].key;
                 let root_value = current_nodes[0].value;
                 updates.push(current_nodes[0]);
-
 
                 let link_proof = Self::set_rehash_from_node_to_level_dmp_with_updates(
                     store,
@@ -568,13 +503,11 @@ const MARK_LEAVES: bool,
                     root_value,
                     root_level.min(root_key.level),
                     &mut updates,
-                ).await?;
-
-
+                )
+                .await?;
 
                 Self::set_nodes(store, &updates).await?;
-                let root_proof_index =  nca_proofs.len()-1;
-
+                let root_proof_index = nca_proofs.len() - 1;
 
                 Ok(UpdateNCAProofsWithDependencies {
                     nca_proofs,
@@ -584,19 +517,15 @@ const MARK_LEAVES: bool,
                     link_level: root_level.min(root_key.level),
                     link_index: if root_level < root_key.level {
                         root_key.parent_at_level(root_level).index
-                    }else{
+                    } else {
                         root_key.index
                     },
-                    link_proof:link_proof,
+                    link_proof: link_proof,
                     root_proof_index,
                 })
-
             }
         }
-
     }
-
-
 
     async fn append_leaves_spider_man(
         store: &S,
@@ -612,12 +541,9 @@ const MARK_LEAVES: bool,
             anyhow::bail!("tree cannot fit an additional {} leaves", leaves.len());
         }
         let cur_sub_tree_id = append_index / (leaves_per_subtree as u64);
-        let cur_sub_tree_leaf_index =
-            ((append_index as u64) & ((leaves_per_subtree as u64) - 1u64)) as u64;
+        let cur_sub_tree_leaf_index = ((append_index as u64) & ((leaves_per_subtree as u64) - 1u64)) as u64;
 
-        let subtree_count =
-            ceil_div_usize((append_index as usize) + leaves.len(), leaves_per_subtree)
-                - (cur_sub_tree_id as usize);
+        let subtree_count = ceil_div_usize((append_index as usize) + leaves.len(), leaves_per_subtree) - (cur_sub_tree_id as usize);
 
         let mut results = Vec::with_capacity(subtree_count);
         if subtree_count == 0 {
@@ -630,7 +556,9 @@ const MARK_LEAVES: bool,
         let start_existing_index = cur_sub_tree_id * (leaves_per_subtree as u64);
         let start_added_index = start_existing_index + cur_sub_tree_leaf_index;
 
-        let existing_leaf_keys = (start_existing_index..start_added_index).map(|i| first_empty_leaf_key.at_index(i)).collect::<Vec<_>>();
+        let existing_leaf_keys = (start_existing_index..start_added_index)
+            .map(|i| first_empty_leaf_key.at_index(i))
+            .collect::<Vec<_>>();
         let existing_leaf_values = Self::get_nodes(store, tree_height, &existing_leaf_keys).await?;
         old_leaves.extend_from_slice(&existing_leaf_values);
         new_leaves.extend_from_slice(&existing_leaf_values);
@@ -663,7 +591,7 @@ const MARK_LEAVES: bool,
         }
 
         Self::set_nodes(store, &node_updates).await?;
-        let dmp = Self::rehash_sub_tree_dmp(store, tree_height,&first_empty_leaf_key.n_th_ancestor(sub_tree_height)).await?;
+        let dmp = Self::rehash_sub_tree_dmp(store, tree_height, &first_empty_leaf_key.n_th_ancestor(sub_tree_height)).await?;
 
         results.push(SpidermanUpdateProof {
             top_line_proof: dmp,
@@ -673,9 +601,7 @@ const MARK_LEAVES: bool,
 
         if subtree_count > 2 {
             let ll = leaves_used;
-            let old_leaves = (0..leaves_per_subtree)
-                .map(|_| zero_hash)
-                .collect::<Vec<_>>();
+            let old_leaves = (0..leaves_per_subtree).map(|_| zero_hash).collect::<Vec<_>>();
 
             for t in 0..(subtree_count - 3) {
                 let base_ind = ll + t * leaves_per_subtree;
@@ -684,18 +610,21 @@ const MARK_LEAVES: bool,
                 let mut node_updates = Vec::with_capacity(new_leaves.len());
 
                 for (i, l) in new_leaves.iter().enumerate() {
-                    node_updates.push(
-                        KVQPair {
-                            key: first_empty_leaf_key.at_index((bb1 + i) as u64),
-                            value: *l,
-                        }
-                    );
+                    node_updates.push(KVQPair {
+                        key: first_empty_leaf_key.at_index((bb1 + i) as u64),
+                        value: *l,
+                    });
                 }
 
                 Self::set_nodes(store, &node_updates).await?;
 
                 results.push(SpidermanUpdateProof {
-                    top_line_proof: Self::rehash_sub_tree_dmp(store, tree_height as usize, &first_empty_leaf_key.at_index(bb1 as u64).n_th_ancestor(sub_tree_height)).await?,
+                    top_line_proof: Self::rehash_sub_tree_dmp(
+                        store,
+                        tree_height as usize,
+                        &first_empty_leaf_key.at_index(bb1 as u64).n_th_ancestor(sub_tree_height),
+                    )
+                    .await?,
                     web_proof_old_leaves: old_leaves.clone(),
                     web_proof_new_leaves: new_leaves,
                 });
@@ -703,7 +632,7 @@ const MARK_LEAVES: bool,
 
             // OPT: don't waste the old_leaves.clone()
 
-            let t = (subtree_count as usize)-3;
+            let t = (subtree_count as usize) - 3;
             let base_ind = ll + t * leaves_per_subtree;
             let new_leaves = leaves[base_ind..(base_ind + leaves_per_subtree)].to_vec();
             let bb1 = (cur_sub_tree_id as usize + t + 1) * leaves_per_subtree;
@@ -711,18 +640,21 @@ const MARK_LEAVES: bool,
             let mut node_updates = Vec::with_capacity(new_leaves.len());
 
             for (i, l) in new_leaves.iter().enumerate() {
-                node_updates.push(
-                    KVQPair {
-                        key: first_empty_leaf_key.at_index((bb1 + i) as u64),
-                        value: *l,
-                    }
-                );
+                node_updates.push(KVQPair {
+                    key: first_empty_leaf_key.at_index((bb1 + i) as u64),
+                    value: *l,
+                });
             }
 
             Self::set_nodes(store, &node_updates).await?;
 
             results.push(SpidermanUpdateProof {
-                top_line_proof: Self::rehash_sub_tree_dmp(store, sub_tree_height as usize, &first_empty_leaf_key.at_index(bb1 as u64).n_th_ancestor(sub_tree_height)).await?,
+                top_line_proof: Self::rehash_sub_tree_dmp(
+                    store,
+                    sub_tree_height as usize,
+                    &first_empty_leaf_key.at_index(bb1 as u64).n_th_ancestor(sub_tree_height),
+                )
+                .await?,
                 web_proof_old_leaves: old_leaves.clone(),
                 web_proof_new_leaves: new_leaves,
             });
@@ -733,9 +665,7 @@ const MARK_LEAVES: bool,
         if subtree_count > 1 {
             let zero_hash = Hasher::get_zero_hash(0);
 
-            let old_leaves = (0..leaves_per_subtree)
-                .map(|_| zero_hash)
-                .collect::<Vec<_>>();
+            let old_leaves = (0..leaves_per_subtree).map(|_| zero_hash).collect::<Vec<_>>();
 
             let mut new_leaves = Vec::with_capacity(leaves_per_subtree);
             new_leaves.extend_from_slice(&leaves[leaves_used..]);
@@ -745,21 +675,24 @@ const MARK_LEAVES: bool,
             }
             let bb1 = ((cur_sub_tree_id as usize + subtree_count - 1) * leaves_per_subtree) as u64;
 
-            let mut node_updates = Vec::with_capacity(leaves.len()-leaves_used);
+            let mut node_updates = Vec::with_capacity(leaves.len() - leaves_used);
 
             for (i, l) in leaves[leaves_used..].iter().enumerate() {
-                node_updates.push(
-                    KVQPair {
-                        key: first_empty_leaf_key.at_index((bb1 + i as u64) as u64),
-                        value: *l,
-                    }
-                );
+                node_updates.push(KVQPair {
+                    key: first_empty_leaf_key.at_index((bb1 + i as u64) as u64),
+                    value: *l,
+                });
             }
 
             Self::set_nodes(store, &node_updates).await?;
 
             results.push(SpidermanUpdateProof {
-                top_line_proof: Self::rehash_sub_tree_dmp(store, sub_tree_height as usize, &first_empty_leaf_key.at_index(bb1 as u64).n_th_ancestor(sub_tree_height)).await?,
+                top_line_proof: Self::rehash_sub_tree_dmp(
+                    store,
+                    sub_tree_height as usize,
+                    &first_empty_leaf_key.at_index(bb1 as u64).n_th_ancestor(sub_tree_height),
+                )
+                .await?,
                 web_proof_old_leaves: old_leaves.clone(),
                 web_proof_new_leaves: new_leaves,
             });
@@ -776,7 +709,6 @@ const MARK_LEAVES: bool,
         let old_sub_tree_root = Self::get_node(store, tree_height, sub_root_key).await?;
         let old_tree_root = Self::get_node(store, tree_height, &sub_root_key.root()).await?;
 
-
         Self::rehash_sub_tree(store, tree_height, sub_root_key).await?;
 
         let mut keys = Vec::with_capacity(sub_root_key.level as usize + 2);
@@ -785,9 +717,6 @@ const MARK_LEAVES: bool,
         keys.push(*sub_root_key);
 
         let mut values = Self::get_nodes(store, tree_height, &keys).await?;
-
-
-
 
         let new_sub_tree_root = values.pop().unwrap();
         let new_tree_root = values.pop().unwrap();
@@ -802,14 +731,13 @@ const MARK_LEAVES: bool,
         })
     }
 
-
     async fn smart_injest_nca_split_kv(
         store: &S,
         tree_height: usize,
         mut a: KVQPair<KVQMerkleNodeKey<TABLE_TYPE>, Hash>,
         mut b: KVQPair<KVQMerkleNodeKey<TABLE_TYPE>, Hash>,
         updates: &mut Vec<KVQPair<KVQMerkleNodeKey<TABLE_TYPE>, Hash>>,
-    ) -> anyhow::Result<(KVQPair<KVQMerkleNodeKey<TABLE_TYPE>, Hash>, UpdateNearestCommonAncestorProof<Hash>)>{
+    ) -> anyhow::Result<(KVQPair<KVQMerkleNodeKey<TABLE_TYPE>, Hash>, UpdateNearestCommonAncestorProof<Hash>)> {
         if a.key.is_direct_path_related(&b.key) {
             anyhow::bail!("cannot update two keys on the same path");
         }
@@ -819,24 +747,21 @@ const MARK_LEAVES: bool,
             b = t;
         }
 
-
-
-
         if a.key.is_sibling_for(&b.key) {
             let parent = a.key.parent();
-            let a_b_parent = Self::get_nodes(store, tree_height,&[a.key, b.key, parent]).await?;
+            let a_b_parent = Self::get_nodes(store, tree_height, &[a.key, b.key, parent]).await?;
 
             let new_value = if MARK_LEAVES && a.key.level as usize == tree_height {
                 Hasher::two_to_one_marked_leaf_swap(a.key.is_right_child(), &a.value, &b.value)
-            }else{
+            } else {
                 Hasher::two_to_one_swap(a.key.is_right_child(), &a.value, &b.value)
             };
 
             let r = UpdateNearestCommonAncestorProof {
                 old_nearest_common_ancestor_value: a_b_parent[2],
                 new_nearest_common_ancestor_value: new_value,
-                child_a: DeltaMerkleProofCore::single_value(a.key.index,a_b_parent[0], a.value),
-                child_b: DeltaMerkleProofCore::single_value(b.key.index,a_b_parent[1], b.value),
+                child_a: DeltaMerkleProofCore::single_value(a.key.index, a_b_parent[0], a.value),
+                child_b: DeltaMerkleProofCore::single_value(b.key.index, a_b_parent[1], b.value),
                 nearest_common_ancestor_level: parent.level,
                 nearest_common_ancestor_index: parent.index,
                 level_a: a.key.level,
@@ -849,11 +774,13 @@ const MARK_LEAVES: bool,
             updates.push(b);
             //updates.push(KVQPair { key: parent, value: new_value });
 
-            return Ok((KVQPair {
-                key: parent,
-                value: new_value,
-            }, r));
-
+            return Ok((
+                KVQPair {
+                    key: parent,
+                    value: new_value,
+                },
+                r,
+            ));
         }
 
         let nca = a.key.find_nearest_common_ancestor(&b.key);
@@ -864,19 +791,17 @@ const MARK_LEAVES: bool,
         let child_a = Self::set_rehash_from_node_to_level_dmp_with_updates(store, tree_height, a.key, a.value, a_root.level, updates).await?;
         let child_b = Self::set_rehash_from_node_to_level_dmp_with_updates(store, tree_height, b.key, b.value, b_root.level, updates).await?;
 
-
         let old_nearest_common_ancestor_value = if MARK_LEAVES && a_root.level as usize == tree_height {
             Hasher::two_to_one_marked_leaf(&child_a.old_root, &child_b.old_root)
-        }else{
+        } else {
             Hasher::two_to_one(&child_a.old_root, &child_b.old_root)
         };
 
         let new_nearest_common_ancestor_value = if MARK_LEAVES && a_root.level as usize == tree_height {
             Hasher::two_to_one_marked_leaf(&child_a.new_root, &child_b.new_root)
-        }else{
+        } else {
             Hasher::two_to_one(&child_a.new_root, &child_b.new_root)
         };
-
 
         let update_nca_proof = UpdateNearestCommonAncestorProof {
             old_nearest_common_ancestor_value,
@@ -894,21 +819,16 @@ const MARK_LEAVES: bool,
                 key: nca,
                 value: new_nearest_common_ancestor_value,
             },
-            update_nca_proof
+            update_nca_proof,
         ))
     }
 
-    async fn set_leaf(
-        store: &S,
-        key: &KVQMerkleNodeKey<TABLE_TYPE>,
-        value: &Hash,
-    ) -> anyhow::Result<DeltaMerkleProofCore<Hash>> {
+    async fn set_leaf(store: &S, key: &KVQMerkleNodeKey<TABLE_TYPE>, value: &Hash) -> anyhow::Result<DeltaMerkleProofCore<Hash>> {
         let old_proof: MerkleProofCore<Hash> = Self::get_leaf(store, key).await?;
         let mut current_value = value.to_owned();
         let mut current_key = key.to_owned().clone();
 
-        let mut updates: Vec<KVQPair<KVQMerkleNodeKey<TABLE_TYPE>, Hash>> =
-            Vec::with_capacity((key.level as usize) + 1);
+        let mut updates: Vec<KVQPair<KVQMerkleNodeKey<TABLE_TYPE>, Hash>> = Vec::with_capacity((key.level as usize) + 1);
 
         let height = key.level as usize;
         if height > 0 {

@@ -1,4 +1,7 @@
-use plonky2::{hash::hash_types::{HashOut, HashOutTarget, RichField}, iop::target::Target};
+use plonky2::{
+    hash::hash_types::{HashOut, HashOutTarget, RichField},
+    iop::target::Target,
+};
 
 use crate::data::qhashout::QHashOut;
 
@@ -35,9 +38,9 @@ impl<F: RichField> ToQFelts<F> for QHashOut<F> {
         if felts.len() != 4 {
             panic!("Invalid number of elements for QHashOut");
         }
-        QHashOut(
-            HashOut {elements: [felts[0], felts[1], felts[2], felts[3]]}
-        )
+        QHashOut(HashOut {
+            elements: [felts[0], felts[1], felts[2], felts[3]],
+        })
     }
 }
 impl ToQFelts<Target> for HashOutTarget {
@@ -48,7 +51,9 @@ impl ToQFelts<Target> for HashOutTarget {
         if felts.len() != 4 {
             panic!("Invalid number of elements for QHashOut");
         }
-        HashOutTarget {elements: [felts[0], felts[1], felts[2], felts[3]]}
+        HashOutTarget {
+            elements: [felts[0], felts[1], felts[2], felts[3]],
+        }
     }
 }
 
@@ -63,7 +68,6 @@ impl<F: RichField> ToQFelts<F> for F {
         felts[0]
     }
 }
-
 
 impl<F: RichField, const N: usize> ToQFelts<F> for [F; N] {
     fn to_qfelts(&self) -> Vec<F> {
@@ -82,7 +86,6 @@ impl<F: RichField, const N: usize> QFeltSized for [F; N] {
         N
     }
 }
-
 
 impl<F: RichField> QFeltSized for HashOut<F> {
     fn q_felt_size() -> usize {

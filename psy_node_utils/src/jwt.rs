@@ -1,13 +1,11 @@
 use std::str::FromStr;
 
-pub use tracing::Level;
-use tracing_subscriber::{prelude::*, EnvFilter};
-
 use chrono::{Duration, Utc};
-
 #[cfg(not(target_arch = "wasm32"))]
 use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
 use serde::{Deserialize, Serialize};
+pub use tracing::Level;
+use tracing_subscriber::{prelude::*, EnvFilter};
 
 pub const JWT_COMPANY: &str = "QEDProtocol";
 pub const JWT_SUBJECT: &str = "qedlang-rust";
@@ -21,10 +19,7 @@ pub struct Claims {
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-pub fn generate_jwt_token(
-    secret_key: &str,
-    realm_id: u64,
-) -> Result<String, jsonwebtoken::errors::Error> {
+pub fn generate_jwt_token(secret_key: &str, realm_id: u64) -> Result<String, jsonwebtoken::errors::Error> {
     let expiration = Utc::now() + Duration::seconds(604800);
     let claims = Claims {
         company: JWT_COMPANY.to_string(),
@@ -40,10 +35,7 @@ pub fn generate_jwt_token(
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-pub fn decrypt_jwt_token(
-    secret_key: &str,
-    token: &str,
-) -> Result<Claims, jsonwebtoken::errors::Error> {
+pub fn decrypt_jwt_token(secret_key: &str, token: &str) -> Result<Claims, jsonwebtoken::errors::Error> {
     let decoding_key = DecodingKey::from_secret(secret_key.as_bytes());
     let validation = Validation::default();
 

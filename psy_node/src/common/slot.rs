@@ -1,7 +1,6 @@
 use auto_impl::auto_impl;
 use chrono::Utc;
-
-pub use psy_core::config::network_constants::{SLOT0, SLOT_SIZE, REALM_SLOT_SIZE_MS, SLOT0_TIMESTAMP, NETWORK_COST_TIME_MS};
+pub use psy_core::config::network_constants::{NETWORK_COST_TIME_MS, REALM_SLOT_SIZE_MS, SLOT0, SLOT0_TIMESTAMP, SLOT_SIZE};
 
 #[auto_impl(&, Box, Arc)]
 pub trait Clock {
@@ -13,7 +12,6 @@ pub trait Parity {
     fn is_odd(&self) -> bool;
     fn is_even(&self) -> bool;
 }
-
 
 macro_rules! impl_parity {
     ($($type:ty),*) => {
@@ -141,7 +139,8 @@ pub trait Slot: Clock {
     /// * `slot` - The target slot number
     ///
     /// # Returns
-    /// `Ok(remaining_time)` if the slot is in the future, `Err` if the slot is in the past
+    /// `Ok(remaining_time)` if the slot is in the future, `Err` if the slot is
+    /// in the past
     ///
     /// # Example
     /// ```
@@ -151,16 +150,18 @@ pub trait Slot: Clock {
     /// }
     /// ```
     fn get_retain_time_to_slot(&self, slot: u64) -> anyhow::Result<u64> {
-            if slot < self.get_current_slot() {
+        if slot < self.get_current_slot() {
             return Err(anyhow::anyhow!("slot is too old"));
         }
         Ok(self.get_timestamp_from_slot(slot) - self.get_current_timestamp())
     }
 
-    /// Check if there is enough time to reach the next slot considering network cost
+    /// Check if there is enough time to reach the next slot considering network
+    /// cost
     ///
     /// # Returns
-    /// `true` if the remaining time is less than or equal to NETWORK_COST_TIME_MS
+    /// `true` if the remaining time is less than or equal to
+    /// NETWORK_COST_TIME_MS
     ///
     /// # Example
     /// ```
@@ -172,14 +173,15 @@ pub trait Slot: Clock {
         self.get_remain_time_to_next_slot() >= NETWORK_COST_TIME_MS
     }
 
-    /// Check if there is enough time to reach a specific slot considering network cost
+    /// Check if there is enough time to reach a specific slot considering
+    /// network cost
     ///
     /// # Arguments
     /// * `slot` - The target slot number
     ///
     /// # Returns
-    /// `Ok(true)` if there is enough time to reach the slot, `Ok(false)` if not enough time,
-    /// `Err` if the slot is in the past
+    /// `Ok(true)` if there is enough time to reach the slot, `Ok(false)` if not
+    /// enough time, `Err` if the slot is in the past
     ///
     /// # Example
     /// ```
@@ -195,7 +197,8 @@ pub trait Slot: Clock {
     /// Get the start timestamp of the previous slot
     ///
     /// # Returns
-    /// The start timestamp of the previous slot. If current slot is 0, returns the same as current slot
+    /// The start timestamp of the previous slot. If current slot is 0, returns
+    /// the same as current slot
     ///
     /// # Example
     /// ```
@@ -258,7 +261,8 @@ pub trait Slot: Clock {
     /// * `to_slot` - The ending slot number
     ///
     /// # Returns
-    /// The number of slots between the two slot numbers (inclusive of to_slot, exclusive of from_slot)
+    /// The number of slots between the two slot numbers (inclusive of to_slot,
+    /// exclusive of from_slot)
     ///
     /// # Example
     /// ```
@@ -388,7 +392,6 @@ impl Clock for LocalClock {
     }
 }
 
-
 #[derive(Debug, Clone, Copy)]
 pub struct Instant(pub u64);
 
@@ -404,10 +407,9 @@ impl Clock for Instant {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
-    use crate::common::slot::{Clock, Slot, SLOT0_TIMESTAMP, SLOT_SIZE, NETWORK_COST_TIME_MS};
+    use crate::common::slot::{Clock, Slot, NETWORK_COST_TIME_MS, SLOT0_TIMESTAMP, SLOT_SIZE};
 
     pub struct TestClock {
         timestamp: u64,
@@ -594,8 +596,9 @@ mod tests {
     #[test]
     fn test_get_previous_slot_timestamp() {
         let clock = TestClock::new(SLOT0_TIMESTAMP);
-        // When current timestamp is SLOT0_TIMESTAMP, current slot is 0, so previous slot is -1
-        // But since we use saturating_sub(1), it becomes 0, so previous slot timestamp is SLOT0_TIMESTAMP
+        // When current timestamp is SLOT0_TIMESTAMP, current slot is 0, so previous
+        // slot is -1 But since we use saturating_sub(1), it becomes 0, so
+        // previous slot timestamp is SLOT0_TIMESTAMP
         assert_eq!(clock.get_previous_slot_timestamp(), SLOT0_TIMESTAMP);
 
         let clock = TestClock::new(SLOT0_TIMESTAMP + SLOT_SIZE);
@@ -637,7 +640,8 @@ mod tests {
     fn test_get_current_slot_remaining_time() {
         let clock = TestClock::new(SLOT0_TIMESTAMP);
         // Current slot end timestamp is SLOT0_TIMESTAMP + SLOT_SIZE - 1
-        // Remaining time = (SLOT0_TIMESTAMP + SLOT_SIZE - 1) - SLOT0_TIMESTAMP = SLOT_SIZE - 1
+        // Remaining time = (SLOT0_TIMESTAMP + SLOT_SIZE - 1) - SLOT0_TIMESTAMP =
+        // SLOT_SIZE - 1
         assert_eq!(clock.get_current_slot_remaining_time(), SLOT_SIZE - 1);
 
         let clock = TestClock::new(SLOT0_TIMESTAMP + SLOT_SIZE / 2);
@@ -654,7 +658,8 @@ mod tests {
         assert_eq!(clock.get_slots_between(0, 5), 5);
         assert_eq!(clock.get_slots_between(5, 10), 5);
         assert_eq!(clock.get_slots_between(0, 0), 0);
-        assert_eq!(clock.get_slots_between(10, 5), 0); // saturating_sub handles underflow
+        assert_eq!(clock.get_slots_between(10, 5), 0); // saturating_sub handles
+                                                       // underflow
     }
 
     #[test]

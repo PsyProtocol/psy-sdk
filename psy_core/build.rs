@@ -1,16 +1,12 @@
-use std::env;
-use std::fs;
-use std::path::Path;
+use std::{env, fs, path::Path};
 
 fn main() {
     println!("cargo:rerun-if-changed=../config.json");
 
     let config_path = Path::new("../config.json");
-    let config_content = fs::read_to_string(config_path)
-        .expect("Failed to read config.json");
+    let config_content = fs::read_to_string(config_path).expect("Failed to read config.json");
 
-    let config: serde_json::Value = serde_json::from_str(&config_content)
-        .expect("Failed to parse config.json");
+    let config: serde_json::Value = serde_json::from_str(&config_content).expect("Failed to parse config.json");
 
     let network = &config["network"];
     let global_user_tree_height = network["global_user_tree_height"]
@@ -19,22 +15,22 @@ fn main() {
     let realm_user_tree_height = network["realm_user_tree_height"]
         .as_u64()
         .expect("realm_user_tree_height must be a number") as u8;
-    let users_per_realm = network["users_per_realm"]
-        .as_u64()
-        .expect("users_per_realm must be a number");
-    let group_realm_height = network["group_realm_height"]
-        .as_u64()
-        .expect("group_realm_height must be a number") as u8;
+    let users_per_realm = network["users_per_realm"].as_u64().expect("users_per_realm must be a number");
+    let group_realm_height = network["group_realm_height"].as_u64().expect("group_realm_height must be a number") as u8;
 
     if global_user_tree_height < realm_user_tree_height {
-        panic!("global_user_tree_height ({}) must be >= realm_user_tree_height ({})",
-               global_user_tree_height, realm_user_tree_height);
+        panic!(
+            "global_user_tree_height ({}) must be >= realm_user_tree_height ({})",
+            global_user_tree_height, realm_user_tree_height
+        );
     }
 
     let expected_users_per_realm = 1u64 << realm_user_tree_height;
     if users_per_realm != expected_users_per_realm {
-        panic!("users_per_realm ({}) must equal 2^realm_user_tree_height (2^{} = {})",
-               users_per_realm, realm_user_tree_height, expected_users_per_realm);
+        panic!(
+            "users_per_realm ({}) must equal 2^realm_user_tree_height (2^{} = {})",
+            users_per_realm, realm_user_tree_height, expected_users_per_realm
+        );
     }
 
     let coordinator_user_tree_height = global_user_tree_height - realm_user_tree_height;
@@ -43,10 +39,7 @@ fn main() {
         .as_u64()
         .expect("native_currency_decimal must be a number") as u8;
 
-    let native_currency = network["native_currency"]
-        .as_str()
-        .expect("native_currency must be a string")
-        .to_string();
+    let native_currency = network["native_currency"].as_str().expect("native_currency must be a string").to_string();
 
     let native_currency_name = network["native_currency_name"]
         .as_str()
@@ -54,15 +47,9 @@ fn main() {
         .to_string();
 
     let fees = &network["fees"];
-    let register_user_fee = fees["register_user_fee"]
-        .as_u64()
-        .expect("register_user_fee must be a number");
-    let deploy_contract_fee = fees["deploy_contract_fee"]
-        .as_u64()
-        .expect("deploy_contract_fee must be a number");
-    let guta_fee = fees["guta_fee"]
-        .as_u64()
-        .expect("guta_fee must be a number");
+    let register_user_fee = fees["register_user_fee"].as_u64().expect("register_user_fee must be a number");
+    let deploy_contract_fee = fees["deploy_contract_fee"].as_u64().expect("deploy_contract_fee must be a number");
+    let guta_fee = fees["guta_fee"].as_u64().expect("guta_fee must be a number");
 
     let out_dir = env::var_os("OUT_DIR").unwrap();
     let dest_path = Path::new(&out_dir).join("generated_constants.rs");

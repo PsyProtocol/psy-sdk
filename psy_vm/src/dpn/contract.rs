@@ -1,3 +1,14 @@
+use plonky2::{
+    field::{
+        goldilocks_field::GoldilocksField,
+        types::{Field, PrimeField64},
+    },
+    hash::hash_types::RichField,
+};
+use psy_core::{config::network_constants::VM_TYPE_STANRDARD_DAPEN_V1, data::qhashout::QHashOut};
+use psy_crypto::hash::{traits::hasher::PoseidonHasher, utils::safe_hash_fixed_length};
+use psy_data::qdata::contract::ContractFunctionCodeDefinition;
+
 use crate::dpn::{
     ops::{
         op_types::{DPNAssertEqInfoIndexed, DPNIndexedVarDef},
@@ -5,17 +16,8 @@ use crate::dpn::{
     },
     vm::def::DPNFunctionCircuitDefinition,
 };
-use plonky2::{
-    field::{goldilocks_field::GoldilocksField, types::{Field, PrimeField64}},
-    hash::hash_types::RichField,
-};
-use psy_core::{config::network_constants::VM_TYPE_STANRDARD_DAPEN_V1, data::qhashout::QHashOut};
-use psy_crypto::hash::{traits::hasher::PoseidonHasher, utils::safe_hash_fixed_length};
-use psy_data::qdata::contract::ContractFunctionCodeDefinition;
 
-pub fn dapen_fc_to_cfc_code_definition(
-    dpn_fc_def: &DPNFunctionCircuitDefinition,
-) -> ContractFunctionCodeDefinition {
+pub fn dapen_fc_to_cfc_code_definition(dpn_fc_def: &DPNFunctionCircuitDefinition) -> ContractFunctionCodeDefinition {
     ContractFunctionCodeDefinition {
         method_id: dpn_fc_def.method_id,
         num_inputs: dpn_fc_def.circuit_inputs.len() as u32,
@@ -154,30 +156,19 @@ fn dpn_function_words(def: &DPNFunctionCircuitDefinition) -> Vec<u64> {
     encode_vec(&mut out, &def.circuit_inputs);
     encode_vec(&mut out, &def.circuit_outputs);
     encode_state_cmds(&mut out, &def.state_commands);
-    let resolutions: Vec<u64> = def
-        .state_command_resolution_indices
-        .iter()
-        .map(|x| *x as u64)
-        .collect();
+    let resolutions: Vec<u64> = def.state_command_resolution_indices.iter().map(|x| *x as u64).collect();
     encode_vec(&mut out, &resolutions);
     encode_assertions(&mut out, &def.assertions);
     encode_indexed_var_defs(&mut out, &def.definitions);
     out
 }
 
-pub fn hash_dpn_function<F: RichField + PrimeField64>(
-    def: &DPNFunctionCircuitDefinition,
-) -> QHashOut<F> {
-    let felts = dpn_function_words(def)
-        .into_iter()
-        .map(F::from_canonical_u64)
-        .collect::<Vec<_>>();
+pub fn hash_dpn_function<F: RichField + PrimeField64>(def: &DPNFunctionCircuitDefinition) -> QHashOut<F> {
+    let felts = dpn_function_words(def).into_iter().map(F::from_canonical_u64).collect::<Vec<_>>();
     safe_hash_fixed_length::<PoseidonHasher, F>(&felts)
 }
 
-pub fn cfc_code_definition_to_dapen_fc(
-    cfc_def: &ContractFunctionCodeDefinition,
-) -> anyhow::Result<DPNFunctionCircuitDefinition> {
+pub fn cfc_code_definition_to_dapen_fc(cfc_def: &ContractFunctionCodeDefinition) -> anyhow::Result<DPNFunctionCircuitDefinition> {
     let res = serde_cbor::from_slice::<DPNFunctionCircuitDefinition>(&cfc_def.code);
 
     match res {

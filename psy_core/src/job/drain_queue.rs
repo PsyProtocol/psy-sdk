@@ -6,9 +6,9 @@ pub trait DrainQueueMetadataTagged {
     fn get_dq_metadata(&self) -> DrainQueueMetadata;
 }
 
-pub trait DQSerializable: KVQSerializable + DrainQueueMetadataTagged + Send+ Sync {}
+pub trait DQSerializable: KVQSerializable + DrainQueueMetadataTagged + Send + Sync {}
 
-impl<T: KVQSerializable + DrainQueueMetadataTagged+ Send+ Sync> DQSerializable for T {}
+impl<T: KVQSerializable + DrainQueueMetadataTagged + Send + Sync> DQSerializable for T {}
 
 #[derive(Clone, Debug, Copy, PartialEq, PartialOrd, Ord, Eq, Hash, Serialize, Deserialize)]
 pub struct DrainQueueMetadata {
@@ -29,10 +29,7 @@ impl KVQSerializable for DrainQueueMetadata {
 
     fn from_bytes(bytes: &[u8]) -> anyhow::Result<Self> {
         if bytes.len() != 24 {
-            anyhow::bail!(
-                "expected 24 bytes when deserializing DrainQueueMetadata, got {}",
-                bytes.len()
-            );
+            anyhow::bail!("expected 24 bytes when deserializing DrainQueueMetadata, got {}", bytes.len());
         }
         let channel_id = u64::from_be_bytes(bytes[0..8].try_into().unwrap());
         let checkpoint_id = u64::from_be_bytes(bytes[8..16].try_into().unwrap());
@@ -78,7 +75,10 @@ impl<T: KVQSerializable> KVQSerializable for WithDrainQueueMetadata<T> {
 
     fn from_bytes(bytes: &[u8]) -> anyhow::Result<Self> {
         if bytes.len() < 24 {
-            anyhow::bail!("not enough bytes for deserializing WithDrainQueueMetadata<T>, need at least 24, got {}", bytes.len());
+            anyhow::bail!(
+                "not enough bytes for deserializing WithDrainQueueMetadata<T>, need at least 24, got {}",
+                bytes.len()
+            );
         }
 
         let channel_id = u64::from_be_bytes(bytes[0..8].try_into().unwrap());
@@ -112,32 +112,17 @@ pub trait CheckpointDrainQueueEmitterAsyncImm {
 
 #[async_trait]
 pub trait CheckpointDrainQueueConsumerAsyncImm {
-    async fn cdq_drain_imm<T: DQSerializable>(
-        &self,
-        channel_id: u64,
-    ) -> anyhow::Result<Vec<T>>;
+    async fn cdq_drain_imm<T: DQSerializable>(&self, channel_id: u64) -> anyhow::Result<Vec<T>>;
 
-    async fn cdq_peek_imm<T: DQSerializable>(
-        &self,
-        channel_id: u64,
-    ) -> anyhow::Result<Vec<T>>;
+    async fn cdq_peek_imm<T: DQSerializable>(&self, channel_id: u64) -> anyhow::Result<Vec<T>>;
 
-    async fn cdq_len_imm(
-        &self,
-        channel_id: u64,
-    ) -> anyhow::Result<usize>;
+    async fn cdq_len_imm(&self, channel_id: u64) -> anyhow::Result<usize>;
 }
 
 #[async_trait]
-pub trait CheckpointDrainQueueAsyncImm:
-    CheckpointDrainQueueEmitterAsyncImm + CheckpointDrainQueueConsumerAsyncImm
-{
-}
+pub trait CheckpointDrainQueueAsyncImm: CheckpointDrainQueueEmitterAsyncImm + CheckpointDrainQueueConsumerAsyncImm {}
 
-impl<Q: CheckpointDrainQueueEmitterAsyncImm + CheckpointDrainQueueConsumerAsyncImm>
-    CheckpointDrainQueueAsyncImm for Q
-{
-}
+impl<Q: CheckpointDrainQueueEmitterAsyncImm + CheckpointDrainQueueConsumerAsyncImm> CheckpointDrainQueueAsyncImm for Q {}
 
 #[async_trait]
 pub trait CheckpointDrainQueueEmitterAsyncMut {
@@ -146,23 +131,13 @@ pub trait CheckpointDrainQueueEmitterAsyncMut {
 
 #[async_trait]
 pub trait CheckpointDrainQueueConsumerAsyncMut {
-    async fn cdq_drain_mut<T: DQSerializable>(
-        &mut self,
-        channel_id: u64,
-        checkpoint_id: u64,
-    ) -> anyhow::Result<Vec<T>>;
+    async fn cdq_drain_mut<T: DQSerializable>(&mut self, channel_id: u64, checkpoint_id: u64) -> anyhow::Result<Vec<T>>;
 }
 
 #[async_trait]
-pub trait CheckpointDrainQueueAsyncMut:
-    CheckpointDrainQueueEmitterAsyncMut + CheckpointDrainQueueConsumerAsyncMut
-{
-}
+pub trait CheckpointDrainQueueAsyncMut: CheckpointDrainQueueEmitterAsyncMut + CheckpointDrainQueueConsumerAsyncMut {}
 
-impl<Q: CheckpointDrainQueueEmitterAsyncMut + CheckpointDrainQueueConsumerAsyncMut>
-    CheckpointDrainQueueAsyncMut for Q
-{
-}
+impl<Q: CheckpointDrainQueueEmitterAsyncMut + CheckpointDrainQueueConsumerAsyncMut> CheckpointDrainQueueAsyncMut for Q {}
 
 #[async_trait]
 pub trait CheckpointDrainQueueEmitterSyncImm {
@@ -171,28 +146,14 @@ pub trait CheckpointDrainQueueEmitterSyncImm {
 
 #[async_trait]
 pub trait CheckpointDrainQueueConsumerSyncImm {
-    fn cdq_get_imm_sync<T: DQSerializable>(
-        &self,
-        channel_id: u64,
-        checkpoint_id: u64,
-    ) -> anyhow::Result<Vec<T>>;
-    fn cdq_drain_imm_sync<T: DQSerializable>(
-        &self,
-        channel_id: u64,
-        checkpoint_id: u64,
-    ) -> anyhow::Result<Vec<T>>;
+    fn cdq_get_imm_sync<T: DQSerializable>(&self, channel_id: u64, checkpoint_id: u64) -> anyhow::Result<Vec<T>>;
+    fn cdq_drain_imm_sync<T: DQSerializable>(&self, channel_id: u64, checkpoint_id: u64) -> anyhow::Result<Vec<T>>;
 }
 
 #[async_trait]
-pub trait CheckpointDrainQueueSyncImm:
-    CheckpointDrainQueueEmitterSyncImm + CheckpointDrainQueueConsumerSyncImm
-{
-}
+pub trait CheckpointDrainQueueSyncImm: CheckpointDrainQueueEmitterSyncImm + CheckpointDrainQueueConsumerSyncImm {}
 
-impl<Q: CheckpointDrainQueueEmitterSyncImm + CheckpointDrainQueueConsumerSyncImm>
-    CheckpointDrainQueueSyncImm for Q
-{
-}
+impl<Q: CheckpointDrainQueueEmitterSyncImm + CheckpointDrainQueueConsumerSyncImm> CheckpointDrainQueueSyncImm for Q {}
 
 #[async_trait]
 pub trait CheckpointDrainQueueEmitterSyncMut {
@@ -201,23 +162,13 @@ pub trait CheckpointDrainQueueEmitterSyncMut {
 
 #[async_trait]
 pub trait CheckpointDrainQueueConsumerSyncMut {
-    fn cdq_drain_mut_sync<T: DQSerializable>(
-        &mut self,
-        channel_id: u64,
-        checkpoint_id: u64,
-    ) -> anyhow::Result<Vec<T>>;
+    fn cdq_drain_mut_sync<T: DQSerializable>(&mut self, channel_id: u64, checkpoint_id: u64) -> anyhow::Result<Vec<T>>;
 }
 
 #[async_trait]
-pub trait CheckpointDrainQueueSyncMut:
-    CheckpointDrainQueueEmitterSyncMut + CheckpointDrainQueueConsumerSyncMut
-{
-}
+pub trait CheckpointDrainQueueSyncMut: CheckpointDrainQueueEmitterSyncMut + CheckpointDrainQueueConsumerSyncMut {}
 
-impl<Q: CheckpointDrainQueueEmitterSyncMut + CheckpointDrainQueueConsumerSyncMut>
-    CheckpointDrainQueueSyncMut for Q
-{
-}
+impl<Q: CheckpointDrainQueueEmitterSyncMut + CheckpointDrainQueueConsumerSyncMut> CheckpointDrainQueueSyncMut for Q {}
 
 /*
 #[async_trait]

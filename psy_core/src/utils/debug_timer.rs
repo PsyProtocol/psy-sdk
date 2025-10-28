@@ -83,15 +83,13 @@ impl DebugTimer {
 impl DebugTimer {
     pub fn new(name: &str) -> Self {
         let n = name.to_string();
-        Self {
-            name: n,
-        }
+        Self { name: n }
     }
     pub fn lap(&mut self, event_name: &str) -> u64 {
         0
     }
     pub fn event(&mut self, event_name: String) -> u64 {
-      0
+        0
     }
     pub fn batch_average(&mut self, event_name: &str, batch_item_type: &str, batch_size: usize) -> (u64, u64) {
         (0, 0)

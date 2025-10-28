@@ -1,8 +1,6 @@
-use std::collections::HashMap;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
-use serde_json::Map;
-use serde_json::Value;
+use serde_json::{Map, Value};
 
 use super::types::{KeyNode, Message, Mismatch};
 
@@ -45,11 +43,7 @@ pub fn match_json(value1: &Value, value2: &Value) -> Mismatch {
             if a == b {
                 Mismatch::new(KeyNode::Nil, KeyNode::Nil, KeyNode::Nil)
             } else {
-                Mismatch::new(
-                    KeyNode::Nil,
-                    KeyNode::Nil,
-                    KeyNode::Value(a.clone(), b.clone()),
-                )
+                Mismatch::new(KeyNode::Nil, KeyNode::Nil, KeyNode::Value(a.clone(), b.clone()))
             }
         }
     }
@@ -57,11 +51,7 @@ pub fn match_json(value1: &Value, value2: &Value) -> Mismatch {
 
 fn get_map_of_keys(set: Option<HashSet<String>>) -> KeyNode {
     if let Some(set) = set {
-        KeyNode::Node(
-            set.iter()
-                .map(|key| (String::from(key), KeyNode::Nil))
-                .collect(),
-        )
+        KeyNode::Node(set.iter().map(|key| (String::from(key), KeyNode::Nil)).collect())
     } else {
         KeyNode::Nil
     }
@@ -83,14 +73,7 @@ fn insert_child_key_map(parent: KeyNode, child: KeyNode, key: &String) -> KeyNod
     }
 }
 
-fn intersect_maps(
-    a: &Map<String, Value>,
-    b: &Map<String, Value>,
-) -> (
-    Option<HashSet<String>>,
-    Option<HashSet<String>>,
-    Option<HashSet<String>>,
-) {
+fn intersect_maps(a: &Map<String, Value>, b: &Map<String, Value>) -> (Option<HashSet<String>>, Option<HashSet<String>>, Option<HashSet<String>>) {
     let mut intersection = HashSet::new();
     let mut left = HashSet::new();
     let mut right = HashSet::new();
@@ -108,11 +91,7 @@ fn intersect_maps(
     }
     let left = if left.len() == 0 { None } else { Some(left) };
     let right = if right.len() == 0 { None } else { Some(right) };
-    let intersection = if intersection.len() == 0 {
-        None
-    } else {
-        Some(intersection)
-    };
+    let intersection = if intersection.len() == 0 { None } else { Some(intersection) };
     (left, right, intersection)
 }
 

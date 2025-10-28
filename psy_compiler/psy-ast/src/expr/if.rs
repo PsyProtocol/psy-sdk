@@ -9,11 +9,7 @@ pub struct Case {
 
 impl Case {
     pub fn new(predicate: ExprId, body: ExprId, location: Location) -> Self {
-        Self {
-            predicate,
-            body,
-            location,
-        }
+        Self { predicate, body, location }
     }
 }
 

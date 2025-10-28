@@ -8,14 +8,10 @@ use axum::{
 use futures::{sink::SinkExt, stream::StreamExt};
 use tokio::time::{interval, Duration};
 
+use super::{EventType, WebSocketEvent};
 use crate::{repositories::TpsRepository, services::ApiService};
 
-use super::{EventType, WebSocketEvent};
-
-pub async fn websocket_tps_handler(
-    ws: WebSocketUpgrade,
-    State(service): State<ApiService>,
-) -> Response {
+pub async fn websocket_tps_handler(ws: WebSocketUpgrade, State(service): State<ApiService>) -> Response {
     ws.on_upgrade(move |socket| handle_tps_socket(socket, service))
 }
 
@@ -23,10 +19,7 @@ async fn handle_tps_socket(socket: WebSocket, service: ApiService) {
     let (mut ws_sender, mut ws_receiver) = socket.split();
     let connection_id = uuid::Uuid::new_v4().to_string();
 
-    tracing::info!(
-        "New TPS WebSocket connection established: {}",
-        connection_id
-    );
+    tracing::info!("New TPS WebSocket connection established: {}", connection_id);
 
     // Create interval for 12-second broadcasts
     let mut broadcast_interval = interval(Duration::from_secs(12));

@@ -10,21 +10,19 @@
 
 pub extern crate reth_mdbx_sys as ffi;
 
+#[cfg(feature = "read-tx-timeouts")]
+pub use crate::environment::read_transactions::MaxReadTransactionDuration;
 pub use crate::{
     codec::*,
     cursor::{Cursor, Iter, IterDup},
     database::Database,
     environment::{
-        Environment, EnvironmentBuilder, EnvironmentKind, Geometry, HandleSlowReadersCallback,
-        HandleSlowReadersReturnCode, Info, PageSize, Stat,
+        Environment, EnvironmentBuilder, EnvironmentKind, Geometry, HandleSlowReadersCallback, HandleSlowReadersReturnCode, Info, PageSize, Stat,
     },
     error::{Error, Result},
     flags::*,
     transaction::{CommitLatency, Transaction, TransactionKind, RO, RW},
 };
-
-#[cfg(feature = "read-tx-timeouts")]
-pub use crate::environment::read_transactions::MaxReadTransactionDuration;
 
 mod codec;
 mod cursor;
@@ -37,13 +35,14 @@ mod txn_manager;
 
 #[cfg(test)]
 mod test_utils {
-    use super::*;
     use byteorder::{ByteOrder, LittleEndian};
     use tempfile::tempdir;
 
+    use super::*;
+
     /// Regression test for <https://github.com/danburkert/lmdb-rs/issues/21>.
-    /// This test reliably segfaults when run against lmbdb compiled with opt level -O3 and newer
-    /// GCC compilers.
+    /// This test reliably segfaults when run against lmbdb compiled with opt
+    /// level -O3 and newer GCC compilers.
     #[test]
     fn issue_21_regression() {
         const HEIGHT_KEY: [u8; 1] = [0];
@@ -53,8 +52,10 @@ mod test_utils {
         let env = {
             let mut builder = Environment::builder();
             builder.set_max_dbs(2);
-            builder
-                .set_geometry(Geometry { size: Some(1_000_000..1_000_000), ..Default::default() });
+            builder.set_geometry(Geometry {
+                size: Some(1_000_000..1_000_000),
+                ..Default::default()
+            });
             builder.open(dir.path()).expect("open mdbx env")
         };
 

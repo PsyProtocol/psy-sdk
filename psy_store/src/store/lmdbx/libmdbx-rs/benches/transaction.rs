@@ -1,10 +1,11 @@
 #![allow(missing_docs, unreachable_pub)]
 mod utils;
 
+use std::{hint::black_box, ptr};
+
 use criterion::{criterion_group, criterion_main, Criterion};
 use rand::{prelude::SliceRandom, rngs::StdRng, SeedableRng};
 use reth_libmdbx::{ffi::*, ObjectLength, WriteFlags};
-use std::{hint::black_box, ptr};
 use utils::*;
 
 fn bench_get_rand(c: &mut Criterion) {
@@ -38,8 +39,14 @@ fn bench_get_rand_raw(c: &mut Criterion) {
 
     let dbi = db.dbi();
 
-    let mut key_val: MDBX_val = MDBX_val { iov_len: 0, iov_base: ptr::null_mut() };
-    let mut data_val: MDBX_val = MDBX_val { iov_len: 0, iov_base: ptr::null_mut() };
+    let mut key_val: MDBX_val = MDBX_val {
+        iov_len: 0,
+        iov_base: ptr::null_mut(),
+    };
+    let mut data_val: MDBX_val = MDBX_val {
+        iov_len: 0,
+        iov_base: ptr::null_mut(),
+    };
 
     c.bench_function("bench_get_rand_raw", |b| {
         b.iter(|| unsafe {
@@ -91,8 +98,14 @@ fn bench_put_rand_raw(c: &mut Criterion) {
 
     let dbi = env.begin_ro_txn().unwrap().open_db(None).unwrap().dbi();
 
-    let mut key_val: MDBX_val = MDBX_val { iov_len: 0, iov_base: ptr::null_mut() };
-    let mut data_val: MDBX_val = MDBX_val { iov_len: 0, iov_base: ptr::null_mut() };
+    let mut key_val: MDBX_val = MDBX_val {
+        iov_len: 0,
+        iov_base: ptr::null_mut(),
+    };
+    let mut data_val: MDBX_val = MDBX_val {
+        iov_len: 0,
+        iov_base: ptr::null_mut(),
+    };
 
     c.bench_function("bench_put_rand_raw", |b| {
         b.iter(|| unsafe {

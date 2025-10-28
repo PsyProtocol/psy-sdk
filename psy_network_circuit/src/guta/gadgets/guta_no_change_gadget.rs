@@ -1,23 +1,27 @@
-
 use plonky2::{
     field::extension::Extendable,
-    hash::{hash_types::{HashOut, HashOutTarget, RichField}, poseidon::PoseidonHash},
+    hash::{
+        hash_types::{HashOut, HashOutTarget, RichField},
+        poseidon::PoseidonHash,
+    },
     iop::{target::Target, witness::Witness},
     plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher},
 };
 use psy_common_circuit::{
-    debug::circuit_tracer::DebugCircuitTracer, hash::merkle::gadgets::merkle_proof::MerkleProofGadget, treeprover::subtree::gadgets::subtree_core::SubTreeNodeStateTransitionGadget
+    debug::circuit_tracer::DebugCircuitTracer, hash::merkle::gadgets::merkle_proof::MerkleProofGadget,
+    treeprover::subtree::gadgets::subtree_core::SubTreeNodeStateTransitionGadget,
 };
 use psy_core::data::qhashout::QHashOut;
-use psy_crypto::hash::{merkle::core::MerkleProofCore, traits::{hasher::MerkleZeroHasher, qhashable::QFieldHashable}};
+use psy_crypto::hash::{
+    merkle::core::MerkleProofCore,
+    traits::{hasher::MerkleZeroHasher, qhashable::QFieldHashable},
+};
 use psy_data::qdata::checkpoint::QEDCheckpointLeafCompactWithStateRoots;
 
-use crate::{
-    gadgets::qdata::checkpoint_compact_with_state::QEDCheckpointLeafCompactWithStateRootsGadget,
-    guta::gadgets::guta_stats::GUTAStatsGadget,
-};
-
 use super::{guta_header::GlobalUserTreeAggregatorHeaderGadget, helpers::ToGUTAHeader};
+use crate::{
+    gadgets::qdata::checkpoint_compact_with_state::QEDCheckpointLeafCompactWithStateRootsGadget, guta::gadgets::guta_stats::GUTAStatsGadget,
+};
 
 #[derive(Clone, Debug)]
 pub struct GUTANoChangeGadget {
@@ -29,22 +33,14 @@ pub struct GUTANoChangeGadget {
 }
 
 impl GUTANoChangeGadget {
-    pub fn add_virtual_to<
-        H: MerkleZeroHasher<HashOut<F>> + AlgebraicHasher<F>,
-        F: RichField + Extendable<D>,
-        const D: usize,
-    >(
+    pub fn add_virtual_to<H: MerkleZeroHasher<HashOut<F>> + AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
         guta_circuit_whitelist: HashOutTarget,
         checkpoint_tree_height: usize,
     ) -> Self {
-        let checkpoint_tree_proof = MerkleProofGadget::add_virtual_to_append_only::<H, F, D>(
-            builder,
-            checkpoint_tree_height,
-        );
+        let checkpoint_tree_proof = MerkleProofGadget::add_virtual_to_append_only::<H, F, D>(builder, checkpoint_tree_height);
 
-        let checkpoint_leaf_gadget =
-            QEDCheckpointLeafCompactWithStateRootsGadget::add_virtual_to::<H, F, D>(builder);
+        let checkpoint_leaf_gadget = QEDCheckpointLeafCompactWithStateRootsGadget::add_virtual_to::<H, F, D>(builder);
 
         let computed_checkpoint_leaf_hash = checkpoint_leaf_gadget.to_hash::<H, F, D>(builder);
         let expected_checkpoint_leaf_hash = checkpoint_tree_proof.value;
@@ -80,11 +76,7 @@ impl GUTANoChangeGadget {
         }
     }
 
-    pub fn set_witness_params<
-        W: Witness<F>,
-        F: RichField + Extendable<D>,
-        const D: usize,
-    >(
+    pub fn set_witness_params<W: Witness<F>, F: RichField + Extendable<D>, const D: usize>(
         &self,
         witness: &mut W,
         checkpoint_tree_proof: &MerkleProofCore<QHashOut<F>>,
@@ -93,8 +85,7 @@ impl GUTANoChangeGadget {
         self.checkpoint_tree_proof
             .set_witness_core_proof_q_generic(witness, checkpoint_tree_proof)?;
 
-        self.checkpoint_leaf_gadget
-            .set_witness(witness, checkpoint_leaf)?;
+        self.checkpoint_leaf_gadget.set_witness(witness, checkpoint_leaf)?;
 
         Ok(())
     }

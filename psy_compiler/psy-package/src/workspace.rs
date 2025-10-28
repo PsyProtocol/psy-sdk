@@ -1,5 +1,6 @@
-use crate::package::Package;
 use std::path::PathBuf;
+
+use crate::package::Package;
 
 #[derive(Clone, Debug, Default)]
 pub struct Workspace {

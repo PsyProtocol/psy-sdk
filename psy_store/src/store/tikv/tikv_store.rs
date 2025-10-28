@@ -1,13 +1,12 @@
-use super::config::TiKVConfig;
+use std::{fmt::Debug, sync::Arc, time::Duration};
+
 use anyhow::Result;
 use async_trait::async_trait;
 use kvq::traits::{KVQBinaryStore, KVQBinaryStoreAsync, KVQPair};
-use std::{fmt::Debug, sync::Arc};
-use std::time::Duration;
-use tikv_client::{CheckLevel, Key, Snapshot, Transaction, TransactionClient, TransactionOptions, Value};
-use tikv_client::transaction::Mutation;
-use tokio::runtime::Handle;
-use tokio::task::block_in_place;
+use tikv_client::{transaction::Mutation, CheckLevel, Key, Snapshot, Transaction, TransactionClient, TransactionOptions, Value};
+use tokio::{runtime::Handle, task::block_in_place};
+
+use super::config::TiKVConfig;
 
 // Maximum number of entries to scan in a single operation
 const MAX_SCAN_ENTRIES: u32 = 1000;
@@ -47,9 +46,9 @@ impl TiKVStore {
     pub async fn new(config: TiKVConfig) -> Result<Self> {
         let pd_endpoints = config.get_pd_endpoints();
         let mut tikv_config = tikv_client::Config::default();
-        tikv_config = tikv_config.
-            with_grpc_max_decoding_message_size(config.grpc_max_decoding_message_size).
-            with_timeout(Duration::from_secs(config.timeout));
+        tikv_config = tikv_config
+            .with_grpc_max_decoding_message_size(config.grpc_max_decoding_message_size)
+            .with_timeout(Duration::from_secs(config.timeout));
         let connection = TransactionClient::new_with_config(pd_endpoints, tikv_config).await?;
         let namespace_bytes = config.namespace.as_bytes().to_vec();
 
@@ -92,12 +91,7 @@ impl TiKVStore {
         }
     }
 
-    async fn find_leq_scan_reverse(
-        &self,
-        snapshot: &mut Snapshot,
-        key: &[u8],
-        fuzzy_bytes: usize,
-    ) -> Result<Option<tikv_client::KvPair>> {
+    async fn find_leq_scan_reverse(&self, snapshot: &mut Snapshot, key: &[u8], fuzzy_bytes: usize) -> Result<Option<tikv_client::KvPair>> {
         let (scan_start, mut scan_end) = self.make_leq_scan_range(key, fuzzy_bytes);
         if scan_start >= scan_end {
             return Ok(None);
@@ -105,7 +99,7 @@ impl TiKVStore {
         while scan_start < scan_end {
             if scan_start >= scan_end {
                 break;
-            }    
+            }
             let scan_result = snapshot
                 .scan_reverse(scan_start.clone()..scan_end.clone(), MAX_SCAN_ENTRIES)
                 .await?
@@ -143,9 +137,7 @@ impl TiKVStore {
     async fn snapshot(&self) -> tikv_client::Result<Snapshot> {
         let options = TransactionOptions::default();
         let options = options.drop_check(CheckLevel::Warn);
-        Ok(self
-            .connection
-            .snapshot(self.connection.current_timestamp().await?, options))
+        Ok(self.connection.snapshot(self.connection.current_timestamp().await?, options))
     }
 
     async fn with_read_txn<F, Fut, R>(&self, f: F) -> Result<R>
@@ -196,10 +188,7 @@ impl TiKVStore {
                 // Commit failed, need to rollback
                 if let Err(rollback_err) = txn.rollback().await {
                     // Log rollback error but return original commit error
-                    eprintln!(
-                        "Warning: Failed to rollback transaction after commit failure: {}",
-                        rollback_err
-                    );
+                    eprintln!("Warning: Failed to rollback transaction after commit failure: {}", rollback_err);
                 }
                 Err(anyhow::anyhow!(commit_err))
             }
@@ -230,10 +219,7 @@ impl KVQBinaryStoreAsync for TiKVStore {
         let namespace_bytes = self.namespace_bytes.clone();
 
         self.with_snapshot(|mut txn| async move {
-            let tikv_keys: Vec<Key> = keys
-                .iter()
-                .map(|key| prefix_key(&namespace_bytes, key))
-                .collect();
+            let tikv_keys: Vec<Key> = keys.iter().map(|key| prefix_key(&namespace_bytes, key)).collect();
             let batch_result = txn.batch_get(tikv_keys.clone()).await?;
             // Collect batch_result into a Vec for reuse
             let batch_vec: Vec<_> = batch_result.collect();
@@ -261,10 +247,7 @@ impl KVQBinaryStoreAsync for TiKVStore {
             }
 
             // Try fuzzy search if needed
-            if let Some(kv_pair) = self
-                .find_leq_scan_reverse(&mut snapshot, key, fuzzy_bytes)
-                .await?
-            {
+            if let Some(kv_pair) = self.find_leq_scan_reverse(&mut snapshot, key, fuzzy_bytes).await? {
                 return Ok(Some(kv_pair.value().to_vec()));
             }
 
@@ -273,11 +256,7 @@ impl KVQBinaryStoreAsync for TiKVStore {
         .await
     }
 
-    async fn get_fuzzy_range_leq_kv(
-        &self,
-        key: &Vec<u8>,
-        fuzzy_bytes: usize,
-    ) -> Result<Vec<KVQPair<Vec<u8>, Vec<u8>>>> {
+    async fn get_fuzzy_range_leq_kv(&self, key: &Vec<u8>, fuzzy_bytes: usize) -> Result<Vec<KVQPair<Vec<u8>, Vec<u8>>>> {
         self.with_snapshot(|mut snapshot| async move {
             let (mut scan_start, scan_end) = self.make_leq_scan_range(key, fuzzy_bytes);
             let mut results = Vec::with_capacity(64);
@@ -314,11 +293,7 @@ impl KVQBinaryStoreAsync for TiKVStore {
         .await
     }
 
-    async fn get_leq_kv(
-        &self,
-        key: &Vec<u8>,
-        fuzzy_bytes: usize,
-    ) -> Result<Option<KVQPair<Vec<u8>, Vec<u8>>>> {
+    async fn get_leq_kv(&self, key: &Vec<u8>, fuzzy_bytes: usize) -> Result<Option<KVQPair<Vec<u8>, Vec<u8>>>> {
         self.with_snapshot(|mut snapshot| async move {
             // First try exact match
             if let Some(value) = snapshot.get(self.make_key(key)).await? {
@@ -329,13 +304,8 @@ impl KVQBinaryStoreAsync for TiKVStore {
             }
 
             // Try fuzzy search if needed
-            if let Some(kv_pair) = self
-                .find_leq_scan_reverse(&mut snapshot, key, fuzzy_bytes)
-                .await?
-            {
-                if let Some(key_without_ns) =
-                    self.extract_key_without_namespace(kv_pair.key().into())
-                {
+            if let Some(kv_pair) = self.find_leq_scan_reverse(&mut snapshot, key, fuzzy_bytes).await? {
+                if let Some(key_without_ns) = self.extract_key_without_namespace(kv_pair.key().into()) {
                     return Ok(Some(KVQPair {
                         key: key_without_ns.to_vec(),
                         value: kv_pair.value().to_vec(),
@@ -348,11 +318,7 @@ impl KVQBinaryStoreAsync for TiKVStore {
         .await
     }
 
-    async fn get_many_leq(
-        &self,
-        keys: &[Vec<u8>],
-        fuzzy_bytes: usize,
-    ) -> Result<Vec<Option<Vec<u8>>>> {
+    async fn get_many_leq(&self, keys: &[Vec<u8>], fuzzy_bytes: usize) -> Result<Vec<Option<Vec<u8>>>> {
         if keys.is_empty() {
             return Ok(Vec::new());
         }
@@ -369,10 +335,7 @@ impl KVQBinaryStoreAsync for TiKVStore {
                 }
 
                 // Try fuzzy search if needed
-                if let Some(kv_pair) = self
-                    .find_leq_scan_reverse(&mut snapshot, key, fuzzy_bytes)
-                    .await?
-                {
+                if let Some(kv_pair) = self.find_leq_scan_reverse(&mut snapshot, key, fuzzy_bytes).await? {
                     results.push(Some(kv_pair.value().to_vec()));
                 } else {
                     results.push(None);
@@ -384,11 +347,7 @@ impl KVQBinaryStoreAsync for TiKVStore {
         .await
     }
 
-    async fn get_many_leq_kv(
-        &self,
-        keys: &[Vec<u8>],
-        fuzzy_bytes: usize,
-    ) -> Result<Vec<Option<KVQPair<Vec<u8>, Vec<u8>>>>> {
+    async fn get_many_leq_kv(&self, keys: &[Vec<u8>], fuzzy_bytes: usize) -> Result<Vec<Option<KVQPair<Vec<u8>, Vec<u8>>>>> {
         self.with_snapshot(|mut snapshot| async move {
             let mut results = Vec::with_capacity(keys.len());
 
@@ -404,13 +363,8 @@ impl KVQBinaryStoreAsync for TiKVStore {
                 }
 
                 // Try fuzzy search if needed
-                if let Some(kv_pair) = self
-                    .find_leq_scan_reverse(&mut snapshot, key, fuzzy_bytes)
-                    .await?
-                {
-                    if let Some(key_without_ns) =
-                        self.extract_key_without_namespace(kv_pair.key().into())
-                    {
+                if let Some(kv_pair) = self.find_leq_scan_reverse(&mut snapshot, key, fuzzy_bytes).await? {
+                    if let Some(key_without_ns) = self.extract_key_without_namespace(kv_pair.key().into()) {
                         results.push(Some(KVQPair {
                             key: key_without_ns.to_vec(),
                             value: kv_pair.value().to_vec(),
@@ -516,11 +470,7 @@ impl KVQBinaryStoreAsync for TiKVStore {
         Ok(vec![true; keys.len()].into_iter().collect::<Vec<bool>>())
     }
 
-    async fn set_and_delete_many(
-        &self,
-        keys_to_set: &[KVQPair<&Vec<u8>, &Vec<u8>>],
-        keys_to_delete: &[Vec<u8>],
-    ) -> Result<()> {
+    async fn set_and_delete_many(&self, keys_to_set: &[KVQPair<&Vec<u8>, &Vec<u8>>], keys_to_delete: &[Vec<u8>]) -> Result<()> {
         let namespace_bytes = self.namespace_bytes.clone();
 
         self.with_pessimistic_txn(|mut txn| async move {
@@ -559,19 +509,11 @@ impl KVQBinaryStore for TiKVStore {
         block_async(|| async { KVQBinaryStoreAsync::get_leq(self, key, fuzzy_bytes).await })
     }
 
-    fn get_fuzzy_range_leq_kv(
-        &self,
-        key: &Vec<u8>,
-        fuzzy_bytes: usize,
-    ) -> Result<Vec<KVQPair<Vec<u8>, Vec<u8>>>> {
+    fn get_fuzzy_range_leq_kv(&self, key: &Vec<u8>, fuzzy_bytes: usize) -> Result<Vec<KVQPair<Vec<u8>, Vec<u8>>>> {
         block_async(|| async { KVQBinaryStoreAsync::get_fuzzy_range_leq_kv(self, key, fuzzy_bytes).await })
     }
 
-    fn get_leq_kv(
-        &self,
-        key: &Vec<u8>,
-        fuzzy_bytes: usize,
-    ) -> Result<Option<KVQPair<Vec<u8>, Vec<u8>>>> {
+    fn get_leq_kv(&self, key: &Vec<u8>, fuzzy_bytes: usize) -> Result<Option<KVQPair<Vec<u8>, Vec<u8>>>> {
         block_async(|| async { KVQBinaryStoreAsync::get_leq_kv(self, key, fuzzy_bytes).await })
     }
 
@@ -579,11 +521,7 @@ impl KVQBinaryStore for TiKVStore {
         block_async(|| async { KVQBinaryStoreAsync::get_many_leq(self, keys, fuzzy_bytes).await })
     }
 
-    fn get_many_leq_kv(
-        &self,
-        keys: &[Vec<u8>],
-        fuzzy_bytes: usize,
-    ) -> Result<Vec<Option<KVQPair<Vec<u8>, Vec<u8>>>>> {
+    fn get_many_leq_kv(&self, keys: &[Vec<u8>], fuzzy_bytes: usize) -> Result<Vec<Option<KVQPair<Vec<u8>, Vec<u8>>>>> {
         block_async(|| async { KVQBinaryStoreAsync::get_many_leq_kv(self, keys, fuzzy_bytes).await })
     }
 
@@ -615,11 +553,7 @@ impl KVQBinaryStore for TiKVStore {
         block_async(|| async { KVQBinaryStoreAsync::delete_many(self, keys).await })
     }
 
-    fn set_and_delete_many(
-        &self,
-        keys_to_set: &[KVQPair<&Vec<u8>, &Vec<u8>>],
-        keys_to_delete: &[Vec<u8>],
-    ) -> Result<()> {
+    fn set_and_delete_many(&self, keys_to_set: &[KVQPair<&Vec<u8>, &Vec<u8>>], keys_to_delete: &[Vec<u8>]) -> Result<()> {
         block_async(|| async { KVQBinaryStoreAsync::set_and_delete_many(self, keys_to_set, keys_to_delete).await })
     }
 }

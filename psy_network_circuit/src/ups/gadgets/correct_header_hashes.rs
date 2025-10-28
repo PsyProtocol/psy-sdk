@@ -10,10 +10,9 @@ pub struct CorrectUPSHeaderHashesGadget {
 
 impl CorrectUPSHeaderHashesGadget {
     pub fn from_previous_step(previous_step: &UserProvingSessionHeaderGadget) -> Self {
-
         let previous_step_deferred_tx_debt_tree_root = previous_step.current_state.deferred_tx_debt_tree_root;
         let previous_step_inline_tx_debt_tree_root = previous_step.current_state.inline_tx_debt_tree_root;
-        CorrectUPSHeaderHashesGadget{
+        CorrectUPSHeaderHashesGadget {
             previous_step_deferred_tx_debt_tree_root,
             previous_step_inline_tx_debt_tree_root,
         }

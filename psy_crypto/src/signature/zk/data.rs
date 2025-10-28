@@ -1,16 +1,16 @@
 use kvq::traits::KVQSerializable;
-use plonky2::hash::hash_types::RichField;
-use psy_core::{config::network_constants::COORD_API_REGISTER_USER_CHANNEL_ID, data::qhashout::QHashOut, job::drain_queue::{DrainQueueMetadata, DrainQueueMetadataTagged}};
+use plonky2::{field::goldilocks_field::GoldilocksField, hash::hash_types::RichField};
+use psy_core::{
+    config::network_constants::COORD_API_REGISTER_USER_CHANNEL_ID,
+    data::qhashout::QHashOut,
+    job::drain_queue::{DrainQueueMetadata, DrainQueueMetadataTagged},
+};
 use serde::{Deserialize, Serialize};
-
-use crate::hash::traits::{hasher::FieldQHasher, qhashable::QFieldHashable};
-use plonky2::field::goldilocks_field::GoldilocksField;
 use ts_rs::TS;
 
+use crate::hash::traits::{hasher::FieldQHasher, qhashable::QFieldHashable};
 
-#[derive(
-    Serialize, Deserialize, PartialEq, Debug, Clone, Copy, Eq, Hash,TS
-)]
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone, Copy, Eq, Hash, TS)]
 #[ts(export, concrete(F = GoldilocksField))]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
 pub struct PublicKeyInfo<F: RichField> {
@@ -34,9 +34,7 @@ impl<F: RichField> KVQSerializable for PublicKeyInfo<F> {
     }
 }
 
-#[derive(
-    Serialize, Deserialize, PartialEq, Debug, Clone, Copy, Eq, Hash,TS
-)]
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone, Copy, Eq, Hash, TS)]
 #[ts(export, concrete(F = GoldilocksField))]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
 pub struct ZKPublicKeyInfo<F: RichField> {
@@ -45,16 +43,13 @@ pub struct ZKPublicKeyInfo<F: RichField> {
 }
 impl<F: RichField> DrainQueueMetadataTagged for ZKPublicKeyInfo<F> {
     fn get_dq_metadata(&self) -> DrainQueueMetadata {
-
-        let num = self.fingerprint.0.elements[0].to_canonical_u64()+self.public_key_param.0.elements[0].to_canonical_u64();
+        let num = self.fingerprint.0.elements[0].to_canonical_u64() + self.public_key_param.0.elements[0].to_canonical_u64();
 
         DrainQueueMetadata {
             channel_id: COORD_API_REGISTER_USER_CHANNEL_ID,
             checkpoint_id: 0,
             item_id: num,
         }
-
-
     }
 }
 impl<F: RichField> ZKPublicKeyInfo<F> {

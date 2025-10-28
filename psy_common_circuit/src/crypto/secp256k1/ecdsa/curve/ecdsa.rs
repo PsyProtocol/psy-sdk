@@ -1,8 +1,10 @@
 use plonky2::field::types::{Field, Sample};
 use serde::{Deserialize, Serialize};
 
-use super::curve_msm::msm_parallel;
-use super::curve_types::{base_to_scalar, AffinePoint, Curve, CurveScalar};
+use super::{
+    curve_msm::msm_parallel,
+    curve_types::{base_to_scalar, AffinePoint, Curve, CurveScalar},
+};
 
 #[derive(Copy, Clone, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
 pub struct ECDSASignature<C: Curve> {
@@ -39,11 +41,7 @@ pub fn sign_message<C: Curve>(msg: C::ScalarField, sk: ECDSASecretKey<C>) -> ECD
     ECDSASignature { r, s }
 }
 
-pub fn verify_message<C: Curve>(
-    msg: C::ScalarField,
-    sig: ECDSASignature<C>,
-    pk: ECDSAPublicKey<C>,
-) -> bool {
+pub fn verify_message<C: Curve>(msg: C::ScalarField, sig: ECDSASignature<C>, pk: ECDSAPublicKey<C>) -> bool {
     let ECDSASignature { r, s } = sig;
 
     assert!(pk.0.is_valid());
@@ -63,11 +61,12 @@ pub fn verify_message<C: Curve>(
 
 #[cfg(test)]
 mod tests {
-    use plonky2::field::secp256k1_scalar::Secp256K1Scalar;
-    use plonky2::field::types::Sample;
+    use plonky2::field::{secp256k1_scalar::Secp256K1Scalar, types::Sample};
 
-    use super::super::ecdsa::{sign_message, verify_message, ECDSASecretKey};
-    use super::super::secp256k1::Secp256K1;
+    use super::super::{
+        ecdsa::{sign_message, verify_message, ECDSASecretKey},
+        secp256k1::Secp256K1,
+    };
 
     #[test]
     fn test_ecdsa_native() {

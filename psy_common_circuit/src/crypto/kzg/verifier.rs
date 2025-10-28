@@ -8,11 +8,10 @@ use plonky2::{
     plonk::circuit_builder::CircuitBuilder,
 };
 
+use super::{commitment::KZGCommitmentTarget, proof::KZGProofTarget};
 use crate::crypto::bn254::{
     curve::g2::G2,
-    field::{
-        bn128_base::Bn128Base, bn128_scalar::Bn128Scalar, extension::quadratic::QuadraticExtension,
-    },
+    field::{bn128_base::Bn128Base, bn128_scalar::Bn128Scalar, extension::quadratic::QuadraticExtension},
     gadgets::{
         g1::{CircuitBuilderG1, G1AffineTarget},
         g2::{CircuitBuilderG2, G2AffineTarget},
@@ -24,20 +23,21 @@ use crate::crypto::bn254::{
     },
 };
 
-use super::{commitment::KZGCommitmentTarget, proof::KZGProofTarget};
-
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::crypto::bn254::pairing_config;
-    use crate::crypto::kzg::{setup::KZGSetup, CircuitBuilderKZG};
-    use crate::crypto::secp256k1::ecdsa::curve::curve_types::Curve;
     use plonky2::{
         iop::witness::PartialWitness,
         plonk::{
             circuit_data::CircuitConfig,
             config::{GenericConfig, PoseidonGoldilocksConfig},
         },
+    };
+
+    use super::*;
+    use crate::crypto::{
+        bn254::pairing_config,
+        kzg::{setup::KZGSetup, CircuitBuilderKZG},
+        secp256k1::ecdsa::curve::curve_types::Curve,
     };
 
     const D: usize = 2;
@@ -63,12 +63,8 @@ mod tests {
         let mut builder = CircuitBuilder::<F, D>::new(pairing_config());
 
         let g1_gen = builder.g1_generator();
-        let commitment1 = KZGCommitmentTarget {
-            commitment: g1_gen.clone(),
-        };
-        let commitment2 = KZGCommitmentTarget {
-            commitment: g1_gen.clone(),
-        };
+        let commitment1 = KZGCommitmentTarget { commitment: g1_gen.clone() };
+        let commitment2 = KZGCommitmentTarget { commitment: g1_gen.clone() };
 
         let point1 = builder.constant_nonnative(Bn128Scalar::from_canonical_u64(1));
         let point2 = builder.constant_nonnative(Bn128Scalar::from_canonical_u64(2));
@@ -94,4 +90,3 @@ mod tests {
         data.verify(proof).unwrap();
     }
 }
-

@@ -1,13 +1,21 @@
-use plonky2::{field::{goldilocks_field::GoldilocksField, types::{Field, Field64, PrimeField64}}, hash::poseidon::PoseidonHash, plonk::config::{GenericHashOut, Hasher}};
+use plonky2::{
+    field::{
+        goldilocks_field::GoldilocksField,
+        types::{Field, Field64, PrimeField64},
+    },
+    hash::poseidon::PoseidonHash,
+    plonk::config::{GenericHashOut, Hasher},
+};
 
-use crate::dpn::ops::{context_trait::{ContextFelt, DPNContext, ToFelts}, op_types::DPNOpType, sym_felt::SymFeltRef};
-
-
+use crate::dpn::ops::{
+    context_trait::{ContextFelt, DPNContext, ToFelts},
+    op_types::DPNOpType,
+    sym_felt::SymFeltRef,
+};
 
 #[derive(Debug, Clone)]
 pub struct QRuntimeContext<F: ContextFelt> {
     _phantom: std::marker::PhantomData<F>,
-
 }
 fn split_bits(x: u64, num_bits: u64) -> Vec<u64> {
     let mut result = vec![0u64; num_bits as usize];
@@ -32,8 +40,7 @@ impl<F: ContextFelt> QRuntimeContext<F> {
         F::cns(op_type.eval_binary_constant(a.get_u64(), b.get_u64()))
     }
     fn op_std_binary_op_u32(&mut self, op_type: DPNOpType, a: F, b: F) -> F {
-
-        F::cns(op_type.eval_binary_constant(a.get_u64()&0xFFFFFFFFu64, b.get_u64()&0xFFFFFFFFu64)&0xFFFFFFFFu64)
+        F::cns(op_type.eval_binary_constant(a.get_u64() & 0xFFFFFFFFu64, b.get_u64() & 0xFFFFFFFFu64) & 0xFFFFFFFFu64)
     }
     /*
     fn op_std_unary_op(&mut self, op_type: DPNOpType, a: F) -> F {
@@ -44,7 +51,6 @@ impl<F: ContextFelt> QRuntimeContext<F> {
     }*/
 }
 
-
 impl<F: ContextFelt> DPNContext<F> for QRuntimeContext<F> {
     fn get_constant_value(&self, a: F) -> u64 {
         a.get_u64()
@@ -54,11 +60,11 @@ impl<F: ContextFelt> DPNContext<F> for QRuntimeContext<F> {
     }
 
     fn op_cast_u32(&mut self, a: F) -> F {
-        a&0xFFFFFFFFu64
+        a & 0xFFFFFFFFu64
     }
 
     fn op_cast_felt(&mut self, a: F) -> F {
-        a&0xFFFFFFFFu64
+        a & 0xFFFFFFFFu64
     }
 
     fn op_cast_bool(&mut self, a: F) -> F {
@@ -74,7 +80,7 @@ impl<F: ContextFelt> DPNContext<F> for QRuntimeContext<F> {
     }
 
     fn op_const(&mut self, value: u64) -> F {
-        F::cns(value%GoldilocksField::ORDER)
+        F::cns(value % GoldilocksField::ORDER)
     }
 
     fn op_const_u32(&mut self, value: u32) -> F {
@@ -101,7 +107,8 @@ impl<F: ContextFelt> DPNContext<F> for QRuntimeContext<F> {
         result
     }
 
-    fn op_bool_and_many(&mut self, values: &[F]) -> F {        let mut result = values[0];
+    fn op_bool_and_many(&mut self, values: &[F]) -> F {
+        let mut result = values[0];
         for i in 1..values.len() {
             result = self.op_bool_and(result, values[i]);
         }
@@ -195,7 +202,7 @@ impl<F: ContextFelt> DPNContext<F> for QRuntimeContext<F> {
     }
 
     fn op_true(&mut self) -> F {
-       F::cns(1)
+        F::cns(1)
     }
 
     fn op_false(&mut self) -> F {
@@ -251,7 +258,10 @@ impl<F: ContextFelt> DPNContext<F> for QRuntimeContext<F> {
     }
 
     fn hash(&mut self, values: &[F]) -> [F; 4] {
-        let gl_values = values.iter().map(|v| GoldilocksField::from_noncanonical_u64(v.get_u64())).collect::<Vec<GoldilocksField>>();
+        let gl_values = values
+            .iter()
+            .map(|v| GoldilocksField::from_noncanonical_u64(v.get_u64()))
+            .collect::<Vec<GoldilocksField>>();
         let res = PoseidonHash::hash_no_pad(&gl_values).to_vec();
         [
             F::cns(res[0].to_canonical_u64()),
@@ -409,22 +419,11 @@ impl<F: ContextFelt> DPNContext<F> for QRuntimeContext<F> {
         todo!()
     }
 
-    fn cinvoke_external_contract_function_sync(
-        &mut self,
-        _contract_id: F,
-        _method_id: F,
-        _inputs: Vec<F>,
-        num_outputs: u32,
-    ) -> Vec<F> {
+    fn cinvoke_external_contract_function_sync(&mut self, _contract_id: F, _method_id: F, _inputs: Vec<F>, num_outputs: u32) -> Vec<F> {
         todo!()
     }
 
-    fn cinvoke_external_contract_function_deferred(
-        &mut self,
-        _contract_id: F,
-        _method_id: F,
-        _inputs: Vec<F>,
-    ) -> [F; 4] {
+    fn cinvoke_external_contract_function_deferred(&mut self, _contract_id: F, _method_id: F, _inputs: Vec<F>) -> [F; 4] {
         todo!()
     }
 
@@ -444,7 +443,14 @@ impl<F: ContextFelt> DPNContext<F> for QRuntimeContext<F> {
         todo!()
     }
 
-    fn get_other_user_contract_state_range_at(&mut self, contract_state_tree_height: F, user_id: F, contract_id: F, sub_slot_index: F, length: F) -> Vec<F> {
+    fn get_other_user_contract_state_range_at(
+        &mut self,
+        contract_state_tree_height: F,
+        user_id: F,
+        contract_id: F,
+        sub_slot_index: F,
+        length: F,
+    ) -> Vec<F> {
         todo!()
     }
 

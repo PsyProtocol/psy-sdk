@@ -1,19 +1,18 @@
 use std::marker::PhantomData;
 
-
-use plonky2::field::extension::Extendable;
-use plonky2::iop::target::{BoolTarget, Target};
-use plonky2::iop::witness::Witness;
-use plonky2::plonk::circuit_builder::CircuitBuilder;
-use psy_crypto::field::qfield::QRichField;
-use psy_crypto::hash::merkle::treeprover::tree_planner::BinaryTreePlanner;
+use plonky2::{
+    field::extension::Extendable,
+    iop::{
+        target::{BoolTarget, Target},
+        witness::Witness,
+    },
+    plonk::circuit_builder::CircuitBuilder,
+};
+use psy_crypto::{field::qfield::QRichField, hash::merkle::treeprover::tree_planner::BinaryTreePlanner};
 
 use crate::traits::{GenericCircuitMerkleHasher, GenericHashTarget, WitnessValueFor};
 
-pub struct GenericDeltaMerkleProofVecGadget<
-    H: GenericHashTarget,
-    Hasher: GenericCircuitMerkleHasher<H>,
-> {
+pub struct GenericDeltaMerkleProofVecGadget<H: GenericHashTarget, Hasher: GenericCircuitMerkleHasher<H>> {
     pub old_root: H,
     pub old_value: H,
 
@@ -53,28 +52,15 @@ pub fn compute_partial_merkle_root_from_leaves_circuit<
         results[i + 1] = current;
     }
 
-    results
-        .into_iter()
-        .last()
-        .unwrap()
-        .into_iter()
-        .last()
-        .unwrap()
+    results.into_iter().last().unwrap().into_iter().last().unwrap()
 }
-pub fn compute_merkle_root<
-    F: QRichField + Extendable<D>,
-    const D: usize,
-    H: GenericHashTarget,
-    Hasher: GenericCircuitMerkleHasher<H>,
->(
+pub fn compute_merkle_root<F: QRichField + Extendable<D>, const D: usize, H: GenericHashTarget, Hasher: GenericCircuitMerkleHasher<H>>(
     builder: &mut CircuitBuilder<F, D>,
     index_bits: &[BoolTarget],
     value: H,
     siblings: &[H],
 ) -> H {
-    compute_merkle_root_marked_leaves::<F, D, H, Hasher>(
-        builder, index_bits, value, siblings, false,
-    )
+    compute_merkle_root_marked_leaves::<F, D, H, Hasher>(builder, index_bits, value, siblings, false)
 }
 
 pub fn compute_merkle_root_marked_leaves<
@@ -101,8 +87,7 @@ pub fn compute_merkle_root_marked_leaves<
     current
 }
 
-pub struct GenericMerkleProofVecGadget<H: GenericHashTarget, Hasher: GenericCircuitMerkleHasher<H>>
-{
+pub struct GenericMerkleProofVecGadget<H: GenericHashTarget, Hasher: GenericCircuitMerkleHasher<H>> {
     pub root: H,
     pub value: H,
     pub siblings: Vec<H>,
@@ -110,13 +95,8 @@ pub struct GenericMerkleProofVecGadget<H: GenericHashTarget, Hasher: GenericCirc
     _hasher: PhantomData<Hasher>,
 }
 
-impl<H: GenericHashTarget, Hasher: GenericCircuitMerkleHasher<H>>
-    GenericMerkleProofVecGadget<H, Hasher>
-{
-    pub fn add_virtual_to<F: QRichField + Extendable<D>, const D: usize>(
-        builder: &mut CircuitBuilder<F, D>,
-        height: usize,
-    ) -> Self {
+impl<H: GenericHashTarget, Hasher: GenericCircuitMerkleHasher<H>> GenericMerkleProofVecGadget<H, Hasher> {
+    pub fn add_virtual_to<F: QRichField + Extendable<D>, const D: usize>(builder: &mut CircuitBuilder<F, D>, height: usize) -> Self {
         let siblings: Vec<H> = (0..height).map(|_| H::create_virtual(builder)).collect();
 
         let value = H::create_virtual(builder);
@@ -132,22 +112,13 @@ impl<H: GenericHashTarget, Hasher: GenericCircuitMerkleHasher<H>>
             _hasher: PhantomData,
         }
     }
-    pub fn add_virtual_to_mark_leaves<F: QRichField + Extendable<D>, const D: usize>(
-        builder: &mut CircuitBuilder<F, D>,
-        height: usize,
-    ) -> Self {
+    pub fn add_virtual_to_mark_leaves<F: QRichField + Extendable<D>, const D: usize>(builder: &mut CircuitBuilder<F, D>, height: usize) -> Self {
         let siblings: Vec<H> = (0..height).map(|_| H::create_virtual(builder)).collect();
 
         let value = H::create_virtual(builder);
         let index = builder.add_virtual_target();
         let index_bits = builder.split_le(index, height);
-        let root = compute_merkle_root_marked_leaves::<F, D, H, Hasher>(
-            builder,
-            &index_bits,
-            value,
-            &siblings,
-            true,
-        );
+        let root = compute_merkle_root_marked_leaves::<F, D, H, Hasher>(builder, &index_bits, value, &siblings, true);
 
         Self {
             root,
@@ -158,17 +129,13 @@ impl<H: GenericHashTarget, Hasher: GenericCircuitMerkleHasher<H>>
         }
     }
 
-    pub fn set_witness<
-        F: QRichField,
-        HashValue: WitnessValueFor<H, F, BIG_ENDIAN>,
-        const BIG_ENDIAN: bool,
-    >(
+    pub fn set_witness<F: QRichField, HashValue: WitnessValueFor<H, F, BIG_ENDIAN>, const BIG_ENDIAN: bool>(
         &self,
         witness: &mut impl Witness<F>,
         index: F,
         value: &HashValue,
         siblings: &[HashValue],
-    ) -> anyhow::Result<()>  {
+    ) -> anyhow::Result<()> {
         witness.set_target(self.index, index)?;
         value.set_for_witness(witness, &self.value)?;
         for (i, sibling) in siblings.iter().enumerate() {
@@ -182,7 +149,7 @@ impl<H: GenericHashTarget, Hasher: GenericCircuitMerkleHasher<H>>
         index: F,
         value: &HashValue,
         siblings: &[HashValue],
-    )  -> anyhow::Result<()> {
+    ) -> anyhow::Result<()> {
         self.set_witness(witness, index, value, siblings)
     }
     pub fn set_witness_be<F: QRichField, HashValue: WitnessValueFor<H, F, false>>(
@@ -196,12 +163,7 @@ impl<H: GenericHashTarget, Hasher: GenericCircuitMerkleHasher<H>>
     }
 }
 
-pub fn compute_merkle_root_from_leaves<
-    F: QRichField + Extendable<D>,
-    const D: usize,
-    H: GenericHashTarget,
-    Hasher: GenericCircuitMerkleHasher<H>,
->(
+pub fn compute_merkle_root_from_leaves<F: QRichField + Extendable<D>, const D: usize, H: GenericHashTarget, Hasher: GenericCircuitMerkleHasher<H>>(
     builder: &mut CircuitBuilder<F, D>,
     leaves: &[H],
 ) -> H {
@@ -211,10 +173,7 @@ pub fn compute_merkle_root_from_leaves<
     let num_levels = (leaves.len() as f64).log2().ceil() as usize;
     let mut current = leaves.to_vec();
     for _ in 0..num_levels {
-        let tmp = current
-            .chunks_exact(2)
-            .map(|f| Hasher::gc_two_to_one(builder, f[0], f[1]))
-            .collect();
+        let tmp = current.chunks_exact(2).map(|f| Hasher::gc_two_to_one(builder, f[0], f[1])).collect();
         current = tmp;
     }
     current[0]

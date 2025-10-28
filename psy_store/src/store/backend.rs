@@ -1,7 +1,7 @@
 use clap::{Args, Parser};
 use serde::{Deserialize, Serialize};
-use super::scylla::config::ScyllaDBConfig;
-use super::tikv::config::TiKVConfig;
+
+use super::{scylla::config::ScyllaDBConfig, tikv::config::TiKVConfig};
 
 #[derive(Clone, Debug, Serialize, Deserialize, Parser)]
 pub struct LmdbxConfig {
@@ -20,7 +20,7 @@ pub enum Backend {
 
     #[serde(rename = "lmdbx")]
     Lmdbx(LmdbxConfig),
-    
+
     #[serde(rename = "tikv")]
     TiKV(TiKVConfig),
 }
@@ -43,7 +43,7 @@ pub struct BackendConfig {
 
     #[clap(flatten)]
     pub lmdbx: LmdbxConfig,
-    
+
     #[clap(flatten)]
     pub tikv: TiKVConfig,
 }

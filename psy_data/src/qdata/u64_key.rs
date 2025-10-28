@@ -23,10 +23,7 @@ impl<const TABLE_TYPE: u16> KVQSerializable for U64TableKey<TABLE_TYPE> {
 
     fn from_bytes(bytes: &[u8]) -> anyhow::Result<Self> {
         if bytes.len() != 10 {
-            anyhow::bail!(
-                "expected 10 bytes for deserializing L2BlockStateKeyCore, got {} bytes",
-                bytes.len()
-            );
+            anyhow::bail!("expected 10 bytes for deserializing L2BlockStateKeyCore, got {} bytes", bytes.len());
         }
         Ok(U64TableKey(u64::from_be_bytes([
             bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7], bytes[8], bytes[9],
@@ -46,7 +43,8 @@ impl<const TABLE_TYPE: u16> From<U64TableKey<TABLE_TYPE>> for u64 {
 
 impl<const TABLE_TYPE: u16> ScyllaKey for U64TableKey<TABLE_TYPE> {
     fn get_partition_key(&self) -> Vec<u8> {
-        // Use table_type as partition key so all entries of same type are in same partition
+        // Use table_type as partition key so all entries of same type are in same
+        // partition
         TABLE_TYPE.to_be_bytes().to_vec()
     }
 

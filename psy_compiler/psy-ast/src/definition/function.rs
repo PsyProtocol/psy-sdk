@@ -1,6 +1,5 @@
 use crate::{
-    AttrNode, Comment, ExprId, GenericParameter, Identifier, Location, NodeInfo, NodeType,
-    Qualifier, TypeQualifier, UncheckedType, Visibility,
+    AttrNode, Comment, ExprId, GenericParameter, Identifier, Location, NodeInfo, NodeType, Qualifier, TypeQualifier, UncheckedType, Visibility,
 };
 
 #[derive(Debug, Clone, PartialEq)]
@@ -26,12 +25,7 @@ pub struct FunctionParameter {
 }
 
 impl FunctionParameter {
-    pub fn new(
-        name: Identifier,
-        qualifier: TypeQualifier,
-        ty: UncheckedType,
-        location: Location,
-    ) -> Self {
+    pub fn new(name: Identifier, qualifier: TypeQualifier, ty: UncheckedType, location: Location) -> Self {
         Self {
             name,
             qualifier,

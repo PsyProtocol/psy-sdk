@@ -1,10 +1,11 @@
-use psy_core::{data::qhashout::QHashOut, job::traits::QProofStoreReaderSync};
 use core::fmt::Debug;
+
 use plonky2::plonk::{
     circuit_data::{CommonCircuitData, VerifierOnlyCircuitData},
     config::{AlgebraicHasher, GenericConfig},
     proof::ProofWithPublicInputs,
 };
+use psy_core::{data::qhashout::QHashOut, job::traits::QProofStoreReaderSync};
 use serde::{de::DeserializeOwned, Serialize};
 
 use crate::{
@@ -18,12 +19,8 @@ pub struct VerifierConfig<C: GenericConfig<D>, const D: usize> {
     pub verifier_only: VerifierOnlyCircuitData<C, D>,
 }
 
-pub trait TreeProverLeafCircuit<
-    S: QProofStoreReaderSync,
-    I: DeserializeOwned + Serialize + Clone + Debug + Send,
-    C: GenericConfig<D>,
-    const D: usize,
->: QStandardCircuitProvableWithProofStoreSync<S, I, C, D>
+pub trait TreeProverLeafCircuit<S: QProofStoreReaderSync, I: DeserializeOwned + Serialize + Clone + Debug + Send, C: GenericConfig<D>, const D: usize>:
+    QStandardCircuitProvableWithProofStoreSync<S, I, C, D>
 {
 }
 impl<
@@ -43,15 +40,14 @@ pub struct TreeAggInput<IO: Serialize + Clone + Debug, C: GenericConfig<D>, cons
 }
 pub struct TreeProverAggCircuitWrapper<AC, C: 'static + GenericConfig<D>, const D: usize>
 where
-    C::Hasher:AlgebraicHasher<C::F>,
+    C::Hasher: AlgebraicHasher<C::F>,
 {
     pub circuit: AC,
     pub minifier: QEDProofMinifierChain<D, C::F, C>,
 }
-impl<AC: QStandardCircuit<C, D> + Clone, C: 'static + GenericConfig<D>, const D: usize> Clone
-    for TreeProverAggCircuitWrapper<AC, C, D>
+impl<AC: QStandardCircuit<C, D> + Clone, C: 'static + GenericConfig<D>, const D: usize> Clone for TreeProverAggCircuitWrapper<AC, C, D>
 where
-    C::Hasher:AlgebraicHasher<C::F>,
+    C::Hasher: AlgebraicHasher<C::F>,
 {
     fn clone(&self) -> Self {
         let circuit = self.circuit.clone();
@@ -63,10 +59,9 @@ where
         Self { circuit, minifier }
     }
 }
-impl<AC: QStandardCircuit<C, D>, C: 'static + GenericConfig<D>, const D: usize>
-    QStandardCircuit<C, D> for TreeProverAggCircuitWrapper<AC, C, D>
+impl<AC: QStandardCircuit<C, D>, C: 'static + GenericConfig<D>, const D: usize> QStandardCircuit<C, D> for TreeProverAggCircuitWrapper<AC, C, D>
 where
-    C::Hasher:AlgebraicHasher<C::F>,
+    C::Hasher: AlgebraicHasher<C::F>,
 {
     fn get_fingerprint(&self) -> QHashOut<C::F> {
         QHashOut(self.minifier.get_fingerprint())
@@ -109,22 +104,14 @@ where
     }
 }
 */
-impl<
-        AC: TreeProverAggCircuit<IO, C, D>,
-        C: 'static + GenericConfig<D>,
-        IO: Serialize + Clone + Debug + Send,
-        const D: usize,
-    > TreeProverAggCircuit<IO, C, D> for TreeProverAggCircuitWrapper<AC, C, D>
+impl<AC: TreeProverAggCircuit<IO, C, D>, C: 'static + GenericConfig<D>, IO: Serialize + Clone + Debug + Send, const D: usize>
+    TreeProverAggCircuit<IO, C, D> for TreeProverAggCircuitWrapper<AC, C, D>
 where
-    C::Hasher:AlgebraicHasher<C::F>,
+    C::Hasher: AlgebraicHasher<C::F>,
 {
     fn new(child_common_data: &CommonCircuitData<C::F, D>, verifier_cap_height: usize) -> Self {
         let circuit = AC::new(child_common_data, verifier_cap_height);
-        let minifier = QEDProofMinifierChain::new(
-            circuit.get_verifier_config_ref(),
-            circuit.get_common_circuit_data_ref(),
-            1,
-        );
+        let minifier = QEDProofMinifierChain::new(circuit.get_verifier_config_ref(), circuit.get_common_circuit_data_ref(), 1);
         Self { circuit, minifier }
     }
 
@@ -150,11 +137,8 @@ where
         self.minifier.prove(&inner_proof)
     }
 }
-pub trait TreeProverAggCircuit<
-    IO: Serialize + Clone + Debug + Send,
-    C: GenericConfig<D>,
-    const D: usize,
->: QStandardCircuit<C, D> + Clone + Send
+pub trait TreeProverAggCircuit<IO: Serialize + Clone + Debug + Send, C: GenericConfig<D>, const D: usize>:
+    QStandardCircuit<C, D> + Clone + Send
 {
     fn new(child_common_data: &CommonCircuitData<C::F, D>, verifier_cap_height: usize) -> Self;
     fn prove_full(

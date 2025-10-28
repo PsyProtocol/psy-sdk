@@ -38,12 +38,7 @@ async fn receive_events_handler(
     if let Some(ref worker_events) = payload.worker_events {
         tracing::info!("Processing {} worker events", worker_events.len());
         for (index, worker_event) in worker_events.iter().enumerate() {
-            tracing::info!(
-                "Processing worker event {}/{}: {:?}",
-                index + 1,
-                worker_events.len(),
-                worker_event
-            );
+            tracing::info!("Processing worker event {}/{}: {:?}", index + 1, worker_events.len(), worker_event);
             match WorkerEventRepository::create(
                 &service.pool,
                 worker_event.realm_id,
@@ -60,10 +55,7 @@ async fn receive_events_handler(
             {
                 Ok(_) => {
                     processed_count += 1;
-                    tracing::info!(
-                        "Worker event inserted successfully: job_id={:?}",
-                        worker_event.job_id
-                    );
+                    tracing::info!("Worker event inserted successfully: job_id={:?}", worker_event.job_id);
                 }
                 Err(e) => {
                     tracing::error!("Failed to insert worker event: {:?}", e);
@@ -77,12 +69,7 @@ async fn receive_events_handler(
     if let Some(ref user_events) = payload.user_events {
         tracing::info!("Processing {} user events", user_events.len());
         for (index, user_event) in user_events.iter().enumerate() {
-            tracing::info!(
-                "Processing user event {}/{}: {:?}",
-                index + 1,
-                user_events.len(),
-                user_event
-            );
+            tracing::info!("Processing user event {}/{}: {:?}", index + 1, user_events.len(), user_event);
             match UserEventRepository::create(
                 &service.pool,
                 &user_event.user_id,
@@ -110,32 +97,20 @@ async fn receive_events_handler(
     }
 
     if let Some(ref worker_events) = payload.worker_events {
-        tracing::info!(
-            "Broadcasting {} worker events to WebSocket subscribers",
-            worker_events.len()
-        );
+        tracing::info!("Broadcasting {} worker events to WebSocket subscribers", worker_events.len());
         for worker_event in worker_events {
-            service
-                .worker_event_manager
-                .broadcast_event(worker_event)
-                .await;
+            service.worker_event_manager.broadcast_event(worker_event).await;
         }
     }
 
     if let Some(ref user_events) = payload.user_events {
-        tracing::info!(
-            "Broadcasting {} user events to WebSocket subscribers",
-            user_events.len()
-        );
+        tracing::info!("Broadcasting {} user events to WebSocket subscribers", user_events.len());
         for user_event in user_events {
             service.user_event_manager.broadcast_event(user_event).await;
         }
     }
 
-    tracing::info!(
-        "Telemetry processing completed successfully: processed {} events",
-        processed_count
-    );
+    tracing::info!("Telemetry processing completed successfully: processed {} events", processed_count);
 
     Ok(Json(TelemetryResponse {
         success: true,

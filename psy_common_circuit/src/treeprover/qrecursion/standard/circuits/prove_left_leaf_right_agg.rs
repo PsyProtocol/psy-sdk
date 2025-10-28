@@ -1,21 +1,13 @@
-use crate::{
-    circuits::traits::qstandard::
-        QStandardCircuit
-    ,
-    proof_minifier::pm_core::get_circuit_fingerprint_generic,
-    treeprover::qrecursion::standard::gadgets::{
-        agg_proof_header::QRecursionAggStandardHeaderGadget,
-        verify_agg_proof::VerifyAggProofGadget, verify_leaf_proof::VerifyLeafProofGadget,
-    },
-};
 use plonky2::{
-    gates::{constant::ConstantGate, gate::GateRef}, hash::hash_types::HashOut, iop::
-        witness::PartialWitness, plonk::{
+    gates::{constant::ConstantGate, gate::GateRef},
+    hash::hash_types::HashOut,
+    iop::witness::PartialWitness,
+    plonk::{
         circuit_builder::CircuitBuilder,
         circuit_data::{CircuitConfig, CircuitData, CommonCircuitData, VerifierOnlyCircuitData},
         config::{AlgebraicHasher, GenericConfig},
         proof::ProofWithPublicInputs,
-    }
+    },
 };
 use psy_core::data::qhashout::QHashOut;
 use psy_crypto::{
@@ -26,10 +18,18 @@ use psy_crypto::{
     },
 };
 
+use crate::{
+    circuits::traits::qstandard::QStandardCircuit,
+    proof_minifier::pm_core::get_circuit_fingerprint_generic,
+    treeprover::qrecursion::standard::gadgets::{
+        agg_proof_header::QRecursionAggStandardHeaderGadget, verify_agg_proof::VerifyAggProofGadget, verify_leaf_proof::VerifyLeafProofGadget,
+    },
+};
+
 #[derive(Debug)]
 pub struct QRecursionStandardLeftLeafRightAggCircuit<C: GenericConfig<D>, const D: usize>
 where
-    C::Hasher:AlgebraicHasher<C::F>,
+    C::Hasher: AlgebraicHasher<C::F>,
 {
     pub left_leaf_gadget: VerifyLeafProofGadget<D>,
     pub right_agg_gadget: VerifyAggProofGadget<D>,
@@ -42,7 +42,7 @@ where
 }
 impl<C: GenericConfig<D>, const D: usize> QRecursionStandardLeftLeafRightAggCircuit<C, D>
 where
-    C::Hasher:AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>>,
+    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>>,
 {
     pub fn new(
         //coset_gate: &GateRef<C::F, D>,
@@ -75,11 +75,8 @@ where
             leaf_child_common_data,
             leaf_verifier_data_cap_height,
         );
-        let right_agg_gadget = VerifyAggProofGadget::<D>::add_virtual_to::<C, C::F>(
-            &mut builder,
-            agg_child_common_data,
-            agg_verifier_data_cap_height,
-        );
+        let right_agg_gadget =
+            VerifyAggProofGadget::<D>::add_virtual_to::<C, C::F>(&mut builder, agg_child_common_data, agg_verifier_data_cap_height);
 
         // left agg and right leaf insertion should be back to back
         builder.connect_hashes(
@@ -95,8 +92,7 @@ where
             state_transition_end: right_agg_gadget.agg_proof_header_gadget.state_transition_end,
             agg_circuit_whitelist_root,
         };
-        let self_public_inputs_hash =
-            self_header_gadget.get_combined_hash::<C::Hasher, C::F, D>(&mut builder);
+        let self_public_inputs_hash = self_header_gadget.get_combined_hash::<C::Hasher, C::F, D>(&mut builder);
 
         builder.register_public_inputs(&self_public_inputs_hash.elements);
         //builder.add_qed_type_a_common_gates(Some(coset_gate.clone()));
@@ -128,12 +124,8 @@ where
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         let mut pw = PartialWitness::<C::F>::new();
 
-        self.left_leaf_gadget.set_witness(
-            &mut pw,
-            left_insert_leaf_proof,
-            left_proof,
-            left_verifier_data,
-        )?;
+        self.left_leaf_gadget
+            .set_witness(&mut pw, left_insert_leaf_proof, left_proof, left_verifier_data)?;
 
         self.right_agg_gadget.set_witness(
             &mut pw,
@@ -147,10 +139,9 @@ where
     }
 }
 
-impl<C: GenericConfig<D>, const D: usize> QStandardCircuit<C, D>
-    for QRecursionStandardLeftLeafRightAggCircuit<C, D>
+impl<C: GenericConfig<D>, const D: usize> QStandardCircuit<C, D> for QRecursionStandardLeftLeafRightAggCircuit<C, D>
 where
-    C::Hasher:AlgebraicHasher<C::F>,
+    C::Hasher: AlgebraicHasher<C::F>,
 {
     fn get_fingerprint(&self) -> QHashOut<C::F> {
         self.fingerprint

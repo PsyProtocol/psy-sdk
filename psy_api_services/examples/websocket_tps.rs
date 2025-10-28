@@ -1,24 +1,25 @@
-//! TPS WebSocket Client Example: Real-time Transaction Per Second (TPS) Monitoring
+//! TPS WebSocket Client Example: Real-time Transaction Per Second (TPS)
+//! Monitoring
 //!
 //! This example demonstrates:
 //! 1. Connecting to the TPS WebSocket endpoint (`/ws/tps`)
 //! 2. Receiving real-time TPS updates every 12 seconds
 //! 3. Creating test user events with different transaction counts
-//! 4. Monitoring how TPS calculations adapt to different GUTA transaction counts
+//! 4. Monitoring how TPS calculations adapt to different GUTA transaction
+//!    counts
 //! 5. Understanding the dynamic transaction counting mechanism
 
 use std::time::Duration;
 
 use chrono::Utc;
 use futures_util::StreamExt;
+// Import types from the API service crate instead of redefining them
+use psy_api_services::handlers::websocket::{EventType, WebSocketEvent};
+use psy_api_services::models::TpsData;
 use reqwest::Client;
 use serde_json::json;
 use tokio::time::sleep;
 use tokio_tungstenite::{connect_async, tungstenite::protocol::Message};
-
-// Import types from the API service crate instead of redefining them
-use psy_api_services::handlers::websocket::{EventType, WebSocketEvent};
-use psy_api_services::models::TpsData;
 
 const API_BASE: &str = "http://localhost:3000";
 const TPS_WS_URL: &str = "ws://localhost:3000/ws/tps";
@@ -53,10 +54,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("🚀 Starting test event generation...\n");
 
         for batch_id in 1..=3 {
-            println!(
-                "📤 Generating test batch {} with diverse transaction patterns...",
-                batch_id
-            );
+            println!("📤 Generating test batch {} with diverse transaction patterns...", batch_id);
             if let Err(e) = client_for_sender.send_test_user_events(batch_id).await {
                 println!("❌ Failed to send test events: {}", e);
             }
@@ -83,16 +81,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                 match serde_json::from_value::<TpsData>(event.data.clone()) {
                                     Ok(tps_data) => {
                                         println!("📊 TPS Update #{}", update_count);
+                                        println!("   🔥 Current TPS: {:.3} transactions/second", tps_data.tps);
                                         println!(
-                                            "   🔥 Current TPS: {:.3} transactions/second",
-                                            tps_data.tps
+                                            "   📈 Transaction Count: {} transactions in {}s window",
+                                            tps_data.transaction_count, tps_data.time_window_seconds
                                         );
-                                        println!("   📈 Transaction Count: {} transactions in {}s window",
-                                               tps_data.transaction_count, tps_data.time_window_seconds);
-                                        println!(
-                                            "   ⏰ Timestamp: {}",
-                                            tps_data.timestamp.format("%H:%M:%S")
-                                        );
+                                        println!("   ⏰ Timestamp: {}", tps_data.timestamp.format("%H:%M:%S"));
 
                                         // Update statistics
                                         if tps_data.tps > max_tps {
@@ -124,9 +118,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                             println!("   📊 Trend: {} (vs previous)", trend);
                                         }
 
-                                        println!(
-                                            "   💡 This TPS reflects dynamic transaction counting:"
-                                        );
+                                        println!("   💡 This TPS reflects dynamic transaction counting:");
                                         println!("      - RegisterUser/DeployContract = 1 tx each");
                                         println!("      - GUTA = metadata.transaction_count (or default 2)");
                                         println!("");
@@ -165,10 +157,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             // Stop after receiving several updates for demo purposes
             if update_count >= 8 {
-                println!(
-                    "📊 Received {} TPS updates, stopping monitoring...",
-                    update_count
-                );
+                println!("📊 Received {} TPS updates, stopping monitoring...", update_count);
                 break;
             }
         }
@@ -177,14 +166,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("\n📈 TPS Monitoring Summary:");
         println!("   🏆 Peak TPS: {:.3} transactions/second", max_tps);
         println!("   📊 Total Updates Received: {}", update_count);
-        println!(
-            "   🔢 Total Transactions Observed: {}",
-            total_transactions_observed
-        );
+        println!("   🔢 Total Transactions Observed: {}", total_transactions_observed);
 
         if !tps_history.is_empty() {
-            let avg_tps: f64 =
-                tps_history.iter().map(|t| t.tps).sum::<f64>() / tps_history.len() as f64;
+            let avg_tps: f64 = tps_history.iter().map(|t| t.tps).sum::<f64>() / tps_history.len() as f64;
             println!("   📊 Average TPS: {:.3} transactions/second", avg_tps);
 
             println!("\n📊 TPS History:");
@@ -228,16 +213,16 @@ struct TpsTestClient {
 
 impl TpsTestClient {
     fn new() -> Self {
-        Self {
-            http_client: Client::new(),
-        }
+        Self { http_client: Client::new() }
     }
 
-    /// Send test user events with varying transaction counts to demonstrate dynamic TPS calculation
+    /// Send test user events with varying transaction counts to demonstrate
+    /// dynamic TPS calculation
     async fn send_test_user_events(&self, batch_id: u32) -> Result<(), Box<dyn std::error::Error>> {
         let now = Utc::now();
 
-        // Create diverse user events to showcase different transaction counting scenarios
+        // Create diverse user events to showcase different transaction counting
+        // scenarios
         let mut user_events = Vec::new();
 
         // Standard RegisterUser events (1 transaction each)
@@ -274,7 +259,8 @@ impl TpsTestClient {
             }));
         }
 
-        // GUTA events with default transaction count (2 transactions - fallback behavior)
+        // GUTA events with default transaction count (2 transactions - fallback
+        // behavior)
         user_events.push(json!({
             "user_id": format!("guta_user_default_{}", batch_id),
             "public_key": format!("guta_key_default_{}", batch_id),
@@ -342,10 +328,7 @@ impl TpsTestClient {
 
         // Calculate expected transaction count for this batch
         let expected_transactions = 2 + 1 + 2 + 3 + 7 + 15 + 5 + 12; // 47 total
-        println!(
-            "🧮 Expected transactions in batch {}: {} transactions",
-            batch_id, expected_transactions
-        );
+        println!("🧮 Expected transactions in batch {}: {} transactions", batch_id, expected_transactions);
 
         // Send telemetry payload
         let telemetry_payload = json!({
@@ -371,11 +354,7 @@ impl TpsTestClient {
             println!("   - 1 GUTA with tx_count=12 = 12 transactions");
             println!("   📊 Total: {} transactions", expected_transactions);
         } else {
-            println!(
-                "❌ Failed to send batch {} user events: {}",
-                batch_id,
-                response.status()
-            );
+            println!("❌ Failed to send batch {} user events: {}", batch_id, response.status());
         }
 
         Ok(())

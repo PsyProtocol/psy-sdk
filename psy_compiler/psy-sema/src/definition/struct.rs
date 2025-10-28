@@ -26,13 +26,7 @@ pub struct CheckedStructField {
 }
 
 impl CheckedStructField {
-    pub fn new(
-        ty: TypeId,
-        attrs: Vec<AttrNode>,
-        visibility: Visibility,
-        comments: Vec<Comment>,
-        location: Location,
-    ) -> Self {
+    pub fn new(ty: TypeId, attrs: Vec<AttrNode>, visibility: Visibility, comments: Vec<Comment>, location: Location) -> Self {
         Self {
             ty,
             attrs,

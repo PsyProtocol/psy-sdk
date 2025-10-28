@@ -6,7 +6,6 @@ use plonky2::hash::hash_types::{HashOut, RichField};
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 
-
 #[serde_as]
 #[derive(Serialize, Deserialize, PartialEq, Clone, Copy, Debug)]
 pub struct Hash192(#[serde_as(as = "serde_with::hex::Hex")] pub [u8; 24]);
@@ -88,10 +87,7 @@ impl KVQSerializable for Hash192 {
 
     fn from_bytes(bytes: &[u8]) -> anyhow::Result<Self> {
         if bytes.len() != 24 {
-            anyhow::bail!(
-                "expected 24 bytes for deserializing Hash192, got {} bytes",
-                bytes.len()
-            );
+            anyhow::bail!("expected 24 bytes for deserializing Hash192, got {} bytes", bytes.len());
         }
         let mut inner_data = [0u8; 24];
         inner_data.copy_from_slice(bytes);

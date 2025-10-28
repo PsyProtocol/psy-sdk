@@ -1,11 +1,14 @@
 use kvq::traits::KVQSerializable;
 use plonky2::{field::goldilocks_field::GoldilocksField, hash::hash_types::RichField};
-use psy_core::{data::qhashout::QHashOut, traits::to_qfelts::{QFeltSized, ToQFelts}};
+use psy_core::{
+    data::qhashout::QHashOut,
+    traits::to_qfelts::{QFeltSized, ToQFelts},
+};
 use psy_crypto::hash::traits::{hasher::FieldQHasher, qhashable::QFieldHashable};
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Copy, Default,TS)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Copy, Default, TS)]
 #[ts(export, concrete(F = GoldilocksField))]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
 pub struct QEDContractLeaf<F: RichField> {
@@ -59,7 +62,6 @@ impl<F: RichField> ToQFelts<F> for QEDContractLeaf<F> {
     }
 }
 
-
 impl<F: RichField> QFieldHashable<F> for QEDContractLeaf<F> {
     fn qfhash<H: FieldQHasher<F>>(&self) -> QHashOut<F> {
         H::q_hash_many(&[
@@ -76,7 +78,7 @@ impl<F: RichField> QFieldHashable<F> for QEDContractLeaf<F> {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Default,TS)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Default, TS)]
 #[ts(export)]
 pub struct ContractFunctionCodeDefinition {
     // TODO: in the future method id = sha256(functionName(arg0[arg0_size],arg1[arg1_size]))&0xffffffff
@@ -88,7 +90,7 @@ pub struct ContractFunctionCodeDefinition {
     pub code: Vec<u8>,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Default,TS)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Default, TS)]
 #[ts(export)]
 pub struct SimpleContractFunctionCodeDefinition {
     pub method_id: u32,
@@ -107,7 +109,7 @@ impl KVQSerializable for ContractFunctionCodeDefinition {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash,TS)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, TS)]
 #[ts(export)]
 pub struct ContractCodeDefinition {
     pub state_tree_height: u16,
@@ -124,7 +126,7 @@ impl KVQSerializable for ContractCodeDefinition {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash,TS)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, TS)]
 #[ts(export)]
 pub struct SimpleContractCodeDefinition {
     pub state_tree_height: u16,
@@ -135,12 +137,17 @@ impl From<&ContractCodeDefinition> for SimpleContractCodeDefinition {
     fn from(value: &ContractCodeDefinition) -> Self {
         Self {
             state_tree_height: value.state_tree_height,
-            functions: value.functions.clone().into_iter().map(|f| SimpleContractFunctionCodeDefinition {
-                method_id: f.method_id,
-                num_inputs: f.num_inputs,
-                num_outputs: f.num_outputs,
-                vm_type: f.vm_type,
-            }).collect(),
+            functions: value
+                .functions
+                .clone()
+                .into_iter()
+                .map(|f| SimpleContractFunctionCodeDefinition {
+                    method_id: f.method_id,
+                    num_inputs: f.num_inputs,
+                    num_outputs: f.num_outputs,
+                    vm_type: f.vm_type,
+                })
+                .collect(),
         }
     }
 }

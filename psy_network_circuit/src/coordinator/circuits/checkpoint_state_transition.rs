@@ -10,36 +10,23 @@ use plonky2::{
     },
 };
 use psy_common_circuit::{
-    builder::{hash::core::CircuitBuilderHashCore, pad_circuit::CircuitBuilderQEDCommonGates}, circuits::traits::qstandard::{
-        QStandardCircuit, QStandardCircuitProvableWithProofStoreAndRefLibraryAsync,
-    }, proof_minifier::pm_core::get_circuit_fingerprint_generic
+    builder::{hash::core::CircuitBuilderHashCore, pad_circuit::CircuitBuilderQEDCommonGates},
+    circuits::traits::qstandard::{QStandardCircuit, QStandardCircuitProvableWithProofStoreAndRefLibraryAsync},
+    proof_minifier::pm_core::get_circuit_fingerprint_generic,
 };
 use psy_core::{
     config::network_constants::CHECKPOINT_TREE_HEIGHT,
     data::qhashout::QHashOut,
-    job::{
-        id::QProvingJobDataID,
-        traits::QProofStoreReaderAsync,
-    },
+    job::{id::QProvingJobDataID, traits::QProofStoreReaderAsync},
 };
 use psy_crypto::{
     common::circuit_library::CircuitInfoLibrary,
-    hash::{
-        merkle::
-            treeprover::
-                data::CircuitInputWithDependencies
-
-        ,
-        traits::hasher::MerkleZeroHasher,
-    },
+    hash::{merkle::treeprover::data::CircuitInputWithDependencies, traits::hasher::MerkleZeroHasher},
 };
-use psy_data::
-    protocol::circuit_inputs::checkpoint_transition::QCQEDCheckpointStateTransitionInput
-;
+use psy_data::protocol::circuit_inputs::checkpoint_transition::QCQEDCheckpointStateTransitionInput;
 
 use crate::coordinator::gadgets::{
-    checkpoint_state_transition::CheckpointStateTransitionCoreGadget,
-    checkpoint_state_transition_proofs::CheckpointStateTransitionChildProofsGadget,
+    checkpoint_state_transition::CheckpointStateTransitionCoreGadget, checkpoint_state_transition_proofs::CheckpointStateTransitionChildProofsGadget,
 };
 
 #[derive(Debug)]
@@ -64,52 +51,58 @@ where
         let config = CircuitConfig::standard_recursion_config();
         let mut builder = CircuitBuilder::<C::F, D>::new(config);
 
-        let child_proofs_gadget =
-            CheckpointStateTransitionChildProofsGadget::<D>::add_virtual_to::<C, C::F>(
-                &mut builder,
-                part_1_common_data,
-                part_1_verifier_data_cap_height,
-                known_part_1_fingerprint,
-            );
-        let core_checkpoint_gadget = CheckpointStateTransitionCoreGadget::add_virtual_to::<
-            C::Hasher,
-            C::F,
-            D,
-        >(&mut builder, CHECKPOINT_TREE_HEIGHT as usize);
-        let expected_old_leaf_hash = child_proofs_gadget.state_delta_gadget.old_checkpoint_leaf.to_hash::<C::Hasher, C::F, D>(&mut builder);
-        let expected_new_leaf_hash = child_proofs_gadget.state_delta_gadget.new_checkpoint_leaf.to_hash::<C::Hasher, C::F, D>(&mut builder);
-        let expected_old_checkpoint_root = child_proofs_gadget.state_delta_gadget.part_1_header.global_user_tree_delta.checkpoint_tree_root;
+        let child_proofs_gadget = CheckpointStateTransitionChildProofsGadget::<D>::add_virtual_to::<C, C::F>(
+            &mut builder,
+            part_1_common_data,
+            part_1_verifier_data_cap_height,
+            known_part_1_fingerprint,
+        );
+        let core_checkpoint_gadget =
+            CheckpointStateTransitionCoreGadget::add_virtual_to::<C::Hasher, C::F, D>(&mut builder, CHECKPOINT_TREE_HEIGHT as usize);
+        let expected_old_leaf_hash = child_proofs_gadget
+            .state_delta_gadget
+            .old_checkpoint_leaf
+            .to_hash::<C::Hasher, C::F, D>(&mut builder);
+        let expected_new_leaf_hash = child_proofs_gadget
+            .state_delta_gadget
+            .new_checkpoint_leaf
+            .to_hash::<C::Hasher, C::F, D>(&mut builder);
+        let expected_old_checkpoint_root = child_proofs_gadget
+            .state_delta_gadget
+            .part_1_header
+            .global_user_tree_delta
+            .checkpoint_tree_root;
 
         tracing::debug!("🏛️ Checkpoint State Transition - expected_old_leaf_hash: {:?}, expected_new_leaf_hash: {:?}, expected_old_checkpoint_root: {:?}, core_checkpoint_gadget: {:?}",
             expected_old_leaf_hash, expected_new_leaf_hash, expected_old_checkpoint_root, core_checkpoint_gadget);
 
+        builder.connect_hashes(expected_old_leaf_hash, core_checkpoint_gadget.old_checkpoint_leaf_hash);
+        builder.connect_hashes(expected_new_leaf_hash, core_checkpoint_gadget.new_checkpoint_leaf_hash);
 
-        builder.connect_hashes(
-            expected_old_leaf_hash,
-            core_checkpoint_gadget.old_checkpoint_leaf_hash,
-        );
-        builder.connect_hashes(
-            expected_new_leaf_hash,
-            core_checkpoint_gadget.new_checkpoint_leaf_hash,
-        );
-
-        builder.connect_hashes(
-            expected_old_checkpoint_root,
-            core_checkpoint_gadget.old_checkpoint_tree_root,
-        );
+        builder.connect_hashes(expected_old_checkpoint_root, core_checkpoint_gadget.old_checkpoint_tree_root);
 
         let new_checkpoint_root = core_checkpoint_gadget.new_checkpoint_tree_root;
 
         tracing::debug!("🏛️ Checkpoint State Transition - new_checkpoint_root: {:?}", new_checkpoint_root);
-        //let combo_hash = builder.hash_two_to_one::<C::Hasher>(expected_old_checkpoint_root, new_checkpoint_root);
+        //let combo_hash =
+        // builder.hash_two_to_one::<C::Hasher>(expected_old_checkpoint_root,
+        // new_checkpoint_root);
 
         let worker_public_key = builder.add_virtual_hash();
         let zero_hash = builder.constant_hash(HashOut::ZERO);
         let commitment = builder.hash_two_to_one::<C::Hasher>(zero_hash, zero_hash);
 
         let pm_stats_targets = [
-            child_proofs_gadget.state_delta_gadget.new_stats.pm_jobs_completed.deploy_contracts_completed,
-            child_proofs_gadget.state_delta_gadget.new_stats.pm_jobs_completed.register_users_completed,
+            child_proofs_gadget
+                .state_delta_gadget
+                .new_stats
+                .pm_jobs_completed
+                .deploy_contracts_completed,
+            child_proofs_gadget
+                .state_delta_gadget
+                .new_stats
+                .pm_jobs_completed
+                .register_users_completed,
             child_proofs_gadget.state_delta_gadget.new_stats.pm_jobs_completed.gutas_completed,
         ];
 
@@ -142,8 +135,9 @@ where
         let mut pw = PartialWitness::<C::F>::new();
         pw.set_hash_target(self.worker_public_key, worker_public_key.0)?;
 
-        tracing::debug!("🏛️ Checkpoint State Transition prove_base - worker_public_key: {:?}, append_checkpoint_proof (index: {}, siblings_len: {}), previous_checkpoint_proof (index: {}, siblings_len: {})",
-            worker_public_key, 
+        tracing::debug!(
+            "🏛️ Checkpoint State Transition prove_base - worker_public_key: {:?}, append_checkpoint_proof (index: {}, siblings_len: {}), previous_checkpoint_proof (index: {}, siblings_len: {})",
+            worker_public_key,
             input.append_checkpoint_tree_proof.index, input.append_checkpoint_tree_proof.siblings.len(),
             input.previous_checkpoint_proof.index, input.previous_checkpoint_proof.siblings.len());
 
@@ -160,18 +154,14 @@ where
             part_1_verifier_data,
         )?;
 
-        self.core_checkpoint_gadget.set_witness_params(
-            &mut pw,
-            &input.append_checkpoint_tree_proof,
-            &input.previous_checkpoint_proof,
-        )?;
+        self.core_checkpoint_gadget
+            .set_witness_params(&mut pw, &input.append_checkpoint_tree_proof, &input.previous_checkpoint_proof)?;
 
         self.circuit_data.prove(pw)
     }
 }
 
-impl<C: GenericConfig<D>, const D: usize> QStandardCircuit<C, D>
-    for QEDCheckpointStateTransitionCircuit<C, D>
+impl<C: GenericConfig<D>, const D: usize> QStandardCircuit<C, D> for QEDCheckpointStateTransitionCircuit<C, D>
 where
     C::Hasher: AlgebraicHasher<C::F>,
 {
@@ -188,13 +178,8 @@ where
     }
 }
 #[async_trait]
-impl<
-        S: QProofStoreReaderAsync + Send + Sync,
-        L: CircuitInfoLibrary<C, D> + Send + Sync,
-        C: GenericConfig<D> + 'static,
-        const D: usize,
-    > QStandardCircuitProvableWithProofStoreAndRefLibraryAsync<S, L, C, D>
-    for QEDCheckpointStateTransitionCircuit<C, D>
+impl<S: QProofStoreReaderAsync + Send + Sync, L: CircuitInfoLibrary<C, D> + Send + Sync, C: GenericConfig<D> + 'static, const D: usize>
+    QStandardCircuitProvableWithProofStoreAndRefLibraryAsync<S, L, C, D> for QEDCheckpointStateTransitionCircuit<C, D>
 where
     C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>>,
 {
@@ -206,14 +191,11 @@ where
         worker_public_key: QHashOut<C::F>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         let r: CircuitInputWithDependencies<QCQEDCheckpointStateTransitionInput<C::F>> =
-            bincode::deserialize(&store.get_bytes_by_id(job_id.get_input_witness_id()).await?)
-                .map_err(|e| anyhow::anyhow!(e))?;
+            bincode::deserialize(&store.get_bytes_by_id(job_id.get_input_witness_id()).await?).map_err(|e| anyhow::anyhow!(e))?;
 
         if r.dependencies.len() != 1 {
             anyhow::bail!("expected 1 dependency");
         }
-
-
 
         let part_1_proof = store.get_proof_by_id(r.dependencies[0]).await?;
 
@@ -221,12 +203,7 @@ where
 
         let part_1_verifier_data = library.get_verifier_data(part_1_proof_type)?;
 
-        let result = self.prove_base(
-            worker_public_key,
-            &r.input,
-            &part_1_proof,
-            &part_1_verifier_data,
-        )?;
+        let result = self.prove_base(worker_public_key, &r.input, &part_1_proof, &part_1_verifier_data)?;
         Ok(result)
     }
 }

@@ -1,10 +1,14 @@
-use plonky2::{field::extension::Extendable, hash::hash_types::{HashOut, RichField}, iop::{target::Target, witness::Witness}, plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher}, util::log2_ceil};
+use plonky2::{
+    field::extension::Extendable,
+    hash::hash_types::{HashOut, RichField},
+    iop::{target::Target, witness::Witness},
+    plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher},
+    util::log2_ceil,
+};
 use psy_core::data::qhashout::QHashOut;
 
-use crate::hash::merkle::gadgets::variable_height_delta_merkle_proof_opt::VariableHeightDeltaMerkleProofOptGadget;
-
 use super::subtree_core::SubTreeNodeStateTransitionGadget;
-
+use crate::hash::merkle::gadgets::variable_height_delta_merkle_proof_opt::VariableHeightDeltaMerkleProofOptGadget;
 
 #[derive(Debug, Clone)]
 pub struct SubTreeNodeTopLineGadget {
@@ -15,19 +19,16 @@ pub struct SubTreeNodeTopLineGadget {
     pub new_state_transition: SubTreeNodeStateTransitionGadget,
 }
 
-
-
 impl SubTreeNodeTopLineGadget {
-    pub fn add_virtual_to_full<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
+    pub fn add_virtual_to_full<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
         builder: &mut CircuitBuilder<F, D>,
         max_height: usize,
         max_level: usize,
         child_transition: &SubTreeNodeStateTransitionGadget,
     ) -> Self {
-
         let top_line_height = builder.add_virtual_target();
 
-        let top_line_proof = VariableHeightDeltaMerkleProofOptGadget::add_virtual_to_full_with_subtree_root_index_known::<H,F,D>(
+        let top_line_proof = VariableHeightDeltaMerkleProofOptGadget::add_virtual_to_full_with_subtree_root_index_known::<H, F, D>(
             builder,
             max_height,
             Some(top_line_height),
@@ -57,22 +58,12 @@ impl SubTreeNodeTopLineGadget {
         }
     }
 
-    pub fn set_witness_params<W: Witness<F>, F: RichField>(
-        &self,
-        witness: &mut W,
-        siblings: &[QHashOut<F>],
-    ) -> anyhow::Result<()> {
+    pub fn set_witness_params<W: Witness<F>, F: RichField>(&self, witness: &mut W, siblings: &[QHashOut<F>]) -> anyhow::Result<()> {
         for (i, s) in self.top_line_proof.siblings.iter().enumerate() {
             if i < siblings.len() {
-            witness.set_hash_target(
-                *s,
-                siblings[i].0,
-            )?;
-            }else{
-                witness.set_hash_target(
-                    *s,
-                    HashOut::ZERO
-                )?;
+                witness.set_hash_target(*s, siblings[i].0)?;
+            } else {
+                witness.set_hash_target(*s, HashOut::ZERO)?;
             }
         }
 

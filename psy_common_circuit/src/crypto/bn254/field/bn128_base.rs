@@ -1,15 +1,15 @@
-use core::fmt::{self, Debug, Display, Formatter};
-use core::hash::{Hash, Hasher};
-use core::iter::{Product, Sum};
-use core::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
+use core::{
+    fmt::{self, Debug, Display, Formatter},
+    hash::{Hash, Hasher},
+    iter::{Product, Sum},
+    ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign},
+};
 use std::vec::Vec;
 
 use itertools::Itertools;
-use num::bigint::BigUint;
-use num::{Integer, One};
-use serde::{Deserialize, Serialize};
-
+use num::{bigint::BigUint, Integer, One};
 use plonky2::field::types::{Field, PrimeField, Sample};
+use serde::{Deserialize, Serialize};
 
 #[derive(Copy, Clone, Serialize, Deserialize)]
 pub struct Bn128Base(pub [u64; 4]);
@@ -70,23 +70,13 @@ impl Sample for Bn128Base {
     }
 }
 
-const MONTGOMERY_INV: [u64; 4] = [
-    0xed84884a014afa37,
-    0xeb2022850278edf8,
-    0xcf63e9cfb74492d9,
-    0x2e67157159e5c639,
-];
+const MONTGOMERY_INV: [u64; 4] = [0xed84884a014afa37, 0xeb2022850278edf8, 0xcf63e9cfb74492d9, 0x2e67157159e5c639];
 
 impl Bn128Base {
     pub const MONTGOMERY_INV: Self = Self(MONTGOMERY_INV);
-    
-    pub const NONRESIDUE: Self = Self([
-        0x68c3488912edefaa,
-        0x8d087f6872aabf4f,
-        0x51e1a24709081231,
-        0x2259d6b14729c0fa,
-    ]);
-    
+
+    pub const NONRESIDUE: Self = Self([0x68c3488912edefaa, 0x8d087f6872aabf4f, 0x51e1a24709081231, 0x2259d6b14729c0fa]);
+
     pub fn mul_by_nonresidue(&self) -> Self {
         -*self
     }
@@ -94,24 +84,9 @@ impl Bn128Base {
 
 impl Field for Bn128Base {
     const ZERO: Self = Self([0; 4]);
-    const ONE: Self = Self([
-        0xd35d438dc58f0d9d,
-        0xa78eb28f5c70b3d,
-        0x666ea36f7879462c,
-        0xe0a77c19a07df2f,
-    ]);
-    const TWO: Self = Self([
-        0xa6ba871b8b1e1b3a,
-        0x14f1d651eb8e167b,
-        0xccdd46def0f28c58,
-        0x1c14ef83340fbe5e,
-    ]);
-    const NEG_ONE: Self = Self([
-        0x68c3488912edefaa,
-        0x8d087f6872aabf4f,
-        0x51e1a24709081231,
-        0x2259d6b14729c0fa,
-    ]);
+    const ONE: Self = Self([0xd35d438dc58f0d9d, 0xa78eb28f5c70b3d, 0x666ea36f7879462c, 0xe0a77c19a07df2f]);
+    const TWO: Self = Self([0xa6ba871b8b1e1b3a, 0x14f1d651eb8e167b, 0xccdd46def0f28c58, 0x1c14ef83340fbe5e]);
+    const NEG_ONE: Self = Self([0x68c3488912edefaa, 0x8d087f6872aabf4f, 0x51e1a24709081231, 0x2259d6b14729c0fa]);
     const TWO_ADICITY: usize = 1;
     const CHARACTERISTIC_TWO_ADICITY: usize = Self::TWO_ADICITY;
 
@@ -123,8 +98,7 @@ impl Field for Bn128Base {
 
     fn order() -> BigUint {
         BigUint::from_slice(&[
-            0xd87cfd47, 0x3c208c16, 0x6871ca8d, 0x97816a91, 0x8181585d, 0xb85045b6, 0xe131a029,
-            0x30644e72,
+            0xd87cfd47, 0x3c208c16, 0x6871ca8d, 0x97816a91, 0x8181585d, 0xb85045b6, 0xe131a029, 0x30644e72,
         ])
     }
     fn characteristic() -> BigUint {
@@ -135,19 +109,12 @@ impl Field for Bn128Base {
         if self.is_zero() {
             return None;
         }
-        Some(
-            self.exp_biguint(&(Self::order() - BigUint::one() - BigUint::one()))
-                * Bn128Base::ONE
-                * Bn128Base::ONE,
-        )
+        Some(self.exp_biguint(&(Self::order() - BigUint::one() - BigUint::one())) * Bn128Base::ONE * Bn128Base::ONE)
     }
 
     fn from_noncanonical_biguint(val: BigUint) -> Self {
         Self(
-            val.to_u64_digits()
-                .into_iter()
-                .pad_using(4, |_| 0)
-                .collect::<Vec<_>>()[..]
+            val.to_u64_digits().into_iter().pad_using(4, |_| 0).collect::<Vec<_>>()[..]
                 .try_into()
                 .expect("error converting to u64 array"),
         )
@@ -255,10 +222,7 @@ impl Mul for Bn128Base {
     #[inline]
     fn mul(self, rhs: Self) -> Self {
         Self::from_noncanonical_biguint(
-            (self.to_canonical_biguint()
-                * rhs.to_canonical_biguint()
-                * biguint_from_array(MONTGOMERY_INV))
-            .mod_floor(&Self::order()),
+            (self.to_canonical_biguint() * rhs.to_canonical_biguint() * biguint_from_array(MONTGOMERY_INV)).mod_floor(&Self::order()),
         )
     }
 }

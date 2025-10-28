@@ -1,10 +1,7 @@
 use enum_as_inner::EnumAsInner;
 use psy_common::Graph;
 
-use crate::{
-    CrateId, DefId, DefinitionNode, ExprId, ExprNode, Ident, IdentId, ModuleId, ModuleNode, NodeInfo,
-    Program, StmtId, StmtNode,
-};
+use crate::{CrateId, DefId, DefinitionNode, ExprId, ExprNode, Ident, IdentId, ModuleId, ModuleNode, NodeInfo, Program, StmtId, StmtNode};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum InsertPosition {
@@ -234,16 +231,10 @@ impl<'a, F: Clone + From<u32>, C> VisitorContext<F, C> for DefaultVisitorContext
 
         match pos {
             InsertPosition::Front => {
-                self.program.modules[module_id]
-                    .data_mut()
-                    .definitions
-                    .insert(0, def_id);
+                self.program.modules[module_id].data_mut().definitions.insert(0, def_id);
             }
             InsertPosition::End => {
-                self.program.modules[module_id]
-                    .data_mut()
-                    .definitions
-                    .push(def_id);
+                self.program.modules[module_id].data_mut().definitions.push(def_id);
             }
             InsertPosition::Before(before) => {
                 let idx = self.program.modules[module_id]
@@ -252,10 +243,7 @@ impl<'a, F: Clone + From<u32>, C> VisitorContext<F, C> for DefaultVisitorContext
                     .iter()
                     .position(|d| d == before.as_def().unwrap())
                     .unwrap();
-                self.program.modules[module_id]
-                    .data_mut()
-                    .definitions
-                    .insert(idx, def_id);
+                self.program.modules[module_id].data_mut().definitions.insert(idx, def_id);
             }
             InsertPosition::After(after) => {
                 let idx = self.program.modules[module_id]
@@ -264,10 +252,7 @@ impl<'a, F: Clone + From<u32>, C> VisitorContext<F, C> for DefaultVisitorContext
                     .iter()
                     .position(|d| d == after.as_def().unwrap())
                     .unwrap();
-                self.program.modules[module_id]
-                    .data_mut()
-                    .definitions
-                    .insert(idx + 1, def_id);
+                self.program.modules[module_id].data_mut().definitions.insert(idx + 1, def_id);
             }
         };
     }

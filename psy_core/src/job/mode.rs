@@ -1,18 +1,6 @@
 use serde_repr::{Deserialize_repr, Serialize_repr};
 
-
-#[derive(
-    Serialize_repr,
-    Deserialize_repr,
-    PartialEq,
-    Debug,
-    Clone,
-    Copy,
-    Eq,
-    Hash,
-    PartialOrd,
-    Ord,
-)]
+#[derive(Serialize_repr, Deserialize_repr, PartialEq, Debug, Clone, Copy, Eq, Hash, PartialOrd, Ord)]
 #[repr(u32)]
 pub enum QWorkerMode {
     All = 0,

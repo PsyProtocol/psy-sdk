@@ -1,21 +1,8 @@
-
 use kvq::traits::KVQSerializable;
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 
-
-#[derive(
-    Serialize_repr,
-    Deserialize_repr,
-    PartialEq,
-    Debug,
-    Clone,
-    Copy,
-    Eq,
-    Hash,
-    PartialOrd,
-    Ord,
-)]
+#[derive(Serialize_repr, Deserialize_repr, PartialEq, Debug, Clone, Copy, Eq, Hash, PartialOrd, Ord)]
 #[repr(u8)]
 pub enum QEDHashHelperHashType {
     Unknown = 0,
@@ -73,10 +60,7 @@ impl KVQSerializable for QEDHashHelperResult {
 
     fn from_bytes(bytes: &[u8]) -> anyhow::Result<Self> {
         if bytes.len() != 17 {
-            anyhow::bail!(
-                "expected 17 bytes for deserializing QEDHashHelperResult, got {} bytes",
-                bytes.len()
-            );
+            anyhow::bail!("expected 17 bytes for deserializing QEDHashHelperResult, got {} bytes", bytes.len());
         }
         let hash_type = QEDHashHelperHashType::try_from(bytes[0])?;
         let checkpoint_id = u64::from_be_bytes(bytes[1..9].try_into()?);

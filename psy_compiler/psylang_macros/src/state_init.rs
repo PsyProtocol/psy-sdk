@@ -1,9 +1,6 @@
 use proc_macro2::TokenStream;
 use quote::{quote, quote_spanned};
-use syn::spanned::Spanned;
-use syn::{
-    parse_macro_input, parse_quote, Data, DeriveInput, Fields, GenericParam, Generics, Ident, Index
-};
+use syn::{parse_macro_input, parse_quote, spanned::Spanned, Data, DeriveInput, Fields, GenericParam, Generics, Ident, Index};
 
 pub fn derive_state_init(input: proc_macro2::TokenStream) -> proc_macro2::TokenStream {
     // Parse the input tokens into a syntax tree.
@@ -12,7 +9,6 @@ pub fn derive_state_init(input: proc_macro2::TokenStream) -> proc_macro2::TokenS
     // Delegate to the core implementation.
     derive_state_init_core(input)
 }
-
 
 pub fn derive_state_init_core(input: DeriveInput) -> proc_macro2::TokenStream {
     // Parse the input tokens into a syntax tree.

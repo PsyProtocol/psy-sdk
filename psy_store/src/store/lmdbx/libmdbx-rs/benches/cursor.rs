@@ -1,10 +1,11 @@
 #![allow(missing_docs)]
 mod utils;
 
+use std::{hint::black_box, ptr};
+
 use criterion::{criterion_group, criterion_main, Criterion};
 use pprof::criterion::{Output, PProfProfiler};
 use reth_libmdbx::{ffi::*, *};
-use std::{hint::black_box, ptr};
 use utils::*;
 
 /// Benchmark of iterator sequential read performance.
@@ -20,15 +21,11 @@ fn bench_get_seq_iter(c: &mut Criterion) {
             let mut i = 0;
             let mut count = 0u32;
 
-            for (key_len, data_len) in
-                cursor.iter::<ObjectLength, ObjectLength>().map(Result::unwrap)
-            {
+            for (key_len, data_len) in cursor.iter::<ObjectLength, ObjectLength>().map(Result::unwrap) {
                 i = i + *key_len + *data_len;
                 count += 1;
             }
-            for (key_len, data_len) in
-                cursor.iter::<ObjectLength, ObjectLength>().filter_map(Result::ok)
-            {
+            for (key_len, data_len) in cursor.iter::<ObjectLength, ObjectLength>().filter_map(Result::ok) {
                 i = i + *key_len + *data_len;
                 count += 1;
             }
@@ -79,8 +76,14 @@ fn bench_get_seq_raw(c: &mut Criterion) {
     let dbi = env.begin_ro_txn().unwrap().open_db(None).unwrap().dbi();
     let txn = env.begin_ro_txn().unwrap();
 
-    let mut key = MDBX_val { iov_len: 0, iov_base: ptr::null_mut() };
-    let mut data = MDBX_val { iov_len: 0, iov_base: ptr::null_mut() };
+    let mut key = MDBX_val {
+        iov_len: 0,
+        iov_base: ptr::null_mut(),
+    };
+    let mut data = MDBX_val {
+        iov_len: 0,
+        iov_base: ptr::null_mut(),
+    };
     let mut cursor: *mut MDBX_cursor = ptr::null_mut();
 
     c.bench_function("bench_get_seq_raw", |b| {

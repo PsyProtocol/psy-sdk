@@ -1,7 +1,6 @@
 use kvq::traits::{KVQSerializable, ScyllaKey};
 use serde::{Deserialize, Serialize};
 
-
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct CheckpointTableIdKey<const TABLE_TYPE: u16> {
     pub id: u64,
@@ -49,18 +48,12 @@ impl<const TABLE_TYPE: u16> KVQSerializable for CheckpointTableIdKey<TABLE_TYPE>
         checkpoint_id_be_bytes.copy_from_slice(&bytes[10..18]);
         let checkpoint_id = u64::from_be_bytes(checkpoint_id_be_bytes);
 
-        Ok(CheckpointTableIdKey {
-            id,
-            checkpoint_id,
-        })
+        Ok(CheckpointTableIdKey { id, checkpoint_id })
     }
 }
 impl<const TABLE_TYPE: u16> CheckpointTableIdKey<TABLE_TYPE> {
     pub fn new(checkpoint_id: u64, id: u64) -> Self {
-        CheckpointTableIdKey {
-            id,
-            checkpoint_id,
-        }
+        CheckpointTableIdKey { id, checkpoint_id }
     }
 }
 

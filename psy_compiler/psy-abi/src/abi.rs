@@ -1,6 +1,5 @@
-use serde::Serialize;
-
 use psy_ast::{DefaultVisitorContext, UncheckedType, VisitorContext};
+use serde::Serialize;
 
 // New spec-compliant ABI structures
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -70,14 +69,9 @@ impl SpecCompliantAbi {
 }
 
 impl TypeAbiSpec {
-    pub fn from_unchecked_type<F: Clone + From<u32>>(
-        unchecked_type: &UncheckedType,
-        ctx: &DefaultVisitorContext<F, ()>,
-    ) -> Self {
+    pub fn from_unchecked_type<F: Clone + From<u32>>(unchecked_type: &UncheckedType, ctx: &DefaultVisitorContext<F, ()>) -> Self {
         match unchecked_type {
-            UncheckedType::Basic(identifier) => {
-                TypeAbiSpec::Basic(ctx.ident(*identifier).0.to_string())
-            }
+            UncheckedType::Basic(identifier) => TypeAbiSpec::Basic(ctx.ident(*identifier).0.to_string()),
             UncheckedType::Array(element_type, size, _) => {
                 let inner_type = match Self::from_unchecked_type(element_type, ctx) {
                     TypeAbiSpec::Basic(name) => name,
@@ -89,9 +83,7 @@ impl TypeAbiSpec {
                     length: *size,
                 }
             }
-            UncheckedType::Generic(identifier, _generics, _) => {
-                TypeAbiSpec::Basic(ctx.ident(*identifier).0.to_string())
-            }
+            UncheckedType::Generic(identifier, _generics, _) => TypeAbiSpec::Basic(ctx.ident(*identifier).0.to_string()),
             UncheckedType::Path(path) => Self::from_unchecked_type(&path.target, ctx),
             _ => TypeAbiSpec::Basic("unknown".to_string()),
         }

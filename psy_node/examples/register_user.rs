@@ -1,12 +1,15 @@
-use std::str::FromStr;
+use std::{
+    str::FromStr,
+    time::{Duration, Instant},
+};
+
 use anyhow::Result;
-use rand::Rng;
-use reqwest::Client;
-use std::time::{Duration, Instant};
 use plonky2::field::goldilocks_field::GoldilocksField;
 use psy_core::data::qhashout::QHashOut;
 use psy_crypto::signature::zk::data::ZKPublicKeyInfo;
 use psy_prover::local::request::{Id, QRegisterUserRPCRequest, RequestParams, RpcRequest, Version};
+use rand::Rng;
+use reqwest::Client;
 
 //just copy from psy_user_cli/src/subcommand/register_user.rs
 const ZK_FINGERPRINT: &str = "d2f572f1402fa8a92c9af0a2226e05ef8f5f4f34d764c6515b90d2b391fc48c1";
@@ -18,12 +21,7 @@ fn generate_random_public_key() -> ZKPublicKeyInfo<GoldilocksField> {
     let fingerprint = QHashOut::<GoldilocksField>::from_str(&ZK_FINGERPRINT).unwrap();
 
     let u64v = [rng.r#gen::<u64>(), rng.r#gen::<u64>(), rng.r#gen::<u64>(), rng.r#gen::<u64>()];
-    let public_key_param = QHashOut::<GoldilocksField>::from_values(
-        u64v[0],
-        u64v[1],
-        u64v[2],
-        u64v[3],
-    );
+    let public_key_param = QHashOut::<GoldilocksField>::from_values(u64v[0], u64v[1], u64v[2], u64v[3]);
 
     let public_key_info = ZKPublicKeyInfo {
         fingerprint,
@@ -37,20 +35,14 @@ async fn register_user(idx: u64, url: &str, client: &Client) -> Result<()> {
 
     let test_request = RpcRequest {
         jsonrpc: Version::V2,
-        request: RequestParams::RegisterUser(QRegisterUserRPCRequest {
-            public_key: test_public_key,
-        }),
+        request: RequestParams::RegisterUser(QRegisterUserRPCRequest { public_key: test_public_key }),
         id: Id::Number(0),
     };
 
     println!("\n🚀 {} Sending test request...", idx);
     let start = Instant::now();
 
-    let response = client
-        .post(url)
-        .json(&test_request)
-        .send()
-        .await?;
+    let response = client.post(url).json(&test_request).send().await?;
 
     let duration = start.elapsed();
 
@@ -73,9 +65,7 @@ async fn run_register_loop() -> Result<()> {
     let rpc_url = "http://127.0.0.1:8545".to_string();
     let mut counter = 0;
 
-    let test_client = Client::builder()
-        .timeout(Duration::from_secs(30))
-        .build()?;
+    let test_client = Client::builder().timeout(Duration::from_secs(30)).build()?;
 
     loop {
         tokio::time::sleep(Duration::from_millis(500)).await;
@@ -91,8 +81,9 @@ async fn run_register_loop() -> Result<()> {
                 println!("⚠️  Error occurred: {}", e);
                 println!("⏳ Waiting 5 seconds before retrying...\n");
                 tokio::time::sleep(Duration::from_secs(5)).await;
-                // Note: counter is NOT incremented on failure, so it will retry with the same index
-                // If you want to increment counter even on failure, move counter += 1 here
+                // Note: counter is NOT incremented on failure, so it will retry
+                // with the same index If you want to increment
+                // counter even on failure, move counter += 1 here
             }
         }
     }

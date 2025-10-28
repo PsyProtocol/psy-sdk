@@ -1,6 +1,4 @@
-
-
-/* 
+/*
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Copy, Default)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
 pub struct DPNContractFunctionInputPreCallInfo<F: RichField> {

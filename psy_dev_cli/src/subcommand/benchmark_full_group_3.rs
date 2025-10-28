@@ -1,23 +1,19 @@
+use std::{sync::Arc, time::Duration};
+
 use fred::prelude::*;
-use kvq::{
-    memory::simple::KVQSimpleMemoryBackingStore,
-    traits::KVQBinaryStore,
+use kvq::{memory::simple::KVQSimpleMemoryBackingStore, traits::KVQBinaryStore};
+use plonky2::{
+    field::{extension::Extendable, goldilocks_field::GoldilocksField, types::Field},
+    hash::hash_types::{HashOut, RichField},
+    plonk::config::{AlgebraicHasher, GenericConfig, PoseidonGoldilocksConfig},
 };
-use std::sync::Arc;
-use super::super::test_helpers::{
-    contract::{gen_test_contract, SimpleTestContract},
-    ups::ExampleDemoUserInfoStore,
-};
-use psy_common_circuit::circuits::{
-    traits::qstandard::QStandardCircuit, zk_signature3::manager::SimpleQEDZKSignatureManager,
-};
+use psy_common_circuit::circuits::{traits::qstandard::QStandardCircuit, zk_signature3::manager::SimpleQEDZKSignatureManager};
 use psy_core::{
     config::network_constants::{QED_NETWORK_MAGIC_REGTEST, UPS_SESSION_PROOF_TREE_HEIGHT},
+    data::qhashout::QHashOut,
     job::{
         drain_queue::{CheckpointDrainQueueConsumerAsyncImm, CheckpointDrainQueueEmitterAsyncImm},
-        history_queue::{
-            CheckpointHistoryQueueConsumerAsyncImm, CheckpointHistoryQueueEmitterAsyncImm,
-        },
+        history_queue::{CheckpointHistoryQueueConsumerAsyncImm, CheckpointHistoryQueueEmitterAsyncImm},
         id::ProvingJobCircuitType,
         traits::{QProofStoreAsyncImm, QProofStoreReaderAsync, QProofStoreWriterAsyncImm},
         worker_queue::WorkerEventTransmitterAsyncImm,
@@ -26,80 +22,62 @@ use psy_core::{
     utils::debug_timer::DebugTimer,
 };
 use psy_crypto::{
-    common::{
-        generic_circuit_verifier::GenericCircuitVerifier,
-        simple_circuit_library::SimpleCircuitLibrary,
-    },
+    common::{generic_circuit_verifier::GenericCircuitVerifier, simple_circuit_library::SimpleCircuitLibrary},
     hash::traits::{
         hasher::{FieldQHasher, MerkleZeroHasher},
         qhashable::QFieldHashable,
     },
     signature::zk::{data::ZKPublicKeyInfo, wallet::SimpleQEDPrivateKey},
 };
-use psy_data::guta::api::{
-    GUTARealmCheckpointResult, SubmitGUTARealmResultAPINoProofInput, SubmitUserEndCapProofAPIInput,
+use psy_data::{
+    config::store_config::{QEDFelt, QEDHasher},
+    guta::api::{GUTARealmCheckpointResult, SubmitGUTARealmResultAPINoProofInput, SubmitUserEndCapProofAPIInput},
+    traits::qdatastore::qtreedata::QEDComboDataStoreReaderWriterSync,
 };
+use psy_network_circuit::coordinator::coordinator_helper::QEDCoordinatorCircuitManager;
 use psy_node::{
-    coordinator::{
-        state::{
-            edge::CoordinatorEdgeContext,
-            processor::{CoordinatorConfig, CoordinatorProcessorContext},
-        },
+    common::verifier::get_cached_generic_verifier,
+    coordinator::state::{
+        edge::CoordinatorEdgeContext,
+        processor::{CoordinatorConfig, CoordinatorProcessorContext},
     },
     realm::state::{
         edge::RealmEdgeContext,
         processor::{RealmConfig, RealmProcessorContext},
     },
-    worker::{
-        simple_async_coord::SimpleAsyncCoordinatorWorker,
-        simple_async_realm::SimpleAsyncRealmWorker,
-    },
+    worker::{simple_async_coord::SimpleAsyncCoordinatorWorker, simple_async_realm::SimpleAsyncRealmWorker},
 };
-use psy_node::common::verifier::get_cached_generic_verifier;
-use psy_prover::{local::provider::UPSCircuitManagerTrait, ups::{
-    circuit_manager::core::{QCircuitManager, QEDUPSStepCircuitManager}, session::UserProvingSessionManager,
-}};
-use psy_network_circuit::coordinator::coordinator_helper::QEDCoordinatorCircuitManager;
-use psy_data::{
-    config::store_config::{QEDFelt, QEDHasher},
-    traits::qdatastore::qtreedata::QEDComboDataStoreReaderWriterSync,
+use psy_prover::{
+    local::provider::UPSCircuitManagerTrait,
+    ups::{
+        circuit_manager::core::{QCircuitManager, QEDUPSStepCircuitManager},
+        session::UserProvingSessionManager,
+    },
 };
 use psy_store::{
-    controllers::local::{
-        proving_session::QEDLocalProvingSessionStore, session_info::SessionCircuitInfoStore,
-    },
+    controllers::local::{proving_session::QEDLocalProvingSessionStore, session_info::SessionCircuitInfoStore},
     node::{
-        coordinator::{
-            QEDCoordinatorStoreReaderAsync, QEDCoordinatorStoreWriterAsyncImm,
-        },
+        coordinator::{QEDCoordinatorStoreReaderAsync, QEDCoordinatorStoreWriterAsyncImm},
         realm::QEDRealmStoreReaderAsync,
     },
-    queue::ProofStoreFred,
-    queue::task_queue::{QProvingTaskStore, QProvingTaskStoreImpl},
+    queue::{
+        redis_queue::CheckpointDrainQueueConsumerAsyncImmWithPosition,
+        task_queue::{QProvingTaskStore, QProvingTaskStoreImpl},
+        ProofStoreFred, QPendingUserStoreAsyncImm,
+    },
+    store::journal::{Journal, JournalStore},
 };
 
-use std::time::Duration;
-
-use plonky2::{
-    field::{extension::Extendable, goldilocks_field::GoldilocksField, types::Field},
-    hash::hash_types::{HashOut, RichField},
-    plonk::config::{AlgebraicHasher, GenericConfig, PoseidonGoldilocksConfig},
+use super::super::test_helpers::{
+    contract::{gen_test_contract, SimpleTestContract},
+    ups::ExampleDemoUserInfoStore,
 };
-use psy_core::data::qhashout::QHashOut;
-use psy_store::queue::QPendingUserStoreAsyncImm;
-use psy_store::queue::redis_queue::CheckpointDrainQueueConsumerAsyncImmWithPosition;
-use psy_store::store::journal::{Journal, JournalStore};
 
 struct TestGrouping<
     CSR: QEDCoordinatorStoreReaderAsync<F> + Send + Sync + KVQBinaryStore,
     CDQ: CheckpointDrainQueueEmitterAsyncImm + Send + Sync,
     CPS: QProofStoreAsyncImm + Send + Sync,
-    CPSR: QEDCoordinatorStoreWriterAsyncImm<F>
-        + QEDCoordinatorStoreReaderAsync<F>
-        + Send
-        + Sync
-        + Journal
-        + KVQBinaryStore,
+    CPSR: QEDCoordinatorStoreWriterAsyncImm<F> + QEDCoordinatorStoreReaderAsync<F> + Send + Sync + Journal + KVQBinaryStore,
     CPDQ: CheckpointDrainQueueConsumerAsyncImm + CheckpointDrainQueueConsumerAsyncImmWithPosition + Send + Sync,
     CPHQ: CheckpointHistoryQueueEmitterAsyncImm,
     CPPS: QProofStoreAsyncImm + QProofStoreWriterAsyncImm + QProofStoreReaderAsync,
@@ -108,12 +86,7 @@ struct TestGrouping<
     RSR: QEDRealmStoreReaderAsync<F> + Send + Sync + KVQBinaryStore,
     RDQ: CheckpointDrainQueueEmitterAsyncImm,
     RPS: QProofStoreAsyncImm,
-    RPSR: QEDCoordinatorStoreWriterAsyncImm<F>
-        + QEDCoordinatorStoreReaderAsync<F>
-        + Send
-        + Sync
-        + Journal
-        + KVQBinaryStore,
+    RPSR: QEDCoordinatorStoreWriterAsyncImm<F> + QEDCoordinatorStoreReaderAsync<F> + Send + Sync + Journal + KVQBinaryStore,
     RPDQ: CheckpointDrainQueueConsumerAsyncImm + CheckpointDrainQueueConsumerAsyncImmWithPosition,
     RPHQ: CheckpointHistoryQueueEmitterAsyncImm + CheckpointHistoryQueueConsumerAsyncImm + QPendingUserStoreAsyncImm,
     RPWQ: WorkerEventTransmitterAsyncImm,
@@ -140,12 +113,7 @@ impl<
         CSR: QEDCoordinatorStoreReaderAsync<F> + Send + Sync + KVQBinaryStore,
         CDQ: CheckpointDrainQueueEmitterAsyncImm + Send + Sync,
         CPS: QProofStoreAsyncImm + Send + Sync,
-        CPSR: QEDCoordinatorStoreWriterAsyncImm<F>
-            + QEDCoordinatorStoreReaderAsync<F>
-            + Send
-            + Sync
-            + Journal
-            + KVQBinaryStore,
+        CPSR: QEDCoordinatorStoreWriterAsyncImm<F> + QEDCoordinatorStoreReaderAsync<F> + Send + Sync + Journal + KVQBinaryStore,
         CPDQ: CheckpointDrainQueueConsumerAsyncImm + CheckpointDrainQueueConsumerAsyncImmWithPosition + Send + Sync,
         CPHQ: CheckpointHistoryQueueEmitterAsyncImm,
         CPPS: QProofStoreAsyncImm + QProofStoreWriterAsyncImm + QProofStoreReaderAsync,
@@ -154,82 +122,39 @@ impl<
         RSR: QEDRealmStoreReaderAsync<F> + Send + Sync + KVQBinaryStore,
         RDQ: CheckpointDrainQueueEmitterAsyncImm,
         RPS: QProofStoreAsyncImm,
-        RPSR: QEDCoordinatorStoreWriterAsyncImm<F>
-            + QEDCoordinatorStoreReaderAsync<F>
-            + Send
-            + Sync
-            + Journal
-            + KVQBinaryStore,
+        RPSR: QEDCoordinatorStoreWriterAsyncImm<F> + QEDCoordinatorStoreReaderAsync<F> + Send + Sync + Journal + KVQBinaryStore,
         RPDQ: CheckpointDrainQueueConsumerAsyncImmWithPosition,
         RPHQ: CheckpointHistoryQueueEmitterAsyncImm + CheckpointHistoryQueueConsumerAsyncImm + QPendingUserStoreAsyncImm,
         RPWQ: WorkerEventTransmitterAsyncImm,
         RPPS: QProofStoreAsyncImm + QProofStoreWriterAsyncImm + QProofStoreReaderAsync,
         RPTS: QProvingTaskStore + Send + Sync,
-    >
-    TestGrouping<
-        CSR,
-        CDQ,
-        CPS,
-        CPSR,
-        CPDQ,
-        CPHQ,
-        CPPS,
-        CPWQ,
-        CPTS,
-        RSR,
-        RDQ,
-        RPS,
-        RPSR,
-        RPDQ,
-        RPHQ,
-        RPWQ,
-        RPPS,
-        RPTS,
-    >
+    > TestGrouping<CSR, CDQ, CPS, CPSR, CPDQ, CPHQ, CPPS, CPWQ, CPTS, RSR, RDQ, RPS, RPSR, RPDQ, RPHQ, RPWQ, RPPS, RPTS>
 {
     pub async fn deploy_contract(&mut self) -> anyhow::Result<SimpleTestContract<C, D>> {
         let (contract_helper, contract_deploy_cmd) = gen_test_contract::<C, D>(QHashOut::rand())?;
-        self.coord_edge
-            .handle_deploy_contract(contract_deploy_cmd)
-            .await?;
+        self.coord_edge.handle_deploy_contract(contract_deploy_cmd).await?;
 
         Ok(contract_helper)
     }
 
     pub async fn produce_block(&mut self) -> anyhow::Result<()> {
         self.realm_proc.build_block(0).await?;
-        let realm_worker_output_job_id = SimpleAsyncRealmWorker::run_worker_until_done::<
-            _,
-            _,
-            SimpleCircuitLibrary<GoldilocksField>,
-            QEDCoordinatorCircuitManager<C, D>,
-            C,
-            D,
-        >(
-            &self.realm_w_queue_store,
-            &self.realm_w_queue_store,
-            &self.coord_circuits,
-            &self.proof_verifier.library,
-        )
-        .await?;
+        let realm_worker_output_job_id =
+            SimpleAsyncRealmWorker::run_worker_until_done::<_, _, SimpleCircuitLibrary<GoldilocksField>, QEDCoordinatorCircuitManager<C, D>, C, D>(
+                &self.realm_w_queue_store,
+                &self.realm_w_queue_store,
+                &self.coord_circuits,
+                &self.proof_verifier.library,
+            )
+            .await?;
 
-        let realm_result: GUTARealmCheckpointResult<QEDFelt> = bincode::deserialize(
-            &self
-                .realm_w_queue_store
-                .get_bytes_by_id(realm_worker_output_job_id)
-                .await?,
-        )
-        .map_err(|e| anyhow::anyhow!("{:?}", e))?;
-        println!(
-            "get realm_proof: {:?}",
-            realm_result.proof_id.get_output_id()
-        );
+        let realm_result: GUTARealmCheckpointResult<QEDFelt> =
+            bincode::deserialize(&self.realm_w_queue_store.get_bytes_by_id(realm_worker_output_job_id).await?)
+                .map_err(|e| anyhow::anyhow!("{:?}", e))?;
+        println!("get realm_proof: {:?}", realm_result.proof_id.get_output_id());
 
         if realm_result.proof_id.circuit_type != ProvingJobCircuitType::GUTANoChange {
-            let realm_proof = self
-                .realm_w_queue_store
-                .get_proof_by_id(realm_result.proof_id.get_output_id())
-                .await?;
+            let realm_proof = self.realm_w_queue_store.get_proof_by_id(realm_result.proof_id.get_output_id()).await?;
 
             println!("got realm proof");
 
@@ -249,14 +174,7 @@ impl<
         }
 
         self.coord_proc.build_block(0).await?;
-        SimpleAsyncCoordinatorWorker::run_worker_until_done::<
-            _,
-            _,
-            SimpleCircuitLibrary<GoldilocksField>,
-            QEDCoordinatorCircuitManager<C, D>,
-            C,
-            D,
-        >(
+        SimpleAsyncCoordinatorWorker::run_worker_until_done::<_, _, SimpleCircuitLibrary<GoldilocksField>, QEDCoordinatorCircuitManager<C, D>, C, D>(
             &self.coord_w_queue_store,
             &self.coord_w_queue_store,
             &self.coord_circuits,
@@ -265,11 +183,7 @@ impl<
         .await?;
 
         let latest = QEDCoordinatorStoreReaderAsync::get_latest_l2_block_state(&self.coord_proc.store).await?;
-        let new_sync = self
-            .coord_proc
-            .store
-            .get_checkpoint_sync_info_compact(latest.checkpoint_id)
-            .await?;
+        let new_sync = self.coord_proc.store.get_checkpoint_sync_info_compact(latest.checkpoint_id).await?;
 
         self.realm_proc.handle_checkpoint_sync(new_sync).await?;
         Ok(())
@@ -298,11 +212,9 @@ async fn run_fred_test3() -> anyhow::Result<()> {
     let q = ProofStoreFred::new(pool.clone(), "wq1".to_string());
     let realm_q = ProofStoreFred::new(pool, "rwq1".to_string());
 
-    let store_reader: Arc<KVQSimpleMemoryBackingStore> =
-        Arc::new(KVQSimpleMemoryBackingStore::new());
+    let store_reader: Arc<KVQSimpleMemoryBackingStore> = Arc::new(KVQSimpleMemoryBackingStore::new());
 
-    let mut checkpoint_id =
-        QEDCoordinatorStoreWriterAsyncImm::initialize_store(&store_reader, None).await?;
+    let mut checkpoint_id = QEDCoordinatorStoreWriterAsyncImm::initialize_store(&store_reader, None).await?;
     //let worker_count = 16usize;
     //let items_per_worker = 2000usize;
 
@@ -319,7 +231,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
     let task_store = Arc::new(
         QProvingTaskStoreImpl::new("redis://127.0.0.1/", 10, "biz_key")
             .await
-            .expect("Failed to create JobTaskStore")
+            .expect("Failed to create JobTaskStore"),
     );
 
     let proof_verifier = Arc::new(get_cached_generic_verifier::<C, D>());
@@ -331,15 +243,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
 
     timer.lap("built coordinator worker circuits");
 
-    let coordinator_edge_node =
-        CoordinatorEdgeContext::new(
-            coord_config,
-            st.clone(),
-            qps.clone(),
-            qps.clone(),
-            Arc::clone(&proof_verifier),
-        )
-        .await?;
+    let coordinator_edge_node = CoordinatorEdgeContext::new(coord_config, st.clone(), qps.clone(), qps.clone(), Arc::clone(&proof_verifier)).await?;
 
     let mut coordinator_processor_node = CoordinatorProcessorContext::new(
         coord_config,
@@ -359,19 +263,13 @@ async fn run_fred_test3() -> anyhow::Result<()> {
 
     coordinator_processor_node.build_block(0).await?;
 
-    SimpleAsyncCoordinatorWorker::run_worker_until_done::<
-        _,
-        _,
-        SimpleCircuitLibrary<GoldilocksField>,
-        QEDCoordinatorCircuitManager<C, D>,
-        C,
-        D,
-    >(
+    SimpleAsyncCoordinatorWorker::run_worker_until_done::<_, _, SimpleCircuitLibrary<GoldilocksField>, QEDCoordinatorCircuitManager<C, D>, C, D>(
         &q.clone(),
         &q.clone(),
         &coordinator_worker_circuits,
         &proof_verifier.library,
-    ).await?;
+    )
+    .await?;
     /*
     coordinator_processor_node.build_block(0).await?;
 
@@ -411,7 +309,9 @@ async fn run_fred_test3() -> anyhow::Result<()> {
         Arc::clone(&proof_verifier),
     )
     .await?;
-    realm_edge_node.handle_recv_checkpoint_sync(coordinator_processor_node.store.get_checkpoint_sync_info_compact(1).await?).await?;
+    realm_edge_node
+        .handle_recv_checkpoint_sync(coordinator_processor_node.store.get_checkpoint_sync_info_compact(1).await?)
+        .await?;
 
     let mut tg = TestGrouping {
         coord_circuits: coordinator_worker_circuits,
@@ -438,13 +338,9 @@ async fn run_fred_test3() -> anyhow::Result<()> {
 
     let mut current_g_reg_id = 0;
     let priv_keys_batch_1 = (0..100).map(|x| QHashOut::rand()).collect::<Vec<_>>();
-    let mut g_users = helper
-        .register_users(&tg.coord_edge, current_g_reg_id, &priv_keys_batch_1)
-        .await?;
+    let mut g_users = helper.register_users(&tg.coord_edge, current_g_reg_id, &priv_keys_batch_1).await?;
 
-    helper
-        .register_users(&tg.coord_edge, current_g_reg_id, &priv_keys_batch_1)
-        .await?;
+    helper.register_users(&tg.coord_edge, current_g_reg_id, &priv_keys_batch_1).await?;
 
     timer.lap("reg users");
     tg.produce_block().await?;
@@ -452,24 +348,21 @@ async fn run_fred_test3() -> anyhow::Result<()> {
 
     timer.lap("prod block");
 
-    let latest_l2_block_state =
-        QEDCoordinatorStoreReaderAsync::get_latest_l2_block_state(&store_reader).await?;
+    let latest_l2_block_state = QEDCoordinatorStoreReaderAsync::get_latest_l2_block_state(&store_reader).await?;
 
-    //let stroots = st.get_checkpoint_global_state_roots(latest_l2_block_state.checkpoint_id).await?;
-    //println!("[mainfnc] current_state_roots: {}",serde_json::to_string_pretty(&stroots).unwrap());
+    //let stroots =
+    // st.get_checkpoint_global_state_roots(latest_l2_block_state.checkpoint_id).
+    // await?; println!("[mainfnc] current_state_roots:
+    // {}",serde_json::to_string_pretty(&stroots).unwrap());
 
     timer.lap("start: init QEDUPSStepCircuitManager");
 
-    let main_circuits =
-        QCircuitManager::Local(QEDUPSStepCircuitManager::<C, D>::new_with_config(QED_NETWORK_MAGIC_REGTEST));
+    let main_circuits = QCircuitManager::Local(QEDUPSStepCircuitManager::<C, D>::new_with_config(QED_NETWORK_MAGIC_REGTEST));
     //main_circuits.print_common_config();
 
     timer.lap("end: init QEDUPSStepCircuitManager");
 
-    let lps: QEDLocalProvingSessionStore<
-        GoldilocksField,
-        Arc<KVQSimpleMemoryBackingStore>,
-    > = QEDLocalProvingSessionStore::new_at(
+    let lps: QEDLocalProvingSessionStore<GoldilocksField, Arc<KVQSimpleMemoryBackingStore>> = QEDLocalProvingSessionStore::new_at(
         store_reader.clone(),
         GoldilocksField::from_noncanonical_u64(latest_l2_block_state.checkpoint_id),
         GoldilocksField::from_noncanonical_u64(0),
@@ -488,11 +381,9 @@ async fn run_fred_test3() -> anyhow::Result<()> {
     main_circuits.register_info(&mut circuit_info);
     contract_helper.register_funcs(0, &mut circuit_info);
 
-    let mut mgr = UserProvingSessionManager::<GoldilocksField, QEDHasher, _, C, D>::new(
-        lps,
-        circuit_info,
-        main_circuits.ups_circuit_whitelist_root().await?,
-    ).await?;
+    let mut mgr =
+        UserProvingSessionManager::<GoldilocksField, QEDHasher, _, C, D>::new(lps, circuit_info, main_circuits.ups_circuit_whitelist_root().await?)
+            .await?;
 
     timer.lap("setup mgr");
 
@@ -500,25 +391,21 @@ async fn run_fred_test3() -> anyhow::Result<()> {
 
     timer.lap("START USER PROVING SESSION");
     type F = GoldilocksField;
-    let mut mgr = helper.run_txs_for_users_prep(
-        mgr,
-        &contract_helper,
-        &main_circuits,
-        0,
-        vec![(
-            g_users[0],
-            vec![
-                ("simple_mint_debug", vec![F::from_canonical_u64(1000)]),
-                (
-                    "simple_transfer",
-                    vec![
-                        F::from_canonical_u64(g_users[1]),
-                        F::from_canonical_u64(100),
-                    ],
-                ),
-            ],
-        )],
-    ).await?;
+    let mut mgr = helper
+        .run_txs_for_users_prep(
+            mgr,
+            &contract_helper,
+            &main_circuits,
+            0,
+            vec![(
+                g_users[0],
+                vec![
+                    ("simple_mint_debug", vec![F::from_canonical_u64(1000)]),
+                    ("simple_transfer", vec![F::from_canonical_u64(g_users[1]), F::from_canonical_u64(100)]),
+                ],
+            )],
+        )
+        .await?;
 
     timer.lap("proved group");
 

@@ -1,41 +1,36 @@
-use std::marker::PhantomData;
-use std::any::TypeId;
-use num::BigUint;
+use std::{any::TypeId, marker::PhantomData};
 
+use num::BigUint;
 use plonky2::{
-    field::{extension::Extendable, types::{Field, PrimeField}},
+    field::{
+        extension::Extendable,
+        types::{Field, PrimeField},
+    },
     hash::hash_types::RichField,
     iop::target::BoolTarget,
     plonk::circuit_builder::CircuitBuilder,
 };
 
-use crate::crypto::bn254::{
-    curve::g2::G2,
-    gadgets::{
-        g1::{CircuitBuilderG1, G1AffineTarget},
-        g2::{CircuitBuilderG2, G2AffineTarget},
-        nonnative_fp::{CircuitBuilderNonNative, NonNativeTarget},
-        nonnative_fp2::{CircuitBuilderNonNativeExt2, NonNativeTargetExt2},
-        nonnative_fp6::{CircuitBuilderNonNativeExt6, NonNativeTargetExt6},
-        nonnative_fp12::{CircuitBuilderNonNativeExt12, NonNativeTargetExt12},
-    },
-    field::{
-        bn128_base::Bn128Base,
-        extension::{
-            quadratic::QuadraticExtension,
-            dodecic::DodecicExtension,
+use crate::crypto::{
+    bn254::{
+        curve::g2::G2,
+        field::{
+            bn128_base::Bn128Base,
+            extension::{dodecic::DodecicExtension, quadratic::QuadraticExtension},
+        },
+        gadgets::{
+            g1::{CircuitBuilderG1, G1AffineTarget},
+            g2::{CircuitBuilderG2, G2AffineTarget},
+            nonnative_fp::{CircuitBuilderNonNative, NonNativeTarget},
+            nonnative_fp12::{CircuitBuilderNonNativeExt12, NonNativeTargetExt12},
+            nonnative_fp2::{CircuitBuilderNonNativeExt2, NonNativeTargetExt2},
+            nonnative_fp6::{CircuitBuilderNonNativeExt6, NonNativeTargetExt6},
         },
     },
+    secp256k1::ecdsa::curve::curve_types::{AffinePoint, Curve},
 };
 
-use crate::crypto::secp256k1::ecdsa::curve::curve_types::{AffinePoint, Curve};
-
-pub const ATE_LOOP_COUNT: [u64; 4] = [
-    0x9d797039be763ba8,
-    0x0000000000000001,
-    0x0000000000000000,
-    0x0000000000000000,
-];
+pub const ATE_LOOP_COUNT: [u64; 4] = [0x9d797039be763ba8, 0x0000000000000001, 0x0000000000000000, 0x0000000000000000];
 
 fn biguint_from_array(arr: [u64; 4]) -> BigUint {
     BigUint::from_slice(&[
@@ -77,7 +72,11 @@ pub struct G2PreComputeTarget<FF: Field> {
 }
 
 pub trait CircuitBuilderPairing<F: RichField + Extendable<D>, const D: usize> {
-    fn pairing<FF: PrimeField + Extendable<2> + Extendable<6> + Extendable<12>, G1: Curve<BaseField = FF>, G2: Curve<BaseField = QuadraticExtension<FF>>>(
+    fn pairing<
+        FF: PrimeField + Extendable<2> + Extendable<6> + Extendable<12>,
+        G1: Curve<BaseField = FF>,
+        G2: Curve<BaseField = QuadraticExtension<FF>>,
+    >(
         &mut self,
         p: &G1AffineTarget<F, D>,
         q: &AffinePointTargetG2<G1::BaseField>,
@@ -91,20 +90,14 @@ pub trait CircuitBuilderCurveG2<F: RichField + Extendable<D>, const D: usize> {
         b: &AffinePointTargetG2<FF>,
     ) -> AffinePointTargetG2<FF>;
 
-    fn neg_g2<FF: PrimeField + Extendable<2>>(
-        &mut self,
-        p: &AffinePointTargetG2<FF>,
-    ) -> AffinePointTargetG2<FF>;
+    fn neg_g2<FF: PrimeField + Extendable<2>>(&mut self, p: &AffinePointTargetG2<FF>) -> AffinePointTargetG2<FF>;
 
     fn precompute<C: Curve<BaseField = QuadraticExtension<FF>>, FF: PrimeField + Extendable<2>>(
         &mut self,
         p: &AffinePointTargetG2<FF>,
     ) -> G2PreComputeTarget<FF>;
 
-    fn miller_loop<
-        C: Curve<BaseField = FF>,
-        FF: PrimeField + Extendable<2> + Extendable<6> + Extendable<12>,
-    >(
+    fn miller_loop<C: Curve<BaseField = FF>, FF: PrimeField + Extendable<2> + Extendable<6> + Extendable<12>>(
         &mut self,
         g1: &G1AffineTarget<F, D>,
         precomp: &G2PreComputeTarget<FF>,
@@ -120,18 +113,12 @@ pub trait CircuitBuilderCurveG2<F: RichField + Extendable<D>, const D: usize> {
         p: &JacobianPointTargetG2<FF>,
     ) -> AffinePointTargetG2<FF>;
 
-    fn doubling_step_for_flipped_miller_loop<
-        C: Curve<BaseField = QuadraticExtension<FF>>,
-        FF: PrimeField + Extendable<2>,
-    >(
+    fn doubling_step_for_flipped_miller_loop<C: Curve<BaseField = QuadraticExtension<FF>>, FF: PrimeField + Extendable<2>>(
         &mut self,
         p: &JacobianPointTargetG2<FF>,
     ) -> (JacobianPointTargetG2<FF>, EllCoefficientsTarget<FF>);
 
-    fn mixed_addition_step_for_flipped_miller_loop<
-        C: Curve<BaseField = QuadraticExtension<FF>>,
-        FF: PrimeField + Extendable<2>,
-    >(
+    fn mixed_addition_step_for_flipped_miller_loop<C: Curve<BaseField = QuadraticExtension<FF>>, FF: PrimeField + Extendable<2>>(
         &mut self,
         r: &JacobianPointTargetG2<FF>,
         p: &AffinePointTargetG2<FF>,
@@ -142,19 +129,18 @@ pub trait CircuitBuilderCurveG2<F: RichField + Extendable<D>, const D: usize> {
         p: &AffinePointTargetG2<FF>,
     ) -> AffinePointTargetG2<FF>;
 
-    fn constant_affine_point_g2<
-        C: Curve<BaseField = QuadraticExtension<FF>>,
-        FF: PrimeField + Extendable<2>,
-    >(
+    fn constant_affine_point_g2<C: Curve<BaseField = QuadraticExtension<FF>>, FF: PrimeField + Extendable<2>>(
         &mut self,
         point: AffinePoint<C>,
     ) -> AffinePointTargetG2<FF>;
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderPairing<F, D>
-    for CircuitBuilder<F, D>
-{
-    fn pairing<FF: PrimeField + Extendable<2> + Extendable<6> + Extendable<12>, G1: Curve<BaseField = FF>, G2: Curve<BaseField = QuadraticExtension<FF>>>(
+impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderPairing<F, D> for CircuitBuilder<F, D> {
+    fn pairing<
+        FF: PrimeField + Extendable<2> + Extendable<6> + Extendable<12>,
+        G1: Curve<BaseField = FF>,
+        G2: Curve<BaseField = QuadraticExtension<FF>>,
+    >(
         &mut self,
         p: &G1AffineTarget<F, D>,
         q: &AffinePointTargetG2<G1::BaseField>,
@@ -178,9 +164,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderPairing<F, D>
     }
 }
 
-impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderCurveG2<F, D>
-    for CircuitBuilder<F, D>
-{
+impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderCurveG2<F, D> for CircuitBuilder<F, D> {
     fn add_g2<C: Curve<BaseField = QuadraticExtension<FF>>, FF: PrimeField + Extendable<2>>(
         &mut self,
         a: &AffinePointTargetG2<FF>,
@@ -214,7 +198,11 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderCurveG2<F, D>
 
         let one = self.one_nonnative();
         let zero = self.zero_nonnative();
-        let one_ext2 = NonNativeTargetExt2 { c0: one, c1: zero, _phantom: PhantomData };
+        let one_ext2 = NonNativeTargetExt2 {
+            c0: one,
+            c1: zero,
+            _phantom: PhantomData,
+        };
         let two_y_safe = self.select_ext2(y_is_zero, &one_ext2, &two_y);
         let two_y_inv = self.inv_nonnative_ext2(&two_y_safe);
         let slope_double = self.mul_nonnative_ext2(&three_x_squared, &two_y_inv);
@@ -251,21 +239,12 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderCurveG2<F, D>
         AffinePointTargetG2 { x: x3, y: y3 }
     }
 
-    fn neg_g2<FF: PrimeField + Extendable<2>>(
-        &mut self,
-        p: &AffinePointTargetG2<FF>,
-    ) -> AffinePointTargetG2<FF> {
+    fn neg_g2<FF: PrimeField + Extendable<2>>(&mut self, p: &AffinePointTargetG2<FF>) -> AffinePointTargetG2<FF> {
         let neg_y = self.neg_nonnative_ext2(&p.y);
-        AffinePointTargetG2 {
-            x: p.x.clone(),
-            y: neg_y,
-        }
+        AffinePointTargetG2 { x: p.x.clone(), y: neg_y }
     }
 
-    fn constant_affine_point_g2<
-        C: Curve<BaseField = QuadraticExtension<FF>>,
-        FF: PrimeField + Extendable<2>,
-    >(
+    fn constant_affine_point_g2<C: Curve<BaseField = QuadraticExtension<FF>>, FF: PrimeField + Extendable<2>>(
         &mut self,
         point: AffinePoint<C>,
     ) -> AffinePointTargetG2<FF> {
@@ -292,8 +271,8 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderCurveG2<F, D>
         p: &JacobianPointTargetG2<FF>,
     ) -> AffinePointTargetG2<FF> {
         // Following ark-r1cs-std approach but using existing components
-        // Since inv_nonnative_ext2 uses inv_nonnative internally which will fail on zero,
-        // and G2 points in KZG are never infinity, we can use it directly
+        // Since inv_nonnative_ext2 uses inv_nonnative internally which will fail on
+        // zero, and G2 points in KZG are never infinity, we can use it directly
 
         // Note: If we ever need to handle infinity for G2, we would need to:
         // 1. Check if z is zero: let z_is_zero = self.is_zero_nonnative_ext2(&p.z);
@@ -355,16 +334,10 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderCurveG2<F, D>
         let (_, coeff) = self.mixed_addition_step_for_flipped_miller_loop::<C, FF>(&r, &q2);
         coeffs.push(coeff);
 
-        G2PreComputeTarget {
-            q: p.clone(),
-            coeffs,
-        }
+        G2PreComputeTarget { q: p.clone(), coeffs }
     }
 
-    fn miller_loop<
-        C: Curve<BaseField = FF>,
-        FF: PrimeField + Extendable<2> + Extendable<6> + Extendable<12>,
-    >(
+    fn miller_loop<C: Curve<BaseField = FF>, FF: PrimeField + Extendable<2> + Extendable<6> + Extendable<12>>(
         &mut self,
         g1: &G1AffineTarget<F, D>,
         precomp: &G2PreComputeTarget<FF>,
@@ -414,10 +387,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderCurveG2<F, D>
         f
     }
 
-    fn doubling_step_for_flipped_miller_loop<
-        C: Curve<BaseField = QuadraticExtension<FF>>,
-        FF: PrimeField + Extendable<2>,
-    >(
+    fn doubling_step_for_flipped_miller_loop<C: Curve<BaseField = QuadraticExtension<FF>>, FF: PrimeField + Extendable<2>>(
         &mut self,
         p: &JacobianPointTargetG2<FF>,
     ) -> (JacobianPointTargetG2<FF>, EllCoefficientsTarget<FF>) {
@@ -468,20 +438,10 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderCurveG2<F, D>
         let mut ell_vv = self.add_nonnative_ext2(&j, &j);
         ell_vv = self.add_nonnative_ext2(&ell_vv, &j);
 
-        (
-            JacobianPointTargetG2 { x, y, z },
-            EllCoefficientsTarget {
-                ell_0,
-                ell_vw,
-                ell_vv,
-            },
-        )
+        (JacobianPointTargetG2 { x, y, z }, EllCoefficientsTarget { ell_0, ell_vw, ell_vv })
     }
 
-    fn mixed_addition_step_for_flipped_miller_loop<
-        C: Curve<BaseField = QuadraticExtension<FF>>,
-        FF: PrimeField + Extendable<2>,
-    >(
+    fn mixed_addition_step_for_flipped_miller_loop<C: Curve<BaseField = QuadraticExtension<FF>>, FF: PrimeField + Extendable<2>>(
         &mut self,
         r: &JacobianPointTargetG2<FF>,
         base: &AffinePointTargetG2<FF>,
@@ -510,14 +470,7 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderCurveG2<F, D>
         ell_0 = self.mul_by_nonresidue_nonnative_ext2(&ell_0);
         let ell_vv = self.neg_nonnative_ext2(&e);
         let ell_vw = d;
-        (
-            JacobianPointTargetG2 { x, y, z },
-            EllCoefficientsTarget {
-                ell_0,
-                ell_vv,
-                ell_vw,
-            },
-        )
+        (JacobianPointTargetG2 { x, y, z }, EllCoefficientsTarget { ell_0, ell_vv, ell_vw })
     }
 
     fn mul_by_q<C: Curve<BaseField = QuadraticExtension<FF>>, FF: PrimeField + Extendable<2>>(
@@ -529,13 +482,13 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderCurveG2<F, D>
 
         // For BN128, use hardcoded constants
         // Import G2 to get the constants
-        use crate::crypto::bn254::curve::g2::G2;
-        use crate::crypto::bn254::field::bn128_base::Bn128Base;
+        use crate::crypto::bn254::{curve::g2::G2, field::bn128_base::Bn128Base};
 
         // TWIST_MUL_BY_Q_X = QuadraticExtension([
-        //     Bn128Base([13075984984163199792, 3782902503040509012, 8791150885551868305, 1825854335138010348]),
-        //     Bn128Base([7963664994991228759, 12257807996192067905, 13179524609921305146, 2767831111890561987])
-        // ])
+        //     Bn128Base([13075984984163199792, 3782902503040509012,
+        // 8791150885551868305, 1825854335138010348]),
+        //     Bn128Base([7963664994991228759, 12257807996192067905,
+        // 13179524609921305146, 2767831111890561987]) ])
         let twist_mul_by_q_x = if core::any::TypeId::of::<FF>() == core::any::TypeId::of::<Bn128Base>() {
             // Safe to transmute since we checked the type
             let g2_const = G2::TWIST_MUL_BY_Q_X;
@@ -546,14 +499,28 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderCurveG2<F, D>
         } else {
             // For other field types, create from BigUint
             self.constant_nonnative_ext2(QuadraticExtension::<FF>([
-                FF::from_noncanonical_biguint(BigUint::from_slice(&[
-                    13075984984163199792u64, 3782902503040509012u64,
-                    8791150885551868305u64, 1825854335138010348u64
-                ].iter().flat_map(|&x| vec![x as u32, (x >> 32) as u32]).collect::<Vec<_>>())),
-                FF::from_noncanonical_biguint(BigUint::from_slice(&[
-                    7963664994991228759u64, 12257807996192067905u64,
-                    13179524609921305146u64, 2767831111890561987u64
-                ].iter().flat_map(|&x| vec![x as u32, (x >> 32) as u32]).collect::<Vec<_>>())),
+                FF::from_noncanonical_biguint(BigUint::from_slice(
+                    &[
+                        13075984984163199792u64,
+                        3782902503040509012u64,
+                        8791150885551868305u64,
+                        1825854335138010348u64,
+                    ]
+                    .iter()
+                    .flat_map(|&x| vec![x as u32, (x >> 32) as u32])
+                    .collect::<Vec<_>>(),
+                )),
+                FF::from_noncanonical_biguint(BigUint::from_slice(
+                    &[
+                        7963664994991228759u64,
+                        12257807996192067905u64,
+                        13179524609921305146u64,
+                        2767831111890561987u64,
+                    ]
+                    .iter()
+                    .flat_map(|&x| vec![x as u32, (x >> 32) as u32])
+                    .collect::<Vec<_>>(),
+                )),
             ]))
         };
 
@@ -568,14 +535,28 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderCurveG2<F, D>
         } else {
             // For other field types, create from BigUint
             self.constant_nonnative_ext2(QuadraticExtension::<FF>([
-                FF::from_noncanonical_biguint(BigUint::from_slice(&[
-                    16482010305593259561u64, 13488546290961988299u64,
-                    3578621962720924518u64, 2681173117283399901u64
-                ].iter().flat_map(|&x| vec![x as u32, (x >> 32) as u32]).collect::<Vec<_>>())),
-                FF::from_noncanonical_biguint(BigUint::from_slice(&[
-                    11661927080404088775u64, 553939530661941723u64,
-                    7860678177968807019u64, 3208568454732775116u64
-                ].iter().flat_map(|&x| vec![x as u32, (x >> 32) as u32]).collect::<Vec<_>>())),
+                FF::from_noncanonical_biguint(BigUint::from_slice(
+                    &[
+                        16482010305593259561u64,
+                        13488546290961988299u64,
+                        3578621962720924518u64,
+                        2681173117283399901u64,
+                    ]
+                    .iter()
+                    .flat_map(|&x| vec![x as u32, (x >> 32) as u32])
+                    .collect::<Vec<_>>(),
+                )),
+                FF::from_noncanonical_biguint(BigUint::from_slice(
+                    &[
+                        11661927080404088775u64,
+                        553939530661941723u64,
+                        7860678177968807019u64,
+                        3208568454732775116u64,
+                    ]
+                    .iter()
+                    .flat_map(|&x| vec![x as u32, (x >> 32) as u32])
+                    .collect::<Vec<_>>(),
+                )),
             ]))
         };
 
@@ -588,13 +569,16 @@ impl<F: RichField + Extendable<D>, const D: usize> CircuitBuilderCurveG2<F, D>
 
 #[cfg(test)]
 mod tests {
-    use crate::crypto::bn254::curve::G2;
-
-    use super::*;
     use plonky2::{
         iop::witness::PartialWitness,
-        plonk::{circuit_data::CircuitConfig, config::{GenericConfig, PoseidonGoldilocksConfig}},
+        plonk::{
+            circuit_data::CircuitConfig,
+            config::{GenericConfig, PoseidonGoldilocksConfig},
+        },
     };
+
+    use super::*;
+    use crate::crypto::bn254::curve::G2;
 
     const D: usize = 2;
     type C = PoseidonGoldilocksConfig;
@@ -602,8 +586,10 @@ mod tests {
 
     #[test]
     fn test_precompute_g2() -> anyhow::Result<()> {
-        use crate::crypto::bn254::curve::G2;
-        use crate::crypto::secp256k1::ecdsa::curve::curve_types::{AffinePoint, Curve};
+        use crate::crypto::{
+            bn254::curve::G2,
+            secp256k1::ecdsa::curve::curve_types::{AffinePoint, Curve},
+        };
 
         let config = crate::crypto::bn254::pairing_config();
         let mut builder = CircuitBuilder::<F, D>::new(config);
@@ -626,8 +612,10 @@ mod tests {
 
     #[test]
     fn test_g2_circuit_operations() -> anyhow::Result<()> {
-        use crate::crypto::bn254::curve::G2;
-        use crate::crypto::secp256k1::ecdsa::curve::curve_types::{AffinePoint, Curve};
+        use crate::crypto::{
+            bn254::curve::G2,
+            secp256k1::ecdsa::curve::curve_types::{AffinePoint, Curve},
+        };
 
         let config = crate::crypto::bn254::pairing_config();
         let mut builder = CircuitBuilder::<F, D>::new(config);
@@ -650,8 +638,10 @@ mod tests {
 
     #[test]
     fn test_g2_basic_operations() -> anyhow::Result<()> {
-        use crate::crypto::bn254::curve::G2;
-        use crate::crypto::secp256k1::ecdsa::curve::curve_types::{AffinePoint, Curve};
+        use crate::crypto::{
+            bn254::curve::G2,
+            secp256k1::ecdsa::curve::curve_types::{AffinePoint, Curve},
+        };
 
         // Test G2 generator
         let g2_gen = G2::GENERATOR_AFFINE;
@@ -679,16 +669,24 @@ mod tests {
 
     #[test]
     fn test_pairing() -> anyhow::Result<()> {
-        use crate::crypto::bn254::curve::{G1, G2};
-        use crate::crypto::bn254::field::extension::dodecic::DodecicExtension;
-        use crate::crypto::bn254::gadgets::g1::G1AffineTarget;
-        use crate::crypto::secp256k1::ecdsa::curve::curve_types::Curve;
-        use crate::crypto::secp256k1::ecdsa::gadgets::curve::CircuitBuilderCurve;
         use anyhow::Result;
-        use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
-        use plonky2::plonk::circuit_data::CircuitConfig;
-        use plonky2::iop::witness::PartialWitness;
-        use plonky2::field::types::Sample;
+        use plonky2::{
+            field::types::Sample,
+            iop::witness::PartialWitness,
+            plonk::{
+                circuit_data::CircuitConfig,
+                config::{GenericConfig, PoseidonGoldilocksConfig},
+            },
+        };
+
+        use crate::crypto::{
+            bn254::{
+                curve::{G1, G2},
+                field::extension::dodecic::DodecicExtension,
+                gadgets::g1::G1AffineTarget,
+            },
+            secp256k1::ecdsa::{curve::curve_types::Curve, gadgets::curve::CircuitBuilderCurve},
+        };
 
         // Skip logging setup - we don't have env_logger dependency
 
@@ -722,123 +720,33 @@ mod tests {
 
         let q = JacobianPointTargetG2 {
             x: builder.constant_nonnative_ext2(QuadraticExtension::<Bn128Base>([
-                Bn128Base([
-                    2577798519503118397,
-                    14034210771057369560,
-                    14798801535089424299,
-                    1731240919448670153,
-                ]),
-                Bn128Base([
-                    15909499412933957829,
-                    12344152745192254056,
-                    1185193310574937231,
-                    760964259656302494,
-                ]),
+                Bn128Base([2577798519503118397, 14034210771057369560, 14798801535089424299, 1731240919448670153]),
+                Bn128Base([15909499412933957829, 12344152745192254056, 1185193310574937231, 760964259656302494]),
             ])),
             y: builder.constant_nonnative_ext2(QuadraticExtension::<Bn128Base>([
-                Bn128Base([
-                    16827884672622421998,
-                    756648877887862755,
-                    18069298113966277418,
-                    2110768940310013157,
-                ]),
-                Bn128Base([
-                    12195099017078129020,
-                    6997443175976044100,
-                    15957581681657247863,
-                    752644145961255405,
-                ]),
+                Bn128Base([16827884672622421998, 756648877887862755, 18069298113966277418, 2110768940310013157]),
+                Bn128Base([12195099017078129020, 6997443175976044100, 15957581681657247863, 752644145961255405]),
             ])),
             z: builder.constant_nonnative_ext2(QuadraticExtension::<Bn128Base>([
-                Bn128Base([
-                    12079780699228388722,
-                    791215766957020566,
-                    2914756960274132770,
-                    2602717870663046513,
-                ]),
-                Bn128Base([
-                    12691905162280913768,
-                    89920551545646552,
-                    12941976487854615151,
-                    2355989044724612682,
-                ]),
+                Bn128Base([12079780699228388722, 791215766957020566, 2914756960274132770, 2602717870663046513]),
+                Bn128Base([12691905162280913768, 89920551545646552, 12941976487854615151, 2355989044724612682]),
             ])),
         };
         let q_affine = builder.to_affine_g2::<G2, Bn128Base>(&q);
 
         let x_expected = builder.constant_nonnative_ext12(DodecicExtension::<Bn128Base>([
-            Bn128Base([
-                5261791323882946788,
-                5969279653909130133,
-                13914067258383528210,
-                94138518832923322,
-            ]),
-            Bn128Base([
-                16452828235560020136,
-                14277920321324140450,
-                1808868257472119675,
-                34528199959501362,
-            ]),
-            Bn128Base([
-                18153774717408091761,
-                4960813716655447740,
-                16877776237373176286,
-                111333703937892795,
-            ]),
-            Bn128Base([
-                6177369533740206595,
-                5540475544632735388,
-                18239293933561841014,
-                2106733616315301007,
-            ]),
-            Bn128Base([
-                12051797884938972865,
-                5452376490073186411,
-                13624941770027287332,
-                2556206152101805306,
-            ]),
-            Bn128Base([
-                12875218175083744969,
-                18411108459922848687,
-                16205159152680096724,
-                2298321485788462962,
-            ]),
-            Bn128Base([
-                14609934753813766369,
-                10831492163493656847,
-                9520417608604346386,
-                3185244767883521333,
-            ]),
-            Bn128Base([
-                1210469375740710922,
-                12695443078599703490,
-                15456619824566231090,
-                1318481115027774681,
-            ]),
-            Bn128Base([
-                12407907403893432531,
-                2577431929064026945,
-                13354667077106593055,
-                687277024136764940,
-            ]),
-            Bn128Base([
-                16854887897954252879,
-                12456401038131277336,
-                4434193903233473879,
-                1222410746383484321,
-            ]),
-            Bn128Base([
-                14754110002434578184,
-                3232557947137383979,
-                560992349178873120,
-                3162237541859216066,
-            ]),
-            Bn128Base([
-                4982245430574873546,
-                2614584005832853337,
-                14785904332481227781,
-                1602384300921012077,
-            ]),
+            Bn128Base([5261791323882946788, 5969279653909130133, 13914067258383528210, 94138518832923322]),
+            Bn128Base([16452828235560020136, 14277920321324140450, 1808868257472119675, 34528199959501362]),
+            Bn128Base([18153774717408091761, 4960813716655447740, 16877776237373176286, 111333703937892795]),
+            Bn128Base([6177369533740206595, 5540475544632735388, 18239293933561841014, 2106733616315301007]),
+            Bn128Base([12051797884938972865, 5452376490073186411, 13624941770027287332, 2556206152101805306]),
+            Bn128Base([12875218175083744969, 18411108459922848687, 16205159152680096724, 2298321485788462962]),
+            Bn128Base([14609934753813766369, 10831492163493656847, 9520417608604346386, 3185244767883521333]),
+            Bn128Base([1210469375740710922, 12695443078599703490, 15456619824566231090, 1318481115027774681]),
+            Bn128Base([12407907403893432531, 2577431929064026945, 13354667077106593055, 687277024136764940]),
+            Bn128Base([16854887897954252879, 12456401038131277336, 4434193903233473879, 1222410746383484321]),
+            Bn128Base([14754110002434578184, 3232557947137383979, 560992349178873120, 3162237541859216066]),
+            Bn128Base([4982245430574873546, 2614584005832853337, 14785904332481227781, 1602384300921012077]),
         ]));
 
         let x = builder.pairing::<Bn128Base, G1, G2>(&p, &q_affine);

@@ -8,15 +8,11 @@ async fn create_test_store() -> Result<TiKVStore> {
 }
 
 fn generate_test_keys(count: usize) -> Vec<Vec<u8>> {
-    (0..count)
-        .map(|_| format!("test_key_{}", rand::random::<u64>()).into_bytes())
-        .collect()
+    (0..count).map(|_| format!("test_key_{}", rand::random::<u64>()).into_bytes()).collect()
 }
 
 fn generate_test_values(count: usize) -> Vec<Vec<u8>> {
-    (0..count)
-        .map(|_| format!("test_value_{}", rand::random::<u64>()).into_bytes())
-        .collect()
+    (0..count).map(|_| format!("test_value_{}", rand::random::<u64>()).into_bytes()).collect()
 }
 
 #[cfg(test)]
@@ -51,7 +47,7 @@ mod basic_operations {
 
         // Set key
         store.set(key.clone(), value.clone()).await?;
-        
+
         // Test get_exact
         let result = store.get_exact(&key).await?;
         assert_eq!(result, value);
@@ -118,7 +114,7 @@ mod basic_operations {
         // Test delete single key
         let deleted = store.delete(&keys[0]).await?;
         assert!(deleted);
-        
+
         // Verify key is deleted
         let result = store.get_exact_if_exists(&keys[0]).await?;
         assert_eq!(result, None);
@@ -184,12 +180,8 @@ mod batch_operations {
         let store = create_test_store().await?;
         let keys = generate_test_keys(3);
         let values = generate_test_values(3);
-        
-        let items: Vec<KVQPair<&Vec<u8>, &Vec<u8>>> = keys
-            .iter()
-            .zip(values.iter())
-            .map(|(k, v)| KVQPair { key: k, value: v })
-            .collect();
+
+        let items: Vec<KVQPair<&Vec<u8>, &Vec<u8>>> = keys.iter().zip(values.iter()).map(|(k, v)| KVQPair { key: k, value: v }).collect();
 
         // Test set_many_ref
         store.set_many_ref(&items).await?;
@@ -231,7 +223,7 @@ mod batch_operations {
         let set_keys = generate_test_keys(3);
         let set_values = generate_test_values(3);
         let delete_keys = generate_test_keys(2);
-        
+
         // First set some keys to delete
         for (key, value) in delete_keys.iter().zip(generate_test_values(2).iter()) {
             store.set(key.clone(), value.clone()).await?;
@@ -349,7 +341,7 @@ mod fuzzy_search_operations {
         // Test get_fuzzy_range_leq_kv with prefix [1,1]
         let search_key = vec![1, 1, 4];
         let result = store.get_fuzzy_range_leq_kv(&search_key, 1).await?;
-        
+
         // Should return all keys with prefix [1,1] that are <= [1,1,4]
         assert_eq!(result.len(), 3);
         assert_eq!(result[0].key, vec![1, 1, 1]);
@@ -407,19 +399,19 @@ mod fuzzy_search_operations {
 
         let results = store.get_many_leq_kv(&search_keys, 1).await?;
         assert_eq!(results.len(), 3);
-        
+
         // Check first result
         assert!(results[0].is_some());
         let kv1 = results[0].as_ref().unwrap();
         assert_eq!(kv1.key, vec![1, 1, 2]);
         assert_eq!(kv1.value, vec![11, 12, 12]);
-        
+
         // Check second result
         assert!(results[1].is_some());
         let kv2 = results[1].as_ref().unwrap();
         assert_eq!(kv2.key, vec![1, 1, 3]);
         assert_eq!(kv2.value, vec![11, 13, 13]);
-        
+
         // Check third result
         assert!(results[2].is_none());
 
@@ -531,18 +523,18 @@ mod large_data_chunking_tests {
         let store = create_test_store().await?;
         let key = b"large_data_key".to_vec();
         let large_value = generate_large_data(5); // 5MB data
-        
+
         // Test set large data
         store.set(key.clone(), large_value.clone()).await?;
-        
+
         // Test get_exact_if_exists with large data
         let result = store.get_exact_if_exists(&key).await?;
         assert_eq!(result, Some(large_value.clone()));
-        
+
         // Test get_exact with large data
         let result = store.get_exact(&key).await?;
         assert_eq!(result, large_value);
-        
+
         // Clean up
         store.delete(&key).await?;
         Ok(())
@@ -574,11 +566,7 @@ mod large_data_chunking_tests {
     #[tokio::test]
     async fn test_large_data_get_many_exact() -> Result<()> {
         let store = create_test_store().await?;
-        let keys = vec![
-            b"large_key1".to_vec(),
-            b"large_key2".to_vec(),
-            b"large_key3".to_vec(),
-        ];
+        let keys = vec![b"large_key1".to_vec(), b"large_key2".to_vec(), b"large_key3".to_vec()];
         let large_values = vec![
             generate_large_data(5), // 5MB
             generate_large_data(6), // 6MB
@@ -602,22 +590,14 @@ mod large_data_chunking_tests {
     #[tokio::test]
     async fn test_large_data_set_many_ref() -> Result<()> {
         let store = create_test_store().await?;
-        let keys = vec![
-            b"batch_large_key1".to_vec(),
-            b"batch_large_key2".to_vec(),
-            b"batch_large_key3".to_vec(),
-        ];
+        let keys = vec![b"batch_large_key1".to_vec(), b"batch_large_key2".to_vec(), b"batch_large_key3".to_vec()];
         let large_values = vec![
             generate_large_data(5), // 5MB
             generate_large_data(6), // 6MB
             generate_large_data(7), // 7MB
         ];
-        
-        let items: Vec<KVQPair<&Vec<u8>, &Vec<u8>>> = keys
-            .iter()
-            .zip(large_values.iter())
-            .map(|(k, v)| KVQPair { key: k, value: v })
-            .collect();
+
+        let items: Vec<KVQPair<&Vec<u8>, &Vec<u8>>> = keys.iter().zip(large_values.iter()).map(|(k, v)| KVQPair { key: k, value: v }).collect();
 
         // Test set_many_ref with large data
         store.set_many_ref(&items).await?;
@@ -669,11 +649,7 @@ mod large_data_chunking_tests {
     #[tokio::test]
     async fn test_large_data_set_many_split_ref() -> Result<()> {
         let store = create_test_store().await?;
-        let keys = vec![
-            b"split_large_key1".to_vec(),
-            b"split_large_key2".to_vec(),
-            b"split_large_key3".to_vec(),
-        ];
+        let keys = vec![b"split_large_key1".to_vec(), b"split_large_key2".to_vec(), b"split_large_key3".to_vec()];
         let large_values = vec![
             generate_large_data(5), // 5MB
             generate_large_data(6), // 6MB
@@ -699,22 +675,22 @@ mod large_data_chunking_tests {
         let store = create_test_store().await?;
         let key = b"large_delete_key".to_vec();
         let large_value = generate_large_data(8); // 8MB data
-        
+
         // Set large data
         store.set(key.clone(), large_value).await?;
-        
+
         // Verify it exists
         let result = store.get_exact_if_exists(&key).await?;
         assert!(result.is_some());
-        
+
         // Test delete with large data
         let deleted = store.delete(&key).await?;
         assert!(deleted);
-        
+
         // Verify it's deleted
         let result = store.get_exact_if_exists(&key).await?;
         assert_eq!(result, None);
-        
+
         Ok(())
     }
 
@@ -757,15 +733,15 @@ mod large_data_chunking_tests {
     #[tokio::test]
     async fn test_large_data_set_and_delete_many() -> Result<()> {
         let store = create_test_store().await?;
-        
+
         // First set some large data to delete later
         let delete_keys = vec![
             b"large_delete_set_key1".to_vec(),
             // b"large_delete_set_key2".to_vec(),
         ];
         let delete_values = vec![
-            generate_large_data(5), // 5MB
-            // generate_large_data(6), // 6MB
+            generate_large_data(5), /* 5MB
+                                     * generate_large_data(6), // 6MB */
         ];
 
         for (key, value) in delete_keys.iter().zip(delete_values.iter()) {
@@ -773,9 +749,7 @@ mod large_data_chunking_tests {
         }
 
         // Prepare new large data to set
-        let set_keys = vec![
-            b"large_new_set_key1".to_vec(),
-        ];
+        let set_keys = vec![b"large_new_set_key1".to_vec()];
         let set_values = vec![
             generate_large_data(11), // 11MB
         ];
@@ -809,7 +783,7 @@ mod large_data_chunking_tests {
     #[tokio::test]
     async fn test_mixed_small_and_large_data() -> Result<()> {
         let store = create_test_store().await?;
-        
+
         // Mix of small and large data
         let items = vec![
             KVQPair {
@@ -843,7 +817,7 @@ mod large_data_chunking_tests {
         let keys: Vec<Vec<u8>> = items.iter().map(|item| item.key.clone()).collect();
         let results = store.get_many_exact(&keys).await?;
         assert_eq!(results.len(), 4);
-        
+
         for (expected, actual) in items.iter().zip(results.iter()) {
             assert_eq!(expected.value, *actual);
         }
@@ -856,7 +830,7 @@ mod large_data_chunking_tests {
     #[tokio::test]
     async fn test_large_data_fuzzy_search() -> Result<()> {
         let store = create_test_store().await?;
-        
+
         // Set up test data with large values
         let test_data = vec![
             (vec![1, 1, 1], generate_large_data(5)), // 5MB
@@ -899,14 +873,14 @@ mod large_data_chunking_tests {
     #[tokio::test]
     async fn test_large_data_chunking_edge_cases() -> Result<()> {
         let store = create_test_store().await?;
-        
+
         // Test exactly 4MB (boundary case)
         let key_exact_4mb = b"exact_4mb_key".to_vec();
         let value_exact_4mb = generate_large_data(4); // Exactly 4MB
         store.set(key_exact_4mb.clone(), value_exact_4mb.clone()).await?;
         let result = store.get_exact(&key_exact_4mb).await?;
         assert_eq!(result, value_exact_4mb);
-        
+
         // Test just over 4MB (should be chunked)
         let key_over_4mb = b"over_4mb_key".to_vec();
         let mut value_over_4mb = generate_large_data(4);
@@ -914,14 +888,14 @@ mod large_data_chunking_tests {
         store.set(key_over_4mb.clone(), value_over_4mb.clone()).await?;
         let result = store.get_exact(&key_over_4mb).await?;
         assert_eq!(result, value_over_4mb);
-        
+
         // Test very large data (10MB)
         let key_very_large = b"very_large_key".to_vec();
         let value_very_large = generate_large_data(10); // 10MB
         store.set(key_very_large.clone(), value_very_large.clone()).await?;
         let result = store.get_exact(&key_very_large).await?;
         assert_eq!(result, value_very_large);
-        
+
         // Clean up
         store.delete_many(&[key_exact_4mb, key_over_4mb, key_very_large]).await?;
         Ok(())
@@ -935,21 +909,21 @@ mod edge_cases_and_error_handling {
     #[tokio::test]
     async fn test_empty_keys_and_values() -> Result<()> {
         let store = create_test_store().await?;
-        
+
         // Test empty key
         let empty_key = vec![];
         let value = b"test_value".to_vec();
         store.set(empty_key.clone(), value.clone()).await?;
         let result = store.get_exact(&empty_key).await?;
         assert_eq!(result, value);
-        
+
         // Test empty value
         let key = b"test_key".to_vec();
         let empty_value = vec![];
         store.set(key.clone(), empty_value.clone()).await?;
         let result = store.get_exact(&key).await?;
         assert_eq!(result, empty_value);
-        
+
         // Clean up
         store.delete(&empty_key).await?;
         store.delete(&key).await?;
@@ -959,21 +933,21 @@ mod edge_cases_and_error_handling {
     #[tokio::test]
     async fn test_large_keys_and_values() -> Result<()> {
         let store = create_test_store().await?;
-        
+
         // Test large key (1KB)
         let large_key = vec![42u8; 1024];
         let value = b"test_value".to_vec();
         store.set(large_key.clone(), value.clone()).await?;
         let result = store.get_exact(&large_key).await?;
         assert_eq!(result, value);
-        
+
         // Test large value (10KB)
         let key = b"test_key".to_vec();
         let large_value = vec![123u8; 10240];
         store.set(key.clone(), large_value.clone()).await?;
         let result = store.get_exact(&key).await?;
         assert_eq!(result, large_value);
-        
+
         // Clean up
         store.delete(&large_key).await?;
         store.delete(&key).await?;
@@ -984,39 +958,39 @@ mod edge_cases_and_error_handling {
     async fn test_non_existent_key_operations() -> Result<()> {
         let store = create_test_store().await?;
         let non_existent_key = b"non_existent_key".to_vec();
-        
+
         // Test get_exact_if_exists with non-existent key
         let result = store.get_exact_if_exists(&non_existent_key).await?;
         assert_eq!(result, None);
-        
+
         // Test delete with non-existent key
         let deleted = store.delete(&non_existent_key).await?;
         assert!(deleted);
-        
+
         // Test get_leq with non-existent key
         let result = store.get_leq(&non_existent_key, 1).await?;
         assert_eq!(result, None);
-        
+
         Ok(())
     }
 
     #[tokio::test]
     async fn test_batch_operations_with_empty_collections() -> Result<()> {
         let store = create_test_store().await?;
-        
+
         // Test set_many_vec with empty vector
         let empty_items: Vec<KVQPair<Vec<u8>, Vec<u8>>> = vec![];
         store.set_many_vec(empty_items).await?;
-        
+
         // Test get_many_exact with empty keys
         let empty_keys: Vec<Vec<u8>> = vec![];
         let results = store.get_many_exact(&empty_keys).await?;
         assert_eq!(results.len(), 0);
-        
+
         // Test delete_many with empty keys
         let deleted_results = store.delete_many(&empty_keys).await?;
         assert_eq!(deleted_results.len(), 0);
-        
+
         Ok(())
     }
 
@@ -1026,17 +1000,17 @@ mod edge_cases_and_error_handling {
         let key = b"test_key".to_vec();
         let value1 = b"value1".to_vec();
         let value2 = b"value2".to_vec();
-        
+
         // Set initial value
         store.set(key.clone(), value1.clone()).await?;
         let result = store.get_exact(&key).await?;
         assert_eq!(result, value1);
-        
+
         // Overwrite with new value
         store.set(key.clone(), value2.clone()).await?;
         let result = store.get_exact(&key).await?;
         assert_eq!(result, value2);
-        
+
         // Clean up
         store.delete(&key).await?;
         Ok(())
@@ -1051,7 +1025,7 @@ mod performance_and_stress_tests {
     async fn test_batch_performance() -> Result<()> {
         let store = create_test_store().await?;
         let batch_size = 100;
-        
+
         // Generate test data
         let items: Vec<KVQPair<Vec<u8>, Vec<u8>>> = (0..batch_size)
             .map(|i| KVQPair {
@@ -1059,31 +1033,31 @@ mod performance_and_stress_tests {
                 value: format!("perf_value_{:04}", i).into_bytes(),
             })
             .collect();
-        
+
         // Test batch set
         let start = std::time::Instant::now();
         store.set_many_vec(items.clone()).await?;
         let set_duration = start.elapsed();
         println!("Batch set of {} items took: {:?}", batch_size, set_duration);
-        
+
         // Test batch get
         let keys: Vec<Vec<u8>> = items.iter().map(|item| item.key.clone()).collect();
         let start = std::time::Instant::now();
         let results = store.get_many_exact(&keys).await?;
         let get_duration = start.elapsed();
         println!("Batch get of {} items took: {:?}", batch_size, get_duration);
-        
+
         assert_eq!(results.len(), batch_size);
-        
+
         // Test batch delete
         let start = std::time::Instant::now();
         let deleted = store.delete_many(&keys).await?;
         let delete_duration = start.elapsed();
         println!("Batch delete of {} items took: {:?}", batch_size, delete_duration);
-        
+
         assert_eq!(deleted.len(), batch_size);
         assert!(deleted.iter().all(|&d| d));
-        
+
         Ok(())
     }
 
@@ -1092,47 +1066,47 @@ mod performance_and_stress_tests {
         let store = create_test_store().await?;
         let num_tasks = 10;
         let items_per_task = 10;
-        
+
         // Create concurrent tasks
         let mut handles = vec![];
-        
+
         for task_id in 0..num_tasks {
             let store_clone = store.clone();
             let handle = tokio::spawn(async move {
                 let mut task_items = vec![];
-                
+
                 // Each task works with its own set of keys
                 for i in 0..items_per_task {
                     let key = format!("concurrent_{}_{}", task_id, i).into_bytes();
                     let value = format!("value_{}_{}", task_id, i).into_bytes();
                     task_items.push(KVQPair { key, value });
                 }
-                
+
                 // Set items
                 store_clone.set_many_vec(task_items.clone()).await?;
-                
+
                 // Get items to verify
                 let keys: Vec<Vec<u8>> = task_items.iter().map(|item| item.key.clone()).collect();
                 let results = store_clone.get_many_exact(&keys).await?;
-                
+
                 // Verify results
                 for (item, result) in task_items.iter().zip(results.iter()) {
                     assert_eq!(item.value, *result);
                 }
-                
+
                 // Clean up
                 store_clone.delete_many(&keys).await?;
-                
+
                 anyhow::Ok(())
             });
             handles.push(handle);
         }
-        
+
         // Wait for all tasks to complete
         for handle in handles {
             handle.await??;
         }
-        
+
         Ok(())
     }
 }
@@ -1144,54 +1118,69 @@ mod integration_tests {
     #[tokio::test]
     async fn test_complete_workflow() -> Result<()> {
         let store = create_test_store().await?;
-        
+
         // Step 1: Set up initial data
         let initial_items = vec![
-            KVQPair { key: b"user:1".to_vec(), value: b"alice".to_vec() },
-            KVQPair { key: b"user:2".to_vec(), value: b"bob".to_vec() },
-            KVQPair { key: b"user:3".to_vec(), value: b"charlie".to_vec() },
+            KVQPair {
+                key: b"user:1".to_vec(),
+                value: b"alice".to_vec(),
+            },
+            KVQPair {
+                key: b"user:2".to_vec(),
+                value: b"bob".to_vec(),
+            },
+            KVQPair {
+                key: b"user:3".to_vec(),
+                value: b"charlie".to_vec(),
+            },
         ];
         store.set_many_vec(initial_items.clone()).await?;
-        
+
         // Step 2: Query individual items
         for item in &initial_items {
             let result = store.get_exact(&item.key).await?;
             assert_eq!(result, item.value);
         }
-        
+
         // Step 3: Batch query
         let keys: Vec<Vec<u8>> = initial_items.iter().map(|item| item.key.clone()).collect();
         let results = store.get_many_exact(&keys).await?;
         assert_eq!(results.len(), 3);
-        
+
         // Step 4: Update some items
         let updates = vec![
-            KVQPair { key: b"user:1".to_vec(), value: b"alice_updated".to_vec() },
-            KVQPair { key: b"user:4".to_vec(), value: b"david".to_vec() },
+            KVQPair {
+                key: b"user:1".to_vec(),
+                value: b"alice_updated".to_vec(),
+            },
+            KVQPair {
+                key: b"user:4".to_vec(),
+                value: b"david".to_vec(),
+            },
         ];
         store.set_many_vec(updates.clone()).await?;
-        
+
         // Step 5: Verify updates
         let result = store.get_exact(&b"user:1".to_vec()).await?;
         assert_eq!(result, b"alice_updated".to_vec());
         let result = store.get_exact(&b"user:4".to_vec()).await?;
         assert_eq!(result, b"david".to_vec());
-        
+
         // Step 6: Delete some items
         let delete_keys = vec![b"user:2".to_vec(), b"user:3".to_vec()];
         let deleted = store.delete_many(&delete_keys).await?;
         assert_eq!(deleted, vec![true, true]);
-        
+
         // Step 7: Verify deletions
         for key in &delete_keys {
             let result = store.get_exact_if_exists(key).await?;
             assert_eq!(result, None);
         }
-        
+
         // Step 8: Final cleanup
         let remaining_keys = vec![b"user:1".to_vec(), b"user:4".to_vec()];
         store.delete_many(&remaining_keys).await?;
-        
+
         Ok(())
     }
 }

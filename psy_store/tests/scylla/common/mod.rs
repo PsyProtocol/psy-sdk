@@ -1,14 +1,11 @@
+use std::sync::Arc;
+
 use kvq::traits::KVQPair;
 use plonky2::field::goldilocks_field::GoldilocksField;
 use psy_core::data::qhashout::QHashOut;
-use psy_store::store::scylla::{
-    kvq_store::ScyllaKVQStore,
-    clustering_store::ScyllaClusteringStore,
-    ScyllaStore,
-};
 use psy_data::models::kvq_merkle::key::KVQMerkleNodeKey;
+use psy_store::store::scylla::{clustering_store::ScyllaClusteringStore, kvq_store::ScyllaKVQStore, ScyllaStore};
 use scylla::{Session, SessionBuilder};
-use std::sync::Arc;
 
 // Test utilities and setup
 pub struct TestConfig {
@@ -21,14 +18,8 @@ pub struct TestConfig {
 impl TestConfig {
     pub async fn new() -> anyhow::Result<Self> {
         let uri = std::env::var("SCYLLA_URI").unwrap_or_else(|_| "127.0.0.1:9042".to_string());
-        let keyspace = format!(
-            "test_ks_{}",
-            uuid::Uuid::new_v4().to_string().replace("-", "")
-        );
-        let table_name = format!(
-            "test_tbl_{}",
-            uuid::Uuid::new_v4().to_string().replace("-", "")
-        );
+        let keyspace = format!("test_ks_{}", uuid::Uuid::new_v4().to_string().replace("-", ""));
+        let table_name = format!("test_tbl_{}", uuid::Uuid::new_v4().to_string().replace("-", ""));
 
         let session = Arc::new(SessionBuilder::new().known_node(&uri).build().await?);
 
@@ -50,15 +41,11 @@ impl TestConfig {
 
 // Test data generators
 pub fn generate_test_keys(count: usize) -> Vec<Vec<u8>> {
-    (0..count)
-        .map(|i| format!("test_key_{:04}", i).into_bytes())
-        .collect()
+    (0..count).map(|i| format!("test_key_{:04}", i).into_bytes()).collect()
 }
 
 pub fn generate_test_values(count: usize) -> Vec<Vec<u8>> {
-    (0..count)
-        .map(|i| format!("test_value_{:04}", i).into_bytes())
-        .collect()
+    (0..count).map(|i| format!("test_value_{:04}", i).into_bytes()).collect()
 }
 
 pub fn generate_test_kvpairs(count: usize) -> Vec<KVQPair<Vec<u8>, Vec<u8>>> {
@@ -80,10 +67,7 @@ pub fn generate_checkpoint_keys(count: usize, checkpoint_id: u64) -> Vec<Vec<u8>
         .collect()
 }
 
-pub fn generate_merkle_node_keys<const TABLE_TYPE: u16>(
-    count: usize,
-    checkpoint_id: u64,
-) -> Vec<KVQMerkleNodeKey<TABLE_TYPE>> {
+pub fn generate_merkle_node_keys<const TABLE_TYPE: u16>(count: usize, checkpoint_id: u64) -> Vec<KVQMerkleNodeKey<TABLE_TYPE>> {
     (0..count)
         .map(|i| KVQMerkleNodeKey {
             tree_id: 1,
@@ -103,12 +87,6 @@ pub fn generate_test_hashes(count: usize) -> Vec<QHashOut<GoldilocksField>> {
 }
 
 // Helper for creating KVQ pairs with references
-pub fn create_kvq_pairs_ref<'a>(
-    keys: &'a [Vec<u8>],
-    values: &'a [Vec<u8>],
-) -> Vec<KVQPair<&'a Vec<u8>, &'a Vec<u8>>> {
-    keys.iter()
-        .zip(values.iter())
-        .map(|(k, v)| KVQPair { key: k, value: v })
-        .collect()
+pub fn create_kvq_pairs_ref<'a>(keys: &'a [Vec<u8>], values: &'a [Vec<u8>]) -> Vec<KVQPair<&'a Vec<u8>, &'a Vec<u8>>> {
+    keys.iter().zip(values.iter()).map(|(k, v)| KVQPair { key: k, value: v }).collect()
 }

@@ -1,10 +1,10 @@
+use anyhow::Result;
 use async_trait::async_trait;
 use bb8::Pool;
 use bb8_redis::RedisConnectionManager;
 use redis::AsyncCommands;
-use crate::common_v2::traits::realm::UniqueQueueId;
-use crate::realm::state::queue_traits::DuplicateTracker;
-use anyhow::Result;
+
+use crate::{common_v2::traits::realm::UniqueQueueId, realm::state::queue_traits::DuplicateTracker};
 
 const USER_SUBMISSION_TTL_SECONDS: u64 = 3600; // 1 hours
 
@@ -24,12 +24,7 @@ impl RedisDuplicateTracker {
     }
 
     fn get_key(&self, checkpoint: UniqueQueueId, user_id: u64) -> String {
-        format!("submitted:{}:{}:{}:{}",
-                self.realm_id,
-                checkpoint.id,
-                checkpoint.uuid,
-                user_id
-        )
+        format!("submitted:{}:{}:{}:{}", self.realm_id, checkpoint.id, checkpoint.uuid, user_id)
     }
 }
 
@@ -49,11 +44,7 @@ impl DuplicateTracker for RedisDuplicateTracker {
     }
 
     async fn clear_checkpoint(&self, checkpoint: UniqueQueueId) -> Result<()> {
-        let pattern = format!("submitted:{}:{}:{}:*",
-                              self.realm_id,
-                              checkpoint.id,
-                              checkpoint.uuid
-        );
+        let pattern = format!("submitted:{}:{}:{}:*", self.realm_id, checkpoint.id, checkpoint.uuid);
         let mut conn = self.redis_pool.get().await?;
         let keys: Vec<String> = redis::cmd("KEYS").arg(&pattern).query_async(&mut *conn).await?;
 

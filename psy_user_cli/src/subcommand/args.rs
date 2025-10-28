@@ -48,7 +48,6 @@ pub struct GetPublicKeyArgs {
     pub sign_type: SignType,
 }
 
-
 #[derive(Clone, Args, Serialize, Deserialize)]
 pub struct RegisterUserArgs {
     #[clap(env, long, default_value = "config.json", env)]
@@ -62,7 +61,6 @@ pub struct RegisterUserArgs {
     #[clap(long)]
     pub fingerprint: Option<String>,
 }
-
 
 #[derive(Clone, Args)]
 pub struct DeployContractArgs {
@@ -92,16 +90,11 @@ pub struct SubmitEndCapArgs {
     pub sign_inputs: Vec<u64>,
 }
 
-
 #[derive(Clone, Args)]
 pub struct UserIdArgs {
     #[clap(env, long, default_value = "config.json", env)]
     pub rpc_config: String,
-    #[arg(
-        long,
-        default_value = "0d47fda4480f045506b085ba6921fc86d8cc6feb1b533292db4b1a3af8f89eab",
-        env
-    )]
+    #[arg(long, default_value = "0d47fda4480f045506b085ba6921fc86d8cc6feb1b533292db4b1a3af8f89eab", env)]
     pub pub_key: QHashOut<GoldilocksField>,
 }
 
@@ -109,17 +102,9 @@ pub struct UserIdArgs {
 pub struct UserLeafArgs {
     #[clap(env, long, default_value = "config.json", env)]
     pub rpc_config: String,
-    #[arg(
-        long,
-        help = "User public key (queries coordinator)",
-        conflicts_with = "user_id"
-    )]
+    #[arg(long, help = "User public key (queries coordinator)", conflicts_with = "user_id")]
     pub pub_key: Option<QHashOut<GoldilocksField>>,
-    #[arg(
-        long,
-        help = "User ID (queries corresponding realm)",
-        conflicts_with = "pub_key"
-    )]
+    #[arg(long, help = "User ID (queries corresponding realm)", conflicts_with = "pub_key")]
     pub user_id: Option<u64>,
     #[arg(long, default_value = "100", env)]
     pub checkpoint_id: u64,
@@ -474,8 +459,9 @@ pub struct ClaimRewardsArgs {
     #[clap(long, short)]
     pub private_key: String,
 
-    /// Job specifications in format "job_id:location" where location is either "realm:id" or "coordinator"
-    /// Example: --job "12345:realm:0" --job "67890:coordinator"
+    /// Job specifications in format "job_id:location" where location is either
+    /// "realm:id" or "coordinator" Example: --job "12345:realm:0" --job
+    /// "67890:coordinator"
     #[arg(long = "job", action = clap::ArgAction::Append)]
     pub jobs: Vec<String>,
 
@@ -487,15 +473,18 @@ pub struct ClaimRewardsArgs {
     #[clap(long)]
     pub fingerprint: Option<String>,
 
-    /// Maximum number of checkpoints to process in one batch (optional, limits processing load)
+    /// Maximum number of checkpoints to process in one batch (optional, limits
+    /// processing load)
     #[clap(long, default_value = "5")]
     pub limit: usize,
 
-    /// Starting checkpoint ID (optional, if not provided will start from last claimed + 1)
+    /// Starting checkpoint ID (optional, if not provided will start from last
+    /// claimed + 1)
     #[clap(long)]
     pub start_checkpoint_id: Option<u64>,
 
-    /// API service URL for fetching worker events (if empty, uses file-based loading)
+    /// API service URL for fetching worker events (if empty, uses file-based
+    /// loading)
     #[clap(long, default_value = "http://127.0.0.1:3000")]
     pub api_service_url: String,
 }

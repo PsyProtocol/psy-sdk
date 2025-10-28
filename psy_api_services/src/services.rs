@@ -1,15 +1,16 @@
-use crate::config::Config;
-use crate::handlers::websocket::{UserEventManager, WorkerEventManager};
-use crate::models::{WorkerEvent, WorkerEventReward};
-use crate::repositories::{
-    UserEventRepository, WorkerEventRepository, WorkerEventRewardRepository,
-};
+use std::{collections::HashMap, sync::Arc};
+
 use chrono::Utc;
 use sqlx::PgPool;
-use std::collections::HashMap;
-use std::sync::Arc;
 use tokio::sync::RwLock;
 use tracing::info;
+
+use crate::{
+    config::Config,
+    handlers::websocket::{UserEventManager, WorkerEventManager},
+    models::{WorkerEvent, WorkerEventReward},
+    repositories::{UserEventRepository, WorkerEventRepository, WorkerEventRewardRepository},
+};
 
 #[derive(Clone)]
 pub struct ApiService {
@@ -76,30 +77,22 @@ impl RewardService {
         tracing::info!("Starting reward processing task");
 
         // Get max checkpoint from worker_events
-        let max_worker_checkpoint = WorkerEventRepository::get_max_checkpoint(pool)
-            .await?
-            .unwrap_or(0);
+        let max_worker_checkpoint = WorkerEventRepository::get_max_checkpoint(pool).await?.unwrap_or(0);
         info!("Max worker checkpoint: {}", max_worker_checkpoint);
         // Process unprocessed GUTA worker events up to max_checkpoint - 1
         // (excluding current block to ensure it's finalized)
         let checkpoint_range = Some((0, max_worker_checkpoint - 1));
-        let unprocessed_events =
-            WorkerEventRepository::get_unprocessed_guta_worker_events(pool, checkpoint_range)
-                .await?;
+        let unprocessed_events = WorkerEventRepository::get_unprocessed_guta_worker_events(pool, checkpoint_range).await?;
 
         if unprocessed_events.is_empty() {
             tracing::debug!("No unprocessed GUTA worker events found");
             return Ok(());
         }
 
-        tracing::info!(
-            "Processing rewards for {} unprocessed GUTA worker events",
-            unprocessed_events.len()
-        );
+        tracing::info!("Processing rewards for {} unprocessed GUTA worker events", unprocessed_events.len());
 
         // Group events by checkpoint for processing
-        let mut events_by_checkpoint: std::collections::HashMap<i64, Vec<WorkerEvent>> =
-            std::collections::HashMap::new();
+        let mut events_by_checkpoint: std::collections::HashMap<i64, Vec<WorkerEvent>> = std::collections::HashMap::new();
 
         for event in unprocessed_events {
             events_by_checkpoint
@@ -114,19 +107,11 @@ impl RewardService {
         for (checkpoint_id, checkpoint_events) in events_by_checkpoint {
             match Self::process_checkpoint_rewards(pool, checkpoint_id, checkpoint_events).await {
                 Ok(rewards_count) => {
-                    tracing::info!(
-                        "Successfully processed {} rewards for checkpoint {}",
-                        rewards_count,
-                        checkpoint_id
-                    );
+                    tracing::info!("Successfully processed {} rewards for checkpoint {}", rewards_count, checkpoint_id);
                     total_processed += rewards_count;
                 }
                 Err(e) => {
-                    tracing::error!(
-                        "Failed to process rewards for checkpoint {}: {}",
-                        checkpoint_id,
-                        e
-                    );
+                    tracing::error!("Failed to process rewards for checkpoint {}: {}", checkpoint_id, e);
                     // Continue processing other checkpoints even if one fails
                 }
             }
@@ -137,11 +122,7 @@ impl RewardService {
     }
 
     /// Process rewards for worker events in a specific checkpoint
-    async fn process_checkpoint_rewards(
-        pool: &PgPool,
-        checkpoint_id: i64,
-        worker_events: Vec<WorkerEvent>,
-    ) -> crate::Result<usize> {
+    async fn process_checkpoint_rewards(pool: &PgPool, checkpoint_id: i64, worker_events: Vec<WorkerEvent>) -> crate::Result<usize> {
         tracing::debug!(
             "Processing rewards for checkpoint {} with {} worker events",
             checkpoint_id,
@@ -152,9 +133,9 @@ impl RewardService {
             return Ok(0);
         }
 
-        // Step 1: Get all GUTA user events for this checkpoint to calculate total reward pool
-        let guta_user_events =
-            UserEventRepository::get_guta_events_by_checkpoint(pool, checkpoint_id).await?;
+        // Step 1: Get all GUTA user events for this checkpoint to calculate total
+        // reward pool
+        let guta_user_events = UserEventRepository::get_guta_events_by_checkpoint(pool, checkpoint_id).await?;
         let total_guta_rewards = guta_user_events.len() as i64 * Self::REWARD_PER_GUTA_PSY;
 
         tracing::debug!(
@@ -165,10 +146,7 @@ impl RewardService {
         );
 
         if guta_user_events.is_empty() {
-            tracing::debug!(
-                "No GUTA user events found for checkpoint {}, no rewards to distribute",
-                checkpoint_id
-            );
+            tracing::debug!("No GUTA user events found for checkpoint {}, no rewards to distribute", checkpoint_id);
             return Ok(0);
         }
 
@@ -197,7 +175,7 @@ impl RewardService {
             let reward = WorkerEventReward {
                 id: event_id,                                             // Same as worker event id
                 public_key: event.public_key.clone().unwrap_or_default(), // From worker event
-                checkpoint_id: event.checkpoint_id as i64,                       // From worker event
+                checkpoint_id: event.checkpoint_id as i64,                // From worker event
                 reward_amount: reward_per_event,
                 timestamp: now,
                 created_at: now,
@@ -261,17 +239,11 @@ impl JobStatusService {
 
         match result {
             Ok(_) => {
-                tracing::info!(
-                    "Successfully refreshed latest_job_status materialized view in {:?}",
-                    duration
-                );
+                tracing::info!("Successfully refreshed latest_job_status materialized view in {:?}", duration);
                 Ok(())
             }
             Err(e) => {
-                tracing::error!(
-                    "Failed to refresh latest_job_status materialized view: {}",
-                    e
-                );
+                tracing::error!("Failed to refresh latest_job_status materialized view: {}", e);
                 Err(anyhow::anyhow!("Failed to refresh materialized view: {}", e))
             }
         }
@@ -284,9 +256,7 @@ impl JobStatusService {
             refresh_interval_secs
         );
 
-        let mut interval = tokio::time::interval(
-            tokio::time::Duration::from_secs(refresh_interval_secs)
-        );
+        let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(refresh_interval_secs));
 
         // Skip the first tick to avoid immediate refresh on startup
         interval.tick().await;
@@ -321,13 +291,10 @@ impl JobStatusService {
                         // Implement exponential backoff
                         let backoff_secs = std::cmp::min(
                             refresh_interval_secs * 2_u64.pow(consecutive_failures - MAX_CONSECUTIVE_FAILURES),
-                            300 // Max 5 minutes
+                            300, // Max 5 minutes
                         );
 
-                        tracing::warn!(
-                            "Backing off for {} seconds before next refresh attempt",
-                            backoff_secs
-                        );
+                        tracing::warn!("Backing off for {} seconds before next refresh attempt", backoff_secs);
 
                         tokio::time::sleep(tokio::time::Duration::from_secs(backoff_secs)).await;
                     }
@@ -342,4 +309,3 @@ impl JobStatusService {
         Self::refresh_materialized_view(pool).await
     }
 }
-

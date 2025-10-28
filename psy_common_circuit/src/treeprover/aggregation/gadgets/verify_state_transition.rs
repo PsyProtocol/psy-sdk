@@ -10,15 +10,10 @@ use plonky2::{
     },
 };
 use psy_core::data::qhashout::QHashOut;
-use psy_crypto::hash::
-    merkle::treeprover::{AggStateTransition, TPAltCircuitFingerprintConfig, TPCircuitFingerprintConfig}
-;
-
-use crate::{builder::connect::CircuitBuilderConnectHelpers,
-    treeprover::aggregation::gadgets::AggStateTransitionProofValidityGadget}
-;
+use psy_crypto::hash::merkle::treeprover::{AggStateTransition, TPAltCircuitFingerprintConfig, TPCircuitFingerprintConfig};
 
 use super::AggStateTransitionGadget;
+use crate::{builder::connect::CircuitBuilderConnectHelpers, treeprover::aggregation::gadgets::AggStateTransitionProofValidityGadget};
 #[derive(Debug, Clone)]
 pub struct VerifyStateTransitionProofGadget<const D: usize> {
     // start targets requiring witness
@@ -29,7 +24,6 @@ pub struct VerifyStateTransitionProofGadget<const D: usize> {
 }
 
 impl<const D: usize> VerifyStateTransitionProofGadget<D> {
-
     pub fn add_virtual_to_with_config<C: GenericConfig<D, F = F>, F: RichField + Extendable<D>>(
         builder: &mut CircuitBuilder<F, D>,
         proof_common_data: &CommonCircuitData<F, D>,
@@ -38,13 +32,13 @@ impl<const D: usize> VerifyStateTransitionProofGadget<D> {
     where
         <C as GenericConfig<D>>::Hasher: AlgebraicHasher<F>,
     {
-        Self::add_virtual_to::<C,F>(
+        Self::add_virtual_to::<C, F>(
             builder,
             proof_common_data,
             config.verifier_data_cap_height,
             config.leaf_fingerprint,
             config.aggregator_fingerprint,
-            config.dummy_fingerprint
+            config.dummy_fingerprint,
         )
     }
     pub fn add_virtual_to<C: GenericConfig<D, F = F>, F: RichField + Extendable<D>>(
@@ -61,42 +55,30 @@ impl<const D: usize> VerifyStateTransitionProofGadget<D> {
         let verifier_data = builder.add_virtual_verifier_data(verifier_data_cap_height);
         let proof_target = builder.add_virtual_proof_with_pis(proof_common_data);
 
-        assert_eq!(
-            proof_target.public_inputs.len(),
-            19,
-            "agg proofs should have 19 public inputs"
-        );
+        assert_eq!(proof_target.public_inputs.len(), 19, "agg proofs should have 19 public inputs");
         builder.verify_proof::<C>(&proof_target, &verifier_data, proof_common_data);
 
-        let whitelist = QHashOut(C::Hasher::two_to_one(
-            leaf_circuit_fingerprint.0,
-            agg_circuit_fingerprint.0,
-        ));
-        let expected_state_transition_hash =
-            AggStateTransitionProofValidityGadget::add_virtual_to::<C::Hasher, C::F, D>(
-                builder,
-                &proof_target,
-                &verifier_data,
-                &TPCircuitFingerprintConfig {
-                    leaf_fingerprint: leaf_circuit_fingerprint,
-                    aggregator_fingerprint: agg_circuit_fingerprint,
-                    dummy_fingerprint: dummy_circuit_fingerprint,
-                    allowed_circuit_hashes_root: whitelist,
-                    leaf_circuit_type: 255,
-                    aggregator_circuit_type: 255,
-                },
-            );
+        let whitelist = QHashOut(C::Hasher::two_to_one(leaf_circuit_fingerprint.0, agg_circuit_fingerprint.0));
+        let expected_state_transition_hash = AggStateTransitionProofValidityGadget::add_virtual_to::<C::Hasher, C::F, D>(
+            builder,
+            &proof_target,
+            &verifier_data,
+            &TPCircuitFingerprintConfig {
+                leaf_fingerprint: leaf_circuit_fingerprint,
+                aggregator_fingerprint: agg_circuit_fingerprint,
+                dummy_fingerprint: dummy_circuit_fingerprint,
+                allowed_circuit_hashes_root: whitelist,
+                leaf_circuit_type: 255,
+                aggregator_circuit_type: 255,
+            },
+        );
 
         let state_transition = AggStateTransitionGadget::add_virtual_to(builder);
-        let computed_state_transition_hash =
-            state_transition.get_combined_hash::<C::Hasher, F, D>(builder);
+        let computed_state_transition_hash = state_transition.get_combined_hash::<C::Hasher, F, D>(builder);
 
         tracing::debug!("expected_state_transition_hash={:#?}", expected_state_transition_hash);
         tracing::debug!("computed_state_transition_hash={:#?}", computed_state_transition_hash);
-        builder.connect_hashes(
-            expected_state_transition_hash,
-            computed_state_transition_hash,
-        );
+        builder.connect_hashes(expected_state_transition_hash, computed_state_transition_hash);
         Self {
             verifier_data,
             proof_target,
@@ -115,8 +97,7 @@ impl<const D: usize> VerifyStateTransitionProofGadget<D> {
         C::Hasher: AlgebraicHasher<F>,
     {
         tracing::debug!("state_transition={}", serde_json::to_string_pretty(&state_transition).unwrap());
-        self.state_transition
-            .set_witness(witness, state_transition)?;
+        self.state_transition.set_witness(witness, state_transition)?;
 
         witness.set_proof_with_pis_target(&self.proof_target, proof)?;
         witness.set_verifier_data_target(&self.verifier_data, &verifier_data)

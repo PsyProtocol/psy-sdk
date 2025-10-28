@@ -1,10 +1,9 @@
 use super::sym_felt::{SymFeltDef, SymFeltRef, SymFeltRefValue};
 
-
 #[derive(Debug, Clone)]
 pub struct SymFeltStore {
     pub store: hashbrown::HashMap<SymFeltRef, SymFeltRefValue>,
-    /* 
+    /*
     pub ref_points: Vec<Vec<SymFeltRef>>,
     pub current_phase_ref_points: Vec<SymFeltRef>,*/
 }

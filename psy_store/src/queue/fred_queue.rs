@@ -1,30 +1,32 @@
-use std::fmt;
-use std::time::{Duration, Instant};
+use std::{
+    fmt,
+    time::{Duration, Instant},
+};
 
-use crate::queue::{BizKey, QPendingUserStoreAsyncImm, QueuePrefixKey};
 use async_trait::async_trait;
 use fred::prelude::{FredResult, HashesInterface, KeysInterface, ListInterface, Pool};
 use kvq::traits::{KVQPair, KVQSerializable};
-use plonky2::plonk::{config::GenericConfig, proof::ProofWithPublicInputs};
-use psy_core::job::{
-    drain_queue::{
-        CheckpointDrainQueueConsumerAsyncImm, CheckpointDrainQueueEmitterAsyncImm, DQSerializable,
-    },
-    history_queue::{
-        CheckpointHistoryQueueConsumerAsyncImm, CheckpointHistoryQueueEmitterAsyncImm,
-        CheckpointHistoryQueueEmitterSyncImm, HQSerializable,
-    },
-    id::{ProvingJobDataId, QProvingJobDataID},
-    traits::{QProofStoreReaderAsync, QProofStoreWriterAsyncImm},
-    worker_queue::{WorkerEventReceiverAsyncImm, WorkerEventTransmitterAsyncImm},
+use plonky2::{
+    hash::hash_types::RichField,
+    plonk::{config::GenericConfig, proof::ProofWithPublicInputs},
 };
+use psy_core::{
+    data::qhashout::QHashOut,
+    job::{
+        drain_queue::{CheckpointDrainQueueConsumerAsyncImm, CheckpointDrainQueueEmitterAsyncImm, DQSerializable},
+        history_queue::{
+            CheckpointHistoryQueueConsumerAsyncImm, CheckpointHistoryQueueEmitterAsyncImm, CheckpointHistoryQueueEmitterSyncImm, HQSerializable,
+        },
+        id::{ProvingJobDataId, QProvingJobDataID},
+        traits::{QProofStoreReaderAsync, QProofStoreWriterAsyncImm},
+        worker_queue::{WorkerEventReceiverAsyncImm, WorkerEventTransmitterAsyncImm},
+    },
+};
+use psy_crypto::hash::merkle::core::MerkleProofCore;
 use tokio::time::sleep;
 
 use super::PS_DRAIN_QUEUE_KEY_PREFIX;
-use psy_crypto::hash::merkle::core::MerkleProofCore;
-use psy_core::data::qhashout::QHashOut;
-use plonky2::hash::hash_types::RichField;
-use crate::queue::redis_queue::QueueOffsetState;
+use crate::queue::{redis_queue::QueueOffsetState, BizKey, QPendingUserStoreAsyncImm, QueuePrefixKey};
 
 #[derive(Clone)]
 pub struct ProofStoreFred {
@@ -87,41 +89,24 @@ impl ProofStoreFred {
 #[async_trait]
 impl QProofStoreReaderAsync for ProofStoreFred {
     async fn contains_id(&self, id: QProvingJobDataID) -> anyhow::Result<bool> {
-        let data = self
-            .pool
-            .hget::<Vec<u8>, _, &[u8]>(&self.proof_store_key(), &id.to_fixed_bytes())
-            .await?;
+        let data = self.pool.hget::<Vec<u8>, _, &[u8]>(&self.proof_store_key(), &id.to_fixed_bytes()).await?;
         Ok(data.len() != 0)
     }
-    async fn get_proof_by_id<C: GenericConfig<D>, const D: usize>(
-        &self,
-        id: QProvingJobDataID,
-    ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
+    async fn get_proof_by_id<C: GenericConfig<D>, const D: usize>(&self, id: QProvingJobDataID) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         tracing::info!(?id, "Getting proof by id");
-        let data = self
-            .pool
-            .hget::<Vec<u8>, _, &[u8]>(&self.proof_store_key(), &id.to_fixed_bytes())
-            .await?;
+        let data = self.pool.hget::<Vec<u8>, _, &[u8]>(&self.proof_store_key(), &id.to_fixed_bytes()).await?;
         Ok(bincode::deserialize(&data)?)
     }
 
     async fn get_bytes_by_id(&self, id: QProvingJobDataID) -> anyhow::Result<Vec<u8>> {
-        let data = self
-            .pool
-            .hget::<Vec<u8>, _, &[u8]>(&self.proof_store_key(), &id.to_fixed_bytes())
-            .await?;
+        let data = self.pool.hget::<Vec<u8>, _, &[u8]>(&self.proof_store_key(), &id.to_fixed_bytes()).await?;
 
         Ok(data)
     }
 
-    async fn get_public_input_by_id<C: GenericConfig<D>, const D: usize>(
-        &self,
-        id: QProvingJobDataID,
-    ) -> anyhow::Result<Vec<C::F>> {
+    async fn get_public_input_by_id<C: GenericConfig<D>, const D: usize>(&self, id: QProvingJobDataID) -> anyhow::Result<Vec<C::F>> {
         let public_inputs_key = self.public_inputs_key();
-        let data: Vec<u8> = self.pool
-            .hget(&public_inputs_key, id.to_fixed_bytes().as_slice())
-            .await?;
+        let data: Vec<u8> = self.pool.hget(&public_inputs_key, id.to_fixed_bytes().as_slice()).await?;
         Ok(bincode::deserialize(&data)?)
     }
 }
@@ -143,10 +128,7 @@ impl QProofStoreWriterAsyncImm for ProofStoreFred {
 
         Ok(())
     }
-    async fn set_bytes_by_id_batch(
-        &self,
-        kv_pairs: &[KVQPair<QProvingJobDataID, Vec<u8>>],
-    ) -> anyhow::Result<()> {
+    async fn set_bytes_by_id_batch(&self, kv_pairs: &[KVQPair<QProvingJobDataID, Vec<u8>>]) -> anyhow::Result<()> {
         //todo: implemeent more efficient?
         self.set_bytes_by_id_batch_core(kv_pairs).await
     }
@@ -165,21 +147,12 @@ impl QProofStoreWriterAsyncImm for ProofStoreFred {
             .await?;
         Ok(new_counter_value)
     }
-    async fn write_next_jobs(
-        &self,
-        jobs: &[QProvingJobDataID],
-        next_jobs: &[QProvingJobDataID],
-    ) -> anyhow::Result<()> {
+    async fn write_next_jobs(&self, jobs: &[QProvingJobDataID], next_jobs: &[QProvingJobDataID]) -> anyhow::Result<()> {
         self.write_next_jobs_core(jobs, next_jobs).await
     }
 
-    async fn write_multidimensional_jobs(
-        &self,
-        jobs_levels: &[Vec<QProvingJobDataID>],
-        next_jobs: &[QProvingJobDataID],
-    ) -> anyhow::Result<()> {
-        self.write_multidimensional_jobs_core(jobs_levels, next_jobs)
-            .await
+    async fn write_multidimensional_jobs(&self, jobs_levels: &[Vec<QProvingJobDataID>], next_jobs: &[QProvingJobDataID]) -> anyhow::Result<()> {
+        self.write_multidimensional_jobs_core(jobs_levels, next_jobs).await
     }
 
     async fn cleanup_old_proofs(&self, _current_height: u64, _keep_blocks: u64) -> anyhow::Result<()> {
@@ -194,14 +167,10 @@ impl QProofStoreWriterAsyncImm for ProofStoreFred {
 #[async_trait]
 impl CheckpointDrainQueueEmitterAsyncImm for ProofStoreFred {
     async fn cdq_push_imm<T: DQSerializable>(&self, item: T) -> anyhow::Result<()> {
-        let checkpoint_queue_prefix =
-            format!("{}-{}", self.worker_queue_key(), PS_DRAIN_QUEUE_KEY_PREFIX);
+        let checkpoint_queue_prefix = format!("{}-{}", self.worker_queue_key(), PS_DRAIN_QUEUE_KEY_PREFIX);
         let metadata: psy_core::job::drain_queue::DrainQueueMetadata = item.get_dq_metadata();
         let bytes = item.to_bytes()?;
-        let key = format!(
-            "{}-{}",
-            checkpoint_queue_prefix, metadata.channel_id,
-        );
+        let key = format!("{}-{}", checkpoint_queue_prefix, metadata.channel_id,);
         // tracing::debug!("Pushing job id to queue: {:?}", key);
         self.pool.rpush::<(), String, &[u8]>(key, &bytes).await?;
 
@@ -211,58 +180,25 @@ impl CheckpointDrainQueueEmitterAsyncImm for ProofStoreFred {
 
 #[async_trait]
 impl CheckpointDrainQueueConsumerAsyncImm for ProofStoreFred {
-    async fn cdq_drain_imm<T: DQSerializable>(
-        &self,
-        channel_id: u64,
-    ) -> anyhow::Result<Vec<T>> {
-        let checkpoint_queue_prefix =
-            format!("{}-{}", self.worker_queue_key(), PS_DRAIN_QUEUE_KEY_PREFIX);
-        let key = format!(
-            "{}-{}",
-            checkpoint_queue_prefix, channel_id
-        );
-        let members: Vec<Vec<u8>> = self
-            .pool
-            .lrange::<Vec<Vec<u8>>, String>(key.clone(), 0, -1)
-            .await?;
+    async fn cdq_drain_imm<T: DQSerializable>(&self, channel_id: u64) -> anyhow::Result<Vec<T>> {
+        let checkpoint_queue_prefix = format!("{}-{}", self.worker_queue_key(), PS_DRAIN_QUEUE_KEY_PREFIX);
+        let key = format!("{}-{}", checkpoint_queue_prefix, channel_id);
+        let members: Vec<Vec<u8>> = self.pool.lrange::<Vec<Vec<u8>>, String>(key.clone(), 0, -1).await?;
         self.pool.del::<(), String>(key).await?;
 
-        members
-            .into_iter()
-            .map(|x| T::from_bytes(&x))
-            .collect()
+        members.into_iter().map(|x| T::from_bytes(&x)).collect()
     }
 
-    async fn cdq_peek_imm<T: DQSerializable>(
-        &self,
-        channel_id: u64,
-    ) -> anyhow::Result<Vec<T>> {
-        let checkpoint_queue_prefix =
-            format!("{}-{}", self.worker_queue_key(), PS_DRAIN_QUEUE_KEY_PREFIX);
-        let key = format!(
-            "{}-{}",
-            checkpoint_queue_prefix, channel_id
-        );
-        let members: Vec<Vec<u8>> = self
-            .pool
-            .lrange::<Vec<Vec<u8>>, String>(key, 0, -1)
-            .await?;
-        members
-            .into_iter()
-            .map(|x| T::from_bytes(&x))
-            .collect()
+    async fn cdq_peek_imm<T: DQSerializable>(&self, channel_id: u64) -> anyhow::Result<Vec<T>> {
+        let checkpoint_queue_prefix = format!("{}-{}", self.worker_queue_key(), PS_DRAIN_QUEUE_KEY_PREFIX);
+        let key = format!("{}-{}", checkpoint_queue_prefix, channel_id);
+        let members: Vec<Vec<u8>> = self.pool.lrange::<Vec<Vec<u8>>, String>(key, 0, -1).await?;
+        members.into_iter().map(|x| T::from_bytes(&x)).collect()
     }
 
-    async fn cdq_len_imm(
-        &self,
-        channel_id: u64,
-    ) -> anyhow::Result<usize> {
-        let checkpoint_queue_prefix =
-            format!("{}-{}", self.worker_queue_key(), PS_DRAIN_QUEUE_KEY_PREFIX);
-        let key = format!(
-            "{}-{}",
-            checkpoint_queue_prefix, channel_id
-        );
+    async fn cdq_len_imm(&self, channel_id: u64) -> anyhow::Result<usize> {
+        let checkpoint_queue_prefix = format!("{}-{}", self.worker_queue_key(), PS_DRAIN_QUEUE_KEY_PREFIX);
+        let key = format!("{}-{}", checkpoint_queue_prefix, channel_id);
         let count: usize = self.pool.llen(key).await?;
         Ok(count)
     }
@@ -272,10 +208,7 @@ impl CheckpointDrainQueueConsumerAsyncImm for ProofStoreFred {
 impl WorkerEventReceiverAsyncImm for ProofStoreFred {
     async fn wait_for_next_job_imm(&self) -> anyhow::Result<QProvingJobDataID> {
         loop {
-            let job_res = self
-                .pool
-                .lpop::<[u8; 24], _>(&self.worker_queue_key(), None)
-                .await;
+            let job_res = self.pool.lpop::<[u8; 24], _>(&self.worker_queue_key(), None).await;
             match job_res {
                 Ok(g) => {
                     return Ok(QProvingJobDataID::try_from_byte_vec(&g)?);
@@ -288,10 +221,7 @@ impl WorkerEventReceiverAsyncImm for ProofStoreFred {
     }
     async fn enqueue_jobs_imm(&self, jobs: &[QProvingJobDataID]) -> anyhow::Result<()> {
         self.pool
-            .rpush::<(), _, Vec<Vec<u8>>>(
-                &self.worker_queue_key(),
-                jobs.iter().map(|x| x.to_fixed_bytes().to_vec()).collect(),
-            )
+            .rpush::<(), _, Vec<Vec<u8>>>(&self.worker_queue_key(), jobs.iter().map(|x| x.to_fixed_bytes().to_vec()).collect())
             .await?;
 
         Ok(())
@@ -309,46 +239,33 @@ impl WorkerEventReceiverAsyncImm for ProofStoreFred {
 impl WorkerEventTransmitterAsyncImm for ProofStoreFred {
     async fn enqueue_jobs_imm(&self, jobs: &[QProvingJobDataID]) -> anyhow::Result<()> {
         self.pool
-            .rpush::<(), _, Vec<Vec<u8>>>(
-                &self.worker_queue_key(),
-                jobs.iter().map(|x| x.to_fixed_bytes().to_vec()).collect(),
-            )
+            .rpush::<(), _, Vec<Vec<u8>>>(&self.worker_queue_key(), jobs.iter().map(|x| x.to_fixed_bytes().to_vec()).collect())
             .await?;
 
         Ok(())
     }
-    async fn wait_for_block_proving_jobs_imm(
-        &self,
-        _checkpoint_id: u64,
-        timeout: Option<Duration>,
-    ) -> anyhow::Result<QProvingJobDataID> {
+    async fn wait_for_block_proving_jobs_imm(&self, _checkpoint_id: u64, timeout: Option<Duration>) -> anyhow::Result<QProvingJobDataID> {
         let now = Instant::now();
         loop {
-            let job_res = self
-                .pool
-                .lpop::<Vec<u8>, _>(&self.notifications_queue_key(), None)
-                .await;
+            let job_res = self.pool.lpop::<Vec<u8>, _>(&self.notifications_queue_key(), None).await;
             match job_res {
                 Ok(g) => {
                     if g.len() == 24 {
                         match QProvingJobDataID::try_from_byte_vec(&g) {
                             Ok(job) => {
                                 if job.is_notify_complete() {
-                                    return Ok(job)
+                                    return Ok(job);
                                 }
-                            },
+                            }
                             Err(e1) => eprintln!("error deserializing job id in wait_for_block_proving_jobs_imm: {:?}", e1),
                         }
                     }
                 }
-                Err(e2) => eprintln!(
-                    "error deserializing job id in wait_for_block_proving_jobs_imm: {:?}",
-                    e2
-                ),
+                Err(e2) => eprintln!("error deserializing job id in wait_for_block_proving_jobs_imm: {:?}", e2),
             };
-            if let Some(timeout) = timeout{
+            if let Some(timeout) = timeout {
                 if now.elapsed() > timeout {
-                    return Err(anyhow::anyhow!("timeout waiting for job"))
+                    return Err(anyhow::anyhow!("timeout waiting for job"));
                 }
             }
             sleep(Duration::from_millis(100)).await;
@@ -361,7 +278,7 @@ impl WorkerEventTransmitterAsyncImm for ProofStoreFred {
         timeout: Option<Duration>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>>
     where
-        C::Hasher: plonky2::plonk::config::AlgebraicHasher<C::F>
+        C::Hasher: plonky2::plonk::config::AlgebraicHasher<C::F>,
     {
         let now = Instant::now();
         loop {
@@ -371,9 +288,9 @@ impl WorkerEventTransmitterAsyncImm for ProofStoreFred {
                     sleep(Duration::from_millis(100)).await;
                 }
             }
-            if let Some(timeout) = timeout{
+            if let Some(timeout) = timeout {
                 if now.elapsed() > timeout {
-                    return Err(anyhow::anyhow!("timeout waiting for job"))
+                    return Err(anyhow::anyhow!("timeout waiting for job"));
                 }
             }
         }
@@ -401,11 +318,7 @@ impl CheckpointHistoryQueueEmitterAsyncImm for ProofStoreFred {
             .await?;
         self.pool
             .set::<(), String, u64>(
-                format!(
-                    "{}-{}",
-                    self.checkpoint_history_queue_prefix_key(),
-                    metadata.channel_id,
-                ),
+                format!("{}-{}", self.checkpoint_history_queue_prefix_key(), metadata.channel_id,),
                 metadata.checkpoint_id,
                 None,
                 None,
@@ -418,18 +331,10 @@ impl CheckpointHistoryQueueEmitterAsyncImm for ProofStoreFred {
 
 #[async_trait]
 impl CheckpointHistoryQueueConsumerAsyncImm for ProofStoreFred {
-    async fn chq_items_gte<T: HQSerializable>(
-        &self,
-        channel_id: u64,
-        start_checkpoint_id: u64,
-    ) -> anyhow::Result<Vec<T>> {
+    async fn chq_items_gte<T: HQSerializable>(&self, channel_id: u64, start_checkpoint_id: u64) -> anyhow::Result<Vec<T>> {
         let cur_checkpoint_id = self
             .pool
-            .get::<Option<u64>, String>(format!(
-                "{}-{}",
-                self.checkpoint_history_queue_prefix_key(),
-                channel_id,
-            ))
+            .get::<Option<u64>, String>(format!("{}-{}", self.checkpoint_history_queue_prefix_key(), channel_id,))
             .await?;
         match cur_checkpoint_id {
             Some(r) => {
@@ -439,12 +344,7 @@ impl CheckpointHistoryQueueConsumerAsyncImm for ProofStoreFred {
                     for i in (start_checkpoint_id..=r) {
                         let result = self
                             .pool
-                            .get::<Vec<u8>, String>(format!(
-                                "{}-{}_{}",
-                                self.checkpoint_history_queue_prefix_key(),
-                                channel_id,
-                                i,
-                            ))
+                            .get::<Vec<u8>, String>(format!("{}-{}_{}", self.checkpoint_history_queue_prefix_key(), channel_id, i,))
                             .await?;
                         results.push(T::from_bytes(&result)?);
                     }
@@ -457,18 +357,10 @@ impl CheckpointHistoryQueueConsumerAsyncImm for ProofStoreFred {
             None => Ok(Vec::new()),
         }
     }
-    async fn wait_for_next_item_imm<T: HQSerializable>(
-        &self,
-        channel_id: u64,
-        start_checkpoint_id: u64,
-    ) -> anyhow::Result<T> {
+    async fn wait_for_next_item_imm<T: HQSerializable>(&self, channel_id: u64, start_checkpoint_id: u64) -> anyhow::Result<T> {
         let cur_checkpoint_id = self
             .pool
-            .get::<Option<u64>, String>(format!(
-                "{}-{}",
-                self.checkpoint_history_queue_prefix_key(),
-                channel_id,
-            ))
+            .get::<Option<u64>, String>(format!("{}-{}", self.checkpoint_history_queue_prefix_key(), channel_id,))
             .await?;
         let mut checkpoint_current: i64 = match cur_checkpoint_id {
             Some(x) => x as i64,
@@ -480,11 +372,7 @@ impl CheckpointHistoryQueueConsumerAsyncImm for ProofStoreFred {
             sleep(Duration::from_millis(100)).await;
             let cur_checkpoint_id = self
                 .pool
-                .get::<Option<u64>, String>(format!(
-                    "{}-{}",
-                    self.checkpoint_history_queue_prefix_key(),
-                    channel_id,
-                ))
+                .get::<Option<u64>, String>(format!("{}-{}", self.checkpoint_history_queue_prefix_key(), channel_id,))
                 .await?;
             checkpoint_current = match cur_checkpoint_id {
                 Some(x) => x as i64,
@@ -511,10 +399,7 @@ impl CheckpointDrainQueueEmitterAsyncImm for DrainQueueFred {
         let metadata = item.get_dq_metadata();
         let bytes = item.to_bytes()?;
         self.pool
-            .rpush::<(), String, &[u8]>(
-                    format!("{}_{}", self.checkpoint_drain_queue_key(), metadata.channel_id),
-                &bytes,
-            )
+            .rpush::<(), String, &[u8]>(format!("{}_{}", self.checkpoint_drain_queue_key(), metadata.channel_id), &bytes)
             .await?;
         Ok(())
     }
@@ -522,42 +407,21 @@ impl CheckpointDrainQueueEmitterAsyncImm for DrainQueueFred {
 
 #[async_trait]
 impl CheckpointDrainQueueConsumerAsyncImm for DrainQueueFred {
-    async fn cdq_drain_imm<T: DQSerializable>(
-        &self,
-        channel_id: u64,
-    ) -> anyhow::Result<Vec<T>> {
+    async fn cdq_drain_imm<T: DQSerializable>(&self, channel_id: u64) -> anyhow::Result<Vec<T>> {
         let key = format!("{}_{}", self.checkpoint_drain_queue_key(), channel_id);
-        let members: Vec<Vec<u8>> = self
-            .pool
-            .lrange::<Vec<Vec<u8>>, String>(key.clone(), 0, -1)
-            .await?;
+        let members: Vec<Vec<u8>> = self.pool.lrange::<Vec<Vec<u8>>, String>(key.clone(), 0, -1).await?;
         self.pool.del::<(), String>(key).await?;
 
-        members
-            .into_iter()
-            .map(|x| T::from_bytes(&x))
-            .collect()
+        members.into_iter().map(|x| T::from_bytes(&x)).collect()
     }
 
-    async fn cdq_peek_imm<T: DQSerializable>(
-        &self,
-        channel_id: u64,
-    ) -> anyhow::Result<Vec<T>> {
+    async fn cdq_peek_imm<T: DQSerializable>(&self, channel_id: u64) -> anyhow::Result<Vec<T>> {
         let key = format!("{}_{}", self.checkpoint_drain_queue_key(), channel_id);
-        let members: Vec<Vec<u8>> = self
-            .pool
-            .lrange::<Vec<Vec<u8>>, String>(key, 0, -1)
-            .await?;
-        members
-            .into_iter()
-            .map(|x| T::from_bytes(&x))
-            .collect()
+        let members: Vec<Vec<u8>> = self.pool.lrange::<Vec<Vec<u8>>, String>(key, 0, -1).await?;
+        members.into_iter().map(|x| T::from_bytes(&x)).collect()
     }
 
-    async fn cdq_len_imm(
-        &self,
-        channel_id: u64,
-    ) -> anyhow::Result<usize> {
+    async fn cdq_len_imm(&self, channel_id: u64) -> anyhow::Result<usize> {
         let key = format!("{}_{}", self.checkpoint_drain_queue_key(), channel_id);
         let count: usize = self.pool.llen(key).await?;
         Ok(count)
@@ -579,28 +443,18 @@ impl super::redis_queue::CheckpointDrainQueueConsumerAsyncImmWithPosition for Pr
         todo!()
     }
 
-    async fn get_last_peek_offset(
-        &self,
-        channel_id: u64,
-    ) -> anyhow::Result<Option<QueueOffsetState>> {
+    async fn get_last_peek_offset(&self, channel_id: u64) -> anyhow::Result<Option<QueueOffsetState>> {
         Ok(None)
     }
 }
 
-
 #[async_trait]
 impl QPendingUserStoreAsyncImm for ProofStoreFred {
-    async fn push_pending_users<F: RichField>(
-        &self,
-        _pending_users: &[MerkleProofCore<QHashOut<F>>],
-    ) -> anyhow::Result<()> {
+    async fn push_pending_users<F: RichField>(&self, _pending_users: &[MerkleProofCore<QHashOut<F>>]) -> anyhow::Result<()> {
         Ok(())
     }
 
-    async fn pop_pending_users<F: RichField>(
-        &self,
-        _count: usize,
-    ) -> anyhow::Result<Vec<MerkleProofCore<QHashOut<F>>>> {
+    async fn pop_pending_users<F: RichField>(&self, _count: usize) -> anyhow::Result<Vec<MerkleProofCore<QHashOut<F>>>> {
         Ok(Vec::new())
     }
 

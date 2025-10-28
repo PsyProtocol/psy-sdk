@@ -1,8 +1,7 @@
-use std::fmt::Debug;
-use std::future::Future;
-use std::time::Duration;
+use std::{fmt::Debug, future::Future, time::Duration};
+
 use anyhow::anyhow;
-use tracing::{error, debug};
+use tracing::{debug, error};
 
 /// Configuration for retry mechanisms
 #[derive(Clone, Debug)]
@@ -23,11 +22,7 @@ impl Default for RetryConfig {
 }
 
 /// Public standalone retry function for any async operation
-pub async fn retry_with_backoff<T, F, Fut, E>(
-    config: &RetryConfig,
-    operation_name: &str,
-    mut operation: F,
-) -> anyhow::Result<T>
+pub async fn retry_with_backoff<T, F, Fut, E>(config: &RetryConfig, operation_name: &str, mut operation: F) -> anyhow::Result<T>
 where
     F: FnMut() -> Fut,
     Fut: Future<Output = Result<T, E>>,
@@ -42,10 +37,7 @@ where
                 return Ok(result);
             }
             Err(err) => {
-                error!(
-                    "{} failed: {:?}, attempt {}/{}",
-                    operation_name, err, attempt + 1, config.max_retries
-                );
+                error!("{} failed: {:?}, attempt {}/{}", operation_name, err, attempt + 1, config.max_retries);
 
                 if attempt < config.max_retries - 1 {
                     let delay = if config.exponential_backoff {
@@ -61,13 +53,11 @@ where
         }
     }
 
-    Err(anyhow!(
-        "{} failed after {} attempts",
-        operation_name, config.max_retries
-    ))
+    Err(anyhow!("{} failed after {} attempts", operation_name, config.max_retries))
 }
 
-// Optional: Keep the trait if you want backwards compatibility or might use it elsewhere
+// Optional: Keep the trait if you want backwards compatibility or might use it
+// elsewhere
 pub trait Retryable {
     fn retry_config(&self) -> RetryConfig {
         RetryConfig::default()

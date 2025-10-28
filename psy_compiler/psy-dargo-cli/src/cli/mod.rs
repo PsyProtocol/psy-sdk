@@ -8,12 +8,19 @@ mod init_cmd;
 mod new_cmd;
 mod test_cmd;
 
-use crate::errors::{CliError, Result};
+use std::{
+    collections::{HashSet, VecDeque},
+    path::{Path, PathBuf},
+};
+
 use clap::{Args, Parser, Subcommand};
 use psy_common::Graph;
-use psy_package::{files::{find_file_manifest_root, get_package_manifest}, resolve_workspace_from_toml, Dependency, Workspace};
-use std::collections::{HashSet, VecDeque};
-use std::path::{Path, PathBuf};
+use psy_package::{
+    files::{find_file_manifest_root, get_package_manifest},
+    resolve_workspace_from_toml, Dependency, Workspace,
+};
+
+use crate::errors::{CliError, Result};
 
 pub(crate) async fn start_cli() -> Result<()> {
     let DargoCli { command, config } = DargoCli::parse();
@@ -66,11 +73,10 @@ pub struct DargoConfig {
     pub target_dir: Option<PathBuf>,
 }
 
-/// Parses a path and turns it into an absolute one by joining to the current directory.
+/// Parses a path and turns it into an absolute one by joining to the current
+/// directory.
 fn parse_path(path: &str) -> std::result::Result<PathBuf, String> {
-    let mut path: PathBuf = path
-        .parse()
-        .map_err(|e| format!("failed to parse path: {e}"))?;
+    let mut path: PathBuf = path.parse().map_err(|e| format!("failed to parse path: {e}"))?;
     if !path.is_absolute() {
         path = std::env::current_dir().unwrap().join(path);
     }
@@ -81,10 +87,12 @@ pub fn with_workspace<C, R>(cmd: C, config: DargoConfig, run: R) -> Result<()>
 where
     R: FnOnce(C, Workspace) -> Result<()>,
 {
-    // All commands need to run on the workspace level, because that's where the `target` directory is.
+    // All commands need to run on the workspace level, because that's where the
+    // `target` directory is.
     let package_dir = find_file_manifest_root(&config.program_dir)?;
     let toml_path = get_package_manifest(&package_dir)?;
-    // Resolve the workspace from the toml file. It will download dependencies as well.
+    // Resolve the workspace from the toml file. It will download dependencies as
+    // well.
     let mut workspace = resolve_workspace_from_toml(&toml_path)?;
     if let Some(target_dir) = &config.target_dir {
         workspace.target_dir = target_dir.clone();
@@ -97,10 +105,12 @@ where
     R: FnOnce(C, Workspace) -> Fut,
     Fut: std::future::Future<Output = Result<()>>,
 {
-    // All commands need to run on the workspace level, because that's where the `target` directory is.
+    // All commands need to run on the workspace level, because that's where the
+    // `target` directory is.
     let package_dir = find_file_manifest_root(&config.program_dir)?;
     let toml_path = get_package_manifest(&package_dir)?;
-    // Resolve the workspace from the toml file. It will download dependencies as well.
+    // Resolve the workspace from the toml file. It will download dependencies as
+    // well.
     let mut workspace = resolve_workspace_from_toml(&toml_path)?;
     if let Some(target_dir) = &config.target_dir {
         workspace.target_dir = target_dir.clone();
@@ -108,10 +118,7 @@ where
     run(cmd, workspace).await
 }
 
-pub fn resolve_crate_path_graph(
-    workspace: &Workspace,
-    entry_path: Option<PathBuf>,
-) -> Graph<PathBuf> {
+pub fn resolve_crate_path_graph(workspace: &Workspace, entry_path: Option<PathBuf>) -> Graph<PathBuf> {
     let mut package = workspace.package.clone();
     let package_entry_path = match entry_path {
         Some(entry_path) => entry_path,
@@ -140,11 +147,7 @@ pub fn resolve_crate_path_graph(
     graph
 }
 
-pub fn save_build_artifact_to_file<T: ?Sized + serde::Serialize>(
-    build_artifact: &T,
-    artifact_name: &str,
-    output_dir: &Path,
-) -> Result<PathBuf> {
+pub fn save_build_artifact_to_file<T: ?Sized + serde::Serialize>(build_artifact: &T, artifact_name: &str, output_dir: &Path) -> Result<PathBuf> {
     let artifact_path = output_dir.join(artifact_name).with_extension("json");
     let bytes = serde_json::to_vec(build_artifact)?;
     write_to_file(&bytes, &artifact_path)?;

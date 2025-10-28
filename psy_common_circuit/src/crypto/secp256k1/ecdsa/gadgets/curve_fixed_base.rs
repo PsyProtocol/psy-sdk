@@ -1,16 +1,20 @@
 use num::BigUint;
-use plonky2::field::extension::Extendable;
-use plonky2::field::types::Field;
-use plonky2::hash::hash_types::RichField;
-use plonky2::hash::keccak::KeccakHash;
-use plonky2::plonk::circuit_builder::CircuitBuilder;
-use plonky2::plonk::config::{GenericHashOut, Hasher};
-
-use super::super::gadgets::curve::{AffinePointTarget, CircuitBuilderCurve};
-use super::super::gadgets::curve_windowed_mul::CircuitBuilderWindowedMul;
-use super::super::gadgets::nonnative::NonNativeTarget;
-use super::super::gadgets::split_nonnative::CircuitBuilderSplit;
+use plonky2::{
+    field::{extension::Extendable, types::Field},
+    hash::{hash_types::RichField, keccak::KeccakHash},
+    plonk::{
+        circuit_builder::CircuitBuilder,
+        config::{GenericHashOut, Hasher},
+    },
+};
 use psy_crypto::signature::secp256k1::curve::curve_types::{AffinePoint, Curve, CurveScalar};
+
+use super::super::gadgets::{
+    curve::{AffinePointTarget, CircuitBuilderCurve},
+    curve_windowed_mul::CircuitBuilderWindowedMul,
+    nonnative::NonNativeTarget,
+    split_nonnative::CircuitBuilderSplit,
+};
 
 /// Compute windowed fixed-base scalar multiplication, using a 4-bit window.
 pub fn fixed_base_curve_mul_circuit<C: Curve, F: RichField + Extendable<D>, const D: usize>(
@@ -30,9 +34,7 @@ pub fn fixed_base_curve_mul_circuit<C: Curve, F: RichField + Extendable<D>, cons
     let limbs = builder.split_nonnative_to_4_bit_limbs(scalar);
 
     let hash_0 = KeccakHash::<32>::hash_no_pad(&[F::ZERO]);
-    let hash_0_scalar = C::ScalarField::from_noncanonical_biguint(BigUint::from_bytes_le(
-        &GenericHashOut::<F>::to_bytes(&hash_0),
-    ));
+    let hash_0_scalar = C::ScalarField::from_noncanonical_biguint(BigUint::from_bytes_le(&GenericHashOut::<F>::to_bytes(&hash_0)));
     let rando = (CurveScalar(hash_0_scalar) * C::GENERATOR_PROJECTIVE).to_affine();
 
     let zero = builder.zero();
@@ -50,7 +52,8 @@ pub fn fixed_base_curve_mul_circuit<C: Curve, F: RichField + Extendable<D>, cons
             .skip(1)
             .map(|p| builder.constant_affine_point(p))
             .collect::<Vec<_>>();
-        // We add back a point in position 0. `limb == zero` is checked below, so this point can be arbitrary.
+        // We add back a point in position 0. `limb == zero` is checked below, so this
+        // point can be arbitrary.
         muls_point.insert(0, muls_point[0].clone());
         let is_zero = builder.is_equal(limb, zero);
         let should_add = builder.not(is_zero);
@@ -66,20 +69,25 @@ pub fn fixed_base_curve_mul_circuit<C: Curve, F: RichField + Extendable<D>, cons
 #[cfg(test)]
 mod tests {
     use anyhow::Result;
-    use plonky2::field::secp256k1_scalar::Secp256K1Scalar;
-    use plonky2::field::types::{PrimeField, Sample};
-    use plonky2::iop::witness::PartialWitness;
-    use plonky2::plonk::circuit_builder::CircuitBuilder;
-    use plonky2::plonk::circuit_data::CircuitConfig;
-    use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
-
-    use super::super::super::gadgets::biguint::WitnessBigUint;
-    use super::super::super::gadgets::curve::CircuitBuilderCurve;
-    use super::super::super::gadgets::curve_fixed_base::fixed_base_curve_mul_circuit;
-    use super::super::super::gadgets::nonnative::CircuitBuilderNonNative;
+    use plonky2::{
+        field::{
+            secp256k1_scalar::Secp256K1Scalar,
+            types::{PrimeField, Sample},
+        },
+        iop::witness::PartialWitness,
+        plonk::{
+            circuit_builder::CircuitBuilder,
+            circuit_data::CircuitConfig,
+            config::{GenericConfig, PoseidonGoldilocksConfig},
+        },
+    };
     use psy_crypto::signature::secp256k1::curve::{
         curve_types::{Curve, CurveScalar},
         secp256k1::Secp256K1,
+    };
+
+    use super::super::super::gadgets::{
+        biguint::WitnessBigUint, curve::CircuitBuilderCurve, curve_fixed_base::fixed_base_curve_mul_circuit, nonnative::CircuitBuilderNonNative,
     };
 
     #[test]

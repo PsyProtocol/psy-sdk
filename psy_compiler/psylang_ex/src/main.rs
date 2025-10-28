@@ -1,12 +1,15 @@
-use std::{ops::{ Add, AddAssign, Mul, MulAssign, Sub, SubAssign}, vec};
+use std::{
+    ops::{Add, AddAssign, Mul, MulAssign, Sub, SubAssign},
+    vec,
+};
 mod ex1;
 mod ex2;
 pub mod ex3;
 pub mod ex5;
-pub mod tok;
 pub mod ex6;
 pub mod ex7;
 pub mod ex8;
+pub mod tok;
 use ex3::ex3_generic::{test_it_3, test_it_3v2};
 use ex6::SimpleContractState;
 use psy_vm::dpn::ops::{context_trait::FeltSized, exec_context::QExecContext};
@@ -37,11 +40,7 @@ pub struct FeltOp {
 
 impl FeltOp {
     pub fn new(op_type: OpType, args: Vec<FeltOp>, params: Vec<u64>) -> FeltOp {
-        FeltOp {
-            op_type,
-            args,
-            params,
-        }
+        FeltOp { op_type, args, params }
     }
     pub fn new_input(index: u64) -> FeltOp {
         FeltOp {
@@ -192,8 +191,6 @@ impl SubAssign for FeltOp {
     }
 }
 
-
-
 fn test_function(x: FeltOp, y: FeltOp) -> FeltOp {
     let mut a = x + y;
 
@@ -202,12 +199,10 @@ fn test_function(x: FeltOp, y: FeltOp) -> FeltOp {
 }
 
 fn main() {
-
     let simple_size = SimpleContractState::size();
     println!("SimpleContractState size: {}", simple_size);
     let mut ctx = QExecContext::new();
     ex3::test_contract();
     test_it_3();
     test_it_3v2();
-
 }

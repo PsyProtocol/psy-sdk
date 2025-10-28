@@ -79,9 +79,7 @@ pub struct ProofWithCheckpoint {
 }
 
 #[maybe_async]
-pub async fn build_claim_calls_for_multi_checkpoints(
-    all_proofs: &[ProofWithCheckpoint],
-) -> Vec<ContractCallArgs> {
+pub async fn build_claim_calls_for_multi_checkpoints(all_proofs: &[ProofWithCheckpoint]) -> Vec<ContractCallArgs> {
     let mut contract_call_args = Vec::new();
 
     let total_proofs = all_proofs.len();

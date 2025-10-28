@@ -3,8 +3,7 @@ use std::ops::{Index, IndexMut};
 use psy_common::{Arena, FileResolver, Graph, Tree, TreeNode};
 
 use crate::{
-    CrateId, DefId, DefinitionNode, ExprId, ExprNode, FileLocation, Ident, IdentId, Interner,
-    Location, ModuleId, ModuleNode, StmtId, StmtNode,
+    CrateId, DefId, DefinitionNode, ExprId, ExprNode, FileLocation, Ident, IdentId, Interner, Location, ModuleId, ModuleNode, StmtId, StmtNode,
 };
 
 #[derive(Debug)]
@@ -56,10 +55,7 @@ impl<F: Clone + From<u32>> Program<F> {
 
     pub fn find_module_by_name(&self, name: impl Into<IdentId>) -> Option<ModuleId> {
         let name = name.into();
-        self.modules
-            .iter()
-            .find(|m| m.data().name.id == name)
-            .map(|m| m.id())
+        self.modules.iter().find(|m| m.data().name.id == name).map(|m| m.id())
     }
 
     pub fn module_name(&self, module_id: impl Into<ModuleId>) -> &Ident {
@@ -75,12 +71,7 @@ impl<F: Clone + From<u32>> Program<F> {
     }
 
     pub fn convert_location(&self, location: &Location) -> FileLocation {
-        let path = self
-            .file_resolver
-            .resolve_path(&location.file_id)
-            .unwrap()
-            .display()
-            .to_string();
+        let path = self.file_resolver.resolve_path(&location.file_id).unwrap().display().to_string();
         FileLocation {
             path: path,
             start: location.start,
@@ -121,11 +112,7 @@ impl<F: Clone + From<u32>> Program<F> {
                 for dependency in dependencies.iter() {
                     let dependency_module_id = ModuleId::from(*dependency);
                     let dependency_module = &self.modules[dependency_module_id];
-                    println!(
-                        "    {}, {:?}",
-                        interner[dependency_module.data().name.id],
-                        dependency_module_id
-                    );
+                    println!("    {}, {:?}", interner[dependency_module.data().name.id], dependency_module_id);
                 }
             }
         }

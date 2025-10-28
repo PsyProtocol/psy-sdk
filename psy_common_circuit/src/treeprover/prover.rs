@@ -1,9 +1,12 @@
-
 use core::fmt::Debug;
+
 use itertools::Itertools;
 use plonky2::plonk::{config::GenericConfig, proof::ProofWithPublicInputs};
 use psy_core::job::traits::{QProofStoreReaderSync, QProofStoreWriterSync};
-use psy_crypto::hash::merkle::treeprover::{tree_planner::{BinaryTreeJob, BinaryTreePlanner}, TPLeafAggregator};
+use psy_crypto::hash::merkle::treeprover::{
+    tree_planner::{BinaryTreeJob, BinaryTreePlanner},
+    TPLeafAggregator,
+};
 use serde::{de::DeserializeOwned, Serialize};
 
 use super::traits::{TreeProverAggCircuit, TreeProverLeafCircuit};
@@ -15,10 +18,7 @@ pub struct TreeAggJob<IO: Serialize + Clone + Debug + Send> {
 }
 impl<IO: Serialize + Clone + Debug + Send> TreeAggJob<IO> {
     pub fn new(input: IO, tree_position: BinaryTreeJob) -> Self {
-        Self {
-            input,
-            tree_position,
-        }
+        Self { input, tree_position }
     }
 }
 
@@ -30,10 +30,7 @@ pub fn generate_agg_jobs<
     leaf_inputs: &[IL],
 ) -> Vec<Vec<TreeAggJob<IO>>> {
     let tree_positions = BinaryTreePlanner::new(leaf_inputs.len()).levels;
-    tracing::info!(
-        "tree_positions = {}",
-        serde_json::to_string(&tree_positions).unwrap()
-    );
+    tracing::info!("tree_positions = {}", serde_json::to_string(&tree_positions).unwrap());
     let mut output: Vec<Vec<TreeAggJob<IO>>> = Vec::with_capacity(tree_positions.len());
     for level in tree_positions {
         tracing::info!("output.len() = {}", output.len());
@@ -42,15 +39,11 @@ pub fn generate_agg_jobs<
             tracing::info!("job: {:?}", job);
             let input = if job.left_job.is_leaf() {
                 if job.right_job.is_leaf() {
-                    LA::get_output_from_leaves(
-                        &leaf_inputs[job.left_job.index as usize],
-                        &leaf_inputs[job.right_job.index as usize],
-                    )
+                    LA::get_output_from_leaves(&leaf_inputs[job.left_job.index as usize], &leaf_inputs[job.right_job.index as usize])
                 } else {
                     LA::get_output_from_left_leaf(
                         &leaf_inputs[job.left_job.index as usize],
-                        &output[job.right_job.level as usize - 1][job.right_job.index as usize]
-                            .input,
+                        &output[job.right_job.level as usize - 1][job.right_job.index as usize].input,
                     )
                 }
             } else {
@@ -62,15 +55,11 @@ pub fn generate_agg_jobs<
                 } else {
                     LA::get_output_from_inputs(
                         &output[job.left_job.level as usize - 1][job.left_job.index as usize].input,
-                        &output[job.right_job.level as usize - 1][job.right_job.index as usize]
-                            .input,
+                        &output[job.right_job.level as usize - 1][job.right_job.index as usize].input,
                     )
                 }
             };
-            level_output.push(TreeAggJob {
-                input,
-                tree_position: job,
-            });
+            level_output.push(TreeAggJob { input, tree_position: job });
         }
         output.push(level_output);
     }
@@ -109,22 +98,10 @@ pub fn prove_tree_serial<
     for level in job_plan {
         let mut level_proofs = Vec::with_capacity(level.len());
         for job in level {
-            let left_proof = &current_proofs[job.tree_position.left_job.level as usize]
-                [job.tree_position.left_job.index as usize];
-            let right_proof = &current_proofs[job.tree_position.right_job.level as usize]
-                [job.tree_position.right_job.index as usize];
-            let proof = agg_circuit.prove(
-                leaf_fingerprint,
-                &leaf_verifier_data,
-                &left_proof,
-                &right_proof,
-                &job.input,
-            )?;
-            tracing::info!(
-                "proved agg: {}, {}",
-                current_proofs.len(),
-                level_proofs.len()
-            );
+            let left_proof = &current_proofs[job.tree_position.left_job.level as usize][job.tree_position.left_job.index as usize];
+            let right_proof = &current_proofs[job.tree_position.right_job.level as usize][job.tree_position.right_job.index as usize];
+            let proof = agg_circuit.prove(leaf_fingerprint, &leaf_verifier_data, &left_proof, &right_proof, &job.input)?;
+            tracing::info!("proved agg: {}, {}", current_proofs.len(), level_proofs.len());
             level_proofs.push(proof);
         }
         current_proofs.push(level_proofs);

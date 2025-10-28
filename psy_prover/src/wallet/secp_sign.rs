@@ -1,19 +1,20 @@
 #![cfg(not(target_arch = "wasm32"))]
 
+use std::{
+    fmt,
+    fmt::Display,
+    time::{Duration, SystemTime, UNIX_EPOCH},
+};
+
 use alloy_primitives::{keccak256, Address, B256, U256};
 use anyhow::{Context, Result};
-use psy_core::config::network_constants::QED_NETWORK_MAGIC_REGTEST;
-use psy_core::data::qhashout::QHashOut;
 use plonky2::field::goldilocks_field::GoldilocksField;
+use psy_core::{config::network_constants::QED_NETWORK_MAGIC_REGTEST, data::qhashout::QHashOut};
 use serde::{Deserialize, Serialize};
-use std::fmt;
-use std::fmt::Display;
-use std::time::{SystemTime, UNIX_EPOCH, Duration};
 
 use crate::wallet::secp_wallet::Wallet;
 
 const DEFAULT_SIGNATURE_EXPIRY: Duration = Duration::from_secs(300);
-
 
 pub const QED_DOMAIN_NAME: &str = "QED Protocol";
 pub const QED_DOMAIN_VERSION: &str = "1";
@@ -54,10 +55,6 @@ impl Eip712Signable for QHashOut<GoldilocksField> {
     }
 }
 
-
-
-
-
 pub trait TimestampProvider: Send + Sync {
     fn now(&self) -> u64;
 }
@@ -67,10 +64,7 @@ pub struct SystemTimeProvider;
 
 impl TimestampProvider for SystemTimeProvider {
     fn now(&self) -> u64 {
-        SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_secs()
+        SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_secs()
     }
 }
 
@@ -84,12 +78,7 @@ pub struct SignedRequest<T: Eip712Signable> {
     pub chain_id: u64,
 }
 
-fn create_eip712_hash<T: Eip712Signable>(
-    data: &T,
-    address: Address,
-    timestamp: u64,
-    chain_id: u64,
-) -> Result<B256> {
+fn create_eip712_hash<T: Eip712Signable>(data: &T, address: Address, timestamp: u64, chain_id: u64) -> Result<B256> {
     let domain_separator = qed_domain_separator_for_type::<T>(chain_id);
 
     let data_bytes = data.encode_for_signing()?;
@@ -109,7 +98,6 @@ fn create_eip712_hash<T: Eip712Signable>(
     final_hash_data.push(0x01);
     final_hash_data.extend_from_slice(domain_separator.as_slice());
     final_hash_data.extend_from_slice(struct_hash.as_slice());
-
 
     Ok(keccak256(&final_hash_data))
 }
@@ -141,7 +129,7 @@ impl<T: Eip712Signable> SignedRequest<T> {
         let address = wallet.address_raw();
         let eip712_hash = create_eip712_hash(&data, address, timestamp, chain_id)?;
         let dummy_worker_public_key = "0x".to_string(); // Placeholder for worker public key
-        // Sign the EIP-712 hash
+                                                        // Sign the EIP-712 hash
         let signature_bytes = wallet.sign_message(eip712_hash.as_slice()).context("Failed to sign EIP-712 hash")?;
         let signature = hex::encode(&signature_bytes);
 
@@ -166,11 +154,7 @@ impl<T: Eip712Signable> SignedRequest<T> {
         let eip712_hash = create_eip712_hash(&self.data, self.address, self.timestamp, chain_id)?;
         let signature_bytes = hex::decode(&self.signature).context("Failed to decode signature")?;
 
-        Wallet::verify_signature(
-            eip712_hash.as_slice(),
-            &signature_bytes,
-            self.address,
-        )
+        Wallet::verify_signature(eip712_hash.as_slice(), &signature_bytes, self.address)
     }
 
     pub fn is_expired(&self) -> bool {
@@ -185,38 +169,25 @@ impl<T: Eip712Signable> SignedRequest<T> {
     pub fn age(&self) -> u64 {
         SystemTimeProvider.now().saturating_sub(self.timestamp)
     }
-
 }
 
 impl SignedRequest<QHashOut<GoldilocksField>> {
-    pub fn sign_hashable<T: serde::Serialize>(
-        wallet: &Wallet,
-        data: &T,
-    ) -> Result<SignedRequest<QHashOut<GoldilocksField>>> {
+    pub fn sign_hashable<T: serde::Serialize>(wallet: &Wallet, data: &T) -> Result<SignedRequest<QHashOut<GoldilocksField>>> {
         use alloy_primitives::keccak256;
 
         let data_bytes = bincode::serialize(data).context("Failed to serialize data")?;
         let hash = keccak256(&data_bytes);
-        let qhash = QHashOut::from_hash256_le(
-            psy_core::data::base_types::hash256::Hash256(hash.0)
-        );
+        let qhash = QHashOut::from_hash256_le(psy_core::data::base_types::hash256::Hash256(hash.0));
 
         SignedRequest::new(wallet, qhash)
     }
 
-    pub fn verify_hashable<T: Serialize>(
-        &self,
-        original_data: &T,
-        expected_address: Address,
-        expiry_duration: Option<Duration>,
-    ) -> Result<bool> {
+    pub fn verify_hashable<T: Serialize>(&self, original_data: &T, expected_address: Address, expiry_duration: Option<Duration>) -> Result<bool> {
         use alloy_primitives::keccak256;
 
         let data_bytes = bincode::serialize(original_data).context("Failed to serialize original data")?;
         let expected_hash = keccak256(&data_bytes);
-        let expected_qhash = QHashOut::from_hash256_le(
-            psy_core::data::base_types::hash256::Hash256(expected_hash.0)
-        );
+        let expected_qhash = QHashOut::from_hash256_le(psy_core::data::base_types::hash256::Hash256(expected_hash.0));
 
         if self.data != expected_qhash {
             return Ok(false);
@@ -230,14 +201,11 @@ impl SignedRequest<QHashOut<GoldilocksField>> {
     }
 }
 
-
 impl<T: Display + Eip712Signable> Display for SignedRequest<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "SignedRequest[address={}, age={}s]",
-               &format!("{:#x}", self.address)[..10], self.age())
+        write!(f, "SignedRequest[address={}, age={}s]", &format!("{:#x}", self.address)[..10], self.age())
     }
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -251,11 +219,7 @@ mod tests {
         let chain_id = QED_NETWORK_MAGIC_REGTEST;
 
         // Create signed request using the generic method
-        let signed_request = wallet.sign_eip712_with_params(
-            test_data,
-            timestamp,
-            Some(chain_id)
-        ).unwrap();
+        let signed_request = wallet.sign_eip712_with_params(test_data, timestamp, Some(chain_id)).unwrap();
 
         // Verify signature
         assert!(signed_request.verify(None).unwrap());
@@ -272,17 +236,9 @@ mod tests {
         let timestamp = 1234567890u64;
         let chain_id = QED_NETWORK_MAGIC_REGTEST;
 
-        let signed_request1 = wallet.sign_eip712_with_params(
-            test_data1,
-            timestamp,
-            Some(chain_id)
-        ).unwrap();
+        let signed_request1 = wallet.sign_eip712_with_params(test_data1, timestamp, Some(chain_id)).unwrap();
 
-        let signed_request2 = wallet.sign_eip712_with_params(
-            test_data2,
-            timestamp,
-            Some(chain_id)
-        ).unwrap();
+        let signed_request2 = wallet.sign_eip712_with_params(test_data2, timestamp, Some(chain_id)).unwrap();
 
         // Different data should produce different signatures
         assert_ne!(signed_request1.signature, signed_request2.signature);
@@ -298,17 +254,9 @@ mod tests {
         let test_data = "same_message".to_string();
         let timestamp = 1234567890u64;
 
-        let signed_request_chain1 = wallet.sign_eip712_with_params(
-            test_data.clone(),
-            timestamp,
-            Some(1)
-        ).unwrap();
+        let signed_request_chain1 = wallet.sign_eip712_with_params(test_data.clone(), timestamp, Some(1)).unwrap();
 
-        let signed_request_chain2 = wallet.sign_eip712_with_params(
-            test_data,
-            timestamp,
-            Some(2)
-        ).unwrap();
+        let signed_request_chain2 = wallet.sign_eip712_with_params(test_data, timestamp, Some(2)).unwrap();
 
         // Same data on different chains should produce different signatures
         assert_ne!(signed_request_chain1.signature, signed_request_chain2.signature);
@@ -338,11 +286,7 @@ mod tests {
         let chain_id = QED_NETWORK_MAGIC_REGTEST;
 
         // Create signed request for QHashOut
-        let signed_request = wallet.sign_eip712_with_params(
-            hash,
-            timestamp,
-            Some(chain_id)
-        ).unwrap();
+        let signed_request = wallet.sign_eip712_with_params(hash, timestamp, Some(chain_id)).unwrap();
 
         // Verify signature
         assert!(signed_request.verify(None).unwrap());
@@ -370,7 +314,7 @@ mod tests {
 
     #[test]
     fn test_hashable_signing_with_complex_data() {
-        use serde::{Serialize, Deserialize};
+        use serde::{Deserialize, Serialize};
 
         #[derive(Serialize, Deserialize, PartialEq, Debug)]
         struct TestStruct {
@@ -399,7 +343,7 @@ mod tests {
 
         // Should fail with modified data
         let modified_data = TestStruct {
-            id: 12346,  // Different ID
+            id: 12346, // Different ID
             name: "test".to_string(),
             values: vec![1, 2, 3, 4, 5],
         };
@@ -426,10 +370,14 @@ mod tests {
         assert!(old_signed.verify_hashable(&test_data, wallet.address_raw(), None).unwrap());
 
         // Should fail with 30 second expiry
-        assert!(!old_signed.verify_hashable(&test_data, wallet.address_raw(), Some(Duration::from_secs(30))).unwrap());
+        assert!(!old_signed
+            .verify_hashable(&test_data, wallet.address_raw(), Some(Duration::from_secs(30)))
+            .unwrap());
 
         // Should pass with 200 second expiry
-        assert!(old_signed.verify_hashable(&test_data, wallet.address_raw(), Some(Duration::from_secs(200))).unwrap());
+        assert!(old_signed
+            .verify_hashable(&test_data, wallet.address_raw(), Some(Duration::from_secs(200)))
+            .unwrap());
     }
 
     #[test]

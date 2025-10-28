@@ -10,9 +10,10 @@ use plonky2::{
     hash::hash_types::HashOut,
     plonk::config::PoseidonGoldilocksConfig,
 };
+use psy_api_services::models::{WorkerEvent, WorkerEventSource};
 use psy_common_circuit::circuits::zk_signature3::manager::SimpleQEDZKSignatureManager;
 use psy_core::{
-    config::network_constants::{TOKEN_CONTRACT_ID, MAX_CONTRACT_STATE_TREE_HEIGHT},
+    config::network_constants::{MAX_CONTRACT_STATE_TREE_HEIGHT, TOKEN_CONTRACT_ID},
     data::{base_types::hash256::Hash256, qhashout::QHashOut},
     job::id::{ProvingJobCircuitType, QProvingJobDataID, VariableHeightRewardMerkleProof, GUTA_REWARDS_TREE_MAX_HEIGHT},
 };
@@ -21,15 +22,13 @@ use psy_data::{
     config::store_config::QEDHasher,
     traits::qdatastore::{qmetadata::QMetaDataStoreReaderSync, qtreedata::QTreeDataStoreReaderSync},
 };
-use psy_prover::local::args::{JobInfo, JobLocation, SignData, WorkerJobTracker};
 use psy_prover::{
     local::{
-        args::{ContractCallArgs, SignType},
+        args::{ContractCallArgs, JobInfo, JobLocation, SignData, SignType, WorkerJobTracker},
         provider::{RpcConfig, RpcProvider},
     },
     session::WalletSession,
 };
-use psy_api_services::models::{WorkerEvent, WorkerEventSource};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use tracing::{info, warn};
@@ -66,7 +65,9 @@ pub async fn run(args: ClaimRewardsArgs) -> Result<()> {
         None
     };
 
-    let user_pk_hash = wallet_session.add_user_with_type(private_key, args.sign_type.clone(), fingerprint).await?;
+    let user_pk_hash = wallet_session
+        .add_user_with_type(private_key, args.sign_type.clone(), fingerprint)
+        .await?;
     let user_id = provider.get_user_id(user_pk_hash).await?;
 
     let latest_l2_block_state = provider.get_latest_l2_block_state().await?;
@@ -99,16 +100,20 @@ pub async fn run(args: ClaimRewardsArgs) -> Result<()> {
     };
 
     if start_checkpoint > max_claimable_checkpoint {
-        info!("No new checkpoints to claim (latest: {}, cooldown: {}, max claimable: {})",
-              latest_checkpoint_id, claim_rewards_cooldown, max_claimable_checkpoint);
+        info!(
+            "No new checkpoints to claim (latest: {}, cooldown: {}, max claimable: {})",
+            latest_checkpoint_id, claim_rewards_cooldown, max_claimable_checkpoint
+        );
         return Ok(());
     }
 
     let mut checkpoint_jobs: HashMap<u64, Vec<VariableHeightRewardMerkleProof>> = HashMap::new();
     let mut processed_count = 0;
 
-    info!("Claiming rewards from checkpoint {} to {} (limit: {}, latest: {}, cooldown: {})",
-          start_checkpoint, max_claimable_checkpoint, args.limit, latest_checkpoint_id, claim_rewards_cooldown);
+    info!(
+        "Claiming rewards from checkpoint {} to {} (limit: {}, latest: {}, cooldown: {})",
+        start_checkpoint, max_claimable_checkpoint, args.limit, latest_checkpoint_id, claim_rewards_cooldown
+    );
 
     let all_job_infos = if !args.jobs.is_empty() {
         info!("Using manually specified jobs from args.jobs");
@@ -135,7 +140,14 @@ pub async fn run(args: ClaimRewardsArgs) -> Result<()> {
         all_jobs
     } else {
         info!("Using API service at {}", args.api_service_url);
-        let result = load_jobs_from_api_service(&args.api_service_url, &user_pk_hash, start_checkpoint, max_claimable_checkpoint, args.limit).await?;
+        let result = load_jobs_from_api_service(
+            &args.api_service_url,
+            &user_pk_hash,
+            start_checkpoint,
+            max_claimable_checkpoint,
+            args.limit,
+        )
+        .await?;
         result
     };
 
@@ -151,18 +163,19 @@ pub async fn run(args: ClaimRewardsArgs) -> Result<()> {
 
         let mut job_infos = all_job_infos.get(&checkpoint_id).cloned().unwrap_or_default();
         job_infos.retain(|job_info| {
-            matches!(job_info.job_id.circuit_type,
+            matches!(
+                job_info.job_id.circuit_type,
                 ProvingJobCircuitType::GUTAOnlyRegisterUsers
-                | ProvingJobCircuitType::GUTARegisterUsers
-                | ProvingJobCircuitType::GUTATwoEndCap
-                | ProvingJobCircuitType::GUTATwoGUTA
-                | ProvingJobCircuitType::GUTALeftEndCapRightGUTA
-                | ProvingJobCircuitType::GUTALeftGUTARightEndCap
-                | ProvingJobCircuitType::GUTASingleEndCap
-                | ProvingJobCircuitType::GUTAVerifyToCap
-                | ProvingJobCircuitType::GUTATwoGUTAWithCheckpointUpgrade
-                | ProvingJobCircuitType::GUTAVerifyToCapWithCheckpointUpgrade
-                | ProvingJobCircuitType::GUTANoChange
+                    | ProvingJobCircuitType::GUTARegisterUsers
+                    | ProvingJobCircuitType::GUTATwoEndCap
+                    | ProvingJobCircuitType::GUTATwoGUTA
+                    | ProvingJobCircuitType::GUTALeftEndCapRightGUTA
+                    | ProvingJobCircuitType::GUTALeftGUTARightEndCap
+                    | ProvingJobCircuitType::GUTASingleEndCap
+                    | ProvingJobCircuitType::GUTAVerifyToCap
+                    | ProvingJobCircuitType::GUTATwoGUTAWithCheckpointUpgrade
+                    | ProvingJobCircuitType::GUTAVerifyToCapWithCheckpointUpgrade
+                    | ProvingJobCircuitType::GUTANoChange
             )
         });
         if job_infos.is_empty() {
@@ -174,7 +187,8 @@ pub async fn run(args: ClaimRewardsArgs) -> Result<()> {
             Ok(results) => {
                 for (root_job_id, job_proof) in results {
                     let actual_checkpoint_id = root_job_id.goal_id;
-                    checkpoint_jobs.entry(actual_checkpoint_id)
+                    checkpoint_jobs
+                        .entry(actual_checkpoint_id)
                         .or_insert_with(Vec::new)
                         .push((job_proof.clone().pad_to_height(GUTA_REWARDS_TREE_MAX_HEIGHT)));
                 }
@@ -186,7 +200,11 @@ pub async fn run(args: ClaimRewardsArgs) -> Result<()> {
         processed_count += 1;
     }
 
-    info!("Total jobs attempted: processed {} checkpoints, checkpoint_jobs.len() = {}", processed_count, checkpoint_jobs.len());
+    info!(
+        "Total jobs attempted: processed {} checkpoints, checkpoint_jobs.len() = {}",
+        processed_count,
+        checkpoint_jobs.len()
+    );
     if checkpoint_jobs.is_empty() {
         info!("No valid checkpoints with rewards to claim - all job proofs failed");
         return Ok(());
@@ -203,8 +221,10 @@ pub async fn run(args: ClaimRewardsArgs) -> Result<()> {
         let gutas_completed = checkpoint_leaf.stats.pm_jobs_completed.gutas_completed.to_canonical_u64();
         let proposed_reward = if gutas_completed > 0 { fees_collected / gutas_completed } else { 0u64 };
         if proposed_reward == 0 {
-            warn!("Skipping checkpoint {} due to zero reward (fees_collected={}, gutas_completed={})",
-                  checkpoint_id, fees_collected, gutas_completed);
+            warn!(
+                "Skipping checkpoint {} due to zero reward (fees_collected={}, gutas_completed={})",
+                checkpoint_id, fees_collected, gutas_completed
+            );
             continue;
         }
         info!("Checkpoint {} - Reward: {}, Jobs: {}", checkpoint_id, proposed_reward, jobs.len());
@@ -225,10 +245,7 @@ pub async fn run(args: ClaimRewardsArgs) -> Result<()> {
         info!("No checkpoints with valid rewards to claim");
         return Ok(());
     }
-    let last_checkpoint = all_proofs_with_checkpoints
-        .last()
-        .unwrap()
-        .checkpoint_id;
+    let last_checkpoint = all_proofs_with_checkpoints.last().unwrap().checkpoint_id;
     all_contract_calls.push(ContractCallArgs {
         contract_id: MINING_REWARDS_CONTRACT_ID,
         method_name: "end_session".to_string(),
@@ -249,30 +266,28 @@ pub async fn run(args: ClaimRewardsArgs) -> Result<()> {
         sign_contract_id: MINING_REWARDS_CONTRACT_ID,
         sign_inputs: vec![],
     });
-    let tx_hash = wallet_session.exec_contract_call_with_sign_data(
-        user_pk_hash,
-        all_contract_calls,
-        sign_data,
-    ).await?;
+    let tx_hash = wallet_session
+        .exec_contract_call_with_sign_data(user_pk_hash, all_contract_calls, sign_data)
+        .await?;
     info!("Successfully claimed rewards with tx hash: {}", tx_hash);
     Ok(())
 }
 
 async fn get_last_claimed_checkpoint_id(provider: &RpcProvider, user_id: u64, latest_checkpoint_id: u64) -> Result<u64> {
-    let proof = provider.get_user_contract_state_tree_merkle_proof(
-        latest_checkpoint_id,
-        user_id,
-        TOKEN_CONTRACT_ID,
-        MAX_CONTRACT_STATE_TREE_HEIGHT,
-        LAST_CLAIMED_CHECKPOINT_SLOT,
-    ).await?;
+    let proof = provider
+        .get_user_contract_state_tree_merkle_proof(
+            latest_checkpoint_id,
+            user_id,
+            TOKEN_CONTRACT_ID,
+            MAX_CONTRACT_STATE_TREE_HEIGHT,
+            LAST_CLAIMED_CHECKPOINT_SLOT,
+        )
+        .await?;
 
     Ok(proof.value.0.elements[1].0)
 }
 
-fn build_claim_calls_for_multi_checkpoints(
-    all_proofs: &[ProofWithCheckpoint],
-) -> Vec<ContractCallArgs> {
+fn build_claim_calls_for_multi_checkpoints(all_proofs: &[ProofWithCheckpoint]) -> Vec<ContractCallArgs> {
     let mut contract_call_args = Vec::new();
 
     let total_proofs = all_proofs.len();
@@ -442,21 +457,14 @@ async fn load_jobs_from_api_service(
             WorkerEventSource::Realm => JobLocation::Realm(event.realm_id.unwrap_or(0) as u64),
         };
 
-        let job_info = JobInfo {
-            job_id,
-            location,
-        };
+        let job_info = JobInfo { job_id, location };
 
-        checkpoint_jobs
-            .entry(event.checkpoint_id as u64)
-            .or_insert_with(Vec::new)
-            .push(job_info);
+        checkpoint_jobs.entry(event.checkpoint_id as u64).or_insert_with(Vec::new).push(job_info);
     }
 
     info!("Loaded jobs from API for {} checkpoints", checkpoint_jobs.len());
     Ok(checkpoint_jobs)
 }
-
 
 fn load_jobs_from_tracker_file(public_key: &QHashOut<F>) -> Result<Vec<JobInfo>> {
     let filename = format!("{}.json", public_key.to_string());
@@ -484,7 +492,6 @@ fn load_jobs_from_tracker_file(public_key: &QHashOut<F>) -> Result<Vec<JobInfo>>
 
     Err(anyhow::format_err!("Failed to parse job file in any known format"))
 }
-
 
 fn parse_worker_job_tracker_format(tracker: WorkerJobTracker) -> Result<Vec<JobInfo>> {
     let mut job_infos = Vec::new();
@@ -524,10 +531,7 @@ fn parse_worker_event_format(events: Vec<WorkerEvent>) -> Result<Vec<JobInfo>> {
             WorkerEventSource::Realm => JobLocation::Realm(event.realm_id.unwrap_or(0) as u64),
         };
 
-        job_infos.push(JobInfo {
-            job_id,
-            location,
-        });
+        job_infos.push(JobInfo { job_id, location });
     }
 
     Ok(job_infos)

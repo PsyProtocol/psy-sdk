@@ -1,4 +1,9 @@
-use plonky2::{field::extension::Extendable, hash::hash_types::{HashOutTarget, RichField}, iop::{target::Target, witness::Witness}, plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher}};
+use plonky2::{
+    field::extension::Extendable,
+    hash::hash_types::{HashOutTarget, RichField},
+    iop::{target::Target, witness::Witness},
+    plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher},
+};
 use psy_common_circuit::traits::{AlgebraicHashableTarget, CreatableTarget, FromTargets, ToTargets, WitnessValueFor};
 use psy_data::qdata::pm_jobs_completed_stats::PMJobsCompletedStats;
 
@@ -69,15 +74,16 @@ impl PMJobsCompletedStatsGadget {
 }
 
 impl AlgebraicHashableTarget for PMJobsCompletedStatsGadget {
-    fn to_hash_target<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(&self, builder: &mut CircuitBuilder<F, D>) -> HashOutTarget {
+    fn to_hash_target<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
+        &self,
+        builder: &mut CircuitBuilder<F, D>,
+    ) -> HashOutTarget {
         self.to_hash::<H, F, D>(builder)
     }
 }
 
 impl CreatableTarget for PMJobsCompletedStatsGadget {
-    fn create_virtual<F: RichField + Extendable<D>, const D: usize>(
-        builder: &mut CircuitBuilder<F, D>,
-    ) -> Self {
+    fn create_virtual<F: RichField + Extendable<D>, const D: usize>(builder: &mut CircuitBuilder<F, D>) -> Self {
         Self {
             deploy_contracts_completed: builder.add_virtual_target(),
             register_users_completed: builder.add_virtual_target(),
@@ -88,18 +94,18 @@ impl CreatableTarget for PMJobsCompletedStatsGadget {
 
 impl ToTargets for PMJobsCompletedStatsGadget {
     fn to_targets(&self) -> Vec<Target> {
-        vec![
-            self.deploy_contracts_completed,
-            self.register_users_completed,
-            self.gutas_completed,
-        ]
+        vec![self.deploy_contracts_completed, self.register_users_completed, self.gutas_completed]
     }
 }
 
 impl FromTargets for PMJobsCompletedStatsGadget {
     fn from_targets(targets: &[Target]) -> Self {
         if targets.len() != PM_JOBS_COMPLETED_STATS_TARGET_SIZE {
-            panic!("Invalid number of targets for PMJobsCompletedStatsGadget, expected {} got {}", PM_JOBS_COMPLETED_STATS_TARGET_SIZE, targets.len());
+            panic!(
+                "Invalid number of targets for PMJobsCompletedStatsGadget, expected {} got {}",
+                PM_JOBS_COMPLETED_STATS_TARGET_SIZE,
+                targets.len()
+            );
         }
         Self {
             deploy_contracts_completed: targets[0],

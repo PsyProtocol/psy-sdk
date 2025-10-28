@@ -1,8 +1,7 @@
 use ambassador::delegatable_trait;
 use async_trait::async_trait;
 use auto_impl::auto_impl;
-use serde::Deserialize;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct KVQPair<K, V> {
@@ -10,7 +9,7 @@ pub struct KVQPair<K, V> {
     pub value: V,
 }
 
-impl<K: Copy, V: Copy> Copy for KVQPair<K,V>{}
+impl<K: Copy, V: Copy> Copy for KVQPair<K, V> {}
 
 #[derive(Serialize, Deserialize, PartialEq, Clone)]
 pub struct KVQPairSerializable<K, V> {
@@ -84,21 +83,13 @@ pub trait KVQStoreAdapterReader<S, K: KVQSerializable, V: KVQSerializable> {
     fn get_leq_kv(s: &S, key: &K, fuzzy_bytes: usize) -> anyhow::Result<Option<KVQPair<K, V>>>;
 
     fn get_many_leq(s: &S, keys: &[K], fuzzy_bytes: usize) -> anyhow::Result<Vec<Option<V>>>;
-    fn get_many_leq_kv(
-        s: &S,
-        keys: &[K],
-        fuzzy_bytes: usize,
-    ) -> anyhow::Result<Vec<Option<KVQPair<K, V>>>>;
+    fn get_many_leq_kv(s: &S, keys: &[K], fuzzy_bytes: usize) -> anyhow::Result<Vec<Option<KVQPair<K, V>>>>;
 
     fn get_many_leq_u(s: &S, keys: &[K], fuzzy_bytes: usize) -> anyhow::Result<Vec<V>> {
         let results = Self::get_many_leq(s, keys, fuzzy_bytes)?;
         unwrap_kv_vec_result(results)
     }
-    fn get_many_leq_kv_u(
-        s: &S,
-        keys: &[K],
-        fuzzy_bytes: usize,
-    ) -> anyhow::Result<Vec<KVQPair<K, V>>> {
+    fn get_many_leq_kv_u(s: &S, keys: &[K], fuzzy_bytes: usize) -> anyhow::Result<Vec<KVQPair<K, V>>> {
         let results = Self::get_many_leq_kv(s, keys, fuzzy_bytes)?;
         unwrap_kv_vec_result(results)
     }
@@ -116,21 +107,13 @@ pub trait KVQStoreAdapterReaderAsync<S: Sync, K: KVQSerializable + Sync, V: KVQS
     async fn get_leq_kv(s: &S, key: &K, fuzzy_bytes: usize) -> anyhow::Result<Option<KVQPair<K, V>>>;
 
     async fn get_many_leq(s: &S, keys: &[K], fuzzy_bytes: usize) -> anyhow::Result<Vec<Option<V>>>;
-    async fn get_many_leq_kv(
-        s: &S,
-        keys: &[K],
-        fuzzy_bytes: usize,
-    ) -> anyhow::Result<Vec<Option<KVQPair<K, V>>>>;
+    async fn get_many_leq_kv(s: &S, keys: &[K], fuzzy_bytes: usize) -> anyhow::Result<Vec<Option<KVQPair<K, V>>>>;
 
     async fn get_many_leq_u(s: &S, keys: &[K], fuzzy_bytes: usize) -> anyhow::Result<Vec<V>> {
         let results = Self::get_many_leq(s, keys, fuzzy_bytes).await?;
         unwrap_kv_vec_result(results)
     }
-    async fn get_many_leq_kv_u(
-        s: &S,
-        keys: &[K],
-        fuzzy_bytes: usize,
-    ) -> anyhow::Result<Vec<KVQPair<K, V>>> {
+    async fn get_many_leq_kv_u(s: &S, keys: &[K], fuzzy_bytes: usize) -> anyhow::Result<Vec<KVQPair<K, V>>> {
         let results = Self::get_many_leq_kv(s, keys, fuzzy_bytes).await?;
         unwrap_kv_vec_result(results)
     }
@@ -138,23 +121,28 @@ pub trait KVQStoreAdapterReaderAsync<S: Sync, K: KVQSerializable + Sync, V: KVQS
 
 #[async_trait]
 #[auto_impl(&, Box, Arc)]
-pub trait KVQStoreAdapterAsync<S: Sync, K: KVQSerializable + Sync, V: KVQSerializable + Sync>:
-    KVQStoreAdapterReaderAsync<S, K, V>
-{
-    async fn set(s: &S, key: K, value: V) -> anyhow::Result<()> where K: 'async_trait, V: 'async_trait;
+pub trait KVQStoreAdapterAsync<S: Sync, K: KVQSerializable + Sync, V: KVQSerializable + Sync>: KVQStoreAdapterReaderAsync<S, K, V> {
+    async fn set(s: &S, key: K, value: V) -> anyhow::Result<()>
+    where
+        K: 'async_trait,
+        V: 'async_trait;
     async fn set_ref(s: &S, key: &K, value: &V) -> anyhow::Result<()>;
-    async fn set_many_ref<'a>(s: &S, items: &[KVQPair<&'a K, &'a V>]) -> anyhow::Result<()> where K: 'a, V: 'a;
+    async fn set_many_ref<'a>(s: &S, items: &[KVQPair<&'a K, &'a V>]) -> anyhow::Result<()>
+    where
+        K: 'a,
+        V: 'a;
     async fn set_many_split_ref(s: &S, keys: &[K], values: &[V]) -> anyhow::Result<()>;
-    async fn set_many(s: &S, items: &[KVQPair<K, V>]) -> anyhow::Result<()> where K: 'async_trait, V: 'async_trait;
+    async fn set_many(s: &S, items: &[KVQPair<K, V>]) -> anyhow::Result<()>
+    where
+        K: 'async_trait,
+        V: 'async_trait;
 
     async fn delete(s: &S, key: &K) -> anyhow::Result<bool>;
     async fn delete_many(s: &S, keys: &[K]) -> anyhow::Result<Vec<bool>>;
 }
 
 #[auto_impl(&, Box, Arc)]
-pub trait KVQStoreAdapter<S, K: KVQSerializable, V: KVQSerializable>:
-    KVQStoreAdapterReader<S, K, V>
-{
+pub trait KVQStoreAdapter<S, K: KVQSerializable, V: KVQSerializable>: KVQStoreAdapterReader<S, K, V> {
     fn set(s: &S, key: K, value: V) -> anyhow::Result<()>;
     fn set_ref(s: &S, key: &K, value: &V) -> anyhow::Result<()>;
     fn set_many_ref<'a>(s: &S, items: &[KVQPair<&'a K, &'a V>]) -> anyhow::Result<()>;
@@ -168,13 +156,8 @@ pub trait KVQStoreAdapter<S, K: KVQSerializable, V: KVQSerializable>:
 }
 
 #[auto_impl(&, Box, Arc)]
-pub trait KVQStoreAdapterWithHelpers<S, K: KVQSerializable, V: KVQSerializable>:
-    KVQStoreAdapter<S, K, V>
-{
-    fn set_many_ref_clone_batch<'a>(
-        s: &mut S,
-        items: &[KVQPair<&'a K, &'a V>],
-    ) -> anyhow::Result<()> {
+pub trait KVQStoreAdapterWithHelpers<S, K: KVQSerializable, V: KVQSerializable>: KVQStoreAdapter<S, K, V> {
+    fn set_many_ref_clone_batch<'a>(s: &mut S, items: &[KVQPair<&'a K, &'a V>]) -> anyhow::Result<()> {
         let mut items_owned = Vec::with_capacity(items.len());
         for item in items {
             items_owned.push(KVQPair {
@@ -192,8 +175,6 @@ pub trait KVQStoreAdapterWithHelpers<S, K: KVQSerializable, V: KVQSerializable>:
     }
 }
 
-
-
 //pub type KVQStoreAdapter<K: KVQSerializable, V: KVQSerializable> =
 // KVQStoreAdapter<KVQBinaryStore, K, V>;
 
@@ -207,63 +188,36 @@ pub trait KVQBinaryStore: Send + Sync {
 
     fn get_leq(&self, key: &Vec<u8>, fuzzy_bytes: usize) -> anyhow::Result<Option<Vec<u8>>>;
     fn get_fuzzy_range_leq_kv(&self, key: &Vec<u8>, fuzzy_bytes: usize) -> anyhow::Result<Vec<KVQPair<Vec<u8>, Vec<u8>>>>;
-    fn get_leq_kv(
-        &self,
-        key: &Vec<u8>,
-        fuzzy_bytes: usize,
-    ) -> anyhow::Result<Option<KVQPair<Vec<u8>, Vec<u8>>>>;
+    fn get_leq_kv(&self, key: &Vec<u8>, fuzzy_bytes: usize) -> anyhow::Result<Option<KVQPair<Vec<u8>, Vec<u8>>>>;
 
-    fn get_many_leq(
-        &self,
-        keys: &[Vec<u8>],
-        fuzzy_bytes: usize,
-    ) -> anyhow::Result<Vec<Option<Vec<u8>>>>;
-    fn get_many_leq_kv(
-        &self,
-        keys: &[Vec<u8>],
-        fuzzy_bytes: usize,
-    ) -> anyhow::Result<Vec<Option<KVQPair<Vec<u8>, Vec<u8>>>>>;
+    fn get_many_leq(&self, keys: &[Vec<u8>], fuzzy_bytes: usize) -> anyhow::Result<Vec<Option<Vec<u8>>>>;
+    fn get_many_leq_kv(&self, keys: &[Vec<u8>], fuzzy_bytes: usize) -> anyhow::Result<Vec<Option<KVQPair<Vec<u8>, Vec<u8>>>>>;
 
     fn get_leq_u(&self, key: &Vec<u8>, fuzzy_bytes: usize) -> anyhow::Result<Vec<u8>> {
         unwrap_kv_result(self.get_leq(key, fuzzy_bytes)?)
     }
-    fn get_leq_kv_u(
-        &self,
-        key: &Vec<u8>,
-        fuzzy_bytes: usize,
-    ) -> anyhow::Result<KVQPair<Vec<u8>, Vec<u8>>> {
+    fn get_leq_kv_u(&self, key: &Vec<u8>, fuzzy_bytes: usize) -> anyhow::Result<KVQPair<Vec<u8>, Vec<u8>>> {
         unwrap_kv_result(self.get_leq_kv(key, fuzzy_bytes)?)
     }
 
     fn get_many_leq_u(&self, keys: &[Vec<u8>], fuzzy_bytes: usize) -> anyhow::Result<Vec<Vec<u8>>> {
         unwrap_kv_vec_result(self.get_many_leq(keys, fuzzy_bytes)?)
     }
-    fn get_many_leq_kv_u(
-        &self,
-        keys: &[Vec<u8>],
-        fuzzy_bytes: usize,
-    ) -> anyhow::Result<Vec<KVQPair<Vec<u8>, Vec<u8>>>> {
+    fn get_many_leq_kv_u(&self, keys: &[Vec<u8>], fuzzy_bytes: usize) -> anyhow::Result<Vec<KVQPair<Vec<u8>, Vec<u8>>>> {
         unwrap_kv_vec_result(self.get_many_leq_kv(keys, fuzzy_bytes)?)
     }
 
     // Write operations
     fn set(&self, key: Vec<u8>, value: Vec<u8>) -> anyhow::Result<()>;
     fn set_ref(&self, key: &Vec<u8>, value: &Vec<u8>) -> anyhow::Result<()>;
-    fn set_many_ref<'a>(
-        &self,
-        items: &[KVQPair<&'a Vec<u8>, &'a Vec<u8>>],
-    ) -> anyhow::Result<()>;
+    fn set_many_ref<'a>(&self, items: &[KVQPair<&'a Vec<u8>, &'a Vec<u8>>]) -> anyhow::Result<()>;
     fn set_many_vec(&self, items: Vec<KVQPair<Vec<u8>, Vec<u8>>>) -> anyhow::Result<()>;
     fn set_many_split_ref(&self, keys: &[Vec<u8>], values: &[Vec<u8>]) -> anyhow::Result<()>;
 
     fn delete(&self, key: &Vec<u8>) -> anyhow::Result<bool>;
     fn delete_many(&self, keys: &[Vec<u8>]) -> anyhow::Result<Vec<bool>>;
 
-    fn set_and_delete_many(
-        &self,
-        keys_to_set: &[KVQPair<&Vec<u8>, &Vec<u8>>],
-        keys_to_delete: &[Vec<u8>]
-    ) -> anyhow::Result<()> {
+    fn set_and_delete_many(&self, keys_to_set: &[KVQPair<&Vec<u8>, &Vec<u8>>], keys_to_delete: &[Vec<u8>]) -> anyhow::Result<()> {
         self.set_many_ref(keys_to_set)?;
         self.delete_many(keys_to_delete)?;
         Ok(())
@@ -279,63 +233,36 @@ pub trait KVQBinaryStoreAsync {
 
     async fn get_leq(&self, key: &Vec<u8>, fuzzy_bytes: usize) -> anyhow::Result<Option<Vec<u8>>>;
     async fn get_fuzzy_range_leq_kv(&self, key: &Vec<u8>, fuzzy_bytes: usize) -> anyhow::Result<Vec<KVQPair<Vec<u8>, Vec<u8>>>>;
-    async fn get_leq_kv(
-        &self,
-        key: &Vec<u8>,
-        fuzzy_bytes: usize,
-    ) -> anyhow::Result<Option<KVQPair<Vec<u8>, Vec<u8>>>>;
+    async fn get_leq_kv(&self, key: &Vec<u8>, fuzzy_bytes: usize) -> anyhow::Result<Option<KVQPair<Vec<u8>, Vec<u8>>>>;
 
-    async fn get_many_leq(
-        &self,
-        keys: &[Vec<u8>],
-        fuzzy_bytes: usize,
-    ) -> anyhow::Result<Vec<Option<Vec<u8>>>>;
-    async fn get_many_leq_kv(
-        &self,
-        keys: &[Vec<u8>],
-        fuzzy_bytes: usize,
-    ) -> anyhow::Result<Vec<Option<KVQPair<Vec<u8>, Vec<u8>>>>>;
+    async fn get_many_leq(&self, keys: &[Vec<u8>], fuzzy_bytes: usize) -> anyhow::Result<Vec<Option<Vec<u8>>>>;
+    async fn get_many_leq_kv(&self, keys: &[Vec<u8>], fuzzy_bytes: usize) -> anyhow::Result<Vec<Option<KVQPair<Vec<u8>, Vec<u8>>>>>;
 
     async fn get_leq_u(&self, key: &Vec<u8>, fuzzy_bytes: usize) -> anyhow::Result<Vec<u8>> {
         unwrap_kv_result(self.get_leq(key, fuzzy_bytes).await?)
     }
-    async fn get_leq_kv_u(
-        &self,
-        key: &Vec<u8>,
-        fuzzy_bytes: usize,
-    ) -> anyhow::Result<KVQPair<Vec<u8>, Vec<u8>>> {
+    async fn get_leq_kv_u(&self, key: &Vec<u8>, fuzzy_bytes: usize) -> anyhow::Result<KVQPair<Vec<u8>, Vec<u8>>> {
         unwrap_kv_result(self.get_leq_kv(key, fuzzy_bytes).await?)
     }
 
     async fn get_many_leq_u(&self, keys: &[Vec<u8>], fuzzy_bytes: usize) -> anyhow::Result<Vec<Vec<u8>>> {
         unwrap_kv_vec_result(self.get_many_leq(keys, fuzzy_bytes).await?)
     }
-    async fn get_many_leq_kv_u(
-        &self,
-        keys: &[Vec<u8>],
-        fuzzy_bytes: usize,
-    ) -> anyhow::Result<Vec<KVQPair<Vec<u8>, Vec<u8>>>> {
+    async fn get_many_leq_kv_u(&self, keys: &[Vec<u8>], fuzzy_bytes: usize) -> anyhow::Result<Vec<KVQPair<Vec<u8>, Vec<u8>>>> {
         unwrap_kv_vec_result(self.get_many_leq_kv(keys, fuzzy_bytes).await?)
     }
 
     // Write operations
     async fn set(&self, key: Vec<u8>, value: Vec<u8>) -> anyhow::Result<()>;
     async fn set_ref(&self, key: &Vec<u8>, value: &Vec<u8>) -> anyhow::Result<()>;
-    async fn set_many_ref<'a>(
-        &self,
-        items: &[KVQPair<&'a Vec<u8>, &'a Vec<u8>>],
-    ) -> anyhow::Result<()>;
+    async fn set_many_ref<'a>(&self, items: &[KVQPair<&'a Vec<u8>, &'a Vec<u8>>]) -> anyhow::Result<()>;
     async fn set_many_vec(&self, items: Vec<KVQPair<Vec<u8>, Vec<u8>>>) -> anyhow::Result<()>;
     async fn set_many_split_ref(&self, keys: &[Vec<u8>], values: &[Vec<u8>]) -> anyhow::Result<()>;
 
     async fn delete(&self, key: &Vec<u8>) -> anyhow::Result<bool>;
     async fn delete_many(&self, keys: &[Vec<u8>]) -> anyhow::Result<Vec<bool>>;
 
-    async fn set_and_delete_many(
-        &self,
-        keys_to_set: &[KVQPair<&Vec<u8>, &Vec<u8>>],
-        keys_to_delete: &[Vec<u8>]
-    ) -> anyhow::Result<()> {
+    async fn set_and_delete_many(&self, keys_to_set: &[KVQPair<&Vec<u8>, &Vec<u8>>], keys_to_delete: &[Vec<u8>]) -> anyhow::Result<()> {
         self.set_many_ref(keys_to_set).await?;
         self.delete_many(keys_to_delete).await?;
         Ok(())

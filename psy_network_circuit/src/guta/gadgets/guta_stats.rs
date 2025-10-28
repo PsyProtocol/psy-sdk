@@ -19,9 +19,7 @@ pub struct GUTAStatsGadget {
     // start computed
 }
 impl GUTAStatsGadget {
-    pub fn add_virtual_to_zero<F: RichField + Extendable<D>, const D: usize>(
-        builder: &mut CircuitBuilder<F, D>,
-    ) -> Self {
+    pub fn add_virtual_to_zero<F: RichField + Extendable<D>, const D: usize>(builder: &mut CircuitBuilder<F, D>) -> Self {
         let fees_collected = builder.zero();
 
         let user_ops_processed = builder.zero();
@@ -36,9 +34,7 @@ impl GUTAStatsGadget {
             slots_modified,
         }
     }
-    pub fn add_virtual_to<F: RichField + Extendable<D>, const D: usize>(
-        builder: &mut CircuitBuilder<F, D>,
-    ) -> Self {
+    pub fn add_virtual_to<F: RichField + Extendable<D>, const D: usize>(builder: &mut CircuitBuilder<F, D>) -> Self {
         let fees_collected = builder.add_virtual_target();
 
         let user_ops_processed = builder.add_virtual_target();
@@ -58,12 +54,11 @@ impl GUTAStatsGadget {
         builder: &mut CircuitBuilder<F, D>,
         other: &GUTAStatsGadget,
     ) -> GUTAStatsGadget {
-
         let fees_collected = builder.add(self.fees_collected, other.fees_collected);
         let user_ops_processed = builder.add(self.user_ops_processed, other.user_ops_processed);
         let total_transactions = builder.add(self.total_transactions, other.total_transactions);
         let slots_modified = builder.add(self.slots_modified, other.slots_modified);
-        
+
         Self {
             fees_collected,
             user_ops_processed,
@@ -78,17 +73,9 @@ impl GUTAStatsGadget {
         witness.set_target(self.slots_modified, target.slots_modified)
     }
 
-    pub fn to_hash<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
-        &self,
-        _builder: &mut CircuitBuilder<F, D>,
-    ) -> HashOutTarget {
+    pub fn to_hash<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(&self, _builder: &mut CircuitBuilder<F, D>) -> HashOutTarget {
         HashOutTarget {
-            elements: [
-                self.fees_collected,
-                self.user_ops_processed,
-                self.total_transactions,
-                self.slots_modified,
-            ],
+            elements: [self.fees_collected, self.user_ops_processed, self.total_transactions, self.slots_modified],
         }
     }
 }

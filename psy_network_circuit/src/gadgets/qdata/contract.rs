@@ -1,5 +1,13 @@
-use plonky2::{field::extension::Extendable, hash::hash_types::{HashOutTarget, RichField}, iop::{target::Target, witness::Witness}, plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher}};
-use psy_common_circuit::{builder::core::CircuitBuilderHelpersCore, traits::{AlgebraicHashableTarget, CreatableTarget, FromTargets, ToTargets, WitnessValueFor}};
+use plonky2::{
+    field::extension::Extendable,
+    hash::hash_types::{HashOutTarget, RichField},
+    iop::{target::Target, witness::Witness},
+    plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher},
+};
+use psy_common_circuit::{
+    builder::core::CircuitBuilderHelpersCore,
+    traits::{AlgebraicHashableTarget, CreatableTarget, FromTargets, ToTargets, WitnessValueFor},
+};
 use psy_core::config::network_constants::MAX_CONTRACT_STATE_TREE_HEIGHT;
 use psy_data::qdata::contract::QEDContractLeaf;
 
@@ -16,19 +24,20 @@ impl QEDContractLeafGadget {
         witness.set_hash_target(self.function_tree_root, target.function_tree_root.0)?;
         witness.set_target(self.state_tree_height, target.state_tree_height)
     }
-    pub fn to_hash<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(&self, builder: &mut CircuitBuilder<F, D>) -> HashOutTarget {
+    pub fn to_hash<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(&self, builder: &mut CircuitBuilder<F, D>) -> HashOutTarget {
         builder.hash_n_to_hash_no_pad::<H>(self.to_targets())
     }
 }
 impl AlgebraicHashableTarget for QEDContractLeafGadget {
-    fn to_hash_target<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(&self, builder: &mut CircuitBuilder<F, D>) -> HashOutTarget {
+    fn to_hash_target<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
+        &self,
+        builder: &mut CircuitBuilder<F, D>,
+    ) -> HashOutTarget {
         self.to_hash::<H, F, D>(builder)
     }
 }
 impl CreatableTarget for QEDContractLeafGadget {
-    fn create_virtual<F: RichField + Extendable<D>, const D: usize>(
-        builder: &mut CircuitBuilder<F, D>,
-    ) -> Self {
+    fn create_virtual<F: RichField + Extendable<D>, const D: usize>(builder: &mut CircuitBuilder<F, D>) -> Self {
         let deployer = builder.add_virtual_hash();
         let function_tree_root = builder.add_virtual_hash();
         let state_tree_height = builder.add_virtual_target();
@@ -36,7 +45,10 @@ impl CreatableTarget for QEDContractLeafGadget {
         let zero = builder.zero();
 
         // state tree height must be in 1..=MAX_CONTRACT_STATE_TREE_HEIGHT
-        // so we multiply (state_tree_height-1)*(state_tree_height-2*...(state_tree_height-MAX_CONTRACT_STATE_TREE_HEIGHT) and ensure the product is 0
+        // so we multiply
+        // (state_tree_height-1)*(state_tree_height-2*...
+        // (state_tree_height-MAX_CONTRACT_STATE_TREE_HEIGHT) and ensure the product is
+        // 0
         for i in 1..=MAX_CONTRACT_STATE_TREE_HEIGHT {
             let acceptable_height = builder.constant_u64(i as u64);
             let value = builder.sub(state_tree_height, acceptable_height);
@@ -44,15 +56,11 @@ impl CreatableTarget for QEDContractLeafGadget {
         }
         builder.connect(base, zero);
 
-
-        
-        
         Self {
             deployer,
             function_tree_root,
             state_tree_height,
         }
-
     }
 }
 impl ToTargets for QEDContractLeafGadget {
@@ -73,23 +81,16 @@ impl ToTargets for QEDContractLeafGadget {
 impl FromTargets for QEDContractLeafGadget {
     fn from_targets(targets: &[Target]) -> Self {
         if targets.len() != 9 {
-            panic!("tried to create QEDContractLeafGadget from an array of {} targets, but expected an array of 9 targets", targets.len());
+            panic!(
+                "tried to create QEDContractLeafGadget from an array of {} targets, but expected an array of 9 targets",
+                targets.len()
+            );
         }
         let deployer = HashOutTarget {
-            elements: [
-                targets[0],
-                targets[1],
-                targets[2],
-                targets[3],
-            ]
+            elements: [targets[0], targets[1], targets[2], targets[3]],
         };
         let function_tree_root = HashOutTarget {
-            elements: [
-                targets[4],
-                targets[5],
-                targets[6],
-                targets[7],
-            ]
+            elements: [targets[4], targets[5], targets[6], targets[7]],
         };
         let state_tree_height = targets[8];
         Self {
@@ -99,7 +100,6 @@ impl FromTargets for QEDContractLeafGadget {
         }
     }
 }
-
 
 impl<F: RichField> WitnessValueFor<QEDContractLeafGadget, F, true> for QEDContractLeaf<F> {
     fn set_for_witness(&self, witness: &mut impl Witness<F>, target: &QEDContractLeafGadget) -> anyhow::Result<()> {

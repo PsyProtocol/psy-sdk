@@ -1,8 +1,6 @@
 use kvq::traits::{KVQBinaryStore, KVQStoreAdapter, KVQStoreAdapterReader};
-use crate::qdata::u64_key::U64TableKey;
 
-use crate::{config::store_config::QCheckpointLeaf, models::kvq_merkle::model::CHECKPOINT_ID_FUZZY_SIZE};
-
+use crate::{config::store_config::QCheckpointLeaf, models::kvq_merkle::model::CHECKPOINT_ID_FUZZY_SIZE, qdata::u64_key::U64TableKey};
 
 pub trait QEDCheckpointLeafModelReaderCore<
     const CHECKPOINT_LEAF_TABLE_TYPE: u16,
@@ -15,25 +13,15 @@ pub trait QEDCheckpointLeafModelReaderCore<
         KVA::get_exact(store, &U64TableKey(checkpoint_id))
     }
     fn get_latest_checkpoint_leaf(store: &S) -> anyhow::Result<QCheckpointLeaf> {
-        let result = KVA::get_leq(
-            store,
-            &U64TableKey(0xffffffffffffffu64),
-            CHECKPOINT_ID_FUZZY_SIZE,
-        )?;
+        let result = KVA::get_leq(store, &U64TableKey(0xffffffffffffffu64), CHECKPOINT_ID_FUZZY_SIZE)?;
         if result.is_some() {
             Ok(result.unwrap())
         } else {
             anyhow::bail!("error getting latest block state")
         }
     }
-    fn get_checkpoint_leafs_by_id(
-        store: &S,
-        checkpoint_ids: &[u64],
-    ) -> anyhow::Result<Vec<QCheckpointLeaf>> {
-        let keys = checkpoint_ids
-            .iter()
-            .map(|id| U64TableKey(*id))
-            .collect::<Vec<_>>();
+    fn get_checkpoint_leafs_by_id(store: &S, checkpoint_ids: &[u64]) -> anyhow::Result<Vec<QCheckpointLeaf>> {
+        let keys = checkpoint_ids.iter().map(|id| U64TableKey(*id)).collect::<Vec<_>>();
         KVA::get_many_exact(store, &keys)
     }
 }
@@ -43,10 +31,7 @@ pub trait QEDCheckpointLeafModelCore<
     KVA: KVQStoreAdapter<S, U64TableKey<CHECKPOINT_LEAF_TABLE_TYPE>, QCheckpointLeaf>,
 >: QEDCheckpointLeafModelReaderCore<CHECKPOINT_LEAF_TABLE_TYPE, S, KVA>
 {
-    fn delete_checkpoint_leaf_by_id(
-        store: &mut S,
-        checkpoint_id: u64,
-    ) -> anyhow::Result<Option<QCheckpointLeaf>> {
+    fn delete_checkpoint_leaf_by_id(store: &mut S, checkpoint_id: u64) -> anyhow::Result<Option<QCheckpointLeaf>> {
         let key_id = U64TableKey::<CHECKPOINT_LEAF_TABLE_TYPE>(checkpoint_id);
         let current = KVA::get_exact_if_exists(store, &key_id)?;
         if current.is_some() {
@@ -73,19 +58,11 @@ pub struct QEDCheckpointLeafModel<const CHECKPOINT_LEAF_TABLE_TYPE: u16, S, KVA>
     _kva: KVA,
 }
 
-impl<
-        const CHECKPOINT_LEAF_TABLE_TYPE: u16,
-        S,
-        KVA: KVQStoreAdapterReader<S, U64TableKey<CHECKPOINT_LEAF_TABLE_TYPE>, QCheckpointLeaf>,
-    > QEDCheckpointLeafModelReaderCore<CHECKPOINT_LEAF_TABLE_TYPE, S, KVA>
-    for QEDCheckpointLeafModel<CHECKPOINT_LEAF_TABLE_TYPE, S, KVA>
+impl<const CHECKPOINT_LEAF_TABLE_TYPE: u16, S, KVA: KVQStoreAdapterReader<S, U64TableKey<CHECKPOINT_LEAF_TABLE_TYPE>, QCheckpointLeaf>>
+    QEDCheckpointLeafModelReaderCore<CHECKPOINT_LEAF_TABLE_TYPE, S, KVA> for QEDCheckpointLeafModel<CHECKPOINT_LEAF_TABLE_TYPE, S, KVA>
 {
 }
-impl<
-        const CHECKPOINT_LEAF_TABLE_TYPE: u16,
-        S,
-        KVA: KVQStoreAdapter<S, U64TableKey<CHECKPOINT_LEAF_TABLE_TYPE>, QCheckpointLeaf>,
-    > QEDCheckpointLeafModelCore<CHECKPOINT_LEAF_TABLE_TYPE, S, KVA>
-    for QEDCheckpointLeafModel<CHECKPOINT_LEAF_TABLE_TYPE, S, KVA>
+impl<const CHECKPOINT_LEAF_TABLE_TYPE: u16, S, KVA: KVQStoreAdapter<S, U64TableKey<CHECKPOINT_LEAF_TABLE_TYPE>, QCheckpointLeaf>>
+    QEDCheckpointLeafModelCore<CHECKPOINT_LEAF_TABLE_TYPE, S, KVA> for QEDCheckpointLeafModel<CHECKPOINT_LEAF_TABLE_TYPE, S, KVA>
 {
 }

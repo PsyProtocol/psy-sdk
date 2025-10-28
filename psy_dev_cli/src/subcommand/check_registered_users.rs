@@ -6,7 +6,6 @@ use psy_crypto::common::user_id::{
 use psy_data::traits::qdatastore::qmetadata::QMetaDataStoreReaderSync;
 use psy_prover::local::provider::RpcProvider;
 
-
 #[derive(Parser)]
 pub struct CheckRegisteredUsersArgs {
     #[clap(env, long, default_value = "config.json", env)]
@@ -19,7 +18,6 @@ pub async fn run(args: CheckRegisteredUsersArgs) -> anyhow::Result<()> {
     let mut error_registered_ids = Vec::new();
 
     let latest_l2_block_state = provider.get_latest_l2_block_state().await?;
-
 
     for registration_id in 0..latest_l2_block_state.next_user_id {
         tracing::info!("check registration_id {}", registration_id);

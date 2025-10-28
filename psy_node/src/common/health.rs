@@ -1,8 +1,11 @@
-use http::{Request, Response, StatusCode, Method};
-use std::task::{Context, Poll};
+use std::{
+    future::Future,
+    pin::Pin,
+    task::{Context, Poll},
+};
+
+use http::{Method, Request, Response, StatusCode};
 use tower::{Layer, Service};
-use std::future::Future;
-use std::pin::Pin;
 
 /// Simple health check middleware that intercepts GET /health requests
 /// and returns 200 OK without processing them through the RPC server
@@ -45,7 +48,7 @@ where
                 .header("content-type", "application/json")
                 .body(B::from(r#"{"status":"ok"}"#))
                 .unwrap();
-            
+
             return Box::pin(async move { Ok(response) });
         }
 

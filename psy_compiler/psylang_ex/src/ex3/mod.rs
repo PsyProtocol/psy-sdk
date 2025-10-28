@@ -1,6 +1,6 @@
 use psy_vm::dpn::ops::{context_trait::DPNContext, exec_context::QExecContext, sym_felt::SymFeltRef};
-pub mod ex3_mac;
 pub mod ex3_generic;
+pub mod ex3_mac;
 pub struct ExampleContract3 {}
 
 impl ExampleContract3 {
@@ -22,7 +22,6 @@ impl ExampleContract3 {
         ctx.end_if_block();
         let x = ctx.op_lt(c, 100.into());
         ctx.assert_true(x, "c must be less than 100");
-        
     }
 }
 

@@ -184,10 +184,7 @@ impl Interner {
         })
     }
 
-    pub fn intern_idents<S: Into<Ident>>(
-        &mut self,
-        s: impl IntoIterator<Item = S>,
-    ) -> Vec<IdentId> {
+    pub fn intern_idents<S: Into<Ident>>(&mut self, s: impl IntoIterator<Item = S>) -> Vec<IdentId> {
         let mut result = Vec::new();
         for s in s {
             result.push(self.intern_ident(s.into()));

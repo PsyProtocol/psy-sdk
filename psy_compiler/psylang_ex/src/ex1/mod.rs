@@ -9,7 +9,6 @@ pub struct QContract<S> {
     pub state: S,
 }
 
-
 impl QContract<ExampleContractState> {
     pub fn inc_counter_small(&mut self, amount: Felt) {
         if amount < 10 {

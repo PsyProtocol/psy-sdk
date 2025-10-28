@@ -17,58 +17,32 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeCheckerVisitorContext<F, C> {
         self.add_reference(referenced, location, is_self_type);
     }
 
-    pub fn add_variable_reference(
-        &mut self,
-        variable_id: VarId,
-        location: Location,
-        is_self_type: bool,
-    ) {
+    pub fn add_variable_reference(&mut self, variable_id: VarId, location: Location, is_self_type: bool) {
         let referenced = ReferenceId::Variable(variable_id);
         self.add_reference(referenced, location, is_self_type);
     }
 
-    pub fn add_module_reference(
-        &mut self,
-        module_id: ModuleId,
-        location: Location,
-        is_self_type: bool,
-    ) {
+    pub fn add_module_reference(&mut self, module_id: ModuleId, location: Location, is_self_type: bool) {
         let referenced = ReferenceId::Module(module_id);
         self.add_reference(referenced, location, is_self_type);
     }
 
-    pub fn add_reference(
-        &mut self,
-        referenced: ReferenceId,
-        location: Location,
-        is_self_type: bool,
-    ) {
+    pub fn add_reference(&mut self, referenced: ReferenceId, location: Location, is_self_type: bool) {
         let reference = ReferenceId::Reference(location, is_self_type);
 
         let referenced_index = self.get_or_insert_reference(referenced);
         let reference_location = self.reference_location(reference);
         let reference_index = self.reference_graph.add_node(reference);
 
-        self.reference_graph
-            .add_edge(reference_index, referenced_index, ());
-        self.location_indices
-            .insert_span(reference_location, reference_index);
+        self.reference_graph.add_edge(reference_index, referenced_index, ());
+        self.location_indices.insert_span(reference_location, reference_index);
     }
 
-    pub fn find_all_references(
-        &self,
-        location: Location,
-        include_referenced: bool,
-        include_self_type_name: bool,
-    ) -> Option<Vec<Location>> {
+    pub fn find_all_references(&self, location: Location, include_referenced: bool, include_self_type_name: bool) -> Option<Vec<Location>> {
         let referenced_node = self.find_referenced(location)?;
         let referenced_node_index = self.reference_graph_indices[&referenced_node];
 
-        let found_locations = self.find_all_references_for_index(
-            referenced_node_index,
-            include_referenced,
-            include_self_type_name,
-        );
+        let found_locations = self.find_all_references_for_index(referenced_node_index, include_referenced, include_self_type_name);
 
         Some(found_locations)
     }
@@ -90,11 +64,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeCheckerVisitorContext<F, C> {
                 let module = &self.symbols[module_id];
                 let module_detail = format!(
                     "{}mod {}",
-                    if module.visibility == Visibility::Public {
-                        "pub "
-                    } else {
-                        ""
-                    },
+                    if module.visibility == Visibility::Public { "pub " } else { "" },
                     self.ident(module.name)
                 );
                 Some(module_detail)
@@ -108,11 +78,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeCheckerVisitorContext<F, C> {
                 // `let variable_name: type_name` or `variable_name: type_name`
                 let variable = &self.symbols[var_id];
                 // let variable_ty = &self.symbols[variable.ty];
-                let variable_detail = format!(
-                    "{} : {}",
-                    self.ident(variable.name),
-                    self.debug_type(variable.ty)
-                );
+                let variable_detail = format!("{} : {}", self.ident(variable.name), self.debug_type(variable.ty));
                 Some(variable_detail)
             }
         }
@@ -214,7 +180,8 @@ impl LocationIndices {
     ///
     /// This is typically used during `goto definition` or `find references`.
     /// It tolerates off-by-one errors caused by cursor positions being placed
-    /// immediately after the end of a word (e.g., clicking after an identifier).
+    /// immediately after the end of a word (e.g., clicking after an
+    /// identifier).
     pub(crate) fn resolve_node_at(&self, location: Location) -> Option<PetGraphIndex> {
         // Retrieve the range map for the given file.
         let range_table = self.map_file_to_range.get(&location.file_id)?;
@@ -224,8 +191,8 @@ impl LocationIndices {
             return Some(*index);
         }
 
-        // Fault-tolerance: if the cursor is just after a valid token (e.g., end of a word),
-        // try matching the previous byte.
+        // Fault-tolerance: if the cursor is just after a valid token (e.g., end of a
+        // word), try matching the previous byte.
         if location.start > 0 {
             if let Some(index) = range_table.get(&(location.start - 1)) {
                 return Some(*index);
@@ -238,10 +205,7 @@ impl LocationIndices {
 
 impl<F: Clone + From<u32> + ContextFelt, C> TypeCheckerVisitorContext<F, C> {
     pub fn location_to_position(&self, location: Location) -> Option<(Position, Position)> {
-        let file_content = self
-            .program
-            .file_resolver
-            .resolve_content(&location.file_id)?;
+        let file_content = self.program.file_resolver.resolve_content(&location.file_id)?;
         let (start_line, start_column) = line_and_column_from_offset(&file_content, location.start);
         let (end_line, end_column) = line_and_column_from_offset(&file_content, location.end);
         Some((
@@ -259,10 +223,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeCheckerVisitorContext<F, C> {
     }
 
     pub fn position_to_location(&self, position: Position) -> Option<Location> {
-        let file_content = self
-            .program
-            .file_resolver
-            .resolve_content(&position.file_id)?;
+        let file_content = self.program.file_resolver.resolve_content(&position.file_id)?;
         let offset = offset_from_position(&file_content, &position);
         Some(Location {
             file_id: position.file_id,
@@ -274,10 +235,7 @@ impl<F: Clone + From<u32> + ContextFelt, C> TypeCheckerVisitorContext<F, C> {
     pub fn position_to_file_path(&self, position: Position) -> Option<String> {
         format!(
             "{}:{}:{}",
-            self.program
-                .file_resolver
-                .resolve_path(&position.file_id)?
-                .display(),
+            self.program.file_resolver.resolve_path(&position.file_id)?.display(),
             position.line,
             position.column
         )

@@ -1,6 +1,7 @@
+use std::collections::HashMap;
+
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use tracing::{info, warn};
 
 /// EC2 instance type definition
@@ -18,7 +19,7 @@ pub struct InstanceType {
 /// Instance family classification
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum InstanceFamily {
-    GeneralPurpose,  // m5, m6i
+    GeneralPurpose,   // m5, m6i
     ComputeOptimized, // c5, c6i
     MemoryOptimized,  // r5, r6i
 }
@@ -129,7 +130,6 @@ impl InstanceCalculator {
                 network_performance: NetworkPerformance::High,
                 ebs_optimized: true,
             },
-            
             // M6i Series - General Purpose (Current Generation)
             InstanceType {
                 name: "m6i.large".to_string(),
@@ -167,7 +167,6 @@ impl InstanceCalculator {
                 network_performance: NetworkPerformance::VeryHigh,
                 ebs_optimized: true,
             },
-
             // C5 Series - Compute Optimized (Previous Generation)
             InstanceType {
                 name: "c5.large".to_string(),
@@ -205,7 +204,6 @@ impl InstanceCalculator {
                 network_performance: NetworkPerformance::High,
                 ebs_optimized: true,
             },
-
             // C6i Series - Compute Optimized (Current Generation)
             InstanceType {
                 name: "c6i.large".to_string(),
@@ -243,7 +241,6 @@ impl InstanceCalculator {
                 network_performance: NetworkPerformance::VeryHigh,
                 ebs_optimized: true,
             },
-
             // R5 Series - Memory Optimized (Previous Generation)
             InstanceType {
                 name: "r5.large".to_string(),
@@ -281,7 +278,6 @@ impl InstanceCalculator {
                 network_performance: NetworkPerformance::High,
                 ebs_optimized: true,
             },
-
             // R6i Series - Memory Optimized (Current Generation)
             InstanceType {
                 name: "r6i.large".to_string(),
@@ -345,8 +341,7 @@ impl InstanceCalculator {
 
         for instance_type in &self.instance_types {
             // Skip if network performance is insufficient for network-intensive workloads
-            if requirements.network_intensive && 
-               matches!(instance_type.network_performance, NetworkPerformance::Low | NetworkPerformance::Moderate) {
+            if requirements.network_intensive && matches!(instance_type.network_performance, NetworkPerformance::Low | NetworkPerformance::Moderate) {
                 continue;
             }
 
@@ -384,7 +379,7 @@ impl InstanceCalculator {
                 let total_cost = instance.price_per_hour * count as f32;
                 let total_vcpus = instance.vcpus * count;
                 let total_memory = instance.memory_gb * count as f32;
-                
+
                 let cpu_utilization = requirements.total_vcpus as f32 / total_vcpus as f32;
                 let memory_utilization = requirements.total_memory_gb / total_memory;
                 let avg_utilization = (cpu_utilization + memory_utilization) / 2.0;
@@ -411,7 +406,7 @@ impl InstanceCalculator {
                                 } else {
                                     1.0
                                 }
-                            },
+                            }
                             _ => 1.0,
                         };
                         generation_score * network_score * family_score / (count as f32).sqrt()
@@ -439,10 +434,7 @@ impl InstanceCalculator {
 
         let recommendation_reason = match strategy {
             OptimizationStrategy::CostOptimized => {
-                format!(
-                    "Selected {} x {} for lowest cost while meeting requirements",
-                    count, instance.name
-                )
+                format!("Selected {} x {} for lowest cost while meeting requirements", count, instance.name)
             }
             OptimizationStrategy::PerformanceOptimized => {
                 format!(
@@ -451,10 +443,7 @@ impl InstanceCalculator {
                 )
             }
             OptimizationStrategy::Balanced => {
-                format!(
-                    "Selected {} x {} for balanced cost/performance ratio",
-                    count, instance.name
-                )
+                format!("Selected {} x {} for balanced cost/performance ratio", count, instance.name)
             }
         };
 
@@ -492,9 +481,9 @@ impl InstanceCalculator {
         info!("\n=== Instance Recommendation ===");
         info!("Instance Type: {}", recommendation.instance_type.name);
         info!("Instance Count: {}", recommendation.instance_count);
-        info!("Total Resources: {} vCPUs, {:.1} GB RAM", 
-            recommendation.total_vcpus, 
-            recommendation.total_memory_gb
+        info!(
+            "Total Resources: {} vCPUs, {:.1} GB RAM",
+            recommendation.total_vcpus, recommendation.total_memory_gb
         );
         info!("Resource Utilization:");
         info!("  - CPU: {:.1}%", recommendation.cpu_utilization * 100.0);
@@ -509,52 +498,54 @@ impl InstanceCalculator {
     /// Print summary report for all recommendations
     pub fn print_summary_report(recommendations: &[(String, InstanceRecommendation)]) {
         info!("\n=== EC2 Instance Summary Report ===");
-        
+
         let mut total_instances = 0;
         let mut total_vcpus = 0;
         let mut total_memory_gb = 0.0;
         let mut total_hourly_cost = 0.0;
-        
+
         // Group by instance type
         let mut instance_type_counts: HashMap<String, u32> = HashMap::new();
-        
+
         for (_, rec) in recommendations {
             total_instances += rec.instance_count;
             total_vcpus += rec.total_vcpus;
             total_memory_gb += rec.total_memory_gb;
             total_hourly_cost += rec.hourly_cost;
-            
+
             *instance_type_counts.entry(rec.instance_type.name.clone()).or_insert(0) += rec.instance_count;
         }
-        
+
         info!("\nTotal Resources Required:");
         info!("  - Instances: {}", total_instances);
         info!("  - vCPUs: {}", total_vcpus);
         info!("  - Memory: {:.1} GB", total_memory_gb);
-        
+
         info!("\nInstance Type Distribution:");
         let mut types: Vec<_> = instance_type_counts.iter().collect();
         types.sort_by_key(|(name, _)| name.as_str());
         for (instance_type, count) in types {
             info!("  - {}: {} instances", instance_type, count);
         }
-        
+
         info!("\nTotal Cost Estimation:");
         info!("  - Hourly: ${:.2}", total_hourly_cost);
         info!("  - Daily: ${:.2}", total_hourly_cost * 24.0);
         info!("  - Monthly: ${:.2}", total_hourly_cost * 24.0 * 30.0);
         info!("  - Yearly: ${:.2}", total_hourly_cost * 24.0 * 365.0);
-        
+
         // Cost savings with reserved instances
         let one_year_reserved_discount = 0.28; // ~28% discount
         let three_year_reserved_discount = 0.48; // ~48% discount
-        
+
         info!("\nPotential Savings with Reserved Instances:");
-        info!("  - 1-Year Reserved: ${:.2}/year (save ${:.2})", 
+        info!(
+            "  - 1-Year Reserved: ${:.2}/year (save ${:.2})",
             total_hourly_cost * 24.0 * 365.0 * (1.0 - one_year_reserved_discount),
             total_hourly_cost * 24.0 * 365.0 * one_year_reserved_discount
         );
-        info!("  - 3-Year Reserved: ${:.2}/year (save ${:.2})", 
+        info!(
+            "  - 3-Year Reserved: ${:.2}/year (save ${:.2})",
             total_hourly_cost * 24.0 * 365.0 * (1.0 - three_year_reserved_discount),
             total_hourly_cost * 24.0 * 365.0 * three_year_reserved_discount
         );
@@ -593,7 +584,7 @@ impl InstanceCalculator {
         // - High memory for caching
         // - Good network performance for replication
         // - Moderate CPU (not compute intensive)
-        
+
         // For production Redis, r6i.large (2 vCPU, 16GB RAM) is a good starting point
         let instance = InstanceType {
             name: "r6i.large".to_string(),
@@ -610,7 +601,7 @@ impl InstanceCalculator {
             instance_count: node_count,
             total_vcpus: instance.vcpus * node_count,
             total_memory_gb: instance.memory_gb * node_count as f32,
-            cpu_utilization: 0.5, // Redis is not CPU intensive
+            cpu_utilization: 0.5,    // Redis is not CPU intensive
             memory_utilization: 0.7, // Good memory utilization
             hourly_cost: instance.price_per_hour * node_count as f32,
             monthly_cost: instance.price_per_hour * node_count as f32 * 24.0 * 30.0,
@@ -622,16 +613,13 @@ impl InstanceCalculator {
     }
 
     /// Get recommended instance types for ScyllaDB cluster on EC2
-    pub fn recommend_scylladb_cluster_instances(
-        node_count: u32,
-        high_performance: bool,
-    ) -> InstanceRecommendation {
+    pub fn recommend_scylladb_cluster_instances(node_count: u32, high_performance: bool) -> InstanceRecommendation {
         // ScyllaDB requirements:
         // - High CPU for processing
         // - High memory for caching
         // - Very high disk I/O
         // - Excellent network performance for replication
-        
+
         let instance = if high_performance {
             // i3en.2xlarge: 8 vCPU, 64GB RAM, 2x2.5TB NVMe SSD
             InstanceType {
@@ -682,7 +670,7 @@ mod tests {
     #[test]
     fn test_instance_recommendation() {
         let calculator = InstanceCalculator::new();
-        
+
         let requirements = ServiceGroupRequirements {
             name: "test-group".to_string(),
             total_vcpus: 16,

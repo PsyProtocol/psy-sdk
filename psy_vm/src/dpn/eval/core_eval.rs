@@ -1,6 +1,6 @@
 use core::panic;
+use std::ops::Neg;
 
-use crate::dpn::ops::{op_types::DPNOpType, sym_felt::SymFeltRef, sym_felt_store::SymFeltStore};
 use k256::ecdsa::Signature;
 use plonky2::{
     field::{
@@ -10,9 +10,9 @@ use plonky2::{
     hash::poseidon::PoseidonHash,
     plonk::config::{GenericHashOut, Hasher},
 };
-use std::ops::Neg;
 
 use super::traits::{ContextEval, ContextInput, EvalCache};
+use crate::dpn::ops::{op_types::DPNOpType, sym_felt::SymFeltRef, sym_felt_store::SymFeltStore};
 fn split_bits(x: u64, num_bits: u64) -> Vec<u64> {
     let mut result = vec![0u64; num_bits as usize];
     for i in 0..num_bits {
@@ -26,24 +26,9 @@ fn sum_bits(bits: &[u64]) -> u64 {
     GoldilocksField::from_noncanonical_u64(result).to_canonical_u64()
 }
 trait EvalHelpers: ContextEval {
-    fn resolve_binary_felt_args<I: ContextInput, C: EvalCache>(
-        &self,
-        parent: SymFeltRef,
-        input: &I,
-        cache: &mut C,
-    ) -> (u64, u64);
-    fn resolve_unary_felt_arg<I: ContextInput, C: EvalCache>(
-        &self,
-        parent: SymFeltRef,
-        input: &I,
-        cache: &mut C,
-    ) -> u64;
-    fn resolve_array_args<I: ContextInput, C: EvalCache>(
-        &self,
-        parent: SymFeltRef,
-        input: &I,
-        cache: &mut C,
-    ) -> Vec<u64>;
+    fn resolve_binary_felt_args<I: ContextInput, C: EvalCache>(&self, parent: SymFeltRef, input: &I, cache: &mut C) -> (u64, u64);
+    fn resolve_unary_felt_arg<I: ContextInput, C: EvalCache>(&self, parent: SymFeltRef, input: &I, cache: &mut C) -> u64;
+    fn resolve_array_args<I: ContextInput, C: EvalCache>(&self, parent: SymFeltRef, input: &I, cache: &mut C) -> Vec<u64>;
     fn resolve_binary_felt_args_gl<I: ContextInput, C: EvalCache>(
         &self,
         parent: SymFeltRef,
@@ -51,63 +36,32 @@ trait EvalHelpers: ContextEval {
         cache: &mut C,
     ) -> (GoldilocksField, GoldilocksField) {
         let (a, b) = self.resolve_binary_felt_args(parent, input, cache);
-        (
-            GoldilocksField::from_noncanonical_u64(a),
-            GoldilocksField::from_noncanonical_u64(b),
-        )
+        (GoldilocksField::from_noncanonical_u64(a), GoldilocksField::from_noncanonical_u64(b))
     }
-    fn resolve_unary_felt_arg_gl<I: ContextInput, C: EvalCache>(
-        &self,
-        parent: SymFeltRef,
-        input: &I,
-        cache: &mut C,
-    ) -> GoldilocksField {
+    fn resolve_unary_felt_arg_gl<I: ContextInput, C: EvalCache>(&self, parent: SymFeltRef, input: &I, cache: &mut C) -> GoldilocksField {
         let resolved = self.resolve_unary_felt_arg(parent, input, cache);
         GoldilocksField::from_noncanonical_u64(resolved)
     }
-    fn resolve_array_args_gl<I: ContextInput, C: EvalCache>(
-        &self,
-        parent: SymFeltRef,
-        input: &I,
-        cache: &mut C,
-    ) -> Vec<GoldilocksField> {
+    fn resolve_array_args_gl<I: ContextInput, C: EvalCache>(&self, parent: SymFeltRef, input: &I, cache: &mut C) -> Vec<GoldilocksField> {
         let resolved = self.resolve_array_args(parent, input, cache);
-        resolved
-            .iter()
-            .map(|x| GoldilocksField::from_noncanonical_u64(*x))
-            .collect()
+        resolved.iter().map(|x| GoldilocksField::from_noncanonical_u64(*x)).collect()
     }
 }
 impl EvalHelpers for SymFeltStore {
-    fn resolve_binary_felt_args<I: ContextInput, C: EvalCache>(
-        &self,
-        parent: SymFeltRef,
-        input: &I,
-        cache: &mut C,
-    ) -> (u64, u64) {
+    fn resolve_binary_felt_args<I: ContextInput, C: EvalCache>(&self, parent: SymFeltRef, input: &I, cache: &mut C) -> (u64, u64) {
         let resolved = &self.get(parent).inputs;
         assert_eq!(resolved.len(), 2);
         let left = self.resolve_felt_ref_cached(resolved[0], input, cache);
         let right = self.resolve_felt_ref_cached(resolved[1], input, cache);
         (left, right)
     }
-    fn resolve_unary_felt_arg<I: ContextInput, C: EvalCache>(
-        &self,
-        parent: SymFeltRef,
-        input: &I,
-        cache: &mut C,
-    ) -> u64 {
+    fn resolve_unary_felt_arg<I: ContextInput, C: EvalCache>(&self, parent: SymFeltRef, input: &I, cache: &mut C) -> u64 {
         let resolved = &self.get(parent).inputs;
         assert_eq!(resolved.len(), 1);
         self.resolve_felt_ref_cached(resolved[0], input, cache)
     }
 
-    fn resolve_array_args<I: ContextInput, C: EvalCache>(
-        &self,
-        parent: SymFeltRef,
-        input: &I,
-        cache: &mut C,
-    ) -> Vec<u64> {
+    fn resolve_array_args<I: ContextInput, C: EvalCache>(&self, parent: SymFeltRef, input: &I, cache: &mut C) -> Vec<u64> {
         let resolved = &self.get(parent).inputs;
         resolved
             .iter()
@@ -116,12 +70,7 @@ impl EvalHelpers for SymFeltStore {
     }
 }
 impl ContextEval for SymFeltStore {
-    fn resolve_felt_ref_cached<I: ContextInput, C: EvalCache>(
-        &self,
-        felt_ref: SymFeltRef,
-        input: &I,
-        cache: &mut C,
-    ) -> u64 {
+    fn resolve_felt_ref_cached<I: ContextInput, C: EvalCache>(&self, felt_ref: SymFeltRef, input: &I, cache: &mut C) -> u64 {
         if felt_ref.is_constant_type() {
             felt_ref.get_constant_value()
         } else if cache.contains(felt_ref) {
@@ -149,9 +98,7 @@ impl ContextEval for SymFeltStore {
                     let (a, b) = self.resolve_binary_felt_args_gl(felt_ref, input, cache);
                     (a / b).to_canonical_u64()
                 }
-                DPNOpType::BoolNot => {
-                    (self.resolve_unary_felt_arg(felt_ref, input, cache) == 0) as u64
-                }
+                DPNOpType::BoolNot => (self.resolve_unary_felt_arg(felt_ref, input, cache) == 0) as u64,
                 DPNOpType::BoolAnd => {
                     let (a, b) = self.resolve_binary_felt_args(felt_ref, input, cache);
                     ((a != 0) && (b != 0)) as u64
@@ -207,54 +154,52 @@ impl ContextEval for SymFeltStore {
                     } else {
                         args[2]
                     }
-                },
+                }
                 DPNOpType::Exp => {
                     let (base, exponent) = self.resolve_binary_felt_args_gl(felt_ref, input, cache);
                     base.exp_u64(exponent.to_canonical_u64()).to_canonical_u64()
-                },
+                }
                 DPNOpType::ExpConstantPower => panic!("ExpConstantPower is not implemented"),
                 DPNOpType::ExpConstantBase => panic!("ExpConstantBase is not implemented"),
                 DPNOpType::Mod => {
                     let (a, b) = self.resolve_binary_felt_args(felt_ref, input, cache);
                     a % b
-                },
+                }
                 DPNOpType::ModConstantDividend => panic!("ModConstantDividend is not implemented"),
                 DPNOpType::ModConstantDivisor => panic!("ModConstantDivisor is not implemented"),
                 DPNOpType::DivRem4 => {
                     todo!("DivRem4 is not implemented");
-                },
+                }
                 DPNOpType::CastU32 => {
                     let value = self.resolve_unary_felt_arg(felt_ref, input, cache);
                     assert!(value < 0xffffffffu64, "invalid u32 value");
                     value & 0xFFFFFFFFu64
-                },
+                }
                 DPNOpType::U32And => {
                     let (a, b) = self.resolve_binary_felt_args(felt_ref, input, cache);
-                    (a & b)& 0xFFFFFFFFu64
-                },
+                    (a & b) & 0xFFFFFFFFu64
+                }
                 DPNOpType::U32AndConstant => todo!("U32AndConstant is not implemented"),
                 DPNOpType::U32Or => {
                     let (a, b) = self.resolve_binary_felt_args(felt_ref, input, cache);
                     (a | b) & 0xFFFFFFFFu64
-                },
+                }
                 DPNOpType::U32OrConstant => todo!("U32OrConstant is not implemented"),
                 DPNOpType::U32Xor => {
-
                     let (a, b) = self.resolve_binary_felt_args(felt_ref, input, cache);
                     (a ^ b) & 0xFFFFFFFFu64
-                },
+                }
                 DPNOpType::U32XorConstant => todo!("U32XorConstant is not implemented"),
                 DPNOpType::U32ShiftLeft => {
-
                     let (a, b) = self.resolve_binary_felt_args(felt_ref, input, cache);
                     (a << b) & 0xFFFFFFFFu64
-                },
+                }
                 DPNOpType::U32ShiftLeftConstantBitDistance => todo!("U32ShiftLeftConstantBitDistance is not implemented"),
-                DPNOpType::U32ShiftLeftConstantValue =>todo!("U32ShiftLeftConstantValue is not implemented"),
-                DPNOpType::U32ShiftRight =>{
+                DPNOpType::U32ShiftLeftConstantValue => todo!("U32ShiftLeftConstantValue is not implemented"),
+                DPNOpType::U32ShiftRight => {
                     let (a, b) = self.resolve_binary_felt_args(felt_ref, input, cache);
                     (a >> b) & 0xFFFFFFFFu64
-                },
+                }
                 DPNOpType::U32ShiftRightConstantBitDistance => todo!("U32ShiftLeftConstantValue is not implemented"),
                 DPNOpType::U32ShiftRightConstantValue => todo!("U32ShiftLeftConstantValue is not implemented"),
                 DPNOpType::CalculateMerkleRoot => todo!("CalculateMerkleRoot is not implemented"),
@@ -266,13 +211,8 @@ impl ContextEval for SymFeltStore {
                 DPNOpType::GetUserPublicKeyHash => todo!(),
                 DPNOpType::GetStateQueryResult => todo!(),
                 DPNOpType::GetStateQueryResultSingle => todo!(),
-                DPNOpType::UnaryInverse => {
-                    self.resolve_unary_felt_arg_gl(felt_ref, input, cache).inverse().to_canonical_u64()
-                },
-                DPNOpType::UnaryNegative => {
-                    self.resolve_unary_felt_arg_gl(felt_ref, input, cache).neg().to_canonical_u64()
-
-                },
+                DPNOpType::UnaryInverse => self.resolve_unary_felt_arg_gl(felt_ref, input, cache).inverse().to_canonical_u64(),
+                DPNOpType::UnaryNegative => self.resolve_unary_felt_arg_gl(felt_ref, input, cache).neg().to_canonical_u64(),
                 DPNOpType::GetStateCommandResultHash => todo!(),
                 DPNOpType::GetStateCommandResultSingle => todo!(),
                 DPNOpType::GetStateCommandResultArray => todo!(),
@@ -289,7 +229,7 @@ impl ContextEval for SymFeltStore {
                     let (a, b) = self.resolve_binary_felt_args(felt_ref, input, cache);
                     assert!(a < 0xffffffffu64, "a is too large");
                     assert!(b < 0xffffffffu64, "b is too large");
-                    assert!(a > b , "a - b < 0");
+                    assert!(a > b, "a - b < 0");
                     (a - b) & 0xffffffffu64
                 }
                 DPNOpType::U32Mul => {
@@ -325,7 +265,7 @@ impl ContextEval for SymFeltStore {
                     let (base, exponent) = self.resolve_binary_felt_args_gl(felt_ref, input, cache);
                     assert!(base.to_canonical_u64() < 0xffffffffu64, "a is too large");
                     assert!(exponent.to_canonical_u64() < 0xffffffffu64, "b is too large");
-                    
+
                     let res = base.exp_u64(exponent.to_canonical_u64()).to_canonical_u64();
                     assert!(res < 0xffffffffu64, "u32 exp result is too large");
                     res
@@ -342,21 +282,12 @@ impl ContextEval for SymFeltStore {
                             *k as u32
                         })
                         .collect::<Vec<u32>>();
-                    let pk_x_bytes = pk_u32[0..8]
-                        .iter()
-                        .flat_map(|&num| num.to_le_bytes())
-                        .rev()
-                        .collect::<Vec<_>>();
-                    let pk_y_bytes = pk_u32[8..16]
-                        .iter()
-                        .flat_map(|&num| num.to_le_bytes())
-                        .rev()
-                        .collect::<Vec<_>>();
+                    let pk_x_bytes = pk_u32[0..8].iter().flat_map(|&num| num.to_le_bytes()).rev().collect::<Vec<_>>();
+                    let pk_y_bytes = pk_u32[8..16].iter().flat_map(|&num| num.to_le_bytes()).rev().collect::<Vec<_>>();
                     let mut pk_sec1_bytes = vec![0x04];
                     pk_sec1_bytes.extend(pk_x_bytes);
                     pk_sec1_bytes.extend(pk_y_bytes);
-                    let vk = k256::ecdsa::VerifyingKey::from_sec1_bytes(&pk_sec1_bytes)
-                        .expect("secp pk must be valid");
+                    let vk = k256::ecdsa::VerifyingKey::from_sec1_bytes(&pk_sec1_bytes).expect("secp pk must be valid");
                     let signature_u32 = inputs[16..32]
                         .to_vec()
                         .iter()
@@ -366,30 +297,16 @@ impl ContextEval for SymFeltStore {
                         })
                         .collect::<Vec<u32>>();
 
-                    let signature_r_bytes = signature_u32[0..8].iter()
-                        .flat_map(|&num| num.to_le_bytes())
-                        .rev()
-                        .collect::<Vec<_>>();
-                    let signature_s_bytes = signature_u32[8..16].iter()
-                        .flat_map(|&num| num.to_le_bytes())
-                        .rev()
-                        .collect::<Vec<_>>();
+                    let signature_r_bytes = signature_u32[0..8].iter().flat_map(|&num| num.to_le_bytes()).rev().collect::<Vec<_>>();
+                    let signature_s_bytes = signature_u32[8..16].iter().flat_map(|&num| num.to_le_bytes()).rev().collect::<Vec<_>>();
 
-                    let signature_bytes = signature_r_bytes
-                        .iter()
-                        .chain(signature_s_bytes.iter())
-                        .cloned()
-                        .collect::<Vec<_>>();
-                    
-                    let signature = Signature::from_slice(&signature_bytes)
-                        .expect("secp signature must be valid");
+                    let signature_bytes = signature_r_bytes.iter().chain(signature_s_bytes.iter()).cloned().collect::<Vec<_>>();
 
-                    let msg_bytes = inputs[32..36].iter()
-                        .flat_map(|&num| num.to_le_bytes())
-                        .rev()
-                        .collect::<Vec<_>>();
+                    let signature = Signature::from_slice(&signature_bytes).expect("secp signature must be valid");
 
-                    match vk.verify_prehash(&msg_bytes, &signature){
+                    let msg_bytes = inputs[32..36].iter().flat_map(|&num| num.to_le_bytes()).rev().collect::<Vec<_>>();
+
+                    match vk.verify_prehash(&msg_bytes, &signature) {
                         Ok(_) => 1,
                         Err(_) => 0,
                     }
@@ -399,12 +316,7 @@ impl ContextEval for SymFeltStore {
         }
     }
 
-    fn resolve_array_ref_cached<I: ContextInput, C: EvalCache>(
-        &self,
-        felt_ref: SymFeltRef,
-        input: &I,
-        cache: &mut C,
-    ) -> Box<Vec<u64>> {
+    fn resolve_array_ref_cached<I: ContextInput, C: EvalCache>(&self, felt_ref: SymFeltRef, input: &I, cache: &mut C) -> Box<Vec<u64>> {
         if cache.contains_arr(felt_ref) {
             cache.get_arr_ref(felt_ref)
         } else {
@@ -418,7 +330,7 @@ impl ContextEval for SymFeltStore {
                     let data = self.resolve_array_args_gl(felt_ref, input, cache);
                     let result = PoseidonHash::hash_no_pad(&data).to_vec();
                     result.iter().map(|x| x.to_canonical_u64()).collect()
-                },
+                }
                 DPNOpType::HashTwoToOne => {
                     let inputs = self.resolve_array_args_gl(felt_ref, input, cache);
                     assert_eq!(inputs.len(), 8, "HashTwoToOne requires exactly 8 inputs");
@@ -430,12 +342,12 @@ impl ContextEval for SymFeltStore {
                     };
                     let result = PoseidonHash::two_to_one(left, right);
                     result.elements.iter().map(|x| x.to_canonical_u64()).collect()
-                },
+                }
                 DPNOpType::HashPad => {
                     let data = self.resolve_array_args_gl(felt_ref, input, cache);
                     let result = PoseidonHash::hash_pad(&data).to_vec();
                     result.iter().map(|x| x.to_canonical_u64()).collect()
-                },
+                }
                 DPNOpType::GetUserPublicKeyHash => input.get_user_public_key_hash().to_vec(),
                 _ => panic!("you cannot directly evaluate an array ref"),
             };

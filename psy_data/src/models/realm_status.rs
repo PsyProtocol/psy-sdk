@@ -5,7 +5,13 @@ use plonky2::hash::hash_types::RichField;
 
 use crate::qdata::{realm_id_key::RealmTableIdKey, realm_status::BasicRealmStatus};
 
-pub trait RealmStatusModelReaderCore<const TABLE_TYPE: u16, F: RichField, S, IDKVA: KVQStoreAdapterReader<S, RealmTableIdKey<TABLE_TYPE>, BasicRealmStatus<F>>> {
+pub trait RealmStatusModelReaderCore<
+    const TABLE_TYPE: u16,
+    F: RichField,
+    S,
+    IDKVA: KVQStoreAdapterReader<S, RealmTableIdKey<TABLE_TYPE>, BasicRealmStatus<F>>,
+>
+{
     fn get_realm_status_by_id(store: &S, realm_id: u64) -> anyhow::Result<BasicRealmStatus<F>> {
         IDKVA::get_exact(store, &RealmTableIdKey::new(realm_id))
             .map_err(|e| anyhow::format_err!("Realm {} Status not found, {}", realm_id, e.to_string()))
@@ -37,11 +43,11 @@ pub struct RealmStatusModel<const TABLE_TYPE: u16, F: RichField, S, IDKVA> {
     _phantom_data: PhantomData<F>,
 }
 
-impl<const TABLE_TYPE: u16, F: RichField, S, IDKVA: KVQStoreAdapterReader<S, RealmTableIdKey<TABLE_TYPE>, BasicRealmStatus<F>>> RealmStatusModelReaderCore<TABLE_TYPE, F, S, IDKVA>
-    for RealmStatusModel<TABLE_TYPE, F, S, IDKVA>
+impl<const TABLE_TYPE: u16, F: RichField, S, IDKVA: KVQStoreAdapterReader<S, RealmTableIdKey<TABLE_TYPE>, BasicRealmStatus<F>>>
+    RealmStatusModelReaderCore<TABLE_TYPE, F, S, IDKVA> for RealmStatusModel<TABLE_TYPE, F, S, IDKVA>
 {
 }
-impl<const TABLE_TYPE: u16, F: RichField, S, IDKVA: KVQStoreAdapter<S, RealmTableIdKey<TABLE_TYPE>, BasicRealmStatus<F>>> RealmStatusModelCore<TABLE_TYPE, F, S, IDKVA>
-    for RealmStatusModel<TABLE_TYPE, F, S, IDKVA>
+impl<const TABLE_TYPE: u16, F: RichField, S, IDKVA: KVQStoreAdapter<S, RealmTableIdKey<TABLE_TYPE>, BasicRealmStatus<F>>>
+    RealmStatusModelCore<TABLE_TYPE, F, S, IDKVA> for RealmStatusModel<TABLE_TYPE, F, S, IDKVA>
 {
 }

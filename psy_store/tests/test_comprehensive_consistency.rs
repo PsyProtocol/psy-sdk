@@ -1,10 +1,7 @@
 use anyhow::Result;
 use kvq::traits::{KVQBinaryStore, KVQBinaryStoreAsync, KVQSerializable};
-use psy_store::store::lmdbx::KVQlibmdbxStore;
-use psy_store::store::scylla::ScyllaStore;
-use psy_data::config::store_config::*;
-use psy_data::qdata::u64_key::U64TableKey;
-use psy_data::models::kvq_merkle::key::KVQMerkleNodeKey;
+use psy_data::{config::store_config::*, models::kvq_merkle::key::KVQMerkleNodeKey, qdata::u64_key::U64TableKey};
+use psy_store::store::{lmdbx::KVQlibmdbxStore, scylla::ScyllaStore};
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn test_comprehensive_consistency() -> Result<()> {
@@ -133,8 +130,10 @@ async fn test_comprehensive_consistency() -> Result<()> {
                 if mdbx_result == scylla_result {
                     passed_tests += 1;
                 } else {
-                    println!("      ❌ Mismatch: level={}, index={}, checkpoint={}, fuzzy_bytes={}",
-                             query_level, query_index, query_checkpoint, fuzzy_bytes);
+                    println!(
+                        "      ❌ Mismatch: level={}, index={}, checkpoint={}, fuzzy_bytes={}",
+                        query_level, query_index, query_checkpoint, fuzzy_bytes
+                    );
                 }
             }
         }
@@ -183,8 +182,10 @@ async fn test_comprehensive_consistency() -> Result<()> {
                 if mdbx_result == scylla_result {
                     passed_tests += 1;
                 } else {
-                    println!("      ❌ Mismatch: user={}, version={}, fuzzy_bytes={}",
-                             query_user, query_version, fuzzy_bytes);
+                    println!(
+                        "      ❌ Mismatch: user={}, version={}, fuzzy_bytes={}",
+                        query_user, query_version, fuzzy_bytes
+                    );
                 }
             }
         }
@@ -233,8 +234,10 @@ async fn test_comprehensive_consistency() -> Result<()> {
                 if mdbx_result == scylla_result {
                     passed_tests += 1;
                 } else {
-                    println!("      ❌ Mismatch: user={}, version={}, fuzzy_bytes={}",
-                             query_user, query_version, fuzzy_bytes);
+                    println!(
+                        "      ❌ Mismatch: user={}, version={}, fuzzy_bytes={}",
+                        query_user, query_version, fuzzy_bytes
+                    );
                 }
             }
         }
@@ -291,7 +294,11 @@ async fn test_comprehensive_consistency() -> Result<()> {
     println!("FINAL RESULTS:");
     println!("Total tests: {}", total_tests);
     println!("Passed: {} ({:.2}%)", passed_tests, (passed_tests as f64 / total_tests as f64) * 100.0);
-    println!("Failed: {} ({:.2}%)", total_tests - passed_tests, ((total_tests - passed_tests) as f64 / total_tests as f64) * 100.0);
+    println!(
+        "Failed: {} ({:.2}%)",
+        total_tests - passed_tests,
+        ((total_tests - passed_tests) as f64 / total_tests as f64) * 100.0
+    );
 
     if passed_tests == total_tests {
         println!("\n✅ ALL TESTS PASSED! LibMDBX and ScyllaDB are fully consistent!");

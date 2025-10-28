@@ -1,8 +1,7 @@
-mod subcommand;
 mod aws;
-use psy_dev_cli::test_helpers;
-
+mod subcommand;
 use clap::Parser;
+use psy_dev_cli::test_helpers;
 use subcommand::{Cli, Commands};
 
 #[tokio::main]
@@ -11,7 +10,7 @@ async fn main() -> anyhow::Result<()> {
 
     let cli = Cli::parse();
     psy_common::setup_logging()?;
-    
+
     match cli.command {
         Commands::TestFullGroup1(args) => {
             subcommand::test_full_group_1::run(args).await?;
@@ -74,6 +73,6 @@ async fn main() -> anyhow::Result<()> {
             subcommand::check_registered_users::run(args).await?;
         }
     }
-    
+
     Ok(())
 }

@@ -1,3 +1,5 @@
+use std::{collections::HashMap, sync::Arc};
+
 use axum::{
     extract::{
         ws::{Message, WebSocket, WebSocketUpgrade},
@@ -7,7 +9,6 @@ use axum::{
 };
 use futures::{sink::SinkExt, stream::StreamExt};
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, sync::Arc};
 use tokio::sync::{mpsc, RwLock};
 
 use crate::{models::*, services::ApiService};
@@ -39,11 +40,7 @@ pub struct UpdateUserEventConfigurationMessage {
 use super::{EventType, WebSocketEvent};
 
 impl UserEventManager {
-    pub async fn add_connection(
-        &self,
-        connection_id: ConnectionId,
-        connection: UserEventConnection,
-    ) {
+    pub async fn add_connection(&self, connection_id: ConnectionId, connection: UserEventConnection) {
         tracing::info!("Adding user event WebSocket connection: {}", connection_id);
         tracing::info!("Connection details: {:#?}", connection);
         let mut connections = self.connections.write().await;
@@ -52,33 +49,21 @@ impl UserEventManager {
     }
 
     pub async fn remove_connection(&self, connection_id: &ConnectionId) {
-        tracing::info!(
-            "Removing user event WebSocket connection: {}",
-            connection_id
-        );
+        tracing::info!("Removing user event WebSocket connection: {}", connection_id);
         let mut connections = self.connections.write().await;
         connections.remove(connection_id);
         tracing::info!("Total active user event connections: {}", connections.len());
     }
 
     pub async fn update_filters(&self, connection_id: &ConnectionId, filters: UserEventFilters) {
-        tracing::info!(
-            "Updating user event filters for connection: {}",
-            connection_id
-        );
+        tracing::info!("Updating user event filters for connection: {}", connection_id);
         tracing::info!("New filters: {:?}", filters);
         let mut connections = self.connections.write().await;
         if let Some(connection) = connections.get_mut(connection_id) {
             connection.filters = filters;
-            tracing::info!(
-                "User event filters updated successfully for connection: {}",
-                connection_id
-            );
+            tracing::info!("User event filters updated successfully for connection: {}", connection_id);
         } else {
-            tracing::warn!(
-                "User event connection not found for filter update: {}",
-                connection_id
-            );
+            tracing::warn!("User event connection not found for filter update: {}", connection_id);
         }
     }
 
@@ -96,22 +81,14 @@ impl UserEventManager {
 
         for (connection_id, connection) in connections.iter() {
             if self.should_send_event(connection, event) {
-                let message = Message::Text(
-                    serde_json::to_string(&websocket_event)
-                        .unwrap_or_default()
-                        .into(),
-                );
+                let message = Message::Text(serde_json::to_string(&websocket_event).unwrap_or_default().into());
                 match connection.sender.send(message) {
                     Ok(_) => {
                         sent_count += 1;
                         tracing::info!("User event sent to connection: {}", connection_id);
                     }
                     Err(e) => {
-                        tracing::warn!(
-                            "Failed to send user event to connection {}: {}",
-                            connection_id,
-                            e
-                        );
+                        tracing::warn!("Failed to send user event to connection {}: {}", connection_id, e);
                     }
                 }
             } else {
@@ -119,11 +96,7 @@ impl UserEventManager {
             }
         }
 
-        tracing::info!(
-            "User event broadcast completed: sent to {}/{} connections",
-            sent_count,
-            total_connections
-        );
+        tracing::info!("User event broadcast completed: sent to {}/{} connections", sent_count, total_connections);
     }
 
     fn should_send_event(&self, connection: &UserEventConnection, event: &UserEvent) -> bool {
@@ -134,10 +107,7 @@ impl UserEventManager {
     }
 }
 
-pub async fn user_event_websocket_handler(
-    ws: WebSocketUpgrade,
-    State(service): State<ApiService>,
-) -> Response {
+pub async fn user_event_websocket_handler(ws: WebSocketUpgrade, State(service): State<ApiService>) -> Response {
     ws.on_upgrade(move |socket| handle_user_event_socket(socket, service))
 }
 
@@ -146,10 +116,7 @@ async fn handle_user_event_socket(socket: WebSocket, service: ApiService) {
     let (tx, mut rx) = mpsc::unbounded_channel();
 
     let connection_id = uuid::Uuid::new_v4().to_string();
-    tracing::info!(
-        "New user event WebSocket connection established: {}",
-        connection_id
-    );
+    tracing::info!("New user event WebSocket connection established: {}", connection_id);
 
     let connection_id_clone = connection_id.clone();
     let manager = service.user_event_manager.clone();
@@ -162,63 +129,41 @@ async fn handle_user_event_socket(socket: WebSocket, service: ApiService) {
         sender: tx,
     };
 
-    manager
-        .add_connection(connection_id.clone(), connection)
-        .await;
+    manager.add_connection(connection_id.clone(), connection).await;
 
     // Spawn task to handle outgoing messages
     let mut ws_sender = ws_sender;
     let outgoing_connection_id = connection_id.clone();
     tokio::spawn(async move {
-        tracing::info!(
-            "Started user event outgoing message handler for connection: {}",
-            outgoing_connection_id
-        );
+        tracing::info!("Started user event outgoing message handler for connection: {}", outgoing_connection_id);
         while let Some(message) = rx.recv().await {
-            tracing::info!(
-                "Sending user event message to connection: {}",
-                outgoing_connection_id
-            );
+            tracing::info!("Sending user event message to connection: {}", outgoing_connection_id);
             if ws_sender.send(message).await.is_err() {
-                tracing::warn!(
-                    "Failed to send user event message to connection: {}",
-                    outgoing_connection_id
-                );
+                tracing::warn!("Failed to send user event message to connection: {}", outgoing_connection_id);
                 break;
             }
         }
-        tracing::info!(
-            "User event outgoing message handler ended for connection: {}",
-            outgoing_connection_id
-        );
+        tracing::info!("User event outgoing message handler ended for connection: {}", outgoing_connection_id);
     });
 
     // Handle incoming messages
     let incoming_task = tokio::spawn(async move {
-        tracing::info!(
-            "Started user event incoming message handler for connection: {}",
-            connection_id_clone
-        );
+        tracing::info!("Started user event incoming message handler for connection: {}", connection_id_clone);
         while let Some(msg) = ws_receiver.next().await {
             match msg {
                 Ok(Message::Text(text)) => {
-                    tracing::info!(
-                        "Received user event text message from connection {}: {}",
-                        connection_id_clone,
-                        text
-                    );
+                    tracing::info!("Received user event text message from connection {}: {}", connection_id_clone, text);
                     match serde_json::from_str::<UpdateUserEventConfigurationMessage>(&text) {
                         Ok(config) => {
-                            manager_clone
-                                .update_filters(&connection_id_clone, config.filters)
-                                .await;
-                            tracing::info!(
-                                "Updated user event filters for connection {}",
-                                connection_id_clone
-                            );
+                            manager_clone.update_filters(&connection_id_clone, config.filters).await;
+                            tracing::info!("Updated user event filters for connection {}", connection_id_clone);
                         }
                         Err(e) => {
-                            tracing::warn!("Failed to parse user event filter configuration from connection {}: {}", connection_id_clone, e);
+                            tracing::warn!(
+                                "Failed to parse user event filter configuration from connection {}: {}",
+                                connection_id_clone,
+                                e
+                            );
                         }
                     }
                 }
@@ -227,30 +172,17 @@ async fn handle_user_event_socket(socket: WebSocket, service: ApiService) {
                     break;
                 }
                 Ok(Message::Ping(_)) => {
-                    tracing::info!(
-                        "Received ping from user event connection {}",
-                        connection_id_clone
-                    );
+                    tracing::info!("Received ping from user event connection {}", connection_id_clone);
                 }
                 Ok(Message::Pong(_)) => {
-                    tracing::info!(
-                        "Received pong from user event connection {}",
-                        connection_id_clone
-                    );
+                    tracing::info!("Received pong from user event connection {}", connection_id_clone);
                 }
                 Err(e) => {
-                    tracing::error!(
-                        "User event WebSocket error for connection {}: {}",
-                        connection_id_clone,
-                        e
-                    );
+                    tracing::error!("User event WebSocket error for connection {}: {}", connection_id_clone, e);
                     break;
                 }
                 _ => {
-                    tracing::warn!(
-                        "Received other message type from user event connection {}",
-                        connection_id_clone
-                    );
+                    tracing::warn!("Received other message type from user event connection {}", connection_id_clone);
                 }
             }
         }

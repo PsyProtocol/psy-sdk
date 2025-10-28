@@ -9,13 +9,18 @@ use plonky2::{
     },
 };
 use psy_common_circuit::{
-    builder::{hash::core::CircuitBuilderHashCore, pad_circuit::{pad_circuit_degree, CircuitBuilderQEDCommonGates}}, circuits::{traits::qstandard::QStandardCircuit, zk_signature3::manager::SimpleQEDZKSignatureManager}, proof_minifier::pm_core::get_circuit_fingerprint_generic
+    builder::{
+        hash::core::CircuitBuilderHashCore,
+        pad_circuit::{pad_circuit_degree, CircuitBuilderQEDCommonGates},
+    },
+    circuits::{traits::qstandard::QStandardCircuit, zk_signature3::manager::SimpleQEDZKSignatureManager},
+    proof_minifier::pm_core::get_circuit_fingerprint_generic,
 };
 use psy_core::{data::qhashout::QHashOut, utils::debug_timer::DebugTimer};
 
 pub struct SimplerSigLookalikeCircuit<C: GenericConfig<D> + 'static, const D: usize>
 where
-    C::Hasher:AlgebraicHasher<C::F>,
+    C::Hasher: AlgebraicHasher<C::F>,
 {
     pub input_hash: HashOutTarget,
     pub circuit_data: CircuitData<C::F, C, D>,
@@ -23,7 +28,7 @@ where
 }
 impl<C: GenericConfig<D> + 'static, const D: usize> SimplerSigLookalikeCircuit<C, D>
 where
-    C::Hasher:AlgebraicHasher<C::F>,
+    C::Hasher: AlgebraicHasher<C::F>,
 {
     pub fn new() -> Self {
         let config = CircuitConfig::standard_recursion_config();
@@ -36,9 +41,7 @@ where
         //pad_circuit_degree(&mut builder, 11);
         let circuit_data = builder.build::<C>();
 
-        let fingerprint = QHashOut(get_circuit_fingerprint_generic(
-            &circuit_data.verifier_only,
-        ));
+        let fingerprint = QHashOut(get_circuit_fingerprint_generic(&circuit_data.verifier_only));
 
         Self {
             input_hash,
@@ -47,10 +50,7 @@ where
         }
     }
 
-    pub fn prove_simple(
-        &self,
-        hash: QHashOut<C::F>,
-    ) -> ProofWithPublicInputs<C::F, C, D> {
+    pub fn prove_simple(&self, hash: QHashOut<C::F>) -> ProofWithPublicInputs<C::F, C, D> {
         let mut witness = PartialWitness::new();
         witness.set_hash_target(self.input_hash, hash.0).unwrap();
 
@@ -59,7 +59,7 @@ where
 }
 pub struct SimpleSigLookalikeCircuit<C: GenericConfig<D> + 'static, const D: usize>
 where
-    C::Hasher:AlgebraicHasher<C::F>,
+    C::Hasher: AlgebraicHasher<C::F>,
 {
     pub input_hash: HashOutTarget,
     pub circuit_data: CircuitData<C::F, C, D>,
@@ -67,7 +67,7 @@ where
 }
 impl<C: GenericConfig<D> + 'static, const D: usize> SimpleSigLookalikeCircuit<C, D>
 where
-    C::Hasher:AlgebraicHasher<C::F>,
+    C::Hasher: AlgebraicHasher<C::F>,
 {
     pub fn new() -> Self {
         let config = CircuitConfig::standard_recursion_config();
@@ -80,9 +80,7 @@ where
         pad_circuit_degree(&mut builder, 11);
         let circuit_data = builder.build::<C>();
 
-        let fingerprint = QHashOut(get_circuit_fingerprint_generic(
-            &circuit_data.verifier_only,
-        ));
+        let fingerprint = QHashOut(get_circuit_fingerprint_generic(&circuit_data.verifier_only));
 
         Self {
             input_hash,
@@ -91,19 +89,17 @@ where
         }
     }
 
-    pub fn prove_simple(
-        &self,
-        hash: QHashOut<C::F>,
-    ) -> ProofWithPublicInputs<C::F, C, D> {
+    pub fn prove_simple(&self, hash: QHashOut<C::F>) -> ProofWithPublicInputs<C::F, C, D> {
         let mut witness = PartialWitness::new();
         witness.set_hash_target(self.input_hash, hash.0).unwrap();
 
         self.circuit_data.prove(witness).unwrap()
     }
 }
-pub fn get_simple_sig_common_data<C: GenericConfig<D> + 'static, const D: usize>() -> CommonCircuitData<C::F, D> where
-C::Hasher:AlgebraicHasher<C::F> {
-
+pub fn get_simple_sig_common_data<C: GenericConfig<D> + 'static, const D: usize>() -> CommonCircuitData<C::F, D>
+where
+    C::Hasher: AlgebraicHasher<C::F>,
+{
     let config = CircuitConfig::standard_recursion_config();
     let mut builder = CircuitBuilder::<C::F, D>::new(config);
     let input_hash = builder.add_virtual_hash();
@@ -119,7 +115,6 @@ C::Hasher:AlgebraicHasher<C::F> {
     common.fri_params.reduction_arity_bits = vec![4, 4];
 
     common
-
 }
 
 fn run_check_sig_lookalike() -> anyhow::Result<()> {
@@ -132,18 +127,31 @@ fn run_check_sig_lookalike() -> anyhow::Result<()> {
     timer.lap("built simpler circuit");
     let lookalike_circuit = SimpleSigLookalikeCircuit::<C, D>::new();
     timer.lap("built lookalike_circuit");
-    let wallet = SimpleQEDZKSignatureManager::<C,D>::new();
+    let wallet = SimpleQEDZKSignatureManager::<C, D>::new();
     timer.lap("built wallet");
 
     let get_lookalike_fast = get_simple_sig_common_data::<C, D>();
     timer.lap("got fast lookalike");
 
-    //println!("\n\nlookalike_circuit.common (cap_height: {}):\n{:?}\n\n",lookalike_circuit.circuit_data.verifier_only.constants_sigmas_cap.height(), &lookalike_circuit.circuit_data.common);
+    //println!("\n\nlookalike_circuit.common (cap_height:
+    // {}):\n{:?}\n\n",lookalike_circuit.circuit_data.verifier_only.
+    // constants_sigmas_cap.height(), &lookalike_circuit.circuit_data.common);
 
-    println!("\n\nlookalike_circuit.common (cap_height: {}):\n{:?}\n\n",lookalike_circuit.circuit_data.verifier_only.constants_sigmas_cap.height(), &lookalike_circuit.circuit_data.common);
-    println!("\n\nlookalike_circuit2.common (cap_height: {}):\n{:?}\n\n",lookalike_circuit.circuit_data.verifier_only.constants_sigmas_cap.height(), &get_lookalike_fast);
-    println!("\n\nsignature_circuit.common (cap_height: {}):\n{:?}\n\n",wallet.circuit.get_verifier_config_ref().constants_sigmas_cap.height(), &wallet.circuit.get_common_circuit_data_ref());
-
+    println!(
+        "\n\nlookalike_circuit.common (cap_height: {}):\n{:?}\n\n",
+        lookalike_circuit.circuit_data.verifier_only.constants_sigmas_cap.height(),
+        &lookalike_circuit.circuit_data.common
+    );
+    println!(
+        "\n\nlookalike_circuit2.common (cap_height: {}):\n{:?}\n\n",
+        lookalike_circuit.circuit_data.verifier_only.constants_sigmas_cap.height(),
+        &get_lookalike_fast
+    );
+    println!(
+        "\n\nsignature_circuit.common (cap_height: {}):\n{:?}\n\n",
+        wallet.circuit.get_verifier_config_ref().constants_sigmas_cap.height(),
+        &wallet.circuit.get_common_circuit_data_ref()
+    );
 
     println!("\nspeed info\n");
     timer.lap("start speed info");
@@ -153,8 +161,6 @@ fn run_check_sig_lookalike() -> anyhow::Result<()> {
 
     lookalike_circuit.prove_simple(QHashOut::rand());
     timer.lap("proved lookalike");
-
-
 
     Ok(())
 }

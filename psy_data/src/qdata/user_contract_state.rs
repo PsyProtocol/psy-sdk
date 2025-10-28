@@ -1,6 +1,5 @@
 use kvq::traits::KVQSerializable;
-use plonky2::field::goldilocks_field::GoldilocksField;
-use plonky2::{hash::hash_types::RichField, plonk::config::AlgebraicHasher};
+use plonky2::{field::goldilocks_field::GoldilocksField, hash::hash_types::RichField, plonk::config::AlgebraicHasher};
 use psy_core::{
     data::qhashout::QHashOut,
     traits::to_qfelts::{QFeltSized, ToQFelts},

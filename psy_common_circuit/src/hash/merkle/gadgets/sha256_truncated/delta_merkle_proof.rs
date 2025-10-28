@@ -1,11 +1,8 @@
+use plonky2::{field::extension::Extendable, iop::target::Target, plonk::circuit_builder::CircuitBuilder};
 use psy_crypto::field::qfield::QRichField;
-use plonky2::field::extension::Extendable;
-use plonky2::iop::target::Target;
-use plonky2::plonk::circuit_builder::CircuitBuilder;
-
-use crate::hash::base_types::hash192::{CircuitBuilderHash192, Hash192Target, WitnessHash192};
 
 use super::merkle_proof::compute_merkle_root;
+use crate::hash::base_types::hash192::{CircuitBuilderHash192, Hash192Target, WitnessHash192};
 pub struct DeltaMerkleProofTruncatedSha256Gadget {
     pub old_root: Hash192Target,
     pub old_value: Hash192Target,
@@ -18,13 +15,8 @@ pub struct DeltaMerkleProofTruncatedSha256Gadget {
 }
 
 impl DeltaMerkleProofTruncatedSha256Gadget {
-    pub fn add_virtual_to<F: QRichField + Extendable<D>, const D: usize>(
-        builder: &mut CircuitBuilder<F, D>,
-        height: usize,
-    ) -> Self {
-        let siblings: Vec<Hash192Target> = (0..height)
-            .map(|_| builder.add_virtual_hash192_target())
-            .collect();
+    pub fn add_virtual_to<F: QRichField + Extendable<D>, const D: usize>(builder: &mut CircuitBuilder<F, D>, height: usize) -> Self {
+        let siblings: Vec<Hash192Target> = (0..height).map(|_| builder.add_virtual_hash192_target()).collect();
 
         let old_value = builder.add_virtual_hash192_target();
         let new_value = builder.add_virtual_hash192_target();
@@ -50,7 +42,7 @@ impl DeltaMerkleProofTruncatedSha256Gadget {
         old_value: &[u8; 24],
         new_value: &[u8; 24],
         siblings: &[[u8; 24]],
-    )  -> anyhow::Result<()> {
+    ) -> anyhow::Result<()> {
         witness.set_hash192_target(&self.old_value, old_value)?;
         witness.set_hash192_target(&self.new_value, new_value)?;
         witness.set_target(self.index, F::from_noncanonical_u64(index))?;
@@ -63,14 +55,20 @@ impl DeltaMerkleProofTruncatedSha256Gadget {
 #[cfg(test)]
 mod tests {
 
-    use plonky2::iop::witness::PartialWitness;
-    use plonky2::plonk::circuit_builder::CircuitBuilder;
-    use plonky2::plonk::circuit_data::CircuitConfig;
-    use plonky2::plonk::config::{GenericConfig, PoseidonGoldilocksConfig};
+    use plonky2::{
+        iop::witness::PartialWitness,
+        plonk::{
+            circuit_builder::CircuitBuilder,
+            circuit_data::CircuitConfig,
+            config::{GenericConfig, PoseidonGoldilocksConfig},
+        },
+    };
     use psy_crypto::hash::base_types::DeltaMerkleProof192;
 
-    use crate::hash::base_types::hash192::{CircuitBuilderHash192, WitnessHash192};
-    use crate::hash::merkle::gadgets::sha256_truncated::delta_merkle_proof::DeltaMerkleProofTruncatedSha256Gadget;
+    use crate::hash::{
+        base_types::hash192::{CircuitBuilderHash192, WitnessHash192},
+        merkle::gadgets::sha256_truncated::delta_merkle_proof::DeltaMerkleProofTruncatedSha256Gadget,
+    };
 
     const SMALL_DELTA_MERKLE_PROOFS: &str = r#"
     [
@@ -244,16 +242,12 @@ mod tests {
         type C = PoseidonGoldilocksConfig;
         type F = <C as GenericConfig<D>>::F;
 
-        let parsed_proofs: Vec<DeltaMerkleProof192> =
-            serde_json::from_str(SMALL_DELTA_MERKLE_PROOFS).unwrap();
+        let parsed_proofs: Vec<DeltaMerkleProof192> = serde_json::from_str(SMALL_DELTA_MERKLE_PROOFS).unwrap();
         for proof in parsed_proofs {
             let config = CircuitConfig::standard_recursion_config();
             let mut builder = CircuitBuilder::<F, D>::new(config);
 
-            let delta_merkle_proof_gadget = DeltaMerkleProofTruncatedSha256Gadget::add_virtual_to(
-                &mut builder,
-                proof.siblings.len(),
-            );
+            let delta_merkle_proof_gadget = DeltaMerkleProofTruncatedSha256Gadget::add_virtual_to(&mut builder, proof.siblings.len());
             let expected_old_root_target = builder.add_virtual_hash192_target();
             let expected_new_root_target = builder.add_virtual_hash192_target();
             builder.connect_hash192(expected_old_root_target, delta_merkle_proof_gadget.old_root);
@@ -262,7 +256,9 @@ mod tests {
             let data = builder.build::<C>();
             tracing::info!(
                 "DeltaMerkleProofTruncatedSha256Gadget (height = {}) circuit num_gates={}, quotient_degree_factor={}",
-                proof.siblings.len(), num_gates, data.common.quotient_degree_factor
+                proof.siblings.len(),
+                num_gates,
+                data.common.quotient_degree_factor
             );
 
             let mut pw = PartialWitness::new();
