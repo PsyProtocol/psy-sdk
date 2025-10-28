@@ -1,7 +1,7 @@
 use psy_common::{FileId, Arena};
 use psy_vm::dpn::ops::context_trait::{ContextFelt, DPNContext};
 use psy_ast::*;
-use qed_lexer::Token;
+use psy_lexer::Token;
 
 grammar<'input, F, C>(
     file_content: &'input str,

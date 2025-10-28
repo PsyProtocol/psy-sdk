@@ -8,7 +8,7 @@ use psy_vm::dpn::ops::context_trait::{ContextFelt, DPNContext};
 use crate::TypeCheckerVisitorContext;
 
 use crate::error::{Error, Result};
-use qed_fmt::Formatter;
+use psy_fmt::Formatter;
 
 impl<F: ContextFelt + From<u32> + 'static, C: DPNContext<F>> TypeCheckerVisitorContext<F, C> {
     pub fn format_file(&mut self, file_path: &PathBuf) -> Result<String> {

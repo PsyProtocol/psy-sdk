@@ -6,7 +6,7 @@ use indexmap::IndexMap;
 use lalrpop_util::lalrpop_mod;
 use psy_ast::*;
 use psy_common::Graph;
-use qed_lexer::{GenericTokenTransformer, Lexer, Loc, Token};
+use psy_lexer::{GenericTokenTransformer, Lexer, Loc, Token};
 use psy_vm::dpn::ops::context_trait::{ContextFelt, DPNContext};
 use std::{
     collections::{HashMap, HashSet},
@@ -78,7 +78,7 @@ impl<'a, 'b, F: ContextFelt + From<u32>, C: DPNContext<F>> Parser<'a, 'b, F, C> 
 
         let lexer = Lexer::new(file_content);
         let transformer = GenericTokenTransformer::new(lexer);
-        let tokens: Vec<_> = transformer.collect::<qed_lexer::Result<Vec<_>>>()?;
+        let tokens: Vec<_> = transformer.collect::<psy_lexer::Result<Vec<_>>>()?;
         let module = qed::ModuleParser::new()
             .parse(
                 file_content,

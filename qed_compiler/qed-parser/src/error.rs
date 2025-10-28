@@ -2,13 +2,13 @@ use std::path::PathBuf;
 
 use psy_ast::Location;
 use psy_common::FileId;
-use qed_lexer::{Loc, Token};
+use psy_lexer::{Loc, Token};
 use thiserror::Error as ThisError;
 
 #[derive(Debug, ThisError)]
 pub enum UserError {
     #[error("{0}")]
-    LexicalError(#[from] qed_lexer::Error),
+    LexicalError(#[from] psy_lexer::Error),
     #[error("{0}")]
     CommonError(#[from] psy_common::Error),
     #[error("{0}")]
@@ -30,7 +30,7 @@ pub type Result<T> = std::result::Result<T, Error>;
 #[derive(Debug, ThisError)]
 pub enum Error {
     #[error("{0}")]
-    LexicalError(#[from] qed_lexer::Error),
+    LexicalError(#[from] psy_lexer::Error),
     #[error("{0}")]
     CommonError(#[from] psy_common::Error),
     #[error("{0}")]

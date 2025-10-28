@@ -5,7 +5,7 @@ version = "0.1.0"
 
 [dependencies]
 psy-ast = { workspace = true }
-qed-lexer = { workspace = true }
+psy-lexer = { workspace = true }
 lalrpop-util = { workspace = true }
 psy-common = { workspace = true }
 thiserror = { workspace = true }

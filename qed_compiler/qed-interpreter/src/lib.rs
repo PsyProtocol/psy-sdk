@@ -15,7 +15,7 @@ pub use preprocess::StorageProcessor;
 use psy_ast::*;
 use psy_common::Graph;
 use psy_crypto::hash::utils::gen_dapen_contract_function_method_id;
-use qed_fmt::Formatter;
+use psy_fmt::Formatter;
 use qed_parser::Parser;
 use qed_sema::Error as SemaError;
 use qed_sema::*;

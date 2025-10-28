@@ -18,13 +18,13 @@ members = [
     "qed_dev_cli",
     "qed_rollup_utils",
     "qed_precompiles",
-    "qed_compiler/qed-fmt",
+    "qed_compiler/psy-fmt",
     "qed_compiler/qed-lsp-server",
     "qed_compiler/qed-parser",
     "qed_compiler/psy-common",
     "qed_compiler/psy-ast",
     "qed_compiler/qed-sema",
-    "qed_compiler/qed-lexer",
+    "qed_compiler/psy-lexer",
     "qed_compiler/qed-interpreter",
     "qed_compiler/qed_package",
     "qed_compiler/qed-dargo-cli",
@@ -241,12 +241,12 @@ qed_rollup_utils= { path = "./qed_rollup_utils" , default-features = false}
 qed_precompiles = { path = "./qed_precompiles" , default-features = false}
 
 psy-ast = { path = "./qed_compiler/psy-ast" }
-qed-fmt = { path = "./qed_compiler/qed-fmt" }
+psy-fmt = { path = "./qed_compiler/psy-fmt" }
 qed-lsp-server = { path = "./qed_compiler/qed-lsp-server" }
 qed-parser = { path = "./qed_compiler/qed-parser" }
 psy-common = { path = "./qed_compiler/psy-common" }
 qed-sema = { path = "./qed_compiler/qed-sema" }
-qed-lexer = { path = "./qed_compiler/qed-lexer" }
+psy-lexer = { path = "./qed_compiler/psy-lexer" }
 qed-interpreter = { path = "./qed_compiler/qed-interpreter" }
 qed_package = { path = "./qed_compiler/qed_package" }
 dargo = { path = "./qed_compiler/qed-dargo-cli" }
