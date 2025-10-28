@@ -106,13 +106,13 @@ pub fn test_it_3v2() {
 }
 #[cfg(test)]
 mod test {
-    use psy_vm::dpn::{ops::exec_context::QExecContext, runtime_felt::runtime_context::QRuntimeContext};
+    use psy_vm::dpn::ops::exec_context::QExecContext;
 
     use super::*;
 
     #[test]
     fn test_example_contract3() {
-        let mut ctx = QRuntimeContext::new();
+        let mut ctx = QExecContext::new();
         let mut contract = ExampleContract3C::new();
         let a = F::cns(2);
         let b = F::cns(3);
@@ -122,7 +122,7 @@ mod test {
     }
     #[test]
     fn test_example_contract3_sym() {
-        let mut ctx = QRuntimeContext::new();
+        let mut ctx = QExecContext::new();
         let mut contract = ExampleContract3C::new();
         let a = F::cns(2);
         let b = F::cns(3);
