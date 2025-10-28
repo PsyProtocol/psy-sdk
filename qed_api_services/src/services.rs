@@ -15,13 +15,15 @@ use axum::routing::{get, post};
 use serde::{Deserialize, Serialize};
 use tokio::sync::RwLock;
 use tracing::{debug, error, info, warn};
+use crate::handlers::UnifiedWebSocketManager;
 use crate::repositories::checkpoint_state::{CheckpointRewardAggregationRepository, CheckpointRewardDistributionRepository, CheckpointStatsRepository, WorkerJobEventRepository};
 
 #[derive(Clone)]
 pub struct ApiService {
     pub pool: PgPool,
-    pub user_event_manager: UserEventManager,
-    pub worker_event_manager: WorkerEventManager,
+    pub user_event_manager: UserEventManager,  //will be deprecated
+    pub worker_event_manager: WorkerEventManager, //will be deprecated
+    pub unified_websocket_manager: UnifiedWebSocketManager,
 }
 
 impl ApiService {
@@ -35,6 +37,8 @@ impl ApiService {
             worker_event_manager: WorkerEventManager {
                 connections: Arc::new(RwLock::new(HashMap::new())),
             },
+            unified_websocket_manager: UnifiedWebSocketManager::new(),  // NEW
+
         }
     }
 }

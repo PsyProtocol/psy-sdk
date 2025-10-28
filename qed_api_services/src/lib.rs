@@ -15,7 +15,9 @@ use services::{create_database_pool, ApiService};
 use tokio::signal;
 use tower_http::{cors::CorsLayer, trace::TraceLayer};
 use crate::services::{CheckpointRewardService, JobStatusService};
-use auth::JwtManager;  // Import JWT manager
+use auth::JwtManager;
+use crate::handlers::tps::start_tps_broadcast_task;
+// Import JWT manager
 
 /// Run the API service with the given configuration.
 ///
@@ -63,6 +65,13 @@ pub async fn run(config: Config) -> anyhow::Result<()> {
     tokio::spawn(async move {
         use repositories::worker_event_processor::{WorkerEventProcessor, EventProcessorConfig};
         WorkerEventProcessor::start_processing_task(pool_for_processor, EventProcessorConfig::default()).await;
+    });
+
+    // NEW: Start TPS broadcast task (broadcasts TPS data every 12 seconds)
+    tracing::info!("Starting TPS broadcast background task");
+    let api_service_for_tps = api_service.clone();
+    tokio::spawn(async move {
+        start_tps_broadcast_task(api_service_for_tps, 12).await;
     });
 
     // Create application router

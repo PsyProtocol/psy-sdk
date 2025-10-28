@@ -99,7 +99,7 @@ impl WorkerEventManager {
         let mut sent_count = 0;
 
         let websocket_event = WebSocketEvent {
-            event_type: EventType::WorkerEvent,
+            event_type: EventType::Worker,
             data: serde_json::to_value(event).unwrap_or_default(),
             timestamp: event.timestamp,
         };

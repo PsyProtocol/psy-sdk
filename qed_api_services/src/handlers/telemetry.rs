@@ -122,12 +122,20 @@ async fn receive_events_handler(
         }
     }
 
+    // NEW: Broadcast to unified WebSocket connections
     if let Some(ref worker_events) = payload.worker_events {
         info!(
-            "Broadcasting {} worker events to WebSocket subscribers",
+            "Broadcasting {} worker events to unified WebSocket subscribers",
             worker_events.len()
         );
         for worker_event in worker_events {
+            service
+                .unified_websocket_manager
+                .broadcast_worker_event(worker_event)
+                .await;
+
+            // BACKWARD COMPATIBILITY: Also broadcast to legacy connections during migration,
+            // will be removed later
             service
                 .worker_event_manager
                 .broadcast_event(worker_event)
@@ -137,11 +145,21 @@ async fn receive_events_handler(
 
     if let Some(ref user_events) = payload.user_events {
         info!(
-            "Broadcasting {} user events to WebSocket subscribers",
+            "Broadcasting {} user events to unified WebSocket subscribers",
             user_events.len()
         );
         for user_event in user_events {
-            service.user_event_manager.broadcast_event(user_event).await;
+            service
+                .unified_websocket_manager
+                .broadcast_user_event(user_event)
+                .await;
+
+            // BACKWARD COMPATIBILITY: Also broadcast to legacy connections during migration
+            // will be removed later
+            service
+                .user_event_manager
+                .broadcast_event(user_event)
+                .await;
         }
     }
 
