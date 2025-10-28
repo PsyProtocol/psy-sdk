@@ -13,7 +13,7 @@ use crate::{
     ScopeId,
 };
 use crate::{CheckedConstNode, CheckedGenericParameter};
-use qed_common::define_arena_id;
+use psy_common::define_arena_id;
 
 define_arena_id!(TypeId);
 

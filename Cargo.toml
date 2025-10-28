@@ -21,7 +21,7 @@ members = [
     "qed_compiler/qed-fmt",
     "qed_compiler/qed-lsp-server",
     "qed_compiler/qed-parser",
-    "qed_compiler/qed-common",
+    "qed_compiler/psy-common",
     "qed_compiler/psy-ast",
     "qed_compiler/qed-sema",
     "qed_compiler/qed-lexer",
@@ -244,7 +244,7 @@ psy-ast = { path = "./qed_compiler/psy-ast" }
 qed-fmt = { path = "./qed_compiler/qed-fmt" }
 qed-lsp-server = { path = "./qed_compiler/qed-lsp-server" }
 qed-parser = { path = "./qed_compiler/qed-parser" }
-qed-common = { path = "./qed_compiler/qed-common" }
+psy-common = { path = "./qed_compiler/psy-common" }
 qed-sema = { path = "./qed_compiler/qed-sema" }
 qed-lexer = { path = "./qed_compiler/qed-lexer" }
 qed-interpreter = { path = "./qed_compiler/qed-interpreter" }

@@ -6,7 +6,7 @@ version = "0.1.0"
 [dependencies]
 psy-ast = { workspace = true }
 thiserror = { workspace = true }
-qed-common = { workspace = true }
+psy-common = { workspace = true }
 qed-fmt = { workspace = true }
 once_cell = { workspace = true }
 tracing = { workspace = true }

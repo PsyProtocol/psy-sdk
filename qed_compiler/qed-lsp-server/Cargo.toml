@@ -14,7 +14,7 @@ unicode-segmentation = { workspace = true }
 qed-sema = { workspace = true }
 psy-ast = { workspace = true }
 qed-interpreter = { workspace = true }
-qed-common = { workspace = true }
+psy-common = { workspace = true }
 dargo = { workspace = true }
 qed_package = { workspace = true }
 

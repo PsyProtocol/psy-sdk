@@ -1,6 +1,6 @@
 use std::ops::{Index, IndexMut};
 
-use qed_common::{Arena, FileResolver, Graph, Tree, TreeNode};
+use psy_common::{Arena, FileResolver, Graph, Tree, TreeNode};
 
 use crate::{
     CrateId, DefId, DefinitionNode, ExprId, ExprNode, FileLocation, Ident, IdentId, Interner,

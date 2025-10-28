@@ -10,7 +10,7 @@ async fn main() -> anyhow::Result<()> {
     dotenv::dotenv().ok();
 
     let cli = Cli::parse();
-    qed_common::setup_logging()?;
+    psy_common::setup_logging()?;
     
     match cli.command {
         Commands::TestFullGroup1(args) => {

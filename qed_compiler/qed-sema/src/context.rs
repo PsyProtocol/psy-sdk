@@ -4,7 +4,7 @@ use psy_ast::{
     CrateId, DefId, DefinitionNode, ExprId, ExprNode, Ident, IdentId, InsertPosition, ModuleId, ModuleNode,
     NodeId, NodeInfo, NodeType, Program, StmtId, StmtNode, VisitorContext,
 };
-use qed_common::Graph;
+use psy_common::Graph;
 use psy_vm::dpn::ops::context_trait::ContextFelt;
 
 use crate::{LocationIndices, ReferenceId, SymbolTable, Type, TypeId};

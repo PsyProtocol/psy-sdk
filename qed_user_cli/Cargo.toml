@@ -25,7 +25,7 @@ psy_data = { workspace = true }
 psy_node = { workspace = true }
 qed_rollup_utils = { workspace = true }
 qed_api_services = { workspace = true }
-qed-common = { workspace = true }
+psy-common = { workspace = true }
 psy_store = { workspace = true, default-features = false }
 kvq = { workspace = true }
 hashbrown = { workspace = true }

@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use petgraph::prelude::NodeIndex as PetGraphIndex;
 use psy_ast::{Location, ModuleId, Position, Visibility, VisitorContext};
-use qed_common::FileId;
+use psy_common::FileId;
 use psy_vm::dpn::ops::context_trait::ContextFelt;
 use rangemap::RangeMap;
 

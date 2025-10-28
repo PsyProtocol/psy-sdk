@@ -1,4 +1,4 @@
-use qed_common::{define_arena_id, Arena, FileId};
+use psy_common::{define_arena_id, Arena, FileId};
 
 use crate::{
     Comment, DefId, DefinitionNode, IdentId, Identifier, Location, NodeInfo, NodeType, Visibility,

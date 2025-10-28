@@ -16,7 +16,7 @@ pub trait AstVisitor<F: Clone + From<u32>, C> {
         Stmt = Self::Stmt,
         Definition = Self::Definition,
     >;
-    type Error: std::fmt::Debug + From<qed_common::Error>;
+    type Error: std::fmt::Debug + From<psy_common::Error>;
 
     fn visit_expr(
         &mut self,

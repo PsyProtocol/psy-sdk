@@ -36,5 +36,5 @@ pub enum CliError {
     SemanticError(#[from] qed_sema::Error),
 
     #[error("Common error: {0}")]
-    CommonError(#[from] qed_common::Error),
+    CommonError(#[from] psy_common::Error),
 }

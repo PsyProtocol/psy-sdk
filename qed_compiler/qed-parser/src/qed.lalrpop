@@ -1,4 +1,4 @@
-use qed_common::{FileId, Arena};
+use psy_common::{FileId, Arena};
 use psy_vm::dpn::ops::context_trait::{ContextFelt, DPNContext};
 use psy_ast::*;
 use qed_lexer::Token;

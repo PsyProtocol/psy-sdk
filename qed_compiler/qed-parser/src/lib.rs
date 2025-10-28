@@ -5,7 +5,7 @@ pub use error::{Error, Result};
 use indexmap::IndexMap;
 use lalrpop_util::lalrpop_mod;
 use psy_ast::*;
-use qed_common::Graph;
+use psy_common::Graph;
 use qed_lexer::{GenericTokenTransformer, Lexer, Loc, Token};
 use psy_vm::dpn::ops::context_trait::{ContextFelt, DPNContext};
 use std::{
@@ -309,7 +309,7 @@ fn std_path() -> PathBuf {
 mod tests {
     use super::Parser;
     use psy_ast::Program;
-    use qed_common::Graph;
+    use psy_common::Graph;
     use psy_vm::dpn::ops::exec_context::QExecContext;
     use std::path::PathBuf;
     #[test]

@@ -5,7 +5,7 @@ use std::{
 };
 
 use indexmap::IndexMap;
-use qed_common::{define_arena_id, Arena};
+use psy_common::{define_arena_id, Arena};
 use smol_str::SmolStr;
 
 use crate::Location;

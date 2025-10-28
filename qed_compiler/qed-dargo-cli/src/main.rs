@@ -1,7 +1,7 @@
 mod cli;
 pub mod errors;
 
-use qed_common::setup_logging;
+use psy_common::setup_logging;
 
 const PANIC_MESSAGE: &str = "Program panic. This is a bug to be fixed.";
 

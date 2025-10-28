@@ -9,7 +9,7 @@ pub enum Error {
     #[error("{0:?}")]
     AnyhowError(#[from] anyhow::Error),
     #[error("{0:?}")]
-    CommonError(#[from] qed_common::Error),
+    CommonError(#[from] psy_common::Error),
     #[error("type mismatch")]
     TypeMismatch {
         location: Location,

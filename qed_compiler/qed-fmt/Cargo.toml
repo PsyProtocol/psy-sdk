@@ -5,5 +5,5 @@ version = "0.1.0"
 
 [dependencies]
 psy-ast = { workspace = true }
-qed-common = { workspace = true }
+psy-common = { workspace = true }
 psy_vm = { workspace = true }

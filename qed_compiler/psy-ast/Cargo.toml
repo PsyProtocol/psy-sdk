@@ -5,7 +5,7 @@ version = "0.1.0"
 
 [dependencies]
 smol_str = { workspace =true }
-qed-common = { workspace = true }
+psy-common = { workspace = true }
 enum-as-inner = { workspace = true }
 indexmap = { workspace = true }
 ariadne = { workspace = true }

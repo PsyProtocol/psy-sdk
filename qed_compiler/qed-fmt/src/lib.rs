@@ -283,7 +283,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> AstVisi
     type ExprResult = String;
     type StmtResult = String;
     type Context = DefaultVisitorContext<'a, F, C>;
-    type Error = qed_common::Error;
+    type Error = psy_common::Error;
     type Expr = ExprNode<F>;
     type Stmt = StmtNode;
     type Definition = DefinitionNode;
@@ -1657,7 +1657,7 @@ impl<'a, F: ContextFelt + From<u32> + Debug + 'static, C: DPNContext<F>> Formatt
         module_id: ModuleId,
         is_first: bool,
         ctx: &mut DefaultVisitorContext<'a, F, C>,
-    ) -> Result<(), qed_common::Error> {
+    ) -> Result<(), psy_common::Error> {
         let module = ctx.module(module_id).clone();
 
         if module.is_std() {

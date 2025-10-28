@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use psy_ast::Location;
-use qed_common::FileId;
+use psy_common::FileId;
 use qed_lexer::{Loc, Token};
 use thiserror::Error as ThisError;
 
@@ -10,7 +10,7 @@ pub enum UserError {
     #[error("{0}")]
     LexicalError(#[from] qed_lexer::Error),
     #[error("{0}")]
-    CommonError(#[from] qed_common::Error),
+    CommonError(#[from] psy_common::Error),
     #[error("{0}")]
     IoError(#[from] std::io::Error),
     #[error("File could not be resolved")]
@@ -32,7 +32,7 @@ pub enum Error {
     #[error("{0}")]
     LexicalError(#[from] qed_lexer::Error),
     #[error("{0}")]
-    CommonError(#[from] qed_common::Error),
+    CommonError(#[from] psy_common::Error),
     #[error("{0}")]
     IoError(#[from] std::io::Error),
     #[error("File could not be resolved")]

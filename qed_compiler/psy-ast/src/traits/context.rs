@@ -1,5 +1,5 @@
 use enum_as_inner::EnumAsInner;
-use qed_common::Graph;
+use psy_common::Graph;
 
 use crate::{
     CrateId, DefId, DefinitionNode, ExprId, ExprNode, Ident, IdentId, ModuleId, ModuleNode, NodeInfo,

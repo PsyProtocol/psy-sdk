@@ -10,7 +10,7 @@ qed-sema = { workspace = true }
 anyhow = { workspace = true }
 tracing = { workspace = true }
 thiserror = { workspace = true }
-qed-common = { workspace = true }
+psy-common = { workspace = true }
 insta = { workspace = true }
 qed-fmt = { workspace = true }
 plonky2 = { workspace = true }

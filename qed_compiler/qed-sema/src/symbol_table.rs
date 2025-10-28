@@ -2,7 +2,7 @@ use anyhow::anyhow;
 use enum_as_inner::EnumAsInner;
 use indexmap::IndexMap;
 use psy_ast::*;
-use qed_common::{define_arena_id, FileId, TreeNode};
+use psy_common::{define_arena_id, FileId, TreeNode};
 use psy_vm::dpn::ops::context_trait::ContextFelt;
 use std::sync::OnceLock;
 

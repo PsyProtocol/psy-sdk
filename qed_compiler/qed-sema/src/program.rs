@@ -1,7 +1,7 @@
 use std::ops::{Index, IndexMut};
 
 use psy_ast::{DefId, ExprId, StmtId};
-use qed_common::Arena;
+use psy_common::Arena;
 
 use crate::{CheckedDefinitionNode, CheckedExprNode, CheckedStmtNode, Result};
 

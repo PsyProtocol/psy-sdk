@@ -16,7 +16,7 @@ serde_json.workspace = true
 qed_package.workspace = true
 qed-interpreter.workspace = true
 psy_vm.workspace = true
-qed-common = { workspace = true }
+psy-common = { workspace = true }
 plonky2 = { workspace = true }
 psy_crypto = { workspace = true }
 psy_exec = { workspace = true }

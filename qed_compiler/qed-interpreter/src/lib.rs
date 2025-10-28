@@ -13,7 +13,7 @@ use error::{Error, Result};
 use indexmap::IndexMap;
 pub use preprocess::StorageProcessor;
 use psy_ast::*;
-use qed_common::Graph;
+use psy_common::Graph;
 use psy_crypto::hash::utils::gen_dapen_contract_function_method_id;
 use qed_fmt::Formatter;
 use qed_parser::Parser;
@@ -1957,7 +1957,7 @@ mod tests {
     #[tokio::test(flavor = "multi_thread")]
     #[serial]
     async fn test_interpreter() {
-        qed_common::setup_logging().ok();
+        psy_common::setup_logging().ok();
 
         insta::glob!(
             "../../tests",
@@ -2036,7 +2036,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_format_file() {
-        qed_common::setup_logging().ok();
+        psy_common::setup_logging().ok();
 
         insta::glob!("../../tests", "*_test.qed", |path| {
             let entry: PathBuf = path.into();

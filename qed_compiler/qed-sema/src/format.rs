@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use psy_ast::{DefaultVisitorContext, ModuleId};
 
-use qed_common::FileId;
+use psy_common::FileId;
 use psy_vm::dpn::ops::context_trait::{ContextFelt, DPNContext};
 
 use crate::TypeCheckerVisitorContext;
