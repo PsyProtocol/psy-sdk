@@ -85,7 +85,7 @@ mod tests {
             }).unwrap();
             #[allow(static_mut_refs)]
             unsafe {
-                qed_sema::STD_PRIMITIVE_SCOPE_ID.take()
+                psy_sema::STD_PRIMITIVE_SCOPE_ID.take()
             };
         });
     }

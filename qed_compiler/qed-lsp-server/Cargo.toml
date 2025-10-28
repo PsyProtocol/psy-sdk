@@ -11,12 +11,12 @@ lsp-types = {workspace = true}
 
 unicode-segmentation = { workspace = true }
 
-qed-sema = { workspace = true }
+psy-sema = { workspace = true }
 psy-ast = { workspace = true }
 psy-interpreter = { workspace = true }
 psy-common = { workspace = true }
 dargo = { workspace = true }
-qed_package = { workspace = true }
+psy-package = { workspace = true }
 
 psy_vm = { workspace = true }
 

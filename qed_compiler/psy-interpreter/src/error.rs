@@ -2,7 +2,7 @@ use ariadne::{Label, Report, ReportKind};
 use core::fmt;
 use psy_ast::{Location, Program, TextPosition, TextRange, VisitorContext};
 use psy_parser::Error as ParseError;
-use qed_sema::{
+use psy_sema::{
     AstVisualizer, Error as SemaError, TypeCheckerErrorDescriptor, TypeCheckerVisitorContext,
 };
 use psy_vm::dpn::ops::context_trait::ContextFelt;
@@ -213,7 +213,7 @@ fn format_expected_pretty(expected: &[String]) -> String {
     }
 }
 pub fn lowering_sema_error<F: Clone + From<u32> + ContextFelt, C>(
-    error: &qed_sema::Error,
+    error: &psy_sema::Error,
     ctx: &TypeCheckerVisitorContext<F, C>,
 ) -> String {
     match error {
@@ -461,10 +461,10 @@ pub fn lowering_sema_error<F: Clone + From<u32> + ContextFelt, C>(
     }
 }
 pub fn typecheck_error_to_diagnostic<F: Clone + From<u32> + ContextFelt, C>(
-    error: &qed_sema::Error,
+    error: &psy_sema::Error,
     ctx: &TypeCheckerVisitorContext<F, C>,
 ) -> TypeCheckerErrorDescriptor {
-    use qed_sema::Error as SemaError;
+    use psy_sema::Error as SemaError;
 
     let (range, file, message) = match error {
         SemaError::TypeMismatch {

@@ -11,7 +11,7 @@ mod test_cmd;
 use crate::errors::{CliError, Result};
 use clap::{Args, Parser, Subcommand};
 use psy_common::Graph;
-use qed_package::{files::{find_file_manifest_root, get_package_manifest}, resolve_workspace_from_toml, Dependency, Workspace};
+use psy_package::{files::{find_file_manifest_root, get_package_manifest}, resolve_workspace_from_toml, Dependency, Workspace};
 use std::collections::{HashSet, VecDeque};
 use std::path::{Path, PathBuf};
 

@@ -17,8 +17,8 @@ use psy_common::Graph;
 use psy_crypto::hash::utils::gen_dapen_contract_function_method_id;
 use psy_fmt::Formatter;
 use psy_parser::Parser;
-use qed_sema::Error as SemaError;
-use qed_sema::*;
+use psy_sema::Error as SemaError;
+use psy_sema::*;
 use psy_vm::dpn::ops::exec_context::QExecContext;
 use psy_vm::dpn::ops::sym_felt::SymFeltRef;
 use psy_vm::dpn::vm::compile::QEDCompileResult;
@@ -1499,7 +1499,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
             match cast_node.target_type {
                 BOOL_TYPE => {
                     if const_value > 1 {
-                        return Err(Error::SemaError(qed_sema::Error::InvalidCast {
+                        return Err(Error::SemaError(psy_sema::Error::InvalidCast {
                             location: cast_node.location,
                             expected: "cast to bool".to_string(),
                             found: format!("value {} > 1", const_value),
@@ -1509,7 +1509,7 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
                 FELT_TYPE => {}
                 U32_TYPE => {
                     if const_value > 0xffffffffu64 {
-                        return Err(Error::SemaError(qed_sema::Error::InvalidCast {
+                        return Err(Error::SemaError(psy_sema::Error::InvalidCast {
                             location: cast_node.location,
                             expected: "cast to u32".to_string(),
                             found: format!("value {} > 0xffffffffu64", const_value),

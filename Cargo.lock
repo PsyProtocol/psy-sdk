@@ -2377,6 +2377,8 @@ dependencies = [
  "psy-ast",
  "psy-common",
  "psy-interpreter",
+ "psy-package",
+ "psy-sema",
  "psy_common_circuit",
  "psy_core",
  "psy_crypto",
@@ -2384,8 +2386,6 @@ dependencies = [
  "psy_exec",
  "psy_store",
  "psy_vm",
- "qed-sema",
- "qed_package",
  "qed_prover",
  "serde",
  "serde_json",
@@ -5674,6 +5674,7 @@ dependencies = [
  "psy-common",
  "psy-fmt",
  "psy-parser",
+ "psy-sema",
  "psy_common_circuit",
  "psy_core",
  "psy_crypto",
@@ -5681,7 +5682,6 @@ dependencies = [
  "psy_exec",
  "psy_store",
  "psy_vm",
- "qed-sema",
  "qed_prover",
  "serial_test",
  "thiserror 2.0.17",
@@ -5698,6 +5698,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "psy-package"
+version = "0.1.0"
+dependencies = [
+ "dirs",
+ "md5",
+ "semver 1.0.27",
+ "serde",
+ "smol_str",
+ "tempfile",
+ "thiserror 2.0.17",
+ "toml",
+ "url",
+]
+
+[[package]]
 name = "psy-parser"
 version = "0.1.0"
 dependencies = [
@@ -5710,6 +5725,26 @@ dependencies = [
  "psy-lexer",
  "psy_vm",
  "thiserror 2.0.17",
+]
+
+[[package]]
+name = "psy-sema"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "derivative",
+ "enum-as-inner",
+ "indexmap 2.11.3",
+ "itertools 0.14.0",
+ "once_cell",
+ "petgraph",
+ "psy-ast",
+ "psy-common",
+ "psy-fmt",
+ "psy_vm",
+ "rangemap",
+ "thiserror 2.0.17",
+ "tracing",
 ]
 
 [[package]]
@@ -5994,33 +6029,13 @@ dependencies = [
  "psy-ast",
  "psy-common",
  "psy-interpreter",
+ "psy-package",
+ "psy-sema",
  "psy_vm",
- "qed-sema",
- "qed_package",
  "thiserror 2.0.17",
  "tokio",
  "tower-lsp",
  "unicode-segmentation",
-]
-
-[[package]]
-name = "qed-sema"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "derivative",
- "enum-as-inner",
- "indexmap 2.11.3",
- "itertools 0.14.0",
- "once_cell",
- "petgraph",
- "psy-ast",
- "psy-common",
- "psy-fmt",
- "psy_vm",
- "rangemap",
- "thiserror 2.0.17",
- "tracing",
 ]
 
 [[package]]
@@ -6083,21 +6098,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "qed_package"
-version = "0.1.0"
-dependencies = [
- "dirs",
- "md5",
- "semver 1.0.27",
- "serde",
- "smol_str",
- "tempfile",
- "thiserror 2.0.17",
- "toml",
- "url",
-]
-
-[[package]]
 name = "qed_precompiles"
 version = "0.1.0"
 dependencies = [
@@ -6105,9 +6105,9 @@ dependencies = [
  "dargo",
  "minijinja",
  "psy-interpreter",
+ "psy-package",
  "psy_data",
  "psy_vm",
- "qed_package",
  "serde_json",
 ]
 

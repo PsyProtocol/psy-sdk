@@ -9,11 +9,11 @@ use psy_common_circuit::circuits::zk_signature3::manager::SimpleQEDZKSignatureMa
 use psy_core::config::network_constants::GLOBAL_USER_TREE_HEIGHT;
 use psy_core::data::qhashout::QHashOut;
 use psy_crypto::signature::zk::wallet::SimpleQEDPrivateKey;
-use qed_package::Workspace;
+use psy_package::Workspace;
 use psy_data::qblock::cmds::register_user::QBCRegisterUser;
 use psy_exec::vm::exec::QEDEvalSessionResult;
 use qed_prover::session::gen_contract_deploy_and_circuits_for_functions;
-use qed_sema::{
+use psy_sema::{
     CheckedFunctionNode, Implementer, TypeChecker, TypeCheckerVisitorContext, TypeId, TypeKey,
 };
 use psy_data::config::store_config::{QEDHasher, C, D};
@@ -377,7 +377,7 @@ mod tests {
     use num_traits::Num;
     use plonky2::field::fft::ifft;
     use psy_ast::Location;
-    use qed_package::{CrateName, Package, PackageType};
+    use psy_package::{CrateName, Package, PackageType};
     use std::collections::BTreeMap;
     use std::default::Default;
     use std::path::PathBuf;
@@ -455,7 +455,7 @@ mod tests {
             }
             #[allow(static_mut_refs)]
             unsafe {
-                qed_sema::STD_PRIMITIVE_SCOPE_ID.take()
+                psy_sema::STD_PRIMITIVE_SCOPE_ID.take()
             };
         });
     }

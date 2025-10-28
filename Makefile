@@ -103,7 +103,7 @@ ci:
 	       --nocapture
 
 	@RUST_LOG=${LOG_LEVEL} cargo test --profile ${PROFILE} \
-	       --package qed-sema \
+	       --package psy-sema \
 	       --package psy-interpreter \
 	       -- \
 	       --nocapture

@@ -2,7 +2,7 @@ use crate::cli::{resolve_crate_path_graph, save_build_artifact_to_file};
 use crate::errors::Result;
 use clap::Args;
 use psy_abi::AbiExtractor;
-use qed_package::Workspace;
+use psy_package::Workspace;
 use psy_interpreter::Interpreter;
 use psy_vm::dpn::ops::{exec_context::QExecContext, sym_felt::SymFeltRef};
 use std::path::PathBuf;

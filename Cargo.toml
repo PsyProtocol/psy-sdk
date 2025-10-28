@@ -23,10 +23,10 @@ members = [
     "qed_compiler/psy-parser",
     "qed_compiler/psy-common",
     "qed_compiler/psy-ast",
-    "qed_compiler/qed-sema",
+    "qed_compiler/psy-sema",
     "qed_compiler/psy-lexer",
     "qed_compiler/psy-interpreter",
-    "qed_compiler/qed_package",
+    "qed_compiler/psy-package",
     "qed_compiler/qed-dargo-cli",
     "qed_api_services",
 ]
@@ -245,10 +245,10 @@ psy-fmt = { path = "./qed_compiler/psy-fmt" }
 qed-lsp-server = { path = "./qed_compiler/qed-lsp-server" }
 psy-parser = { path = "./qed_compiler/psy-parser" }
 psy-common = { path = "./qed_compiler/psy-common" }
-qed-sema = { path = "./qed_compiler/qed-sema" }
+psy-sema = { path = "./qed_compiler/psy-sema" }
 psy-lexer = { path = "./qed_compiler/psy-lexer" }
 psy-interpreter = { path = "./qed_compiler/psy-interpreter" }
-qed_package = { path = "./qed_compiler/qed_package" }
+psy-package = { path = "./qed_compiler/psy-package" }
 dargo = { path = "./qed_compiler/qed-dargo-cli" }
 psy-abi = { path = "./qed_compiler/psy-abi" }
 qed_api_services = { path = "./qed_api_services" }

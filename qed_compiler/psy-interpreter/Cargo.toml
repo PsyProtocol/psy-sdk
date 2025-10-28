@@ -6,7 +6,7 @@ version = "0.1.0"
 [dependencies]
 psy-ast = { workspace = true }
 psy-parser = { workspace = true }
-qed-sema = { workspace = true }
+psy-sema = { workspace = true }
 anyhow = { workspace = true }
 tracing = { workspace = true }
 thiserror = { workspace = true }

@@ -14,7 +14,7 @@ psy_vm = { workspace = true }
 serde_json = { workspace = true }
 anyhow = { workspace = true }
 dargo = { workspace = true }
-qed_package = { workspace = true }
+psy-package = { workspace = true }
 psy-interpreter = { workspace = true }
 psy_data = { workspace = true }
 minijinja = { workspace = true }

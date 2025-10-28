@@ -1,4 +1,4 @@
-use qed_package::ManifestError;
+use psy_package::ManifestError;
 use std::path::PathBuf;
 use thiserror::Error;
 
@@ -33,7 +33,7 @@ pub enum CliError {
     MissingEntryFile { toml: PathBuf, entry: PathBuf },
 
     #[error("Semantic error: {0}")]
-    SemanticError(#[from] qed_sema::Error),
+    SemanticError(#[from] psy_sema::Error),
 
     #[error("Common error: {0}")]
     CommonError(#[from] psy_common::Error),

@@ -1,6 +1,6 @@
 [package]
 edition = "2021"
-name    = "qed-sema"
+name    = "psy-sema"
 version = "0.1.0"
 
 [dependencies]
