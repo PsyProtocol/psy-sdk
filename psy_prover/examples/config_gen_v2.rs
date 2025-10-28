@@ -3,7 +3,7 @@ use plonky2::plonk::config::PoseidonGoldilocksConfig;
 use psy_common_circuit::circuits::{lookalikes::{get_agg_state_transition_type_d_common_data, get_agg_user_registration_deploy_guta_type_f_common_data, get_end_cap_type_e_common_data, get_guta_type_c_common_data}, traits::qstandard::QStandardCircuit};
 use psy_core::{config::network_constants::QED_NETWORK_MAGIC_REGTEST, job::id::ProvingJobCircuitType};
 use psy_crypto::common::generic_circuit_verifier::GenericCircuitVerifier;
-use qed_prover::ups::circuit_manager::core::QEDUPSStepCircuitManager;
+use psy_prover::ups::circuit_manager::core::QEDUPSStepCircuitManager;
 use psy_network_circuit::{coordinator::coordinator_helper::QEDCoordinatorCircuitManager, guta::guta_helper::QEDGUTACircuitManager};
 use std::{fs::File, path::PathBuf};
 use std::io::prelude::*;

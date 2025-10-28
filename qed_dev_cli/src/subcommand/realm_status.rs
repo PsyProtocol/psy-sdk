@@ -10,7 +10,7 @@ use psy_crypto::{
     signature::zk::{data::ZKPublicKeyInfo, wallet::SimpleQEDPrivateKey},
 };
 use psy_data::{config::store_config::QEDHasher, qdata::realm_status::BasicRealmStatus};
-use qed_prover::local::{
+use psy_prover::local::{
     provider::{QUserRpcProvider, RpcProvider},
     request::QRegisterUserRPCRequest,
 };

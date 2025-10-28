@@ -1,9 +1,9 @@
-use qed_prover::local::args::ProverArgs;
+use psy_prover::local::args::ProverArgs;
 
 pub async fn run(args: ProverArgs) -> anyhow::Result<()> {
     let ctrl_c = tokio::signal::ctrl_c();
     tokio::select! {
-        result = qed_prover::run_server(args) => {
+        result = psy_prover::run_server(args) => {
             match result {
                 Ok(()) => tracing::warn!("Local prover server exit."),
                 Err(e) => tracing::error!("Local prover server exit error: {:?}", e),

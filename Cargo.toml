@@ -7,7 +7,7 @@ members = [
     "psy_core",
     "psy_crypto",
     "psy_store",
-    "qed_prover",
+    "psy_prover",
     "psy_exec",
     "psy_data",
     "psy_common_circuit",
@@ -233,7 +233,7 @@ psy_store = { path = "./psy_store", default-features = false}
 psy_data = { path = "./psy_data",default-features = false}
 psy_core = { path = "./psy_core" }
 psy_node = { path = "./psy_node" }
-qed_prover = { path = "./qed_prover", default-features = false }
+psy_prover = { path = "./psy_prover", default-features = false }
 psy_common_circuit = { path = "./psy_common_circuit" ,default-features = false}
 kvq = { path = "./kvq" }
 psy_network_circuit = { path = "./psy_network_circuit" , default-features = false}

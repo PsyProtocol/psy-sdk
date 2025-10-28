@@ -2,7 +2,7 @@ use plonky2::plonk::config::PoseidonGoldilocksConfig;
 use psy_common_circuit::circuits::traits::qstandard::QStandardCircuit;
 use psy_core::{config::network_constants::QED_NETWORK_MAGIC_REGTEST, job::id::ProvingJobCircuitType};
 use psy_crypto::common::{circuit_library::CircuitInfoLibraryBuilder, simple_circuit_library::SimpleCircuitLibrary};
-use qed_prover::ups::circuit_manager::core::QEDUPSStepCircuitManager;
+use psy_prover::ups::circuit_manager::core::QEDUPSStepCircuitManager;
 use psy_network_circuit::{coordinator::coordinator_helper::QEDCoordinatorCircuitManager, guta::guta_helper::QEDGUTACircuitManager};
 use psy_data::config::store_config::QEDFelt;
 

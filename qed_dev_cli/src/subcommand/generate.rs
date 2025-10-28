@@ -24,7 +24,7 @@ pub struct Config {
     pub global_api_services: Option<GlobalApiServices>
 }
 
-pub use qed_prover::local::provider::{NetworkConfig, RealmConfig, CoordinatorConfig};
+pub use psy_prover::local::provider::{NetworkConfig, RealmConfig, CoordinatorConfig};
 use crate::subcommand::launch::ensure_worker_config_file;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -16,8 +16,8 @@ use psy_data::qdata::checkpoint::CheckpointSyncInfo;
 use psy_data::config::store_config::QCheckpointSyncInfoCompact;
 use crate::common_v2::traits::realm::{BasicRealmStatusOnCoordinator, GlobalBlockUpdateFromCoordinator, RealmDataForCoordinator};
 
-// Import the request types from qed_prover
-use qed_prover::local::request::{QRegisterUserRPCRequest, QDeployContractRPCRequest};
+// Import the request types from psy_prover
+use psy_prover::local::request::{QRegisterUserRPCRequest, QDeployContractRPCRequest};
 
 use super::types::LatestCheckpointResponse;
 

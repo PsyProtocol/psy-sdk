@@ -12,7 +12,7 @@ use psy_crypto::{
 use psy_data::config::store_config::QEDHasher;
 use serde::{Deserialize, Serialize};
 
-use qed_prover::local::{
+use psy_prover::local::{
     provider::{QUserRpcProvider, RpcProvider},
     request::QRegisterUserRPCRequest,
 };

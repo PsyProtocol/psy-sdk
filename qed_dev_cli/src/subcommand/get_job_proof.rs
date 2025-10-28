@@ -14,7 +14,7 @@ use psy_core::{
 use psy_crypto::signature::zk::wallet::SimpleQEDPrivateKey;
 use psy_data::{config::store_config::QEDHasher, traits::qdatastore::qmetadata::QMetaDataStoreReaderSync};
 use psy_node::worker::job_tracker::{JobInfo, JobLocation, WorkerJobTracker};
-use qed_prover::{local::provider::{RpcConfig, RpcProvider}, session::WalletSession};
+use psy_prover::{local::provider::{RpcConfig, RpcProvider}, session::WalletSession};
 use serde_json::json;
 use tracing::info;
 

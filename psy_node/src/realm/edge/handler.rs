@@ -26,7 +26,7 @@ use psy_data::qdata::checkpoint::{
     QEDCheckpointGlobalStateRoots, QEDCheckpointLeaf, QEDL2BlockState,
 };
 use psy_data::qdata::user::QEDUserLeaf;
-use qed_prover::session::TxStatus;
+use psy_prover::session::TxStatus;
 use psy_store::node::realm::QEDRealmStoreReaderAsync;
 use psy_store::queue::ProofStoreRedisAsync;
 use std::sync::Arc;
@@ -41,7 +41,7 @@ use psy_crypto::hash::traits::hasher::{MerkleHasher, MerkleZeroHasher, PoseidonH
 use psy_crypto::hash::traits::qhashable::QFieldHashable;
 use psy_data::guta::api::{QEDContractStateUpdateHistory, SimpleContractHeightCache, UserEndCapNonProofCoreInputQueueItem};
 use psy_data::guta::proof_input::VerifyEndCapSimpleStandardInput;
-use qed_prover::wallet::secp_sign::SignedRequest;
+use psy_prover::wallet::secp_sign::SignedRequest;
 use psy_store::queue::task_queue::{QProvingTaskStore, QProvingTaskStoreImpl, JobValidationStatus, QJob, current_timestamp_millis};
 use crate::coordinator::edge::ProofStore;
 use psy_network_circuit::verify_witness::verify_witness_and_proof;

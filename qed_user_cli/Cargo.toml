@@ -20,7 +20,7 @@ thiserror = { workspace = true }
 tracing = { workspace = true }
 psy_core = { workspace = true }
 psy_vm = { workspace = true }
-qed_prover = { workspace = true, default-features = false}
+psy_prover = { workspace = true, default-features = false}
 psy_data = { workspace = true }
 psy_node = { workspace = true }
 qed_rollup_utils = { workspace = true }
@@ -66,4 +66,4 @@ reqwest = { version = "0.12", default-features = false, features = ["json"] }
 
 [features]
 # default = ["is_sync"]
-is_sync = ["qed_prover/is_sync", "psy_store/is_sync"]
+is_sync = ["psy_prover/is_sync", "psy_store/is_sync"]

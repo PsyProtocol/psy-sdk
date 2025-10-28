@@ -11,13 +11,13 @@ use std::{
 use anyhow::Result;
 use plonky2::field::goldilocks_field::GoldilocksField;
 use psy_data::traits::qdatastore::qmetadata::QMetaDataStoreReaderSync;
-use qed_prover::{
+use psy_prover::{
     local::provider::{QUserRpcProvider, RpcConfig},
     session::WalletSession,
 };
 use tracing::{error, info};
 use psy_node::common::slot::{SLOT_SIZE, LocalClock, Slot};
-use qed_prover::local::provider::RpcProvider;
+use psy_prover::local::provider::RpcProvider;
 use crate::subcommand::StressTestArgs;
 type F = GoldilocksField;
 

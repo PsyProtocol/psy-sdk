@@ -25,7 +25,7 @@ use psy_data::{
     qdata::contract::{ContractCodeDefinition, ContractFunctionCodeDefinition}, qstore::imm::cmd_processor::QEDReadCommandProcessorSync,
 };
 use psy_exec::vm::{cfc_input::DapenContractFunctionCircuitInput, exec::QEDEvalSessionResult};
-use qed_prover::dpn::{
+use psy_prover::dpn::{
     circuits::cfc::DapenContractFunctionCircuit,
 };
 use psy_data::{
@@ -262,7 +262,7 @@ async fn test_prove_simple() -> anyhow::Result<()> {
     let defs_array = [simple_mint_debug_def, simple_transfer_def, simple_claim_def];
     timer.lap("start building circuits");
 
-    use qed_prover::session::gen_contract_deploy_and_circuits_for_functions;
+    use psy_prover::session::gen_contract_deploy_and_circuits_for_functions;
 
     let (result_circuits, deploy_cmd) = gen_contract_deploy_and_circuits_for_functions::<C, D>(
         deployer,

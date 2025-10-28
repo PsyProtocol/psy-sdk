@@ -18,7 +18,7 @@ use psy_crypto::hash::{
 use psy_data::{
     qblock::cmds::deploy_contract::QBCDeployContract, qdata::contract::ContractCodeDefinition,
 };
-use qed_prover::{
+use psy_prover::{
     dpn::circuits::cfc::DapenContractFunctionCircuit, session::gen_contract_deploy_and_circuits_for_functions, ups::{circuit_manager::core::{QCircuitManager, QEDUPSStepCircuitManager}, session::UserProvingSessionManager}
 };
 use psy_data::qstore::imm::cmd_processor::QEDReadCommandProcessorSync;

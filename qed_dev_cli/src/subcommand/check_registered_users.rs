@@ -4,7 +4,7 @@ use psy_crypto::common::user_id::{
     self, UserIdBitsStrategy1, UserIdBitsStrategy2, UserIdBitsStrategy3, UserIdBitsStrategy4, UserIdGeneratorStrategy,
 };
 use psy_data::traits::qdatastore::qmetadata::QMetaDataStoreReaderSync;
-use qed_prover::local::provider::RpcProvider;
+use psy_prover::local::provider::RpcProvider;
 
 
 #[derive(Parser)]

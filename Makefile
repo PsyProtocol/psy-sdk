@@ -2,7 +2,7 @@ export DARGO_STD_PATH := $(PWD)/psy_compiler/psy-std/std.qed
 export SQLX_OFFLINE=true
 
 PROFILE := release
-LOG_LEVEL := qed_rollup_utils=trace,tikv_client=warn,psy_store=trace,qed_user_cli=debug,qed_dev_cli=debug,qed_api_services=info,qed_rollup_cli=debug,psy_node=trace,psy_common_circuit=trace,psy_network_circuit=trace,qed_prover=trace,psy_data=trace,plonky2=error
+LOG_LEVEL := qed_rollup_utils=trace,tikv_client=warn,psy_store=trace,qed_user_cli=debug,qed_dev_cli=debug,qed_api_services=info,qed_rollup_cli=debug,psy_node=trace,psy_common_circuit=trace,psy_network_circuit=trace,psy_prover=trace,psy_data=trace,plonky2=error
 
 
 BACKUP ?= false
@@ -111,12 +111,12 @@ ci:
 update-snapshots:
 	@cargo insta review
 
-WATCHED_DIRS := psy_network_circuit psy_common_circuit qed_prover/src/dpn qed_prover/src/ups psy_core/src/config/network_constants.rs psy_crypto/src/common/user_id.rs
+WATCHED_DIRS := psy_network_circuit psy_common_circuit psy_prover/src/dpn psy_prover/src/ups psy_core/src/config/network_constants.rs psy_crypto/src/common/user_id.rs
 
 config_gen_v2:
 	@if git diff --name-only --diff-filter=M | grep -q -E "$(subst $() $(),|,$(WATCHED_DIRS)).*\.rs$$"; then \
 		echo "Changes detected in watched directories. Running config_gen_v2..."; \
-		RUST_LOG=${RUST_LOG} cargo run --profile ${PROFILE} --package qed_prover --example config_gen_v2; \
+		RUST_LOG=${RUST_LOG} cargo run --profile ${PROFILE} --package psy_prover --example config_gen_v2; \
 	else \
 		echo "No changes detected in watched directories. Skipping config_gen_v2."; \
 	fi
@@ -687,8 +687,8 @@ image:
 		-f Dockerfile .
 
 wasm-build:
-	@cd qed_prover && wasm-pack build --target web --out-dir ../qed-ts-sdk/packages/qed-sdk/src/local-web-prover --no-pack --release --no-default-features
-	@cd qed_prover && wasm-pack build --target nodejs --out-dir ../qed-ts-sdk/packages/qed-sdk/src/local-prover  --no-pack --release --no-default-features
+	@cd psy_prover && wasm-pack build --target web --out-dir ../qed-ts-sdk/packages/qed-sdk/src/local-web-prover --no-pack --release --no-default-features
+	@cd psy_prover && wasm-pack build --target nodejs --out-dir ../qed-ts-sdk/packages/qed-sdk/src/local-prover  --no-pack --release --no-default-features
 
 wallet-build: wasm-build
 	@cd qed-ts-sdk/app/qed-wallet && pnpm i && pnpm build:wasm && pnpm build:extension

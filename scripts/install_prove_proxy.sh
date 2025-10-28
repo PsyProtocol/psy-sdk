@@ -581,8 +581,8 @@ QED_CONFIG_PATH="$ETC_DIR/config.json"
 # Proxy settings (MODIFY AS NEEDED)
 NUM_PROXIES=$NUM_PROXIES
 BASE_PORT=$BASE_PORT
-#LOG_LEVEL="qed_rollup_utils=trace,qed_user_cli=debug,qed_prover=trace"
-LOG_LEVEL="qed_rollup_utils=trace,tikv_client=warn,psy_store=trace,qed_user_cli=debug,qed_dev_cli=debug,qed_api_services=info,qed_rollup_cli=debug,psy_node=trace,psy_common_circuit=trace,psy_network_circuit=trace,qed_prover=trace,psy_data=trace,plonky2=error"
+#LOG_LEVEL="qed_rollup_utils=trace,qed_user_cli=debug,psy_prover=trace"
+LOG_LEVEL="qed_rollup_utils=trace,tikv_client=warn,psy_store=trace,qed_user_cli=debug,qed_dev_cli=debug,qed_api_services=info,qed_rollup_cli=debug,psy_node=trace,psy_common_circuit=trace,psy_network_circuit=trace,psy_prover=trace,psy_data=trace,plonky2=error"
 
 RESTART_DELAY=5
 START_DELAY=0.5

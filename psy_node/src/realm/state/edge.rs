@@ -5,7 +5,7 @@ use plonky2::{field::{goldilocks_field::GoldilocksField, types::{Field, PrimeFie
 use psy_core::{config::network_constants::GLOBAL_USER_TREE_HEIGHT, data::qhashout::QHashOut, job::{drain_queue::CheckpointDrainQueueEmitterAsyncImm, id::{ProvingJobCircuitType, ProvingJobDataType, QJobTopic, QProvingJobDataID}, traits::QProofStoreAsyncImm}};
 use psy_crypto::{common::generic_circuit_verifier::GenericCircuitVerifier, hash::traits::{hasher::{MerkleZeroHasher, PoseidonHasher}, qhashable::QFieldHashable}};
 use psy_data::{config::store_config::{QCheckpointSyncInfoCompact, QEDHasher}, guta::{api::{SimpleContractHeightCache, UserEndCapNonProofCoreInputQueueItem}, end_cap_input::SubmitUserEndCapNonProofInput}};
-use qed_prover::session::TxStatus;
+use psy_prover::session::TxStatus;
 use psy_store::node::realm::QEDRealmStoreReaderAsync;
 use tracing::debug;
 use crate::realm::{C, D, F, H};

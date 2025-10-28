@@ -12,7 +12,7 @@ use psy_crypto::signature::zk::wallet::SimpleQEDPrivateKey;
 use psy_package::Workspace;
 use psy_data::qblock::cmds::register_user::QBCRegisterUser;
 use psy_exec::vm::exec::QEDEvalSessionResult;
-use qed_prover::session::gen_contract_deploy_and_circuits_for_functions;
+use psy_prover::session::gen_contract_deploy_and_circuits_for_functions;
 use psy_sema::{
     CheckedFunctionNode, Implementer, TypeChecker, TypeCheckerVisitorContext, TypeId, TypeKey,
 };

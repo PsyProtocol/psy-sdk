@@ -17,7 +17,7 @@ use psy_crypto::{
     hash::{merkle::core::MerkleProofCore, traits::hasher::MerkleZeroHasher},
 };
 use psy_data::ups::ups_end_cap::UPSEndCapFromProofTreeGadgetInput;
-use qed_prover::ups::circuit_manager::core::QEDUPSStepCircuitManager;
+use psy_prover::ups::circuit_manager::core::QEDUPSStepCircuitManager;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

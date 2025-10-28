@@ -27,7 +27,7 @@ use crate::common::{
 use job_tracker::{JobLocation, WorkerJobTracker};
 use tokio::sync::Mutex;
 use tokio::time::timeout;
-use qed_prover::wallet::secp_wallet::Wallet;
+use psy_prover::wallet::secp_wallet::Wallet;
 use crate::common::slot::SLOT_SIZE;
 use psy_core::utils::trace_timer::TraceTimer;
 use crate::common::retry::retry_with_backoff;

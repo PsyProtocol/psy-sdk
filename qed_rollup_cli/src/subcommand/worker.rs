@@ -13,8 +13,8 @@ use psy_node::worker::{
     run_worker,
 };
 use kvq::traits::KVQSerializable;
-use qed_prover::ups::circuit_manager::core::QEDUPSStepCircuitManager;
-use qed_prover::wallet::secp_wallet::Wallet;
+use psy_prover::ups::circuit_manager::core::QEDUPSStepCircuitManager;
+use psy_prover::wallet::secp_wallet::Wallet;
 use psy_network_circuit::coordinator::coordinator_helper::QEDCoordinatorCircuitManager;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -58,7 +58,7 @@ pub async fn run(
     info!("Loading config from: {}", config);
 
     let config_str = fs::read_to_string(&config)?;
-    let config: qed_prover::local::provider::Config = serde_json::from_str(&config_str)?;
+    let config: psy_prover::local::provider::Config = serde_json::from_str(&config_str)?;
 
     let wallet = Wallet::load(
         private_key.as_deref(),
@@ -71,14 +71,14 @@ pub async fn run(
     let wallet = Arc::new(wallet);
 
     let main_circuits =
-        qed_prover::ups::circuit_manager::core::QCircuitManager::Local(QEDUPSStepCircuitManager::<
+        psy_prover::ups::circuit_manager::core::QCircuitManager::Local(QEDUPSStepCircuitManager::<
             C,
             D,
         >::new_with_config(
             psy_core::config::network_constants::QED_NETWORK_MAGIC_REGTEST,
         ));
 
-    let mut memory_wallet = qed_prover::wallet::memory_wallet::QEDMemoryWallet::new(vec![Box::new(main_circuits)]);
+    let mut memory_wallet = psy_prover::wallet::memory_wallet::QEDMemoryWallet::new(vec![Box::new(main_circuits)]);
 
     let private_key = QHashOut::from(Hash256::from_bytes(&wallet.private_key())?);
     let public_key_info = memory_wallet.add_secp_private_key(private_key).await?;

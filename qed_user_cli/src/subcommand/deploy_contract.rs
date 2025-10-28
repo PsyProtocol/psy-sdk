@@ -15,11 +15,11 @@ use psy_crypto::{
 use psy_data::{
     qblock::cmds::deploy_contract::QBCDeployContract, qdata::contract::ContractCodeDefinition,
 };
-use qed_prover::dpn::circuits::cfc::DapenContractFunctionCircuit;
+use psy_prover::dpn::circuits::cfc::DapenContractFunctionCircuit;
 use psy_data::config::store_config::QEDHasher;
 use psy_vm::dpn::vm::def::DPNFunctionCircuitDefinition;
 
-use qed_prover::local::{
+use psy_prover::local::{
     provider::{QUserRpcProvider, RpcProvider},
     request::QDeployContractRPCRequest,
 };
@@ -30,7 +30,7 @@ use super::args::DeployContractArgs;
 pub async fn run(args: DeployContractArgs) -> anyhow::Result<()> {
     tracing::info!("user cli deploying contract");
     use psy_data::config::store_config::{C, D};
-    use qed_prover::session::gen_contract_deploy_and_circuits_for_functions;
+    use psy_prover::session::gen_contract_deploy_and_circuits_for_functions;
 
     let private_key = QHashOut::<GoldilocksField>::from_str(&args.private_key)?;
     let mut wallet = SimpleQEDZKSignatureManager::<C, D>::new();

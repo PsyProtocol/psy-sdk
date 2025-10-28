@@ -1,8 +1,8 @@
 use clap::command;
 use clap::Parser;
 use clap::Subcommand;
-use qed_prover::local::args::ProveProxyArgs;
-use qed_prover::local::args::{ProverArgs, WalletSessionArgs};
+use psy_prover::local::args::ProveProxyArgs;
+use psy_prover::local::args::{ProverArgs, WalletSessionArgs};
 
 pub mod args;
 pub mod deploy_contract;

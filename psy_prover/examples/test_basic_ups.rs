@@ -1,21 +1,23 @@
-use std::{marker::PhantomData, sync::Arc};
+use std::marker::PhantomData;
 
 use kvq::memory::simple::KVQSimpleMemoryBackingStore;
+use psy_store::node::coordinator::QEDCoordinatorStoreWriterAsyncImm;
 use plonky2::{field::{goldilocks_field::GoldilocksField, types::{Field, PrimeField64}}, plonk::config::PoseidonGoldilocksConfig};
 use psy_common_circuit::circuits::{traits::qstandard::QStandardCircuit, zk_signature3::manager::SimpleQEDZKSignatureManager};
 use psy_core::{config::network_constants::{GLOBAL_USER_TREE_HEIGHT, QED_NETWORK_MAGIC_REGTEST, UPS_SESSION_PROOF_TREE_HEIGHT}, data::qhashout::QHashOut, ups::circuits::{LocalCircuitId, LocalCircuitType}, utils::debug_timer::DebugTimer};
 use psy_crypto::{hash::utils::gen_dapen_contract_function_method_id, signature::zk::wallet::SimpleQEDPrivateKey};
 use psy_data::{
-    guta::api::SubmitUserEndCapProofAPIInput, proof_store::simple::SimpleProofStoreMemory, protocol::circuit_fingerprints::QEDWorkerToolboxCoreCircuitFingerprints, qblock::cmds::{
+    protocol::circuit_fingerprints::QEDWorkerToolboxCoreCircuitFingerprints,
+    qblock::cmds::{
         core::QEDBlockCommands, deploy_contract::QBCDeployContract, register_user::QBCRegisterUser,
-    }, qdata::contract::{ContractCodeDefinition, ContractFunctionCodeDefinition}
+    },
+    qdata::contract::{ContractCodeDefinition, ContractFunctionCodeDefinition},
 };
-use qed_prover::{dpn::circuits::cfc::DapenContractFunctionCircuit, local::{provider::UPSCircuitManagerTrait, simple::SimpleAPI}, ups::{circuit_manager::core::{QCircuitManager, QEDUPSStepCircuitManager}, session::UserProvingSessionManager}};
-use psy_network_circuit::guta::guta_helper::QEDGUTACircuitManager;
+use psy_prover::{local::provider::UPSCircuitManagerTrait, dpn::circuits::cfc::DapenContractFunctionCircuit, ups::{circuit_manager::core::{QCircuitManager, QEDUPSStepCircuitManager}, session::UserProvingSessionManager}};
 use psy_data::{
     config::store_config::QEDHasher, qblock::process::simple::SimpleBlockProcessor, traits::qdatastore::{qmetadata::QMetaDataStoreReaderSync, qtreedata::QEDComboDataStoreReaderWriterSync}
 };
-use psy_store::{controllers::local::{proving_session::QEDLocalProvingSessionStore, session_info::SessionCircuitInfoStore, prepare_environment_with_real_contract}, node::coordinator::QEDCoordinatorStoreWriterAsyncImm};
+use psy_store::controllers::local::{proving_session::QEDLocalProvingSessionStore, session_info::SessionCircuitInfoStore, prepare_environment_with_real_contract};
 use psy_vm::dpn::{
     ops::{context_trait::DPNContext, exec_context::QExecContext, sym_felt::SymFeltRef},
     vm::{compile::QEDCompileResult, def::DPNFunctionCircuitDefinition},
@@ -35,6 +37,8 @@ impl<C: DPNContext<Felt>> SimpleContractStateful<C> {
     }
 }
 
+const ZERO: usize = 0;
+
 #[qcontract]
 impl<C: DPNContext<Felt>> SimpleContractStateful<C> {
     pub fn simple_mint_debug(
@@ -49,12 +53,43 @@ impl<C: DPNContext<Felt>> SimpleContractStateful<C> {
         let current_balance = self_user_leaf[0];
 
         let new_balance = current_balance+amount;
+
+        /*
         ctx.cset_state_hash_at(ctx.get_user_id(), [
             new_balance,
             self_user_leaf[1],
             self_user_leaf[2],
             self_user_leaf[3],
+        ]);*/
+
+        let hash_ex = ctx.hash(&[
+
+            new_balance,
+            self_user_leaf[1],
+            self_user_leaf[2],
+            self_user_leaf[3],
         ]);
+        ctx.assert_true(hash_ex[0]+hash_ex[1]+hash_ex[2]+hash_ex[3] != 0, "hash ex");
+
+
+        ctx.cset_state_range_at(ctx.get_user_id()*4, &[
+            new_balance,
+            self_user_leaf[1],
+            self_user_leaf[2],
+            self_user_leaf[3],
+        ]);
+
+        let range_ex = ctx.get_state_range_at(ctx.get_user_id()*4, 4);
+
+        let r = range_ex[ZERO];
+
+
+        ctx.assert_eq(new_balance, r, "range_ex 0 must be new balance");
+
+
+
+
+
 
         new_balance
     }
@@ -151,6 +186,19 @@ impl<C: DPNContext<Felt>> SimpleContractStateful<C> {
 const D: usize = 2;
 type C = PoseidonGoldilocksConfig;
 
+/*
+
+fn test_run_contract_fn<R: QEDReadCommandProcessorSync<GoldilocksField>>(
+    contract_id: GoldilocksField,
+    fn_circuit_def: &DPNFunctionCircuitDefinition,
+    lps: &mut QEDLocalProvingSessionStore<GoldilocksField, R>,
+    inputs: &[GoldilocksField],
+) -> anyhow::Result<DapenContractFunctionCircuitInput<GoldilocksField>> {
+    QEDEvalSessionResult::new()
+        .exec_contract_call( lps,contract_id, fn_circuit_def, inputs.to_vec())
+}
+*/
+
 fn compile_simple_mint_debug() -> anyhow::Result<DPNFunctionCircuitDefinition> {
 
     let mut ctx = QExecContext::new();
@@ -221,8 +269,8 @@ fn compile_simple_claim() -> anyhow::Result<DPNFunctionCircuitDefinition> {
     Ok(fn_circuit_def)
 }
 
-async fn demo_user_proving_session() -> anyhow::Result<()> {
-    let mut timer = DebugTimer::new("demo_user_proving_session");
+async fn test_prove_simple() -> anyhow::Result<()> {
+    let mut timer = DebugTimer::new("test_prove_simple");
 
     timer.lap("start");
 
@@ -245,7 +293,7 @@ async fn demo_user_proving_session() -> anyhow::Result<()> {
     ];
     timer.lap("start building circuits");
 
-    use qed_prover::session::gen_contract_deploy_and_circuits_for_functions;
+    use psy_prover::session::gen_contract_deploy_and_circuits_for_functions;
 
     let (result_circuits, deploy_cmd) = gen_contract_deploy_and_circuits_for_functions::<C, D>(
         deployer,
@@ -254,18 +302,19 @@ async fn demo_user_proving_session() -> anyhow::Result<()> {
     )?;
     let mut result_circuits = result_circuits;
     timer.lap("finished building fn circuits");
-    let priv_key_0 = QHashOut::rand();
-    let priv_key_1 = QHashOut::rand();
+    let priv_key = QHashOut::rand();
     let mut wallet = SimpleQEDZKSignatureManager::<C,D>::new();
-    let pub_key_0 = wallet.add_private_key_get_info(SimpleQEDPrivateKey::new(priv_key_0));
-    let pub_key_1 = wallet.add_private_key_get_info(SimpleQEDPrivateKey::new(priv_key_1));
+    let priv_key_obj = SimpleQEDPrivateKey::new(priv_key);
+    let pub_param = priv_key_obj.get_public_key_param::<QEDHasher>();
+    let fingerprint = wallet.get_zksig_circuit_fingerprint();
+    let pub_key = wallet.add_private_key(priv_key_obj);
     timer.lap("finished building wallet/zksig circuits");
 
 
     timer.lap("prepared environement");
 
 
-    let contract_id = GoldilocksField::from_canonical_u64(3);
+    let contract_id = GoldilocksField::from_canonical_u64(2);
 
     let [
         simple_mint_debug_def,
@@ -296,72 +345,12 @@ async fn demo_user_proving_session() -> anyhow::Result<()> {
 
 
     let lps = prepare_environment_with_real_contract(
-        vec![
-            QBCRegisterUser::new_from_u64s([1;4], [1;4]),
-            QBCRegisterUser::new_from_u64s([1;4], [13371, 13372, 13373, 13374]),
-            QBCRegisterUser::new_from_u64s([1;4], [13375, 13376, 13377, 13378]),
-            QBCRegisterUser::new(QHashOut::rand(),QHashOut::rand()),
-            QBCRegisterUser::new(QHashOut::rand(),QHashOut::rand()),
-            pub_key_0.into(),
-            pub_key_1.into(),
-        ],
-        vec![
-            QBCDeployContract {
-                deployer: QHashOut::from_values(13371, 13372, 13373, 13374),
-                code_definition: ContractCodeDefinition {
-                    state_tree_height: 12 as u16,
-                    functions: vec![ContractFunctionCodeDefinition::default()],
-                },
-                function_whitelist: vec![
-                    QHashOut::rand(),
-                    QHashOut::rand(),
-                    QHashOut::from_values(1, 0, 0, 0),
-                    QHashOut::from_values(0, 0, 0, 0),
-                ],
-            },
-            QBCDeployContract {
-                deployer: QHashOut::from_values(13375, 13376, 13377, 13378),
-                code_definition: ContractCodeDefinition {
-                    state_tree_height: 13 as u16,
-                    functions: vec![ContractFunctionCodeDefinition::default()],
-                },
-                function_whitelist: vec![
-                    QHashOut::rand(),
-                    QHashOut::rand(),
-                    QHashOut::from_values(2, 0, 0, 0),
-                    QHashOut::from_values(0, 0, 0, 0),
-                ],
-            },
-            deploy_cmd,
-        ],
+        vec![QBCRegisterUser::new(fingerprint, pub_param)],
+        vec![deploy_cmd],
         None,
         None,
         Some(UPS_SESSION_PROOF_TREE_HEIGHT as usize),
     ).await?;
-
-    timer.lap("start build guta circuits");
-
-    let end_cap_proof_common_data = match &main_circuits {
-        QCircuitManager::Local(manager) => manager.ups_end_cap.get_common_circuit_data_ref(),
-        QCircuitManager::Rpc(provider) => unimplemented!(),
-    };
-    use psy_core::config::network_constants::get_default_worker_public_key;
-
-    let guta_circuits = QEDGUTACircuitManager::<C,D>::new_with_config(
-        end_cap_proof_common_data,
-        main_circuits.ups_end_cap_circuit_verifier_config().await?.constants_sigmas_cap.height(),
-        main_circuits.ups_end_cap_circuit_fingerprint().await?,
-        get_default_worker_public_key::<GoldilocksField>(),
-    );
-    timer.lap("built guta circuits");
-    let proof_store = SimpleProofStoreMemory::new();
-
-    let mut api = SimpleAPI::<_,_,GoldilocksField,C,D>::new(proof_store, lps.cmd_store.read_store.clone(), guta_circuits).await?;
-    //main_circuits.print_common_config();
-    api.guta_circuits.print_common_config();
-
-
-
     let mut circuit_info = SessionCircuitInfoStore::new();
 
     circuit_info.register_circuit(
@@ -370,7 +359,7 @@ async fn demo_user_proving_session() -> anyhow::Result<()> {
         wallet.circuit.get_verifier_config_ref().into(),
     );
 
-    main_circuits.register_info(&mut circuit_info);
+    main_circuits.register_info(&mut circuit_info).await;
     circuit_info.register_circuit(
         LocalCircuitId::new_cfc(
             contract_id.to_canonical_u64() as u32,
@@ -416,7 +405,7 @@ async fn demo_user_proving_session() -> anyhow::Result<()> {
             GoldilocksField::from_noncanonical_u64(1000)
         ]
     ).await?;
-    timer.lap("proved token.simple_mint_debug(amount: 1000)");
+    timer.lap("proved ups_cfc_standard_tx");
 
 
 
@@ -430,16 +419,16 @@ async fn demo_user_proving_session() -> anyhow::Result<()> {
             GoldilocksField::from_noncanonical_u64(100),
         ]
     ).await?;
-    timer.lap("proved token.simple_transfer(recipient: 2, amount: 100)");
+    timer.lap("proved ups_cfc_standard_tx");
 
     let new_nonce = GoldilocksField::from_noncanonical_u64(1);
     let sighash = mgr.get_sighash(QED_NETWORK_MAGIC_REGTEST, new_nonce);
 
-    let signature_proof = wallet.zk_sign_for_private_key_value(priv_key_0, sighash)?;
+    let signature_proof = wallet.zk_sign_for_private_key_value(priv_key, sighash)?;
     timer.lap("generated zk signature for UPS transaction batch");
     mgr.proof_tree_state.finalize_tree(&main_circuits).await?;
     timer.lap("aggregated all UPS proofs into a single proof");
-    let public_key_param =SimpleQEDPrivateKey::new(priv_key_0).get_public_key_param::<QEDHasher>();
+    let public_key_param =SimpleQEDPrivateKey::new(priv_key).get_public_key_param::<QEDHasher>();
     let end_cap_proof = mgr.prove_end_cap(
         &main_circuits,
          QED_NETWORK_MAGIC_REGTEST,
@@ -452,97 +441,10 @@ async fn demo_user_proving_session() -> anyhow::Result<()> {
     timer.lap("Proved End Cap for UPS Session 🎉");
 
     // the end cap proof the proof that we send off to the network 🎉
-
-    //main_circuits.ups_end_cap.circuit_data.verify(end_cap_proof)?;
-    timer.lap("✅ Verified End Cap Proof");
-
-
-    let user_a_api_input = SubmitUserEndCapProofAPIInput{
-        input: mgr.get_api_input().await?,
-        proof: end_cap_proof,
-    };
-
-    let mut mgr = mgr.into_clean_for_user(GoldilocksField::from_canonical_u32(6)).await?;
-
-
-
-    timer.lap("START USER PROVING SESSION");
-
-    mgr.prove_ups_start(&main_circuits).await?;
-    timer.lap("proved ups_start");
-
-    mgr.prove_contract_call(
-        &main_circuits,
-        contract_id,
-        0,
-        &simple_mint_debug_def,
-        vec![
-            GoldilocksField::from_noncanonical_u64(10000)
-        ]
-    ).await?;
-    timer.lap("proved token.simple_mint_debug(amount: 10000)");
-
-
-
-    mgr.prove_contract_call(
-        &main_circuits,
-        contract_id,
-        1,
-        &simple_transfer_def,
-        vec![
-            GoldilocksField::from_noncanonical_u64(3),
-            GoldilocksField::from_noncanonical_u64(1337),
-        ]
-    ).await?;
-    timer.lap("proved token.simple_transfer(recipient: 3, amount: 1337)");
-
-    let new_nonce = GoldilocksField::from_noncanonical_u64(1);
-    let sighash = mgr.get_sighash(QED_NETWORK_MAGIC_REGTEST, new_nonce);
-
-    let signature_proof = wallet.zk_sign_for_private_key_value(priv_key_1, sighash)?;
-    timer.lap("generated zk signature for UPS transaction batch");
-    mgr.proof_tree_state.finalize_tree(&main_circuits).await?;
-    timer.lap("aggregated all UPS proofs into a single proof");
-    let public_key_param =SimpleQEDPrivateKey::new(priv_key_1).get_public_key_param::<QEDHasher>();
-    let end_cap_proof = mgr.prove_end_cap(
-        &main_circuits,
-         QED_NETWORK_MAGIC_REGTEST,
-         new_nonce,
-         wallet.circuit.get_fingerprint(),
-         public_key_param,
-        signature_proof,
-         wallet.circuit.get_verifier_config_ref().to_owned()
-    ).await?;
-    timer.lap("Proved End Cap for UPS Session 🎉");
-
-    // the end cap proof the proof that we send off to the network 🎉
-
-    //main_circuits.ups_end_cap.circuit_data.verify(end_cap_proof)?;
-    timer.lap("✅ Verified End Cap Proof");
-
-
-    let user_b_api_input = SubmitUserEndCapProofAPIInput{
-        input: mgr.get_api_input().await?,
-        proof: end_cap_proof,
-    };
-
-    api.submit_proof(user_a_api_input)?;
-    api.submit_proof(user_b_api_input)?;
-    timer.lap("start generating start witnesses");
-
-    let (pairs, left_over) = api.get_start_witnesses().await?;
-    timer.lap("finished generating start witnesses");
-    for p in pairs.into_iter() {
-        let _proof = api.proof_start_dbg(p, &main_circuits.ups_end_cap_circuit_verifier_config().await?)?;
-        timer.lap("Proved Recursive Global User Tree Aggregation");
-
+    if let QCircuitManager::Local(ref mgr) = main_circuits {
+        mgr.ups_end_cap.verify_proof(end_cap_proof)?;
     }
-
-
-
-
-
-    //guta_circuits.verify_two_end_cap.prove_base(input, child_a_proof, child_b_proof, end_cap_verifier_data)
+    timer.lap("✅ Verified End Cap Proof");
 
 
 
@@ -555,5 +457,5 @@ async fn demo_user_proving_session() -> anyhow::Result<()> {
 
 #[tokio::main]
 async fn main() {
-    demo_user_proving_session().await.unwrap();
+    test_prove_simple().await.unwrap();
 }

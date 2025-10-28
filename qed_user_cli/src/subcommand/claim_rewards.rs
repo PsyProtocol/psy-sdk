@@ -21,8 +21,8 @@ use psy_data::{
     config::store_config::QEDHasher,
     traits::qdatastore::{qmetadata::QMetaDataStoreReaderSync, qtreedata::QTreeDataStoreReaderSync},
 };
-use qed_prover::local::args::{JobInfo, JobLocation, SignData, WorkerJobTracker};
-use qed_prover::{
+use psy_prover::local::args::{JobInfo, JobLocation, SignData, WorkerJobTracker};
+use psy_prover::{
     local::{
         args::{ContractCallArgs, SignType},
         provider::{RpcConfig, RpcProvider},

@@ -49,7 +49,7 @@ use psy_crypto::hash::merkle::utils::simple_merkle_tree::SimpleMerkleTree;
 use psy_data::qdata::user::QEDUserLeaf;
 use psy_crypto::hash::traits::qhashable::QFieldHashable;
 use psy_data::qdata::user_public_key::QEDUserPublicKeyRecord;
-use qed_prover::session::gen_contract_deploy_and_circuits_for_functions;
+use psy_prover::session::gen_contract_deploy_and_circuits_for_functions;
 use psy_vm::dpn::vm::compile::QEDCompileResult;
 use psy_data::config::store_config::QEDHasher;
 use psy_core::config::network_constants::BATCH_USER_REGISTRAITION_SUB_TREE_HEIGHT;

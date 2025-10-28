@@ -12,15 +12,15 @@ use psy_crypto::hash::traits::qhashable::QFieldHashable;
 use psy_crypto::signature::zk::{data::ZKPublicKeyInfo, wallet::SimpleQEDPrivateKey};
 use psy_data::config::store_config::QEDHasher;
 use psy_data::traits::qdatastore::qmetadata::QMetaDataStoreReaderSync;
-use qed_prover::local::args::SignType;
-use qed_prover::local::provider::{QUserRpcProvider, RpcProvider};
-use qed_prover::local::request::QRegisterUserRPCRequest;
-use qed_prover::wallet::simple_sign::SoftwareDefinedSignGadget;
-use qed_prover::wallet::software_defined_circuit::{
+use psy_prover::local::args::SignType;
+use psy_prover::local::provider::{QUserRpcProvider, RpcProvider};
+use psy_prover::local::request::QRegisterUserRPCRequest;
+use psy_prover::wallet::simple_sign::SoftwareDefinedSignGadget;
+use psy_prover::wallet::software_defined_circuit::{
     get_sdc_public_key_param, PSoftwareDefinedSignatureInput, QSoftwareDefinedSignatureInput,
     SoftwareDefinedSignatureCircuit, SoftwareDefinedSignatureGadget, SoftwareDefinedSignatureInput,
 };
-use qed_prover::wallet::utils::{get_secp_public_key, hash_no_pad_compressed_public_key};
+use psy_prover::wallet::utils::{get_secp_public_key, hash_no_pad_compressed_public_key};
 use psy_vm::dpn::vm::def::DPNFunctionCircuitDefinition;
 use std::str::FromStr;
 

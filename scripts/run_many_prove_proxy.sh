@@ -9,7 +9,7 @@ set -e
 # Configuration with defaults
 NUM_PROXIES=${1:-3}  # Default to 3 prove proxies if not specified
 BASE_PORT=${2:-9090}  # Default base port
-LOG_LEVEL=${LOG_LEVEL:-"qed_rollup_utils=trace,qed_user_cli=debug,qed_prover=trace"}
+LOG_LEVEL=${LOG_LEVEL:-"qed_rollup_utils=trace,qed_user_cli=debug,psy_prover=trace"}
 PROFILE=${PROFILE:-release}
 
 # Define log directory and ensure it exists
@@ -151,7 +151,7 @@ ${YELLOW}Arguments:${NC}
     BASE_PORT      Starting port number (default: 9090)
 
 ${YELLOW}Environment Variables:${NC}
-    LOG_LEVEL      Rust log level (default: qed_rollup_utils=trace,qed_user_cli=debug,qed_prover=trace)
+    LOG_LEVEL      Rust log level (default: qed_rollup_utils=trace,qed_user_cli=debug,psy_prover=trace)
     PROFILE        Build profile to use (default: release)
 
 ${YELLOW}Examples:${NC}

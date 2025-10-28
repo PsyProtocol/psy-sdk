@@ -1,5 +1,5 @@
 use anyhow::Result;
-use qed_prover::wallet::secp_wallet::Wallet;
+use psy_prover::wallet::secp_wallet::Wallet;
 use rpassword::read_password;
 use std::io::{self, Write};
 use std::path::Path;

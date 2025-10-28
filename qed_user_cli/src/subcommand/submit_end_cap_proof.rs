@@ -6,13 +6,13 @@ use psy_core::config::network_constants::{
 };
 use psy_core::data::qhashout::QHashOut;
 use psy_data::traits::qdatastore::qmetadata::QMetaDataStoreReaderSync;
-use qed_prover::local::args::{SignData, WalletSessionArgs};
-use qed_prover::session::WalletSession;
-use qed_prover::wallet::simple_sign::SoftwareDefinedSignGadget;
-use qed_prover::wallet::software_defined_circuit::{
+use psy_prover::local::args::{SignData, WalletSessionArgs};
+use psy_prover::session::WalletSession;
+use psy_prover::wallet::simple_sign::SoftwareDefinedSignGadget;
+use psy_prover::wallet::software_defined_circuit::{
     PSoftwareDefinedSignatureInput, QSoftwareDefinedSignatureInput,
 };
-use qed_prover::{
+use psy_prover::{
     local::{
         args::{ContractCallArgs, SignType},
         provider::RpcConfig,

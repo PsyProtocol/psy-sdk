@@ -36,7 +36,7 @@ use psy_node::{
     },
 };
 use psy_node::common::verifier::get_cached_generic_verifier;
-use qed_prover::{local::provider::UPSCircuitManagerTrait, ups::{
+use psy_prover::{local::provider::UPSCircuitManagerTrait, ups::{
     circuit_manager::core::{QCircuitManager, QEDUPSStepCircuitManager}, session::UserProvingSessionManager,
 }};
 use psy_network_circuit::coordinator::coordinator_helper::QEDCoordinatorCircuitManager;

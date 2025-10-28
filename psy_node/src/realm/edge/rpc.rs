@@ -8,7 +8,7 @@ use psy_crypto::hash::merkle::core::MerkleProofCore;
 use psy_data::guta::end_cap_input::SubmitUserEndCapNonProofInput;
 use psy_data::qdata::checkpoint::{QEDCheckpointGlobalStateRoots, QEDCheckpointLeaf};
 use psy_data::qdata::{checkpoint::QEDL2BlockState, user::QEDUserLeaf};
-use qed_prover::session::TxStatus;
+use psy_prover::session::TxStatus;
 
 #[rpc(server, client, namespace = "qed")]
 pub trait RealmEdgeRpc {

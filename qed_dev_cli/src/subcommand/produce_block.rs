@@ -1,5 +1,5 @@
 use plonky2::field::goldilocks_field::GoldilocksField;
-use qed_prover::local::provider::{QUserRpcProvider, RpcProvider};
+use psy_prover::local::provider::{QUserRpcProvider, RpcProvider};
 use anyhow::Result;
 
 pub async fn run(args: super::ProduceBlockArgs) -> Result<()> {

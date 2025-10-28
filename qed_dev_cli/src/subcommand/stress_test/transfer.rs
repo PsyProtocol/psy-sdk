@@ -18,7 +18,7 @@ use crate::subcommand::{
     stress_test::{load_rpc_config, wait_for_new_block},
     StressTestArgs,
 };
-use qed_prover::{
+use psy_prover::{
     local::{args::ContractCallArgs, provider::RpcConfig},
     session::session::WalletSession,
 };

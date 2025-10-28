@@ -7,7 +7,7 @@ use std::fs;
 use std::path::Path;
 use tracing::{error, info, warn, trace};
 
-pub use qed_prover::local::provider::{JobInfo, JobLocation};
+pub use psy_prover::local::provider::{JobInfo, JobLocation};
 
 type F = GoldilocksField;
 
