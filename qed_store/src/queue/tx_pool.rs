@@ -49,7 +49,6 @@ impl TxPoolAsyncImm for ProofStoreRedisAsync {
         let checkpoint_list_key = self.checkpoint_list_key();
         let checkpoint_proofs_key = self.checkpoint_proofs_key(checkpoint_id);
         let public_inputs_key = self.public_inputs_key();
-        let user_end_cap_key = self.user_end_cap_key();
 
         let proof_bytes = bincode::serialize(proof)?;
         let public_inputs_data = bincode::serialize(&proof.public_inputs)?;
@@ -177,19 +176,20 @@ impl TxPoolAsyncImmV2 for ProofStoreRedisAsync {
         &self,
         id: QProvingJobDataID,
         proof: &ProofWithPublicInputs<C::F, C, D>,
-        user_end_cap: UserEndCapNonProofCoreInputQueueItem<C::F>,
+        tx: UserEndCapNonProofCoreInputQueueItem<C::F>,
     ) -> anyhow::Result<()> {
         let checkpoint_id = id.goal_id;
         let checkpoint_list_key = self.checkpoint_list_key();
         let checkpoint_proofs_key = self.checkpoint_proofs_key(checkpoint_id);
-        let user_end_cap_key = self.user_end_cap_key();
-        let id_key = self.id_key(user_end_cap.channel_id);
+        let tx_key = self.tx_key(tx.channel_id);
+        let id_key = self.id_key(tx.channel_id);
         let public_inputs_key = self.public_inputs_key();
 
         let proof_bytes = bincode::serialize(proof)?;
         let public_inputs_data = bincode::serialize(&proof.public_inputs)?;
         let now = self.redis.server_time().await?;
         let mut builder = self.redis.cmd_builder();
+        let user_id = tx.cst_user_update.user_id;
         builder = builder
             .sadd(checkpoint_list_key, checkpoint_id)
             .hset(
@@ -200,14 +200,15 @@ impl TxPoolAsyncImmV2 for ProofStoreRedisAsync {
                 public_inputs_key,
                 id.to_fixed_bytes().to_vec(),
                 public_inputs_data,
-            ).sadd(
-                user_end_cap_key,
-                user_end_cap.to_bytes()?,
+            ).hset(
+                tx_key,
+                user_id,
+                tx.to_bytes()?,
             ).zadd(
                 id_key.clone(),
-                user_end_cap.cst_user_update.user_id,
+                user_id,
                 now[0],
-            ).zremrangebyscore(id_key, 0, now[0] - 1800); // remove expired txs
+            );
         builder.execute_atomic(&self.redis).await?;
         Ok(())
     }
@@ -223,6 +224,7 @@ impl TxPoolAsyncImmV2 for ProofStoreRedisAsync {
         if len == 0 {
             return Ok(vec![]);
         }
+        let start_position: i64 = 0;
         let mut stop = -1;
         if let Some(count) = count {
             if count < len as isize {
@@ -230,14 +232,18 @@ impl TxPoolAsyncImmV2 for ProofStoreRedisAsync {
             }
         }
 
-        let user_end_cap_key = self.user_end_cap_key();
-        let txs: Vec<Vec<u8>> = self.redis.zrange(user_end_cap_key, 0, stop).await?;
-        let txs:Vec<UserEndCapNonProofCoreInputQueueItem<C::F>> = txs.iter().map(|item| {
-            UserEndCapNonProofCoreInputQueueItem::from_bytes(item)
-        }).collect::<anyhow::Result<Vec<_>>>()?;
+        let ids: Vec<u64> = self.redis.zrange(self.id_key(channel_id), start_position as isize, stop).await?;
+        let txs_data: Vec<Option<Vec<u8>>> = self.redis.hget(self.tx_key(channel_id), ids).await?;
+        let mut txs:Vec<UserEndCapNonProofCoreInputQueueItem<C::F>> = vec![];
+        for (i, user_end_cap_data) in txs_data.iter().enumerate() {
+            if let Some(user_end_cap_data) = user_end_cap_data {
+                let user_end_cap = UserEndCapNonProofCoreInputQueueItem::<C::F>::from_bytes(user_end_cap_data)?;
+                txs.push(user_end_cap);
+            }
+        }
 
         let state = QueueOffsetState {
-            start_position: 0i64,
+            start_position,
             end_position: stop as i64,
             checkpoint_id,
             channel_id,
@@ -262,8 +268,11 @@ impl TxPoolAsyncImmV2 for ProofStoreRedisAsync {
         if let Some(data) = state_data {
             if !data.is_empty() {
                 let state: QueueOffsetState = bincode::deserialize(&data).map_err(|e| anyhow::anyhow!("Failed to deserialize state: {}", e))?;
-                let user_end_cap_key = self.user_end_cap_key();
-                builder = builder.zremrangebyrank(user_end_cap_key, state.start_position as isize, state.end_position as isize);
+                let tx_key = self.tx_key(channel_id);
+                let id_key = self.id_key(channel_id);
+                let ids: Vec<u64> = self.redis.zrange(id_key.clone(), state.start_position as isize, state.end_position as isize).await?;
+                builder = builder.zremrangebyrank(id_key, state.start_position as isize, state.end_position as isize);
+                builder = builder.hdel(tx_key, &ids);// remove tx
                 builder = builder.del(state_key.clone());
             }
         }
