@@ -25,10 +25,9 @@ use psy_data::{
 };
 use psy_exec::vm::{cfc_input::DapenContractFunctionCircuitInput, exec::PsyEvalSessionResult};
 use psy_prover::dpn::circuits::cfc::DapenContractFunctionCircuit;
-use psy_store::{
-    controllers::local::{prepare_environment_with_real_contract, proving_session::PsyLocalProvingSessionStore},
-    node::coordinator::PsyCoordinatorStoreWriterAsyncImm,
-};
+use psy_data::qstore::controllers::proving_session::PsyLocalProvingSessionStore;
+use psy_store::prepare_environment_with_real_contract;
+use psy_store::node::coordinator::PsyCoordinatorStoreWriterAsyncImm;
 use psy_vm::dpn::{
     ops::{context_trait::DPNContext, exec_context::QExecContext, sym_felt::SymFeltRef},
     vm::{compile::PsyCompileResult, def::DPNFunctionCircuitDefinition},

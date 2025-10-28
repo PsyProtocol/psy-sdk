@@ -31,7 +31,7 @@ use psy_data::{
     },
     traits::qdatastore::{qmetadata::QMetaDataStoreReaderSync, qtreedata::QTreeDataStoreReaderSync},
 };
-use psy_store::controllers::local::{proving_session::PsyLocalProvingSessionStore, session_info::SessionCircuitInfoStore};
+use psy_data::qstore::controllers::{proving_session::PsyLocalProvingSessionStore, session_info::SessionCircuitInfoStore};
 use psy_vm::dpn::{
     contract::{cfc_code_definition_to_dapen_fc, dapen_fc_to_cfc_code_definition, hash_dpn_function},
     vm::def::DPNFunctionCircuitDefinition,

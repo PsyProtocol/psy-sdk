@@ -47,8 +47,8 @@ use psy_prover::{
         session::UserProvingSessionManager,
     },
 };
+use psy_data::qstore::controllers::{proving_session::PsyLocalProvingSessionStore, session_info::SessionCircuitInfoStore};
 use psy_store::{
-    controllers::local::{proving_session::PsyLocalProvingSessionStore, session_info::SessionCircuitInfoStore},
     node::coordinator::{PsyCoordinatorStoreReaderAsync, PsyCoordinatorStoreWriterAsyncImm},
     queue::{
         task_queue::{QProvingTaskStore, QProvingTaskStoreImpl},

@@ -41,7 +41,7 @@ use psy_data::{
     },
 };
 use psy_exec::vm::cfc_input::DapenContractFunctionCircuitInput;
-use psy_store::controllers::local::session_info::SessionCircuitInfoStore;
+use psy_data::qstore::controllers::session_info::SessionCircuitInfoStore;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Deserialize, Serialize, Hash, Eq, PartialEq)]

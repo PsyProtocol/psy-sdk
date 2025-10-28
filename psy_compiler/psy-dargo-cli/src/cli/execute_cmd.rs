@@ -10,7 +10,7 @@ use psy_data::{
 use psy_exec::vm::exec::PsyEvalSessionResult;
 use psy_package::Workspace;
 use psy_prover::session::gen_contract_deploy_and_circuits_for_functions;
-use psy_store::controllers::local::prepare_environment_with_real_contract;
+use psy_store::prepare_environment_with_real_contract;
 
 use crate::cli::{
     compile_cmd::{compile_workspace_full, CompileOptions},

@@ -50,7 +50,7 @@ use psy_network_circuit::ups::circuits::{
     end_cap::UPSStandardEndCapCircuit, ups_cfc_deferred_tx::UPSCFCDeferredTransactionCircuit, ups_cfc_standard::UPSCFCStandardTransactionCircuit,
     ups_start::UPSStartSessionCircuit,
 };
-use psy_store::controllers::local::session_info::SessionCircuitInfoStore;
+use psy_data::qstore::controllers::session_info::SessionCircuitInfoStore;
 use psy_vm::dpn::contract::cfc_code_definition_to_dapen_fc;
 use serde::Serialize;
 

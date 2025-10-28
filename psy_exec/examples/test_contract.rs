@@ -16,10 +16,8 @@ use psy_data::{
     traits::qdatastore::qtreedata::PsyComboDataStoreReaderWriterSync,
 };
 use psy_exec::vm::exec::PsyEvalSessionResult;
-use psy_store::{
-    controllers::local::{prepare_environment_with_real_contract, proving_session::PsyLocalProvingSessionStore},
-    node::coordinator::PsyCoordinatorStoreWriterAsyncImm,
-};
+use psy_data::qstore::controllers::proving_session::PsyLocalProvingSessionStore;
+use psy_store::{prepare_environment_with_real_contract, node::coordinator::PsyCoordinatorStoreWriterAsyncImm};
 use psy_vm::dpn::{
     ops::{context_trait::DPNContext, exec_context::QExecContext, sym_felt::SymFeltRef},
     vm::{compile::PsyCompileResult, def::DPNFunctionCircuitDefinition},

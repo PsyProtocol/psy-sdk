@@ -19,7 +19,7 @@ use psy_crypto::hash::{
     traits::{hasher::MerkleZeroHasher, qhashable::QFieldHashable},
     utils::safe_hash_fixed_length,
 };
-use psy_data::{
+use crate::{
     config::store_config::{PsyHasher, UserContractTreeStore},
     dpn::{
         cfc_context_input::{DapenCFCProvingSessionStartContext, DapenCFCUserTransactionCallStartContext},

@@ -65,7 +65,7 @@ use psy_data::{
     },
 };
 use psy_exec::vm::{cfc_input::DapenContractFunctionCircuitInput, exec::PsyEvalSessionResult};
-use psy_store::controllers::local::{
+use psy_data::qstore::controllers::{
     proving_session::PsyLocalProvingSessionStore, session_info::SessionCircuitInfoStore, state_tracker::PsyUserSessionUpdateHistory,
 };
 use psy_vm::dpn::{contract::cfc_code_definition_to_dapen_fc, vm::def::DPNFunctionCircuitDefinition};

@@ -2,7 +2,7 @@ use indexmap::IndexMap;
 use plonky2::hash::hash_types::RichField;
 use psy_core::data::qhashout::QHashOut;
 use psy_crypto::hash::merkle::core::DeltaMerkleProofCore;
-use psy_data::{guta::api::PsyContractStateUpdateHistory, qdata::user::PsyUserLeaf};
+use crate::{guta::api::PsyContractStateUpdateHistory, qdata::user::PsyUserLeaf};
 use serde::{Deserialize, Serialize};
 use tracing::instrument;
 

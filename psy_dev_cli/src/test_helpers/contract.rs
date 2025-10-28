@@ -25,7 +25,7 @@ use psy_prover::{
         session::UserProvingSessionManager,
     },
 };
-use psy_store::controllers::local::session_info::SessionCircuitInfoStore;
+use psy_data::qstore::controllers::session_info::SessionCircuitInfoStore;
 use psy_vm::dpn::{
     ops::{context_trait::DPNContext, exec_context::QExecContext, sym_felt::SymFeltRef},
     vm::{compile::PsyCompileResult, def::DPNFunctionCircuitDefinition},

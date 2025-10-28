@@ -10,7 +10,7 @@ use psy_crypto::hash::{
     merkle::core::{DeltaMerkleProofCore, MerkleProofCore},
     traits::qhashable::QFieldHashable,
 };
-use psy_data::{
+use crate::{
     config::store_config::{PsyFelt, PsyHash, PsyHasher},
     dpn::proving_session::DPNTransactionDebtItem,
     models::kvq_merkle::{

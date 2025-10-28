@@ -29,7 +29,7 @@ use psy_data::{
         },
     },
 };
-use psy_store::controllers::local::proving_session::PsyLocalProvingSessionStore;
+use psy_data::qstore::controllers::proving_session::PsyLocalProvingSessionStore;
 use psy_vm::dpn::{
     ops::{
         op_types::DPNOpType,
