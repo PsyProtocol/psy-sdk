@@ -42,7 +42,7 @@ pub async fn run(args: GetPublicKeyArgs) -> anyhow::Result<()> {
             let wallet = Wallet::from_hex(&args.private_key)?;
 
             let main_circuits = QCircuitManager::Local(PsyUPSStepCircuitManager::<C, D>::new_with_config(
-                psy_core::config::network_constants::Psy_NETWORK_MAGIC_REGTEST,
+                psy_core::config::network_constants::PSY_NETWORK_MAGIC_REGTEST,
             ));
 
             let mut memory_wallet = PsyMemoryWallet::new(vec![Box::new(main_circuits)]);

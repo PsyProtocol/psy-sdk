@@ -76,7 +76,7 @@ pub async fn run(
     let wallet = Arc::new(wallet);
 
     let main_circuits = psy_prover::ups::circuit_manager::core::QCircuitManager::Local(PsyUPSStepCircuitManager::<C, D>::new_with_config(
-        psy_core::config::network_constants::Psy_NETWORK_MAGIC_REGTEST,
+        psy_core::config::network_constants::PSY_NETWORK_MAGIC_REGTEST,
     ));
 
     let mut memory_wallet = psy_prover::wallet::memory_wallet::PsyMemoryWallet::new(vec![Box::new(main_circuits)]);

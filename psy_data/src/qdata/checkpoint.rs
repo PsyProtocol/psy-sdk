@@ -480,7 +480,7 @@ impl<F: RichField> psy_core::job::history_queue::HistoryQueueMetadataTagged for 
     fn get_hq_metadata(&self) -> psy_core::job::history_queue::HistoryQueueMetadata {
         // Use the same channel as the compact version for consistency
         psy_core::job::history_queue::HistoryQueueMetadata {
-            channel_id: psy_core::config::network_constants::Psy_CHECKPOINT_SYNC_INFO_COMPACT_DRAIN_QUEUE_CHANNEL,
+            channel_id: psy_core::config::network_constants::PSY_CHECKPOINT_SYNC_INFO_COMPACT_DRAIN_QUEUE_CHANNEL,
             checkpoint_id: self.compact.block_state.checkpoint_id,
             item_id: self.compact.block_state.checkpoint_id,
         }

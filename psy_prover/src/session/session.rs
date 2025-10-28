@@ -11,7 +11,7 @@ use plonky2::{
 };
 use psy_common_circuit::circuits::traits::qstandard::QStandardCircuit;
 use psy_core::{
-    config::network_constants::{Psy_NETWORK_MAGIC_REGTEST, MAX_CONTRACT_STATE_TREE_HEIGHT, TOKEN_CONTRACT_ID, UPS_SESSION_PROOF_TREE_HEIGHT},
+    config::network_constants::{PSY_NETWORK_MAGIC_REGTEST, MAX_CONTRACT_STATE_TREE_HEIGHT, TOKEN_CONTRACT_ID, UPS_SESSION_PROOF_TREE_HEIGHT},
     data::qhashout::QHashOut,
     job::id::{ProvingJobCircuitType, VariableHeightRewardMerkleProof, GUTA_REWARDS_TREE_MAX_HEIGHT},
     traits::to_qfelts::ToQFelts,
@@ -266,7 +266,7 @@ impl WalletSession {
         }
         if main_circuits.is_empty() {
             tracing::warn!("no valid prove proxy url, use local circuit manager");
-            main_circuits.push(Box::new(PsyUPSStepCircuitManager::<C, D>::new_with_config(Psy_NETWORK_MAGIC_REGTEST)));
+            main_circuits.push(Box::new(PsyUPSStepCircuitManager::<C, D>::new_with_config(PSY_NETWORK_MAGIC_REGTEST)));
         }
 
         let mut circuit_info = SessionCircuitInfoStore::new();
@@ -621,7 +621,7 @@ impl WalletSession {
             .get_mut(&public_key)
             .ok_or_else(|| anyhow::format_err!("user {} not found", public_key.to_string()))?;
 
-        let sighash = user_session_mgr.mgr.get_sighash(Psy_NETWORK_MAGIC_REGTEST, user_session_mgr.nonce);
+        let sighash = user_session_mgr.mgr.get_sighash(PSY_NETWORK_MAGIC_REGTEST, user_session_mgr.nonce);
 
         tracing::info!("zk sign for signhash: {}", sighash.to_string());
         let signature_proof = match sign_type {
@@ -749,7 +749,7 @@ impl WalletSession {
 
         tracing::info!(
             "prove end cap with network magic {:x}, nonce {}, fingerprint {}, public key param {}, signature proof {:?}",
-            Psy_NETWORK_MAGIC_REGTEST,
+            PSY_NETWORK_MAGIC_REGTEST,
             user_session_mgr.nonce,
             circuit_fingerprint,
             public_key_param,
@@ -760,7 +760,7 @@ impl WalletSession {
             .mgr
             .prove_end_cap(
                 self.wallet.random_circuit_manager().as_ref(),
-                Psy_NETWORK_MAGIC_REGTEST,
+                PSY_NETWORK_MAGIC_REGTEST,
                 nonce,
                 circuit_fingerprint,
                 public_key_param,

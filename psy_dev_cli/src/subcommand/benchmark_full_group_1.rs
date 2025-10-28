@@ -11,7 +11,7 @@ use psy_common_circuit::{
     treeprover::qrecursion::standard::manager::portable::circuits::PortableQTreeRecursionCircuitsProveTrait,
 };
 use psy_core::{
-    config::network_constants::{Psy_NETWORK_MAGIC_REGTEST, UPS_SESSION_PROOF_TREE_HEIGHT},
+    config::network_constants::{PSY_NETWORK_MAGIC_REGTEST, UPS_SESSION_PROOF_TREE_HEIGHT},
     data::qhashout::QHashOut,
     job::traits::{QProofStoreAsyncImm, QProofStoreReaderAsync},
     ups::circuits::{LocalCircuitId, LocalCircuitType},
@@ -223,7 +223,7 @@ async fn run_test3() -> anyhow::Result<()> {
 
     timer.lap("start: init PsyUPSStepCircuitManager");
 
-    let main_circuits = QCircuitManager::Local(PsyUPSStepCircuitManager::<C, D>::new_with_config(Psy_NETWORK_MAGIC_REGTEST));
+    let main_circuits = QCircuitManager::Local(PsyUPSStepCircuitManager::<C, D>::new_with_config(PSY_NETWORK_MAGIC_REGTEST));
     //main_circuits.print_common_config();
 
     timer.lap("end: init PsyUPSStepCircuitManager");
@@ -293,7 +293,7 @@ async fn run_test3() -> anyhow::Result<()> {
     timer.lap("proved token.simple_transfer(recipient: 2, amount: 100)");
 
     let new_nonce = GoldilocksField::from_noncanonical_u64(1);
-    let sighash = mgr.get_sighash(Psy_NETWORK_MAGIC_REGTEST, new_nonce);
+    let sighash = mgr.get_sighash(PSY_NETWORK_MAGIC_REGTEST, new_nonce);
 
     let signature_proof = wallet.zk_sign_for_private_key_value(priv_key_user_0, sighash)?;
     timer.lap("generated zk signature for UPS transaction batch");
@@ -303,7 +303,7 @@ async fn run_test3() -> anyhow::Result<()> {
     let end_cap_proof = mgr
         .prove_end_cap(
             &main_circuits,
-            Psy_NETWORK_MAGIC_REGTEST,
+            PSY_NETWORK_MAGIC_REGTEST,
             new_nonce,
             wallet.circuit.get_fingerprint(),
             public_key_param,

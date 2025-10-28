@@ -1,6 +1,6 @@
 use plonky2::plonk::config::PoseidonGoldilocksConfig;
 use psy_common_circuit::circuits::traits::qstandard::QStandardCircuit;
-use psy_core::{config::network_constants::Psy_NETWORK_MAGIC_REGTEST, job::id::ProvingJobCircuitType};
+use psy_core::{config::network_constants::PSY_NETWORK_MAGIC_REGTEST, job::id::ProvingJobCircuitType};
 use psy_crypto::common::{circuit_library::CircuitInfoLibraryBuilder, simple_circuit_library::SimpleCircuitLibrary};
 use psy_data::config::store_config::PsyFelt;
 use psy_network_circuit::{coordinator::coordinator_helper::PsyCoordinatorCircuitManager, guta::guta_helper::PsyGUTACircuitManager};
@@ -12,7 +12,7 @@ fn run_gen_config() -> anyhow::Result<()> {
     type F = PsyFelt;
     let mut library = SimpleCircuitLibrary::<F>::new();
 
-    let main_circuits = PsyUPSStepCircuitManager::<C, D>::new_with_config(Psy_NETWORK_MAGIC_REGTEST);
+    let main_circuits = PsyUPSStepCircuitManager::<C, D>::new_with_config(PSY_NETWORK_MAGIC_REGTEST);
 
     library.register_circuit(
         ProvingJobCircuitType::UserEndCap,

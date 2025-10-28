@@ -129,7 +129,7 @@ These gadgets are primarily used within the circuits executed locally by users (
 *   **Technical Function:** Aggregates key state identifiers from the start and end of the UPS into a single, hashable structure, then combines it with context (network, user, nonce) for signing.
 *   **Inputs/Witness:** `start_user_leaf_hash`, `end_user_leaf_hash`, `checkpoint_leaf_hash`, `tx_stack_hash`, `tx_count`.
 *   **Outputs/Computed:** `ups_end_cap_sighash` (via `get_sig_action_with_user_info`).
-*   **Constraints:** Internal hashing logic (`to_hash` method) combines inputs. `get_sig_action_with_user_info` uses `compute_sig_action_hash_circuit` to combine the data hash with `network_magic`, `user_id`, `nonce`, and the `Psy_SIG_ACTION_SIGN_UPS_END_CAP` constant.
+*   **Constraints:** Internal hashing logic (`to_hash` method) combines inputs. `get_sig_action_with_user_info` uses `compute_sig_action_hash_circuit` to combine the data hash with `network_magic`, `user_id`, `nonce`, and the `PSY_SIG_ACTION_SIGN_UPS_END_CAP` constant.
 *   **Assumptions:** Assumes input hash/target values correctly represent the final UPS state.
 *   **Role:** Standardizes the payload for UPS authorization, ensuring all critical state transition elements are committed to before the user signs off.
 

@@ -129,7 +129,7 @@ These gadgets are components used within the circuits that users run locally to 
     *   Computes an intermediate hash combining tx stack and count.
     *   Computes an intermediate hash combining checkpoint leaf and user leaf combo.
     *   Computes the final data hash by combining the state context and tx combo hashes.
-    *   Uses `compute_sig_action_hash_circuit` to combine this data hash with network magic, user ID, nonce, and the specific signature action code (`Psy_SIG_ACTION_SIGN_UPS_END_CAP`) to produce the final `ups_end_cap_sighash`.
+    *   Uses `compute_sig_action_hash_circuit` to combine this data hash with network magic, user ID, nonce, and the specific signature action code (`PSY_SIG_ACTION_SIGN_UPS_END_CAP`) to produce the final `ups_end_cap_sighash`.
 *   **Assumptions:** Assumes input hashes and targets are correctly provided.
 *   **Role:** Standardizes the data payload for UPS end cap signatures, ensuring all necessary state transition information is committed to before signing.
 

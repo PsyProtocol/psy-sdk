@@ -15,7 +15,7 @@ use k256::{
 };
 use plonky2::{field::goldilocks_field::GoldilocksField, hash::poseidon::PoseidonPermutation};
 use psy_core::{
-    config::network_constants::Psy_NETWORK_MAGIC_REGTEST,
+    config::network_constants::PSY_NETWORK_MAGIC_REGTEST,
     data::{qhashout::QHashOut, secp256k1::CompressedPublicKey},
 };
 use psy_crypto::signature::zk::data::ZKPublicKeyInfo;
@@ -180,7 +180,7 @@ impl Wallet {
         timestamp: u64,
         chain_id: Option<u64>,
     ) -> Result<SignedRequest<T>> {
-        let chain_id = chain_id.unwrap_or(Psy_NETWORK_MAGIC_REGTEST);
+        let chain_id = chain_id.unwrap_or(PSY_NETWORK_MAGIC_REGTEST);
         SignedRequest::new_with_timestamp_and_chain(self, data, timestamp, chain_id)
     }
 

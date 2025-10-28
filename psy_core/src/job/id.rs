@@ -53,7 +53,7 @@ impl<T: QProofStoreAsyncImm> QJobRewardDataProvider for T {
     }
 }
 use crate::{
-    config::network_constants::{Psy_CHECKPOINT_JOB_ID_CHANNEL, REALM_PROCESSOR_TO_EDGE_CHANNEL},
+    config::network_constants::REALM_PROCESSOR_TO_EDGE_CHANNEL,
     data::qhashout::QHashOut,
     job::{
         drain_queue::{DrainQueueMetadata, DrainQueueMetadataTagged},

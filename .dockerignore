@@ -30,7 +30,7 @@ db/
 
 # Ignore node modules and TypeScript projects
 node_modules/
-psy-ts-sdk/
+psy_sdk/psy-ts-sdk/
 
 # Ignore AWS deployment files (they're not needed in the container)
 aws-deployment/

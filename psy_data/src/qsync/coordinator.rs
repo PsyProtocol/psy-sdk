@@ -1,7 +1,7 @@
 use kvq::traits::KVQSerializable;
 use plonky2::hash::hash_types::RichField;
 use psy_core::{
-    config::network_constants::Psy_CHECKPOINT_SYNC_INFO_COMPACT_DRAIN_QUEUE_CHANNEL,
+    config::network_constants::PSY_CHECKPOINT_SYNC_INFO_COMPACT_DRAIN_QUEUE_CHANNEL,
     data::qhashout::QHashOut,
     job::{
         drain_queue::{DrainQueueMetadata, DrainQueueMetadataTagged},
@@ -50,7 +50,7 @@ impl<F: RichField> PsyCheckpointSyncInfoCompact<F> {
 impl<F: RichField> DrainQueueMetadataTagged for PsyCheckpointSyncInfoCompact<F> {
     fn get_dq_metadata(&self) -> DrainQueueMetadata {
         DrainQueueMetadata {
-            channel_id: Psy_CHECKPOINT_SYNC_INFO_COMPACT_DRAIN_QUEUE_CHANNEL,
+            channel_id: PSY_CHECKPOINT_SYNC_INFO_COMPACT_DRAIN_QUEUE_CHANNEL,
             checkpoint_id: self.block_state.checkpoint_id,
             item_id: self.block_state.checkpoint_id,
         }
@@ -60,7 +60,7 @@ impl<F: RichField> DrainQueueMetadataTagged for PsyCheckpointSyncInfoCompact<F> 
 impl<F: RichField> HistoryQueueMetadataTagged for PsyCheckpointSyncInfoCompact<F> {
     fn get_hq_metadata(&self) -> HistoryQueueMetadata {
         HistoryQueueMetadata {
-            channel_id: Psy_CHECKPOINT_SYNC_INFO_COMPACT_DRAIN_QUEUE_CHANNEL,
+            channel_id: PSY_CHECKPOINT_SYNC_INFO_COMPACT_DRAIN_QUEUE_CHANNEL,
             checkpoint_id: self.block_state.checkpoint_id,
             item_id: self.block_state.checkpoint_id,
         }

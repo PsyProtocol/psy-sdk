@@ -485,7 +485,7 @@ impl RealmProcessor {
         // Wait for the next checkpoint sync info
         self.sync_checkpoint
             .wait_for_next_item_imm::<CheckpointSyncInfo<F>>(
-                psy_core::config::network_constants::Psy_CHECKPOINT_SYNC_INFO_COMPACT_DRAIN_QUEUE_CHANNEL,
+                psy_core::config::network_constants::PSY_CHECKPOINT_SYNC_INFO_COMPACT_DRAIN_QUEUE_CHANNEL,
                 expected_checkpoint,
             )
             .await

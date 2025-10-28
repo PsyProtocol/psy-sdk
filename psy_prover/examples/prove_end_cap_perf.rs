@@ -9,7 +9,7 @@ use plonky2::{
     },
 };
 use psy_core::{
-    config::network_constants::Psy_NETWORK_MAGIC_REGTEST,
+    config::network_constants::PSY_NETWORK_MAGIC_REGTEST,
     data::{alt::AltVerifierOnlyCircuitData, qhashout::QHashOut},
     utils::debug_timer::DebugTimer,
 };
@@ -106,7 +106,7 @@ where
 {
     pub fn new() -> Self {
         Self {
-            step_circuit_mgr: PsyUPSStepCircuitManager::new_with_config(Psy_NETWORK_MAGIC_REGTEST),
+            step_circuit_mgr: PsyUPSStepCircuitManager::new_with_config(PSY_NETWORK_MAGIC_REGTEST),
             end_cap_proving_times: Vec::new(),
             run_iterations: 0,
             total_proving_time: 0,

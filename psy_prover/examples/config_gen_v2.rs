@@ -8,7 +8,7 @@ use psy_common_circuit::circuits::{
     },
     traits::qstandard::QStandardCircuit,
 };
-use psy_core::{config::network_constants::Psy_NETWORK_MAGIC_REGTEST, job::id::ProvingJobCircuitType};
+use psy_core::{config::network_constants::PSY_NETWORK_MAGIC_REGTEST, job::id::ProvingJobCircuitType};
 use psy_crypto::common::generic_circuit_verifier::GenericCircuitVerifier;
 use psy_network_circuit::{coordinator::coordinator_helper::PsyCoordinatorCircuitManager, guta::guta_helper::PsyGUTACircuitManager};
 use psy_prover::ups::circuit_manager::core::PsyUPSStepCircuitManager;
@@ -37,7 +37,7 @@ fn run_gen_config() -> anyhow::Result<(String, String)> {
         get_agg_user_registration_deploy_guta_type_f_common_data::<C, D>(),
     );
 
-    let main_circuits = PsyUPSStepCircuitManager::<C, D>::new_with_config(Psy_NETWORK_MAGIC_REGTEST);
+    let main_circuits = PsyUPSStepCircuitManager::<C, D>::new_with_config(PSY_NETWORK_MAGIC_REGTEST);
 
     gcv.register_circuit_triplet(ProvingJobCircuitType::UserEndCap, main_circuits.ups_end_cap.get_verifier_triplet());
 

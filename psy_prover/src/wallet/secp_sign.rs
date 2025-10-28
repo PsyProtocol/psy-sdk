@@ -9,25 +9,25 @@ use std::{
 use alloy_primitives::{keccak256, Address, B256, U256};
 use anyhow::{Context, Result};
 use plonky2::field::goldilocks_field::GoldilocksField;
-use psy_core::{config::network_constants::Psy_NETWORK_MAGIC_REGTEST, data::qhashout::QHashOut};
+use psy_core::{config::network_constants::PSY_NETWORK_MAGIC_REGTEST, data::qhashout::QHashOut};
 use serde::{Deserialize, Serialize};
 
 use crate::wallet::secp_wallet::Wallet;
 
 const DEFAULT_SIGNATURE_EXPIRY: Duration = Duration::from_secs(300);
 
-pub const Psy_DOMAIN_NAME: &str = "Psy Protocol";
-pub const Psy_DOMAIN_VERSION: &str = "1";
+pub const PSY_DOMAIN_NAME: &str = "Psy Protocol";
+pub const PSY_DOMAIN_VERSION: &str = "1";
 
 pub trait Eip712Signable: Serialize {
     fn type_hash() -> B256;
 
     fn domain_name() -> &'static str {
-        Psy_DOMAIN_NAME
+        PSY_DOMAIN_NAME
     }
 
     fn domain_version() -> &'static str {
-        Psy_DOMAIN_VERSION
+        PSY_DOMAIN_VERSION
     }
 
     fn encode_for_signing(&self) -> Result<Vec<u8>> {
@@ -118,11 +118,11 @@ fn psy_domain_separator_for_type<T: Eip712Signable>(chain_id: u64) -> B256 {
 
 impl<T: Eip712Signable> SignedRequest<T> {
     pub fn new(wallet: &Wallet, data: T) -> Result<Self> {
-        Self::new_with_timestamp_and_chain(wallet, data, SystemTimeProvider.now(), Psy_NETWORK_MAGIC_REGTEST)
+        Self::new_with_timestamp_and_chain(wallet, data, SystemTimeProvider.now(), PSY_NETWORK_MAGIC_REGTEST)
     }
 
     pub fn new_with_timestamp(wallet: &Wallet, data: T, timestamp: u64) -> Result<Self> {
-        Self::new_with_timestamp_and_chain(wallet, data, timestamp, Psy_NETWORK_MAGIC_REGTEST)
+        Self::new_with_timestamp_and_chain(wallet, data, timestamp, PSY_NETWORK_MAGIC_REGTEST)
     }
 
     pub fn new_with_timestamp_and_chain(wallet: &Wallet, data: T, timestamp: u64, chain_id: u64) -> Result<Self> {
@@ -216,7 +216,7 @@ mod tests {
         let wallet = Wallet::new().unwrap();
         let test_data = "test_message".to_string();
         let timestamp = 1234567890u64;
-        let chain_id = Psy_NETWORK_MAGIC_REGTEST;
+        let chain_id = PSY_NETWORK_MAGIC_REGTEST;
 
         // Create signed request using the generic method
         let signed_request = wallet.sign_eip712_with_params(test_data, timestamp, Some(chain_id)).unwrap();
@@ -234,7 +234,7 @@ mod tests {
         let test_data1 = "message1".to_string();
         let test_data2 = "message2".to_string();
         let timestamp = 1234567890u64;
-        let chain_id = Psy_NETWORK_MAGIC_REGTEST;
+        let chain_id = PSY_NETWORK_MAGIC_REGTEST;
 
         let signed_request1 = wallet.sign_eip712_with_params(test_data1, timestamp, Some(chain_id)).unwrap();
 
@@ -283,7 +283,7 @@ mod tests {
         let wallet = Wallet::new().unwrap();
         let hash = QHashOut::<GoldilocksField>::from_values(1, 2, 3, 4);
         let timestamp = 1234567890u64;
-        let chain_id = Psy_NETWORK_MAGIC_REGTEST;
+        let chain_id = PSY_NETWORK_MAGIC_REGTEST;
 
         // Create signed request for QHashOut
         let signed_request = wallet.sign_eip712_with_params(hash, timestamp, Some(chain_id)).unwrap();

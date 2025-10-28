@@ -13,7 +13,7 @@ use psy_data::qdata::checkpoint::{PsyCheckpointLeaf, PsyCheckpointLeafCompact};
 
 use super::{checkpoint_stats::PsyCheckpointLeafStatsGadget, pm_reward_commitment::PM_REWARD_COMMITMENT_TARGET_SIZE};
 
-pub const Psy_CHECKPOINT_LEAF_GADGET_TARGET_SIZE: usize = 10 + PM_REWARD_COMMITMENT_TARGET_SIZE + DA_CHALLENGE_WINDOW + 4;
+pub const PSY_CHECKPOINT_LEAF_GADGET_TARGET_SIZE: usize = 10 + PM_REWARD_COMMITMENT_TARGET_SIZE + DA_CHALLENGE_WINDOW + 4;
 #[derive(Clone, Debug, PartialEq, Eq, Copy)]
 pub struct PsyCheckpointLeafGadget {
     pub global_chain_root: HashOutTarget,
@@ -56,7 +56,7 @@ impl CreatableTarget for PsyCheckpointLeafGadget {
 }
 impl ToTargets for PsyCheckpointLeafGadget {
     fn to_targets(&self) -> Vec<Target> {
-        let mut result = Vec::with_capacity(Psy_CHECKPOINT_LEAF_GADGET_TARGET_SIZE);
+        let mut result = Vec::with_capacity(PSY_CHECKPOINT_LEAF_GADGET_TARGET_SIZE);
         result.extend_from_slice(&self.global_chain_root.elements);
         result.extend_from_slice(&self.stats.to_targets());
         result
@@ -64,11 +64,11 @@ impl ToTargets for PsyCheckpointLeafGadget {
 }
 impl FromTargets for PsyCheckpointLeafGadget {
     fn from_targets(targets: &[Target]) -> Self {
-        if targets.len() != Psy_CHECKPOINT_LEAF_GADGET_TARGET_SIZE {
+        if targets.len() != PSY_CHECKPOINT_LEAF_GADGET_TARGET_SIZE {
             panic!(
                 "tried to create PsyCheckpointLeafGadget from an array of {} targets, but expected an array of {} targets",
                 targets.len(),
-                Psy_CHECKPOINT_LEAF_GADGET_TARGET_SIZE
+                PSY_CHECKPOINT_LEAF_GADGET_TARGET_SIZE
             );
         }
         let global_chain_root = HashOutTarget {

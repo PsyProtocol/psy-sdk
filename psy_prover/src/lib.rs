@@ -7,7 +7,7 @@ pub mod wallet;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod health;
 
-use psy_core::config::network_constants::Psy_NETWORK_MAGIC_REGTEST;
+use psy_core::config::network_constants::PSY_NETWORK_MAGIC_REGTEST;
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
 
@@ -103,7 +103,7 @@ pub async fn run_prove_proxy_server(args: crate::local::args::ProveProxyArgs) ->
     let config_str = std::fs::read_to_string(&args.rpc_config)?;
     let json_value: serde_json::Value = serde_json::from_str(&config_str)?;
     let rpc_config: RpcConfig = serde_json::from_value(json_value["network"].clone())?;
-    let prove_proxy = ProveProxyServerProvider::new_with_config(rpc_config, Psy_NETWORK_MAGIC_REGTEST).await?;
+    let prove_proxy = ProveProxyServerProvider::new_with_config(rpc_config, PSY_NETWORK_MAGIC_REGTEST).await?;
     let cors_opts = CorsLayer::new()
         .allow_methods([Method::POST, Method::OPTIONS])
         .allow_origin(Any)

@@ -1,7 +1,7 @@
 use kvq::traits::KVQSerializable;
 use plonky2::hash::hash_types::RichField;
 use psy_core::{
-    config::network_constants::Psy_SIG_ACTION_SIGN_UPS_END_CAP,
+    config::network_constants::PSY_SIG_ACTION_SIGN_UPS_END_CAP,
     data::qhashout::QHashOut,
     traits::to_qfelts::{QFeltSized, ToQFelts},
 };
@@ -32,7 +32,7 @@ impl<F: RichField> PsyUserProvingSessionSignatureDataCompact<F> {
         sign_context: SignContext<F>,
     ) -> PsySigAction<F> {
         let network_magic_f = F::from_noncanonical_u64(network_magic);
-        let sig_action = F::from_noncanonical_u64(Psy_SIG_ACTION_SIGN_UPS_END_CAP);
+        let sig_action = F::from_noncanonical_u64(PSY_SIG_ACTION_SIGN_UPS_END_CAP);
         let ups_end_data_hash = self.qfhash::<H>();
 
         // ups_end_data_hash || checkpoint_tree_root || sign_inputs

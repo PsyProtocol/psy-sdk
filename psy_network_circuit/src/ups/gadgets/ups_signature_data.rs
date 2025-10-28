@@ -8,7 +8,7 @@ use psy_common_circuit::{
     builder::{core::CircuitBuilderHelpersCore, hash::core::CircuitBuilderHashCore},
     traits::{AlgebraicHashableTarget, WitnessValueFor},
 };
-use psy_core::config::network_constants::Psy_SIG_ACTION_SIGN_UPS_END_CAP;
+use psy_core::config::network_constants::PSY_SIG_ACTION_SIGN_UPS_END_CAP;
 use psy_data::qdata::ups_signature::PsyUserProvingSessionSignatureDataCompact;
 
 use crate::gadgets::{
@@ -92,7 +92,7 @@ impl PsyUserProvingSessionSignatureDataCompactGadget {
         sign_context: &SignContextGadget,
     ) -> SimplePsySigAction {
         let network_magic_target = builder.constant_u64(network_magic);
-        let sig_action = builder.constant_u64(Psy_SIG_ACTION_SIGN_UPS_END_CAP);
+        let sig_action = builder.constant_u64(PSY_SIG_ACTION_SIGN_UPS_END_CAP);
         let ups_end_data_hash = self.to_hash::<H, F, D>(builder);
 
         let mut action_arguments = ups_end_data_hash.elements.to_vec();
