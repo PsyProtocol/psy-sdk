@@ -454,7 +454,7 @@ run-prove-proxy:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_user_cli prove-proxy
 
 run-web-wallet:
-	@cd qed-ts-sdk/app/qed-wallet && pnpm i && pnpm run dev
+	@cd psy-ts-sdk/app/qed-wallet && pnpm i && pnpm run dev
 
 run-benchmark:
 	@./scripts/run_benchmark.sh
@@ -687,11 +687,11 @@ image:
 		-f Dockerfile .
 
 wasm-build:
-	@cd psy_prover && wasm-pack build --target web --out-dir ../qed-ts-sdk/packages/qed-sdk/src/local-web-prover --no-pack --release --no-default-features
-	@cd psy_prover && wasm-pack build --target nodejs --out-dir ../qed-ts-sdk/packages/qed-sdk/src/local-prover  --no-pack --release --no-default-features
+	@cd psy_prover && wasm-pack build --target web --out-dir ../psy-ts-sdk/packages/psy-sdk/src/local-web-prover --no-pack --release --no-default-features
+	@cd psy_prover && wasm-pack build --target nodejs --out-dir ../psy-ts-sdk/packages/psy-sdk/src/local-prover  --no-pack --release --no-default-features
 
 wallet-build: wasm-build
-	@cd qed-ts-sdk/app/qed-wallet && pnpm i && pnpm build:wasm && pnpm build:extension
+	@cd psy-ts-sdk/app/qed-wallet && pnpm i && pnpm build:wasm && pnpm build:extension
 
 help:
 	@grep -E '^[a-zA-Z_-]+:.*?' Makefile | cut -d: -f1 | sort

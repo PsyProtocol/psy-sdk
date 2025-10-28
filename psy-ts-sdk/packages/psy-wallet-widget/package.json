@@ -1,0 +1,40 @@
+{
+  "name": "@qed/psy-wallet-widget",
+  "version": "1.0.0",
+  "scripts": {
+    "build": "pnpm run clean && pnpm run compile",
+    "clean": "rimraf ./dist",
+    "compile": "tsc -p tsconfig.build.json",
+    "prepublishOnly": "pnpm run build"
+  },
+  "peerDependencies": {
+    "@mantine/core": "^7.10.2",
+    "@mantine/hooks": "^7.10.2",
+    "react": "~18.2.0",
+    "react-icons": "^5.0.1"
+  },
+  "dependencies": {
+    "@mantine/core": "^7.10.2",
+    "@mantine/hooks": "^7.10.2",
+    "@noble/secp256k1": "^2.1.0",
+    "@qed/blokies-react": "workspace:*",
+    "@qed/psy-sdk": "workspace:*",
+    "@tabler/icons-react": "^3.7.0",
+    "classnames": "^2.5.1",
+    "copy-to-clipboard": "^3.3.3",
+    "doge-sdk": "0.4.2",
+    "react": "~18.2.0",
+    "react-dom": "~18.2.0",
+    "react-icons": "^5.0.1",
+    "styled-components": "^6.1.8",
+    "zustand": "^4.5.2",
+    "@qed/utils": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/react": "~18.2.0",
+    "@types/styled-components": "^5.1.34",
+    "react": "~18.2.0",
+    "react-dom": "~18.2.0",
+    "rimraf": "~5.0.0"
+  }
+}
