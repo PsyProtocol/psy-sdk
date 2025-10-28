@@ -21,7 +21,7 @@ use psy_prover::{
     dpn::circuits::cfc::DapenContractFunctionCircuit,
     session::gen_contract_deploy_and_circuits_for_functions,
     ups::{
-        circuit_manager::core::{QCircuitManager, PsyUPSStepCircuitManager},
+        circuit_manager::core::{PsyUPSStepCircuitManager, QCircuitManager},
         session::UserProvingSessionManager,
     },
 };

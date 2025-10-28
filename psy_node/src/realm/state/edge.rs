@@ -29,7 +29,7 @@ use psy_crypto::{
     },
 };
 use psy_data::{
-    config::store_config::{QCheckpointSyncInfoCompact, PsyHasher},
+    config::store_config::{PsyHasher, QCheckpointSyncInfoCompact},
     guta::{
         api::{SimpleContractHeightCache, UserEndCapNonProofCoreInputQueueItem},
         end_cap_input::SubmitUserEndCapNonProofInput,

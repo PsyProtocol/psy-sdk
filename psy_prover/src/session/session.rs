@@ -11,7 +11,7 @@ use plonky2::{
 };
 use psy_common_circuit::circuits::traits::qstandard::QStandardCircuit;
 use psy_core::{
-    config::network_constants::{MAX_CONTRACT_STATE_TREE_HEIGHT, Psy_NETWORK_MAGIC_REGTEST, TOKEN_CONTRACT_ID, UPS_SESSION_PROOF_TREE_HEIGHT},
+    config::network_constants::{Psy_NETWORK_MAGIC_REGTEST, MAX_CONTRACT_STATE_TREE_HEIGHT, TOKEN_CONTRACT_ID, UPS_SESSION_PROOF_TREE_HEIGHT},
     data::qhashout::QHashOut,
     job::id::{ProvingJobCircuitType, VariableHeightRewardMerkleProof, GUTA_REWARDS_TREE_MAX_HEIGHT},
     traits::to_qfelts::ToQFelts,
@@ -48,7 +48,7 @@ use crate::{
     },
     session::{build_claim_calls_for_multi_checkpoints, ProofWithCheckpoint, MINING_REWARDS_CONTRACT_ID},
     ups::{
-        circuit_manager::core::{QCircuitManager, PsyUPSStepCircuitManager},
+        circuit_manager::core::{PsyUPSStepCircuitManager, QCircuitManager},
         session::UserProvingSessionManager,
     },
     wallet::{

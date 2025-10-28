@@ -31,7 +31,7 @@ use psy_crypto::{
     signature::zk::data::ZKPublicKeyInfo,
 };
 use psy_data::{
-    config::store_config::{QCheckpointSyncInfoCompact, PsyFelt, PsyHash, PsyHasher, PsyProof},
+    config::store_config::{PsyFelt, PsyHash, PsyHasher, PsyProof, QCheckpointSyncInfoCompact},
     guta::{
         api::{SubmitGUTARealmResultAPINoProofInput, SubmitGUTARealmResultAPIQueueItem},
         header::GlobalUserTreeAggregatorHeader,

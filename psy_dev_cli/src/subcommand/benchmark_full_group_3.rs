@@ -50,7 +50,7 @@ use psy_node::{
 use psy_prover::{
     local::provider::UPSCircuitManagerTrait,
     ups::{
-        circuit_manager::core::{QCircuitManager, PsyUPSStepCircuitManager},
+        circuit_manager::core::{PsyUPSStepCircuitManager, QCircuitManager},
         session::UserProvingSessionManager,
     },
 };

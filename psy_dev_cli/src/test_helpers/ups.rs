@@ -21,7 +21,7 @@ use psy_data::{
 };
 use psy_node::{coordinator::state::edge::CoordinatorEdgeContext, realm::state::edge::RealmEdgeContext};
 use psy_prover::ups::{
-    circuit_manager::core::{QCircuitManager, PsyUPSStepCircuitManager},
+    circuit_manager::core::{PsyUPSStepCircuitManager, QCircuitManager},
     session::UserProvingSessionManager,
 };
 use psy_store::node::{coordinator::PsyCoordinatorStoreReaderAsync, realm::PsyRealmStoreReaderAsync};

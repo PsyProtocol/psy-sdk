@@ -39,7 +39,7 @@ use psy_crypto::{
     },
 };
 use psy_data::{
-    config::store_config::{QCheckpointSyncInfoCompact, PsyFelt, PsyHasher},
+    config::store_config::{PsyFelt, PsyHasher, QCheckpointSyncInfoCompact},
     guta::{
         api::{GUTARealmCheckpointResult, UserEndCapNonProofCoreInputQueueItem},
         header::GlobalUserTreeAggregatorHeader,

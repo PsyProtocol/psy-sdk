@@ -10,7 +10,7 @@ use plonky2::{
 };
 use psy_common_circuit::circuits::{traits::qstandard::QStandardCircuit, zk_signature3::manager::SimplePsyZKSignatureManager};
 use psy_core::{
-    config::network_constants::{GLOBAL_USER_TREE_HEIGHT, Psy_NETWORK_MAGIC_REGTEST, UPS_SESSION_PROOF_TREE_HEIGHT},
+    config::network_constants::{Psy_NETWORK_MAGIC_REGTEST, GLOBAL_USER_TREE_HEIGHT, UPS_SESSION_PROOF_TREE_HEIGHT},
     data::qhashout::QHashOut,
     ups::circuits::{LocalCircuitId, LocalCircuitType},
     utils::debug_timer::DebugTimer,
@@ -30,7 +30,7 @@ use psy_prover::{
     dpn::circuits::cfc::DapenContractFunctionCircuit,
     local::provider::UPSCircuitManagerTrait,
     ups::{
-        circuit_manager::core::{QCircuitManager, PsyUPSStepCircuitManager},
+        circuit_manager::core::{PsyUPSStepCircuitManager, QCircuitManager},
         session::UserProvingSessionManager,
     },
 };

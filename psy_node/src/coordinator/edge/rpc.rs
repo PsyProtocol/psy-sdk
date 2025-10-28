@@ -9,7 +9,7 @@ use psy_core::{
 };
 use psy_crypto::{hash::merkle::core::MerkleProofCore, signature::zk::data::ZKPublicKeyInfo};
 use psy_data::{
-    config::store_config::{QCheckpointSyncInfoCompact, PsyFelt},
+    config::store_config::{PsyFelt, QCheckpointSyncInfoCompact},
     guta::api::SubmitGUTARealmResultAPINoProofInput,
     qblock::cmds::deploy_contract::QBCDeployContract,
     qdata::{

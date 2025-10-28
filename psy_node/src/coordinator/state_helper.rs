@@ -7,7 +7,7 @@ use psy_core::job::{id::QProvingJobDataID, traits::QProofStoreWriterSyncImm};
 use psy_crypto::common::user_id::get_user_id_from_registration_id;
 use psy_data::{
     api::coordinator::register_user::PsyAPIRegisterUserRequestForUserId,
-    config::store_config::{QCheckpointSyncInfoCompact, PsyFelt, PsyHasher},
+    config::store_config::{PsyFelt, PsyHasher, QCheckpointSyncInfoCompact},
     guta::api::SubmitUserEndCapProofAPIInput,
 };
 use psy_store::node::realm::{PsyRealmStoreReaderAsync, PsyRealmStoreWriterAsyncImm};

@@ -14,7 +14,7 @@ use psy_crypto::{
 use psy_data::config::store_config::PsyHasher;
 use psy_prover::{
     local::args::SignType,
-    ups::circuit_manager::core::{QCircuitManager, PsyUPSStepCircuitManager},
+    ups::circuit_manager::core::{PsyUPSStepCircuitManager, QCircuitManager},
     wallet::{memory_wallet::PsyMemoryWallet, secp_wallet::Wallet},
 };
 

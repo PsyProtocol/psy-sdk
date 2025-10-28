@@ -49,7 +49,7 @@ use psy_crypto::{
     signature::zk::data::ZKPublicKeyInfo,
 };
 use psy_data::{
-    config::store_config::{QCheckpointSyncInfoCompact, PsyFelt, PsyHasher, UserPublicKeyTableStore, UserTreeStore},
+    config::store_config::{PsyFelt, PsyHasher, QCheckpointSyncInfoCompact, UserPublicKeyTableStore, UserTreeStore},
     guta::{
         api::SubmitGUTARealmResultAPIQueueItem,
         header::GlobalUserTreeAggregatorHeader,
