@@ -17,7 +17,7 @@ use psy_node::{
 use psy_store::queue::ProofStoreFred;
 use psy_store::queue::task_queue::{QProvingTaskStore, QProvingTaskStoreImpl};
 use psy_node::common::verifier::get_cached_generic_verifier;
-use qed_rollup_circuit::coordinator::coordinator_helper::QEDCoordinatorCircuitManager;
+use psy_network_circuit::coordinator::coordinator_helper::QEDCoordinatorCircuitManager;
 use psy_data::traits::qdatastore::qtreedata::QEDComboDataStoreReaderWriterSync;
 use std::{sync::Arc, time::Duration};
 

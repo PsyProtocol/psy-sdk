@@ -14,7 +14,7 @@ use psy_crypto::common::generic_circuit_verifier::GenericCircuitVerifier;
 use psy_crypto::common::{
     simple_circuit_library::SimpleCircuitLibrary, worker::QNextGenWorkerGenericProverAsyncMut,
 };
-use qed_rollup_circuit::coordinator::coordinator_helper::QEDCoordinatorCircuitManager;
+use psy_network_circuit::coordinator::coordinator_helper::QEDCoordinatorCircuitManager;
 use std::{sync::Arc, time::Duration};
 use tracing::{debug, error, info, warn, trace};
 pub use worker_state::*;

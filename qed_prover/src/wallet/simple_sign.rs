@@ -53,7 +53,7 @@ use psy_data::{
         cmd_processor::{QEDReadCommandProcessorSync, QEDReadCommandProcessorSyncMut},
     },
 };
-use qed_rollup_circuit::gadgets::qdata::user_contract_state::UserContractStateGadget;
+use psy_network_circuit::gadgets::qdata::user_contract_state::UserContractStateGadget;
 use psy_vm::dpn::ops::state_cmd::data::{
     DPNStateCmd, DPNStateCmdGetOtherUserContractStateSlotHash,
     DPNStateCmdGetSelfUserCurrentContractStateSlotHash,

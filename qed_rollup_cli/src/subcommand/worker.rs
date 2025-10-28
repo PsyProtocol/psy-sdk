@@ -15,7 +15,7 @@ use psy_node::worker::{
 use kvq::traits::KVQSerializable;
 use qed_prover::ups::circuit_manager::core::QEDUPSStepCircuitManager;
 use qed_prover::wallet::secp_wallet::Wallet;
-use qed_rollup_circuit::coordinator::coordinator_helper::QEDCoordinatorCircuitManager;
+use psy_network_circuit::coordinator::coordinator_helper::QEDCoordinatorCircuitManager;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;

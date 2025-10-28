@@ -27,7 +27,7 @@ use psy_data::{
     config::store_config::QEDFelt,
     traits::qdatastore::{qtreedata::QEDComboDataStoreReaderWriterSync, qtreedata::QTreeDataStoreWriterSync},
 };
-use qed_rollup_circuit::coordinator::coordinator_helper::QEDCoordinatorCircuitManager;
+use psy_network_circuit::coordinator::coordinator_helper::QEDCoordinatorCircuitManager;
 use psy_store::node::coordinator::InitializeParams;
 use psy_store::node::coordinator::{
     QEDCoordinatorStoreReaderAsync, QEDCoordinatorStoreWriterAsyncImm,

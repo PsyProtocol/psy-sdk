@@ -26,7 +26,7 @@ dashmap = { workspace = true }
 kvq = { workspace = true }
 psy_core = { workspace = true }
 psy_common_circuit = { workspace = true, default-features = false }
-qed_rollup_circuit = { workspace = true, default-features = false }
+psy_network_circuit = { workspace = true, default-features = false }
 qed_rollup_utils = { workspace = true }
 qed-common = { workspace = true }
 psy_vm = { workspace = true }
@@ -91,5 +91,5 @@ is_sync = [
     "psy_exec/is_sync",
     "psy_store/is_sync",
     "psy_common_circuit/is_sync",
-    "qed_rollup_circuit/is_sync",
+    "psy_network_circuit/is_sync",
 ]

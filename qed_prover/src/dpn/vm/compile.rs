@@ -7,7 +7,7 @@ use plonky2::{
 use psy_common_circuit::builder::{
     core::CircuitBuilderHelpersCore, hash::core::CircuitBuilderHashCore
 };
-use qed_rollup_circuit::gadgets::qdata::cfc_context_input::DapenCFCUserTransactionInputContextGadget;
+use psy_network_circuit::gadgets::qdata::cfc_context_input::DapenCFCUserTransactionInputContextGadget;
 use psy_vm::dpn::{
     ops::{
         op_types::DPNOpType,

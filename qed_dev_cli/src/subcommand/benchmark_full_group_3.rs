@@ -59,7 +59,7 @@ use psy_node::common::verifier::get_cached_generic_verifier;
 use qed_prover::{local::provider::UPSCircuitManagerTrait, ups::{
     circuit_manager::core::{QCircuitManager, QEDUPSStepCircuitManager}, session::UserProvingSessionManager,
 }};
-use qed_rollup_circuit::coordinator::coordinator_helper::QEDCoordinatorCircuitManager;
+use psy_network_circuit::coordinator::coordinator_helper::QEDCoordinatorCircuitManager;
 use psy_data::{
     config::store_config::{QEDFelt, QEDHasher},
     traits::qdatastore::qtreedata::QEDComboDataStoreReaderWriterSync,

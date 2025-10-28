@@ -66,7 +66,7 @@ use psy_data::{
         user_public_key::QEDUserPublicKeyRecord,
     },
 };
-use qed_rollup_circuit::guta::gadgets::guta_header;
+use psy_network_circuit::guta::gadgets::guta_header;
 use psy_store::{
     node::coordinator::{QEDCoordinatorStoreReaderAsync, QEDCoordinatorStoreWriterAsyncImm},
     queue::{

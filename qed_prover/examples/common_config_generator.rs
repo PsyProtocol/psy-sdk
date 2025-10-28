@@ -3,7 +3,7 @@ use psy_common_circuit::circuits::{lookalikes::{get_agg_state_transition_type_d_
 use psy_core::{config::network_constants::QED_NETWORK_MAGIC_REGTEST, data::qhashout::QHashOut, job::id::ProvingJobCircuitType};
 use psy_crypto::common::generic_circuit_verifier::GenericCircuitVerifier;
 use qed_prover::ups::circuit_manager::core::QEDUPSStepCircuitManager;
-use qed_rollup_circuit::{coordinator::coordinator_helper::QEDCoordinatorCircuitManager, guta::guta_helper::QEDGUTACircuitManager};
+use psy_network_circuit::{coordinator::coordinator_helper::QEDCoordinatorCircuitManager, guta::guta_helper::QEDGUTACircuitManager};
 use psy_data::config::store_config::QEDFelt;
 use std::fs::File;
 use std::io::Write;

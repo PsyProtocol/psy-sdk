@@ -2,7 +2,7 @@ export DARGO_STD_PATH := $(PWD)/qed_compiler/qed-std/std.qed
 export SQLX_OFFLINE=true
 
 PROFILE := release
-LOG_LEVEL := qed_rollup_utils=trace,tikv_client=warn,psy_store=trace,qed_user_cli=debug,qed_dev_cli=debug,qed_api_services=info,qed_rollup_cli=debug,psy_node=trace,psy_common_circuit=trace,qed_rollup_circuit=trace,qed_prover=trace,psy_data=trace,plonky2=error
+LOG_LEVEL := qed_rollup_utils=trace,tikv_client=warn,psy_store=trace,qed_user_cli=debug,qed_dev_cli=debug,qed_api_services=info,qed_rollup_cli=debug,psy_node=trace,psy_common_circuit=trace,psy_network_circuit=trace,qed_prover=trace,psy_data=trace,plonky2=error
 
 
 BACKUP ?= false
@@ -111,7 +111,7 @@ ci:
 update-snapshots:
 	@cargo insta review
 
-WATCHED_DIRS := qed_rollup_circuit psy_common_circuit qed_prover/src/dpn qed_prover/src/ups psy_core/src/config/network_constants.rs psy_crypto/src/common/user_id.rs
+WATCHED_DIRS := psy_network_circuit psy_common_circuit qed_prover/src/dpn qed_prover/src/ups psy_core/src/config/network_constants.rs psy_crypto/src/common/user_id.rs
 
 config_gen_v2:
 	@if git diff --name-only --diff-filter=M | grep -q -E "$(subst $() $(),|,$(WATCHED_DIRS)).*\.rs$$"; then \

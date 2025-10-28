@@ -56,7 +56,7 @@ use psy_data::config::store_config::{
 use psy_data::qdata::checkpoint::CheckpointSyncInfo;
 use psy_data::traits::qdatastore::qmetadata::QMetaDataStoreReaderSync;
 use psy_data::traits::qdatastore::qtreedata::QTreeDataStoreReaderSync;
-use qed_rollup_circuit::verify_witness::verify_witness_and_proof;
+use psy_network_circuit::verify_witness::verify_witness_and_proof;
 use psy_store::node::coordinator::QEDCoordinatorStoreReaderAsync;
 use psy_data::models::checkpoint::sync_info::QEDCheckpointSyncInfoModelReaderCore;
 use psy_store::queue::new_redis_async_pool;

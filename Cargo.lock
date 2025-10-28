@@ -5750,6 +5750,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "psy_network_circuit"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "bincode",
+ "plonky2",
+ "psy_common_circuit",
+ "psy_core",
+ "psy_crypto",
+ "psy_data",
+ "serde_json",
+ "tracing",
+]
+
+[[package]]
 name = "psy_node"
 version = "0.1.0"
 dependencies = [
@@ -5784,11 +5800,11 @@ dependencies = [
  "psy_core",
  "psy_crypto",
  "psy_data",
+ "psy_network_circuit",
  "psy_store",
  "psy_vm",
  "qed_api_services",
  "qed_prover",
- "qed_rollup_circuit",
  "qed_rollup_utils",
  "rand 0.8.5",
  "redis 0.30.0",
@@ -6051,12 +6067,12 @@ dependencies = [
  "psy_core",
  "psy_crypto",
  "psy_data",
+ "psy_network_circuit",
  "psy_node",
  "psy_store",
  "psy_vm",
  "qed-common",
  "qed_prover",
- "qed_rollup_circuit",
  "qed_rollup_utils",
  "qedlang_macros",
  "scheduled-thread-pool",
@@ -6127,10 +6143,10 @@ dependencies = [
  "psy_crypto",
  "psy_data",
  "psy_exec",
+ "psy_network_circuit",
  "psy_store",
  "psy_vm",
  "qed-common",
- "qed_rollup_circuit",
  "qed_rollup_utils",
  "qedlang_macros",
  "rand 0.8.5",
@@ -6160,22 +6176,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "qed_rollup_circuit"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "async-trait",
- "bincode",
- "plonky2",
- "psy_common_circuit",
- "psy_core",
- "psy_crypto",
- "psy_data",
- "serde_json",
- "tracing",
-]
-
-[[package]]
 name = "qed_rollup_cli"
 version = "0.1.0"
 dependencies = [
@@ -6187,12 +6187,12 @@ dependencies = [
  "psy_core",
  "psy_crypto",
  "psy_data",
+ "psy_network_circuit",
  "psy_node",
  "psy_store",
  "qed-common",
  "qed_api_services",
  "qed_prover",
- "qed_rollup_circuit",
  "qed_rollup_utils",
  "serde_json",
  "tokio",
