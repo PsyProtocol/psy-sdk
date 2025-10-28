@@ -1,7 +1,7 @@
 use qed_ast::*;
 
 use indexmap::IndexMap;
-use qedlang_core::dpn::ops::context_trait::ContextFelt;
+use psy_vm::dpn::ops::context_trait::ContextFelt;
 
 use crate::{
     CheckedDefinitionNode, CheckedFunctionNode, CheckedFunctionParameter, CheckedGenericParameter,

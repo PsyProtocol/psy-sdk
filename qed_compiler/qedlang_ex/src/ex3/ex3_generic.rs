@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use qedlang_core::dpn::{eval::exec_eval::exec_eval_simple, ops::{context_trait::{ContextFelt, DPNContext}, exec_context::QExecContext, sym_felt::SymFeltRef}};
+use psy_vm::dpn::{eval::exec_eval::exec_eval_simple, ops::{context_trait::{ContextFelt, DPNContext}, exec_context::QExecContext, sym_felt::SymFeltRef}};
 use qedlang_macros::qcontract;
 
 
@@ -109,7 +109,7 @@ pub fn test_it_3v2() {
 #[cfg(test)]
 mod test {
     use super::*;
-    use qedlang_core::dpn::{ops::exec_context::QExecContext, runtime_felt::runtime_context::QRuntimeContext};
+    use psy_vm::dpn::{ops::exec_context::QExecContext, runtime_felt::runtime_context::QRuntimeContext};
 
     #[test]
     fn test_example_contract3() {

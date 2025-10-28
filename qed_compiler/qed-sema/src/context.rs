@@ -5,7 +5,7 @@ use qed_ast::{
     NodeId, NodeInfo, NodeType, Program, StmtId, StmtNode, VisitorContext,
 };
 use qed_common::Graph;
-use qedlang_core::dpn::ops::context_trait::ContextFelt;
+use psy_vm::dpn::ops::context_trait::ContextFelt;
 
 use crate::{LocationIndices, ReferenceId, SymbolTable, Type, TypeId};
 

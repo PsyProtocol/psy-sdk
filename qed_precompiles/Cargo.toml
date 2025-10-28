@@ -8,7 +8,7 @@ repository.workspace = true
 
 [dependencies]
 serde_json = { workspace = true }
-qedlang_core = { workspace = true }
+psy_vm = { workspace = true }
 
 [build-dependencies]
 serde_json = { workspace = true }

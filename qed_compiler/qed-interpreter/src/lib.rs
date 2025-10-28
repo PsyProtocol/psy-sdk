@@ -19,10 +19,10 @@ use qed_fmt::Formatter;
 use qed_parser::Parser;
 use qed_sema::Error as SemaError;
 use qed_sema::*;
-use qedlang_core::dpn::ops::exec_context::QExecContext;
-use qedlang_core::dpn::ops::sym_felt::SymFeltRef;
-use qedlang_core::dpn::vm::compile::QEDCompileResult;
-use qedlang_core::dpn::{
+use psy_vm::dpn::ops::exec_context::QExecContext;
+use psy_vm::dpn::ops::sym_felt::SymFeltRef;
+use psy_vm::dpn::vm::compile::QEDCompileResult;
+use psy_vm::dpn::{
     ops::{
         context_trait::{ContextFelt, DPNContext, ToFelts},
         op_types::DPNOpType,
@@ -1924,7 +1924,7 @@ mod tests {
     use qed_exec::vm::exec::QEDEvalSessionResult;
 
     use psy_data::config::store_config::QEDHasher;
-    use qedlang_core::dpn::{
+    use psy_vm::dpn::{
         ops::{exec_context::QExecContext, sym_felt::SymFeltRef},
         vm::compile::QEDCompileResult,
     };

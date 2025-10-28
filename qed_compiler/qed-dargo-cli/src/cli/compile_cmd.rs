@@ -4,7 +4,7 @@ use crate::errors::Result;
 
 use clap::Args;
 use qed_package::Workspace;
-use qedlang_core::dpn::vm::def::DPNFunctionCircuitDefinition;
+use psy_vm::dpn::vm::def::DPNFunctionCircuitDefinition;
 use std::collections::HashMap;
 use std::path::PathBuf;
 

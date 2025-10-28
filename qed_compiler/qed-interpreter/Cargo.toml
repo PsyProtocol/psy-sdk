@@ -16,7 +16,7 @@ qed-fmt = { workspace = true }
 plonky2 = { workspace = true }
 indexmap = { workspace = true }
 enum-as-inner = { workspace = true }
-qedlang_core = { workspace = true }
+psy_vm = { workspace = true }
 psy_crypto = { workspace = true }
 qed_exec = { workspace = true }
 ariadne = { workspace = true }

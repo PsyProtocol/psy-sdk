@@ -25,7 +25,7 @@ use dargo::resolve_crate_path_graph;
 use qed_common::{FileId, Graph};
 use qed_package::{files::{find_file_manifest_root, get_package_manifest}, resolve_workspace_from_toml};
 use qed_sema::{offset_from_position, TypeCheckError, TypeCheckerVisitorContext};
-use qedlang_core::dpn::ops::{exec_context::QExecContext, sym_felt::SymFeltRef};
+use psy_vm::dpn::ops::{exec_context::QExecContext, sym_felt::SymFeltRef};
 use tower_lsp::lsp_types::{
     CompletionParams, CompletionResponse, DidChangeConfigurationParams,
     DidChangeWatchedFilesParams, DidChangeWorkspaceFoldersParams, DidSaveTextDocumentParams,

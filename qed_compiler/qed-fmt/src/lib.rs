@@ -1,7 +1,7 @@
 use qed_ast::BlockExprNode;
 use qed_ast::IfExprNode;
 use qed_ast::*;
-use qedlang_core::dpn::ops::context_trait::{ContextFelt, DPNContext};
+use psy_vm::dpn::ops::context_trait::{ContextFelt, DPNContext};
 use std::fmt::Debug;
 
 #[derive(Debug)]

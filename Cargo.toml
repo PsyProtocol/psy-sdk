@@ -1,6 +1,6 @@
 [workspace]
 members = [
-    "qedlang_core",
+    "psy_vm",
     "qed_compiler/qedlang_ex",
     "qed_compiler/qedlang_macros",
     "kvq",
@@ -225,7 +225,7 @@ md5 = "0.7"
 jsonrpsee = { version = "0.26", features = ["server", "client", "macros"] }
 config = "0.15"
 
-qedlang_core = { path = "./qedlang_core" }
+psy_vm = { path = "./psy_vm" }
 qedlang_macros = { path = "./qed_compiler/qedlang_macros" }
 psy_crypto = { path = "./psy_crypto" }
 qed_exec = { path = "./qed_exec", default-features = false}

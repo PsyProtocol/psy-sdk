@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use qedlang_core::dpn::ops::{context_trait::DPNContext, sym_felt::SymFeltRef};
+use psy_vm::dpn::ops::{context_trait::DPNContext, sym_felt::SymFeltRef};
 use qedlang_macros::qcontract;
 
 type Felt = SymFeltRef;
@@ -73,7 +73,7 @@ mod test {
         goldilocks_field::GoldilocksField,
         types::{Field, PrimeField64},
     };
-    use qedlang_core::dpn::{
+    use psy_vm::dpn::{
         eval::exec_eval::exec_eval_simple,
         ops::{context_trait::DPNContext, exec_context::QExecContext},
     };

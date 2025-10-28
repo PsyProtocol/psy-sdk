@@ -2376,6 +2376,7 @@ dependencies = [
  "psy_core",
  "psy_crypto",
  "psy_data",
+ "psy_vm",
  "qed-abi",
  "qed-ast",
  "qed-common",
@@ -2386,7 +2387,6 @@ dependencies = [
  "qed_package",
  "qed_prover",
  "qed_store",
- "qedlang_core",
  "serde",
  "serde_json",
  "thiserror 2.0.17",
@@ -5697,6 +5697,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "psy_vm"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "bincode",
+ "hashbrown 0.14.5",
+ "k256",
+ "plonky2",
+ "psy_core",
+ "psy_crypto",
+ "psy_data",
+ "serde",
+ "serde_cbor",
+ "serde_repr",
+ "ts-rs",
+ "twox-hash 1.6.3",
+]
+
+[[package]]
 name = "qed-abi"
 version = "0.1.0"
 dependencies = [
@@ -5733,9 +5752,9 @@ dependencies = [
 name = "qed-fmt"
 version = "0.1.0"
 dependencies = [
+ "psy_vm",
  "qed-ast",
  "qed-common",
- "qedlang_core",
 ]
 
 [[package]]
@@ -5751,6 +5770,7 @@ dependencies = [
  "psy_core",
  "psy_crypto",
  "psy_data",
+ "psy_vm",
  "qed-ast",
  "qed-common",
  "qed-fmt",
@@ -5760,7 +5780,6 @@ dependencies = [
  "qed_exec",
  "qed_prover",
  "qed_store",
- "qedlang_core",
  "serial_test",
  "thiserror 2.0.17",
  "tokio",
@@ -5781,12 +5800,12 @@ version = "0.1.0"
 dependencies = [
  "dargo",
  "lsp-types 0.97.0",
+ "psy_vm",
  "qed-ast",
  "qed-common",
  "qed-interpreter",
  "qed-sema",
  "qed_package",
- "qedlang_core",
  "thiserror 2.0.17",
  "tokio",
  "tower-lsp",
@@ -5801,10 +5820,10 @@ dependencies = [
  "insta",
  "lalrpop",
  "lalrpop-util",
+ "psy_vm",
  "qed-ast",
  "qed-common",
  "qed-lexer",
- "qedlang_core",
  "thiserror 2.0.17",
 ]
 
@@ -5819,10 +5838,10 @@ dependencies = [
  "itertools 0.14.0",
  "once_cell",
  "petgraph",
+ "psy_vm",
  "qed-ast",
  "qed-common",
  "qed-fmt",
- "qedlang_core",
  "rangemap",
  "thiserror 2.0.17",
  "tracing",
@@ -5901,6 +5920,7 @@ dependencies = [
  "psy_core",
  "psy_crypto",
  "psy_data",
+ "psy_vm",
  "qed-common",
  "qed_common_circuit",
  "qed_node",
@@ -5908,7 +5928,6 @@ dependencies = [
  "qed_rollup_circuit",
  "qed_rollup_utils",
  "qed_store",
- "qedlang_core",
  "qedlang_macros",
  "scheduled-thread-pool",
  "serde",
@@ -5930,8 +5949,8 @@ dependencies = [
  "psy_core",
  "psy_crypto",
  "psy_data",
+ "psy_vm",
  "qed_store",
- "qedlang_core",
  "qedlang_macros",
  "serde",
  "serde_json",
@@ -5974,13 +5993,13 @@ dependencies = [
  "psy_core",
  "psy_crypto",
  "psy_data",
+ "psy_vm",
  "qed_api_services",
  "qed_common_circuit",
  "qed_prover",
  "qed_rollup_circuit",
  "qed_rollup_utils",
  "qed_store",
- "qedlang_core",
  "rand 0.8.5",
  "redis 0.30.0",
  "reqwest",
@@ -6025,9 +6044,9 @@ dependencies = [
  "dargo",
  "minijinja",
  "psy_data",
+ "psy_vm",
  "qed-interpreter",
  "qed_package",
- "qedlang_core",
  "serde_json",
 ]
 
@@ -6061,13 +6080,13 @@ dependencies = [
  "psy_core",
  "psy_crypto",
  "psy_data",
+ "psy_vm",
  "qed-common",
  "qed_common_circuit",
  "qed_exec",
  "qed_rollup_circuit",
  "qed_rollup_utils",
  "qed_store",
- "qedlang_core",
  "qedlang_macros",
  "rand 0.8.5",
  "rayon",
@@ -6173,8 +6192,8 @@ dependencies = [
  "psy_core",
  "psy_crypto",
  "psy_data",
+ "psy_vm",
  "qed_rollup_utils",
- "qedlang_core",
  "rand 0.8.5",
  "redis 0.30.0",
  "rsmq_async",
@@ -6213,6 +6232,7 @@ dependencies = [
  "psy_core",
  "psy_crypto",
  "psy_data",
+ "psy_vm",
  "qed-common",
  "qed_api_services",
  "qed_common_circuit",
@@ -6220,7 +6240,6 @@ dependencies = [
  "qed_prover",
  "qed_rollup_utils",
  "qed_store",
- "qedlang_core",
  "rand 0.8.5",
  "reqwest",
  "rpassword",
@@ -6241,30 +6260,11 @@ dependencies = [
 ]
 
 [[package]]
-name = "qedlang_core"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "bincode",
- "hashbrown 0.14.5",
- "k256",
- "plonky2",
- "psy_core",
- "psy_crypto",
- "psy_data",
- "serde",
- "serde_cbor",
- "serde_repr",
- "ts-rs",
- "twox-hash 1.6.3",
-]
-
-[[package]]
 name = "qedlang_ex"
 version = "0.1.0"
 dependencies = [
  "plonky2",
- "qedlang_core",
+ "psy_vm",
  "qedlang_macros",
  "serde",
 ]
@@ -6274,7 +6274,7 @@ name = "qedlang_macros"
 version = "0.1.0"
 dependencies = [
  "proc-macro2",
- "qedlang_core",
+ "psy_vm",
  "quote",
  "syn 2.0.106",
 ]

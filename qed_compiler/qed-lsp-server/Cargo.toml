@@ -18,7 +18,7 @@ qed-common = { workspace = true }
 dargo = { workspace = true }
 qed_package = { workspace = true }
 
-qedlang_core = { workspace = true }
+psy_vm = { workspace = true }
 
 [[bin]]
 name = "qed-lsp-server"

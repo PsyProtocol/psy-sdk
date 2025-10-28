@@ -9,7 +9,7 @@ qed-lexer = { workspace = true }
 lalrpop-util = { workspace = true }
 qed-common = { workspace = true }
 thiserror = { workspace = true }
-qedlang_core = { workspace = true }
+psy_vm = { workspace = true }
 indexmap = { workspace = true }
 
 [build-dependencies]

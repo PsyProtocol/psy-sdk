@@ -3,7 +3,7 @@ use std::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard};
 use enum_as_inner::EnumAsInner;
 use indexmap::IndexMap;
 use qed_ast::{ExprId, IdentId, Identifier, Location, NodeInfo, NodeType};
-use qedlang_core::dpn::ops::{
+use psy_vm::dpn::ops::{
     context_trait::{ContextFelt, DPNContext, ToFelts},
     op_types::DPNOpType,
 };

@@ -7,7 +7,7 @@ use lalrpop_util::lalrpop_mod;
 use qed_ast::*;
 use qed_common::Graph;
 use qed_lexer::{GenericTokenTransformer, Lexer, Loc, Token};
-use qedlang_core::dpn::ops::context_trait::{ContextFelt, DPNContext};
+use psy_vm::dpn::ops::context_trait::{ContextFelt, DPNContext};
 use std::{
     collections::{HashMap, HashSet},
     path::{Path, PathBuf},
@@ -310,7 +310,7 @@ mod tests {
     use super::Parser;
     use qed_ast::Program;
     use qed_common::Graph;
-    use qedlang_core::dpn::ops::exec_context::QExecContext;
+    use psy_vm::dpn::ops::exec_context::QExecContext;
     use std::path::PathBuf;
     #[test]
     fn test_qed_parser() {

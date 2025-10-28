@@ -19,7 +19,7 @@ use psy_data::{
             QEDComboDataStoreReaderWriterSync
 };
 use qed_store::controllers::local::{proving_session::QEDLocalProvingSessionStore, prepare_environment_with_real_contract};
-use qedlang_core::dpn::{
+use psy_vm::dpn::{
     ops::{context_trait::DPNContext, exec_context::QExecContext, sym_felt::SymFeltRef},
     vm::{compile::QEDCompileResult, def::DPNFunctionCircuitDefinition},
 };

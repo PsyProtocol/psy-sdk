@@ -17,7 +17,7 @@ use psy_data::{
 };
 use qed_prover::dpn::circuits::cfc::DapenContractFunctionCircuit;
 use psy_data::config::store_config::QEDHasher;
-use qedlang_core::dpn::vm::def::DPNFunctionCircuitDefinition;
+use psy_vm::dpn::vm::def::DPNFunctionCircuitDefinition;
 
 use qed_prover::local::{
     provider::{QUserRpcProvider, RpcProvider},

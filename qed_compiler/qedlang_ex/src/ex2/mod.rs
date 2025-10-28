@@ -1,4 +1,4 @@
-use qedlang_core::dpn::ops::exec_context::QExecContext;
+use psy_vm::dpn::ops::exec_context::QExecContext;
 use qedlang_macros::trace_var;
 
 pub struct ExampleContract2 {}

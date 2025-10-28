@@ -25,7 +25,7 @@ use qed_rollup_circuit::gadgets::qdata::{
     checkpoint_state_roots::QEDCheckpointGlobalStateRootsGadget, contract_function_call::DPNProvingSessionSimpleMethodCallGadget, user::QEDUserLeafGadget,
     checkpoint_stats::QEDCheckpointLeafStatsGadget
 };
-use qedlang_core::dpn::ops::state_cmd::data::DPNStateCmd;
+use psy_vm::dpn::ops::state_cmd::data::DPNStateCmd;
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 

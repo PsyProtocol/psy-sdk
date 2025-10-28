@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use petgraph::prelude::NodeIndex as PetGraphIndex;
 use qed_ast::{Location, ModuleId, Position, Visibility, VisitorContext};
 use qed_common::FileId;
-use qedlang_core::dpn::ops::context_trait::ContextFelt;
+use psy_vm::dpn::ops::context_trait::ContextFelt;
 use rangemap::RangeMap;
 
 use crate::{AstVisualizer, TypeCheckerVisitorContext, TypeId, VarId};

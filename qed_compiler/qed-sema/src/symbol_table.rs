@@ -3,7 +3,7 @@ use enum_as_inner::EnumAsInner;
 use indexmap::IndexMap;
 use qed_ast::*;
 use qed_common::{define_arena_id, FileId, TreeNode};
-use qedlang_core::dpn::ops::context_trait::ContextFelt;
+use psy_vm::dpn::ops::context_trait::ContextFelt;
 use std::sync::OnceLock;
 
 use std::{

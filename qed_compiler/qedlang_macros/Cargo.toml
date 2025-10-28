@@ -7,7 +7,7 @@ version = "0.1.0"
 
 [dependencies]
 
-qedlang_core = { workspace = true }
+psy_vm = { workspace = true }
 syn = { workspace = true }
 quote = { workspace = true }
 proc-macro2 = { workspace = true }

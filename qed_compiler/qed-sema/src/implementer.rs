@@ -1,7 +1,7 @@
 use anyhow::anyhow;
 use indexmap::{IndexMap, IndexSet};
 use qed_ast::{DefId, IdentId, VisitorContext};
-use qedlang_core::dpn::ops::context_trait::ContextFelt;
+use psy_vm::dpn::ops::context_trait::ContextFelt;
 use tracing::instrument;
 
 use crate::{

@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use qed_ast::{DefaultVisitorContext, ModuleId};
 
 use qed_common::FileId;
-use qedlang_core::dpn::ops::context_trait::{ContextFelt, DPNContext};
+use psy_vm::dpn::ops::context_trait::{ContextFelt, DPNContext};
 
 use crate::TypeCheckerVisitorContext;
 

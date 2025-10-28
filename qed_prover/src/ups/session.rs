@@ -15,7 +15,7 @@ use psy_data::{
     config::store_config::QEDHasher, qstore::imm::{cache::QEDCmdStoreWithCache, cmd::{QSRCmdGetCheckpointLeafData, QSRMerkleCmd, QSRMerkleCmdGetCheckpointTreeMerkleProof, QSRMerkleCmdGetUserTreeMerkleProof}, cmd_processor::{QEDReadCommandProcessorSync, QEDReadCommandProcessorSyncMut}}
 };
 use qed_store::controllers::local::{proving_session::QEDLocalProvingSessionStore, session_info::SessionCircuitInfoStore, state_tracker::QEDUserSessionUpdateHistory};
-use qedlang_core::dpn::{contract::cfc_code_definition_to_dapen_fc, vm::def::DPNFunctionCircuitDefinition};
+use psy_vm::dpn::{contract::cfc_code_definition_to_dapen_fc, vm::def::DPNFunctionCircuitDefinition};
 use serde::Serialize;
 
 use crate::{dpn::circuits::cfc::DapenContractFunctionCircuit, local::provider::UPSCircuitManagerTrait, ups::circuit_manager::core::QCircuitManager};

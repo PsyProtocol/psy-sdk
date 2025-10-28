@@ -1,6 +1,6 @@
 use itertools::Itertools;
 use qed_ast::{DefId, ExprId, StmtId};
-use qedlang_core::dpn::ops::context_trait::ContextFelt;
+use psy_vm::dpn::ops::context_trait::ContextFelt;
 use tracing::instrument;
 
 use crate::{

@@ -1,12 +1,12 @@
 use std::marker::PhantomData;
 
-use qedlang_core::dpn::ops::sym_felt::QStateInitializable;
-use qedlang_core::dpn::ops::utils::SparseArray;
-use qedlang_core::dpn::ops::{context_trait::DPNContext, sym_felt::SymFeltRef};
+use psy_vm::dpn::ops::sym_felt::QStateInitializable;
+use psy_vm::dpn::ops::utils::SparseArray;
+use psy_vm::dpn::ops::{context_trait::DPNContext, sym_felt::SymFeltRef};
 use qedlang_macros::{qcontract, FeltSized, QStateInitializable};
 
 type Felt = SymFeltRef;
-use qedlang_core::dpn::ops::context_trait::FeltSized;
+use psy_vm::dpn::ops::context_trait::FeltSized;
 //use qedlang_macros::FeltSized;
 
 #[derive(FeltSized, QStateInitializable)]
@@ -145,7 +145,7 @@ mod test {
         goldilocks_field::GoldilocksField,
         types::{Field, PrimeField64},
     };
-    use qedlang_core::dpn::{
+    use psy_vm::dpn::{
         eval::exec_eval::exec_eval_simple,
         ops::{context_trait::DPNContext, exec_context::QExecContext},
     };

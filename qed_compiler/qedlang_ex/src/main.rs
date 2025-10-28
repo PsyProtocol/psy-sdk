@@ -9,7 +9,7 @@ pub mod ex7;
 pub mod ex8;
 use ex3::ex3_generic::{test_it_3, test_it_3v2};
 use ex6::SimpleContractState;
-use qedlang_core::dpn::ops::{context_trait::FeltSized, exec_context::QExecContext};
+use psy_vm::dpn::ops::{context_trait::FeltSized, exec_context::QExecContext};
 use qedlang_macros::show_streams;
 use serde::{Deserialize, Serialize};
 #[derive(Clone, Debug, Copy, Serialize, Deserialize)]

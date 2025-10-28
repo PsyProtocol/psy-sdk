@@ -29,7 +29,7 @@ qed_common_circuit = { workspace = true, default-features = false }
 qed_rollup_circuit = { workspace = true, default-features = false }
 qed_rollup_utils = { workspace = true }
 qed-common = { workspace = true }
-qedlang_core = { workspace = true }
+psy_vm = { workspace = true }
 psy_data = { workspace = true, default-features = false }
 psy_crypto = { workspace = true }
 qed_exec = { workspace = true, default-features = false }

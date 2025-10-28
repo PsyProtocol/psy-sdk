@@ -23,7 +23,7 @@ use psy_core::config::network_constants::MAX_CONTRACT_STATE_TREE_HEIGHT;
 use psy_crypto::signature::zk::wallet::SimpleQEDPrivateKey;
 use qed_prover::local::provider::{QUserRpcProvider, RpcProvider};
 use qed_prover::local::request::QDeployContractRPCRequest;
-use qedlang_core::dpn::vm::def::DPNFunctionCircuitDefinition;
+use psy_vm::dpn::vm::def::DPNFunctionCircuitDefinition;
 use psy_data::config::store_config::{C, D};
 
 const USER0_PRIVATE_KEY: &str = "17c975c2668ebe0ca7c87f67c6414ebb7fd664f46370a0af2a3b204c8824ac5a";

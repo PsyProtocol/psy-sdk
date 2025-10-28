@@ -15,7 +15,7 @@ ts-rs = { workspace = true }
 
 kvq = { workspace = true }
 psy_core = { workspace = true }
-qedlang_core = { workspace = true }
+psy_vm = { workspace = true }
 psy_data = { workspace = true, default-features = false }
 psy_crypto = { workspace = true }
 async-trait = { workspace = true }

@@ -27,7 +27,7 @@ pub fn derive_felt_sized_core(input: DeriveInput) -> proc_macro2::TokenStream {
 
     let expanded = quote! {
         // The generated impl.
-        impl #impl_generics qedlang_core::dpn::ops::context_trait::FeltSized for #name #ty_generics #where_clause {
+        impl #impl_generics psy_vm::dpn::ops::context_trait::FeltSized for #name #ty_generics #where_clause {
             fn size() -> u64 {
                 #sum
             }
@@ -42,7 +42,7 @@ pub fn derive_felt_sized_core(input: DeriveInput) -> proc_macro2::TokenStream {
 fn add_trait_bounds(mut generics: Generics) -> Generics {
     for param in &mut generics.params {
         if let GenericParam::Type(ref mut type_param) = *param {
-            type_param.bounds.push(parse_quote!(qedlang_core::dpn::ops::context_trait::FeltSized));
+            type_param.bounds.push(parse_quote!(psy_vm::dpn::ops::context_trait::FeltSized));
         }
     }
     generics
@@ -70,7 +70,7 @@ fn felt_sized_sum(data: &Data) -> TokenStream {
                         //let name = &f.ident;
                         let ty = &f.ty;
                         quote_spanned! {f.span()=>
-                            <#ty as qedlang_core::dpn::ops::context_trait::FeltSized>::size()
+                            <#ty as psy_vm::dpn::ops::context_trait::FeltSized>::size()
                         }
                     });
                     quote! {
@@ -85,7 +85,7 @@ fn felt_sized_sum(data: &Data) -> TokenStream {
                         let index = Index::from(i);
                         let ty = &f.ty;
                         quote_spanned! {f.span()=>
-                            <#ty as qedlang_core::dpn::ops::context_trait::FeltSized>::size()
+                            <#ty as psy_vm::dpn::ops::context_trait::FeltSized>::size()
                         }
                     });
                     quote! {

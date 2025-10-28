@@ -7,7 +7,7 @@ use qed_ast::{
     Comment, DefId, DefinitionNode, EnumVariant, ExprId, ExprNode, IdentId, StmtId, StmtNode,
     Visibility, VisitorContext,
 };
-use qedlang_core::dpn::ops::context_trait::ContextFelt;
+use psy_vm::dpn::ops::context_trait::ContextFelt;
 
 macro_rules! writeln {
     ($fmt:expr, $($arg:tt)*) => {

@@ -34,7 +34,7 @@ use psy_data::{
     },
 };
 use qed_store::controllers::local::proving_session::QEDLocalProvingSessionStore;
-use qedlang_core::dpn::{
+use psy_vm::dpn::{
     ops::{
         op_types::DPNOpType,
         state_cmd::{data::DPNStateCmd, types::DPNStateCmdCore},

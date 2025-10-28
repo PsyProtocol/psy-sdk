@@ -4,7 +4,7 @@ use psy_crypto::hash::merkle::core::{DeltaMerkleProofCore, MerkleProofCore};
 use psy_data::qdata::user::QEDUserLeaf;
 use qed_exec::vm::{cfc_input::DapenContractFunctionCircuitInput, exec::QEDCmdWithInputAndWitness};
 use psy_data::qstore::imm::cmd_processor::DPNStateCmdWitness;
-use qedlang_core::dpn::{ops::state_cmd::data::DPNStateCmd, vm::def::DPNFunctionCircuitDefinition};
+use psy_vm::dpn::{ops::state_cmd::data::DPNStateCmd, vm::def::DPNFunctionCircuitDefinition};
 
 use super::state_readers::{CKInvokeDeferredMethodCall, StateCommandCacheKey, StateReaderGadget, StateReaderReferenceKeyType};
 

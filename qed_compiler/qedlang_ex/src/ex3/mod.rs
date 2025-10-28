@@ -1,4 +1,4 @@
-use qedlang_core::dpn::ops::{context_trait::DPNContext, exec_context::QExecContext, sym_felt::SymFeltRef};
+use psy_vm::dpn::ops::{context_trait::DPNContext, exec_context::QExecContext, sym_felt::SymFeltRef};
 pub mod ex3_mac;
 pub mod ex3_generic;
 pub struct ExampleContract3 {}

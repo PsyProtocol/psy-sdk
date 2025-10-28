@@ -32,7 +32,7 @@ use psy_data::{
 };
 use qed_exec::vm::cfc_input::DapenContractFunctionCircuitInput;
 use qed_store::controllers::local::session_info::SessionCircuitInfoStore;
-use qedlang_core::dpn::contract::cfc_code_definition_to_dapen_fc;
+use psy_vm::dpn::contract::cfc_code_definition_to_dapen_fc;
 use serde::{Deserialize, Deserializer, Serialize};
 
 // use crate::local::provider::LocalCommonCircuitsData;

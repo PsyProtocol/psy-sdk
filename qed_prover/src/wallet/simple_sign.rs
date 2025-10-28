@@ -54,7 +54,7 @@ use psy_data::{
     },
 };
 use qed_rollup_circuit::gadgets::qdata::user_contract_state::UserContractStateGadget;
-use qedlang_core::dpn::ops::state_cmd::data::{
+use psy_vm::dpn::ops::state_cmd::data::{
     DPNStateCmd, DPNStateCmdGetOtherUserContractStateSlotHash,
     DPNStateCmdGetSelfUserCurrentContractStateSlotHash,
     DPNStateCmdGetSelfUserExternalContractStateSlotHash,

@@ -19,7 +19,7 @@ use qed_prover::{
     },
     wallet::software_defined_circuit::SoftwareDefinedSignatureInput,
 };
-use qedlang_core::dpn::vm::def::DPNFunctionCircuitDefinition;
+use psy_vm::dpn::vm::def::DPNFunctionCircuitDefinition;
 use serde::{Deserialize, Serialize};
 
 use super::args::SubmitEndCapArgs;

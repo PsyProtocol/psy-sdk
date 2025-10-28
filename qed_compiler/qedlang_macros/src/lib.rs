@@ -12,7 +12,7 @@ mod heap2;
 mod felt_sized;
 mod state_init;
 use gm1::{RewriterVisitor};
-use qedlang_core::dpn::ops::context_trait::FeltSized;
+use psy_vm::dpn::ops::context_trait::FeltSized;
 /// Parses a list of variable names separated by commas.
 ///
 ///     a, b, c

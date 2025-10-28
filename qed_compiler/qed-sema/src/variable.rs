@@ -1,5 +1,5 @@
 use qed_ast::{Identifier, Location, TypeQualifier};
-use qedlang_core::dpn::ops::context_trait::ContextFelt;
+use psy_vm::dpn::ops::context_trait::ContextFelt;
 
 use crate::{ScopeId, TypeId};
 

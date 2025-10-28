@@ -5,7 +5,7 @@ use qed_parser::Error as ParseError;
 use qed_sema::{
     AstVisualizer, Error as SemaError, TypeCheckerErrorDescriptor, TypeCheckerVisitorContext,
 };
-use qedlang_core::dpn::ops::context_trait::ContextFelt;
+use psy_vm::dpn::ops::context_trait::ContextFelt;
 use std::io::Error as IoError;
 use thiserror::Error;
 

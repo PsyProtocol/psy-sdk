@@ -2,7 +2,7 @@ use crate::cli::write_to_file;
 use crate::errors::Result;
 use clap::Args;
 use qed_interpreter::Interpreter;
-use qedlang_core::dpn::ops::{exec_context::QExecContext, sym_felt::SymFeltRef};
+use psy_vm::dpn::ops::{exec_context::QExecContext, sym_felt::SymFeltRef};
 use std::path::PathBuf;
 
 #[derive(Debug, Clone, Args)]

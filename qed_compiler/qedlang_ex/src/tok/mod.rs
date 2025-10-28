@@ -1,4 +1,4 @@
-use qedlang_core::dpn::ops::{context_trait::DPNContext, sym_felt::SymFeltRef, utils::{QStatefulContract, SparseArray, U252}};
+use psy_vm::dpn::ops::{context_trait::DPNContext, sym_felt::SymFeltRef, utils::{QStatefulContract, SparseArray, U252}};
 use std::marker::PhantomData;
 
 type Felt = SymFeltRef;

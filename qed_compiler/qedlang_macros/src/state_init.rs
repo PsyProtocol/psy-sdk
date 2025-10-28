@@ -29,7 +29,7 @@ pub fn derive_state_init_core(input: DeriveInput) -> proc_macro2::TokenStream {
 
     let expanded = quote! {
         // The generated impl.
-        impl #impl_generics qedlang_core::dpn::ops::sym_felt::QStateInitializable for #name #ty_generics #where_clause {
+        impl #impl_generics psy_vm::dpn::ops::sym_felt::QStateInitializable for #name #ty_generics #where_clause {
             fn create_stateful_at<CTXT: DPNContext<SymFeltRef>>(context: &mut CTXT, state_pointer: SymFeltRef, contract_state_tree_height: u16, contract_id: SymFeltRef, user_id: SymFeltRef) -> Self {
                 let mut cur_offset = 0u64;
                 let mut nw_pointer = SymFeltRef::new_constant(cur_offset);
@@ -46,7 +46,7 @@ pub fn derive_state_init_core(input: DeriveInput) -> proc_macro2::TokenStream {
 fn add_trait_bounds(mut generics: Generics) -> Generics {
     for param in &mut generics.params {
         if let GenericParam::Type(ref mut type_param) = *param {
-            type_param.bounds.push(parse_quote!(qedlang_core::dpn::ops::sym_felt::QStateInitializable));
+            type_param.bounds.push(parse_quote!(psy_vm::dpn::ops::sym_felt::QStateInitializable));
         }
     }
     generics

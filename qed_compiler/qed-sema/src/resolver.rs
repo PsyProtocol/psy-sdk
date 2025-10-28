@@ -1,5 +1,5 @@
 use qed_ast::{IdentId, Identifier, ModuleId, PathNode, UncheckedType, UseNode, VisitorContext};
-use qedlang_core::dpn::ops::context_trait::ContextFelt;
+use psy_vm::dpn::ops::context_trait::ContextFelt;
 
 use crate::{
     CheckedPathNode, Error, Implementer, Result, TypeChecker, TypeCheckerVisitorContext, TypeId,

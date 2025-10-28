@@ -6,4 +6,4 @@ version = "0.1.0"
 [dependencies]
 qed-ast = { workspace = true }
 qed-common = { workspace = true }
-qedlang_core = { workspace = true }
+psy_vm = { workspace = true }

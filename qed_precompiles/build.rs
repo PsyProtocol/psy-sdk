@@ -156,7 +156,7 @@ fn main() -> Result<()> {
 fn generate_precompile_api(config: &PrecompileConfig, out_path: &Path) -> Result<()> {
     let mut env = Environment::new();
 
-    let template = r#"use qedlang_core::dpn::vm::def::DPNFunctionCircuitDefinition;
+    let template = r#"use psy_vm::dpn::vm::def::DPNFunctionCircuitDefinition;
 
 // Generated at compile time - zero runtime parsing cost!
 // Direct embedded contract definitions - no JSON parsing at runtime!

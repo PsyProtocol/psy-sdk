@@ -1,4 +1,4 @@
-use qedlang_core::dpn::ops::{context_trait::DPNContext, exec_context::QExecContext, sym_felt::SymFeltRef};
+use psy_vm::dpn::ops::{context_trait::DPNContext, exec_context::QExecContext, sym_felt::SymFeltRef};
 
 pub struct ExampleContract3B {}
 impl ExampleContract3B {
@@ -67,7 +67,7 @@ impl ExampleContract2 {
 
 #[cfg(test)]
 mod tests {
-    use qedlang_core::dpn::{eval::exec_eval::exec_eval_simple, ops::{context_trait::DPNContext, exec_context::QExecContext}};
+    use psy_vm::dpn::{eval::exec_eval::exec_eval_simple, ops::{context_trait::DPNContext, exec_context::QExecContext}};
 
     use super::ExampleContract2;
 

@@ -29,7 +29,7 @@ use psy_crypto::{
     hash::traits::hasher::MerkleZeroHasher, signature::zk::wallet::PRIVATE_KEY_CONSTANTS,
 };
 use qed_exec::vm::cfc_input::DapenContractFunctionCircuitInput;
-use qedlang_core::dpn::vm::def::DPNFunctionCircuitDefinition;
+use psy_vm::dpn::vm::def::DPNFunctionCircuitDefinition;
 
 use crate::dpn::vm::compile::QEDContractFunctionBuilderGadget;
 

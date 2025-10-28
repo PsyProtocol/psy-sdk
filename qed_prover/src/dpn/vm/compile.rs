@@ -8,7 +8,7 @@ use qed_common_circuit::builder::{
     core::CircuitBuilderHelpersCore, hash::core::CircuitBuilderHashCore
 };
 use qed_rollup_circuit::gadgets::qdata::cfc_context_input::DapenCFCUserTransactionInputContextGadget;
-use qedlang_core::dpn::{
+use psy_vm::dpn::{
     ops::{
         op_types::DPNOpType,
         state_cmd::data::DPNStateCmd,

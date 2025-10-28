@@ -13,7 +13,7 @@ use tokio::time::timeout;
 use psy_core::data::qhashout::QHashOut;
 use psy_crypto::signature::zk::data::ZKPublicKeyInfo;
 use psy_data::qblock::cmds::deploy_contract::QBCDeployContract;
-use qedlang_core::dpn::vm::def::DPNFunctionCircuitDefinition;
+use psy_vm::dpn::vm::def::DPNFunctionCircuitDefinition;
 use crate::session::{WalletKeyPair, WalletSession};
 use crate::local::store::UserProverWorkerStore;
 use crate::local::args::ContractCallArgs;

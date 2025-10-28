@@ -21,7 +21,7 @@ use qed_prover::wallet::software_defined_circuit::{
     SoftwareDefinedSignatureCircuit, SoftwareDefinedSignatureGadget, SoftwareDefinedSignatureInput,
 };
 use qed_prover::wallet::utils::{get_secp_public_key, hash_no_pad_compressed_public_key};
-use qedlang_core::dpn::vm::def::DPNFunctionCircuitDefinition;
+use psy_vm::dpn::vm::def::DPNFunctionCircuitDefinition;
 use std::str::FromStr;
 
 const ZK_FINGERPRINT: &str = "d2f572f1402fa8a92c9af0a2226e05ef8f5f4f34d764c6515b90d2b391fc48c1";

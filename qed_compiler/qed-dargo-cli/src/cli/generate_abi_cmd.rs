@@ -4,7 +4,7 @@ use clap::Args;
 use qed_abi::AbiExtractor;
 use qed_package::Workspace;
 use qed_interpreter::Interpreter;
-use qedlang_core::dpn::ops::{exec_context::QExecContext, sym_felt::SymFeltRef};
+use psy_vm::dpn::ops::{exec_context::QExecContext, sym_felt::SymFeltRef};
 use std::path::PathBuf;
 
 /// Generate ABI (Application Binary Interface) file for the contract
@@ -44,7 +44,7 @@ pub(crate) fn run(args: GenerateAbiCommand, workspace: Workspace) -> Result<()> 
     let program_ptr: *mut _ = &mut ctx.program;
     let spec_abi = unsafe {
         let static_program = &mut *(program_ptr
-            as *mut qed_ast::Program<qedlang_core::dpn::ops::sym_felt::SymFeltRef>);
+            as *mut qed_ast::Program<psy_vm::dpn::ops::sym_felt::SymFeltRef>);
         extractor.extract_spec_compliant_abi(static_program)?
     };
 

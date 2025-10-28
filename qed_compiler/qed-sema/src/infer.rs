@@ -1,7 +1,7 @@
 use indexmap::IndexMap;
 use itertools::Itertools;
 use qed_ast::IdentId;
-use qedlang_core::dpn::ops::context_trait::ContextFelt;
+use psy_vm::dpn::ops::context_trait::ContextFelt;
 
 use crate::{
     rewriter::Rewriter, CheckedArrayNode, CheckedFunctionSignature, CheckedStructField,

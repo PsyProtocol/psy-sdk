@@ -18,9 +18,9 @@ use qed_sema::{
 };
 use psy_data::config::store_config::{QEDHasher, C, D};
 use qed_store::controllers::local::prepare_environment_with_real_contract;
-use qedlang_core::dpn::ops::exec_context::QExecContext;
-use qedlang_core::dpn::ops::sym_felt::SymFeltRef;
-use qedlang_core::dpn::vm::def::DPNFunctionCircuitDefinition;
+use psy_vm::dpn::ops::exec_context::QExecContext;
+use psy_vm::dpn::ops::sym_felt::SymFeltRef;
+use psy_vm::dpn::vm::def::DPNFunctionCircuitDefinition;
 use std::clone::Clone;
 use std::collections::HashMap;
 use std::ops::Deref;
