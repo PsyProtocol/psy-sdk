@@ -1003,7 +1003,7 @@ mod tests {
         let private_key0 = QHashOut::<GoldilocksField>::from_str("17c975c2668ebe0ca7c87f67c6414ebb7fd664f46370a0af2a3b204c8824ac5a")?;
         let private_key1 = QHashOut::<GoldilocksField>::from_str("f07f91a0bdc0df4ec763285ba0eb578cb6e7a0811c3150494ab54e56f761fc1d")?;
 
-        let config_str = std::fs::read_to_string(Path::new(&project_path).join("../config.json"))?;
+        let config_str = std::fs::read_to_string(Path::new(&project_path).join("../../../config.json"))?;
         let json_value: serde_json::Value = serde_json::from_str(&config_str)?;
         let rpc_config: RpcConfig = serde_json::from_value(json_value["network"].clone())?;
 
@@ -1106,7 +1106,7 @@ mod tests {
         let private_key0 = QHashOut::<GoldilocksField>::from_str("17c975c2668ebe0ca7c87f67c6414ebb7fd664f46370a0af2a3b204c8824ac5a")?;
         let private_key1 = QHashOut::<GoldilocksField>::from_str("f07f91a0bdc0df4ec763285ba0eb578cb6e7a0811c3150494ab54e56f761fc1d")?;
 
-        let config_str = std::fs::read_to_string(Path::new(&project_path).join("../config.json"))?;
+        let config_str = std::fs::read_to_string(Path::new(&project_path).join("../../../config.json"))?;
         let json_value: serde_json::Value = serde_json::from_str(&config_str)?;
         let rpc_config: RpcConfig = serde_json::from_value(json_value["network"].clone())?;
 

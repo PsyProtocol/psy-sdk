@@ -1,5 +1,5 @@
 import React from 'react';
-import * as rootConfig from '../../../../../config.json';
+import { psyConfig } from '../../../config';
 import { PsyJSON } from '@psy/psy-sdk';
 
 // Configuration interfaces
@@ -20,7 +20,7 @@ export interface NetworkConfig {
   realm_configs: RealmConfig[];
   coordinator_configs: CoordinatorConfig[];
   prover_url?: string;
-  prove_proxy_url: string[]; 
+  prove_proxy_url: string[];
   nativeCurrency?: string; // contractId of the native currency token
 }
 
@@ -60,36 +60,35 @@ export interface WalletConfig {
 export const defaultConfig: WalletConfig = {
   theme: {
     colors: {
-      background: rootConfig.wallet.theme.colors.background,
-      text: rootConfig.wallet.theme.colors.text,
-      primary: rootConfig.wallet.theme.colors.primary,
-      primaryText: rootConfig.wallet.theme.colors.primary_text,
-      border: rootConfig.wallet.theme.colors.border,
-      accent: rootConfig.wallet.theme.colors.accent,
-      success: rootConfig.wallet.theme.colors.success,
-      error: rootConfig.wallet.theme.colors.error,
-      textSecondary: rootConfig.wallet.theme.colors.text_secondary,
+      background: psyConfig.wallet.theme.colors.background,
+      text: psyConfig.wallet.theme.colors.text,
+      primary: psyConfig.wallet.theme.colors.primary,
+      primaryText: psyConfig.wallet.theme.colors.primary_text,
+      border: psyConfig.wallet.theme.colors.border,
+      accent: psyConfig.wallet.theme.colors.accent,
+      success: psyConfig.wallet.theme.colors.success,
+      error: psyConfig.wallet.theme.colors.error,
+      textSecondary: psyConfig.wallet.theme.colors.text_secondary,
     },
   },
   network: {
-    global_user_tree_height: rootConfig.network.global_user_tree_height,
-    realm_user_tree_height: rootConfig.network.realm_user_tree_height,
-    users_per_realm: rootConfig.network.users_per_realm,
-    realm_configs: rootConfig.network.realm_configs,
-    coordinator_configs: rootConfig.network.coordinator_configs,
-    prover_url: rootConfig.network.prover_url,
-    prove_proxy_url: rootConfig.network.prove_proxy_url,
-    nativeCurrency: rootConfig.network.native_currency,
+    global_user_tree_height: psyConfig.network.global_user_tree_height,
+    realm_user_tree_height: psyConfig.network.realm_user_tree_height,
+    users_per_realm: psyConfig.network.users_per_realm,
+    realm_configs: psyConfig.network.realm_configs,
+    coordinator_configs: psyConfig.network.coordinator_configs,
+    prove_proxy_url: psyConfig.network.prove_proxy_url,
+    nativeCurrency: psyConfig.network.native_currency,
   },
   wallet: {
-    defaultWalletName: rootConfig.wallet.default_wallet_name,
-    enableAutoRefresh: rootConfig.wallet.enable_auto_refresh,
-    refreshInterval: rootConfig.wallet.refresh_interval,
+    defaultWalletName: psyConfig.wallet.default_wallet_name,
+    enableAutoRefresh: psyConfig.wallet.enable_auto_refresh,
+    refreshInterval: psyConfig.wallet.refresh_interval,
   },
   extension: {
-    width: rootConfig.wallet.extension.width,
-    height: rootConfig.wallet.extension.height,
-    title: rootConfig.wallet.extension.title,
+    width: psyConfig.wallet.extension.width,
+    height: psyConfig.wallet.extension.height,
+    title: psyConfig.wallet.extension.title,
   },
 };
 
@@ -193,10 +192,10 @@ export const useWalletConfig = () => {
 
   const getRealmUrl = (realmId?: number) => {
     // If no specific realm ID provided, use the first one
-    const targetRealm = realmId !== undefined 
+    const targetRealm = realmId !== undefined
       ? config.network.realm_configs.find(r => r.id === realmId)
       : config.network.realm_configs[0];
-    
+
     if (targetRealm && targetRealm.rpc_url.length > 0) {
       return targetRealm.rpc_url[0];
     }
