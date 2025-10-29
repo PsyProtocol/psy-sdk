@@ -3,10 +3,7 @@ use std::sync::Arc;
 use anyhow::Result;
 use hyper::Method;
 use jsonrpsee::server::ServerBuilder;
-use psy_store::{
-    queue::{new_redis_async_pool, task_queue::QProvingTaskStoreImpl, ProofStoreRedis},
-    store::PsyStore,
-};
+use psy_store::{queue::{new_redis_async_pool, task_queue::QProvingTaskStoreImpl, ProofStoreRedis}, store, store::PsyStore};
 use tower_http::cors::{Any, CorsLayer};
 use tracing::{debug, info};
 
@@ -47,7 +44,7 @@ pub async fn run_realm_edge_v2(config: RealmEdgeConfig) -> anyhow::Result<()> {
     let checkpoint_queue = proof_store.clone();
 
     // Create storage reader based on backend configuration
-    let store = PsyStore::new(&config.backend.to_backend()).await?;
+    let store = store::new(&config.backend.to_backend()).await?;
     let store_reader = Arc::new(store);
 
     let queue_helper = QueueFactory::create_rsmq_helper::<F>(

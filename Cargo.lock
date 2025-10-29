@@ -4447,6 +4447,8 @@ name = "kvq_store_lmdbx"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "async-trait",
+ "auto_impl",
  "kvq",
  "reth-libmdbx",
 ]

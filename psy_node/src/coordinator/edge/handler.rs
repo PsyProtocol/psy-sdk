@@ -47,11 +47,7 @@ use psy_data::{
     traits::qdatastore::{qmetadata::QMetaDataStoreReaderSync, qtreedata::QTreeDataStoreReaderSync},
 };
 use psy_network_circuit::verify_witness::verify_witness_and_proof;
-use psy_store::{
-    node::coordinator::PsyCoordinatorStoreReaderAsync,
-    queue::{new_redis_async_pool, rsmq_queue::CEQueueNotification, ProofStoreRedis},
-    store::{Backend, PsyStore},
-};
+use psy_store::{node::coordinator::PsyCoordinatorStoreReaderAsync, queue::{new_redis_async_pool, rsmq_queue::CEQueueNotification, ProofStoreRedis}, store, store::{Backend, PsyStore}};
 use rand::RngCore;
 use tokio::sync::{mpsc, Mutex};
 use tracing::{debug, error, info, trace, warn};
@@ -92,7 +88,7 @@ impl CoordinatorEdgeHandler {
 
         // Create Psy store reader from backend configuration
         info!("🗄️ Initializing storage backend...");
-        let psy_store = PsyStore::from_backend(args.backend.to_backend()).await?;
+        let psy_store = store::from_backend(args.backend.to_backend()).await?;
         let store_reader = Arc::new(psy_store);
         let task_store = QProvingTaskStoreImpl::new(&args.redis_uri, args.redis_pool_size, &args.queue_args.queue_biz_key).await?;
         let qe_args = &args.queue_args;

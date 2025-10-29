@@ -81,18 +81,14 @@ use psy_data::{
     },
     traits::qdatastore::{qmetadata::QMetaDataStoreWriterSync, qtreedata::QTreeDataStoreWriterSync},
 };
-use psy_store::{
-    node::realm::{PsyRealmStoreReaderAsync, PsyRealmStoreWriterAsyncImm},
-    queue::{
-        new_redis_async_pool,
-        task_queue::{QProvingTaskStore, QProvingTaskStoreImpl},
-        ProofStoreRedis, QPendingUserStoreAsyncImm,
-    },
-    store::{
-        journal::{Journal, JournalStore},
-        PsyStore,
-    },
-};
+use psy_store::{node::realm::{PsyRealmStoreReaderAsync, PsyRealmStoreWriterAsyncImm}, queue::{
+    new_redis_async_pool,
+    task_queue::{QProvingTaskStore, QProvingTaskStoreImpl},
+    ProofStoreRedis, QPendingUserStoreAsyncImm,
+}, store, store::{
+    journal::{Journal, JournalStore},
+    PsyStore,
+}};
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 use tokio::time::sleep;
@@ -184,7 +180,7 @@ impl RealmProcessorV2 {
 
         let realm_qps = ProofStoreRedis::new(&config.redis.redis_uri.as_str(), config.queue.queue_biz_key).await?;
 
-        let store = PsyStore::new(&config.backend.to_backend()).await?;
+        let store = store::new(&config.backend.to_backend()).await?;
         let proof_verifier = Arc::new(get_cached_generic_verifier::<C, D>());
         let realm_config = RealmConfig::get_standard(config.realm.realm_id);
         let coordinator_client = Arc::new(ConcreteCoordinatorClient::new(config.coordinator_addr)?);

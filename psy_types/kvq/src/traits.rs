@@ -179,7 +179,7 @@ pub trait KVQStoreAdapterWithHelpers<S, K: KVQSerializable, V: KVQSerializable>:
 // KVQStoreAdapter<KVQBinaryStore, K, V>;
 
 #[delegatable_trait]
-#[auto_impl(Arc)]
+#[auto_impl(&, Box, Arc)]
 pub trait KVQBinaryStore: Send + Sync {
     // Read operations
     fn get_exact_if_exists(&self, key: &Vec<u8>) -> anyhow::Result<Option<Vec<u8>>>;
@@ -225,6 +225,7 @@ pub trait KVQBinaryStore: Send + Sync {
 }
 
 #[async_trait]
+#[auto_impl(&, Box, Arc)]
 pub trait KVQBinaryStoreAsync {
     // Read operations
     async fn get_exact_if_exists(&self, key: &Vec<u8>) -> anyhow::Result<Option<Vec<u8>>>;

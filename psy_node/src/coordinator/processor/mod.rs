@@ -46,20 +46,16 @@ use psy_data::{
 };
 use psy_network_circuit::coordinator::coordinator_helper::PsyCoordinatorCircuitManager;
 use psy_prover::session::gen_contract_deploy_and_circuits_for_functions;
-use psy_store::{
-    node::coordinator::{InitializeParams, PsyCoordinatorStoreReaderAsync, PsyCoordinatorStoreWriterAsyncImm},
-    queue::{
-        new_redis_async_pool,
-        redis_queue::{CheckpointDrainQueueConsumerAsyncImmWithPosition, NotificationQueue},
-        rsmq_queue::CEQueueNotification,
-        task_queue::{QProvingTaskStore, QProvingTaskStoreImpl},
-        ProofStoreRedis,
-    },
-    store::{
-        journal::{Journal, JournalStore},
-        PsyStore,
-    },
-};
+use psy_store::{node::coordinator::{InitializeParams, PsyCoordinatorStoreReaderAsync, PsyCoordinatorStoreWriterAsyncImm}, queue::{
+    new_redis_async_pool,
+    redis_queue::{CheckpointDrainQueueConsumerAsyncImmWithPosition, NotificationQueue},
+    rsmq_queue::CEQueueNotification,
+    task_queue::{QProvingTaskStore, QProvingTaskStoreImpl},
+    ProofStoreRedis,
+}, store, store::{
+    journal::{Journal, JournalStore},
+    PsyStore,
+}};
 use psy_vm::dpn::vm::{compile::PsyCompileResult, def::DPNFunctionCircuitDefinition};
 use serde_json;
 use tokio::{
@@ -241,7 +237,7 @@ impl
             Arc::new(QProvingTaskStoreImpl::new(&cp_config.redis_uri, cp_config.redis_pool_size, &cp_config.queue_args.queue_biz_key).await?);
         let q = ProofStoreRedis::new(&cp_config.redis_uri, cp_config.queue_args.queue_biz_key.clone()).await?;
 
-        let psy_store = PsyStore::from_backend(cp_config.backend.to_backend()).await?;
+        let psy_store = store::from_backend(cp_config.backend.to_backend()).await?;
         let psy_store = JournalStore::new(psy_store);
 
         let genesis_config = GenesisConfig::from_path(&cp_config.config_path)?;
