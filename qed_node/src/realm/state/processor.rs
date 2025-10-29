@@ -936,12 +936,9 @@ impl<
         Ok(())
     }
 
-    pub async fn build_block(&self, slot: u64) -> anyhow::Result<QProvingJobDataID> {
+    pub async fn build_block(&self, new_checkpoint_id: u64,slot: u64) -> anyhow::Result<QProvingJobDataID> {
         self.task_store.clear_task_graph().await?;
-
-        let last_l2_blockstate = self.store.get_latest_l2_block_state().await?;
-        self.proof_store.cleanup_old_proofs(last_l2_blockstate.checkpoint_id, MAX_CHECKPOINT_COUNT as u64).await?;
-        let new_checkpoint_id = last_l2_blockstate.checkpoint_id+1;
+        self.proof_store.cleanup_old_proofs(new_checkpoint_id.saturating_sub(1), MAX_CHECKPOINT_COUNT as u64).await?;
         info!("🔔 realm processor build block checkpoint_id: {}", new_checkpoint_id);
 
         let has_guta = self.has_pending_guta_tasks(new_checkpoint_id).await?;
@@ -1023,4 +1020,10 @@ impl<
         self.task_store.clear_job_dependency_graph(checkpoint_id).await?;
         self.store.rollback(checkpoint_id)
     }
+
+    pub async fn latest_checkpoint(&self) -> anyhow::Result<u64> {
+        let last_l2_blockstate = self.store.get_latest_l2_block_state().await?;
+        Ok(last_l2_blockstate.checkpoint_id)
+    }
+
 }
