@@ -4,7 +4,7 @@ use crate::qed_rpc_call_back;
 use std::result::Result::Ok;
 use plonky2::field::goldilocks_field::GoldilocksField;
 use qed_core::{
-    config::network_constants::{COORDINATOR_USER_TREE_HEIGHT, REALM_USER_TREE_HEIGHT},
+    config::network_constants::{COORDINATOR_USER_TREE_HEIGHT, GLOBAL_USER_TREE_HEIGHT, REALM_USER_TREE_HEIGHT},
     data::qhashout::QHashOut,
 };
 use qed_crypto::hash::merkle::core::MerkleProofCore;
@@ -616,37 +616,65 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
             "Fetching user sub tree merkle proof checkpoint_id: {}, root_level: {}, leaf_level: {}, leaf_index: {}",
             checkpoint_id, root_level, leaf_level, leaf_index
         );
-        let rpc_url = self.get_coordinator_url()?;
-        let input = QUserSubTreeMerkleProofRPCRequest {
-            checkpoint_id,
-            root_level,
-            leaf_level,
-            leaf_index,
-        };
-        let response = qed_rpc_call_back!(
-            self,
-            rpc_url,
-            RequestParams::<F>::GetUserSubTreeMerkleProof(input),
-            MerkleProofCore<QHashOut<F>>
-        );
-        match response.result {
-            ResponseResult::Success(merkle_proof) => {
-                debug!(
-                    checkpoint_id = checkpoint_id,
-                    root_level = root_level,
-                    leaf_level = leaf_level,
-                    leaf_index = leaf_index,
-                    merkle_proof = %serde_json::to_string_pretty(&merkle_proof).unwrap(),
-                    "Successfully fetched merkle proof"
-                );
-                Ok(merkle_proof)
+
+        if root_level > leaf_level {
+            anyhow::bail!("root level {} must be less than leaf level {}", root_level, leaf_level);
+        } 
+        if root_level > GLOBAL_USER_TREE_HEIGHT || leaf_level > GLOBAL_USER_TREE_HEIGHT {
+            anyhow::bail!("root level {} and leaf level {} must be less than global user tree height {}", root_level, leaf_level, GLOBAL_USER_TREE_HEIGHT);
+        }
+
+        let real_user_id = leaf_index << (GLOBAL_USER_TREE_HEIGHT - leaf_level);
+        let realm_rpc_url = self.get_realm_url(real_user_id)?;
+
+        let coordinator_rpc_url = self.get_coordinator_url()?;
+
+        if root_level >= COORDINATOR_USER_TREE_HEIGHT {
+            self.get_user_sub_tree_merkle_proof_inner(realm_rpc_url, checkpoint_id, root_level, leaf_level, leaf_index)
+                .await
+        } else if leaf_level <= COORDINATOR_USER_TREE_HEIGHT {
+            self.get_user_sub_tree_merkle_proof_inner(&coordinator_rpc_url, checkpoint_id, root_level, leaf_level, leaf_index)
+                .await
+        } else {
+            tracing::info!("you need to get both sub tree of coordinator and realm");
+            let top_tree_leaf_index = leaf_index >> (leaf_level - COORDINATOR_USER_TREE_HEIGHT);
+            let top_tree_proof = self
+                .get_user_sub_tree_merkle_proof_inner(&coordinator_rpc_url, checkpoint_id, root_level, COORDINATOR_USER_TREE_HEIGHT, top_tree_leaf_index)
+                .await?;
+            debug!("top tree proof:{}", serde_json::to_string_pretty(&top_tree_proof)?);
+            let bottom_tree_proof = self
+                .get_user_sub_tree_merkle_proof_inner(&realm_rpc_url, checkpoint_id, COORDINATOR_USER_TREE_HEIGHT, leaf_level, leaf_index)
+                .await?;
+            debug!("bottom tree proof:{}", serde_json::to_string_pretty(&bottom_tree_proof)?);
+
+            if top_tree_proof.value != bottom_tree_proof.root {
+                tracing::error!("coordinator sub tree proof's value {} should be equal to realm sub tree proof's root {}", top_tree_proof.value, bottom_tree_proof.root);
+                anyhow::bail!("coordinator sub tree proof's value {} should be equal to realm sub tree proof's root {}", top_tree_proof.value, bottom_tree_proof.root);
             }
-            ResponseResult::Error(e) => {
-                error!("RPC call failed: {:?}", e);
-                Err(anyhow::format_err!(
-                    "get_user_sub_tree_merkle_proof rpc call failed `{:?}`",
-                    e
-                ))
+
+            let mut new_siblings = bottom_tree_proof.siblings;
+            new_siblings.extend_from_slice(&top_tree_proof.siblings);
+
+            let combine_tree_proof = MerkleProofCore {
+                root: top_tree_proof.root,
+                value: bottom_tree_proof.value,
+                index: leaf_index,
+                siblings: new_siblings,
+            };
+
+            debug!("combine_tree_proof: {}", serde_json::to_string_pretty(&combine_tree_proof)?);
+
+            debug!(
+                checkpoint_id = checkpoint_id,
+                root_level = root_level,
+                leaf_level = leaf_level,
+                leaf_index = leaf_index,
+                verify_result = %combine_tree_proof.verify::<QEDHasher>(),
+                "After verify"
+            );
+            match combine_tree_proof.verify::<QEDHasher>() {
+                true => Ok(combine_tree_proof),
+                false => Err(anyhow::format_err!("user sub tree merkle proof verify failed")),
             }
         }
     }
@@ -1463,7 +1491,7 @@ impl QMetaDataStoreReaderSync<F> for RpcProvider {
         checkpoint_id: u64,
     ) -> anyhow::Result<qed_data::qdata::checkpoint::QEDL2BlockState> {
         info!("Fetching L2 block state checkpoint_id: {}", checkpoint_id);
-        let rpc_url = self.get_realm_url(self.current_user_id)?;
+        let rpc_url = self.get_coordinator_url()?;
         let input = QL2BlockStateRPCRequest { checkpoint_id };
         let response = qed_rpc_call_back!(
             self,

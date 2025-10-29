@@ -5,6 +5,8 @@ use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
 
+use crate::dpn::ops::context_trait::{ContextFelt, ToFelts};
+
 use super::types::{DPNStateCmdCore, DPNStateCommandType};
 
 // Constants for field sizes
@@ -638,6 +640,288 @@ impl<T: Copy + Clone + Hash + Ord> DPNStateCmdCore<T> for DPNStateCmd<T> {
             DPNStateCmd::GetOtherUserContractStateSlotSingle(c) => c.get_output_felt_size(),
             DPNStateCmd::GetOtherUserContractStateSlotRange(c) => c.get_output_felt_size(),
             DPNStateCmd::GetCheckpointLeafStats(c) => c.get_output_felt_size(),
+        }
+    }
+}
+
+impl<F: ContextFelt> ToFelts<F> for DPNStateCmd<u64> {
+    fn to_felts(&self) -> Vec<F> {
+        let mut out = Vec::new();
+        out.push(F::cns(self.get_state_command_type().get_enc_value() as u64));
+        match self {
+            DPNStateCmd::SetContractStateSlotHash(cmd) => {
+                out.push(F::cns(cmd.condition));
+                out.push(F::cns(cmd.slot_index));
+                for v in &cmd.value {
+                    out.push(F::cns(*v));
+                }
+            }
+            DPNStateCmd::SetContractStateSlotSingle(cmd) => {
+                out.push(F::cns(cmd.condition));
+                out.push(F::cns(cmd.sub_slot_index));
+                out.push(F::cns(cmd.value));
+            }
+            DPNStateCmd::SetContractStateSlotRange(cmd) => {
+                out.push(F::cns(cmd.condition));
+                out.push(F::cns(cmd.sub_slot_index));
+                out.push(F::cns(cmd.value.len() as u64));
+                for v in &cmd.value {
+                    out.push(F::cns(*v));
+                }
+            }
+            DPNStateCmd::ClearEntireTree(cmd) => {
+                out.push(F::cns(cmd.condition));
+            }
+            DPNStateCmd::InvokeExternalContractFunctionSync(cmd) => {
+                out.push(F::cns(cmd.condition));
+                out.push(F::cns(cmd.contract_id));
+                out.push(F::cns(cmd.method_id));
+                out.push(F::cns(cmd.input_args.len() as u64));
+                for v in &cmd.input_args {
+                    out.push(F::cns(*v));
+                }
+                out.push(F::cns(cmd.num_outputs as u64));
+            }
+            DPNStateCmd::InvokeExternalContractFunctionDeferred(cmd) => {
+                out.push(F::cns(cmd.condition));
+                out.push(F::cns(cmd.contract_id));
+                out.push(F::cns(cmd.method_id));
+                out.push(F::cns(cmd.input_args.len() as u64));
+                for v in &cmd.input_args {
+                    out.push(F::cns(*v));
+                }
+            }
+            DPNStateCmd::GetSelfUserCurrentContractStateSlotHash(cmd) => {
+                out.push(F::cns(cmd.slot_index));
+            }
+            DPNStateCmd::GetSelfUserCurrentContractStateSlotSingle(cmd) => {
+                out.push(F::cns(cmd.sub_slot_index));
+            }
+            DPNStateCmd::GetSelfUserCurrentContractStateSlotRange(cmd) => {
+                out.push(F::cns(cmd.sub_slot_index));
+                out.push(F::cns(cmd.length as u64));
+            }
+            DPNStateCmd::GetSelfUserExternalContractStateSlotHash(cmd) => {
+                out.push(F::cns(cmd.contract_id));
+                out.push(F::cns(cmd.slot_index));
+                out.push(F::cns(cmd.contract_state_tree_height as u64));
+            }
+            DPNStateCmd::GetSelfUserExternalContractStateSlotSingle(cmd) => {
+                out.push(F::cns(cmd.contract_id));
+                out.push(F::cns(cmd.sub_slot_index));
+                out.push(F::cns(cmd.contract_state_tree_height as u64));
+            }
+            DPNStateCmd::GetSelfUserExternalContractStateSlotRange(cmd) => {
+                out.push(F::cns(cmd.contract_id));
+                out.push(F::cns(cmd.sub_slot_index));
+                out.push(F::cns(cmd.length as u64));
+                out.push(F::cns(cmd.contract_state_tree_height as u64));
+            }
+            DPNStateCmd::GetOtherUserContractStateSlotHash(cmd) => {
+                out.push(F::cns(cmd.user_id));
+                out.push(F::cns(cmd.contract_id));
+                out.push(F::cns(cmd.slot_index));
+                out.push(F::cns(cmd.contract_state_tree_height as u64));
+            }
+            DPNStateCmd::GetOtherUserContractStateSlotSingle(cmd) => {
+                out.push(F::cns(cmd.user_id));
+                out.push(F::cns(cmd.contract_id));
+                out.push(F::cns(cmd.sub_slot_index));
+                out.push(F::cns(cmd.contract_state_tree_height as u64));
+            }
+            DPNStateCmd::GetOtherUserContractStateSlotRange(cmd) => {
+                out.push(F::cns(cmd.user_id));
+                out.push(F::cns(cmd.contract_id));
+                out.push(F::cns(cmd.sub_slot_index));
+                out.push(F::cns(cmd.length as u64));
+                out.push(F::cns(cmd.contract_state_tree_height as u64));
+            }
+            DPNStateCmd::GetCheckpointLeafStats(cmd) => {
+                out.push(F::cns(cmd.checkpoint_id));
+            }
+        }
+        out
+    }
+
+    fn from_felts(felts: &[F]) -> Self {
+        if felts.is_empty() {
+            panic!("DPNStateCmd requires at least one felt");
+        }
+        let mut idx = 0usize;
+        let mut take = |felts: &[F], idx: &mut usize| {
+            if *idx >= felts.len() {
+                panic!("DPNStateCmd decoding overflow");
+            }
+            let v = felts[*idx].get_u64();
+            *idx += 1;
+            v
+        };
+        let variant = take(felts, &mut idx) as u8;
+        match DPNStateCommandType::from(variant) {
+            DPNStateCommandType::SetContractStateSlotHash => {
+                let condition = take(felts, &mut idx);
+                let slot_index = take(felts, &mut idx);
+                let mut value = [0u64; 4];
+                for item in &mut value {
+                    *item = take(felts, &mut idx);
+                }
+                DPNStateCmd::SetContractStateSlotHash(DPNStateCmdSetContractStateSlotHash {
+                    condition,
+                    slot_index,
+                    value,
+                })
+            }
+            DPNStateCommandType::SetContractStateSlotSingle => {
+                let condition = take(felts, &mut idx);
+                let sub_slot_index = take(felts, &mut idx);
+                let value = take(felts, &mut idx);
+                DPNStateCmd::SetContractStateSlotSingle(DPNStateCmdSetContractStateSlotSingle {
+                    condition,
+                    sub_slot_index,
+                    value,
+                })
+            }
+            DPNStateCommandType::SetContractStateSlotRange => {
+                let condition = take(felts, &mut idx);
+                let sub_slot_index = take(felts, &mut idx);
+                let len = take(felts, &mut idx) as usize;
+                if felts.len() < idx + len {
+                    panic!("SetContractStateSlotRange length mismatch");
+                }
+                let mut value = Vec::with_capacity(len);
+                for _ in 0..len {
+                    value.push(take(felts, &mut idx));
+                }
+                DPNStateCmd::SetContractStateSlotRange(DPNStateCmdSetContractStateSlotRange {
+                    condition,
+                    sub_slot_index,
+                    value,
+                })
+            }
+            DPNStateCommandType::ClearEntireTree => {
+                let condition = take(felts, &mut idx);
+                DPNStateCmd::ClearEntireTree(DPNStateCmdClearEntireTree { condition })
+            }
+            DPNStateCommandType::InvokeExternalContractFunctionSync => {
+                let condition = take(felts, &mut idx);
+                let contract_id = take(felts, &mut idx);
+                let method_id = take(felts, &mut idx);
+                let len = take(felts, &mut idx) as usize;
+                if felts.len() < idx + len {
+                    panic!("InvokeExternalContractFunctionSync args length mismatch");
+                }
+                let mut input_args = Vec::with_capacity(len);
+                for _ in 0..len {
+                    input_args.push(take(felts, &mut idx));
+                }
+                let num_outputs = take(felts, &mut idx) as u32;
+                DPNStateCmd::InvokeExternalContractFunctionSync(
+                    DPNStateCmdInvokeExternalContractFunctionSync {
+                        condition,
+                        contract_id,
+                        method_id,
+                        input_args,
+                        num_outputs,
+                    },
+                )
+            }
+            DPNStateCommandType::InvokeExternalContractFunctionDeferred => {
+                let condition = take(felts, &mut idx);
+                let contract_id = take(felts, &mut idx);
+                let method_id = take(felts, &mut idx);
+                let len = take(felts, &mut idx) as usize;
+                if felts.len() < idx + len {
+                    panic!("InvokeExternalContractFunctionDeferred args length mismatch");
+                }
+                let mut input_args = Vec::with_capacity(len);
+                for _ in 0..len {
+                    input_args.push(take(felts, &mut idx));
+                }
+                DPNStateCmd::InvokeExternalContractFunctionDeferred(
+                    DPNStateCmdInvokeExternalContractFunctionDeferred {
+                        condition,
+                        contract_id,
+                        method_id,
+                        input_args,
+                    },
+                )
+            }
+            DPNStateCommandType::GetSelfUserCurrentContractStateSlotHash => {
+                let slot_index = take(felts, &mut idx);
+                DPNStateCmd::GetSelfUserCurrentContractStateSlotHash(
+                    DPNStateCmdGetSelfUserCurrentContractStateSlotHash::new(slot_index),
+                )
+            }
+            DPNStateCommandType::GetSelfUserCurrentContractStateSlotSingle => {
+                let sub_slot_index = take(felts, &mut idx);
+                DPNStateCmd::GetSelfUserCurrentContractStateSlotSingle(
+                    DPNStateCmdGetSelfUserCurrentContractStateSlotSingle::new(sub_slot_index),
+                )
+            }
+            DPNStateCommandType::GetSelfUserCurrentContractStateSlotRange => {
+                let sub_slot_index = take(felts, &mut idx);
+                let length = take(felts, &mut idx) as u32;
+                DPNStateCmd::GetSelfUserCurrentContractStateSlotRange(
+                    DPNStateCmdGetSelfUserCurrentContractStateSlotRange::new(sub_slot_index, length),
+                )
+            }
+            DPNStateCommandType::GetSelfUserExternalContractStateSlotHash => {
+                let contract_id = take(felts, &mut idx);
+                let slot_index = take(felts, &mut idx);
+                let height = take(felts, &mut idx) as u8;
+                DPNStateCmd::GetSelfUserExternalContractStateSlotHash(
+                    DPNStateCmdGetSelfUserExternalContractStateSlotHash::new(contract_id, height, slot_index),
+                )
+            }
+            DPNStateCommandType::GetSelfUserExternalContractStateSlotSingle => {
+                let contract_id = take(felts, &mut idx);
+                let sub_slot_index = take(felts, &mut idx);
+                let height = take(felts, &mut idx) as u8;
+                DPNStateCmd::GetSelfUserExternalContractStateSlotSingle(
+                    DPNStateCmdGetSelfUserExternalContractStateSlotSingle::new(contract_id, height, sub_slot_index),
+                )
+            }
+            DPNStateCommandType::GetSelfUserExternalContractStateSlotRange => {
+                let contract_id = take(felts, &mut idx);
+                let sub_slot_index = take(felts, &mut idx);
+                let length = take(felts, &mut idx) as u32;
+                let height = take(felts, &mut idx) as u8;
+                DPNStateCmd::GetSelfUserExternalContractStateSlotRange(
+                    DPNStateCmdGetSelfUserExternalContractStateSlotRange::new(contract_id, height, sub_slot_index, length),
+                )
+            }
+            DPNStateCommandType::GetOtherUserContractStateSlotHash => {
+                let user_id = take(felts, &mut idx);
+                let contract_id = take(felts, &mut idx);
+                let slot_index = take(felts, &mut idx);
+                let height = take(felts, &mut idx) as u8;
+                DPNStateCmd::GetOtherUserContractStateSlotHash(
+                    DPNStateCmdGetOtherUserContractStateSlotHash::new(user_id, contract_id, height, slot_index),
+                )
+            }
+            DPNStateCommandType::GetOtherUserContractStateSlotSingle => {
+                let user_id = take(felts, &mut idx);
+                let contract_id = take(felts, &mut idx);
+                let sub_slot_index = take(felts, &mut idx);
+                let height = take(felts, &mut idx) as u8;
+                DPNStateCmd::GetOtherUserContractStateSlotSingle(
+                    DPNStateCmdGetOtherUserContractStateSlotSingle::new(user_id, contract_id, height, sub_slot_index),
+                )
+            }
+            DPNStateCommandType::GetOtherUserContractStateSlotRange => {
+                let user_id = take(felts, &mut idx);
+                let contract_id = take(felts, &mut idx);
+                let sub_slot_index = take(felts, &mut idx);
+                let length = take(felts, &mut idx) as u32;
+                let height = take(felts, &mut idx) as u8;
+                DPNStateCmd::GetOtherUserContractStateSlotRange(
+                    DPNStateCmdGetOtherUserContractStateSlotRange::new(user_id, contract_id, height, sub_slot_index, length),
+                )
+            }
+            DPNStateCommandType::GetCheckpointLeafStats => {
+                let checkpoint_id = take(felts, &mut idx);
+                DPNStateCmd::GetCheckpointLeafStats(DPNStateCmdGetCheckpointLeafStats::new(checkpoint_id))
+            }
         }
     }
 }
