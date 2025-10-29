@@ -50,7 +50,7 @@ use psy_store::{
         task_queue::{QProvingTaskStore, QProvingTaskStoreImpl},
         ProofStoreRedis,
     },
-    store::{journal::JournalStore, lmdbx::KVQlibmdbxStore, PsyStore},
+    store::{journal::JournalStore, KVQlibmdbxStore, PsyStore},
 };
 use psy_ups_circuit::{
     circuit_manager::core::{PsyUPSStepCircuitManager, QCircuitManager},

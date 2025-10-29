@@ -2,16 +2,15 @@
 
 pub mod backend;
 pub mod journal;
-pub mod lmdbx;
 pub mod scylla;
 pub mod tikv;
 
 use std::sync::Arc;
 use auto_impl::auto_impl;
 use kvq::traits::{KVQBinaryStore, KVQBinaryStoreAsync, KVQPair};
-
+pub use kvq_store_lmdbx::KVQlibmdbxStore;
 pub use self::backend::{Backend, BackendConfig};
-use self::{lmdbx::KVQlibmdbxStore, scylla::ScyllaStore, tikv::TiKVStore};
+use self::{scylla::ScyllaStore, tikv::TiKVStore};
 
 #[auto_impl(&, Box, Arc)]
 pub trait PsyStoreTrait: KVQBinaryStore + KVQBinaryStoreAsync {}
