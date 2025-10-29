@@ -5306,7 +5306,7 @@ checksum = "7edddbd0b52d732b21ad9a5fab5c704c14cd949e5e9a1ec5929a24fded1b904c"
 [[package]]
 name = "plonky2"
 version = "1.0.2"
-source = "git+https://github.com/clint-long/plonky2-hwa?rev=5bf6940a3ea2d27e854931787e93bb46be27ffa3#5bf6940a3ea2d27e854931787e93bb46be27ffa3"
+source = "git+https://github.com/PsyProtocol/plonky2-hwa?rev=5bf6940a3ea2d27e854931787e93bb46be27ffa3#5bf6940a3ea2d27e854931787e93bb46be27ffa3"
 dependencies = [
  "ahash",
  "anyhow",
@@ -5331,7 +5331,7 @@ dependencies = [
 [[package]]
 name = "plonky2_field"
 version = "1.0.0"
-source = "git+https://github.com/clint-long/plonky2-hwa?rev=5bf6940a3ea2d27e854931787e93bb46be27ffa3#5bf6940a3ea2d27e854931787e93bb46be27ffa3"
+source = "git+https://github.com/PsyProtocol/plonky2-hwa?rev=5bf6940a3ea2d27e854931787e93bb46be27ffa3#5bf6940a3ea2d27e854931787e93bb46be27ffa3"
 dependencies = [
  "anyhow",
  "itertools 0.11.0",
@@ -5347,7 +5347,7 @@ dependencies = [
 [[package]]
 name = "plonky2_maybe_rayon"
 version = "1.0.0"
-source = "git+https://github.com/clint-long/plonky2-hwa?rev=5bf6940a3ea2d27e854931787e93bb46be27ffa3#5bf6940a3ea2d27e854931787e93bb46be27ffa3"
+source = "git+https://github.com/PsyProtocol/plonky2-hwa?rev=5bf6940a3ea2d27e854931787e93bb46be27ffa3#5bf6940a3ea2d27e854931787e93bb46be27ffa3"
 dependencies = [
  "rayon",
 ]
@@ -5355,7 +5355,7 @@ dependencies = [
 [[package]]
 name = "plonky2_util"
 version = "1.0.0"
-source = "git+https://github.com/clint-long/plonky2-hwa?rev=5bf6940a3ea2d27e854931787e93bb46be27ffa3#5bf6940a3ea2d27e854931787e93bb46be27ffa3"
+source = "git+https://github.com/PsyProtocol/plonky2-hwa?rev=5bf6940a3ea2d27e854931787e93bb46be27ffa3#5bf6940a3ea2d27e854931787e93bb46be27ffa3"
 
 [[package]]
 name = "plotters"
@@ -8403,7 +8403,7 @@ dependencies = [
 [[package]]
 name = "tikv-client"
 version = "0.3.0"
-source = "git+https://github.com/clint-long/client-rust?branch=qed_node#3fe2b9d8482657a3442473084b365c9b9d9cf5eb"
+source = "git+https://github.com/PsyProtocol/client-rust?rev=3fe2b9d8482657a3442473084b365c9b9d9cf5eb#3fe2b9d8482657a3442473084b365c9b9d9cf5eb"
 dependencies = [
  "async-recursion 0.3.2",
  "async-trait",
