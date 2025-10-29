@@ -6,12 +6,27 @@ This document describes the proving jobs architecture for both Realm and Coordin
 
 ## Public Inputs Layout Standard
 
-All circuits follow a consistent public inputs layout:
+**IMPORTANT**: Different circuit types have different public inputs layouts!
+
+### Coordinator Main Circuits (19 inputs)
 - **[0..4]**: commitment
 - **[4..8]**: worker_public_key
 - **[8..11]**: pm_jobs_completed_stats (deploy_contracts_completed, register_users_completed, gutas_completed)
-- **[11..15]**: circuit-specific hash (usually the hash of the main data structure)
-- **[15..19]**: additional data (optional, circuit-specific)
+- **[11..15]**: circuit_whitelist_root
+- **[15..19]**: state_transition_hash
+
+### GUTA Circuits (15 inputs)
+- **[0..4]**: commitment
+- **[4..8]**: worker_public_key
+- **[8..11]**: pm_jobs_completed_stats
+- **[11..15]**: guta_header_hash
+
+### Special: AggUserRegistrationDeployContractsGUTA (19 inputs)
+- **[0..4]**: state_transition_hash (NOT commitment!)
+- **[4..8]**: hash(user_registration_commitment, user_registration_worker_pk)
+- **[8..12]**: hash(deploy_contracts_commitment, deploy_contracts_worker_pk)
+- **[12..16]**: hash(guta_commitment, guta_worker_pk)
+- **[16..19]**: additional data
 
 ## Realm Proving Jobs
 
@@ -157,21 +172,16 @@ graph LR
 
 ### GUTA Circuit Details
 
-| Circuit | Purpose | Children | Public Inputs | Commitment Calculation |
-|---------|---------|----------|---------------|------------------------|
-| **Leaf Circuits** |
-| GUTANoChange | No state changes in checkpoint | None | [0..4]: commitment<br/>[4..8]: worker_public_key<br/>[8..11]: pm_jobs_completed_stats<br/>[11..15]: guta_header_hash | commitment = worker_public_key |
-| GUTASingleEndCap | Single realm had updates | None | [0..4]: commitment<br/>[4..8]: worker_public_key<br/>[8..11]: pm_jobs_completed_stats<br/>[11..15]: guta_header_hash | commitment = worker_public_key |
-| GUTAOnlyRegisterUsers | Only user registrations, no ops | None | [0..4]: commitment<br/>[4..8]: worker_public_key<br/>[8..11]: pm_jobs_completed_stats<br/>[11..15]: guta_header_hash | commitment = worker_public_key |
-| GUTARegisterUsers | User registrations with ops | 1 GUTA | [0..4]: commitment<br/>[4..8]: worker_public_key<br/>[8..11]: pm_jobs_completed_stats<br/>[11..15]: guta_header_hash | commitment = hash(child.commitment, worker_public_key) |
-| GUTATwoEndCap | Aggregate two EndCap proofs | None | [0..4]: commitment<br/>[4..8]: worker_public_key<br/>[8..11]: pm_jobs_completed_stats<br/>[11..15]: guta_header_hash | commitment = worker_public_key |
-| **Two Children Aggregation** |
-| GUTATwoGUTA | Aggregate two GUTA proofs | 2 GUTA | [0..4]: commitment<br/>[4..8]: worker_public_key<br/>[8..11]: pm_jobs_completed_stats<br/>[11..15]: guta_header_hash | commitment = hash(hash(a.commitment, b.commitment), worker_public_key) |
-| GUTALeftGUTARightEndCap | GUTA on left, EndCap on right | 1 GUTA + 1 EndCap | [0..4]: commitment<br/>[4..8]: worker_public_key<br/>[8..11]: pm_jobs_completed_stats<br/>[11..15]: guta_header_hash | commitment = hash(hash(a.commitment, b.commitment), worker_public_key) |
-| GUTALeftEndCapRightGUTA | EndCap on left, GUTA on right | 1 EndCap + 1 GUTA | [0..4]: commitment<br/>[4..8]: worker_public_key<br/>[8..11]: pm_jobs_completed_stats<br/>[11..15]: guta_header_hash | commitment = hash(hash(a.commitment, b.commitment), worker_public_key) |
-| **Single Child Circuits** |
-| GUTAVerifyToCap | Verify GUTA to tree cap | 1 GUTA | [0..4]: commitment<br/>[4..8]: worker_public_key<br/>[8..11]: pm_jobs_completed_stats<br/>[11..15]: guta_header_hash | commitment = hash(child.commitment, worker_public_key) |
-| GUTAVerifyGUTARegisterUsers | GUTA with user registrations | 1 GUTA | [0..4]: commitment<br/>[4..8]: worker_public_key<br/>[8..11]: pm_jobs_completed_stats<br/>[11..15]: guta_header_hash | commitment = hash(child.commitment, worker_public_key) |
+### Additional GUTA Circuits
+
+**Other GUTA circuits** (also 15 inputs, same layout):
+- `GUTANoChange`: No state changes
+- `GUTATwoEndCap`: Aggregate two EndCap proofs
+- `GUTAVerifyToCap`: Verify GUTA to tree cap
+- `GUTATwoGUTAWithCheckpointUpgrade`: Two GUTA with checkpoint upgrade
+- `GUTAVerifyToCapWithCheckpointUpgrade`: Verify to cap with checkpoint upgrade
+
+All follow the same commitment calculation rules based on their dependency count.
 
 ## State Part 1 (AggUserRegistrationDeployContractsGUTA)
 
@@ -182,14 +192,23 @@ This circuit aggregates the three main trees:
 - Deploy Contracts proof (from aggregation root)
 - GUTA proof (from aggregation root or GUTAVerifyToCap)
 
-### Public Inputs Layout
-- **[0..4]**: commitment
-- **[4..8]**: worker_public_key
-- **[8..11]**: pm_jobs_completed_stats (combined from all three child proofs)
-- **[11..15]**: state_transition_hash
-- **[15..19]**: register_users_root (directly from register_users_proof[0..4])
-- **[19..23]**: deploy_contracts_root (directly from deploy_contracts_proof[0..4])
-- **[23..27]**: gutas_root (directly from guta_proof[0..4])
+### Public Inputs Layout (19 total) - SPECIAL LAYOUT!
+**WARNING**: This circuit has a unique layout different from other circuits!
+- **[0..4]**: state_transition_hash (NOT commitment!)
+- **[4..8]**: hash(register_users_commitment, register_users_worker_pk)
+- **[8..12]**: hash(deploy_contracts_commitment, deploy_contracts_worker_pk)
+- **[12..16]**: hash(guta_commitment, guta_worker_pk)
+- **[16..19]**: additional data
+
+### How Child Proofs Are Processed
+```rust
+// Extract from each child proof:
+let user_registration_commitment = child_proof.public_inputs[0..4];
+let user_registration_worker_pk = child_proof.public_inputs[4..8];
+let user_registration_final = hash(commitment, worker_pk);
+
+// This final hash goes into parent's public_inputs[4..8]
+```
 
 ### PM Rewards Commitment
 The PM (Prover/Miner) Rewards Commitment is calculated from these three roots:
@@ -243,7 +262,7 @@ graph LR
 
 The dependency graph shows how PM stats flow through the system:
 1. **Parallel Trees**: Each tree type accumulates its specific job counts
-2. **State Part 1**: Combines PM stats from all three trees 
+2. **State Part 1**: Combines PM stats from all three trees
 3. **Checkpoint**: Preserves the combined PM stats for final reward calculation
 4. **Block Completion**: Uses PM stats to calculate and distribute rewards
 
@@ -251,48 +270,81 @@ The dependency graph shows how PM stats flow through the system:
 
 The commitment calculation follows a consistent pattern across all circuits:
 
-### 1. Leaf Circuits (No Child Proofs)
+### 1. Leaf Circuits (No Dependencies)
 ```rust
 commitment = worker_public_key
 ```
-Examples: GUTANoChange, BatchDeployContracts, AppendUserRegistrationTree
+Examples: GUTANoChange, GUTAOnlyRegisterUsers, BatchDeployContracts, AppendUserRegistrationTree
 
-### 2. Single Child Circuits (One Child Proof)
+### 2. Single Dependency Circuits (One Child Proof)
 ```rust
 commitment = hash(child.commitment, worker_public_key)
 ```
-Examples: GUTAVerifyToCap, GUTAVerifyGUTARegisterUsers
+Examples: GUTASingleEndCap, GUTARegisterUsers, GUTAVerifyToCap, GUTAVerifyToCapWithCheckpointUpgrade
 
-### 3. Two Children Circuits (Two Child Proofs)
+### 3. Two Dependencies Circuits (Two Child Proofs)
 ```rust
 commitment = hash(hash(left.commitment, right.commitment), worker_public_key)
 ```
-Examples: GUTATwoGUTA, AggStateTransition, GUTALeftGUTARightEndCap
+Examples: GUTATwoGUTA, GUTATwoGUTAWithCheckpointUpgrade, GUTATwoEndCap, GUTALeftGUTARightEndCap, AggStateTransition
 
-### Why This Design?
-- **Leaf nodes**: The commitment IS the worker's identity, proving who did the work
-- **Aggregation nodes**: The commitment combines children's work with the aggregator's identity
-- **Merkle proof generation**: This forms a proper tree structure for generating proofs of participation
+### Core Design Principles
 
-## Coordinator Main Circuits
+1. **Commitment Chain**: Forms a tree structure but NOT for reward distribution as originally thought
+   - **ALL leaf circuits**: `commitment = hash(0, 0)` (constant value!)
+   - **Aggregation circuits**: `commitment = hash(hash(child1.commit, child1.worker), hash(child2.commit, child2.worker))`
 
-### Register Users Tree Circuits
-| Circuit | Type | Children | Public Inputs | Commitment |
-|---------|------|----------|---------------|------------|
-| AppendUserRegistrationTree | Leaf | None | [0..4]: commitment<br/>[4..8]: worker_public_key<br/>[8..11]: pm_jobs_completed_stats<br/>[11..15]: state_transition_hash | worker_public_key |
-| AggStateTransition | Aggregation | 2 | [0..4]: commitment<br/>[4..8]: worker_public_key<br/>[8..11]: pm_jobs_completed_stats<br/>[11..15]: state_transition_hash | hash(hash(left, right), worker_pk) |
+2. **Job Categories**: Three parallel proving trees
+   - **User Registration**: `batch_append` → `state_transition` → final aggregation
+   - **Contract Deployment**: `batch_deploy` → `state_transition` → final aggregation
+   - **GUTA Tree**: Various GUTA circuits → final aggregation
 
-### Deploy Contracts Tree Circuits
-| Circuit | Type | Children | Public Inputs | Commitment |
-|---------|------|----------|---------------|------------|
-| BatchDeployContracts | Leaf | None | [0..4]: commitment<br/>[4..8]: worker_public_key<br/>[8..11]: pm_jobs_completed_stats<br/>[11..15]: state_transition_hash | worker_public_key |
-| AggStateTransition | Aggregation | 2 | [0..4]: commitment<br/>[4..8]: worker_public_key<br/>[8..11]: pm_jobs_completed_stats<br/>[11..15]: state_transition_hash | hash(hash(left, right), worker_pk) |
+3. **Special Cases**:
+   - **Dummy circuits**: Used when no real work is available
+   - **AggUserRegistration**: Unique layout combining all three trees
+   - **Checkpoint**: Final proof creating the rollup state transition
+
+## Core Proving Circuits
+
+### Coordinator Main Circuits (19 inputs)
+
+| Circuit | Type | Dependencies | Commitment Calculation |
+|---------|------|----------|------------------------|
+| **BatchAppendUserRegistrationTree** | Leaf | None | `commitment = hash(0, 0)` |
+| **BatchDeployContracts** | Leaf | None | `commitment = hash(0, 0)` |
+| **AggStateTransition** | Aggregation | 2 proofs | `commitment = hash(hash(left.commit, left.worker), hash(right.commit, right.worker))` |
+| **DummyAggStateTransition** | Dummy | None | `commitment = hash(0, 0)` |
+
+**Public Inputs Layout (19 total)**:
+- `[0..4]`: commitment
+- `[4..8]`: worker_public_key
+- `[8..11]`: pm_jobs_completed_stats
+- `[11..15]`: circuit_whitelist
+- `[15..19]`: state_transition_hash
+
+### GUTA Core Circuits (15 inputs)
+
+| Circuit | Type | Dependencies | Commitment Calculation |
+|---------|------|----------|------------------------|
+| **GUTAOnlyRegisterUsers** | Leaf | None | `commitment = hash(0, 0)` |
+| **GUTASingleEndCap** | Leaf | 1 EndCap | `commitment = hash(0, 0)` |
+| **GUTARegisterUsers** | Leaf | 1 GUTA | `commitment = hash(0, 0)` |
+| **GUTATwoGUTA** | Aggregation | 2 GUTA | `commitment = hash(hash(left.commit, left.worker), hash(right.commit, right.worker))` |
+| **GUTALeftGUTARightEndCap** | Mixed | 1 GUTA + 1 EndCap | `commitment = hash(hash(left.commit, left.worker), hash(right.commit, right.worker))` |
+| **GUTALeftEndCapRightGUTA** | Mixed | 1 EndCap + 1 GUTA | `commitment = hash(hash(left.commit, left.worker), hash(right.commit, right.worker))` |
+
+**Public Inputs Layout (15 total)**:
+- `[0..4]`: commitment
+- `[4..8]`: worker_public_key
+- `[8..11]`: pm_jobs_completed_stats
+- `[11..15]`: guta_header_hash
 
 ### Final Aggregation Circuits
-| Circuit | Type | Purpose | Public Inputs |
-|---------|------|---------|---------------|
-| AggUserRegistrationDeployContractsGUTA | Aggregation | Combines all three trees into State Part 1 | [0..4]: commitment<br/>[4..8]: worker_public_key<br/>[8..11]: pm_jobs_completed_stats<br/>[11..27]: state and root data |
-| CheckpointStateTransition | Root | Creates final checkpoint proof | [0..4]: commitment<br/>[4..8]: worker_public_key<br/>[8..11]: pm_jobs_completed_stats<br/>[11..15]: old_checkpoint_tree_root<br/>[15..19]: new_checkpoint_tree_root |
+
+| Circuit | Dependencies | Special Notes |
+|---------|----------|---------------|
+| **VerifyAggUserRegistrationDeployContractsGUTA** | 3 proofs (user_reg + deploy + guta) | **UNIQUE LAYOUT**: `[0..4]` = state_transition_hash (NOT commitment!) |
+| **PsyCheckpointStateTransition** | 1 proof (state_part_1) | Standard 19-input layout |
 
 ## PM Jobs Completed Stats Tracking
 
@@ -300,7 +352,7 @@ The PM (Proof Miner) jobs completed stats track the number of different types of
 
 ### PM Stats Components
 - **deploy_contracts_completed**: Number of deploy contract jobs completed in this subtree
-- **register_users_completed**: Number of user registration jobs completed in this subtree  
+- **register_users_completed**: Number of user registration jobs completed in this subtree
 - **gutas_completed**: Number of GUTA jobs completed in this subtree
 
 ### How Stats Flow Through the Hierarchy
@@ -308,7 +360,7 @@ The PM (Proof Miner) jobs completed stats track the number of different types of
 #### Leaf Circuits
 Leaf circuits initialize their PM stats based on the work they perform:
 - **Deploy Contract leaves** (BatchDeployContracts): `pm_stats = (batch_size, 0, 0)`
-- **Register Users leaves** (AppendUserRegistrationTree): `pm_stats = (0, batch_size, 0)` 
+- **Register Users leaves** (AppendUserRegistrationTree): `pm_stats = (0, batch_size, 0)`
 - **GUTA leaves** (GUTANoChange, GUTASingleEndCap, etc.): `pm_stats = (0, 0, 0)` initially
 - **Dummy circuits** (AggStateTransitionDummy): `pm_stats = (0, 0, 0)` (all zeros)
 
@@ -318,7 +370,7 @@ Aggregation circuits combine PM stats from their children:
 // Two children aggregation (AggStateTransition, GUTATwoGUTA)
 final_pm_stats = PMJobsCompletedStats {
     deploy_contracts_completed: left.pm_stats[0] + right.pm_stats[0],
-    register_users_completed: left.pm_stats[1] + right.pm_stats[1], 
+    register_users_completed: left.pm_stats[1] + right.pm_stats[1],
     gutas_completed: left.pm_stats[2] + right.pm_stats[2],
 }
 ```
@@ -337,8 +389,8 @@ final_pm_stats = PMJobsCompletedStats {
 ### Final Aggregation
 At the State Part 1 level (AggUserRegistrationDeployContractsGUTA), the PM stats from all three trees are combined:
 ```rust
-final_pm_stats = register_users_proof.pm_stats + 
-                 deploy_contracts_proof.pm_stats + 
+final_pm_stats = register_users_proof.pm_stats +
+                 deploy_contracts_proof.pm_stats +
                  guta_proof.pm_stats
 ```
 
