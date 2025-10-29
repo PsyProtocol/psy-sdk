@@ -1,0 +1,528 @@
+<!DOCTYPE HTML>
+<html lang="en" class="sidebar-visible no-js light">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Node Architecture - Psy Protocol Complete Documentation</title>
+
+
+        <!-- Custom HTML head -->
+        
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff" />
+
+        <link rel="icon" href="../favicon.svg">
+        <link rel="shortcut icon" href="../favicon.png">
+        <link rel="stylesheet" href="../css/variables.css">
+        <link rel="stylesheet" href="../css/general.css">
+        <link rel="stylesheet" href="../css/chrome.css">
+        <link rel="stylesheet" href="../css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="../fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" href="../highlight.css">
+        <link rel="stylesheet" href="../tomorrow-night.css">
+        <link rel="stylesheet" href="../ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+
+    </head>
+    <body>
+    <div id="body-container">
+        <!-- Provide site root to javascript -->
+        <script>
+            var path_to_root = "../";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "light";
+        </script>
+
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                var theme = localStorage.getItem('mdbook-theme');
+                var sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            var theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            var html = document.querySelector('html');
+            html.classList.remove('no-js')
+            html.classList.remove('light')
+            html.classList.add(theme);
+            html.classList.add('js');
+        </script>
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            var html = document.querySelector('html');
+            var sidebar = null;
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+            }
+            html.classList.remove('sidebar-visible');
+            html.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <div class="sidebar-scrollbox">
+                <ol class="chapter"><li class="chapter-item expanded affix "><li class="part-title">Protocol Design</li><li class="chapter-item expanded "><a href="../protocol/ZKCircuitJourney.html"><strong aria-hidden="true">1.</strong> ZK Circuit Journey</a></li><li class="chapter-item expanded "><a href="../protocol/HORIZONTAL_SCALABILITY.html"><strong aria-hidden="true">2.</strong> Horizontal Scalability</a></li><li class="chapter-item expanded "><a href="../protocol/UPSProofTree.html"><strong aria-hidden="true">3.</strong> UPS Proof Tree</a></li><li class="chapter-item expanded "><a href="../protocol/NodeArchitecture.html" class="active"><strong aria-hidden="true">4.</strong> Node Architecture</a></li><li class="chapter-item expanded "><a href="../protocol/RealmGUTAGadgets.html"><strong aria-hidden="true">5.</strong> Realm GUTA Gadgets</a></li><li class="chapter-item expanded "><a href="../protocol/FullFlow.html"><strong aria-hidden="true">6.</strong> Full Flow</a></li><li class="chapter-item expanded "><a href="../protocol/Circuits.html"><strong aria-hidden="true">7.</strong> Circuits</a></li><li class="chapter-item expanded "><a href="../protocol/CoordinatorGadgets.html"><strong aria-hidden="true">8.</strong> Coordinator Gadgets</a></li><li class="chapter-item expanded "><a href="../protocol/UPSGadgets.html"><strong aria-hidden="true">9.</strong> UPS Gadgets</a></li><li class="chapter-item expanded "><a href="../protocol/Gadgets.html"><strong aria-hidden="true">10.</strong> Gadgets</a></li><li class="chapter-item expanded "><a href="../protocol/ProvingJobs.html"><strong aria-hidden="true">11.</strong> Proving Jobs</a></li><li class="spacer"></li><li class="chapter-item expanded affix "><li class="part-title">Language Documentation</li><li class="chapter-item expanded "><a href="../language/introduction.html"><strong aria-hidden="true">12.</strong> Introduction</a></li><li class="chapter-item expanded "><a href="../language/before_we_begin.html"><strong aria-hidden="true">13.</strong> Before We Begin</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../language/setup_your_ide.html"><strong aria-hidden="true">13.1.</strong> Set up your IDE</a></li><li class="chapter-item expanded "><a href="../language/setting_up_shell_completions.html"><strong aria-hidden="true">13.2.</strong> Set up Shell Completions</a></li></ol></li><li class="chapter-item expanded "><a href="../language/hello_world.html"><strong aria-hidden="true">14.</strong> Hello, World!</a></li><li class="chapter-item expanded "><a href="../language/basic_syntax.html"><strong aria-hidden="true">15.</strong> Basic Syntax</a></li><li class="chapter-item expanded "><a href="../language/modules_and_visibility.html"><strong aria-hidden="true">16.</strong> Modules and Visibility</a></li><li class="chapter-item expanded "><a href="../language/structs_and_impls.html"><strong aria-hidden="true">17.</strong> Structs and Implementations</a></li><li class="chapter-item expanded "><a href="../language/traits_and_generics.html"><strong aria-hidden="true">18.</strong> Traits and Generics</a></li><li class="chapter-item expanded "><a href="../language/storage_and_contracts.html"><strong aria-hidden="true">19.</strong> Storage and Contracts</a></li><li class="chapter-item expanded "><a href="../language/control_flow.html"><strong aria-hidden="true">20.</strong> Control Flow</a></li><li class="chapter-item expanded "><a href="../language/functions_and_closures.html"><strong aria-hidden="true">21.</strong> Functions and Closures</a></li><li class="chapter-item expanded "><a href="../language/arrays_and_tuples.html"><strong aria-hidden="true">22.</strong> Arrays and Tuples</a></li><li class="chapter-item expanded "><a href="../language/testing.html"><strong aria-hidden="true">23.</strong> Testing</a></li><li class="chapter-item expanded "><a href="../language/dargo.html"><strong aria-hidden="true">24.</strong> Dargo</a></li><li class="spacer"></li><li class="chapter-item expanded affix "><li class="part-title">RPC Documentation</li><li class="chapter-item expanded "><a href="../rpc/UserCli.html"><strong aria-hidden="true">25.</strong> User CLI RPC Methods</a></li><li class="chapter-item expanded "><a href="../rpc/RealmRpc.html"><strong aria-hidden="true">26.</strong> Realm Edge RPC Methods</a></li><li class="chapter-item expanded "><a href="../rpc/CoordinatorRpc.html"><strong aria-hidden="true">27.</strong> Coordinator Edge RPC Methods</a></li><li class="spacer"></li><li class="chapter-item expanded affix "><li class="part-title">Appendices</li><li class="chapter-item expanded "><a href="../language/appendix_a_glossary.html"><strong aria-hidden="true">28.</strong> Glossary</a></li><li class="chapter-item expanded "><a href="../language/appendix_b_reserved_keywords.html"><strong aria-hidden="true">29.</strong> Reserved Keywords</a></li><li class="chapter-item expanded "><a href="../language/appendix_c_publications.html"><strong aria-hidden="true">30.</strong> Publications</a></li><li class="chapter-item expanded "><a href="../language/appendix_d_contributing.html"><strong aria-hidden="true">31.</strong> Contributing</a></li><li class="chapter-item expanded "><a href="../language/appendix_e_acknowledgements.html"><strong aria-hidden="true">32.</strong> Acknowledgements</a></li></ol>
+            </div>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky bordered">
+                    <div class="left-buttons">
+                        <button id="sidebar-toggle" class="icon-button" type="button" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </button>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">Psy Protocol Complete Documentation</h1>
+
+                    <div class="right-buttons">
+                        <a href="../print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1 id="psy-architecture-horizontally-scalable-blockchain-via-parth-and-zk-proofs"><a class="header" href="#psy-architecture-horizontally-scalable-blockchain-via-parth-and-zk-proofs">Psy Architecture: Horizontally Scalable Blockchain via PARTH and ZK Proofs</a></h1>
+<h2 id="1-introduction-beyond-sequential-limits"><a class="header" href="#1-introduction-beyond-sequential-limits">1. Introduction: Beyond Sequential Limits</a></h2>
+<p>The evolution of blockchain technology has been marked by a persistent challenge: <strong>scalability</strong>. Traditional designs, processing transactions sequentially within a monolithic state machine, hit a throughput ceiling that cannot be overcome simply by adding more network nodes. Psy represents a fundamental leap forward, tackling this bottleneck through a revolutionary state architecture known as <strong>PARTH</strong> and a meticulously designed, end-to-end <strong>Zero-Knowledge Proof (ZKP)</strong> system. This architecture unlocks true horizontal scalability, enabling unprecedented transaction processing capacity while maintaining rigorous cryptographic security.</p>
+<h2 id="2-the-parth-architecture-a-foundation-for-parallelism"><a class="header" href="#2-the-parth-architecture-a-foundation-for-parallelism">2. The PARTH Architecture: A Foundation for Parallelism</a></h2>
+<p>PARTH (Parallelizable Account-based Recursive Transaction History) dismantles the concept of a single, conflict-prone global state. Instead, it establishes a granular, hierarchical structure where state modifications are naturally isolated, paving the way for massive parallel processing.</p>
+<h3 id="21-the-hierarchical-state-forest"><a class="header" href="#21-the-hierarchical-state-forest">2.1 The Hierarchical State Forest</a></h3>
+<p>Psy's state is not a single tree, but a &quot;forest&quot; of interconnected Merkle trees, each with a specific domain:</p>
+<pre class="mermaid">graph TD
+    subgraph &quot;Global State Snapshot (Block N)&quot;
+        CHKP(CHKP Root);
+    end
+
+    subgraph &quot;Global Trees (Referenced by CHKP)&quot;
+      GUSR(GUSR Root);
+      GCON(GCON Root);
+      URT(URT Root);
+      GDT(GDT Root);
+      GWT(GWT Root);
+      STATS(Block Stats Hash);
+    end
+
+    subgraph &quot;User-Specific Trees (Leaf in GUSR)&quot;
+      ULEAF{User Leaf};
+      UCON(UCON Root);
+    end
+
+    subgraph &quot;Contract Definition (Leaf in GCON)&quot;
+       CLEAF{Contract Leaf};
+       CFT(CFT Root);
+    end
+
+    subgraph &quot;User+Contract Specific State (Leaf in UCON)&quot;
+      CST(CSTATE Root);
+    end
+
+    CHKP --&gt; GUSR;
+    CHKP --&gt; GCON;
+    CHKP --&gt; URT;
+    CHKP --&gt; GDT;
+    CHKP --&gt; GWT;
+    CHKP --&gt; STATS;
+
+    GUSR -- User ID --&gt; ULEAF;
+    ULEAF -- Contains --&gt; UCON;
+    ULEAF -- Contains --&gt; UserMetadata[PK Hash, Bal, Nonce, etc.];
+
+    GCON -- Contract ID --&gt; CLEAF;
+    CLEAF -- Contains --&gt; CFT;
+    CLEAF -- Contains --&gt; ContractMetadata[Deployer Hash, CST Height];
+
+    UCON -- Contract ID --&gt; CST;
+    CFT -- Function ID --&gt; FuncFingerprint{Function Fingerprint};
+
+    style CHKP fill:#f9f,stroke:#333,stroke-width:2px,font-weight:bold
+    style GUSR fill:#ccf,stroke:#333,stroke-width:1px
+    style GCON fill:#cfc,stroke:#333,stroke-width:1px
+    style URT fill:#fec,stroke:#333,stroke-width:1px
+    style ULEAF fill:#fcc,stroke:#333,stroke-width:1px,font-style:italic
+    style CLEAF fill:#fcc,stroke:#333,stroke-width:1px,font-style:italic
+    style UCON fill:#cff,stroke:#333,stroke-width:1px
+    style CST fill:#ffc,stroke:#333,stroke-width:1px
+    style CFT fill:#eef,stroke:#333,stroke-width:1px
+</pre>
+<ul>
+<li><strong><code>CHKP</code> (Checkpoint Tree):</strong> The ultimate source of truth for a given block. Its root immutably represents the entire state snapshot, committing to the roots of all major global trees and block statistics. Verifying the <code>CHKP</code> root transitively verifies the entire state.</li>
+<li><strong><code>GUSR</code> (Global User Tree):</strong> Aggregates all registered users. Each leaf (<code>ULEAF</code>) corresponds to a user ID and contains their public key commitment, balance, nonce, last synchronized checkpoint ID, and, crucially, the root of their personal <code>UCON</code> tree.</li>
+<li><strong><code>UCON</code> (User Contract Tree):</strong> A <em>per-user</em> tree mapping Contract IDs to the roots of the user's corresponding <code>CSTATE</code> trees. This tree represents the user's state footprint across all contracts they've interacted with.</li>
+<li><strong><code>CSTATE</code> (Contract State Tree):</strong> The most granular level. This tree is <em>specific to a single user AND a single contract</em>. It holds the actual state variables (storage slots) pertinent to that user within that contract. <em>This is where smart contract logic primarily operates.</em></li>
+<li><strong><code>GCON</code> (Global Contract Tree):</strong> Stores global information about deployed contracts via <code>CLEAF</code> nodes (Contract Leaf).</li>
+<li><strong><code>CLEAF</code> (Contract Leaf):</strong> Contains the deployer's identifier hash, the root of the contract's Function Tree (<code>CFT</code>), and the required height (size) for its associated <code>CSTATE</code> trees.</li>
+<li><strong><code>CFT</code> (Contract Function Tree):</strong> <em>Per-contract</em> tree whitelisting executable functions. Maps Function IDs to the ZK circuit fingerprint of the corresponding <code>DapenContractFunctionCircuit</code>, ensuring only verified code can be invoked.</li>
+<li><strong><code>URT</code> (User Registration Tree):</strong> Commits to user public keys during the registration process, ensuring uniqueness and linking registrations to cryptographic identities.</li>
+<li><strong>Other Trees:</strong> Dedicated global trees handle deposits (<code>GDT</code>), withdrawals (<code>GWT</code>), event data (<code>EDATA</code> - conceptually), etc.</li>
+</ul>
+<h3 id="22-parth-interaction-rules-enabling-concurrency"><a class="header" href="#22-parth-interaction-rules-enabling-concurrency">2.2 PARTH Interaction Rules: Enabling Concurrency</a></h3>
+<p>The genius of PARTH lies in its strict state access rules:</p>
+<ol>
+<li><strong>Localized Writes:</strong> A transaction initiated by User A <strong>can only modify state within User A's own trees</strong>. This typically involves changes within one or more of User A's <code>CSTATE</code> trees, which then requires updating the corresponding leaves in User A's <code>UCON</code> tree, ultimately updating User A's <code>ULEAF</code> in the <code>GUSR</code>. <strong>Crucially, User A cannot directly alter User B's <code>CSTATE</code>, <code>UCON</code>, or <code>ULEAF</code>.</strong></li>
+<li><strong>Historical Global Reads:</strong> A transaction can read <em>any</em> state from the blockchain (e.g., User B's balance stored in their <code>ULEAF</code>, a variable in User B's <code>CSTATE</code> via User B's <code>UCON</code> root, or global contract data from <code>GCON</code>). However, these reads <strong>always access the state as it was finalized in the <em>previous</em> block's <code>CHKP</code> root.</strong> The current block's ongoing, parallel state changes are invisible to concurrent transactions.</li>
+</ol>
+<h3 id="23-the-scalability-breakthrough-conflict-free-parallelism"><a class="header" href="#23-the-scalability-breakthrough-conflict-free-parallelism">2.3 The Scalability Breakthrough: Conflict-Free Parallelism</a></h3>
+<p>These rules eliminate the core bottleneck of traditional blockchains:</p>
+<ul>
+<li><strong>No Write Conflicts:</strong> Since users only write to their isolated state partitions, transactions from different users within the same block cannot conflict.</li>
+<li><strong>No Read-Write Conflicts:</strong> Reading only the previous, immutable block state prevents race conditions where one transaction's read is invalidated by another's concurrent write.</li>
+<li><strong>Massively Parallel Execution &amp; Proving:</strong> The PARTH architecture guarantees that the execution of transactions (CFCs) and the generation of their initial proofs (UPS) for different users are independent processes that can run entirely in parallel without requiring locks or complex synchronization.</li>
+</ul>
+<h2 id="3-end-to-end-zk-proof-system-securing-parallelism"><a class="header" href="#3-end-to-end-zk-proof-system-securing-parallelism">3. End-to-End ZK Proof System: Securing Parallelism</a></h2>
+<p>Psy employs a multi-layered, recursive ZK proof system to cryptographically guarantee the integrity of every state transition, even those occurring concurrently.</p>
+<h3 id="31-contract-function-circuits-cfcs--dapen-dpn"><a class="header" href="#31-contract-function-circuits-cfcs--dapen-dpn">3.1 Contract Function Circuits (CFCs) &amp; Dapen (DPN)</a></h3>
+<ul>
+<li><strong>Role:</strong> Encapsulate the verifiable logic of smart contracts. They define the allowed state transitions within a user's <code>CSTATE</code> for that contract.</li>
+<li><strong>Technology:</strong> Developed using high-level languages (TypeScript/JavaScript) and compiled into ZK circuits (<code>DapenContractFunctionCircuit</code>) via the <strong>Dapen (DPN)</strong> toolchain.</li>
+<li><strong>Execution:</strong> run <strong>locally</strong> during a User Proving Session (UPS). A ZK proof is generated for each CFC execution, attesting that the logic was followed correctly given the inputs and starting state provided in its context.</li>
+</ul>
+<h3 id="32-user-proving-session-ups"><a class="header" href="#32-user-proving-session-ups">3.2 User Proving Session (UPS)</a></h3>
+<ul>
+<li><strong>Role:</strong> Enables users (or their delegates) to locally process a sequence of their transactions for a block, generating a single, compact &quot;End Cap&quot; proof that summarizes and validates their entire session activity.</li>
+<li><strong>Process:</strong>
+<ol>
+<li><strong>Initialization (<code>UPSStartSessionCircuit</code>):</strong> Securely anchors the session's starting state to the last globally finalized <code>CHKP</code> root and the user's corresponding <code>ULEAF</code>.</li>
+<li><strong>Transaction Steps (<code>UPSCFCStandardTransactionCircuit</code>, etc.):</strong> For each transaction:
+<ul>
+<li>Verifies the ZK proof of the <strong>locally executed CFC</strong> (from step 3.1).</li>
+<li>Verifies the ZK proof of the <strong>previous UPS step</strong> (ensuring recursive integrity).</li>
+<li>Proves that the <strong>UPS state delta</strong> (changes to <code>UCON</code> root, debt trees, tx count/stack) correctly reflects the verified CFC's outcomes.</li>
+</ul>
+</li>
+<li><strong>Finalization (<code>UPSStandardEndCapCircuit</code>):</strong> Verifies the last UPS step, verifies the user's ZK signature authorizing the session, checks final conditions (e.g., all debts cleared), and outputs the net state change (<code>start_user_leaf_hash</code> -&gt; <code>end_user_leaf_hash</code>) and aggregated statistics (<code>GUTAStats</code>).</li>
+</ol>
+</li>
+<li><strong>Scalability Impact:</strong> Drastically reduces the on-chain verification burden. Instead of verifying every transaction individually, the network only needs to verify one aggregate End Cap proof per active user per block.</li>
+</ul>
+<h3 id="33-network-aggregation-realms-coordinators-guta"><a class="header" href="#33-network-aggregation-realms-coordinators-guta">3.3 Network Aggregation (Realms, Coordinators, GUTA)</a></h3>
+<p>The network takes potentially millions of End Cap proofs and efficiently aggregates them in parallel using a hierarchy of specialized ZK circuits.</p>
+<ul>
+<li>
+<p><strong>Realms:</strong></p>
+<ul>
+<li><strong>Role:</strong> Distributed ingestion and initial aggregation points for user state changes (<code>GUSR</code>), sharded by user ID ranges.</li>
+<li><strong>Function:</strong>
+<ol>
+<li>Receive End Cap proofs from users within their range.</li>
+<li>Verify these proofs using circuits like <code>GUTAVerifySingleEndCapCircuit</code> (for individual proofs) or <code>GUTAVerifyTwoEndCapCircuit</code> (for pairs). These circuits use the <code>VerifyEndCapProofGadget</code> internally to check the End Cap proof validity, fingerprint, and historical checkpoint link, outputting a standardized <code>GlobalUserTreeAggregatorHeader</code>.</li>
+<li>Recursively aggregate the resulting GUTA headers using circuits like <code>GUTAVerifyTwoGUTACircuit</code>, <code>GUTAVerifyLeftGUTARightEndCapCircuit</code>, or <code>GUTAVerifyLeftEndCapRightGUTACircuit</code>. These employ <code>VerifyGUTAProofGadget</code> to check sub-proofs and <code>TwoNCAStateTransitionGadget</code> (or line proof logic) to combine state transitions.</li>
+<li>If necessary, use <code>GUTAVerifyGUTAToCapCircuit</code> (which uses <code>VerifyGUTAProofToLineGadget</code>) to bring a proof up to the Realm's root level.</li>
+<li>Handle periods of inactivity using <code>GUTANoChangeCircuit</code>.</li>
+<li>Submit the final aggregated GUTA proof for their user segment (representing the net change at the Realm's root node in <code>GUSR</code>) to the Coordinator layer.</li>
+</ol>
+</li>
+<li><strong>Scalability Impact:</strong> Distributes the initial proof verification and <code>GUSR</code> aggregation load.</li>
+</ul>
+</li>
+<li>
+<p><strong>Coordinators:</strong></p>
+<ul>
+<li><strong>Role:</strong> Higher-level aggregators combining proofs <em>across</em> Realms and <em>across</em> different global state trees.</li>
+<li><strong>Function:</strong>
+<ol>
+<li>Verify aggregated GUTA proofs from multiple Realms (using <code>GUTAVerifyTwoGUTACircuit</code> or similar, employing <code>VerifyGUTAProofGadget</code>).</li>
+<li>Verify proofs for global operations:
+<ul>
+<li>User Registrations (<code>BatchAppendUserRegistrationTreeCircuit</code>).</li>
+<li>Contract Deployments (<code>BatchDeployContractsCircuit</code>).</li>
+</ul>
+</li>
+<li>Combine these different types of state transitions using aggregation circuits like <code>VerifyAggUserRegistartionDeployContractsGUTACircuit</code>, ensuring consistency relative to the same checkpoint.</li>
+<li>Prepare the final inputs for the block proof circuit (<code>PsyCheckpointStateTransitionCircuit</code>).</li>
+</ol>
+</li>
+<li><strong>Scalability Impact:</strong> Manages the convergence of parallel proof streams from different state components and realms.</li>
+</ul>
+</li>
+<li>
+<p><strong>Proving Workers:</strong></p>
+<ul>
+<li><strong>Role:</strong> The distributed computational workforce of the network. They execute the intensive ZK proof generation tasks requested by Realms and Coordinators.</li>
+<li><strong>Function:</strong> Stateless workers that fetch proving jobs (circuit type, input witness ID, dependency proof IDs) from a queue, retrieve necessary data from the Node State Store, generate the required ZK proof, and write the result back to the store.</li>
+<li><strong>Scalability Impact:</strong> The core engine of computational scalability. The network's proving capacity can be scaled horizontally simply by adding more (potentially permissionless) Proving Workers.</li>
+</ul>
+</li>
+</ul>
+<h3 id="34-final-block-proof-generation"><a class="header" href="#34-final-block-proof-generation">3.4 Final Block Proof Generation</a></h3>
+<ul>
+<li><strong>Role:</strong> Creates the single, authoritative ZK proof for the entire block.</li>
+<li><strong>Circuit:</strong> <code>PsyCheckpointStateTransitionCircuit</code>.</li>
+<li><strong>Function:</strong> Takes the final aggregated state transition proofs from the Coordinator layer (representing net changes to <code>GUSR</code>, <code>GCON</code>, <code>URT</code>, etc.). Verifies these proofs. Computes the new global state roots and combines them with aggregated block statistics (<code>PsyCheckpointLeafStats</code>) to form the new <code>PsyCheckpointLeaf</code>. Proves the correct update of the <code>CHKP</code> tree by appending this new leaf hash. <strong>Critically, it verifies that the entire process correctly transitioned from the state defined by the <em>previous block's finalized <code>CHKP</code> root</em> (provided as a public input).</strong></li>
+<li><strong>Output:</strong> A highly succinct ZK proof whose public inputs are the previous <code>CHKP</code> root and the new <code>CHKP</code> root.</li>
+</ul>
+<h2 id="4-node-state-architecture-redis--kvq-backend"><a class="header" href="#4-node-state-architecture-redis--kvq-backend">4. Node State Architecture: Redis &amp; KVQ Backend</a></h2>
+<p>Supporting this massive parallelism requires a high-performance, shared backend infrastructure.</p>
+<ul>
+<li><strong>Core Technology:</strong> Psy leverages <strong>Redis</strong>, a distributed in-memory key-value store known for its speed and scalability, as the primary backend. Redis Clusters allow horizontal scaling of storage and throughput.</li>
+<li><strong>Abstraction Layer (KVQ):</strong> A custom Rust library providing traits and adapters (<code>KVQSerializable</code>, <code>KVQStandardAdapter</code>, model types like <code>KVQFixedConfigMerkleTreeModel</code>) for structured, type-safe interaction with Redis. It simplifies key generation, serialization, and potentially caching.</li>
+<li><strong>Logical Components:</strong>
+<ul>
+<li><strong>Proof Store (<code>ProofStoreFred</code>, implements <code>QProofStore...</code> traits):</strong> Stores ZK proofs and input witnesses, keyed by <code>QProvingJobDataID</code>. Uses Redis Hashes (<code>HSET</code>, <code>HGET</code>) and potentially atomic counters (<code>HINCRBY</code>) for managing job dependencies.</li>
+<li><strong>State Store (Models implementing <code>PsyCoordinatorStore...</code>, <code>PsyRealmStore...</code> traits):</strong> Stores the canonical blockchain state, primarily Merkle tree nodes (<code>KVQMerkleNodeKey</code>) and leaf data (<code>UserLeaf</code>, <code>ContractLeaf</code>, etc.). Uses standard Redis keys managed via KVQ models.</li>
+<li><strong>Queues (<code>CheckpointDrainQueue</code>, <code>CheckpointHistoryQueue</code>, <code>WorkerEventQueue</code> traits):</strong> Implement messaging between components. Uses Redis Lists (<code>LPUSH</code>, <code>LPOP</code>/<code>BLPOP</code>, <code>LRANGE</code>) for job queues and potentially Pub/Sub or simple keys/sorted sets for history tracking and notifications. <code>ProofStoreFred</code> often implements these queue interaction traits.</li>
+<li><strong>Local Caching (<code>PsyCmdStoreWithCache</code>, used within <code>PsyLocalProvingSessionStore</code>):</strong> Provides an in-memory cache layer for frequently accessed state data (e.g., contract definitions, user leaves from the previous block) during local UPS execution or within Realm/Coordinator nodes, reducing load on the central Redis cluster.</li>
+</ul>
+</li>
+<li><strong>Scalability:</strong>
+<ul>
+<li><strong>Redis Performance:</strong> Provides low-latency access required for coordinating many workers.</li>
+<li><strong>Horizontal Scaling:</strong> Redis clusters can scale to handle increased load.</li>
+<li><strong>Concurrency:</strong> Redis handles concurrent connections from numerous DPN nodes.</li>
+<li><strong>Decoupling:</strong> Proving computation (Workers) is separated from state storage and coordination (Redis + Control Nodes), allowing independent scaling.</li>
+</ul>
+</li>
+</ul>
+<pre class="mermaid">graph TB
+    %% External Network
+    Internet[🌐 Internet] --&gt; IGW[Internet Gateway]
+    
+    %% VPC Container
+    subgraph VPC[&quot;🏢 VPC (10.0.0.0/16)&quot;]
+        IGW --&gt; ALB[🔀 Application Load Balancer&lt;br/&gt;Ports: 8545, 8546, 8547]
+        
+        %% Availability Zone A
+        subgraph AZ1[&quot;🏛️ Availability Zone A&quot;]
+            subgraph PubSub1[&quot;🌍 Public Subnet 1&lt;br/&gt;(10.0.0.0/24)&quot;]
+                ALB
+            end
+            
+            subgraph PrivSub1[&quot;🔒 Private Subnet 1&lt;br/&gt;(10.0.2.0/24)&quot;]
+                ECS_Coord[🐳 ECS Task&lt;br/&gt;Coordinator]
+                ECS_R0[🐳 ECS Task&lt;br/&gt;Realm 0]
+                ECS_R1[🐳 ECS Task&lt;br/&gt;Realm 1]
+                
+                Redis_Coord[🔴 Redis&lt;br/&gt;Coordinator]
+                Redis_R0[🔴 Redis&lt;br/&gt;Realm 0]
+                Redis_R1[🔴 Redis&lt;br/&gt;Realm 1]
+                
+                EFS_Mount1[📁 EFS Mount Target 1]
+            end
+        end
+        
+        %% Availability Zone B
+        subgraph AZ2[&quot;🏛️ Availability Zone B&quot;]
+            subgraph PubSub2[&quot;🌍 Public Subnet 2&lt;br/&gt;(10.0.1.0/24)&quot;]
+                ALB_HA[🔀 ALB HA Deployment]
+            end
+            
+            subgraph PrivSub2[&quot;🔒 Private Subnet 2&lt;br/&gt;(10.0.3.0/24)&quot;]
+                EFS_Mount2[📁 EFS Mount Target 2]
+            end
+        end
+        
+        ALB -.-&gt; ALB_HA
+    end
+    
+    %% External AWS Services
+    subgraph AWS_Services[&quot;☁️ AWS Services&quot;]
+        ECR[📦 ECR Repository&lt;br/&gt;psy-protocol]
+        S3[🪣 S3 Bucket&lt;br/&gt;Artifacts Storage]
+        CloudWatch[📊 CloudWatch Logs&lt;br/&gt;/ecs/psy-protocol]
+        EFS[💾 EFS FileSystem&lt;br/&gt;LMDBX Storage]
+        ServiceDiscovery[🔍 Service Discovery&lt;br/&gt;psy.local]
+    end
+    
+    %% ECS Cluster
+    subgraph ECS_Cluster[&quot;🚢 ECS Cluster psy-cluster&quot;]
+        ECS_Coord
+        ECS_R0
+        ECS_R1
+    end
+    
+    %% Connection Relationships - ALB to ECS
+    ALB --&gt;|Port 8545| ECS_Coord
+    ALB --&gt;|Port 8546| ECS_R0
+    ALB --&gt;|Port 8547| ECS_R1
+    
+    %% ECS to Redis Connections
+    ECS_Coord &lt;--&gt; Redis_Coord
+    ECS_R0 &lt;--&gt; Redis_R0
+    ECS_R1 &lt;--&gt; Redis_R1
+    
+    %% EFS Connections
+    EFS --&gt; EFS_Mount1
+    EFS --&gt; EFS_Mount2
+    ECS_Coord &lt;--&gt; EFS_Mount1
+    ECS_R0 &lt;--&gt; EFS_Mount1
+    ECS_R1 &lt;--&gt; EFS_Mount1
+    
+    %% ECS to External Services
+    ECS_Coord &lt;--&gt; S3
+    ECS_R0 &lt;--&gt; S3
+    ECS_R1 &lt;--&gt; S3
+    
+    ECR --&gt; ECS_Coord
+    ECR --&gt; ECS_R0
+    ECR --&gt; ECS_R1
+    
+    ECS_Coord --&gt; CloudWatch
+    ECS_R0 --&gt; CloudWatch
+    ECS_R1 --&gt; CloudWatch
+    
+    ServiceDiscovery &lt;--&gt; ECS_Coord
+    ServiceDiscovery &lt;--&gt; ECS_R0
+    ServiceDiscovery &lt;--&gt; ECS_R1
+    
+    %% Style Definitions
+    classDef vpc fill:#e1f5fe,stroke:#01579b,stroke-width:3px
+    classDef publicSubnet fill:#e8f5e8,stroke:#2e7d32,stroke-width:2px
+    classDef privateSubnet fill:#ffebee,stroke:#c62828,stroke-width:2px
+    classDef ecs fill:#e3f2fd,stroke:#1565c0,stroke-width:2px
+    classDef redis fill:#ffcdd2,stroke:#d32f2f,stroke-width:2px
+    classDef storage fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
+    classDef loadbalancer fill:#fff3e0,stroke:#ef6c00,stroke-width:2px
+    classDef external fill:#f5f5f5,stroke:#424242,stroke-width:2px
+    
+    class VPC vpc
+    class PubSub1,PubSub2 publicSubnet
+    class PrivSub1,PrivSub2 privateSubnet
+    class ECS_Coord,ECS_R0,ECS_R1 ecs
+    class Redis_Coord,Redis_R0,Redis_R1 redis
+    class EFS,EFS_Mount1,EFS_Mount2,S3 storage
+    class ALB,ALB_HA loadbalancer
+    class ECR,CloudWatch,ServiceDiscovery external
+</pre>
+<h2 id="5-security-guarantees"><a class="header" href="#5-security-guarantees">5. Security Guarantees</a></h2>
+<p>Psy's security rests on multiple pillars:</p>
+<ol>
+<li><strong>ZK Proof Soundness:</strong> Mathematical guarantee that invalid computations or state transitions cannot produce valid proofs.</li>
+<li><strong>Circuit Whitelisting:</strong> State trees (<code>GUSR</code>, <code>GCON</code>, <code>CFT</code>, etc.) can only be modified by proofs generated from circuits whose fingerprints are present in designated whitelist Merkle trees. This prevents unauthorized code execution. Aggregation circuits enforce these checks recursively.</li>
+<li><strong>Recursive Verification:</strong> Each layer of aggregation cryptographically verifies the proofs from the layer below.</li>
+<li><strong>Checkpoint Anchoring:</strong> The final block circuit explicitly links the new state to the previous block's verified <code>CHKP</code> root, creating an unbroken chain of state validity.</li>
+</ol>
+<h2 id="6-conclusion-a-new-era-of-blockchain-scalability"><a class="header" href="#6-conclusion-a-new-era-of-blockchain-scalability">6. Conclusion: A New Era of Blockchain Scalability</a></h2>
+<p>Psy's architecture is a fundamental departure from sequential blockchain designs. By leveraging the <strong>PARTH state model</strong> for conflict-free parallel execution and securing it with an <strong>end-to-end recursive ZKP system</strong>, Psy achieves true horizontal scalability. The intricate dance between local user proving (UPS/CFC), distributed network aggregation (Realms/Coordinators/GUTA), and a scalable backend (Redis/KVQ) allows the network's throughput to grow with the addition of computational resources (Proving Workers), paving the way for decentralized applications demanding high performance and robust security.</p>
+<hr />
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="../protocol/UPSProofTree.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+
+                            <a rel="next" href="../protocol/RealmGUTAGadgets.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="../protocol/UPSProofTree.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+
+                    <a rel="next" href="../protocol/RealmGUTAGadgets.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+            </nav>
+
+        </div>
+
+        <!-- Livereload script (if served using the cli tool) -->
+        <script>
+            const wsProtocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsAddress = wsProtocol + "//" + location.host + "/" + "__livereload";
+            const socket = new WebSocket(wsAddress);
+            socket.onmessage = function (event) {
+                if (event.data === "reload") {
+                    socket.close();
+                    location.reload();
+                }
+            };
+
+            window.onbeforeunload = function() {
+                socket.close();
+            }
+        </script>
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="../elasticlunr.min.js"></script>
+        <script src="../mark.min.js"></script>
+        <script src="../searcher.js"></script>
+
+        <script src="../clipboard.min.js"></script>
+        <script src="../highlight.js"></script>
+        <script src="../book.js"></script>
+
+        <!-- Custom JS scripts -->
+        <script src="../mermaid.min.js"></script>
+        <script src="../mermaid-init.js"></script>
+
+
+    </div>
+    </body>
+</html>

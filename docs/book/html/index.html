@@ -1,0 +1,587 @@
+<!DOCTYPE HTML>
+<html lang="en" class="sidebar-visible no-js light">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>ZK Circuit Journey - Psy Protocol Complete Documentation</title>
+
+
+        <!-- Custom HTML head -->
+        
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff" />
+
+        <link rel="icon" href="favicon.svg">
+        <link rel="shortcut icon" href="favicon.png">
+        <link rel="stylesheet" href="css/variables.css">
+        <link rel="stylesheet" href="css/general.css">
+        <link rel="stylesheet" href="css/chrome.css">
+        <link rel="stylesheet" href="css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" href="highlight.css">
+        <link rel="stylesheet" href="tomorrow-night.css">
+        <link rel="stylesheet" href="ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+
+    </head>
+    <body>
+    <div id="body-container">
+        <!-- Provide site root to javascript -->
+        <script>
+            var path_to_root = "";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "light";
+        </script>
+
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                var theme = localStorage.getItem('mdbook-theme');
+                var sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            var theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            var html = document.querySelector('html');
+            html.classList.remove('no-js')
+            html.classList.remove('light')
+            html.classList.add(theme);
+            html.classList.add('js');
+        </script>
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            var html = document.querySelector('html');
+            var sidebar = null;
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+            }
+            html.classList.remove('sidebar-visible');
+            html.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <div class="sidebar-scrollbox">
+                <ol class="chapter"><li class="chapter-item expanded affix "><li class="part-title">Protocol Design</li><li class="chapter-item expanded "><a href="protocol/ZKCircuitJourney.html" class="active"><strong aria-hidden="true">1.</strong> ZK Circuit Journey</a></li><li class="chapter-item expanded "><a href="protocol/HORIZONTAL_SCALABILITY.html"><strong aria-hidden="true">2.</strong> Horizontal Scalability</a></li><li class="chapter-item expanded "><a href="protocol/UPSProofTree.html"><strong aria-hidden="true">3.</strong> UPS Proof Tree</a></li><li class="chapter-item expanded "><a href="protocol/NodeArchitecture.html"><strong aria-hidden="true">4.</strong> Node Architecture</a></li><li class="chapter-item expanded "><a href="protocol/RealmGUTAGadgets.html"><strong aria-hidden="true">5.</strong> Realm GUTA Gadgets</a></li><li class="chapter-item expanded "><a href="protocol/FullFlow.html"><strong aria-hidden="true">6.</strong> Full Flow</a></li><li class="chapter-item expanded "><a href="protocol/Circuits.html"><strong aria-hidden="true">7.</strong> Circuits</a></li><li class="chapter-item expanded "><a href="protocol/CoordinatorGadgets.html"><strong aria-hidden="true">8.</strong> Coordinator Gadgets</a></li><li class="chapter-item expanded "><a href="protocol/UPSGadgets.html"><strong aria-hidden="true">9.</strong> UPS Gadgets</a></li><li class="chapter-item expanded "><a href="protocol/Gadgets.html"><strong aria-hidden="true">10.</strong> Gadgets</a></li><li class="chapter-item expanded "><a href="protocol/ProvingJobs.html"><strong aria-hidden="true">11.</strong> Proving Jobs</a></li><li class="spacer"></li><li class="chapter-item expanded affix "><li class="part-title">Language Documentation</li><li class="chapter-item expanded "><a href="language/introduction.html"><strong aria-hidden="true">12.</strong> Introduction</a></li><li class="chapter-item expanded "><a href="language/before_we_begin.html"><strong aria-hidden="true">13.</strong> Before We Begin</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="language/setup_your_ide.html"><strong aria-hidden="true">13.1.</strong> Set up your IDE</a></li><li class="chapter-item expanded "><a href="language/setting_up_shell_completions.html"><strong aria-hidden="true">13.2.</strong> Set up Shell Completions</a></li></ol></li><li class="chapter-item expanded "><a href="language/hello_world.html"><strong aria-hidden="true">14.</strong> Hello, World!</a></li><li class="chapter-item expanded "><a href="language/basic_syntax.html"><strong aria-hidden="true">15.</strong> Basic Syntax</a></li><li class="chapter-item expanded "><a href="language/modules_and_visibility.html"><strong aria-hidden="true">16.</strong> Modules and Visibility</a></li><li class="chapter-item expanded "><a href="language/structs_and_impls.html"><strong aria-hidden="true">17.</strong> Structs and Implementations</a></li><li class="chapter-item expanded "><a href="language/traits_and_generics.html"><strong aria-hidden="true">18.</strong> Traits and Generics</a></li><li class="chapter-item expanded "><a href="language/storage_and_contracts.html"><strong aria-hidden="true">19.</strong> Storage and Contracts</a></li><li class="chapter-item expanded "><a href="language/control_flow.html"><strong aria-hidden="true">20.</strong> Control Flow</a></li><li class="chapter-item expanded "><a href="language/functions_and_closures.html"><strong aria-hidden="true">21.</strong> Functions and Closures</a></li><li class="chapter-item expanded "><a href="language/arrays_and_tuples.html"><strong aria-hidden="true">22.</strong> Arrays and Tuples</a></li><li class="chapter-item expanded "><a href="language/testing.html"><strong aria-hidden="true">23.</strong> Testing</a></li><li class="chapter-item expanded "><a href="language/dargo.html"><strong aria-hidden="true">24.</strong> Dargo</a></li><li class="spacer"></li><li class="chapter-item expanded affix "><li class="part-title">RPC Documentation</li><li class="chapter-item expanded "><a href="rpc/UserCli.html"><strong aria-hidden="true">25.</strong> User CLI RPC Methods</a></li><li class="chapter-item expanded "><a href="rpc/RealmRpc.html"><strong aria-hidden="true">26.</strong> Realm Edge RPC Methods</a></li><li class="chapter-item expanded "><a href="rpc/CoordinatorRpc.html"><strong aria-hidden="true">27.</strong> Coordinator Edge RPC Methods</a></li><li class="spacer"></li><li class="chapter-item expanded affix "><li class="part-title">Appendices</li><li class="chapter-item expanded "><a href="language/appendix_a_glossary.html"><strong aria-hidden="true">28.</strong> Glossary</a></li><li class="chapter-item expanded "><a href="language/appendix_b_reserved_keywords.html"><strong aria-hidden="true">29.</strong> Reserved Keywords</a></li><li class="chapter-item expanded "><a href="language/appendix_c_publications.html"><strong aria-hidden="true">30.</strong> Publications</a></li><li class="chapter-item expanded "><a href="language/appendix_d_contributing.html"><strong aria-hidden="true">31.</strong> Contributing</a></li><li class="chapter-item expanded "><a href="language/appendix_e_acknowledgements.html"><strong aria-hidden="true">32.</strong> Acknowledgements</a></li></ol>
+            </div>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky bordered">
+                    <div class="left-buttons">
+                        <button id="sidebar-toggle" class="icon-button" type="button" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </button>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">Psy Protocol Complete Documentation</h1>
+
+                    <div class="right-buttons">
+                        <a href="print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1 id="psy-zk-circuit-journey-tracing-proofs-and-assumptions"><a class="header" href="#psy-zk-circuit-journey-tracing-proofs-and-assumptions">Psy ZK Circuit Journey: Tracing Proofs and Assumptions</a></h1>
+<p>This document provides a detailed walkthrough of the Zero-Knowledge proof lifecycle in Psy, starting from a user's local actions to the final, globally verifiable block proof. We meticulously track what each circuit proves and, critically, the assumptions it makes and how those assumptions are discharged by subsequent circuits.</p>
+<p><strong>Goal:</strong> Illustrate the flow of cryptographic guarantees and the progressive reduction of trust assumptions, culminating in a block proof dependent only on the previous block's established state.</p>
+<p><strong>Key:</strong></p>
+<ul>
+<li><strong>Circuit:</strong> The specific ZK circuit being executed.</li>
+<li><strong>High-Level Purpose:</strong> <em>Why</em> this circuit exists in the overall architecture.</li>
+<li><strong>Proves (Technical Detail):</strong> Specific cryptographic guarantees and state relations enforced by the circuit's constraints.</li>
+<li><strong>How:</strong> Key gadgets, hashing, and constraint mechanisms employed.</li>
+<li><strong>Assumes <code>[A_]</code>:</strong> Inputs or states treated as correct <em>before</em> this circuit's verification.</li>
+<li><strong>Discharges <code>[R_]</code>:</strong> Assumptions remaining from <em>previous</em> steps that are <em>verified</em> by this circuit.</li>
+<li><strong>Remaining <code>[R_]</code>:</strong> Assumptions still held true <em>after</em> this circuit's verification, passed to the next stage.</li>
+</ul>
+<hr />
+<h3 id="phase-1-user-proving-session-ups---local-execution"><a class="header" href="#phase-1-user-proving-session-ups---local-execution">Phase 1: User Proving Session (UPS) - Local Execution</a></h3>
+<p><em>(User executes transactions and builds a local proof chain)</em></p>
+<p><strong>Step 1: Start Session</strong></p>
+<ul>
+<li><strong>Circuit:</strong> <code>UPSStartSessionCircuit</code></li>
+<li><strong>High-Level Purpose:</strong> To establish a cryptographically verified starting point for the user's transaction batch, ensuring it begins from a consistent and valid state relative to the last finalized global block. Prevents users from initiating proofs based on invalid or outdated personal states.</li>
+<li><strong>Proves:</strong>
+<ul>
+<li>The provided <code>UserProvingSessionHeader</code> witness (<code>ups_header</code>) contains an internally consistent <code>session_start_context</code> and <code>current_state</code>.</li>
+<li><code>session_start_context.checkpoint_tree_root</code> matches the root of the verified <code>checkpoint_tree_proof</code> witness.</li>
+<li><code>session_start_context.checkpoint_leaf_hash</code> matches the value of the <code>checkpoint_tree_proof</code>.</li>
+<li><code>session_start_context.checkpoint_id</code> matches the index of the <code>checkpoint_tree_proof</code>.</li>
+<li>The hash of the provided <code>checkpoint_leaf</code> witness matches <code>session_start_context.checkpoint_leaf_hash</code>.</li>
+<li>The hash of the provided <code>state_roots</code> witness (<code>global_chain_root</code>) matches <code>checkpoint_leaf.global_chain_root</code>.</li>
+<li><code>state_roots.user_tree_root</code> matches the root of the verified <code>user_tree_proof</code> witness.</li>
+<li><code>session_start_context.start_session_user_leaf.user_id</code> matches the index of the <code>user_tree_proof</code>.</li>
+<li>The hash of <code>session_start_context.start_session_user_leaf</code> matches the value of the <code>user_tree_proof</code>.</li>
+<li><code>current_state.user_leaf</code> matches <code>session_start_context.start_session_user_leaf</code> except <code>last_checkpoint_id</code> is updated to <code>session_start_context.checkpoint_id</code>.</li>
+<li><code>current_state.deferred_tx_debt_tree_root == EMPTY_TREE_ROOT</code>.</li>
+<li><code>current_state.inline_tx_debt_tree_root == EMPTY_TREE_ROOT</code>.</li>
+<li><code>current_state.tx_count == 0</code>.</li>
+<li><code>current_state.tx_hash_stack == ZERO_HASH</code>.</li>
+</ul>
+</li>
+<li><strong>How:</strong> <code>UPSStartStepGadget</code> uses <code>MerkleProofGadget</code>s to verify paths, <code>Psy...Leaf/RootsGadget</code>s to hash witnesses and check consistency, direct comparisons and constant checks. Public inputs calculated via <code>compute_tree_aware_proof_public_inputs</code>.</li>
+<li><strong>Assumes:</strong>
+<ul>
+<li><code>[A1.1]</code> The <em>root hash</em> used in witness Merkle proofs (<code>checkpoint_tree_root</code> in <code>ups_header.session_start_context</code>) accurately reflects the globally finalized state of the previous block.</li>
+<li><code>[A1.4]</code> The <em>constant</em> <code>empty_ups_proof_tree_root</code> used for the tree-aware public inputs is correct for this session's start.</li>
+<li><code>[A1.5]</code> The <em>constant</em> <code>ups_step_circuit_whitelist_root</code> embedded in the output header is the correct root for allowed UPS circuits.</li>
+<li>(Initial correctness of witness data like proofs and leaves is assumed, then verified internally).</li>
+</ul>
+</li>
+<li><strong>Discharges:</strong> Internal consistency checks discharge assumptions about the relationships <em>between</em> the provided witness components (e.g., leaf data matches proof value).</li>
+<li><strong>Remaining:</strong>
+<ul>
+<li><code>[R1.1]</code> = <code>[A1.1]</code> (Correctness of previous block's <code>CHKP</code> root).</li>
+<li><code>[R1.4]</code> = <code>[A1.4]</code> (Correctness of session's <code>empty_ups_proof_tree_root</code>).</li>
+<li><code>[R1.5]</code> = <code>[A1.5]</code> (Correctness of <code>ups_step_circuit_whitelist_root</code>).</li>
+</ul>
+</li>
+</ul>
+<p><strong>Step 1.5: Execute Contract Function Circuit (CFC)</strong></p>
+<ul>
+<li><strong>Circuit:</strong> <code>DapenContractFunctionCircuit</code> (Specific instance per function)</li>
+<li><strong>High-Level Purpose:</strong> To execute the specific smart contract logic defined by the developer for a single transaction call, locally generating a proof that <em>this execution instance</em> faithfully followed the code, given its specific inputs and assumed context. This decouples logic execution from state transition verification.</li>
+<li><strong>Proves:</strong>
+<ul>
+<li>The sequence of internal operations matches the compiled <code>DPNFunctionCircuitDefinition</code> (<code>fn_def</code>).</li>
+<li>Given the assumed <code>tx_ctx_header</code> witness (containing start states like <code>start_contract_state_tree_root</code>, <code>start_deferred_tx_debt_tree_root</code>, call arguments hash/length) and circuit <code>inputs</code>:
+<ul>
+<li>The simulated state commands (reads/writes to CST, debt tree interactions via <code>StateReaderGadget</code>) produce the <code>end_contract_state_tree_root</code> and <code>end_deferred_tx_debt_tree_root</code> recorded in <code>tx_ctx_header.transaction_end_ctx</code>.</li>
+<li>The computed <code>outputs_hash</code> and <code>outputs_length</code> match those recorded in <code>tx_ctx_header.transaction_end_ctx</code>.</li>
+<li>All <code>assertions</code> within the <code>fn_def</code> hold true.</li>
+</ul>
+</li>
+<li>The public inputs hash (combining <code>session_proof_tree_root</code> and <code>tx_ctx_header</code> hash) is correctly computed.</li>
+</ul>
+</li>
+<li><strong>How:</strong> <code>PsyContractFunctionBuilderGadget</code> interprets <code>fn_def</code>, simulating execution using <code>SimpleDPNBuilder</code> and <code>StateReaderGadget</code>. Connects computed vs witnessed values in <code>tx_ctx_header</code>.</li>
+<li><strong>Assumes:</strong>
+<ul>
+<li><code>[A1.5.1]</code> The <code>DapenContractFunctionCircuitInput</code> witness (esp. <code>tx_input_ctx</code>) accurately reflects the state <em>before</em> this CFC execution (derived from the previous UPS step's output) and the correct function inputs/outputs.</li>
+<li><code>[A1.5.3]</code> The <code>session_proof_tree_root</code> witness correctly represents the root of the user's recursive proof tree <em>at this point</em>.</li>
+</ul>
+</li>
+<li><strong>Discharges:</strong> Internal consistency of the execution trace vs. the code definition (<code>fn_def</code>).</li>
+<li><strong>Remaining:</strong>
+<ul>
+<li><code>[R1.5.1]</code> Correctness of the assumed <code>tx_input_ctx</code> (start state, inputs/outputs).</li>
+<li><code>[R1.5.3]</code> Correctness of the assumed <code>session_proof_tree_root</code>.</li>
+</ul>
+</li>
+<li><strong>Output:</strong> A CFC Proof object.</li>
+</ul>
+<p><strong>Step 2: Verify CFC &amp; Process UPS Delta</strong></p>
+<ul>
+<li><strong>Circuit:</strong> <code>UPSCFCStandardTransactionCircuit</code></li>
+<li><strong>High-Level Purpose:</strong> To integrate the result of a local CFC execution (Step 1.5) into the user's main proof chain. It verifies the CFC was executed correctly <em>and</em> that its claimed start/end states correctly link the previous UPS state to the next UPS state, while also proving the previous UPS step itself was valid.</li>
+<li><strong>Proves:</strong>
+<ul>
+<li><strong>Previous Step Validity:</strong> Proof N-1 was valid &amp; used a whitelisted UPS circuit (<code>[R(N-1).5]</code> discharged). Public inputs match header hash.</li>
+<li><strong>CFC Validity:</strong> CFC proof (from Step 1.5) is valid &amp; exists in the same UPS proof tree as Proof N-1 (<code>[R1.5.3]</code> discharged). CFC function is registered globally (<code>GCON</code>/<code>CFT</code> check linked via <code>[R(N-1).1]</code>).</li>
+<li><strong>Context Link:</strong> The <em>inner public inputs hash</em> from the verified CFC proof matches the hash of the <code>UPSCFCStandardStateDeltaInput</code> witness used to calculate state changes (<code>[R1.5.1]</code> discharged). This is the critical link ensuring the state delta matches the verified computation.</li>
+<li><strong>State Delta Correctness:</strong> The UPS header transition from step N-1 to N is valid:
+<ul>
+<li><code>UCON</code> root updated correctly based on <code>user_contract_tree_update_proof</code>.</li>
+<li>Debt tree roots updated correctly based on <code>deferred/inline_tx_debt_pivot_proof</code>s (starting from prev step's end state).</li>
+<li><code>tx_count</code> incremented; <code>tx_hash_stack</code> updated correctly.</li>
+</ul>
+</li>
+</ul>
+</li>
+<li><strong>How:</strong> <code>VerifyPreviousUPSStepProofInProofTreeGadget</code>, <code>UPSVerifyCFCStandardStepGadget</code> connects <code>cfc_inner_public_inputs_hash</code> between <code>UPSVerifyCFCProofExistsAndValidGadget</code> and <code>UPSCFCStandardStateDeltaGadget</code>. Delta/pivot proofs verified.</li>
+<li><strong>Assumes:</strong>
+<ul>
+<li><code>[A2.1]</code> Witness data for <em>this</em> step (attestations, state delta proofs) is correct initially.</li>
+<li><code>[R(N-1).1]</code> (Prev Step) Last block's <code>CHKP</code> root correctness (used for CFC inclusion context).</li>
+<li><code>[R(N-1).4]</code> (Prev Step) Session's <code>empty_ups_proof_tree_root</code> correctness (defines proof tree base).</li>
+</ul>
+</li>
+<li><strong>Discharges:</strong> <code>[R(N-1).5]</code> (Prev UPS whitelist), <code>[R1.5.1]</code> (CFC Context), <code>[R1.5.3]</code> (CFC Proof Tree Root).</li>
+<li><strong>Remaining:</strong>
+<ul>
+<li><code>[RN.1]</code> = <code>[R(N-1).1]</code> (Last block's <code>CHKP</code> root).</li>
+<li><code>[RN.4]</code> = <code>[R(N-1).4]</code> (Session's <code>empty_ups_proof_tree_root</code>).</li>
+<li><code>[RN.5]</code> (New) Current header's <code>ups_step_circuit_whitelist_root</code> correctness.</li>
+</ul>
+</li>
+</ul>
+<p><strong>(Repeat Step 1.5 &amp; 2, or deferred variant, for all user transactions)</strong></p>
+<p><strong>Step 3: End Session</strong></p>
+<ul>
+<li><strong>Circuit:</strong> <code>UPSStandardEndCapCircuit</code></li>
+<li><strong>High-Level Purpose:</strong> To securely conclude the user's local proving session, producing a single proof that attests to the validity of the entire sequence of transactions, authorized by the user's signature, and ready for network submission. It ensures the session ends in a clean state (no outstanding debts).</li>
+<li><strong>Proves:</strong>
+<ul>
+<li>Last UPS step proof valid &amp; used correct whitelisted circuit (<code>[R_Last.5]</code> discharged against <em>constant</em> <code>known_ups_circuit_whitelist_root</code>).</li>
+<li>ZK Signature proof valid &amp; in same proof tree (<code>[R_Last.4]</code> discharged).</li>
+<li>Signature corresponds to user's key &amp; authenticates <code>PsyUserProvingSessionSignatureDataCompact</code> derived from final UPS header state.</li>
+<li>Nonce incremented correctly.</li>
+<li><code>last_checkpoint_id</code> updated correctly in final <code>UserLeaf</code>.</li>
+<li>Final debt tree roots are empty.</li>
+<li><em>(Optional)</em> UPS proof tree aggregation used correct circuits (<code>known_proof_tree_circuit_whitelist_root</code>).</li>
+<li>Public Outputs (<code>end_cap_result_hash</code>, <code>guta_stats_hash</code>) correctly computed.</li>
+</ul>
+</li>
+<li><strong>How:</strong> <code>UPSEndCapFromProofTreeGadget</code> orchestrates verification of last step &amp; signature, <code>UPSEndCapCoreGadget</code> enforces final constraints. Optional <code>VerifyAggProofGadget</code>.</li>
+<li><strong>Assumes:</strong>
+<ul>
+<li><code>[A3.1]</code> Witness data correct initially.</li>
+<li><code>[A3.2]</code> Constant <code>known_ups_circuit_whitelist_root</code>.</li>
+<li><code>[A3.3]</code> Constant <code>known_proof_tree_circuit_whitelist_root</code> (if used).</li>
+<li><code>[R_Last.1]</code> (Last tx step) Correctness of <code>CHKP</code> root used as session basis.</li>
+</ul>
+</li>
+<li><strong>Discharges:</strong> <code>[R_Last.5]</code>, <code>[R_Last.4]</code>. Potentially UPS tree agg assumptions.</li>
+<li><strong>Remaining:</strong> <code>[R3.1]</code> = <code>[R_Last.1]</code> (Correctness of initial <code>CHKP</code> root).</li>
+</ul>
+<p><strong>Output of Phase 1:</strong> End Cap Proof + Public Inputs + State Deltas from user</p>
+<hr />
+<h3 id="phase-2-network-aggregation---parallel-execution-realms--coordinators"><a class="header" href="#phase-2-network-aggregation---parallel-execution-realms--coordinators">Phase 2: Network Aggregation - Parallel Execution (Realms &amp; Coordinators)</a></h3>
+<p><em>(The Proving Network receives End Cap proofs + state deltas from users and aggregate them to prove the change in the blockchain state root)</em></p>
+<p><strong>Step 4: Process End Cap Proof(s) (GUTA Entry - Realm)</strong></p>
+<ul>
+<li><strong>Circuit(s):</strong>
+<ul>
+<li><code>GUTAVerifySingleEndCapCircuit</code> (Handles a single End Cap, e.g., an odd leaf in aggregation)</li>
+<li><code>GUTAVerifyTwoEndCapCircuit</code> (Handles pairs of End Cap proofs, typical base case)</li>
+</ul>
+</li>
+<li><strong>High-Level Purpose:</strong> To securely ingest user End Cap proofs into the GUTA process, verify their validity against the protocol and historical state, and translate them into the standard <code>GlobalUserTreeAggregatorHeader</code> format needed for recursive aggregation.</li>
+<li><strong>Proves:</strong>
+<ul>
+<li>Input End Cap proof(s) (<code>proof_target</code>, <code>child_a/b_proof</code>) are valid ZK proofs.</li>
+<li>The End Cap proof(s) were generated by the official End Cap circuit (fingerprint checked against <code>known_end_cap_fingerprint</code>).</li>
+<li>The public inputs of the End Cap proof(s) correctly match the claimed result/stats (<code>end_cap_result</code>, <code>guta_stats</code>) provided as witness.</li>
+<li>The <code>checkpoint_tree_root</code> claimed by the user(s) existed historically in the <code>CHKP</code> tree (verified via <code>checkpoint_historical_merkle_proof</code>).</li>
+<li><em>(For TwoEndCap):</em> The Nearest Common Ancestor (NCA) logic correctly combines the two individual user state transitions (<code>start_leaf</code> -&gt; <code>end_leaf</code> at user indices) into a single state transition at their parent node in the <code>GUSR</code> tree. Statistics are correctly summed.</li>
+<li>Outputs a <code>GlobalUserTreeAggregatorHeader</code> representing the state transition for the node processed (either a single user leaf or the NCA parent) and the combined stats.</li>
+</ul>
+</li>
+<li><strong>How:</strong>
+<ul>
+<li><code>VerifyEndCapProofGadget</code>: Used internally (once or twice) to perform core End Cap proof verification, fingerprint check, public input matching, and historical checkpoint validation.</li>
+<li><code>TwoNCAStateTransitionGadget</code> (in <code>GUTAVerifyTwoEndCapCircuit</code>): Combines the two <code>GUSR</code> leaf transitions (derived from End Cap results) using an NCA proof witness.</li>
+<li><code>GUTAStatsGadget.combine_with</code>: Sums stats (in <code>GUTAVerifyTwoEndCapCircuit</code>).</li>
+<li>Constructs the output <code>GlobalUserTreeAggregatorHeader</code>.</li>
+</ul>
+</li>
+<li><strong>Assumes:</strong>
+<ul>
+<li><code>[A4.1]</code> Witness data (End Cap proof(s), results, stats, historical proofs, NCA proof if applicable) is correct initially.</li>
+<li><code>[A4.2]</code> Constant <code>known_end_cap_fingerprint_hash</code> is correct.</li>
+<li><code>[A4.3]</code> Public Input <code>guta_circuit_whitelist_root_hash</code> is correct.</li>
+<li><code>[R3.1]</code> (Implicit in End Cap) User session(s) based on valid past <code>CHKP</code> root.</li>
+</ul>
+</li>
+<li><strong>Discharges:</strong>
+<ul>
+<li><code>[R3.1]</code> (via <code>VerifyEndCapProofGadget</code>'s historical proof check).</li>
+<li>Validity of the input End Cap proof(s).</li>
+</ul>
+</li>
+<li><strong>Remaining:</strong>
+<ul>
+<li><code>[R4.1]</code> (New) Correctness of the <em>current block's</em> <code>checkpoint_tree_root</code> (established by <code>checkpoint_historical_merkle_proof.current_root</code> and passed consistently upwards).</li>
+<li><code>[R4.3]</code> = <code>[A4.3]</code> (Correctness of <code>guta_circuit_whitelist</code> root).</li>
+</ul>
+</li>
+</ul>
+<p><strong>Step 5: Aggregate GUTA Proofs (Recursive - Realm/Coordinator)</strong></p>
+<ul>
+<li><strong>Circuit(s):</strong>
+<ul>
+<li><code>GUTAVerifyTwoGUTACircuit</code> (Aggregates two GUTA sub-proofs)</li>
+<li><code>GUTAVerifyLeftGUTARightEndCapCircuit</code> (Aggregates GUTA sub-proof and a new End Cap proof)</li>
+<li><code>GUTAVerifyLeftEndCapRightGUTACircuit</code> (Aggregates an End Cap proof and a GUTA sub-proof)</li>
+</ul>
+</li>
+<li><strong>High-Level Purpose:</strong> To recursively combine verified state transitions within the GUTA hierarchy. These circuits take proofs representing changes in subtrees (either previous GUTA aggregations or newly processed End Caps) and merge them into a proof for the parent node, typically using NCA logic.</li>
+<li><strong>Proves:</strong>
+<ul>
+<li>Both input proofs (Type A and Type B, where Type can be GUTA or EndCap) are valid ZK proofs.</li>
+<li>Input Proof A (if GUTA) used a whitelisted GUTA circuit (<code>[R(A).3]</code> discharged via <code>VerifyGUTAProofGadget</code>).</li>
+<li>Input Proof A (if EndCap) used the whitelisted EndCap circuit (<code>[A5.EndCapFingerprint]</code> check via <code>VerifyEndCapProofGadget</code>).</li>
+<li>Input Proof B processed similarly (<code>[R(B).3]</code> or <code>[A5.EndCapFingerprint]</code> discharged).</li>
+<li>Both input proofs' headers/results reference the <em>same</em> <code>checkpoint_tree_root</code> (<code>[R(A).1]</code> and <code>[R(B).1]</code> verified to be equal, discharging one, remaining <code>[RN.1]</code>).</li>
+<li>Both input proofs' headers reference the <em>same</em> <code>guta_circuit_whitelist</code> root (<code>[R(A).3]</code> and <code>[R(B).3]</code> verified to be equal, discharging one, remaining <code>[RN.3]</code>).</li>
+<li>Public inputs of each input proof match their respective headers/results.</li>
+<li>The NCA logic (<code>TwoNCAStateTransitionGadget</code>) correctly combines the state transitions (<code>SubTreeNodeStateTransition</code> from input GUTA headers or derived from EndCap results) based on the NCA proof witness.</li>
+<li>Statistics are correctly summed (<code>GUTAStatsGadget.combine_with</code>).</li>
+<li>Outputs a <code>GlobalUserTreeAggregatorHeader</code> for the parent NCA node.</li>
+</ul>
+</li>
+<li><strong>How:</strong>
+<ul>
+<li><code>VerifyGUTAProofGadget</code> (for GUTA inputs).</li>
+<li><code>VerifyEndCapProofGadget</code> (for EndCap inputs).</li>
+<li><code>TwoNCAStateTransitionGadget</code>: Core aggregation logic using NCA proof witness.</li>
+<li>Connections ensuring consistency of <code>checkpoint_tree_root</code> and <code>guta_circuit_whitelist</code> between inputs.</li>
+</ul>
+</li>
+<li><strong>Assumes:</strong>
+<ul>
+<li><code>[A5.1]</code> Witness data (input proofs, headers/results, whitelist proofs, NCA proof) correct initially.</li>
+<li><code>[A5.EndCapFingerprint]</code> Constant <code>known_end_cap_fingerprint_hash</code> (if applicable).</li>
+<li><code>[R(A).1]</code>, <code>[R(B).1]</code> (from inputs) <code>CHKP</code> root correctness.</li>
+<li><code>[R(A).3]</code>, <code>[R(B).3]</code> (from inputs) <code>GUTA whitelist</code> correctness.</li>
+</ul>
+</li>
+<li><strong>Discharges:</strong> Validity/consistency of input proofs, their whitelist usage (<code>[R(A/B).3]</code>), and consistency of their assumed <code>CHKP</code> roots (<code>[R(A).1]</code> confirmed equal to <code>[R(B).1]</code>).</li>
+<li><strong>Remaining:</strong>
+<ul>
+<li><code>[RN.1]</code> = <code>[R(A).1]</code> (Common <code>CHKP</code> root correctness).</li>
+<li><code>[RN.3]</code> = <code>[R(A).3]</code> (Common <code>GUTA whitelist</code> correctness).</li>
+</ul>
+</li>
+</ul>
+<p><strong>Step 5.5: Propagate GUTA Proof Upwards (Line Proof)</strong></p>
+<ul>
+<li><strong>Circuit:</strong> <code>GUTAVerifyGUTAToCapCircuit</code> (May be used within Realm or by Coordinator)</li>
+<li><strong>High-Level Purpose:</strong> To efficiently propagate a verified state transition from a lower node up a direct path in the tree (where no merging is needed) to a higher level (e.g., the Realm root or the global root).</li>
+<li><strong>Proves:</strong>
+<ul>
+<li>The input GUTA proof is valid and used a whitelisted GUTA circuit (<code>[R_In.3]</code> discharged).</li>
+<li>The input proof references the correct <code>CHKP</code> root (<code>[R_In.1]</code>).</li>
+<li>The state transition is correctly recalculated from the input proof's node level up to the target level (e.g., level 0) using the provided <code>top_line_siblings</code> witness.</li>
+<li>Outputs a <code>GlobalUserTreeAggregatorHeader</code> with the state transition reflecting the change at the target level.</li>
+</ul>
+</li>
+<li><strong>How:</strong> <code>VerifyGUTAProofToLineGadget</code> (uses <code>VerifyGUTAProofGadget</code> and <code>GUTAHeaderLineProofGadget</code> which uses <code>SubTreeNodeTopLineGadget</code>).</li>
+<li><strong>Assumes:</strong>
+<ul>
+<li><code>[A5.5.1]</code> Witness data (input proof, header, whitelist proof, <code>top_line_siblings</code>) correct initially.</li>
+<li><code>[R_In.1]</code>, <code>[R_In.3]</code> (from input proof).</li>
+</ul>
+</li>
+<li><strong>Discharges:</strong> <code>[R_In.3]</code> (GUTA whitelist). Validity of input proof relative to <code>[R_In.1]</code>.</li>
+<li><strong>Remaining:</strong>
+<ul>
+<li><code>[R5.5.1]</code> = <code>[R_In.1]</code> (Common <code>CHKP</code> root correctness).</li>
+<li><code>[R5.5.3]</code> = <code>[R_In.3]</code> (Common <code>GUTA whitelist</code> correctness).</li>
+</ul>
+</li>
+</ul>
+<p><strong>(Steps 5/5.5 repeat recursively until Realm roots are reached)</strong></p>
+<p><strong>Step 5.N: Handle No GUTA Changes</strong></p>
+<ul>
+<li><strong>Circuit:</strong> <code>GUTANoChangeCircuit</code></li>
+<li><strong>High-Level Purpose:</strong> To allow the aggregation process to incorporate the latest checkpoint root even if no user activity (relevant to GUTA) occurred in a particular block or subtree. Maintains checkpoint consistency across the aggregation structure.</li>
+<li><strong>Proves:</strong>
+<ul>
+<li>A specific <code>checkpoint_leaf</code> exists in the <code>checkpoint_tree</code> at the <em>previous</em> <code>checkpoint_id</code>.</li>
+<li>The <code>GUSR</code> root remained unchanged between the previous and current checkpoint (<code>new_guta_header.state_transition</code> shows <code>old_node_value == new_node_value</code> at level 0).</li>
+<li>Statistics are zero.</li>
+<li>Outputs a <code>GlobalUserTreeAggregatorHeader</code> referencing the <em>current</em> <code>checkpoint_tree_root</code> but indicating no <code>GUSR</code> change.</li>
+</ul>
+</li>
+<li><strong>How:</strong> <code>GUTANoChangeGadget</code> (uses <code>MerkleProofGadget</code> for checkpoint proof, constructs no-op transition).</li>
+<li><strong>Assumes:</strong>
+<ul>
+<li><code>[A5.N.1]</code> Witness data correct initially.</li>
+<li><code>[A5.N.3]</code> Public Input <code>guta_circuit_whitelist</code> root is correct.</li>
+</ul>
+</li>
+<li><strong>Discharges:</strong> Internal consistency of checkpoint proof/leaf.</li>
+<li><strong>Remaining:</strong>
+<ul>
+<li><code>[R5.N.1]</code> (New) Correctness of the <em>current</em> <code>checkpoint_tree_root</code> (from the witness proof).</li>
+<li><code>[R5.N.3]</code> = <code>[A5.N.3]</code> (GUTA whitelist correctness).</li>
+</ul>
+</li>
+</ul>
+<p><strong>Output of Phase 2:</strong> Aggregated GUTA proof(s) from each active Realm (or a NoChange proof), valid relative to <code>[R_Realm.1]</code> and <code>[R_Realm.3]</code>.</p>
+<hr />
+<h3 id="phase-3-coordinator-level-aggregation---network-execution"><a class="header" href="#phase-3-coordinator-level-aggregation---network-execution">Phase 3: Coordinator Level Aggregation - Network Execution</a></h3>
+<p><em>(Coordinator combines proofs from Realms and global tree updates)</em></p>
+<p><strong>Step 6: Process User Registrations</strong></p>
+<ul>
+<li><strong>Circuit:</strong> <code>BatchAppendUserRegistrationTreeCircuit</code></li>
+<li><strong>Proves:</strong> Correct batch append to <code>URT</code> (output root valid given input root <code>[A6.3]</code>). Respects <code>register_users_circuit_whitelist</code> (<code>[A6.2]</code>).</li>
+<li><strong>Assumes:</strong> <code>[A6.x]</code> (Witness, whitelist, input <code>URT</code> root).</li>
+<li><strong>Discharges:</strong> Internal append proof consistency.</li>
+<li><strong>Remaining:</strong> <code>[R6.2]</code> (Whitelist), <code>[R6.3]</code> (Input <code>URT</code> root correctness).</li>
+</ul>
+<p><strong>Step 7: Process Contract Deployments</strong></p>
+<ul>
+<li><strong>Circuit:</strong> <code>BatchDeployContractsCircuit</code></li>
+<li><strong>Proves:</strong> Correct batch append to <code>GCON</code> (output root valid given input root <code>[A7.3]</code>). Witness leaves match hashes. Respects <code>deploy_contract_circuit_whitelist</code> (<code>[A7.2]</code>).</li>
+<li><strong>How:</strong> <code>BatchDeployContractsGadget</code>.</li>
+<li><strong>Assumes:</strong> <code>[A7.x]</code> (Witness, whitelist, input <code>GCON</code> root).</li>
+<li><strong>Discharges:</strong> Internal append/leaf consistency.</li>
+<li><strong>Remaining:</strong> <code>[R7.2]</code> (Whitelist), <code>[R7.3]</code> (Input <code>GCON</code> root correctness).</li>
+</ul>
+<p><strong>Step 8: Aggregate Part 1 (Combine UserReg + Deploy + GUTA)</strong></p>
+<ul>
+<li><strong>Circuit:</strong> <code>VerifyAggUserRegistartionDeployContractsGUTACircuit</code></li>
+<li><strong>Proves:</strong> Input proofs (Agg UserReg, Agg Deploy, Agg GUTA) valid &amp; used respective whitelisted circuits (<code>[R6.2]</code>, <code>[R7.2]</code>, <code>[R_GUTA.3]</code> discharged). All inputs based on same <code>CHKP</code> root (<code>[R_GUTA.1]</code> verified across inputs). Output header correctly combines state transitions.</li>
+<li><strong>How:</strong> <code>VerifyAggUserRegistartionDeployContractsGUTAGadget</code>.</li>
+<li><strong>Assumes:</strong>
+<ul>
+<li><code>[A8.1]</code> Witness data correct initially.</li>
+<li><code>[R_GUTA.1]</code> (Implicit common <code>CHKP</code> root from inputs).</li>
+<li><code>[R6.3]</code> (Input <code>URT</code> root correctness).</li>
+<li><code>[R7.3]</code> (Input <code>GCON</code> root correctness).</li>
+</ul>
+</li>
+<li><strong>Discharges:</strong> Whitelists (<code>[R6.2]</code>, <code>[R7.2]</code>, <code>[R_GUTA.3]</code>). Input proof validity. Consistency of <code>CHKP</code> root <code>[R_GUTA.1]</code>.</li>
+<li><strong>Remaining:</strong>
+<ul>
+<li><code>[R8.1]</code> = <code>[R_GUTA.1]</code> (<code>CHKP</code> root correctness).</li>
+<li><code>[R8.3]</code> = <code>[R6.3]</code> (Input <code>URT</code> root correctness).</li>
+<li><code>[R8.4]</code> = <code>[R7.3]</code> (Input <code>GCON</code> root correctness).</li>
+</ul>
+</li>
+</ul>
+<p><strong>Output of Phase 3:</strong> Single &quot;Part 1&quot; proof, valid relative to <code>[R8.1]</code>, <code>[R8.3]</code>, <code>[R8.4]</code>.</p>
+<hr />
+<h3 id="phase-4-final-block-proof---network-execution"><a class="header" href="#phase-4-final-block-proof---network-execution">Phase 4: Final Block Proof - Network Execution</a></h3>
+<p><strong>Step 9: Final Block Transition</strong></p>
+<ul>
+<li><strong>Circuit:</strong> <code>PsyCheckpointStateTransitionCircuit</code></li>
+<li><strong>High-Level Purpose:</strong> To generate the definitive proof for the block, verifying all aggregated work and cryptographically linking the block to its predecessor, thereby discharging all temporary assumptions made during parallel processing.</li>
+<li><strong>Proves:</strong>
+<ul>
+<li>Part 1 Agg proof (Step 8) valid &amp; used correct circuit.</li>
+<li>New <code>CHKP</code> Leaf computed correctly from Part 1 outputs (new global roots for <code>URT</code> (<code>[R8.3]</code> discharged), <code>GCON</code> (<code>[R8.4]</code> discharged), <code>GUSR</code>), stats, time, randomness.</li>
+<li><code>CHKP</code> tree append operation correct, transitioning from <code>previous_checkpoint_proof.root</code> (<code>[R8.1]</code>) to <code>new_checkpoint_tree_root</code>.</li>
+<li><strong>Final Chain Link:</strong> <code>previous_checkpoint_proof.root</code> matches the <strong>Public Input</strong> <code>previous_block_chkp_root</code>.</li>
+</ul>
+</li>
+<li><strong>How:</strong> <code>CheckpointStateTransitionChildProofsGadget</code>, <code>CheckpointStateTransitionCoreGadget</code>.</li>
+<li><strong>Assumes:</strong>
+<ul>
+<li><code>[A9.1]</code> Witness data correct initially.</li>
+<li><code>[A9.2]</code> <strong>Public Input <code>previous_block_chkp_root</code> == previous block's finalized <code>CHKP</code> root.</strong></li>
+</ul>
+</li>
+<li><strong>Discharges:</strong> <code>[R8.1]</code> (<code>CHKP</code> root correctness discharged against public input <code>[A9.2]</code>). <code>[R8.3]</code> (<code>URT</code> root correctness), <code>[R8.4]</code> (<code>GCON</code> root correctness) implicitly discharged by relying on the verified Part 1 proof output.</li>
+<li><strong>Remaining Assumptions:</strong> <strong>None</strong>.</li>
+</ul>
+<p><strong>Output:</strong> Final Block Proof. Its verification confirms the entire block's state transition is valid, contingent only on the validity of the previous block's state hash (<code>[A9.2]</code>) and ZKP soundness.</p>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+
+                            <a rel="next" href="protocol/HORIZONTAL_SCALABILITY.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+
+                    <a rel="next" href="protocol/HORIZONTAL_SCALABILITY.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+            </nav>
+
+        </div>
+
+        <!-- Livereload script (if served using the cli tool) -->
+        <script>
+            const wsProtocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsAddress = wsProtocol + "//" + location.host + "/" + "__livereload";
+            const socket = new WebSocket(wsAddress);
+            socket.onmessage = function (event) {
+                if (event.data === "reload") {
+                    socket.close();
+                    location.reload();
+                }
+            };
+
+            window.onbeforeunload = function() {
+                socket.close();
+            }
+        </script>
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="elasticlunr.min.js"></script>
+        <script src="mark.min.js"></script>
+        <script src="searcher.js"></script>
+
+        <script src="clipboard.min.js"></script>
+        <script src="highlight.js"></script>
+        <script src="book.js"></script>
+
+        <!-- Custom JS scripts -->
+        <script src="mermaid.min.js"></script>
+        <script src="mermaid-init.js"></script>
+
+
+    </div>
+    </body>
+</html>
