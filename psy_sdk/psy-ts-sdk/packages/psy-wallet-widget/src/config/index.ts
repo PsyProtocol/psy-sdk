@@ -1,5 +1,5 @@
 import React from 'react';
-import * as rootConfig from '../../../../../config.json';
+import * as rootConfig from '../../../../../../config.json';
 import { PsyJSON } from '@psy/psy-sdk';
 
 // Configuration interfaces

@@ -8,8 +8,8 @@ import {
     RpcConfig,
 } from "@psy/psy-sdk";
 
-import { PsyUserWalletProvider } from "@psy/psy-sdk/src/wallet/provider";
-import { PsyMemoryTransactionSignerProvider } from "@psy/psy-sdk/src/zksigner/memory/provider";
+import { PsyUserWalletProvider } from "@psy/psy-sdk";
+import { PsyMemoryTransactionSignerProvider } from "@psy/psy-sdk";
 
 function createMemoryWalletProvider(
     globalUserTreeHeight: number,
@@ -18,7 +18,7 @@ function createMemoryWalletProvider(
     realmRpcConfigs: RpcConfig[],
     userPerRealm: number,
     proverUrl?: string,
-    prove_proxy_url: string[],
+    prove_proxy_url?: string[],
 ): PsyUserWalletProvider {
     const networkId = "regtest";
     const coordinator_rpc = new MultiCoordinatorRpcProvider(coordinatorRpcConfigs);
@@ -34,7 +34,7 @@ function createMemoryWalletProvider(
             users_per_realm: userPerRealm,
             realm_configs: realmRpcConfigs,
             coordinator_configs: coordinatorRpcConfigs,
-            prove_proxy_url: prove_proxy_url,
+            prove_proxy_url: prove_proxy_url!,
         });
     }
 

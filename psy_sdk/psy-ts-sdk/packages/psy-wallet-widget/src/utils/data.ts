@@ -6,7 +6,7 @@ const fetchBlockNumber = async (walletProvider: PsyUserWalletProvider) => {
     try {
         console.log("Fetching latest block state from coordinator...");
         const latestBlockState = await walletProvider.coordinatorEdgeRpcProvider.getLatestBlockState();
-        console.log("Latest block state:", PsyJSON.stringify(latestBlockState, null, 2));
+        console.log("Latest block state:", PsyJSON.stringify(latestBlockState, 2));
         if (latestBlockState) {
             return Number(latestBlockState.checkpoint_id);
         }

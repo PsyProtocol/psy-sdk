@@ -687,8 +687,8 @@ image:
 		-f Dockerfile .
 
 wasm-build:
-	@cd psy_prover && wasm-pack build --target web --out-dir ../psy-ts-sdk/packages/psy-sdk/src/local-web-prover --no-pack --release --no-default-features
-	@cd psy_prover && wasm-pack build --target nodejs --out-dir ../psy-ts-sdk/packages/psy-sdk/src/local-prover  --no-pack --release --no-default-features
+	@cd psy_prover && wasm-pack build --target web --out-dir ../psy_sdk/psy-ts-sdk/packages/psy-sdk/src/local-web-prover --no-pack --release --no-default-features
+	@cd psy_prover && wasm-pack build --target nodejs --out-dir ../psy_sdk/psy-ts-sdk/packages/psy-sdk/src/local-prover  --no-pack --release --no-default-features
 
 wallet-build: wasm-build
 	@cd psy_sdk/psy-ts-sdk/app/psy-wallet && pnpm i && pnpm build:wasm && pnpm build:extension

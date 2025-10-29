@@ -120,7 +120,7 @@ const useWalletState = create<IWalletStateStore>((set, get, api) => {
         config.network.realm_configs, // realm
         config.network.users_per_realm,
         config.network.prover_url, // prover
-        config.network.prove_proxy_url,
+        config.network.prove_proxy_url ? [config.network.prove_proxy_url] : undefined,
     );
 
     return {
@@ -240,7 +240,7 @@ const useWalletState = create<IWalletStateStore>((set, get, api) => {
                 const userInfo = await wallet.wallet.getUserInfo();
 
                 const wallets = state.wallets.map((w) => {
-                    if (w.wallet.statue && w.userId === wallet.userId) {
+                    if (w.wallet.status && w.userId === wallet.userId) {
                         return { ...userInfo, name: userInfo.userId.toString(), address: userInfo.publicKeyHex, wallet: wallet.wallet };
                     } else {
                         return w;
