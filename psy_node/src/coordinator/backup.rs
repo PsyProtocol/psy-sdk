@@ -44,7 +44,7 @@ impl CoordinatorS3BackupClient {
     }
 
     pub async fn new_from_env() -> Result<Self> {
-        let bucket = std::env::var("Psy_BACKUP_BUCKET").context("Psy_BACKUP_BUCKET environment variable not set")?;
+        let bucket = std::env::var("PSY_BACKUP_BUCKET").context("PSY_BACKUP_BUCKET environment variable not set")?;
         Self::new(bucket).await
     }
 

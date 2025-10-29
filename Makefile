@@ -2,13 +2,13 @@ export DARGO_STD_PATH := $(PWD)/psy_compiler/psy-std/std.psy
 export SQLX_OFFLINE=true
 
 PROFILE := release
-LOG_LEVEL := psy_node_utils=trace,tikv_client=warn,psy_store=trace,psy_user_cli=debug,psy_dev_cli=debug,psy_services=info,psy_node_cli=debug,psy_node=trace,psy_common_circuit=trace,psy_network_circuit=trace,psy_prover=trace,psy_data=trace,plonky2=error
+LOG_LEVEL := psy_ups_circuit=trace,psy_dpn_circuit=trace,tikv_client=warn,psy_store=trace,psy_user_cli=debug,psy_dev_cli=debug,psy_services=info,psy_node_cli=debug,psy_node=trace,psy_common_circuit=trace,psy_network_circuit=trace,psy_prover=trace,psy_data=trace,plonky2=error
 
 
 BACKUP ?= false
 ifeq ($(BACKUP),true)
 	# you must set aws credentials and config in under ~/.aws folder or in environment variables if you want to enable backup
-	export Psy_BACKUP_BUCKET=psy-backup
+	export PSY_BACKUP_BUCKET=psy-backup
 endif
 
 default: build wallet-build
