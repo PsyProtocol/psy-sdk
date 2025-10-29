@@ -7,10 +7,10 @@ use psy_data::{
     config::store_config::{PsyHasher, C, D},
     qblock::cmds::register_user::QBCRegisterUser,
 };
-use psy_vm::vm::exec::PsyEvalSessionResult;
 use psy_package::Workspace;
 use psy_prover::session::gen_contract_deploy_and_circuits_for_functions;
 use psy_store::prepare_environment_with_real_contract;
+use psy_vm::vm::exec::PsyEvalSessionResult;
 
 use crate::cli::{
     compile_cmd::{compile_workspace_full, CompileOptions},

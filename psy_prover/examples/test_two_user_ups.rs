@@ -10,7 +10,7 @@ use plonky2::{
 };
 use psy_common_circuit::circuits::{traits::qstandard::QStandardCircuit, zk_signature3::manager::SimplePsyZKSignatureManager};
 use psy_core::{
-    config::network_constants::{PSY_NETWORK_MAGIC_REGTEST, GLOBAL_USER_TREE_HEIGHT, UPS_SESSION_PROOF_TREE_HEIGHT},
+    config::network_constants::{GLOBAL_USER_TREE_HEIGHT, PSY_NETWORK_MAGIC_REGTEST, UPS_SESSION_PROOF_TREE_HEIGHT},
     data::qhashout::QHashOut,
     ups::circuits::{LocalCircuitId, LocalCircuitType},
     utils::debug_timer::DebugTimer,
@@ -29,15 +29,15 @@ use psy_data::{
     qstore::controllers::{proving_session::PsyLocalProvingSessionStore, session_info::SessionCircuitInfoStore},
     traits::qdatastore::{qmetadata::QMetaDataStoreReaderSync, qtreedata::PsyComboDataStoreReaderWriterSync},
 };
-use psy_network_circuit::guta::guta_helper::PsyGUTACircuitManager;
 use psy_dpn_circuit::circuits::cfc::DapenContractFunctionCircuit;
+use psy_network_circuit::guta::guta_helper::PsyGUTACircuitManager;
 use psy_prover::local::simple::SimpleAPI;
+use psy_rust_sdk::provider::UPSCircuitManagerTrait;
+use psy_store::{node::coordinator::PsyCoordinatorStoreWriterAsyncImm, prepare_environment_with_real_contract};
 use psy_ups_circuit::{
     circuit_manager::core::{PsyUPSStepCircuitManager, QCircuitManager},
     session::UserProvingSessionManager,
 };
-use psy_rust_sdk::provider::UPSCircuitManagerTrait;
-use psy_store::{node::coordinator::PsyCoordinatorStoreWriterAsyncImm, prepare_environment_with_real_contract};
 use psy_vm::dpn::{
     ops::{context_trait::DPNContext, exec_context::QExecContext, sym_felt::SymFeltRef},
     vm::{compile::PsyCompileResult, def::DPNFunctionCircuitDefinition},

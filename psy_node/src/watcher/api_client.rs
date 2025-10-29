@@ -1,10 +1,10 @@
 use anyhow::Result;
 use chrono::{DateTime, Utc};
+use psy_core::job::id::QProvingJobDataID;
 use psy_services::{
     handlers::{TelemetryPayload, TelemetryResponse},
     models::{UserEvent, UserEventTxType, WorkerEvent, WorkerEventSource, WorkerEventStatus},
 };
-use psy_core::job::id::QProvingJobDataID;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};

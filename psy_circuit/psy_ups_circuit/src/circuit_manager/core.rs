@@ -46,19 +46,17 @@ use psy_data::{
         ups_end_cap::UPSEndCapFromProofTreeGadgetInput,
     },
 };
-use psy_vm::vm::cfc_input::DapenContractFunctionCircuitInput;
+use psy_dpn_circuit::circuits::cfc::DapenContractFunctionCircuit;
 use psy_network_circuit::ups::circuits::{
     end_cap::UPSStandardEndCapCircuit, ups_cfc_deferred_tx::UPSCFCDeferredTransactionCircuit, ups_cfc_standard::UPSCFCStandardTransactionCircuit,
     ups_start::UPSStartSessionCircuit,
 };
-use psy_vm::dpn::contract::cfc_code_definition_to_dapen_fc;
-use serde::Serialize;
 use psy_rust_sdk::{
     provider::{ProveProxyRpcProvider, UPSCircuitManagerTrait},
     request::QAggProofRecord,
 };
-
-use psy_dpn_circuit::circuits::cfc::DapenContractFunctionCircuit;
+use psy_vm::{dpn::contract::cfc_code_definition_to_dapen_fc, vm::cfc_input::DapenContractFunctionCircuitInput};
+use serde::Serialize;
 
 #[derive(Debug)]
 pub struct PsyUPSStepCircuitManager<C: GenericConfig<D> + 'static, const D: usize>
@@ -351,7 +349,10 @@ where
         self.secp_circuit.prove(&signature)
     }
 
-    async fn register_software_defined_circuit(&self, input: psy_rust_sdk::wallet::software_defined_circuit::SoftwareDefinedSignatureInput) -> anyhow::Result<QHashOut<C::F>> {
+    async fn register_software_defined_circuit(
+        &self,
+        input: psy_rust_sdk::wallet::software_defined_circuit::SoftwareDefinedSignatureInput,
+    ) -> anyhow::Result<QHashOut<C::F>> {
         unimplemented!("register_software_defined_circuit");
     }
 
@@ -777,7 +778,10 @@ where
         }
     }
 
-    async fn register_software_defined_circuit(&self, input: psy_rust_sdk::wallet::software_defined_circuit::SoftwareDefinedSignatureInput) -> anyhow::Result<QHashOut<C::F>> {
+    async fn register_software_defined_circuit(
+        &self,
+        input: psy_rust_sdk::wallet::software_defined_circuit::SoftwareDefinedSignatureInput,
+    ) -> anyhow::Result<QHashOut<C::F>> {
         match self {
             QCircuitManager::Local(_) => unreachable!(),
             QCircuitManager::Rpc(provider) => provider.register_software_defined_circuit(input).await,

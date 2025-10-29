@@ -12,9 +12,9 @@ use plonky2::{field::goldilocks_field::GoldilocksField, plonk::config::PoseidonG
 use psy_core::data::qhashout::QHashOut;
 use psy_crypto::signature::zk::data::ZKPublicKeyInfo;
 use psy_data::qblock::cmds::deploy_contract::QBCDeployContract;
+use psy_rust_sdk::provider::RpcProvider;
 use psy_vm::dpn::vm::def::DPNFunctionCircuitDefinition;
 use tokio::time::timeout;
-use psy_rust_sdk::provider::RpcProvider;
 
 use crate::{
     local::{args::ContractCallArgs, store::UserProverWorkerStore},

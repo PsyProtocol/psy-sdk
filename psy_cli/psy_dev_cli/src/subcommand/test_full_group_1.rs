@@ -2,6 +2,7 @@ use std::sync::Arc;
 // use psy_user_cli::subcommand::lps::run_local;
 // use reth_libmdbx::{Environment, EnvironmentFlags, Geometry, Mode, PageSize, SyncMode, RW};
 use std::{path::PathBuf, time::Duration};
+
 use fred::prelude::*;
 use plonky2::{
     field::{goldilocks_field::GoldilocksField, types::Field},
@@ -12,6 +13,7 @@ use psy_core::{
     config::network_constants::{PSY_NETWORK_MAGIC_REGTEST, UPS_SESSION_PROOF_TREE_HEIGHT},
     data::qhashout::QHashOut,
     job::traits::{QProofStoreAsyncImm, QProofStoreReaderAsync},
+    ups::circuits::LocalCircuitType,
     utils::debug_timer::DebugTimer,
 };
 use psy_crypto::{
@@ -41,12 +43,7 @@ use psy_node::{
     },
     worker::{simple_async_coord::SimpleAsyncCoordinatorWorker, simple_async_realm::SimpleAsyncRealmWorker},
 };
-use psy_ups_circuit::{
-    circuit_manager::core::{PsyUPSStepCircuitManager, QCircuitManager},
-    session::UserProvingSessionManager,
-};
 use psy_rust_sdk::provider::UPSCircuitManagerTrait;
-use psy_core::ups::circuits::LocalCircuitType;
 use psy_store::{
     node::coordinator::{PsyCoordinatorStoreReaderAsync, PsyCoordinatorStoreWriterAsyncImm},
     queue::{
@@ -55,6 +52,11 @@ use psy_store::{
     },
     store::{journal::JournalStore, lmdbx::KVQlibmdbxStore, PsyStore},
 };
+use psy_ups_circuit::{
+    circuit_manager::core::{PsyUPSStepCircuitManager, QCircuitManager},
+    session::UserProvingSessionManager,
+};
+
 use super::super::test_helpers::contract::{gen_test_contract, gen_test_contract_2};
 async fn run_test3() -> anyhow::Result<()> {
     type C = PoseidonGoldilocksConfig;

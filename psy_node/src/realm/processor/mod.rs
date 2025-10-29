@@ -96,14 +96,8 @@ struct RealmBackupRequest {
     removed_keys: Vec<Vec<u8>>,
 }
 
-type ConcreteRealmProcessorContext = RealmProcessorContext<
-    JournalStore<PsyStore>,
-    ProofStoreRedis,
-    ProofStoreRedis,
-    ProofStoreRedis,
-    ProofStoreRedis,
-    QProvingTaskStoreImpl,
->;
+type ConcreteRealmProcessorContext =
+    RealmProcessorContext<JournalStore<PsyStore>, ProofStoreRedis, ProofStoreRedis, ProofStoreRedis, ProofStoreRedis, QProvingTaskStoreImpl>;
 
 pub struct RealmProcessor {
     pub realm_config: RealmConfig,
@@ -593,9 +587,7 @@ impl RealmProcessor {
 
     pub async fn build_block(&self, build_ctx: &ConcreteRealmProcessorContext, next_checkpoint_id: u64) -> anyhow::Result<QProvingJobDataID> {
         let slot = self.slot_timer.get_current_slot();
-        build_ctx
-            .build_block(slot)
-            .await
+        build_ctx.build_block(slot).await
     }
 
     fn validate_slot(&self) -> anyhow::Result<()> {

@@ -27,11 +27,10 @@ use psy_crypto::{
     },
 };
 use psy_data::{config::store_config::PsyHasher, qstore::imm::cmd_processor::PsyReadCommandProcessorSync};
-use psy_vm::vm::cfc_input::DapenContractFunctionCircuitInput;
-use psy_vm::dpn::vm::def::DPNFunctionCircuitDefinition;
 use psy_rust_sdk::provider::UPSCircuitManagerTrait;
-
 use psy_ups_circuit::{circuit_manager, circuit_manager::core::QCircuitManager};
+use psy_vm::{dpn::vm::def::DPNFunctionCircuitDefinition, vm::cfc_input::DapenContractFunctionCircuitInput};
+
 use crate::{
     local::args::SignType,
     wallet::{
@@ -140,7 +139,8 @@ impl PsyMemoryWallet {
         let pub_compressed = self.get_secp_public_key(private_key)?;
         tracing::info!("get secp public key {:?}", pub_compressed);
 
-        let public_key_params = psy_crypto::signature::secp256k1::wallet::hash_no_pad_compressed_public_key::<F, PoseidonPermutation<F>>(pub_compressed);
+        let public_key_params =
+            psy_crypto::signature::secp256k1::wallet::hash_no_pad_compressed_public_key::<F, PoseidonPermutation<F>>(pub_compressed);
 
         Ok(ZKPublicKeyInfo {
             fingerprint: self.random_circuit_manager().secp_circuit_fingerprint().await?,

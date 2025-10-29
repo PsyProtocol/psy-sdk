@@ -14,8 +14,8 @@
 //!   service
 
 use chrono::Utc;
-use psy_services::models::WorkerRewards;
 use psy_core::job::id::{ProvingJobCircuitType, ProvingJobDataType, QJobTopic, QProvingJobDataID};
+use psy_services::models::WorkerRewards;
 use reqwest::Client;
 use serde_json::json;
 

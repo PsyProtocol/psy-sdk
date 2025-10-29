@@ -49,12 +49,11 @@ use psy_data::{
     },
 };
 use psy_network_circuit::gadgets::qdata::user_contract_state::UserContractStateGadget;
+use psy_rust_sdk::provider::RpcProvider;
 use psy_vm::dpn::ops::state_cmd::data::{
     DPNStateCmd, DPNStateCmdGetOtherUserContractStateSlotHash, DPNStateCmdGetSelfUserCurrentContractStateSlotHash,
     DPNStateCmdGetSelfUserExternalContractStateSlotHash,
 };
-
-use psy_rust_sdk::provider::RpcProvider;
 
 #[derive(Debug)]
 pub struct StateReaderGadget<F: RichField + Extendable<D>, const D: usize> {

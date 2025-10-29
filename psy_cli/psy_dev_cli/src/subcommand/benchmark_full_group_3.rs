@@ -1,4 +1,5 @@
 use std::{sync::Arc, time::Duration};
+
 use fred::prelude::*;
 use kvq::{memory::simple::KVQSimpleMemoryBackingStore, traits::KVQBinaryStore};
 use plonky2::{
@@ -17,6 +18,7 @@ use psy_core::{
         traits::{QProofStoreAsyncImm, QProofStoreReaderAsync, QProofStoreWriterAsyncImm},
         worker_queue::WorkerEventTransmitterAsyncImm,
     },
+    ups::circuits::LocalCircuitType,
     utils::debug_timer::DebugTimer,
 };
 use psy_crypto::{
@@ -46,12 +48,7 @@ use psy_node::{
     },
     worker::{simple_async_coord::SimpleAsyncCoordinatorWorker, simple_async_realm::SimpleAsyncRealmWorker},
 };
-use psy_ups_circuit::{
-    circuit_manager::core::{PsyUPSStepCircuitManager, QCircuitManager},
-    session::UserProvingSessionManager,
-};
 use psy_rust_sdk::provider::UPSCircuitManagerTrait;
-use psy_core::ups::circuits::LocalCircuitType;
 use psy_store::{
     node::{
         coordinator::{PsyCoordinatorStoreReaderAsync, PsyCoordinatorStoreWriterAsyncImm},
@@ -64,6 +61,11 @@ use psy_store::{
     },
     store::journal::{Journal, JournalStore},
 };
+use psy_ups_circuit::{
+    circuit_manager::core::{PsyUPSStepCircuitManager, QCircuitManager},
+    session::UserProvingSessionManager,
+};
+
 use super::super::test_helpers::{
     contract::{gen_test_contract, SimpleTestContract},
     ups::ExampleDemoUserInfoStore,

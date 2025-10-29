@@ -1,8 +1,7 @@
-use psy_vm::vm::cfc_input::DapenContractFunctionCircuitInput;
-use psy_vm::dpn::vm::def::DPNFunctionCircuitDefinition;
+use plonky2::field::goldilocks_field::GoldilocksField;
+use psy_vm::{dpn::vm::def::DPNFunctionCircuitDefinition, vm::cfc_input::DapenContractFunctionCircuitInput};
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
-use plonky2::field::goldilocks_field::GoldilocksField;
 
 type GF = GoldilocksField;
 

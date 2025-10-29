@@ -84,10 +84,11 @@ use crate::{
         QSignatureProofRPCRequest, QSingleLeafRpcRequestV2, QSoftwareDefinedSignatureProofRPCRequest, QTwoAggRpcRequsetV2, QTwoLeafRpcRequestV2,
         QUpsCfcDeferredTxRPCRequest, QUpsCfcStandardTxRPCRequest, QUpsEndCapRPCRequestV2, QUserSubTreeMerkleProofRPCRequest, RequestParamsV2,
     },
-    wallet::software_defined_circuit::{QSoftwareDefinedSignatureInput, QSoftwareDefinedSignatureWitnessInput, SoftwareDefinedSignatureInput, SoftwareDefinedSignatureWitnessInput},
+    session::TxStatus,
+    wallet::software_defined_circuit::{
+        QSoftwareDefinedSignatureInput, QSoftwareDefinedSignatureWitnessInput, SoftwareDefinedSignatureInput, SoftwareDefinedSignatureWitnessInput,
+    },
 };
-
-use crate::session::TxStatus;
 
 #[derive(Debug, Clone)]
 pub struct RpcProvider {

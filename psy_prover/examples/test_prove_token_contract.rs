@@ -23,12 +23,14 @@ use psy_data::{
     qstore::{controllers::proving_session::PsyLocalProvingSessionStore, imm::cmd_processor::PsyReadCommandProcessorSync},
     traits::qdatastore::{qmetadata::QMetaDataStoreReaderSync, qtreedata::PsyComboDataStoreReaderWriterSync},
 };
-use psy_vm::vm::{cfc_input::DapenContractFunctionCircuitInput, exec::PsyEvalSessionResult};
 use psy_dpn_circuit::circuits::cfc::DapenContractFunctionCircuit;
 use psy_store::{node::coordinator::PsyCoordinatorStoreWriterAsyncImm, prepare_environment_with_real_contract};
-use psy_vm::dpn::{
-    ops::{context_trait::DPNContext, exec_context::QExecContext, sym_felt::SymFeltRef},
-    vm::{compile::PsyCompileResult, def::DPNFunctionCircuitDefinition},
+use psy_vm::{
+    dpn::{
+        ops::{context_trait::DPNContext, exec_context::QExecContext, sym_felt::SymFeltRef},
+        vm::{compile::PsyCompileResult, def::DPNFunctionCircuitDefinition},
+    },
+    vm::{cfc_input::DapenContractFunctionCircuitInput, exec::PsyEvalSessionResult},
 };
 use psylang_macros::qcontract;
 

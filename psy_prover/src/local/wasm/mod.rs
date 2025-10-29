@@ -8,6 +8,7 @@ use plonky2::{
 use psy_core::data::{base_types::hash256::Hash256, qhashout::QHashOut, u8bytes::U8Bytes};
 use psy_crypto::signature::zk::data::ZKPublicKeyInfo;
 use psy_data::{guta::end_cap_input::SubmitUserEndCapNonProofInput, qblock::cmds::deploy_contract::QBCDeployContract};
+use psy_rust_sdk::provider::{JobInfo, RpcConfig};
 use psy_vm::dpn::vm::def::DPNFunctionCircuitDefinition;
 use wasm_bindgen::prelude::*;
 
@@ -18,7 +19,6 @@ use crate::{
     },
     session::{WalletKeyPair, WalletSession},
 };
-use psy_rust_sdk::provider::{JobInfo, RpcConfig};
 
 // pub mod wallet_session;
 

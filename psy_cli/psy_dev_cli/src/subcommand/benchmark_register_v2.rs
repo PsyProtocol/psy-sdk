@@ -1,4 +1,5 @@
 use std::{sync::Arc, time::Duration};
+
 use fred::prelude::*;
 use kvq::memory::simple::KVQSimpleMemoryBackingStore;
 use plonky2::{
@@ -10,6 +11,7 @@ use psy_core::{
     config::network_constants::{PSY_NETWORK_MAGIC_REGTEST, UPS_SESSION_PROOF_TREE_HEIGHT},
     data::qhashout::QHashOut,
     job::traits::{QProofStoreAsyncImm, QProofStoreReaderAsync},
+    ups::circuits::LocalCircuitType,
     utils::debug_timer::DebugTimer,
 };
 use psy_crypto::{
@@ -36,12 +38,7 @@ use psy_node::{
     },
     worker::{simple_async_coord::SimpleAsyncCoordinatorWorker, simple_async_realm::SimpleAsyncRealmWorker},
 };
-use psy_ups_circuit::{
-    circuit_manager::core::{PsyUPSStepCircuitManager, QCircuitManager},
-    session::UserProvingSessionManager,
-};
 use psy_rust_sdk::provider::UPSCircuitManagerTrait;
-use psy_core::ups::circuits::LocalCircuitType;
 use psy_store::{
     node::coordinator::{PsyCoordinatorStoreReaderAsync, PsyCoordinatorStoreWriterAsyncImm},
     queue::{
@@ -50,6 +47,11 @@ use psy_store::{
     },
     store::journal::JournalStore,
 };
+use psy_ups_circuit::{
+    circuit_manager::core::{PsyUPSStepCircuitManager, QCircuitManager},
+    session::UserProvingSessionManager,
+};
+
 use super::super::test_helpers::contract::gen_test_contract;
 async fn run_test3() -> anyhow::Result<()> {
     type C = PoseidonGoldilocksConfig;

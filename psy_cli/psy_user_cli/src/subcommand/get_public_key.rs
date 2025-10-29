@@ -12,12 +12,9 @@ use psy_crypto::{
     },
 };
 use psy_data::config::store_config::PsyHasher;
-use psy_prover::{
-    local::args::SignType,
-    wallet::memory_wallet::PsyMemoryWallet,
-};
-use psy_ups_circuit::circuit_manager::core::{PsyUPSStepCircuitManager, QCircuitManager};
+use psy_prover::{local::args::SignType, wallet::memory_wallet::PsyMemoryWallet};
 use psy_rust_sdk::wallet::secp_wallet::Wallet;
+use psy_ups_circuit::circuit_manager::core::{PsyUPSStepCircuitManager, QCircuitManager};
 
 use super::args::GetPublicKeyArgs;
 

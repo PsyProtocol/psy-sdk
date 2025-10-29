@@ -69,14 +69,16 @@ use psy_data::{
         verify_previous_ups_step::VerifyPreviousUPSStepProofInProofTreeInput,
     },
 };
-use psy_vm::vm::{cfc_input::DapenContractFunctionCircuitInput, exec::PsyEvalSessionResult};
-use psy_vm::dpn::{contract::cfc_code_definition_to_dapen_fc, vm::def::DPNFunctionCircuitDefinition};
+use psy_dpn_circuit::circuits::cfc::DapenContractFunctionCircuit;
+use psy_rust_sdk::provider::UPSCircuitManagerTrait;
+use psy_vm::{
+    dpn::{contract::cfc_code_definition_to_dapen_fc, vm::def::DPNFunctionCircuitDefinition},
+    vm::{cfc_input::DapenContractFunctionCircuitInput, exec::PsyEvalSessionResult},
+};
 use serde::Serialize;
 
 use super::circuit_manager::core::PsyUPSStepCircuitManager;
-use psy_dpn_circuit::circuits::cfc::DapenContractFunctionCircuit;
 use crate::circuit_manager::core::QCircuitManager;
-use psy_rust_sdk::provider::UPSCircuitManagerTrait;
 
 const UPS_STEP_LEAF_TYPE: u64 = 1;
 const CFC_LEAF_TYPE: u64 = 2;

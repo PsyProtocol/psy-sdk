@@ -30,8 +30,8 @@ use psy_node::{
         run_worker,
     },
 };
-use psy_ups_circuit::circuit_manager::core::PsyUPSStepCircuitManager;
 use psy_rust_sdk::wallet::secp_wallet::Wallet;
+use psy_ups_circuit::circuit_manager::core::PsyUPSStepCircuitManager;
 use tokio::{sync::Mutex, time::sleep};
 use tracing::{error, info, log::warn};
 

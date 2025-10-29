@@ -18,15 +18,14 @@ use psy_core::{
     job::id::{ProvingJobCircuitType, QProvingJobDataID, VariableHeightRewardMerkleProof, GUTA_REWARDS_TREE_MAX_HEIGHT},
 };
 use psy_crypto::signature::secp256k1::core::PsyCompressedSecp256K1Signature;
+use psy_rust_sdk::provider::RpcProvider;
 use serde::{Deserialize, Serialize};
 
 use crate::local::args::{ContractCallArgs, JobInfo, JobLocation, WorkerJobTracker};
-use psy_rust_sdk::provider::RpcProvider;
 
 type C = PoseidonGoldilocksConfig;
 const D: usize = 2;
 type F = GoldilocksField;
-
 
 pub const MINING_REWARDS_CONTRACT_ID: u64 = 1;
 pub const LAST_CLAIMED_CHECKPOINT_SLOT: u64 = 0;

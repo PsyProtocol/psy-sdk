@@ -10,7 +10,6 @@ use plonky2::{
     hash::hash_types::HashOut,
     plonk::config::PoseidonGoldilocksConfig,
 };
-use psy_services::models::{WorkerEvent, WorkerEventSource};
 use psy_common_circuit::circuits::zk_signature3::manager::SimplePsyZKSignatureManager;
 use psy_core::{
     config::network_constants::{MAX_CONTRACT_STATE_TREE_HEIGHT, TOKEN_CONTRACT_ID},
@@ -22,12 +21,13 @@ use psy_data::{
     config::store_config::PsyHasher,
     traits::qdatastore::{qmetadata::QMetaDataStoreReaderSync, qtreedata::QTreeDataStoreReaderSync},
 };
+use psy_node::worker::job_tracker::WorkerJobTracker;
 use psy_prover::{
     local::args::{ContractCallArgs, SignData, SignType},
     session::WalletSession,
 };
 use psy_rust_sdk::provider::{JobInfo, JobLocation, RpcConfig, RpcProvider};
-use psy_node::worker::job_tracker::WorkerJobTracker;
+use psy_services::models::{WorkerEvent, WorkerEventSource};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use tracing::{info, warn};

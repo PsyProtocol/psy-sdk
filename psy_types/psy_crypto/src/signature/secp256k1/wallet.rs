@@ -1,22 +1,18 @@
 use std::collections::HashMap;
 
 use k256::ecdsa::signature::hazmat::PrehashSigner;
-use plonky2::hash::hash_types::RichField;
+use plonky2::hash::{
+    hash_types::RichField,
+    hashing::{hash_n_to_hash_no_pad, PlonkyPermutation},
+};
 use psy_core::data::{
     base_types::{hash160::Hash160, hash256::Hash256},
     qhashout::QHashOut,
-    secp256k1::CompressedPublicKey,
+    secp256k1::{bytes_to_u32_vec_le, CompressedPublicKey},
 };
 
 use super::core::PsyCompressedSecp256K1Signature;
 use crate::hash::core::btc::btc_hash160;
-use plonky2::hash::hashing::PlonkyPermutation;
-
-use psy_core::data::secp256k1::bytes_to_u32_vec_le;
-
-
-
-use plonky2::hash::hashing::hash_n_to_hash_no_pad;
 
 pub trait CompressedPublicKeyToP2PKH {
     fn to_p2pkh_address(&self) -> Hash160;
@@ -119,7 +115,6 @@ impl MemorySecp256K1Wallet {
     }
 }
 
-
 pub fn hash_no_pad_compressed_public_key<F: RichField, P: PlonkyPermutation<F>>(secp256k1_public_key: CompressedPublicKey) -> QHashOut<F> {
     let mut secp256k1_public_key_bytes = vec![secp256k1_public_key.0[0], 0, 0, 0];
     secp256k1_public_key_bytes.extend_from_slice(&secp256k1_public_key.0[1..]);
@@ -142,7 +137,6 @@ pub fn get_secp_public_key<F: RichField>(private_key: QHashOut<F>) -> anyhow::Re
     }
     Ok(CompressedPublicKey(compressed))
 }
-
 
 pub fn secp256k1_sign<F: RichField>(private_key: k256::ecdsa::SigningKey, sighash: QHashOut<F>) -> anyhow::Result<PsyCompressedSecp256K1Signature> {
     tracing::info!("🔔 prove_secp256k1_signature");

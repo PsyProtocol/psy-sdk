@@ -13,7 +13,10 @@ use psy_core::{
 };
 use psy_crypto::{
     hash::traits::qhashable::QFieldHashable,
-    signature::zk::{data::ZKPublicKeyInfo, wallet::SimplePsyPrivateKey},
+    signature::{
+        secp256k1::wallet::{get_secp_public_key, hash_no_pad_compressed_public_key},
+        zk::{data::ZKPublicKeyInfo, wallet::SimplePsyPrivateKey},
+    },
 };
 use psy_data::{config::store_config::PsyHasher, traits::qdatastore::qmetadata::QMetaDataStoreReaderSync};
 use psy_prover::{
@@ -21,17 +24,16 @@ use psy_prover::{
     wallet::{
         simple_sign::SoftwareDefinedSignGadget,
         software_defined_circuit::{
-            get_sdc_public_key_param, PSoftwareDefinedSignatureInput, SoftwareDefinedSignatureCircuit,
-            SoftwareDefinedSignatureGadget, SoftwareDefinedSignatureInput,
+            get_sdc_public_key_param, PSoftwareDefinedSignatureInput, SoftwareDefinedSignatureCircuit, SoftwareDefinedSignatureGadget,
+            SoftwareDefinedSignatureInput,
         },
     },
 };
 use psy_rust_sdk::{
     provider::{QUserRpcProvider, RpcProvider},
     request::QRegisterUserRPCRequest,
+    wallet::software_defined_circuit::QSoftwareDefinedSignatureInput,
 };
-use psy_crypto::signature::secp256k1::wallet::{get_secp_public_key, hash_no_pad_compressed_public_key};
-use psy_rust_sdk::wallet::software_defined_circuit::QSoftwareDefinedSignatureInput;
 use psy_vm::dpn::vm::def::DPNFunctionCircuitDefinition;
 
 use crate::subcommand::args::RegisterUserArgs;

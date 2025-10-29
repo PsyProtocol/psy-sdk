@@ -36,18 +36,16 @@ use psy_data::{
         ups_end_cap::UPSEndCapFromProofTreeGadgetInput,
     },
 };
-use psy_vm::vm::cfc_input::DapenContractFunctionCircuitInput;
-use psy_vm::dpn::contract::cfc_code_definition_to_dapen_fc;
-use serde::{Deserialize, Deserializer, Serialize};
-
+use psy_dpn_circuit::circuits::cfc::DapenContractFunctionCircuit;
 // use crate::local::provider::LocalCommonCircuitsData;
 use psy_rust_sdk::provider::{QCommonCircuitData, RpcConfig, RpcProvider, UPSCircuitManagerTrait};
 use psy_rust_sdk::wallet::software_defined_circuit::{QSoftwareDefinedSignatureInput, QSoftwareDefinedSignatureWitnessInput};
-use psy_dpn_circuit::circuits::cfc::DapenContractFunctionCircuit;
 use psy_ups_circuit::circuit_manager::core::PsyUPSStepCircuitManager;
+use psy_vm::{dpn::contract::cfc_code_definition_to_dapen_fc, vm::cfc_input::DapenContractFunctionCircuitInput};
+use serde::{Deserialize, Deserializer, Serialize};
+
 use crate::wallet::software_defined_circuit::{
-    SoftwareDefinedSignatureCircuit, SoftwareDefinedSignatureGadget,
-    SoftwareDefinedSignatureInput, SoftwareDefinedSignatureWitnessInput,
+    SoftwareDefinedSignatureCircuit, SoftwareDefinedSignatureGadget, SoftwareDefinedSignatureInput, SoftwareDefinedSignatureWitnessInput,
 };
 
 type C = PoseidonGoldilocksConfig;

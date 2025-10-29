@@ -91,13 +91,10 @@ pub async fn run_prove_proxy_server(args: crate::local::args::ProveProxyArgs) ->
 
     use hyper::Method;
     use jsonrpsee::server::Server;
+    use psy_rust_sdk::provider::RpcConfig;
     use tower_http::cors::{Any, CorsLayer};
 
-    use crate::{
-        health::HealthLayer,
-        local::native::prove_proxy::ProveProxyRpcServer,
-    };
-    use psy_rust_sdk::provider::RpcConfig;
+    use crate::{health::HealthLayer, local::native::prove_proxy::ProveProxyRpcServer};
 
     let config_str = std::fs::read_to_string(&args.rpc_config)?;
     let json_value: serde_json::Value = serde_json::from_str(&config_str)?;

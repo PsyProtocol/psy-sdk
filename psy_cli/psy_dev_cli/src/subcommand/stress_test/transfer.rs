@@ -12,10 +12,7 @@ use plonky2::field::goldilocks_field::GoldilocksField;
 use psy_core::data::qhashout::QHashOut;
 use psy_crypto::hash::traits::qhashable::QFieldHashable as _;
 use psy_data::config::store_config::PsyHasher;
-use psy_prover::{
-    local::args::ContractCallArgs,
-    session::session::WalletSession,
-};
+use psy_prover::{local::args::ContractCallArgs, session::session::WalletSession};
 use psy_rust_sdk::provider::RpcConfig;
 use tracing::{error, info, warn};
 

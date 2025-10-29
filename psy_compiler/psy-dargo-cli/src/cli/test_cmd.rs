@@ -9,13 +9,15 @@ use psy_data::{
     config::store_config::{PsyHasher, C, D},
     qblock::cmds::register_user::QBCRegisterUser,
 };
-use psy_vm::vm::exec::PsyEvalSessionResult;
 use psy_interpreter::Interpreter;
 use psy_prover::session::gen_contract_deploy_and_circuits_for_functions;
 use psy_store::prepare_environment_with_real_contract;
-use psy_vm::dpn::{
-    ops::{exec_context::QExecContext, sym_felt::SymFeltRef},
-    vm::compile::PsyCompileResult,
+use psy_vm::{
+    dpn::{
+        ops::{exec_context::QExecContext, sym_felt::SymFeltRef},
+        vm::compile::PsyCompileResult,
+    },
+    vm::exec::PsyEvalSessionResult,
 };
 
 /// Test the program file

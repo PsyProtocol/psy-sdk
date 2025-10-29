@@ -12,14 +12,16 @@ use psy_data::{
     config::store_config::{PsyHasher, C, D},
     qblock::cmds::register_user::QBCRegisterUser,
 };
-use psy_vm::vm::exec::PsyEvalSessionResult;
 use psy_package::Workspace;
 use psy_prover::session::gen_contract_deploy_and_circuits_for_functions;
 use psy_sema::{CheckedFunctionNode, Implementer, TypeChecker, TypeCheckerVisitorContext, TypeId, TypeKey};
 use psy_store::prepare_environment_with_real_contract;
-use psy_vm::dpn::{
-    ops::{exec_context::QExecContext, sym_felt::SymFeltRef},
-    vm::def::DPNFunctionCircuitDefinition,
+use psy_vm::{
+    dpn::{
+        ops::{exec_context::QExecContext, sym_felt::SymFeltRef},
+        vm::def::DPNFunctionCircuitDefinition,
+    },
+    vm::exec::PsyEvalSessionResult,
 };
 
 use crate::cli::{compile_cmd::compile_workspace_full, execute_cmd::ExecuteCommand};

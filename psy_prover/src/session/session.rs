@@ -11,7 +11,7 @@ use plonky2::{
 };
 use psy_common_circuit::circuits::traits::qstandard::QStandardCircuit;
 use psy_core::{
-    config::network_constants::{PSY_NETWORK_MAGIC_REGTEST, MAX_CONTRACT_STATE_TREE_HEIGHT, TOKEN_CONTRACT_ID, UPS_SESSION_PROOF_TREE_HEIGHT},
+    config::network_constants::{MAX_CONTRACT_STATE_TREE_HEIGHT, PSY_NETWORK_MAGIC_REGTEST, TOKEN_CONTRACT_ID, UPS_SESSION_PROOF_TREE_HEIGHT},
     data::qhashout::QHashOut,
     job::id::{ProvingJobCircuitType, VariableHeightRewardMerkleProof, GUTA_REWARDS_TREE_MAX_HEIGHT},
     traits::to_qfelts::ToQFelts,
@@ -34,6 +34,17 @@ use psy_data::{
     },
     traits::qdatastore::{qmetadata::QMetaDataStoreReaderSync, qtreedata::QTreeDataStoreReaderSync},
 };
+use psy_dpn_circuit::circuits::cfc::DapenContractFunctionCircuit;
+// Import from SDK
+use psy_rust_sdk::{
+    provider::{ProveProxyRpcProvider, QUserRpcProvider, RpcConfig, RpcProvider, UPSCircuitManagerTrait},
+    request::{QDeployContractRPCRequest, QRegisterUserRPCRequest, QSubmitEndCapRPCRequest},
+    wallet::software_defined_circuit::QSoftwareDefinedSignatureWitnessInput,
+};
+use psy_ups_circuit::{
+    circuit_manager::core::{PsyUPSStepCircuitManager, QCircuitManager},
+    session::UserProvingSessionManager,
+};
 use psy_vm::dpn::{
     contract::{cfc_code_definition_to_dapen_fc, dapen_fc_to_cfc_code_definition, hash_dpn_function},
     vm::def::DPNFunctionCircuitDefinition,
@@ -41,29 +52,15 @@ use psy_vm::dpn::{
 use serde::{Deserialize, Serialize};
 use tracing::warn;
 
-// Import from SDK
-use psy_rust_sdk::{
-    provider::{ProveProxyRpcProvider, QUserRpcProvider, RpcConfig, RpcProvider, UPSCircuitManagerTrait},
-    request::{QDeployContractRPCRequest, QRegisterUserRPCRequest, QSubmitEndCapRPCRequest},
-    wallet::software_defined_circuit::QSoftwareDefinedSignatureWitnessInput,
-};
-
-use psy_dpn_circuit::circuits::cfc::DapenContractFunctionCircuit;
-use psy_ups_circuit::{
-    circuit_manager::core::{PsyUPSStepCircuitManager, QCircuitManager},
-    session::UserProvingSessionManager,
-};
 use crate::{
-    local::{
-        args::{ContractCallArgs, JobInfo, JobLocation, SignData, SignType, WalletSessionArgs},
-    },
+    local::args::{ContractCallArgs, JobInfo, JobLocation, SignData, SignType, WalletSessionArgs},
     session::{build_claim_calls_for_multi_checkpoints, ProofWithCheckpoint, MINING_REWARDS_CONTRACT_ID},
     wallet::{
         memory_wallet::PsyMemoryWallet,
         simple_sign::StateReader,
         software_defined_circuit::{
-            PSoftwareDefinedSignatureWitnessInput, QSoftwareDefinedSignatureGadget, SoftwareDefinedSignature,
-            SoftwareDefinedSignatureGadget, SoftwareDefinedSignatureWitnessInput,
+            PSoftwareDefinedSignatureWitnessInput, QSoftwareDefinedSignatureGadget, SoftwareDefinedSignature, SoftwareDefinedSignatureGadget,
+            SoftwareDefinedSignatureWitnessInput,
         },
     },
 };

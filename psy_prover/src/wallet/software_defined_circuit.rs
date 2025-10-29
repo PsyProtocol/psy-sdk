@@ -29,16 +29,15 @@ use psy_common_circuit::{
 };
 use psy_core::data::qhashout::QHashOut;
 use psy_crypto::{hash::traits::hasher::MerkleZeroHasher, signature::zk::wallet::PRIVATE_KEY_CONSTANTS};
-use psy_vm::vm::cfc_input::DapenContractFunctionCircuitInput;
-use psy_vm::dpn::vm::def::DPNFunctionCircuitDefinition;
+use psy_dpn_circuit::vm::compile::PsyContractFunctionBuilderGadget;
 use psy_rust_sdk::{
     provider::RpcProvider,
     wallet::software_defined_circuit::{QSoftwareDefinedSignatureInput, QSoftwareDefinedSignatureWitnessInput},
 };
+use psy_vm::{dpn::vm::def::DPNFunctionCircuitDefinition, vm::cfc_input::DapenContractFunctionCircuitInput};
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
-use psy_dpn_circuit::vm::compile::PsyContractFunctionBuilderGadget;
 use crate::wallet::simple_sign::{SoftwareDefinedSignTrait, StateReader, StateReaderGadget};
 
 #[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
@@ -159,7 +158,7 @@ pub enum SoftwareDefinedSignatureGadget {
     PLONKY2(PSoftwareDefinedSignatureGadget),
 }
 
-// Extended enum that includes prover-specific PLONKY2 variant  
+// Extended enum that includes prover-specific PLONKY2 variant
 #[derive(Debug)]
 pub enum SoftwareDefinedSignatureInput {
     Psy(QSoftwareDefinedSignatureInput),
@@ -188,7 +187,6 @@ pub struct QSoftwareDefinedSignatureGadget {
     pub input: QSoftwareDefinedSignatureInput,
     pub circuit_inputs: Vec<Target>,
 }
-
 
 #[derive(Debug, Clone)]
 pub struct PSoftwareDefinedSignatureInput {

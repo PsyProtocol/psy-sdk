@@ -32,6 +32,10 @@ use psy_data::{
         },
     },
 };
+use serde::{Deserialize, Serialize};
+use ts_rs::TS;
+
+use super::cfc_input::DapenContractFunctionCircuitInput;
 use crate::dpn::{
     ops::{
         op_types::DPNOpType,
@@ -39,10 +43,6 @@ use crate::dpn::{
     },
     vm::{def::DPNFunctionCircuitDefinition, exec::SimpleDPNExecutor},
 };
-use serde::{Deserialize, Serialize};
-use ts_rs::TS;
-
-use super::cfc_input::DapenContractFunctionCircuitInput;
 fn mp_to_dmp<H: PartialEq + Copy>(mp: MerkleProofCore<H>) -> DeltaMerkleProofCore<H> {
     DeltaMerkleProofCore {
         old_root: mp.root,

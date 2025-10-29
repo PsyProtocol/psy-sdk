@@ -20,6 +20,7 @@ use psy_core::{
         id::QProvingJobDataID,
         traits::QProofStoreAsyncImm,
     },
+    jwt::generate_jwt_token,
     traits::to_qfelts::ToQFelts,
 };
 use psy_crypto::hash::{merkle::treeprover::subtree::SubTreeNodeStateTransition, traits::qhashable::QFieldHashable};
@@ -32,7 +33,6 @@ use psy_data::{
     models::checkpoint::sync_info::CheckpointError,
     qdata::checkpoint::CheckpointSyncInfo,
 };
-use psy_core::jwt::generate_jwt_token;
 use psy_store::{node::realm::PsyRealmStoreReaderAsync, queue::ProofStoreRedis};
 use serde::{Deserialize, Serialize};
 use tracing::{debug, error, info, trace, warn};
