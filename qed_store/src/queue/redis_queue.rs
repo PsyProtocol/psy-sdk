@@ -206,12 +206,12 @@ impl QProofStoreWriterAsyncImm for ProofStoreRedisAsync {
 
         self.redis.cmd_builder()
             .sadd(checkpoint_list_key, checkpoint_id)
-            .hset_nx(
+            .hset(
                 checkpoint_proofs_key,
                 id.to_fixed_bytes().to_vec(),
                 proof_bytes,
             )
-            .hset_nx(
+            .hset(
                 public_inputs_key,
                 id.to_fixed_bytes().to_vec(),
                 public_inputs_data,
@@ -237,7 +237,7 @@ impl QProofStoreWriterAsyncImm for ProofStoreRedisAsync {
 
             builder = builder
                 .sadd(checkpoint_list_key, checkpoint_id)
-                .hset_nx(
+                .hset(
                     checkpoint_proofs_key,
                     kv.key.to_fixed_bytes().to_vec(),
                     &kv.value
@@ -253,7 +253,7 @@ impl QProofStoreWriterAsyncImm for ProofStoreRedisAsync {
         self.add_checkpoint(checkpoint_id).await?;
 
         let checkpoint_proofs_key = self.checkpoint_proofs_key(checkpoint_id);
-        self.redis.hset_nx(
+        self.redis.hset(
             checkpoint_proofs_key,
             id.to_fixed_bytes().to_vec(),
             data.to_vec(),
