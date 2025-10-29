@@ -3,20 +3,20 @@ members = [
     "psy_vm",
     "psy_compiler/psylang_ex",
     "psy_compiler/psylang_macros",
-    "kvq",
-    "psy_core",
-    "psy_crypto",
+    "psy_types/kvq",
+    "psy_types/psy_core",
+    "psy_types/psy_crypto",
     "psy_store",
     "psy_prover",
-    "psy_data",
-    "psy_common_circuit",
-    "psy_network_circuit",
-    "psy_ups_circuit",
-    "psy_dpn_circuit",
+    "psy_types/psy_data",
+    "psy_circuit/psy_common_circuit",
+    "psy_circuit/psy_network_circuit",
+    "psy_circuit/psy_ups_circuit",
+    "psy_circuit/psy_dpn_circuit",
     "psy_node",
-    "psy_user_cli",
-    "psy_node_cli",
-    "psy_dev_cli",
+    "psy_cli/psy_user_cli",
+    "psy_cli/psy_node_cli",
+    "psy_cli/psy_dev_cli",
     "psy_precompiles",
     "psy_compiler/psy-fmt",
     "psy_compiler/psy-lsp-server",
@@ -228,17 +228,17 @@ config = "0.15"
 
 psy_vm = { path = "./psy_vm", default-features = false }
 psylang_macros = { path = "./psy_compiler/psylang_macros" }
-psy_crypto = { path = "./psy_crypto" }
+psy_crypto = { path = "./psy_types/psy_crypto" }
 psy_store = { path = "./psy_store", default-features = false}
-psy_data = { path = "./psy_data",default-features = false}
-psy_core = { path = "./psy_core" }
+psy_data = { path = "./psy_types/psy_data", default-features = false}
+psy_core = { path = "./psy_types/psy_core" }
 psy_node = { path = "./psy_node" }
 psy_prover = { path = "./psy_prover", default-features = false }
-psy_common_circuit = { path = "./psy_common_circuit" ,default-features = false}
-psy_dpn_circuit = { path = "./psy_dpn_circuit" ,default-features = false}
-psy_ups_circuit = { path = "./psy_ups_circuit" ,default-features = false}
-kvq = { path = "./kvq" }
-psy_network_circuit = { path = "./psy_network_circuit" , default-features = false}
+psy_common_circuit = { path = "./psy_circuit/psy_common_circuit", default-features = false}
+psy_dpn_circuit = { path = "./psy_circuit/psy_dpn_circuit", default-features = false}
+psy_ups_circuit = { path = "./psy_circuit/psy_ups_circuit", default-features = false}
+kvq = { path = "./psy_types/kvq" }
+psy_network_circuit = { path = "./psy_circuit/psy_network_circuit", default-features = false}
 psy_precompiles = { path = "./psy_precompiles" , default-features = false}
 
 psy-ast = { path = "./psy_compiler/psy-ast" }

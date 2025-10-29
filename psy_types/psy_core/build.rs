@@ -1,9 +1,9 @@
 use std::{env, fs, path::Path};
 
 fn main() {
-    println!("cargo:rerun-if-changed=../config.json");
+    println!("cargo:rerun-if-changed=../../config.json");
 
-    let config_path = Path::new("../config.json");
+    let config_path = Path::new("../../config.json");
     let config_content = fs::read_to_string(config_path).expect("Failed to read config.json");
 
     let config: serde_json::Value = serde_json::from_str(&config_content).expect("Failed to parse config.json");
