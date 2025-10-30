@@ -5,6 +5,7 @@ use qed_api_services::models::UserEventTxType;
 use qed_core::job::id::{LayerId, ProvingJobCircuitType, QProvingJobDataID};
 use qed_data::config::store_config::QEDFelt;
 use qed_data::qblock::cmds::deploy_contract::QFunctionMetadata;
+use qed_data::qdata::contract_uuid::ContractUUID;
 use qed_data::qdata::ups_end_cap_result::UPSEndCapResultCompact;
 use crate::watcher::timeout_watcher::WatcherSourceNodeType;
 
@@ -47,6 +48,7 @@ pub struct UserDeployContractEvent {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UserContractMetadata {
+    pub contract_uuid: ContractUUID,
     pub state_tree_height: u16,
     pub function_count: usize,
     pub functions: Vec<QFunctionMetadata>,

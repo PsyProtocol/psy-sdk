@@ -106,8 +106,8 @@ pub struct ApiResponse<T> {
 }
 
 pub struct ApiClient {
-    client: Client,
-    config: ApiClientConfig,
+    pub(crate) client: Client,
+    pub(crate) config: ApiClientConfig,
     jwt_token: Arc<RwLock<Option<String>>>,  // Cached JWT token with interior mutability
     token_expiry: Arc<RwLock<Option<DateTime<Utc>>>>,  // Token expiration time with interior mutability
 }
@@ -200,7 +200,7 @@ impl ApiClient {
     }
 
     /// Get headers for a request, including JWT for telemetry endpoints
-    async fn get_headers(&self, path: &str) -> Result<reqwest::header::HeaderMap> {
+    pub(crate) async fn get_headers(&self, path: &str) -> Result<reqwest::header::HeaderMap> {
         let mut headers = reqwest::header::HeaderMap::new();
         headers.insert("Content-Type", "application/json".parse()?);
 
