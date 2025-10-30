@@ -3,7 +3,6 @@ use plonky2::plonk::proof::ProofWithPublicInputs;
 pub use processor_v2::*;
 use qed_data::guta::api::{GUTARealmCheckpointResult, SubmitGUTARealmResultAPINoProofInput};
 
-use std::ops::Deref;
 use crate::common::verifier::get_cached_generic_verifier;
 use crate::common_v2::traits::realm::CoordinatorClient;
 use crate::coordinator::client_v2::ConcreteCoordinatorClient;
@@ -11,11 +10,7 @@ use crate::realm::config::RealmNodeConfig;
 use crate::realm::state::processor::{RealmConfig, RealmProcessorContext};
 use crate::realm::{edge, C, D, F};
 use qed_core::config::network_constants::{COORDINATOR_USER_TREE_HEIGHT, GLOBAL_USER_TREE_HEIGHT};
-use qed_core::job::history_queue::{
-    CheckpointHistoryQueueConsumerAsyncImm, CheckpointHistoryQueueEmitterAsyncImm,
-};
 use qed_core::job::id::ProvingJobDataId;
-use qed_core::job::worker_queue::WorkerEventTransmitterAsyncImm;
 use qed_crypto::common::generic_circuit_verifier::GenericCircuitVerifier;
 use qed_crypto::hash::merkle::utils::common::{QMerkleNode, SimpleMerkleNodeKey};
 use qed_crypto::hash::traits::hasher::MerkleZeroHasher;
@@ -23,24 +18,19 @@ use qed_data::config::genesis_config::GenesisConfig;
 use qed_store::queue::QPendingUserStoreAsyncImm;
 use qed_store::queue::task_queue::{QProvingTaskStore, QProvingTaskStoreImpl};
 use qed_store::store::QEDStore;
-use std::sync::{atomic, Arc};
+use std::sync::{Arc};
 use std::sync::atomic::{AtomicBool, AtomicI64, AtomicU64, Ordering};
-use std::thread::sleep;
 use std::time::Duration;
-use tokio::task::JoinHandle;
 use tokio::time::Instant;
 use anyhow::{anyhow, bail};
-use futures::future::{err, ok};
-use tower_http::follow_redirect::policy::PolicyExt;
 use tracing::{debug, error, info, trace, warn};
 use qed_core::data::qhashout::QHashOut;
-use qed_store::queue::new_redis_async_pool;
 use qed_data::qdata::checkpoint::CheckpointSyncInfo;
 use qed_store::node::realm::QEDRealmStoreReaderAsync;
 use qed_store::queue::ProofStoreRedisAsync;
 use qed_store::store::journal::{Journal, JournalStore};
 use crate::common::clock::SlotTimer;
-use crate::common::slot::{Clock, LocalClock, Parity, Slot, SLOT_SIZE};
+use crate::common::slot::{Clock, LocalClock, Slot};
 use crate::common::retry::Retryable;
 use qed_core::config::network_constants::{REALM_USER_TREE_HEIGHT, USERS_PER_REALM};
 use qed_data::config::store_config::QEDHasher;
@@ -55,17 +45,9 @@ use std::{str::FromStr, collections::HashMap};
 use plonky2::field::goldilocks_field::GoldilocksField;
 use super::backup::{RealmS3BackupClient, try_backup_realm_checkpoint};
 use tokio::sync::mpsc;
-use tokio::time;
 use crate::realm::state::edge_queue_helper::RealmEdgeQueueHelper;
 use crate::realm::state::queue_factory::QueueFactory;
 
-#[derive(Debug, Clone)]
-pub enum SyncState {
-    Syncing,
-    Synced,
-    Confirmed,
-    ConfirmedFailed,
-}
 
 struct RealmBackupRequest {
     checkpoint_id: u64,
@@ -93,22 +75,19 @@ pub struct RealmProcessor {
     pub slot_timer: SlotTimer<LocalClock>,
     pub remote_latest_slot: AtomicU64,
     pub config_path: String,
-    pub is_synced: AtomicBool,
-    pub pending_checkpoint_id: AtomicU64,
-    pub shutdown_requested: Arc<AtomicBool>,
     pub backup_tx: Option<mpsc::UnboundedSender<RealmBackupRequest>>,
     pub queue_helper: Arc<RealmEdgeQueueHelper<F>>,
     pub coordinator_client: Arc<ConcreteCoordinatorClient>,
 }
 
-pub async fn run_realm_processor(config: RealmNodeConfig, shutdown_requested: Arc<AtomicBool>) -> anyhow::Result<()> {
-    let mut realm_processor = RealmProcessor::new(config, shutdown_requested).await?;
+pub async fn run_realm_processor(config: RealmNodeConfig) -> anyhow::Result<()> {
+    let realm_processor = RealmProcessor::new(config).await?;
     let _ = realm_processor.start().await?;
     Ok(())
 }
 
 impl RealmProcessor {
-    pub async fn new(config: RealmNodeConfig, shutdown_requested: Arc<AtomicBool>) -> anyhow::Result<Self> {
+    pub async fn new(config: RealmNodeConfig) -> anyhow::Result<Self> {
         info!("Realm Processor Config: {:?}", config);
         let task_store = QProvingTaskStoreImpl::new(
             &config.redis.redis_uri.as_str(),
@@ -150,13 +129,6 @@ impl RealmProcessor {
             Arc::new(store.clone()),
         ).await?;
 
-        // edge::spawn_active_checkpoint_sync_task(
-        //     config.realm.realm_id,
-        //     Arc::new(store.clone()),
-        //     sync_checkpoint.clone(),
-        //     config.coordinator_addr.clone(),
-        // ).await?;
-
         let processor = RealmProcessor {
             realm_config,
             max_processed_end_caps_per_block: config.realm.max_processed_end_caps_per_block.clone(),
@@ -168,9 +140,6 @@ impl RealmProcessor {
             slot_timer: SlotTimer::new(LocalClock),
             remote_latest_slot: AtomicU64::new(0),
             config_path: config.config_path.clone(),
-            is_synced: AtomicBool::new(false),
-            pending_checkpoint_id: AtomicU64::new(0),
-            shutdown_requested,
             backup_tx,
             queue_helper: Arc::new(queue_helper),
             coordinator_client,
@@ -202,7 +171,7 @@ impl RealmProcessor {
         ).await
     }
 
-    pub async fn start(mut self) -> anyhow::Result<()> {
+    pub async fn start(self) -> anyhow::Result<()> {
         info!("Realm Processor starting");
         let sync_queue = Arc::new(self.sync_proof.clone());
         // Check for incomplete consumption state on startup
@@ -210,7 +179,6 @@ impl RealmProcessor {
             info!("🔄 Found incomplete consumption state for checkpoint {} on startup", last_state.checkpoint_id);
         }
 
-        let (sync_tx, mut sync_rx) = mpsc::channel(100);
         let build_ctx = self.context().await?;
         if let Ok(local_latest_l2_block_state) = self.store.get_latest_l2_block_state().await {
             info!(
@@ -220,135 +188,83 @@ impl RealmProcessor {
             let pending_checkpoint_id = local_latest_l2_block_state.checkpoint_id + 1;
             if let Some(snapshot) = build_ctx.store.get_snapshot(pending_checkpoint_id)?{
                 build_ctx.store.restore_snapshot(snapshot)?;
-                self.pending_checkpoint_id.store(pending_checkpoint_id, Ordering::Relaxed);
                 let block = self.sync_checkpoint(&self.context().await?, pending_checkpoint_id,local_latest_l2_block_state.checkpoint_id).await?;
-                self.confirm_pending_checkpoint(&build_ctx, sync_tx.clone(), block).await?;
+                self.confirm_pending_checkpoint(&build_ctx, pending_checkpoint_id, block).await?;
             }
 
             let pending_users_count = sync_queue.get_pending_users_count().await?;
             info!("Found {} pending users in Redis queue during recovery", pending_users_count);
         }
-        tokio::join!(
-            async {loop {
-                if self.shutdown_requested.load(Ordering::Relaxed) && self.pending_checkpoint_id.load(Ordering::Relaxed) == 0 {
-                    info!("Shutdown requested, exiting");
-                    break;
-                }
-                if let Err(err) = self.sync_handle(&build_ctx, sync_tx.clone()).await {
-                    error!("Sync handle error: {:?}", err);
-                }
-            }},
-            async {loop {
-                if self.shutdown_requested.load(Ordering::Relaxed) {
-                    info!("Shutdown requested, exiting");
-                    break;
-                }
-                if let Err(err) =  self.block_handle(&build_ctx, &mut sync_rx).await {
-                    let checkpoint = self.pending_checkpoint_id.load(Ordering::Relaxed);
-                    error!("Rollback: block handle error: {:?}, pending_checkpoint_id: {}", err, checkpoint);
-                    let _ = build_ctx.rollback(checkpoint).await;
-                }
-            }}
-        );
+
+        loop {
+            if let Err(err) = self.sync_handle(&build_ctx).await {
+                error!("Sync handle error: {:?}", err);
+            }
+
+            if let Err(err) =  self.block_handle(&build_ctx).await {
+                error!("Block handle error: {:?}", err);
+            }
+        }
         Ok(())
     }
 
-    async fn sync_handle(&self, build_ctx: &ConcreteRealmProcessorContext, sync_tx: mpsc::Sender<SyncState>) -> anyhow::Result<()> {
-        let ret = self.ensure_checkpoint_sync(build_ctx, sync_tx).await?;
+    async fn sync_handle(&self, build_ctx: &ConcreteRealmProcessorContext) -> anyhow::Result<()> {
+        let ret = self.ensure_checkpoint_sync(build_ctx, None).await?;
         trace!("Checkpoint sync completed");
         Ok(())
     }
 
-    async fn confirm_pending_checkpoint(&self, build_ctx: &ConcreteRealmProcessorContext, sync_tx: mpsc::Sender<SyncState>, ret: SyncCheckpointResult) -> anyhow::Result<()> {
-        let checkpoint = self.pending_checkpoint_id.load(Ordering::Relaxed);
-        if checkpoint > 0 {
-            let realm_root = build_ctx.store.get_user_sub_tree_merkle_proof(
-                checkpoint,
-                0,
-                COORDINATOR_USER_TREE_HEIGHT,
-                self.realm_config.realm_id as u64,
-            ).await?;
-            trace!("pending checkpoint id: {}, synced checkpoint id: {}, latest checkpoint id: {}, local realm root: {}, remote realm root: {}",
-                checkpoint, ret.checkpoint_id, ret.latest_checkpoint_id, realm_root.value, ret.realm_root);
+    async fn confirm_pending_checkpoint(&self, build_ctx: &ConcreteRealmProcessorContext, pending_checkpoint: u64, ret: SyncCheckpointResult) -> anyhow::Result<()> {
+        let realm_root = build_ctx.store.get_user_sub_tree_merkle_proof(
+            pending_checkpoint,
+            0,
+            COORDINATOR_USER_TREE_HEIGHT,
+            self.realm_config.realm_id as u64,
+        ).await?;
+        trace!("pending checkpoint id: {}, synced checkpoint id: {}, latest checkpoint id: {}, local realm root: {}, remote realm root: {}",
+        pending_checkpoint, ret.checkpoint_id, ret.latest_checkpoint_id, realm_root.value, ret.realm_root);
 
-            if ret.checkpoint_id >= checkpoint && realm_root.value == ret.realm_root {
-                let (pair_to_set, remove_keys) = build_ctx.commit(ret.checkpoint_id).await.map_err(|e| anyhow!("Failed to commit checkpoint {}: {}", ret.checkpoint_id, e))?;
-                self.pending_checkpoint_id.store(0, Ordering::Relaxed);
-                build_ctx.store.cleanup_snapshot(checkpoint)?;
-                info!("Commit checkpoint {}, latest_checkpoint_id: {}", checkpoint, ret.latest_checkpoint_id);
-                sync_tx.send(SyncState::Confirmed).await?;
+        if ret.checkpoint_id >= pending_checkpoint && realm_root.value == ret.realm_root {
+            let (pair_to_set, remove_keys) = build_ctx.commit(ret.checkpoint_id).await.map_err(|e| anyhow!("Failed to commit checkpoint {}: {}", ret.checkpoint_id, e))?;
+            info!("Commit checkpoint {}, latest_checkpoint_id: {}", pending_checkpoint, ret.latest_checkpoint_id);
 
-                // Auto backup after successful commit
-                if let Some(backup_tx) = &self.backup_tx {
-                    let pair_to_set = pair_to_set.into_iter().map(|pair| (pair.key, pair.value)).collect();
-                    let request = RealmBackupRequest {
-                        checkpoint_id: checkpoint,
-                        pair_to_set,
-                        removed_keys: remove_keys,
-                    };
-                    if let Err(e) = backup_tx.send(request) {
-                        error!("❌ Failed to send realm backup request for checkpoint {}: {}", checkpoint, e);
-                    }
+            // Auto backup after successful commit
+            if let Some(backup_tx) = &self.backup_tx {
+                let pair_to_set = pair_to_set.into_iter().map(|pair| (pair.key, pair.value)).collect();
+                let request = RealmBackupRequest {
+                    checkpoint_id: pending_checkpoint,
+                    pair_to_set,
+                    removed_keys: remove_keys,
+                };
+                if let Err(e) = backup_tx.send(request) {
+                    error!("❌ Failed to send realm backup request for checkpoint {}: {}", pending_checkpoint, e);
                 }
             }
-            if ret.latest_checkpoint_id < checkpoint || ret.checkpoint_id > checkpoint + 2 {
-                warn!("Rollback: invalid checkpoint sync result, latest_checkpoint_id: {}, pending checkpoint id: {}, synced checkpoint id: {}", ret.latest_checkpoint_id, checkpoint, ret.checkpoint_id);
-                build_ctx.rollback(checkpoint).await?;
-                self.pending_checkpoint_id.store(0, Ordering::Relaxed);
-                sync_tx.send(SyncState::ConfirmedFailed).await?;
-            }
         }
+        // if ret.latest_checkpoint_id < checkpoint || ret.checkpoint_id > checkpoint + 2 {
+        //     warn!("Rollback: invalid checkpoint sync result, latest_checkpoint_id: {}, pending checkpoint id: {}, synced checkpoint id: {}", ret.latest_checkpoint_id, checkpoint, ret.checkpoint_id);
+        //     build_ctx.rollback(checkpoint).await?;
+        // }
+
         Ok(())
     }
 
-    async fn block_handle(&self, build_ctx: &ConcreteRealmProcessorContext, sync_rx: &mut mpsc::Receiver<SyncState>) -> anyhow::Result<()> {
-        // let slot = self.slot_timer.wait_for_next_slot().await;
-        // if slot.is_even() {
-        //     return Ok(());
-        // }
-
-        let mut buffer = vec![];
-        // recv synced、confirmed、confirmed failed state from sync processor
-        let _ = sync_rx.recv_many(&mut buffer, sync_rx.len()).await;
-        trace!("Block handle buffer: {:?}", buffer);
-        // time::sleep(Duration::from_secs(1)).await;
-
-        tokio::select! {
-            // recv synced、confirmed、confirmed failed state from sync processor
-            biased;
-            _ = sync_rx.recv_many(&mut buffer, sync_rx.len() + 1) => {
-                trace!("Block handle buffer: {:?}", buffer);
-            }
-            _ = time::sleep(Duration::from_secs(1)) => {
-                trace!("Sleep 1 second to try build block");
-            }
-        }
-
+    async fn block_handle(&self, build_ctx: &ConcreteRealmProcessorContext) -> anyhow::Result<()> {
         let slot = self.slot_timer.get_current_slot();
         trace!("Next slot: {}", slot);
         let local_latest_checkpoint_id = self.get_local_latest_checkpoint_id().await?;
-        if self.pending_checkpoint_id.load(Ordering::Relaxed) > 0 {
-            warn!("Pending checkpoint id: {}, local_latest_checkpoint_id: {}, continue", self.pending_checkpoint_id.load(Ordering::Relaxed), local_latest_checkpoint_id);
-            return Ok(());
-        }
+        let next_checkpoint_id = local_latest_checkpoint_id + 1;
         if let Err(err) = self.validate_slot() {
             warn!("Error validating slot: {:?}", err);
             return Ok(());
         }
 
-        if !self.is_synced.load(Ordering::Relaxed) {
-            warn!("Is syncing, continue");
-            return Ok(());
-        }
-
         if !build_ctx.store.is_committed() {
-            warn!("Store is not committed, continue, pending_checkpoint_id: {}", self.pending_checkpoint_id.load(Ordering::Relaxed));
+            warn!("❌ Store is not committed, continue");
             return Ok(());
         }
 
-        // Build block based on slot timing
-        self.pending_checkpoint_id.store(0, Ordering::Relaxed);
-        let next_checkpoint_id = local_latest_checkpoint_id + 1;
+
         let has_tasks = build_ctx.has_pending_guta_tasks(next_checkpoint_id).await? || build_ctx.has_pending_user_tasks().await?;
         if !has_tasks {
             trace!("No pending tasks for checkpoint {}, skipping block construction", next_checkpoint_id);
@@ -356,12 +272,11 @@ impl RealmProcessor {
         }
         let now = Instant::now();
         info!("Start building block checkpoint: {}, slot: {}", next_checkpoint_id, slot);
-        match self.build_block(build_ctx, next_checkpoint_id).await {
+        match self.build_block(build_ctx, next_checkpoint_id, slot).await {
             Ok(job_id) => {
                 // self.sync_proof.chq_push_imm(job_id).await?;
                 // submit guta task to coordinator
                 self.submit_guta(build_ctx, job_id).await?;
-                self.pending_checkpoint_id.store(next_checkpoint_id, Ordering::Relaxed);
                 build_ctx.store.save_snapshot(next_checkpoint_id)?;
                 info!("build complete checkpoint: {}, slot: {}, cost time: {:?}", next_checkpoint_id, slot, now.elapsed());
             }
@@ -400,7 +315,7 @@ impl RealmProcessor {
     async fn ensure_checkpoint_sync(
         &self,
         build_ctx: &ConcreteRealmProcessorContext,
-        sync_tx: mpsc::Sender<SyncState>,
+        pending_checkpoint: Option<u64>,
     ) -> anyhow::Result<SyncCheckpointResult> {
         loop {
             let (expected_checkpoint,local_checkpoint_id) = if let Ok(local_checkpoint_id) = self.get_local_latest_checkpoint_id().await {
@@ -411,11 +326,11 @@ impl RealmProcessor {
             };
             match self.sync_checkpoint(&self.context().await?, expected_checkpoint, local_checkpoint_id).await {
                 Ok(ret) => {
-                    self.is_synced.store(ret.is_synced, atomic::Ordering::Relaxed);
-                    self.confirm_pending_checkpoint(build_ctx, sync_tx.clone(), ret.clone()).await?;
+                    if let Some(pending_checkpoint_id) = pending_checkpoint {
+                        self.confirm_pending_checkpoint(build_ctx, pending_checkpoint_id,ret.clone()).await?;
+                    }
                     if ret.is_synced {
                         // Sync completed
-                        sync_tx.send(SyncState::Synced).await?;
                         return Ok(ret)
                     }
                 },
@@ -425,13 +340,6 @@ impl RealmProcessor {
                 }
             }
         }
-    }
-    pub async fn sync_wait_expected_checkpoint(&self, expected_checkpoint: u64) -> anyhow::Result<CheckpointSyncInfo<F>>{
-        // Wait for the next checkpoint sync info
-         self.sync_checkpoint.wait_for_next_item_imm::<CheckpointSyncInfo<F>>(
-            qed_core::config::network_constants::QED_CHECKPOINT_SYNC_INFO_COMPACT_DRAIN_QUEUE_CHANNEL,
-            expected_checkpoint
-        ).await
     }
 
     pub async fn wait_expected_checkpoint(&self, expected_checkpoint: u64) -> anyhow::Result<CheckpointSyncInfo<F>>{
@@ -450,7 +358,6 @@ impl RealmProcessor {
         local_checkpoint_id: u64,
     ) -> anyhow::Result<SyncCheckpointResult> {
         trace!("local_checkpoint_id {}, expected_checkpoint {}",local_checkpoint_id, expected_checkpoint);
-        // let block = self.sync_wait_expected_checkpoint(expected_checkpoint).await;
         let block = self.wait_expected_checkpoint(expected_checkpoint).await;
         match block {
             Ok(block) => {
@@ -530,8 +437,8 @@ impl RealmProcessor {
         &self,
         build_ctx: &ConcreteRealmProcessorContext,
         next_checkpoint_id: u64,
+        slot: u64,
     ) -> anyhow::Result<ProvingJobDataId> {
-        let slot = self.slot_timer.get_current_slot();
         build_ctx.build_block(next_checkpoint_id, slot).await.map(|job_id|ProvingJobDataId::new(next_checkpoint_id, job_id))
     }
 
