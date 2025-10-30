@@ -20,6 +20,7 @@ pub mod stress_test;
 pub mod job;
 pub mod realm_status;
 pub mod check_registered_users;
+pub mod store;
 
 #[derive(Parser)]
 pub struct Cli {
@@ -87,6 +88,9 @@ pub enum Commands {
     RealmStatus,
     #[command(about = "Check registered users")]
     CheckRegisteredUsers(check_registered_users::CheckRegisteredUsersArgs),
+
+    #[command(about = "Store utility commands")]
+    Store(store::StoreConfig),
 }
 
 #[derive(Parser)]

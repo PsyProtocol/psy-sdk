@@ -284,10 +284,10 @@ impl WasmRpcServer {
         let circuit_defs: Vec<DPNFunctionCircuitDefinition> = serde_json::from_str(circuit_defs_json)
             .map_err(|e| JsError::new(&format!("Parse circuit defs JSON error: {}", e)))?;
         
-        self.wallet_session.deploy_contract(deployer, circuit_defs)
+        let contract_uuid = self.wallet_session.deploy_contract(deployer, circuit_defs)
             .await
             .map_err(|e| JsError::new(&format!("Deploy contract error: {}", e)))?;
-        Ok("deploy contract".to_string())
+        Ok(contract_uuid)
     }
 
     #[wasm_bindgen]

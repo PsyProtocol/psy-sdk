@@ -10,6 +10,7 @@ use qed_data::guta::api::SubmitGUTARealmResultAPINoProofInput;
 use qed_data::qblock::cmds::deploy_contract::QBCDeployContract;
 use qed_data::qdata::checkpoint::{QEDCheckpointLeaf, QEDL2BlockState, QEDCheckpointGlobalStateRoots};
 use qed_data::qdata::contract::{ContractCodeDefinition, QEDContractLeaf};
+use qed_data::qdata::contract_metadata::ContractMetaData;
 use qed_data::qdata::user::QEDUserLeaf;
 use qed_crypto::hash::merkle::core::MerkleProofCore;
 use qed_data::qdata::checkpoint::CheckpointSyncInfo;
@@ -260,6 +261,9 @@ pub trait CoordinatorEdgeRpc {
 
     #[method(name = "get_current_realm_status_on_coordinator")]
     async fn get_current_realm_status_on_coordinator(&self, realm_id: u64) -> RpcResult<BasicRealmStatusOnCoordinator<F>>;
+
+    #[method(name = "get_contract_metadata")]
+    async fn get_contract_metadata(&self, contract_uuid: &str) -> RpcResult<ContractMetaData<F>>;
 
     #[method(name = "get_current_checkpoint_id")]
     async fn get_current_checkpoint_id(&self) -> RpcResult<u64>;

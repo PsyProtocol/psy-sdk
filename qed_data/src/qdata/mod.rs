@@ -18,3 +18,5 @@ pub mod staging_checkpoint_info;
 pub mod staging_delta_record_key;
 pub mod realm_status;
 pub mod realm_id_key;
+pub mod contract_metadata;
+pub mod contract_uuid;

@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::str::FromStr;
 // std
 use std::sync::Arc;
 use std::time::Duration;
@@ -8,6 +9,8 @@ use chrono::Utc;
 use qed_core::traits::to_qfelts::ToQFelts;
 use qed_crypto::hash::merkle::treeprover::subtree::SubTreeNodeStateTransition;
 use qed_data::guta::header::GlobalUserTreeAggregatorHeader;
+use qed_data::qdata::contract_metadata::ContractMetaData;
+use qed_data::qdata::contract_uuid::ContractUUID;
 use rand::RngCore;
 use tokio::sync::{mpsc, Mutex};
 use tracing::{debug, error, info, warn, trace};
@@ -187,7 +190,7 @@ impl CoordinatorEdgeHandler {
     pub async fn deploy_contract(
         &self,
         mut contract: QBCDeployContract<QEDFelt>,
-    ) -> anyhow::Result<()> {
+    ) -> anyhow::Result<ContractUUID> {
         let latest = self.get_latest_checkpoint_id().await?;
         let next_checkpoint_id = latest + 1;
 
@@ -218,10 +221,16 @@ impl CoordinatorEdgeHandler {
             with_root,
         );
 
+        let contract_uuid = ContractUUID {
+            checkpoint_id: cd_for_queue.metadata.checkpoint_id,
+            uuid: cd_for_queue.metadata.item_id,
+        };
+
         self.ctx.checkpoint_queue.cdq_push_imm(cd_for_queue).await?;
 
         // Report contract deployment to watcher
         let metadata = UserContractMetadata {
+            contract_uuid,
             state_tree_height,
             function_count,
             functions: contract_metadata.functions,
@@ -237,7 +246,7 @@ impl CoordinatorEdgeHandler {
             info!("📊 Contract deployment reported to watcher for deployer: {}", deployer_str);
         }
 
-        Ok(())
+        Ok(contract_uuid)
     }
 
     pub async fn submit_guta(
@@ -1037,6 +1046,18 @@ impl CoordinatorEdgeHandler {
             realm_root_hash: realm_status.realm_root_hash,
         })
     }
+
+    pub async fn get_contract_metadata(&self, contract_uuid: &str) -> anyhow::Result<ContractMetaData<F>> {
+        let contract_uuid = ContractUUID::from_str(contract_uuid)?;
+        let contract_meta = self.store.get_contract_metadata(contract_uuid).await?;
+        Ok(contract_meta)
+    }
+
+    pub async fn get_contract_metadatas(&self, contract_uuids: &[&str]) -> anyhow::Result<Vec<ContractMetaData<F>>> {
+        let contract_uuids = contract_uuids.iter().map(|s| ContractUUID::from_str(s)).collect::<anyhow::Result<Vec<_>>>()?;
+        let contract_metadatas = self.store.get_contract_metadatas(&contract_uuids).await?;
+        Ok(contract_metadatas)
+    }
 }
 
 use super::error::RpcError;
@@ -1079,7 +1100,7 @@ impl CoordinatorEdgeRpcServer for CoordinatorEdgeHandler {
     async fn deploy_contract(&self, deploy_contract: QBCDeployContract<F>) -> RpcResult<String> {
         self.deploy_contract(deploy_contract)
             .await
-            .map(|_| "ok".to_string())
+            .map(|contract_uuid| contract_uuid.to_string())
             .map_err(RpcError::Anyhow)
     }
 
@@ -1846,6 +1867,10 @@ impl CoordinatorEdgeRpcServer for CoordinatorEdgeHandler {
 
     async fn get_current_realm_status_on_coordinator(&self, realm_id: u64) -> RpcResult<BasicRealmStatusOnCoordinator<F>> {
         self.get_current_realm_status_on_coordinator(realm_id).await.map_err(RpcError::Anyhow)
+    }
+
+    async fn get_contract_metadata(&self, contract_uuid: &str) -> RpcResult<ContractMetaData<F>> {
+        self.get_contract_metadata(contract_uuid).await.map_err(RpcError::Anyhow)
     }
 
     async fn get_current_checkpoint_id(&self) -> RpcResult<u64> {

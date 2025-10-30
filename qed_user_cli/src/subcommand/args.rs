@@ -70,8 +70,16 @@ pub struct DeployContractArgs {
     pub rpc_config: String,
     #[clap(long, env)]
     pub private_key: String,
+    #[clap(long, short, default_value = "zk")]
+    pub sign_type: SignType,
+    #[clap(long, env)]
+    pub fingerprint: Option<String>,
     #[clap(long)]
     pub contract_path: String,
+    #[clap(long, env)]
+    pub output_path: Option<String>,
+    #[clap(long, env)]
+    pub is_deploy: bool, 
 }
 
 #[derive(Clone, Args, Serialize, Deserialize)]

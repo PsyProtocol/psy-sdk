@@ -11,6 +11,10 @@ use qed_prover::local::provider::RpcProvider;
 pub struct CheckRegisteredUsersArgs {
     #[clap(env, long, default_value = "config.json", env)]
     pub rpc_config: String,
+    #[clap(env, long, env)]
+    pub start_registration_id: Option<u64>,
+    #[clap(env, long, env)]
+    pub end_registration_id: Option<u64>,
 }
 
 pub async fn run(args: CheckRegisteredUsersArgs) -> anyhow::Result<()> {
@@ -19,9 +23,10 @@ pub async fn run(args: CheckRegisteredUsersArgs) -> anyhow::Result<()> {
     let mut error_registered_ids = Vec::new();
 
     let latest_l2_block_state = provider.get_latest_l2_block_state().await?;
+    let start_registration_id = args.start_registration_id.unwrap_or_default();
+    let end_registration_id = args.end_registration_id.unwrap_or(latest_l2_block_state.next_user_id);
 
-
-    for registration_id in 0..latest_l2_block_state.next_user_id {
+    for registration_id in start_registration_id..end_registration_id {
         tracing::info!("check registration_id {}", registration_id);
         let user_id = UserIdBitsStrategy4::get_user_id_from_registration_id(registration_id);
 

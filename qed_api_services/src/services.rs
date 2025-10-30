@@ -81,7 +81,7 @@ pub struct JobStatusService;
 impl JobStatusService {
     /// Refresh the latest_job_status materialized view
     pub async fn refresh_materialized_view(pool: &PgPool) -> crate::Result<()> {
-        debug!("Refreshing latest_job_status materialized view");
+        tracing::debug!("Refreshing latest_job_status materialized view");
 
         let start = std::time::Instant::now();
 
@@ -94,7 +94,7 @@ impl JobStatusService {
 
         match result {
             Ok(_) => {
-                info!(
+                tracing::info!(
                     "Successfully refreshed latest_job_status materialized view in {:?}",
                     duration
                 );
@@ -112,7 +112,7 @@ impl JobStatusService {
 
     /// Background task that refreshes the materialized view periodically
     pub async fn start_refresh_task(pool: PgPool, refresh_interval_secs: u64) {
-        info!(
+        tracing::info!(
             "Starting job status materialized view refresh task (interval: {}s)",
             refresh_interval_secs
         );
