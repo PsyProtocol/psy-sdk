@@ -78,6 +78,7 @@ pub async fn run(config: Config) -> anyhow::Result<()> {
     let app = Router::new()
         .merge(handlers::create_router(api_service.clone()))
         .merge(handlers::create_telemetry_router(api_service.clone(), jwt_manager))
+        .merge(handlers::create_contracts_router(api_service.clone()))  // ADD THIS LINE
         .merge(handlers::create_websocket_router(api_service))
         .layer(CorsLayer::permissive())
         .layer(TraceLayer::new_for_http());

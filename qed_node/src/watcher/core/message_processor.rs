@@ -177,14 +177,20 @@ impl MessageProcessorHandle {
                 self.api_client.send_contract_deployment(event.clone()).await
                     .map_err(|e| WatcherError::ApiClient(e.to_string()))?;
 
-                // Send contract UUID to monitor for metadata tracking
+                // Send complete UserContractMetadata to monitor for contract ID tracking
                 if let Some(ref handle) = self.contract_monitor_handle {
-                    if let Err(e) = handle.send(event.metadata.contract_uuid) {
-                        warn!("Failed to send contract UUID to monitor: {}", e);
+                    if let Err(e) = handle.send(event.metadata.clone()) {
+                        warn!("Failed to send contract metadata to monitor: {}", e);
                     } else {
-                        debug!("📋 Contract {} added to monitoring queue", event.metadata.contract_uuid.to_string());
+                        debug!(
+                            "📋 Contract {} added to monitoring queue (state_tree_height={}, {} functions)",
+                            event.metadata.contract_uuid,
+                            event.metadata.state_tree_height,
+                            event.metadata.function_count
+                        );
                     }
                 }
+
                 Ok(())
 
             }

@@ -367,25 +367,25 @@ impl CoordinatorEdgeHandler {
             metadata
         );
 
-        // Report GUTA submission to watcher with structured metadata
-        let metadata = UserGutaSubmissionMetadata {
-            checkpoint_id,
-            circuit_type,
-            top_line_proof: top_line_proof_data,
-            realm_proof_public_inputs,
-            node_id: self.watcher_client.get_node_id().await.unwrap_or_default(),
-            node_type: "coordinator".to_string(),
-        };
-
-        if let Err(e) = self.watcher_client
-            .submit_guta(realm_id, metadata)
-            .await
-        {
-            // Log the error but don't fail the GUTA submission
-            warn!("❌ Failed to report GUTA submission to watcher: {}", e);
-        } else {
-            info!("📊 GUTA submission reported to watcher for realm_id: {}", realm_id);
-        }
+        // // Report GUTA submission to watcher with structured metadata
+        // let metadata = UserGutaSubmissionMetadata {
+        //     checkpoint_id,
+        //     circuit_type,
+        //     top_line_proof: top_line_proof_data,
+        //     realm_proof_public_inputs,
+        //     node_id: self.watcher_client.get_node_id().await.unwrap_or_default(),
+        //     node_type: "coordinator".to_string(),
+        // };
+        //
+        // if let Err(e) = self.watcher_client
+        //     .submit_guta(realm_id, metadata)
+        //     .await
+        // {
+        //     // Log the error but don't fail the GUTA submission
+        //     warn!("❌ Failed to report GUTA submission to watcher: {}", e);
+        // } else {
+        //     info!("📊 GUTA submission reported to watcher for realm_id: {}", realm_id);
+        // }
 
         Ok(())
     }

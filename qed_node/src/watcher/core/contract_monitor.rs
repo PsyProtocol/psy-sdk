@@ -7,6 +7,7 @@ use tokio::time::interval;
 use tracing::{debug, error, info, warn};
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 use qed_data::qdata::contract_uuid::ContractUUID;
 use qed_data::qdata::contract_metadata::ContractMetaData;
 use qed_data::config::store_config::QEDFelt;
@@ -14,23 +15,25 @@ use qed_store::store::QEDStore;
 use qed_store::node::coordinator::QEDCoordinatorStoreReaderAsync;
 use crate::watcher::ApiClient;
 use crate::common::utils::current_datetime;
+use crate::watcher::events::UserContractMetadata;
 
 const CONTRACT_CHECK_INTERVAL_SECS: u64 = 15;
 const MAX_RETRY_ATTEMPTS: u32 = 10;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ContractMetadataReport {
-    pub contract_uuid: String,
+    pub contract_uuid: Uuid,
     pub checkpoint_id: u64,
     pub contract_id: u64,
     pub deployer: String,
     pub function_whitelist_root: String,
+    pub metadata: serde_json::Value,  // JSONB field storing complete UserContractMetadata
     pub timestamp: chrono::DateTime<chrono::Utc>,
 }
 
 #[derive(Debug, Clone)]
 struct PendingContract {
-    contract_uuid: ContractUUID,
+    metadata: UserContractMetadata,
     retry_count: u32,
     first_seen: chrono::DateTime<chrono::Utc>,
 }
@@ -38,18 +41,18 @@ struct PendingContract {
 pub struct ContractMonitorService {
     qed_store: Arc<QEDStore>,
     api_client: Arc<ApiClient>,
-    receiver: mpsc::UnboundedReceiver<ContractUUID>,
+    receiver: mpsc::UnboundedReceiver<UserContractMetadata>,
     pending_contracts: VecDeque<PendingContract>,
 }
 
 // Add a public handle type for integration with WatcherService
-pub type ContractMonitorHandle = mpsc::UnboundedSender<ContractUUID>;
+pub type ContractMonitorHandle = mpsc::UnboundedSender<UserContractMetadata>;
 
 impl ContractMonitorService {
     pub fn new(
         qed_store: Arc<QEDStore>,
         api_client: Arc<ApiClient>,
-    ) -> (Self, mpsc::UnboundedSender<ContractUUID>) {
+    ) -> (Self, mpsc::UnboundedSender<UserContractMetadata>) {
         let (tx, rx) = mpsc::unbounded_channel();
 
         let service = Self {
@@ -82,16 +85,16 @@ impl ContractMonitorService {
         }
     }
 
-    fn add_pending_contract(&mut self, contract_uuid: ContractUUID) {
-        debug!("contract monitor service add pending contract, contract_uuid: {}", contract_uuid.to_string());
+    fn add_pending_contract(&mut self, metadata: UserContractMetadata) {
         // Check if already in queue
-        if self.pending_contracts.iter().any(|p| p.contract_uuid == contract_uuid) {
-            debug!("Contract {} already in monitoring queue", contract_uuid.to_string());
+        if self.pending_contracts.iter().any(|p| p.metadata.contract_uuid == metadata.contract_uuid) {
+            debug!("Contract {} already in monitoring queue", metadata.contract_uuid);
             return;
         }
 
+        let contract_uuid = metadata.contract_uuid;
         let pending = PendingContract {
-            contract_uuid,
+            metadata,
             retry_count: 0,
             first_seen: chrono::Utc::now(),
         };
@@ -116,7 +119,7 @@ impl ContractMonitorService {
         while let Some(mut pending) = self.pending_contracts.pop_front() {
             pending.retry_count += 1;
 
-            match self.fetch_and_report_contract(&pending.contract_uuid).await {
+            match self.fetch_and_report_contract(&pending.metadata).await {
                 Ok(true) => {
                     info!(
                         "✅ Successfully reported metadata for contract {} (took {} attempts)",
@@ -168,34 +171,43 @@ impl ContractMonitorService {
         self.pending_contracts = contracts_to_retry;
     }
 
-    async fn fetch_and_report_contract(&self, contract_uuid: &ContractUUID) -> Result<bool> {
+    async fn fetch_and_report_contract(&self, user_metadata: &UserContractMetadata) -> Result<bool> {
         // Try to fetch contract metadata from the database
         let contract_metadata = match self.qed_store
-            .get_contract_metadata(*contract_uuid)
+            .get_contract_metadata(user_metadata.contract_uuid)
             .await
         {
             Ok(metadata) => metadata,
             Err(e) => {
                 // If not found, it's not an error - the contract just hasn't been finalized yet
-                debug!("Contract {} not yet available in database: {}", contract_uuid.to_string(), e);
+                debug!("Contract {} not yet available in database: {}", user_metadata.contract_uuid.to_string(), e);
                 return Ok(false);
             }
         };
 
         debug!(
             "Found contract metadata for {}: checkpoint_id={}, contract_id={}",
-            contract_uuid.to_string(),
+            user_metadata.contract_uuid.to_string(),
             contract_metadata.checkpoint_id,
             contract_metadata.contract_id
         );
 
+        let contract_uuid = Uuid::from_u64_pair(
+            user_metadata.contract_uuid.checkpoint_id,
+            user_metadata.contract_uuid.uuid);
+
+        // Serialize the complete UserContractMetadata to JSON
+        let metadata_json = serde_json::to_value(user_metadata)
+            .map_err(|e| anyhow::anyhow!("Failed to serialize UserContractMetadata: {}", e))?;
+
         // Convert to report format
         let report = ContractMetadataReport {
-            contract_uuid: contract_uuid.to_string(),
+            contract_uuid,
             checkpoint_id: contract_metadata.checkpoint_id,
             contract_id: contract_metadata.contract_id,
             deployer: format!("{}", contract_metadata.deployer.to_string_le()),
             function_whitelist_root: format!("{}", contract_metadata.function_whitelist_root.to_string_le()),
+            metadata: metadata_json,  // Store complete UserContractMetadata as JSONB
             timestamp: current_datetime(),
         };
 

@@ -7,11 +7,13 @@ use tracing::{error, info};
 use crate::{models::*, repositories::*, services::ApiService};
 use crate::auth::{auth_middleware, AuthExtension, JwtManager};
 use crate::repositories::checkpoint_state::{CheckpointStatsRepository, WorkerJobEventRepository};
+use crate::repositories::contracts::ContractRepository;
 
 pub fn create_telemetry_router(api_service: ApiService, jwt_manager: Arc<JwtManager>) -> Router {
     Router::new()
         .route("/telemetry/events", post(receive_events_handler))
         .route("/telemetry/checkpoint/leaves", post(report_checkpoint_leafs_handler))
+        .route("/telemetry/contract", post(receive_contract_handler))  // NEW ENDPOINT
         .layer(middleware::from_fn_with_state(
             jwt_manager.clone(),
             auth_middleware,
@@ -244,4 +246,42 @@ fn get_checkpoint_range(stats: &[CheckpointLeafStat]) -> Option<(i64, i64)> {
         .map(|s| s.checkpoint_id)
         .min()
         .zip(stats.iter().map(|s| s.checkpoint_id).max())
+}
+
+
+// Add this handler to the existing telemetry.rs file
+async fn receive_contract_handler(
+    State(service): State<ApiService>,
+    Extension(auth): Extension<AuthExtension>,
+    Json(payload): Json<ContractTelemetryPayload>,
+) -> Result<Json<ContractTelemetryResponse>, StatusCode> {
+    info!(
+        "Contract telemetry received from '{}': contract_id={}, uuid={}, deployer={}, checkpoint={}",
+        auth.claims.sub,
+        payload.report.contract_id,
+        payload.report.contract_uuid,
+        payload.report.deployer,
+        payload.report.checkpoint_id
+    );
+
+    // Store the contract report in the database
+    match ContractRepository::upsert_from_report(&service.pool, &payload.report).await {
+        Ok(contract) => {
+            info!(
+                "Contract stored successfully: id={}, uuid={}, checkpoint={}",
+                contract.contract_id, contract.contract_uuid, contract.checkpoint_id
+            );
+
+            Ok(Json(ContractTelemetryResponse {
+                success: true,
+                contract_id: contract.contract_id,
+                message: format!("Contract {} stored successfully at checkpoint {}",
+                                 contract.contract_id, contract.checkpoint_id),
+            }))
+        }
+        Err(e) => {
+            error!("Failed to store contract: {}", e);
+            Err(StatusCode::INTERNAL_SERVER_ERROR)
+        }
+    }
 }
