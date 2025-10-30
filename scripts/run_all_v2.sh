@@ -126,8 +126,6 @@ run_service "make run-watcher-realm0" "watcher-realm0" "$WATCHER_REALM0_LOG" &
 run_service "make run-watcher-realm1" "watcher-realm1" "$WATCHER_REALM1_LOG" &
 
 sleep 1
-run_service "make run-web-wallet" "web-wallet" "$WEB_WALLET_LOG" &
-PIDS+=($!)
 run_service "make run-prove-proxy" "local-prove-proxy" "$LOCAL_PROVE_PROXY_LOG" &
 PIDS+=($!)
 

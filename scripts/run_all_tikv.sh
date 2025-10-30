@@ -144,10 +144,6 @@ run_service "make run-watcher-realm1-tikv" "watcher-realm1-tikv" "$WATCHER_REALM
 PIDS+=($!)
 
 sleep 1
-# run_service "make run-user-prover" "local-user-prover" "$LOCAL_USER_PROVER_LOG" &
-# PIDS+=($!)
-run_service "make run-web-wallet" "web-wallet" "$WEB_WALLET_LOG" &
-PIDS+=($!)
 run_service "make run-prove-proxy" "local-prove-proxy" "$LOCAL_PROVE_PROXY_LOG" &
 PIDS+=($!)
 
