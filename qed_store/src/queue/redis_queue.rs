@@ -376,6 +376,12 @@ impl CheckpointDrainQueueConsumerAsyncImm for ProofStoreRedisAsync {
 
 #[async_trait]
 pub trait CheckpointDrainQueueConsumerAsyncImmWithPosition: CheckpointDrainQueueConsumerAsyncImm {
+    async fn peek_all<T: DQSerializable>(
+        &self,
+        channel_id: u64,
+    ) -> anyhow::Result<Vec<T>> {
+        Ok(vec![])
+    }
     async fn peek_with_position<T: DQSerializable>(
         &self,
         count: Option<isize>,
@@ -772,6 +778,22 @@ impl QPendingUserStoreAsyncImm for ProofStoreRedisAsync {
 
 #[async_trait]
 impl CheckpointDrainQueueConsumerAsyncImmWithPosition for ProofStoreRedisAsync {
+    async fn peek_all<T: DQSerializable>(
+        &self,
+        channel_id: u64,
+    ) -> anyhow::Result<Vec<T>> {
+        let checkpoint_queue_prefix =
+            format!("{}-{}", self.worker_queue_key(), PS_DRAIN_QUEUE_KEY_PREFIX);
+        let key = format!("{}-{}", checkpoint_queue_prefix, channel_id);
+        let members: Vec<Vec<u8>> = self.redis.lrange(key, 0, -1).await?;
+
+        let items: Vec<T> = members
+            .into_iter()
+            .map(|x| T::from_bytes(&x))
+            .collect::<anyhow::Result<Vec<T>>>()?;
+        Ok(items)
+    }
+
     async fn peek_with_position<T: DQSerializable>(
         &self,
         count: Option<isize>,

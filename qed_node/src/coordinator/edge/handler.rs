@@ -403,6 +403,16 @@ impl CoordinatorEdgeHandler {
         Ok(())
     }
 
+    pub async fn has_pending_guta(&self, realm_id: u32) -> anyhow::Result<bool> {
+        let guta :Vec<SubmitGUTARealmResultAPIQueueItem<GoldilocksField>> = self.history_queue.peek_all(self.ctx.coordinator_config.guta_channel_id).await?;
+        for guta_item in guta.iter() {
+            if guta_item.realm_id == realm_id as u64{
+                return Ok(true);
+            }
+        }
+        Ok(false)
+    }
+
     pub async fn get_checkpoint_sync_info(
         &self,
         realm_id: u32,
@@ -438,6 +448,7 @@ impl CoordinatorEdgeHandler {
             sync_timestamp: Utc::now().timestamp() as u64,
             compact,
             realm_root: realm_merkle_proof.value,
+            is_pending_guta: self.has_pending_guta(realm_id).await?,
         };
         Ok(sync_info)
     }
@@ -1071,7 +1082,7 @@ use qed_core::config::network_constants::COORDINATOR_USER_TREE_HEIGHT;
 use serde::Serialize;
 use qed_prover::local::request::{QDeployContractRPCRequest, QRegisterUserRPCRequest};
 use qed_prover::wallet::secp_sign::SignedRequest;
-use qed_store::queue::redis_queue::NotificationQueue;
+use qed_store::queue::redis_queue::{CheckpointDrainQueueConsumerAsyncImmWithPosition, NotificationQueue};
 use qed_store::queue::task_queue::{current_timestamp_millis, JobValidationStatus, QJob, QProvingTaskStore, QProvingTaskStoreImpl};
 use crate::common::utils::extract_contract_metadata;
 use crate::coordinator::edge::jwt::JwtAuthMetadata;
