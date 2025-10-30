@@ -1,8 +1,12 @@
 {
   "name": "@psy/psy-sdk",
   "version": "1.0.0",
-  "main": "dist/index",
-  "types": "dist/index",
+  "type": "module",
+  "main": "./dist/index.js",
+  "exports": {
+    ".": "./dist/index.js",
+    "./*": "./dist/*"
+  },
   "files": [
     "dist"
   ],
@@ -10,7 +14,7 @@
     "build:wasm": "node src/local-web-prover/build-wasm-binary.js",
     "build": "pnpm run clean && pnpm run build:wasm && pnpm run compile",
     "clean": "rimraf ./dist",
-    "compile": "tsc -p tsconfig.build.json",
+    "compile": "tsc -p tsconfig.build.json && cpx 'src/local-prover/psy_prover_bg.*' dist/local-prover",
     "bind": "npx barrelsby -c .barrelsby.json",
     "prepublishOnly": "pnpm run build",
     "test:integration": "jest --testNamePattern=\"Integration\"",
@@ -24,6 +28,7 @@
     "@types/jest": "^29.5.14",
     "@types/node": "^22.15.21",
     "barrelsby": "^2.8.1",
+    "cpx": "^1.5.0",
     "install": "^0.13.0",
     "jest": "^29.7.0",
     "rimraf": "~5.0.0",

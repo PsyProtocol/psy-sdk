@@ -1,0 +1,24 @@
+{
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@psy/*": ["packages/*/src"]
+    },
+    "noEmit": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "resolveJsonModule": true,
+    "module": "commonjs",
+    "target": "ES2020",
+    "sourceMap": true,
+    "strict": true,
+    "declaration": true,
+    "declarationMap": true,
+    "noEmitOnError": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+  },
+  "include": [
+    "src/**/*"
+  ]
+}
