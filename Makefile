@@ -687,8 +687,8 @@ image:
 		-f Dockerfile .
 
 wasm-build:
-	@cd qed_prover && wasm-pack build --target web --out-dir ../qed-ts-sdk/packages/qed-sdk/src/local-web-prover --no-pack --release --no-default-features
-	@cd qed_prover && wasm-pack build --target nodejs --out-dir ../qed-ts-sdk/packages/qed-sdk/src/local-prover  --no-pack --release --no-default-features
+	@cd qed_prover && wasm-pack build --target web --out-dir ../qed-ts-sdk/packages/qed-sdk/src/local-web-prover --no-pack --release --no-default-features && cp .gitignore.template ../qed-ts-sdk/packages/qed-sdk/src/local-web-prover/.gitignore
+	@cd qed_prover && wasm-pack build --target nodejs --out-dir ../qed-ts-sdk/packages/qed-sdk/src/local-prover  --no-pack --release --no-default-features && cp .gitignore.template ../qed-ts-sdk/packages/qed-sdk/src/local-prover/.gitignore
 
 wallet-build: wasm-build
 	@cd qed-ts-sdk/app/qed-wallet && pnpm i && pnpm build:wasm && pnpm build:extension

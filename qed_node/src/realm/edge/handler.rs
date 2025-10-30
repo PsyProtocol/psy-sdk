@@ -26,6 +26,7 @@ use qed_data::qdata::checkpoint::{
     QEDCheckpointGlobalStateRoots, QEDCheckpointLeaf, QEDL2BlockState,
 };
 use qed_data::qdata::user::QEDUserLeaf;
+use qed_prover::session::TxStatus;
 use qed_store::node::realm::QEDRealmStoreReaderAsync;
 use qed_store::queue::ProofStoreRedisAsync;
 use std::sync::Arc;
@@ -395,6 +396,18 @@ where
         }
 
         Ok("ok".to_string())
+    }
+
+    async fn get_tx_status(
+        &self,
+        user_id: u64,
+        nonce: u64,
+    ) -> RpcResult<TxStatus> {
+        Ok(self
+            .ctx
+            .get_tx_status(user_id, nonce)
+            .await
+            .map_err(RpcError::Anyhow)?)
     }
 
     async fn get_checkpoint_leaf_data(

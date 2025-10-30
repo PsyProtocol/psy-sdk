@@ -6,7 +6,7 @@ const fetchBlockNumber = async (walletProvider: QedUserWalletProvider) => {
     try {
         console.log("Fetching latest L2 block state from coordinator...");
         const latestBlockState = await walletProvider.coordinatorEdgeRpcProvider.getLatestL2BlockState();
-        console.log("Latest block state:", QedJSON.stringify(latestBlockState, null, 2));
+        console.log("Latest block state:", QedJSON.stringify(latestBlockState, 2));
         if (latestBlockState) {
             return Number(latestBlockState.checkpoint_id);
         }

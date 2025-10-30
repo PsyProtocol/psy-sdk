@@ -225,7 +225,7 @@ const useWalletState = create<IWalletStateStore>((set, get, api) => {
                 return { coordinatorEdgeRpcProvider, realmEdgeRpcProvider };
             }),
         setActiveWalletAsync: (userId: number) =>
-            setAsync(async ({ state }) => {
+            setAsync(async ({ state }: { state: IWalletStateStore }) => {
                 //await waitMs(2000);
                 if (state.currentWallet?.userId === userId) {
                     return {};
@@ -240,7 +240,7 @@ const useWalletState = create<IWalletStateStore>((set, get, api) => {
                 const userInfo = await wallet.wallet.getUserInfo();
 
                 const wallets = state.wallets.map((w) => {
-                    if (w.wallet.statue && w.userId === wallet.userId) {
+                    if (w.wallet.status && w.userId === wallet.userId) {
                         return { ...userInfo, name: userInfo.userId.toString(), address: userInfo.publicKeyHex, wallet: wallet.wallet };
                     } else {
                         return w;
