@@ -249,7 +249,7 @@ fn get_checkpoint_range(stats: &[CheckpointLeafStat]) -> Option<(i64, i64)> {
 }
 
 
-// Add this handler to the existing telemetry.rs file
+
 async fn receive_contract_handler(
     State(service): State<ApiService>,
     Extension(auth): Extension<AuthExtension>,

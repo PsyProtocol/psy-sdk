@@ -1,7 +1,3 @@
-// ============================================================================
-// Create new file: handlers/contracts.rs (for query endpoints)
-// ============================================================================
-
 use axum::{
     extract::{Path, Query, State},
     http::StatusCode,
@@ -209,12 +205,12 @@ pub fn create_contracts_router(api_service: ApiService) -> Router {
         .route("/contracts/functions", get(get_all_function_names_handler))
 
         // Get by specific identifiers
-        .route("/contracts/id/:contract_id", get(get_contract_by_id_handler))
-        .route("/contracts/uuid/:contract_uuid", get(get_contract_by_uuid_handler))
+        .route("/contracts/id/{contract_id}", get(get_contract_by_id_handler))
+        .route("/contracts/uuid/{contract_uuid}", get(get_contract_by_uuid_handler))
 
         // Get by relationships
-        .route("/contracts/deployer/:deployer", get(get_contracts_by_deployer_handler))
-        .route("/contracts/checkpoint/:checkpoint_id", get(get_contracts_by_checkpoint_handler))
+        .route("/contracts/deployer/{deployer}", get(get_contracts_by_deployer_handler))
+        .route("/contracts/checkpoint/{checkpoint_id}", get(get_contracts_by_checkpoint_handler))
 
         .with_state(api_service)
 }

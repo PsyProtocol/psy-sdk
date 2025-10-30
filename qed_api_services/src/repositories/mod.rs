@@ -19,3 +19,4 @@ pub use stats::{RealmStatsRepository, WorkerStatsRepository};
 pub use users::{UserEventRepository, UserRepository};
 pub use workers::WorkerEventRepository;
 pub use job_status::*;
+pub use contracts::*;
