@@ -448,7 +448,7 @@ impl CoordinatorEdgeHandler {
             sync_timestamp: Utc::now().timestamp() as u64,
             compact,
             realm_root: realm_merkle_proof.value,
-            is_pending_guta: self.has_pending_guta(realm_id).await?,
+            has_pending_guta: self.has_pending_guta(realm_id).await?,
         };
         Ok(sync_info)
     }
