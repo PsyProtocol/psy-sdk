@@ -218,27 +218,17 @@ impl ContractMonitorService {
     }
 
     async fn send_contract_metadata_report(&self, report: &ContractMetadataReport) -> Result<()> {
-        let url = format!("{}/telemetry/contract", self.api_client.config.endpoint);
-        let headers = self.api_client.get_headers("/telemetry/contract").await?;
 
-        let response = self.api_client.client
-            .post(&url)
-            .headers(headers)
-            .json(report)
-            .send()
-            .await?;
-
-        if !response.status().is_success() {
-            anyhow::bail!(
-                "Failed to send contract metadata report: {}",
-                response.status()
-            );
-        }
+        let response: serde_json::Value = self.api_client
+            .send_telemetry_request("/telemetry/contract", report)
+            .await
+            .map_err(|e| anyhow::anyhow!("Failed to send contract metadata report: {}", e))?;
 
         info!(
-            "📊 Contract metadata reported to API: contract_uuid={}, contract_id={}",
+            "📊 Contract metadata reported to API: contract_uuid={}, contract_id={}, response={}",
             report.contract_uuid,
-            report.contract_id
+            report.contract_id,
+            serde_json::to_string_pretty(&response).unwrap_or_else(|_| "<invalid json>".to_string())
         );
 
         Ok(())

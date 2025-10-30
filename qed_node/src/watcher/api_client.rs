@@ -467,7 +467,7 @@ impl ApiClient {
     }
 
     // Generic telemetry request handler
-    async fn send_telemetry_request<T: Serialize, R: for<'de> Deserialize<'de>>(
+    pub(crate) async fn send_telemetry_request<T: Serialize, R: for<'de> Deserialize<'de>>(
         &self,
         path: &str,
         payload: &T,
