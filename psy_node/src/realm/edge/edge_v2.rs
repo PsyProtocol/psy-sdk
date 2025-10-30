@@ -16,7 +16,6 @@ use crate::{
     },
     realm::{
         creat_redis_store,
-        edge::sync::{spawn_active_checkpoint_sync_task, spawn_realm_job_update_task},
         handler::RealmEdgeHandler,
         state::{edge::RealmEdgeContext, edge_queue_helper::RealmEdgeQueueHelper, processor::RealmConfig, queue_factory::QueueFactory},
         RealmEdgeConfig, F,
@@ -110,19 +109,6 @@ pub async fn run_realm_edge_v2(config: RealmEdgeConfig) -> anyhow::Result<()> {
     let handle = server_handle.start(rpc_module);
 
     info!("Realm Edge node started on {}", config.rpc.listen_addr.clone());
-
-    // Spawn task to send proof to coordinator
-    // spawn_realm_job_update_task(
-    //     Arc::from(proof_store),
-    //     realm_config.realm_id as u64,
-    //     config.rpc.coordinator_addr.clone(),
-    //     Arc::new(edge_ctx),
-    //     None,
-    // )
-    //     .await?;
-
-    // spawn_active_checkpoint_sync_task(realm_config.realm_id, store_reader,
-    // sync_queue, config.rpc.coordinator_addr)     .await?;
 
     // Keep server running¶
     handle.stopped().await;
