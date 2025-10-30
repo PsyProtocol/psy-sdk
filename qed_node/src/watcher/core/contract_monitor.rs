@@ -218,9 +218,19 @@ impl ContractMonitorService {
     }
 
     async fn send_contract_metadata_report(&self, report: &ContractMetadataReport) -> Result<()> {
+        // Wrap the report in a payload structure to match the API's expected format
+        #[derive(Serialize)]
+        struct ContractTelemetryPayload {
+            report: ContractMetadataReport,
+        }
 
+        let payload = ContractTelemetryPayload {
+            report: report.clone(),
+        };
+
+        // Use the existing send_telemetry_request method which includes JWT authentication
         let response: serde_json::Value = self.api_client
-            .send_telemetry_request("/telemetry/contract", report)
+            .send_telemetry_request("/telemetry/contract", &payload)
             .await
             .map_err(|e| anyhow::anyhow!("Failed to send contract metadata report: {}", e))?;
 
