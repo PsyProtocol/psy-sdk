@@ -1,3 +1,5 @@
+use std::fmt;
+use std::fmt::Display;
 use std::str::FromStr;
 
 use kvq::traits::{KVQSerializable, ScyllaKey};

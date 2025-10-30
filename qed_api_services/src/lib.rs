@@ -15,7 +15,9 @@ use services::{create_database_pool, ApiService};
 use tokio::signal;
 use tower_http::{cors::CorsLayer, trace::TraceLayer};
 use crate::services::{CheckpointRewardService, JobStatusService};
-use auth::JwtManager;  // Import JWT manager
+use auth::JwtManager;
+use crate::handlers::tps::start_tps_broadcast_task;
+// Import JWT manager
 
 /// Run the API service with the given configuration.
 ///
@@ -44,20 +46,12 @@ pub async fn run(config: Config) -> anyhow::Result<()> {
         }
     };
 
-    // Start background reward processing task
-    // tracing::info!("Starting reward processing background task");
-    // let pool_for_rewards = pool.clone();
-    // tokio::spawn(async move {
-    //     RewardService::start_reward_processing_task(pool_for_rewards).await;
-    // });
-
     // Start job status refresh task (refresh every 10 seconds)
     tracing::info!("Starting job status refresh background task");
     let pool_for_job_status = pool.clone();
     tokio::spawn(async move {
         JobStatusService::start_refresh_task(pool_for_job_status, 10).await;
     });
-
 
     tracing::info!("Starting checkpoint reward processing background task");
     let pool_for_checkpoint_rewards = pool.clone();
@@ -73,10 +67,18 @@ pub async fn run(config: Config) -> anyhow::Result<()> {
         WorkerEventProcessor::start_processing_task(pool_for_processor, EventProcessorConfig::default()).await;
     });
 
+    // NEW: Start TPS broadcast task (broadcasts TPS data every 12 seconds)
+    tracing::info!("Starting TPS broadcast background task");
+    let api_service_for_tps = api_service.clone();
+    tokio::spawn(async move {
+        start_tps_broadcast_task(api_service_for_tps, 12).await;
+    });
+
     // Create application router
     let app = Router::new()
         .merge(handlers::create_router(api_service.clone()))
         .merge(handlers::create_telemetry_router(api_service.clone(), jwt_manager))
+        .merge(handlers::create_contracts_router(api_service.clone()))  // ADD THIS LINE
         .merge(handlers::create_websocket_router(api_service))
         .layer(CorsLayer::permissive())
         .layer(TraceLayer::new_for_http());

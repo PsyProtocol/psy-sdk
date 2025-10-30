@@ -7,7 +7,7 @@ use axum::{
 };
 use futures::{sink::SinkExt, stream::StreamExt};
 use tokio::time::{interval, Duration};
-
+use tracing::{error, info};
 use crate::{repositories::TpsRepository, services::ApiService};
 
 use super::{EventType, WebSocketEvent};
@@ -37,10 +37,11 @@ async fn handle_tps_socket(socket: WebSocket, service: ApiService) {
             loop {
                 broadcast_interval.tick().await;
 
+                //todo! will be removed later
                 match TpsRepository::calculate_current_tps(&service.pool).await {
                     Ok(tps_data) => {
                         let event = WebSocketEvent {
-                            event_type: EventType::TpsUpdate,
+                            event_type: EventType::Tps,
                             data: serde_json::to_value(&tps_data).unwrap_or_default(),
                             timestamp: tps_data.timestamp,
                         };
@@ -91,4 +92,30 @@ async fn handle_tps_socket(socket: WebSocket, service: ApiService) {
     }
 
     tracing::info!("TPS WebSocket connection ended: {}", connection_id);
+}
+
+pub async fn calculate_and_broadcast_tps(service: &ApiService) -> crate::Result<()> {
+    // Calculate current TPS
+    let tps_data = TpsRepository::calculate_current_tps(&service.pool).await?;
+
+    info!("Calculated TPS: {:?}", tps_data);
+
+    // Broadcast to unified WebSocket connections
+    service.unified_websocket_manager.broadcast_tps(&tps_data).await;
+    
+    Ok(())
+}
+
+
+// Example background task for continuous TPS updates
+pub async fn start_tps_broadcast_task(service: ApiService, interval_secs: u64) {
+    let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(interval_secs));
+
+    loop {
+        interval.tick().await;
+
+        if let Err(e) = calculate_and_broadcast_tps(&service).await {
+            error!("Failed to calculate/broadcast TPS: {}", e);
+        }
+    }
 }

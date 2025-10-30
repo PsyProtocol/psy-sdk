@@ -1,9 +1,12 @@
+
 pub mod tps;
 pub mod user_event;
 pub mod worker_event;
+pub mod unified;
 
 pub use user_event::{UserEventConnection, UserEventFilters, UserEventManager};
 pub use worker_event::{WorkerEventConnection, WorkerEventFilters, WorkerEventManager};
+pub use unified::{UnifiedWebSocketManager, unified_websocket_handler};  
 
 use axum::{routing::get, Router};
 use serde::{Deserialize, Serialize};
@@ -12,9 +15,9 @@ use crate::services::ApiService;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum EventType {
-    WorkerEvent,
-    UserEvent,
-    TpsUpdate,
+    Worker,
+    User,
+    Tps,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -26,6 +29,11 @@ pub struct WebSocketEvent {
 
 pub fn create_websocket_router(api_service: ApiService) -> Router {
     Router::new()
+        // NEW: Single unified endpoint
+        .route("/ws", get(unified::unified_websocket_handler))
+
+        // DEPRECATED: Keep old endpoints for backward compatibility
+        // These can be removed after clients migrate to the unified endpoint
         .route(
             "/ws/user_event",
             get(user_event::user_event_websocket_handler),
