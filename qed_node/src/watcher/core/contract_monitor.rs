@@ -88,7 +88,7 @@ impl ContractMonitorService {
     fn add_pending_contract(&mut self, metadata: UserContractMetadata) {
         // Check if already in queue
         if self.pending_contracts.iter().any(|p| p.metadata.contract_uuid == metadata.contract_uuid) {
-            debug!("Contract {} already in monitoring queue", metadata.contract_uuid);
+            debug!("Contract {} already in monitoring queue", metadata.contract_uuid.to_string());
             return;
         }
 
@@ -106,7 +106,6 @@ impl ContractMonitorService {
             self.pending_contracts.len()
         );
     }
-
     async fn check_pending_contracts(&mut self) {
         if self.pending_contracts.is_empty() {
             return;
@@ -123,7 +122,7 @@ impl ContractMonitorService {
                 Ok(true) => {
                     info!(
                         "✅ Successfully reported metadata for contract {} (took {} attempts)",
-                        pending.contract_uuid.to_string(),
+                        pending.metadata.contract_uuid.to_string(),
                         pending.retry_count
                     );
                 }
@@ -133,14 +132,14 @@ impl ContractMonitorService {
                         let elapsed = chrono::Utc::now() - pending.first_seen;
                         warn!(
                             "⚠️ Contract {} not found after {} attempts over {} seconds, removing from queue",
-                            pending.contract_uuid.to_string(),
+                            pending.metadata.contract_uuid.to_string(),
                             pending.retry_count,
                             elapsed.num_seconds()
                         );
                     } else {
                         debug!(
                             "Contract {} not found yet (attempt {}/{}), will retry",
-                            pending.contract_uuid.to_string(),
+                         pending.metadata.contract_uuid.to_string(),
                             pending.retry_count,
                             MAX_RETRY_ATTEMPTS
                         );
@@ -150,7 +149,7 @@ impl ContractMonitorService {
                 Err(e) => {
                     error!(
                         "❌ Error checking contract {}: {}",
-                        pending.contract_uuid.to_string(),
+                        pending.metadata.contract_uuid.to_string(),
                         e
                     );
 
@@ -159,7 +158,7 @@ impl ContractMonitorService {
                     } else {
                         warn!(
                             "⚠️ Giving up on contract {} after {} attempts",
-                            pending.contract_uuid.to_string(),
+                            pending.metadata.contract_uuid.to_string(),
                             pending.retry_count
                         );
                     }
@@ -170,6 +169,7 @@ impl ContractMonitorService {
         // Re-add contracts that need to be retried
         self.pending_contracts = contracts_to_retry;
     }
+
 
     async fn fetch_and_report_contract(&self, user_metadata: &UserContractMetadata) -> Result<bool> {
         // Try to fetch contract metadata from the database

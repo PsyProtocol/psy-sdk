@@ -184,7 +184,7 @@ impl MessageProcessorHandle {
                     } else {
                         debug!(
                             "📋 Contract {} added to monitoring queue (state_tree_height={}, {} functions)",
-                            event.metadata.contract_uuid,
+                            event.metadata.contract_uuid.to_string(),
                             event.metadata.state_tree_height,
                             event.metadata.function_count
                         );
