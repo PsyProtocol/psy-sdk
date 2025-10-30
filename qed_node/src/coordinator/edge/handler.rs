@@ -204,7 +204,7 @@ impl CoordinatorEdgeHandler {
         );
 
         // Store contract details for reporting (before converting to with_root)
-        let deployer_str = format!("{}", contract.deployer.to_string_le());
+        let deployer_str = format!("{}", contract.deployer.to_string());
         let state_tree_height = contract.code_definition.state_tree_height;
         let function_count = contract.code_definition.functions.len();
 
