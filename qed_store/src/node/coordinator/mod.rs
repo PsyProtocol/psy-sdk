@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use plonky2::hash::hash_types::{HashOut, RichField};
 use qed_core::data::qhashout::QHashOut;
-use qed_data::qdata::realm_status::BasicRealmStatus;
+use qed_data::qdata::{contract_uuid::ContractUUID, contract_metadata::ContractMetaData, realm_status::BasicRealmStatus};
 
 #[derive(Debug, Clone)]
 pub struct InitializeParams<F: RichField> {
@@ -162,6 +162,15 @@ pub trait QEDCoordinatorStoreReaderAsync<F: RichField>: Send + Sync {
         Ok(realm_statuses[0])
     }
     async fn get_realm_statuses(&self, realm_ids: &[u64]) -> anyhow::Result<Vec<BasicRealmStatus<F>>>;
+
+    async fn get_contract_metadata(&self, contract_uuid: ContractUUID) -> anyhow::Result<ContractMetaData<F>> {
+        let contract_metadatas = self.get_contract_metadatas(&[contract_uuid]).await?;
+        if contract_metadatas.len() != 1 {
+            return Err(anyhow::anyhow!("get_contract_metadata should return only 1, but return {} contract metadata", contract_metadatas.len()));
+        }
+        Ok(contract_metadatas[0])
+    }
+    async fn get_contract_metadatas(&self, contract_uuids: &[ContractUUID]) -> anyhow::Result<Vec<ContractMetaData<F>>>;
 }
 
 
@@ -231,4 +240,10 @@ pub trait QEDCoordinatorStoreWriterAsyncImm<F: RichField> {
     }
 
     async fn set_realm_statuses(&self, realm_ids: &[u64], realm_statuses: &[BasicRealmStatus<F>]) -> anyhow::Result<()>;
+
+    async fn set_contract_metadata(&self, contract_uuid: ContractUUID, contract_metadata: &ContractMetaData<F>) -> anyhow::Result<()> {
+        self.set_contract_metadatas(&[contract_uuid], &[contract_metadata.clone()]).await
+    }
+
+    async fn set_contract_metadatas(&self, contract_uuids: &[ContractUUID], contract_metadatas: &[ContractMetaData<F>]) -> anyhow::Result<()>;
 }

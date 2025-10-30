@@ -1,13 +1,10 @@
 use crate::node::coordinator::{QEDCoordinatorStoreReaderAsync, QEDCoordinatorStoreWriterAsyncImm};
 use qed_data::{
-    config::store_config::{CheckpointSyncInfoTableStore, QEDHasher, UserTreeStore},
-    models::{
-        checkpoint::sync_info::QEDCheckpointSyncInfoModelCore,
-        kvq_merkle::model::KVQFixedConfigMerkleTreeModelCore,
-    },
-    traits::qdatastore::{
+    config::store_config::{CheckpointSyncInfoTableStore, QEDHasher, UserTreeStore}, models::{
+        checkpoint::sync_info::QEDCheckpointSyncInfoModelCore, contract_metadata::ContractMetaDataModelCore, kvq_merkle::model::KVQFixedConfigMerkleTreeModelCore
+    }, qdata::{contract_uuid::ContractUUID, contract_metadata::ContractMetaData}, traits::qdatastore::{
         qmetadata::QMetaDataStoreWriterSync, qtreedata::QTreeDataStoreWriterSync,
-    },
+    }
 };
 
 use async_trait::async_trait;
@@ -266,5 +263,10 @@ impl<T: KVQBinaryStore + QEDCoordinatorStoreReaderAsync<F>> QEDCoordinatorStoreW
     async fn set_realm_statuses(&self, realm_ids: &[u64], realm_statuses: &[BasicRealmStatus<F>]) -> anyhow::Result<()> {
         use qed_data::config::store_config::RealmStatusTableStore;
         RealmStatusTableStore::<F, Self>::set_realm_statuses(self, realm_ids, realm_statuses)
+    }
+
+    async fn set_contract_metadatas(&self, contract_uuids: &[ContractUUID], contract_metadatas: &[ContractMetaData<F>]) -> anyhow::Result<()> {
+        use qed_data::config::store_config::ContractMetaDataTableStore;
+        ContractMetaDataTableStore::<F, Self>::set_contract_metadatas(self, contract_uuids, contract_metadatas)
     }
 }

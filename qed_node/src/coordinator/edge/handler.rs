@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::str::FromStr;
 // std
 use std::sync::Arc;
 use std::time::Duration;
@@ -8,6 +9,8 @@ use chrono::Utc;
 use qed_core::traits::to_qfelts::ToQFelts;
 use qed_crypto::hash::merkle::treeprover::subtree::SubTreeNodeStateTransition;
 use qed_data::guta::header::GlobalUserTreeAggregatorHeader;
+use qed_data::qdata::contract_metadata::ContractMetaData;
+use qed_data::qdata::contract_uuid::ContractUUID;
 use rand::RngCore;
 use tokio::sync::{mpsc, Mutex};
 use tracing::{debug, error, info, warn, trace};
@@ -34,7 +37,7 @@ use qed_crypto::signature::zk::data::ZKPublicKeyInfo;
 use qed_data::guta::api::{
     SubmitGUTARealmResultAPINoProofInput, SubmitGUTARealmResultAPIQueueItem,
 };
-use qed_data::qblock::cmds::deploy_contract::QBCDeployContract;
+use qed_data::qblock::cmds::deploy_contract::{QBCDeployContract, QContractMetadata};
 use qed_data::qdata::checkpoint::{
     QEDCheckpointGlobalStateRoots, QEDCheckpointLeaf, QEDL2BlockState,
 };
@@ -163,17 +166,12 @@ impl CoordinatorEdgeHandler {
             .map_err(|e| CoordinatorError::QueueError(e.to_string()))?;
         info!("✅ User pushed to checkpoint queue.");
 
-
-        // Convert public key to string representation
-        let public_key_str = format!("{}", public_key_hash.to_string_le());
-
-        // Report to watcher
-        if let Err(e) = self.watcher_client.register_user(&public_key_str).await
-        {
-            // Log the error but don't fail the registration
+        //watcher report
+        let public_key_str = format!("{}", public_key_hash);
+        if let Err(e) = self.watcher_client.register_user(&public_key_str).await {
             warn!("❌ Failed to report user registration to watcher: {}", e);
         } else {
-            info!("📊 User registration reported to watcher: {}", public_key_str);
+            info!("👤 User registration reported to watcher: {}", public_key_str);
         }
 
         Ok(())
@@ -192,9 +190,21 @@ impl CoordinatorEdgeHandler {
     pub async fn deploy_contract(
         &self,
         mut contract: QBCDeployContract<QEDFelt>,
-    ) -> anyhow::Result<()> {
+    ) -> anyhow::Result<ContractUUID> {
         let latest = self.get_latest_checkpoint_id().await?;
         let next_checkpoint_id = latest + 1;
+
+        let contract_metadata = extract_contract_metadata(&contract).unwrap_or_else(|e| {
+            error!("❌ Failed to extract contract metadata: {}", e);
+            QContractMetadata::default()
+        });
+
+        info!(
+            "Deploying contract with metadata: {} functions, deployer: {}, functions: {:?}",
+            contract_metadata.function_count,
+            contract_metadata.deployer,
+            contract_metadata.functions.iter().map(|f| &f.name).collect::<Vec<_>>()
+        );
 
         // Store contract details for reporting (before converting to with_root)
         let deployer_str = format!("{}", contract.deployer.to_string_le());
@@ -211,28 +221,32 @@ impl CoordinatorEdgeHandler {
             with_root,
         );
 
+        let contract_uuid = ContractUUID {
+            checkpoint_id: cd_for_queue.metadata.checkpoint_id,
+            uuid: cd_for_queue.metadata.item_id,
+        };
+
         self.ctx.checkpoint_queue.cdq_push_imm(cd_for_queue).await?;
 
         // Report contract deployment to watcher
-        let metadata = UserDeployContractMetadata {
+        let metadata = UserContractMetadata {
+            contract_uuid,
             state_tree_height,
             function_count,
+            functions: contract_metadata.functions,
             function_whitelist_root: function_whitelist_root_str,
-            node_id: self.watcher_client.get_node_id().await.unwrap_or_default(),
-            node_type: "coordinator".to_string(),
         };
 
         if let Err(e) = self.watcher_client
             .deploy_contract(&deployer_str, metadata)
             .await
         {
-            // Log the error but don't fail the contract deployment
             warn!("❌ Failed to report contract deployment to watcher: {}", e);
         } else {
             info!("📊 Contract deployment reported to watcher for deployer: {}", deployer_str);
         }
 
-        Ok(())
+        Ok(contract_uuid)
     }
 
     pub async fn submit_guta(
@@ -241,10 +255,8 @@ impl CoordinatorEdgeHandler {
         proof: ProofWithPublicInputs<QEDFelt, PoseidonGoldilocksConfig, 2>,
         realm_id: u64,
     ) -> anyhow::Result<()> {
-        debug!(
-            "submit_guta input: {}",
-            serde_json::to_string_pretty(&input)?
-        );
+        debug!("submit_guta input: {}", serde_json::to_string_pretty(&input)?);
+
         let checkpoint_id = self.get_latest_checkpoint_id().await?;
         if input.checkpoint_id.saturating_sub(1) < checkpoint_id {
             warn!("⚠️ got guta at old checkpoint {}, expected {}", input.checkpoint_id.saturating_sub(1), checkpoint_id);
@@ -252,7 +264,7 @@ impl CoordinatorEdgeHandler {
 
         let expected_realm_checkpoint_tree_root = QEDCoordinatorStoreReaderAsync::get_checkpoint_tree_root(&self.store, input.checkpoint_id.saturating_sub(1)).await?;
         if expected_realm_checkpoint_tree_root != input.checkpoint_tree_root {
-            anyhow::bail!("invalid checkpoint tree root {} from realm, expected {}", input.checkpoint_tree_root, expected_realm_checkpoint_tree_root);
+            bail!("invalid checkpoint tree root {} from realm, expected {}", input.checkpoint_tree_root, expected_realm_checkpoint_tree_root);
         }
 
         let checkpoint_queue = self.ctx.checkpoint_queue.clone();
@@ -261,16 +273,16 @@ impl CoordinatorEdgeHandler {
         let verifier = self.ctx.proof_verifier.clone();
         // verify top line proof
         if input.top_line_proof.old_root != input.top_line_proof.old_value || input.top_line_proof.new_root != input.top_line_proof.new_value || input.top_line_proof.siblings.len() != 0 {
-            anyhow::bail!("top line not currently supported for guta proofs");
+            bail!("top line not currently supported for guta proofs");
         }
 
         //if circuit type is GUTANoChange, disable the proof
         if input.proof_id.circuit_type == ProvingJobCircuitType::GUTANoChange {
-            info!("⚠️ GUTANoChange proof, disabling it");
+            info!("GUTANoChange proof, disabling it");
             return Ok(());
         }
         if input.top_line_proof.new_root == input.top_line_proof.old_root {
-            anyhow::bail!("⚠️ realm root should be different");
+            bail!("⚠️ realm root should be different");
         }
 
         // verify state consistency
@@ -279,11 +291,11 @@ impl CoordinatorEdgeHandler {
             .get_user_top_tree_cap_root(checkpoint_id, config.realm_root_level, input.realm_id)
             .await?;
 
-        info!("old root from db: {}", latest_realm_root);
-        info!("old root from realm: {}", input.top_line_proof.old_root);
+        debug!("old root from db: {}", latest_realm_root);
+        debug!("old root from realm: {}", input.top_line_proof.old_root);
         if latest_realm_root != input.top_line_proof.old_root {
-            tracing::error!("invalid top line proof old value {} from realm, expected {}", input.top_line_proof.old_root, latest_realm_root);
-            anyhow::bail!("invalid top line proof old value from realm");
+            error!("invalid top line proof old value {} from realm, expected {}", input.top_line_proof.old_root, latest_realm_root);
+            bail!("invalid top line proof old value from realm");
         }
         let top_line_proof_data = TopLineProofData {
             old_root: format!("{}", input.top_line_proof.old_root.to_string_le()),
@@ -292,10 +304,7 @@ impl CoordinatorEdgeHandler {
             new_value: format!("{}", input.top_line_proof.new_value.to_string_le()),
         };
 
-        tracing::info!(
-            "✅ verified guta result proof public input: {:?} ",
-            proof.public_inputs
-        );
+        info!("✅ verified guta result proof public input: {:?} ", proof.public_inputs);
 
         // verify witness
         let guta_header = GlobalUserTreeAggregatorHeader {
@@ -312,12 +321,12 @@ impl CoordinatorEdgeHandler {
         let proof_public_inputs_hash = QHashOut::from_qfelts(&proof.public_inputs[11..15]);
         let expected_proof_public_inputs_hash = guta_header.qfhash::<QEDHasher>();
         if expected_proof_public_inputs_hash != proof_public_inputs_hash {
-            tracing::error!(
+            error!(
                 "ensure expected_proof_public_inputs_hash: {} == proof.public_inputs[11..15] {}",
                 expected_proof_public_inputs_hash,
                 proof_public_inputs_hash,
             );
-            anyhow::bail!("invalid realm submit guta proof public inputs hash");
+            bail!("invalid realm submit guta proof public inputs hash");
         }
 
         // verify proof
@@ -332,9 +341,8 @@ impl CoordinatorEdgeHandler {
 
         if input.checkpoint_id  > next_checkpoint_id {
             warn!("❌ Invalid checkpoint id from realm: {}, latest checkpoint id {}", input.checkpoint_id, checkpoint_id);
-            anyhow::bail!("invalid checkpoint id from realm");
+            bail!("invalid checkpoint id from realm");
         }
-
 
         // build queue item
         let queue_item: SubmitGUTARealmResultAPIQueueItem<GoldilocksField> =
@@ -378,7 +386,6 @@ impl CoordinatorEdgeHandler {
         } else {
             info!("📊 GUTA submission reported to watcher for realm_id: {}", realm_id);
         }
-
 
         Ok(())
     }
@@ -434,6 +441,7 @@ impl CoordinatorEdgeHandler {
         };
         Ok(sync_info)
     }
+
     // async fn get_contract_leaf_data(&self, contract_id: u64) -> anyhow::Result<QEDContractLeaf<F>>;
     pub async fn get_contract_leaf_data(
         &self,
@@ -1038,6 +1046,18 @@ impl CoordinatorEdgeHandler {
             realm_root_hash: realm_status.realm_root_hash,
         })
     }
+
+    pub async fn get_contract_metadata(&self, contract_uuid: &str) -> anyhow::Result<ContractMetaData<F>> {
+        let contract_uuid = ContractUUID::from_str(contract_uuid)?;
+        let contract_meta = self.store.get_contract_metadata(contract_uuid).await?;
+        Ok(contract_meta)
+    }
+
+    pub async fn get_contract_metadatas(&self, contract_uuids: &[&str]) -> anyhow::Result<Vec<ContractMetaData<F>>> {
+        let contract_uuids = contract_uuids.iter().map(|s| ContractUUID::from_str(s)).collect::<anyhow::Result<Vec<_>>>()?;
+        let contract_metadatas = self.store.get_contract_metadatas(&contract_uuids).await?;
+        Ok(contract_metadatas)
+    }
 }
 
 use super::error::RpcError;
@@ -1053,14 +1073,18 @@ use qed_prover::local::request::{QDeployContractRPCRequest, QRegisterUserRPCRequ
 use qed_prover::wallet::secp_sign::SignedRequest;
 use qed_store::queue::redis_queue::NotificationQueue;
 use qed_store::queue::task_queue::{current_timestamp_millis, JobValidationStatus, QJob, QProvingTaskStore, QProvingTaskStoreImpl};
-use crate::watcher::events::{JobCompletedEvent, JobStartedEvent, TopLineProofData, UserDeployContractMetadata, UserGutaSubmissionMetadata, WatcherMessage};
-use crate::watcher::watcher::NodeType;
+use crate::common::utils::extract_contract_metadata;
+use crate::coordinator::edge::jwt::JwtAuthMetadata;
+use crate::watcher::events::{JobCompletedEvent, JobStartedEvent, TopLineProofData, UserContractMetadata, UserGutaSubmissionMetadata, WatcherMessage};
+use crate::watcher::timeout_watcher::WatcherSourceNodeType;
 use crate::watcher::watcher_client::WatcherClient;
-use crate::watcher::watcher_service::{current_timestamp, current_timestamp_mills};
 
 #[async_trait]
 impl CoordinatorEdgeRpcServer for CoordinatorEdgeHandler {
     async fn register_user(&self, public_key: ZKPublicKeyInfo<F>) -> RpcResult<String> {
+
+        // self.verify_jwt().await?;
+
         self.register_user(public_key)
             .await
             .map(|_| "ok".to_string())
@@ -1076,7 +1100,7 @@ impl CoordinatorEdgeRpcServer for CoordinatorEdgeHandler {
     async fn deploy_contract(&self, deploy_contract: QBCDeployContract<F>) -> RpcResult<String> {
         self.deploy_contract(deploy_contract)
             .await
-            .map(|_| "ok".to_string())
+            .map(|contract_uuid| contract_uuid.to_string())
             .map_err(RpcError::Anyhow)
     }
 
@@ -1845,6 +1869,10 @@ impl CoordinatorEdgeRpcServer for CoordinatorEdgeHandler {
         self.get_current_realm_status_on_coordinator(realm_id).await.map_err(RpcError::Anyhow)
     }
 
+    async fn get_contract_metadata(&self, contract_uuid: &str) -> RpcResult<ContractMetaData<F>> {
+        self.get_contract_metadata(contract_uuid).await.map_err(RpcError::Anyhow)
+    }
+
     async fn get_current_checkpoint_id(&self) -> RpcResult<u64> {
         self.get_latest_checkpoint_id().await.map_err(RpcError::Anyhow)
     }
@@ -1944,7 +1972,7 @@ impl JobSchedulerRpcServer for CoordinatorEdgeHandler {
                     let start_event = JobStartedEvent {
                         job_id: job.job_id,
                         worker_id,
-                        start_time: current_timestamp_mills(),
+                        start_time: current_timestamp_millis(),
                         layer_id: job.layer_id,
                     };
 

@@ -1,19 +1,16 @@
 use kvq::traits::KVQBinaryStore;
 use qed_data::{
-    config::store_config::{CheckpointSyncInfoTableStore, UserTreeStore, UserPublicKeyTableStore, RealmStatusTableStore},
-    models::{
+    config::store_config::{CheckpointSyncInfoTableStore, ContractMetaDataTableStore, RealmStatusTableStore, UserPublicKeyTableStore, UserTreeStore}, models::{
         checkpoint::{
             sync_info::QEDCheckpointSyncInfoModelReaderCore,
             user_public_keys::QEDUserPublicKeyHelperModelReaderCore
-        },
-        kvq_merkle::model::{
+        }, contract_metadata::ContractMetaDataModelReaderCore, kvq_merkle::model::{
             KVQFixedConfigMerkleTreeModelReaderCore, KVQMerkleTreeModelReaderCore,
-        },
-    },
-    traits::qdatastore::{
+        }
+    }, qdata::{contract_uuid::ContractUUID, contract_metadata::ContractMetaData}, traits::qdatastore::{
         qmetadata::QMetaDataStoreReaderSync,
         qtreedata::QTreeDataStoreReaderSync,
-    },
+    }
 };
 use crate::node::coordinator::QEDCoordinatorStoreReaderAsync;
 use qed_data::qdata::realm_status::BasicRealmStatus;
@@ -311,5 +308,9 @@ impl<T: KVQBinaryStore>
 
     async fn get_realm_statuses(&self, realm_ids: &[u64]) -> anyhow::Result<Vec<BasicRealmStatus<F>>> {
         Ok(RealmStatusTableStore::<F, Self>::get_realm_statuses_by_id(self, realm_ids)?)
+    }
+
+    async fn get_contract_metadatas(&self, contract_uuids: &[ContractUUID]) -> anyhow::Result<Vec<ContractMetaData<F>>> {
+        Ok(ContractMetaDataTableStore::<F, Self>::get_contract_metadatas_by_id(self, contract_uuids)?)
     }
 }

@@ -73,6 +73,9 @@ async fn main() -> anyhow::Result<()> {
         Commands::CheckRegisteredUsers(args) => {
             subcommand::check_registered_users::run(args).await?;
         }
+        Commands::Store(args) => {
+            subcommand::store::run(args).await?;
+        }
     }
     
     Ok(())
