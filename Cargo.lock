@@ -5875,6 +5875,7 @@ dependencies = [
  "dotenv",
  "fred",
  "hex",
+ "hyper 1.7.0",
  "jsonrpsee",
  "kvq",
  "minijinja",
@@ -5899,6 +5900,8 @@ dependencies = [
  "serde",
  "serde_json",
  "tokio",
+ "tower 0.5.2",
+ "tower-http",
  "tracing",
 ]
 

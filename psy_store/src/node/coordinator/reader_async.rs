@@ -4,15 +4,18 @@ use plonky2::field::goldilocks_field::GoldilocksField;
 use psy_core::{config::network_constants::GLOBAL_USER_TREE_HEIGHT, data::qhashout::QHashOut};
 use psy_crypto::hash::merkle::core::MerkleProofCore;
 use psy_data::{
-    config::store_config::{CheckpointSyncInfoTableStore, RealmStatusTableStore, UserPublicKeyTableStore, UserTreeStore},
+    config::store_config::{CheckpointSyncInfoTableStore, ContractMetaDataTableStore, RealmStatusTableStore, UserPublicKeyTableStore, UserTreeStore},
     models::{
         checkpoint::{sync_info::PsyCheckpointSyncInfoModelReaderCore, user_public_keys::PsyUserPublicKeyHelperModelReaderCore},
+        contract_metadata::ContractMetaDataModelReaderCore,
         kvq_merkle::model::{KVQFixedConfigMerkleTreeModelReaderCore, KVQMerkleTreeModelReaderCore},
         realm_status::RealmStatusModelReaderCore,
     },
     qdata::{
         checkpoint::{PsyBlockState, PsyCheckpointGlobalStateRoots, PsyCheckpointLeaf},
         contract::{ContractCodeDefinition, PsyContractLeaf},
+        contract_metadata::ContractMetaData,
+        contract_uuid::ContractUUID,
         realm_status::BasicRealmStatus,
     },
     qsync::coordinator::PsyCheckpointSyncInfoCompact,
@@ -178,5 +181,9 @@ impl<T: KVQBinaryStore> PsyCoordinatorStoreReaderAsync<F> for T {
 
     async fn get_realm_statuses(&self, realm_ids: &[u64]) -> anyhow::Result<Vec<BasicRealmStatus<F>>> {
         Ok(RealmStatusTableStore::<F, Self>::get_realm_statuses_by_id(self, realm_ids)?)
+    }
+
+    async fn get_contract_metadatas(&self, contract_uuids: &[ContractUUID]) -> anyhow::Result<Vec<ContractMetaData<F>>> {
+        Ok(ContractMetaDataTableStore::<F, Self>::get_contract_metadatas_by_id(self, contract_uuids)?)
     }
 }

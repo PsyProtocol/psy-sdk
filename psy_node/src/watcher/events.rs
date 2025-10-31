@@ -1,6 +1,6 @@
 use chrono::{DateTime, Utc};
 use psy_core::job::id::{LayerId, ProvingJobCircuitType, QProvingJobDataID};
-use psy_data::config::store_config::PsyFelt;
+use psy_data::{config::store_config::PsyFelt, qdata::contract_uuid::ContractUUID};
 use psy_services::models::UserEventTxType;
 use serde::{Deserialize, Serialize};
 
@@ -40,6 +40,7 @@ pub struct UserDeployContractEvent {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UserDeployContractMetadata {
+    pub contract_uuid: ContractUUID,
     pub state_tree_height: u16,
     pub function_count: usize,
     pub function_whitelist_root: String,

@@ -22,6 +22,7 @@ use psy_data::{config::store_config::PsyHasher, traits::qdatastore::qmetadata::Q
 use psy_prover::{
     local::args::SignType,
     wallet::{
+        memory_wallet::{SECP256K1_FINGERPRINT, ZK_FINGERPRINT},
         simple_sign::SoftwareDefinedSignGadget,
         software_defined_circuit::{
             get_sdc_public_key_param, PSoftwareDefinedSignatureInput, SoftwareDefinedSignatureCircuit, SoftwareDefinedSignatureGadget,
@@ -37,9 +38,6 @@ use psy_rust_sdk::{
 use psy_vm::dpn::vm::def::DPNFunctionCircuitDefinition;
 
 use crate::subcommand::args::RegisterUserArgs;
-
-const ZK_FINGERPRINT: &str = "d2f572f1402fa8a92c9af0a2226e05ef8f5f4f34d764c6515b90d2b391fc48c1";
-const SECP256K1_FINGERPRINT: &str = "993bbdad2ba78319a70ab7d9ecd84b36eca0affc9f8ec4f9006b39a8fe29672c";
 
 pub async fn run(args: RegisterUserArgs) -> Result<()> {
     let provider = RpcProvider::new_with_config_path(&args.rpc_config)?;
