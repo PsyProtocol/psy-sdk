@@ -39,9 +39,6 @@ impl<T: KVQBinaryStore> PsyCoordinatorStoreReaderAsync<F> for T {
     }
     async fn get_latest_block_state(&self) -> anyhow::Result<PsyBlockState> {
         let latest_block_state = <Self as QMetaDataStoreReaderSync<F>>::get_latest_block_state(self).await?;
-
-        // println!("got latest_block_state.checkpoint_id:
-        // {}",latest_block_state.checkpoint_id);
         Ok(latest_block_state)
     }
 

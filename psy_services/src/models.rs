@@ -1,6 +1,7 @@
 use chrono::{DateTime, Utc};
 use psy_core::job::id::QProvingJobDataID;
 use serde::{Deserialize, Serialize};
+use serde_json::Value as JsonValue;
 use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, strum::EnumString, strum::Display, sqlx::Type)]
@@ -31,6 +32,7 @@ pub enum UserEventTxType {
     RegisterUser,
     DeployContract,
     Guta,
+    UserEndcap,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -211,11 +213,17 @@ impl UserEvent {
     pub fn get_transaction_count(&self) -> i64 {
         match self.tx_type {
             UserEventTxType::RegisterUser | UserEventTxType::DeployContract => 1,
+            UserEventTxType::UserEndcap => {
+                if let Some(_metadata) = &self.metadata {
+                    // For future use, we can add more fields to the metadata
+                }
+                1
+            }
             UserEventTxType::Guta => {
                 if let Some(_metadata) = &self.metadata {
                     // For future use, we can add more fields to the metadata
                 }
-                2
+                0
             }
         }
     }
@@ -271,4 +279,363 @@ pub struct RealmJobStatusSummary {
     pub job_count: i64,
     pub percentage: Option<f64>,
     pub last_update: Option<DateTime<Utc>>,
+}
+
+/// Checkpoint statistics from blockchain
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct CheckpointStats {
+    pub checkpoint_id: i64,
+    pub fees_collected: i64,     // Total transaction fees collected (in minimal units)
+    pub user_ops_processed: i64, // Number of user operations processed
+    pub total_transactions: i64, // Total number of transactions
+    pub slots_modified: i64,     // Number of slots modified
+    pub metadata: JsonValue,     // Flexible metadata for future extensions
+    pub timestamp: DateTime<Utc>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+/// Input for creating checkpoint stats
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CheckpointLeafStat {
+    pub checkpoint_id: i64,
+    pub fees_collected: i64,
+    pub user_ops_processed: i64,
+    pub total_transactions: i64,
+    pub slots_modified: i64,
+    pub metadata: Option<JsonValue>,
+    pub timestamp: DateTime<Utc>,
+}
+
+/// Worker job event (3+ blocks confirmed)
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct WorkerJobEvent {
+    pub id: Uuid,
+    pub worker_public_key: String,
+    pub checkpoint_id: i64,
+    pub job_id: JsonValue, // QProvingJobDataID serialized as JSONB
+    pub topic: Option<i16>,
+    pub circuit_type: Option<i16>,
+    pub duration: Option<i64>, // milliseconds
+    pub status: String,        // typically "COMPLETED"
+    pub metadata: JsonValue,
+    pub timestamp: DateTime<Utc>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+/// Input for creating worker job events
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateWorkerJobEvent {
+    pub worker_public_key: String,
+    pub checkpoint_id: i64,
+    pub job_id: JsonValue,
+    pub topic: Option<i16>,
+    pub circuit_type: Option<i16>,
+    pub duration: Option<i64>,
+    pub status: Option<String>,
+    pub metadata: Option<JsonValue>,
+    pub timestamp: DateTime<Utc>,
+}
+
+/// Checkpoint reward distribution
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct CheckpointRewardDistribution {
+    pub id: Uuid,
+    pub checkpoint_id: i64,
+    pub worker_public_key: String,
+    pub job_id: Uuid,
+    pub reward_amount: i64,
+    pub total_fees_at_checkpoint: i64,
+    pub total_jobs_at_checkpoint: i64,
+    pub metadata: JsonValue,
+    pub timestamp: DateTime<Utc>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+/// Input for creating checkpoint reward distributions
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateCheckpointRewardDistribution {
+    pub checkpoint_id: i64,
+    pub worker_public_key: String,
+    pub job_id: Uuid,
+    pub reward_amount: i64,
+    pub total_fees_at_checkpoint: i64,
+    pub total_jobs_at_checkpoint: i64,
+    pub metadata: Option<JsonValue>,
+    pub timestamp: DateTime<Utc>,
+}
+
+/// Aggregated checkpoint rewards (from continuous aggregates)
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct CheckpointRewardAggregation {
+    pub bucket: DateTime<Utc>,
+    pub worker_public_key: String,
+    pub checkpoints_participated: i64,
+    pub jobs_completed: i64,
+    pub total_rewards: i64,
+    pub avg_reward_per_job: Option<f64>,
+    pub max_checkpoint: i64,
+    pub min_checkpoint: i64,
+}
+
+/// Summary statistics for a checkpoint
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CheckpointRewardSummary {
+    pub checkpoint_id: i64,
+    pub fees_collected: i64,
+    pub total_jobs: i64,
+    pub total_workers: i64,
+    pub reward_per_job: i64,
+    pub timestamp: DateTime<Utc>,
+}
+
+/// Worker's reward statistics across time periods
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkerCheckpointRewardStats {
+    pub worker_public_key: String,
+    pub total_rewards: i64,
+    pub total_jobs_completed: i64,
+    pub checkpoints_participated: i64,
+    pub avg_reward_per_job: f64,
+    pub last_checkpoint_id: i64,
+    pub last_reward_timestamp: DateTime<Utc>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct CheckpointStatsRequest {
+    pub checkpoint_id: i64,
+    pub fees_collected: i64,
+    pub user_ops_processed: i64,
+    pub total_transactions: i64,
+    pub slots_modified: i64,
+    pub metadata: Option<serde_json::Value>,
+    pub timestamp: DateTime<Utc>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct CheckpointStatsResponse {
+    pub success: bool,
+    pub checkpoint_id: i64,
+    pub message: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct WorkerJobEventRequest {
+    pub worker_public_key: String,
+    pub checkpoint_id: i64,
+    pub job_id: serde_json::Value,
+    pub topic: Option<i16>,
+    pub circuit_type: Option<i16>,
+    pub duration: Option<i64>,
+    pub status: Option<String>,
+    pub metadata: Option<serde_json::Value>,
+    pub timestamp: DateTime<Utc>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct WorkerJobEventsResponse {
+    pub success: bool,
+    pub events_reported: usize,
+    pub checkpoint_id: i64,
+    pub message: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ProcessCheckpointRequest {
+    pub checkpoint_stats: CheckpointStatsRequest,
+    pub job_events: Vec<WorkerJobEventRequest>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct ProcessCheckpointResponse {
+    pub checkpoint_id: i64,
+    pub fees_collected: i64,
+    pub total_jobs: i64,
+    pub total_workers: i64,
+    pub reward_per_job: i64,
+    pub total_distributions_created: usize, // Total reward records (one per job)
+    pub message: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct CheckpointQuery {
+    pub start_checkpoint: Option<i64>,
+    pub end_checkpoint: Option<i64>,
+    pub start_time: Option<DateTime<Utc>>,
+    pub end_time: Option<DateTime<Utc>>,
+    pub limit: Option<i64>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct WorkerRewardQuery {
+    pub time_period: Option<String>, // "2m", "1h", "1d", "1w", "1m"
+    pub start_time: Option<DateTime<Utc>>,
+    pub end_time: Option<DateTime<Utc>>,
+    pub limit: Option<i64>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct WorkerRewardResponse {
+    pub worker_public_key: String,
+    pub time_period: String,
+    pub aggregations: Vec<CheckpointRewardAggregation>,
+    pub total_rewards: i64,
+    pub total_jobs: i64,
+    pub total_checkpoints: i64,
+}
+
+#[derive(Debug, Serialize)]
+pub struct CheckpointProcessingStatus {
+    pub pending_checkpoints: Vec<i64>,
+    pub pending_count: usize,
+    pub last_processed_checkpoint: Option<i64>,
+    pub status: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CheckpointLeavesRequest {
+    pub leaves: Vec<CheckpointLeafStat>,
+    pub timestamp: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CheckpointLeavesResponse {
+    pub success: bool,
+    pub processed_count: usize,
+    pub message: String,
+}
+
+// ============================================================================
+// Core contract data structures
+// ============================================================================
+
+// Function metadata that will be stored within the JSONB metadata field
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
+pub struct QFunctionMetadata {
+    pub method_id: u32,
+    pub name: String,
+    pub num_inputs: u32,
+    pub num_outputs: u32,
+}
+
+// The UserContractMetadata that gets stored in the metadata JSONB field
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UserContractMetadata {
+    pub contract_uuid: Uuid,
+    pub state_tree_height: u16,
+    pub function_count: usize,
+    pub functions: Vec<QFunctionMetadata>,
+    pub function_whitelist_root: String,
+    pub contract_id: u64,
+    // Any additional fields can be added here without schema changes
+}
+
+// ============================================================================
+// Watcher report structure (what the API receives)
+// ============================================================================
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ContractMetadataReport {
+    pub contract_uuid: Uuid,
+    pub checkpoint_id: u64,
+    pub contract_id: u64,
+    pub deployer: String,
+    pub function_whitelist_root: String,
+    pub metadata: JsonValue, // JSONB field storing complete UserContractMetadata
+    pub timestamp: DateTime<Utc>,
+}
+
+// ============================================================================
+// Database models
+// ============================================================================
+
+// Database model for the contracts table
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct Contract {
+    pub contract_id: i64, // BIGINT in PostgreSQL
+    pub contract_uuid: Uuid,
+    pub checkpoint_id: i64, // BIGINT in PostgreSQL
+    pub deployer: String,
+    pub function_whitelist_root: String,
+    pub metadata: JsonValue, // Complete UserContractMetadata as JSONB
+    pub timestamp: DateTime<Utc>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+// ============================================================================
+// API response models
+// ============================================================================
+
+// Response model for the frontend API - includes extracted function names
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ContractResponse {
+    pub contract_id: i64,
+    pub contract_uuid: Uuid,
+    pub checkpoint_id: i64,
+    pub deployer: String,
+    pub function_whitelist_root: String,
+    pub state_tree_height: Option<u16>,    // Extracted from metadata if available
+    pub function_count: Option<usize>,     // Extracted from metadata if available
+    pub functions: Vec<QFunctionMetadata>, // Extracted from metadata for convenience
+    pub metadata: JsonValue,               // Full metadata for extensibility
+    pub timestamp: DateTime<Utc>,
+}
+
+// Simplified response for list operations
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ContractSummary {
+    pub contract_id: i64,
+    pub contract_uuid: Uuid,
+    pub deployer: String,
+    pub checkpoint_id: i64,
+    pub function_count: Option<usize>,
+    pub timestamp: DateTime<Utc>,
+}
+
+// ============================================================================
+// Request/Response models for telemetry endpoint
+// ============================================================================
+
+// Request payload for the telemetry endpoint
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ContractTelemetryPayload {
+    pub report: ContractMetadataReport,
+}
+
+// Response from the telemetry endpoint
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ContractTelemetryResponse {
+    pub success: bool,
+    pub contract_id: i64,
+    pub message: String,
+}
+
+// ============================================================================
+// Query parameters
+// ============================================================================
+
+#[derive(Debug, Deserialize)]
+pub struct ListContractsParams {
+    #[serde(default = "default_limit")]
+    pub limit: i64,
+    #[serde(default)]
+    pub offset: i64,
+    pub deployer: Option<String>,
+    pub checkpoint_id: Option<i64>,
+    pub function_name: Option<String>,
+}
+
+fn default_limit() -> i64 {
+    20
+}
+
+#[derive(Debug, Serialize)]
+pub struct ListContractsResponse {
+    pub contracts: Vec<ContractSummary>,
+    pub total: i64,
+    pub limit: i64,
+    pub offset: i64,
 }
