@@ -50,7 +50,7 @@ use psy_store::{
         task_queue::{QProvingTaskStore, QProvingTaskStoreImpl},
         ProofStoreRedis,
     },
-    store::{journal::JournalStore, lmdbx::KVQlibmdbxStore, PsyStore},
+    store::{journal::JournalStore, KVQlibmdbxStore, PsyStore},
 };
 use psy_ups_circuit::{
     circuit_manager::core::{PsyUPSStepCircuitManager, QCircuitManager},
@@ -90,7 +90,7 @@ async fn run_test3() -> anyhow::Result<()> {
         CoordinatorEdgeContext::new(coord_config, Arc::clone(&st), qps.clone(), qps.clone(), Arc::clone(&proof_verifier)).await?;
     let mut coordinator_processor_node = CoordinatorProcessorContext::new(
         coord_config,
-        Arc::new(JournalStore::new(PsyStore::Lmdbx(store_reader.clone()))),
+        Arc::new(JournalStore::new(store_reader.clone())),
         qps.clone(),
         qps.clone(),
         qps.clone(),
