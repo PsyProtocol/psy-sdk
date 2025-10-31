@@ -9,3 +9,5 @@ version = "0.1.0"
 anyhow  = { workspace = true }
 kvq     = { workspace = true }
 reth-libmdbx  = { path = "./libmdbx-rs" }
+async-trait = { workspace = true }
+auto_impl = { workspace = true }

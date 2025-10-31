@@ -44,18 +44,14 @@ use psy_data::{
     qdata::{checkpoint::CheckpointSyncInfo, user::PsyUserLeaf},
     traits::qdatastore::{qmetadata::QMetaDataStoreWriterSync, qtreedata::QTreeDataStoreWriterSync},
 };
-use psy_store::{
-    node::realm::{PsyRealmStoreReaderAsync, PsyRealmStoreWriterAsyncImm},
-    queue::{
-        new_redis_async_pool,
-        task_queue::{QProvingTaskStore, QProvingTaskStoreImpl},
-        ProofStoreRedis, QPendingUserStoreAsyncImm,
-    },
-    store::{
-        journal::{Journal, JournalStore},
-        PsyStore,
-    },
-};
+use psy_store::{node::realm::{PsyRealmStoreReaderAsync, PsyRealmStoreWriterAsyncImm}, queue::{
+    new_redis_async_pool,
+    task_queue::{QProvingTaskStore, QProvingTaskStoreImpl},
+    ProofStoreRedis, QPendingUserStoreAsyncImm,
+}, store, store::{
+    journal::{Journal, JournalStore},
+    PsyStore,
+}};
 use tokio::{sync::mpsc, task::JoinHandle, time, time::Instant};
 use tower_http::follow_redirect::policy::PolicyExt;
 use tracing::{debug, error, info, trace, warn};
@@ -134,7 +130,7 @@ impl RealmProcessor {
         )
         .await?;
         let realm_qps = ProofStoreRedis::new(&config.redis.redis_uri, config.queue.queue_biz_key).await?;
-        let store = PsyStore::new(&config.backend.to_backend()).await?;
+        let store = store::new(&config.backend.to_backend()).await?;
         let proof_verifier = Arc::new(get_cached_generic_verifier::<C, D>());
         let realm_config = RealmConfig::get_standard(config.realm.realm_id);
         let sync_checkpoint = Arc::new(realm_qps.clone());
