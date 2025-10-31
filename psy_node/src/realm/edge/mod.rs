@@ -1,9 +1,7 @@
+pub mod edge_v2;
 pub mod error;
 pub mod handler;
 pub mod rpc;
-pub mod sync;
-pub(crate) use sync::spawn_active_checkpoint_sync_task;
-pub mod edge_v2;
 use std::sync::Arc;
 
 use anyhow::Result;
@@ -12,6 +10,7 @@ use hyper::Method;
 use jsonrpsee::server::ServerBuilder;
 use psy_store::{
     queue::{new_redis_async_pool, task_queue::QProvingTaskStoreImpl, ProofStoreRedis},
+    store,
     store::PsyStore,
 };
 use tower_http::cors::{Any, CorsLayer};
@@ -21,7 +20,6 @@ use super::{config::RealmEdgeConfig, rpc::RealmEdgeRpcServer, C, D, F};
 use crate::{
     common::{health::HealthLayer, jobs::JobSchedulerRpcServer, verifier::get_cached_generic_verifier, whitelist::WhiteListCache},
     realm::{
-        edge::sync::spawn_realm_job_update_task,
         handler::RealmEdgeHandler,
         state::{edge::RealmEdgeContext, edge_queue_helper::RealmEdgeQueueHelper, processor::RealmConfig, queue_factory::QueueFactory},
     },
@@ -57,7 +55,7 @@ pub async fn run_realm_edge(config: RealmEdgeConfig) -> Result<()> {
     let checkpoint_queue = proof_store.clone();
 
     // Create storage reader based on backend configuration
-    let store = PsyStore::new(&config.backend.to_backend()).await?;
+    let store = store::new(&config.backend.to_backend()).await?;
     let store_reader = Arc::new(store);
 
     let queue_helper = QueueFactory::create_rsmq_helper::<F>(
@@ -123,18 +121,6 @@ pub async fn run_realm_edge(config: RealmEdgeConfig) -> Result<()> {
     let handle = server_handle.start(rpc_module);
 
     info!("Realm Edge node started on {}", config.rpc.listen_addr.clone());
-
-    // Spawn task to send proof to coordinator
-    // spawn_realm_job_update_task(
-    //     Arc::from(proof_store),
-    //     realm_config.realm_id as u64,
-    //     config.rpc.coordinator_addr.clone(),
-    //     Arc::new(edge_ctx),
-    //     None,
-    // )
-    // .await?;
-    // spawn_active_checkpoint_sync_task(realm_config.realm_id, store_reader,
-    // sync_queue, config.rpc.coordinator_addr)     .await?;
 
     // Keep server running¶
     handle.stopped().await;

@@ -27,18 +27,8 @@ pub enum Commands {
         #[command(flatten)]
         config: psy_node::realm::RealmEdgeConfig,
     },
-    #[command(about = "Run the realm edge node v2")]
-    RealmEdgeV2 {
-        #[command(flatten)]
-        config: psy_node::realm::RealmEdgeConfig,
-    },
     #[command(about = "Run the realm processor node")]
     RealmProcessor {
-        #[command(flatten)]
-        config: psy_node::realm::RealmNodeConfig,
-    },
-    #[command(about = "Run the realm processor node v2")]
-    RealmProcessorV2 {
         #[command(flatten)]
         config: psy_node::realm::RealmNodeConfig,
     },

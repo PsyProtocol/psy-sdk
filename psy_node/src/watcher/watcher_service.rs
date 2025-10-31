@@ -14,6 +14,7 @@ use psy_core::job::id::QProvingJobDataID;
 use psy_store::{
     node::{coordinator::PsyCoordinatorStoreReaderAsync, realm::PsyRealmStoreReaderAsync},
     queue::{new_redis_async_pool, task_queue::QProvingTaskStoreImpl, QueueId, RsmqQueue},
+    store,
     store::PsyStore,
 };
 use redis::AsyncCommands;
@@ -64,7 +65,7 @@ impl WatcherService {
         });
 
         let psy_store = Arc::new(
-            PsyStore::from_backend(config.backend.to_backend())
+            store::from_backend(config.backend.to_backend())
                 .await
                 .map_err(|e| anyhow!("Database initialization failed: {}", e))?,
         );

@@ -1,7 +1,10 @@
 use jsonrpsee::{core::RpcResult, proc_macros::rpc};
-use plonky2::plonk::{
-    config::{GenericConfig, PoseidonGoldilocksConfig},
-    proof::ProofWithPublicInputs,
+use plonky2::{
+    field::types::PrimeField64,
+    plonk::{
+        config::{GenericConfig, PoseidonGoldilocksConfig},
+        proof::ProofWithPublicInputs,
+    },
 };
 use psy_core::{
     data::qhashout::QHashOut,
@@ -79,20 +82,26 @@ pub trait CoordinatorEdgeRpc {
     async fn get_contract_leaf_data(&self, contract_id: u64) -> RpcResult<PsyContractLeaf<F>>;
 
     #[method(name = "get_contract_leaf_data_f")]
-    async fn get_contract_leaf_data_f(&self, contract_id: F) -> RpcResult<PsyContractLeaf<F>>;
+    async fn get_contract_leaf_data_f(&self, contract_id: F) -> RpcResult<PsyContractLeaf<F>> {
+        self.get_contract_leaf_data(contract_id.to_canonical_u64()).await
+    }
 
     #[method(name = "get_contract_code_definition")]
     async fn get_contract_code_definition(&self, contract_id: u64) -> RpcResult<ContractCodeDefinition>;
 
     #[method(name = "get_contract_code_definition_f")]
-    async fn get_contract_code_definition_f(&self, contract_id: F) -> RpcResult<ContractCodeDefinition>;
+    async fn get_contract_code_definition_f(&self, contract_id: F) -> RpcResult<ContractCodeDefinition> {
+        self.get_contract_code_definition(contract_id.to_canonical_u64()).await
+    }
 
     // Checkpoint methods
     #[method(name = "get_checkpoint_leaf_data")]
     async fn get_checkpoint_leaf_data(&self, checkpoint_id: u64) -> RpcResult<PsyCheckpointLeaf<F>>;
 
     #[method(name = "get_checkpoint_leaf_data_f")]
-    async fn get_checkpoint_leaf_data_f(&self, checkpoint_id: F) -> RpcResult<PsyCheckpointLeaf<F>>;
+    async fn get_checkpoint_leaf_data_f(&self, checkpoint_id: F) -> RpcResult<PsyCheckpointLeaf<F>> {
+        self.get_checkpoint_leaf_data(checkpoint_id.to_canonical_u64()).await
+    }
 
     #[method(name = "get_checkpoint_global_state_roots")]
     async fn get_checkpoint_global_state_roots(&self, checkpoint_id: u64) -> RpcResult<PsyCheckpointGlobalStateRoots<F>>;
@@ -105,33 +114,45 @@ pub trait CoordinatorEdgeRpc {
     async fn get_block_state(&self, checkpoint_id: u64) -> RpcResult<PsyBlockState>;
 
     #[method(name = "get_block_state_f")]
-    async fn get_block_state_f(&self, checkpoint_id: F) -> RpcResult<PsyBlockState>;
+    async fn get_block_state_f(&self, checkpoint_id: F) -> RpcResult<PsyBlockState> {
+        self.get_block_state(checkpoint_id.to_canonical_u64()).await
+    }
 
     // User registration tree
     #[method(name = "get_user_registration_tree_root")]
     async fn get_user_registration_tree_root(&self, checkpoint_id: u64) -> RpcResult<QHashOut<F>>;
 
     #[method(name = "get_user_registration_tree_root_f")]
-    async fn get_user_registration_tree_root_f(&self, checkpoint_id: F) -> RpcResult<QHashOut<F>>;
+    async fn get_user_registration_tree_root_f(&self, checkpoint_id: F) -> RpcResult<QHashOut<F>> {
+        self.get_user_registration_tree_root(checkpoint_id.to_canonical_u64()).await
+    }
 
     #[method(name = "get_user_registration_tree_leaf_hash")]
     async fn get_user_registration_tree_leaf_hash(&self, checkpoint_id: u64, leaf_index: u64) -> RpcResult<QHashOut<F>>;
 
     #[method(name = "get_user_registration_tree_leaf_hash_f")]
-    async fn get_user_registration_tree_leaf_hash_f(&self, checkpoint_id: F, leaf_index: F) -> RpcResult<QHashOut<F>>;
+    async fn get_user_registration_tree_leaf_hash_f(&self, checkpoint_id: F, leaf_index: F) -> RpcResult<QHashOut<F>> {
+        self.get_user_registration_tree_leaf_hash(checkpoint_id.to_canonical_u64(), leaf_index.to_canonical_u64())
+            .await
+    }
 
     #[method(name = "get_user_registration_tree_merkle_proof")]
     async fn get_user_registration_tree_merkle_proof(&self, checkpoint_id: u64, leaf_index: u64) -> RpcResult<MerkleProofCore<QHashOut<F>>>;
 
     #[method(name = "get_user_registration_tree_merkle_proof_f")]
-    async fn get_user_registration_tree_merkle_proof_f(&self, checkpoint_id: F, leaf_index: F) -> RpcResult<MerkleProofCore<QHashOut<F>>>;
+    async fn get_user_registration_tree_merkle_proof_f(&self, checkpoint_id: F, leaf_index: F) -> RpcResult<MerkleProofCore<QHashOut<F>>> {
+        self.get_user_registration_tree_merkle_proof(checkpoint_id.to_canonical_u64(), leaf_index.to_canonical_u64())
+            .await
+    }
 
     // User tree
     #[method(name = "get_user_tree_root")]
     async fn get_user_tree_root(&self, checkpoint_id: u64) -> RpcResult<QHashOut<F>>;
 
     #[method(name = "get_user_tree_root_f")]
-    async fn get_user_tree_root_f(&self, checkpoint_id: F) -> RpcResult<QHashOut<F>>;
+    async fn get_user_tree_root_f(&self, checkpoint_id: F) -> RpcResult<QHashOut<F>> {
+        self.get_user_tree_root(checkpoint_id.to_canonical_u64()).await
+    }
 
     #[method(name = "get_user_sub_tree_merkle_proof")]
     async fn get_user_sub_tree_merkle_proof(
@@ -158,20 +179,33 @@ pub trait CoordinatorEdgeRpc {
     async fn get_user_tree_merkle_proof(&self, checkpoint_id: u64, user_id: u64) -> RpcResult<MerkleProofCore<QHashOut<F>>>;
 
     #[method(name = "get_user_tree_merkle_proof_f")]
-    async fn get_user_tree_merkle_proof_f(&self, checkpoint_id: F, user_id: F) -> RpcResult<MerkleProofCore<QHashOut<F>>>;
+    async fn get_user_tree_merkle_proof_f(&self, checkpoint_id: F, user_id: F) -> RpcResult<MerkleProofCore<QHashOut<F>>> {
+        self.get_user_tree_merkle_proof(checkpoint_id.to_canonical_u64(), user_id.to_canonical_u64())
+            .await
+    }
 
     // Contract function tree
     #[method(name = "get_contract_function_tree_root")]
     async fn get_contract_function_tree_root(&self, checkpoint_id: u64, contract_id: u32) -> RpcResult<QHashOut<F>>;
 
     #[method(name = "get_contract_function_tree_root_f")]
-    async fn get_contract_function_tree_root_f(&self, checkpoint_id: F, contract_id: F) -> RpcResult<QHashOut<F>>;
+    async fn get_contract_function_tree_root_f(&self, checkpoint_id: F, contract_id: F) -> RpcResult<QHashOut<F>> {
+        self.get_contract_function_tree_root(checkpoint_id.to_canonical_u64(), contract_id.to_canonical_u64() as u32)
+            .await
+    }
 
     #[method(name = "get_contract_function_tree_leaf_hash")]
     async fn get_contract_function_tree_leaf_hash(&self, checkpoint_id: u64, contract_id: u32, function_id: u32) -> RpcResult<QHashOut<F>>;
 
     #[method(name = "get_contract_function_tree_leaf_hash_f")]
-    async fn get_contract_function_tree_leaf_hash_f(&self, checkpoint_id: F, contract_id: F, function_id: F) -> RpcResult<QHashOut<F>>;
+    async fn get_contract_function_tree_leaf_hash_f(&self, checkpoint_id: F, contract_id: F, function_id: F) -> RpcResult<QHashOut<F>> {
+        self.get_contract_function_tree_leaf_hash(
+            checkpoint_id.to_canonical_u64(),
+            contract_id.to_canonical_u64() as u32,
+            function_id.to_canonical_u64() as u32,
+        )
+        .await
+    }
 
     #[method(name = "get_contract_function_tree_merkle_proof")]
     async fn get_contract_function_tree_merkle_proof(
@@ -179,7 +213,10 @@ pub trait CoordinatorEdgeRpc {
         checkpoint_id: u64,
         contract_id: u32,
         function_id: u32,
-    ) -> RpcResult<MerkleProofCore<QHashOut<F>>>;
+    ) -> RpcResult<MerkleProofCore<QHashOut<F>>> {
+        self.get_contract_function_tree_merkle_proof(checkpoint_id, contract_id, function_id)
+            .await
+    }
 
     #[method(name = "get_contract_function_tree_merkle_proof_f")]
     async fn get_contract_function_tree_merkle_proof_f(
@@ -187,64 +224,95 @@ pub trait CoordinatorEdgeRpc {
         checkpoint_id: F,
         contract_id: F,
         function_id: F,
-    ) -> RpcResult<MerkleProofCore<QHashOut<F>>>;
+    ) -> RpcResult<MerkleProofCore<QHashOut<F>>> {
+        self.get_contract_function_tree_merkle_proof(
+            checkpoint_id.to_canonical_u64(),
+            contract_id.to_canonical_u64() as u32,
+            function_id.to_canonical_u64() as u32,
+        )
+        .await
+    }
 
     // Contract tree
     #[method(name = "get_contract_tree_root")]
     async fn get_contract_tree_root(&self, checkpoint_id: u64) -> RpcResult<QHashOut<F>>;
 
     #[method(name = "get_contract_tree_root_f")]
-    async fn get_contract_tree_root_f(&self, checkpoint_id: F) -> RpcResult<QHashOut<F>>;
+    async fn get_contract_tree_root_f(&self, checkpoint_id: F) -> RpcResult<QHashOut<F>> {
+        self.get_contract_tree_root(checkpoint_id.to_canonical_u64()).await
+    }
 
     #[method(name = "get_contract_tree_leaf_hash")]
     async fn get_contract_tree_leaf_hash(&self, checkpoint_id: u64, contract_id: u32) -> RpcResult<QHashOut<F>>;
 
     #[method(name = "get_contract_tree_leaf_hash_f")]
-    async fn get_contract_tree_leaf_hash_f(&self, checkpoint_id: F, contract_id: F) -> RpcResult<QHashOut<F>>;
+    async fn get_contract_tree_leaf_hash_f(&self, checkpoint_id: F, contract_id: F) -> RpcResult<QHashOut<F>> {
+        self.get_contract_tree_leaf_hash(checkpoint_id.to_canonical_u64(), contract_id.to_canonical_u64() as u32)
+            .await
+    }
 
     #[method(name = "get_contract_tree_merkle_proof")]
     async fn get_contract_tree_merkle_proof(&self, checkpoint_id: u64, contract_id: u32) -> RpcResult<MerkleProofCore<QHashOut<F>>>;
 
     #[method(name = "get_contract_tree_merkle_proof_f")]
-    async fn get_contract_tree_merkle_proof_f(&self, checkpoint_id: F, contract_id: F) -> RpcResult<MerkleProofCore<QHashOut<F>>>;
+    async fn get_contract_tree_merkle_proof_f(&self, checkpoint_id: F, contract_id: F) -> RpcResult<MerkleProofCore<QHashOut<F>>> {
+        self.get_contract_tree_merkle_proof(checkpoint_id.to_canonical_u64(), contract_id.to_canonical_u64() as u32)
+            .await
+    }
 
     // Deposit tree
     #[method(name = "get_deposit_tree_root")]
     async fn get_deposit_tree_root(&self, checkpoint_id: u64) -> RpcResult<QHashOut<F>>;
 
     #[method(name = "get_deposit_tree_root_f")]
-    async fn get_deposit_tree_root_f(&self, checkpoint_id: F) -> RpcResult<QHashOut<F>>;
+    async fn get_deposit_tree_root_f(&self, checkpoint_id: F) -> RpcResult<QHashOut<F>> {
+        self.get_deposit_tree_root(checkpoint_id.to_canonical_u64()).await
+    }
 
     #[method(name = "get_deposit_tree_leaf_hash")]
     async fn get_deposit_tree_leaf_hash(&self, checkpoint_id: u64, deposit_id: u32) -> RpcResult<QHashOut<F>>;
 
     #[method(name = "get_deposit_tree_leaf_hash_f")]
-    async fn get_deposit_tree_leaf_hash_f(&self, checkpoint_id: F, deposit_id: F) -> RpcResult<QHashOut<F>>;
+    async fn get_deposit_tree_leaf_hash_f(&self, checkpoint_id: F, deposit_id: F) -> RpcResult<QHashOut<F>> {
+        self.get_deposit_tree_leaf_hash(checkpoint_id.to_canonical_u64(), deposit_id.to_canonical_u64() as u32)
+            .await
+    }
 
     #[method(name = "get_deposit_tree_merkle_proof")]
     async fn get_deposit_tree_merkle_proof(&self, checkpoint_id: u64, deposit_id: u32) -> RpcResult<MerkleProofCore<QHashOut<F>>>;
 
     #[method(name = "get_deposit_tree_merkle_proof_f")]
-    async fn get_deposit_tree_merkle_proof_f(&self, checkpoint_id: F, deposit_id: F) -> RpcResult<MerkleProofCore<QHashOut<F>>>;
+    async fn get_deposit_tree_merkle_proof_f(&self, checkpoint_id: F, deposit_id: F) -> RpcResult<MerkleProofCore<QHashOut<F>>> {
+        self.get_deposit_tree_merkle_proof(checkpoint_id.to_canonical_u64(), deposit_id.to_canonical_u64() as u32)
+            .await
+    }
 
     // Withdrawal tree
     #[method(name = "get_withdrawal_tree_root")]
     async fn get_withdrawal_tree_root(&self, checkpoint_id: u64) -> RpcResult<QHashOut<F>>;
 
     #[method(name = "get_withdrawal_tree_root_f")]
-    async fn get_withdrawal_tree_root_f(&self, checkpoint_id: F) -> RpcResult<QHashOut<F>>;
+    async fn get_withdrawal_tree_root_f(&self, checkpoint_id: F) -> RpcResult<QHashOut<F>> {
+        self.get_withdrawal_tree_root(checkpoint_id.to_canonical_u64()).await
+    }
 
     #[method(name = "get_withdrawal_tree_leaf_hash")]
     async fn get_withdrawal_tree_leaf_hash(&self, checkpoint_id: u64, withdrawal_id: u32) -> RpcResult<QHashOut<F>>;
 
     #[method(name = "get_withdrawal_tree_leaf_hash_f")]
-    async fn get_withdrawal_tree_leaf_hash_f(&self, checkpoint_id: F, withdrawal_id: F) -> RpcResult<QHashOut<F>>;
+    async fn get_withdrawal_tree_leaf_hash_f(&self, checkpoint_id: F, withdrawal_id: F) -> RpcResult<QHashOut<F>> {
+        self.get_withdrawal_tree_leaf_hash(checkpoint_id.to_canonical_u64(), withdrawal_id.to_canonical_u64() as u32)
+            .await
+    }
 
     #[method(name = "get_withdrawal_tree_merkle_proof")]
     async fn get_withdrawal_tree_merkle_proof(&self, checkpoint_id: u64, withdrawal_id: u32) -> RpcResult<MerkleProofCore<QHashOut<F>>>;
 
     #[method(name = "get_withdrawal_tree_merkle_proof_f")]
-    async fn get_withdrawal_tree_merkle_proof_f(&self, checkpoint_id: F, withdrawal_id: F) -> RpcResult<MerkleProofCore<QHashOut<F>>>;
+    async fn get_withdrawal_tree_merkle_proof_f(&self, checkpoint_id: F, withdrawal_id: F) -> RpcResult<MerkleProofCore<QHashOut<F>>> {
+        self.get_withdrawal_tree_merkle_proof(checkpoint_id.to_canonical_u64(), withdrawal_id.to_canonical_u64() as u32)
+            .await
+    }
 
     // Checkpoint tree
     #[method(name = "get_latest_checkpoint_tree_root")]
@@ -254,19 +322,27 @@ pub trait CoordinatorEdgeRpc {
     async fn get_checkpoint_tree_root(&self, checkpoint_id: u64) -> RpcResult<QHashOut<F>>;
 
     #[method(name = "get_checkpoint_tree_root_f")]
-    async fn get_checkpoint_tree_root_f(&self, checkpoint_id: F) -> RpcResult<QHashOut<F>>;
+    async fn get_checkpoint_tree_root_f(&self, checkpoint_id: F) -> RpcResult<QHashOut<F>> {
+        self.get_checkpoint_tree_root(checkpoint_id.to_canonical_u64()).await
+    }
 
     #[method(name = "get_checkpoint_tree_leaf_hash")]
     async fn get_checkpoint_tree_leaf_hash(&self, checkpoint_id: u64, leaf_checkpoint_id: u64) -> RpcResult<QHashOut<F>>;
 
     #[method(name = "get_checkpoint_tree_leaf_hash_f")]
-    async fn get_checkpoint_tree_leaf_hash_f(&self, checkpoint_id: F, leaf_checkpoint_id: F) -> RpcResult<QHashOut<F>>;
+    async fn get_checkpoint_tree_leaf_hash_f(&self, checkpoint_id: F, leaf_checkpoint_id: F) -> RpcResult<QHashOut<F>> {
+        self.get_checkpoint_tree_leaf_hash(checkpoint_id.to_canonical_u64(), leaf_checkpoint_id.to_canonical_u64())
+            .await
+    }
 
     #[method(name = "get_checkpoint_tree_merkle_proof")]
     async fn get_checkpoint_tree_merkle_proof(&self, checkpoint_id: u64, leaf_checkpoint_id: u64) -> RpcResult<MerkleProofCore<QHashOut<F>>>;
 
     #[method(name = "get_checkpoint_tree_merkle_proof_f")]
-    async fn get_checkpoint_tree_merkle_proof_f(&self, checkpoint_id: F, leaf_checkpoint_id: F) -> RpcResult<MerkleProofCore<QHashOut<F>>>;
+    async fn get_checkpoint_tree_merkle_proof_f(&self, checkpoint_id: F, leaf_checkpoint_id: F) -> RpcResult<MerkleProofCore<QHashOut<F>>> {
+        self.get_checkpoint_tree_merkle_proof(checkpoint_id.to_canonical_u64(), leaf_checkpoint_id.to_canonical_u64())
+            .await
+    }
 
     #[method(name = "generate_batch_variable_height_reward_proofs")]
     async fn generate_batch_variable_height_reward_proofs(

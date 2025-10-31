@@ -18,7 +18,7 @@ results
 .specstory/**
 packages/contract-sdk/generated/
 packages/contract-sdk/dist/
-packages/qed-sdk/src/generated-contracts/
+packages/psy-sdk/src/generated-contracts/
 package-lock.json
 
 *.wasm

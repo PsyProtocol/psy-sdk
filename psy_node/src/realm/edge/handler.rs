@@ -411,30 +411,12 @@ where
             .map_err(RpcError::Anyhow)?)
     }
 
-    async fn get_checkpoint_leaf_data_f(&self, checkpoint_id: F) -> RpcResult<PsyCheckpointLeaf<F>> {
-        Ok(self
-            .ctx
-            .store_reader
-            .get_checkpoint_leaf_data(checkpoint_id.to_canonical_u64())
-            .await
-            .map_err(RpcError::Anyhow)?)
-    }
-
     async fn get_latest_block_state(&self) -> RpcResult<PsyBlockState> {
         Ok(self.ctx.store_reader.get_latest_block_state().await.map_err(RpcError::Anyhow)?)
     }
 
     async fn get_block_state(&self, checkpoint_id: u64) -> RpcResult<PsyBlockState> {
         Ok(self.ctx.store_reader.get_block_state(checkpoint_id).await.map_err(RpcError::Anyhow)?)
-    }
-
-    async fn get_block_state_f(&self, checkpoint_id: F) -> RpcResult<PsyBlockState> {
-        Ok(self
-            .ctx
-            .store_reader
-            .get_block_state(checkpoint_id.to_canonical_u64())
-            .await
-            .map_err(RpcError::Anyhow)?)
     }
 
     async fn get_user_registration_tree_root(&self, checkpoint_id: u64) -> RpcResult<QHashOut<F>> {
@@ -459,29 +441,11 @@ where
             .map_err(RpcError::Anyhow)?)
     }
 
-    async fn get_checkpoint_tree_root_f(&self, checkpoint_id: F) -> RpcResult<QHashOut<F>> {
-        Ok(self
-            .ctx
-            .store_reader
-            .get_checkpoint_tree_root(checkpoint_id.to_canonical_u64())
-            .await
-            .map_err(RpcError::Anyhow)?)
-    }
-
     async fn get_checkpoint_tree_leaf_hash(&self, checkpoint_id: u64, leaf_checkpoint_id: u64) -> RpcResult<QHashOut<F>> {
         Ok(self
             .ctx
             .store_reader
             .get_checkpoint_tree_leaf_hash(checkpoint_id, leaf_checkpoint_id)
-            .await
-            .map_err(RpcError::Anyhow)?)
-    }
-
-    async fn get_checkpoint_tree_leaf_hash_f(&self, checkpoint_id: F, leaf_checkpoint_id: F) -> RpcResult<QHashOut<F>> {
-        Ok(self
-            .ctx
-            .store_reader
-            .get_checkpoint_tree_leaf_hash(checkpoint_id.to_canonical_u64(), leaf_checkpoint_id.to_canonical_u64())
             .await
             .map_err(RpcError::Anyhow)?)
     }
@@ -495,14 +459,6 @@ where
             .map_err(RpcError::Anyhow)?)
     }
 
-    async fn get_checkpoint_tree_merkle_proof_f(&self, checkpoint_id: F, leaf_checkpoint_id: F) -> RpcResult<MerkleProofCore<QHashOut<F>>> {
-        Ok(self
-            .ctx
-            .store_reader
-            .get_checkpoint_tree_merkle_proof(checkpoint_id.to_canonical_u64(), leaf_checkpoint_id.to_canonical_u64())
-            .await
-            .map_err(RpcError::Anyhow)?)
-    }
     async fn get_checkpoint_global_state_roots(&self, checkpoint_id: u64) -> RpcResult<PsyCheckpointGlobalStateRoots<F>> {
         Ok(self
             .ctx
@@ -521,33 +477,11 @@ where
             .map_err(RpcError::Anyhow)?)
     }
 
-    async fn get_user_leaf_data_f(&self, checkpoint_id: F, user_id: F) -> RpcResult<PsyUserLeaf<F>> {
-        Ok(self
-            .ctx
-            .store_reader
-            .get_user_leaf_data(checkpoint_id.to_canonical_u64(), user_id.to_canonical_u64())
-            .await
-            .map_err(RpcError::Anyhow)?)
-    }
-
     async fn get_user_contract_state_tree_root(&self, checkpoint_id: u64, user_id: u64, contract_id: u32) -> RpcResult<QHashOut<F>> {
         Ok(self
             .ctx
             .store_reader
             .get_user_contract_state_tree_root(checkpoint_id, user_id, contract_id)
-            .await
-            .map_err(RpcError::Anyhow)?)
-    }
-
-    async fn get_user_contract_state_tree_root_f(&self, checkpoint_id: F, user_id: F, contract_id: F) -> RpcResult<QHashOut<F>> {
-        Ok(self
-            .ctx
-            .store_reader
-            .get_user_contract_state_tree_root(
-                checkpoint_id.to_canonical_u64(),
-                user_id.to_canonical_u64(),
-                contract_id.to_canonical_u64() as u32,
-            )
             .await
             .map_err(RpcError::Anyhow)?)
     }
@@ -568,22 +502,6 @@ where
             .map_err(RpcError::Anyhow)?)
     }
 
-    async fn get_user_contract_state_tree_leaf_hash_f(
-        &self,
-        checkpoint_id: F,
-        user_id: F,
-        contract_id: F,
-        height: u8,
-        leaf_id: F,
-    ) -> RpcResult<QHashOut<F>> {
-        Ok(self
-            .ctx
-            .store_reader
-            .get_user_contract_state_tree_leaf_hash_f(checkpoint_id, user_id, contract_id, height, leaf_id)
-            .await
-            .map_err(RpcError::Anyhow)?)
-    }
-
     async fn get_user_contract_state_tree_merkle_proof(
         &self,
         checkpoint_id: u64,
@@ -600,22 +518,6 @@ where
             .map_err(RpcError::Anyhow)?)
     }
 
-    async fn get_user_contract_state_tree_merkle_proof_f(
-        &self,
-        checkpoint_id: F,
-        user_id: F,
-        contract_id: F,
-        height: u8,
-        leaf_id: F,
-    ) -> RpcResult<MerkleProofCore<QHashOut<F>>> {
-        Ok(self
-            .ctx
-            .store_reader
-            .get_user_contract_state_tree_merkle_proof_f(checkpoint_id, user_id, contract_id, height, leaf_id)
-            .await
-            .map_err(RpcError::Anyhow)?)
-    }
-
     async fn get_user_contract_tree_root(&self, checkpoint_id: u64, user_id: u64) -> RpcResult<QHashOut<F>> {
         Ok(self
             .ctx
@@ -625,29 +527,11 @@ where
             .map_err(RpcError::Anyhow)?)
     }
 
-    async fn get_user_contract_tree_root_f(&self, checkpoint_id: F, user_id: F) -> RpcResult<QHashOut<F>> {
-        Ok(self
-            .ctx
-            .store_reader
-            .get_user_contract_tree_root(checkpoint_id.to_canonical_u64(), user_id.to_canonical_u64())
-            .await
-            .map_err(RpcError::Anyhow)?)
-    }
-
     async fn get_user_contract_tree_leaf_hash(&self, checkpoint_id: u64, user_id: u64, contract_id: u32) -> RpcResult<QHashOut<F>> {
         Ok(self
             .ctx
             .store_reader
             .get_user_contract_tree_leaf_hash(checkpoint_id, user_id, contract_id)
-            .await
-            .map_err(RpcError::Anyhow)?)
-    }
-
-    async fn get_user_contract_tree_leaf_hash_f(&self, checkpoint_id: F, user_id: F, contract_id: F) -> RpcResult<QHashOut<F>> {
-        Ok(self
-            .ctx
-            .store_reader
-            .get_user_contract_tree_leaf_hash_f(checkpoint_id, user_id, contract_id)
             .await
             .map_err(RpcError::Anyhow)?)
     }
@@ -666,26 +550,8 @@ where
             .map_err(RpcError::Anyhow)?)
     }
 
-    async fn get_user_contract_tree_merkle_proof_f(&self, checkpoint_id: F, user_id: F, contract_id: F) -> RpcResult<MerkleProofCore<QHashOut<F>>> {
-        Ok(self
-            .ctx
-            .store_reader
-            .get_user_contract_tree_merkle_proof_f(checkpoint_id, user_id, contract_id)
-            .await
-            .map_err(RpcError::Anyhow)?)
-    }
-
     async fn get_user_tree_root(&self, checkpoint_id: u64) -> RpcResult<QHashOut<F>> {
         Ok(self.ctx.store_reader.get_user_tree_root(checkpoint_id).await.map_err(RpcError::Anyhow)?)
-    }
-
-    async fn get_user_tree_root_f(&self, checkpoint_id: F) -> RpcResult<QHashOut<F>> {
-        Ok(self
-            .ctx
-            .store_reader
-            .get_user_tree_root(checkpoint_id.to_canonical_u64())
-            .await
-            .map_err(RpcError::Anyhow)?)
     }
 
     async fn get_user_tree_leaf_hash(&self, checkpoint_id: u64, user_id: u64) -> RpcResult<QHashOut<F>> {
@@ -697,29 +563,11 @@ where
             .map_err(RpcError::Anyhow)?)
     }
 
-    async fn get_user_tree_leaf_hash_f(&self, checkpoint_id: F, user_id: F) -> RpcResult<QHashOut<F>> {
-        Ok(self
-            .ctx
-            .store_reader
-            .get_user_tree_leaf_hash(checkpoint_id.to_canonical_u64(), user_id.to_canonical_u64())
-            .await
-            .map_err(RpcError::Anyhow)?)
-    }
-
     async fn get_user_bottom_tree_merkle_proof(&self, root_level: u8, checkpoint_id: u64, user_id: u64) -> RpcResult<MerkleProofCore<QHashOut<F>>> {
         Ok(self
             .ctx
             .store_reader
             .get_user_bottom_tree_merkle_proof(root_level, checkpoint_id, user_id)
-            .await
-            .map_err(RpcError::Anyhow)?)
-    }
-
-    async fn get_user_bottom_tree_merkle_proof_f(&self, root_level: u8, checkpoint_id: F, user_id: F) -> RpcResult<MerkleProofCore<QHashOut<F>>> {
-        Ok(self
-            .ctx
-            .store_reader
-            .get_user_bottom_tree_merkle_proof(root_level, checkpoint_id.to_canonical_u64(), user_id.to_canonical_u64())
             .await
             .map_err(RpcError::Anyhow)?)
     }
@@ -735,21 +583,6 @@ where
             .ctx
             .store_reader
             .get_user_sub_tree_merkle_proof(checkpoint_id, root_level, leaf_level, leaf_index)
-            .await
-            .map_err(RpcError::Anyhow)?)
-    }
-
-    async fn get_user_sub_tree_merkle_proof_f(
-        &self,
-        checkpoint_id: F,
-        root_level: u8,
-        leaf_level: u8,
-        leaf_index: F,
-    ) -> RpcResult<MerkleProofCore<QHashOut<F>>> {
-        Ok(self
-            .ctx
-            .store_reader
-            .get_user_sub_tree_merkle_proof(checkpoint_id.to_canonical_u64(), root_level, leaf_level, leaf_index.to_canonical_u64())
             .await
             .map_err(RpcError::Anyhow)?)
     }

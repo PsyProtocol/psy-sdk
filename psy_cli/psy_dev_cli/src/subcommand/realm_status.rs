@@ -16,6 +16,7 @@ use psy_rust_sdk::{
 };
 use psy_store::{
     node::coordinator::{PsyCoordinatorStoreReaderAsync, PsyCoordinatorStoreWriterAsyncImm},
+    store,
     store::{backend::LmdbxConfig, journal::JournalStore, Backend, PsyStore},
 };
 use serde::{Deserialize, Serialize};
@@ -30,7 +31,7 @@ pub async fn run() -> anyhow::Result<()> {
         lmdbx_path: "realm-status".to_string(),
         lmdbx_mmap_size_gb: 100,
     });
-    let psy_store = PsyStore::from_backend(backend).await?;
+    let psy_store = store::from_backend(backend).await?;
     let psy_store = JournalStore::new(psy_store);
 
     let realm_ids = (0..1 << COORDINATOR_USER_TREE_HEIGHT).collect::<Vec<u64>>();
