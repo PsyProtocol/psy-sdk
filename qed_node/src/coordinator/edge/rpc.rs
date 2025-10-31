@@ -56,6 +56,9 @@ pub trait CoordinatorEdgeRpc {
         realm_id: u64,
     ) -> RpcResult<()>;
 
+    #[method(name = "has_pending_guta")]
+    async fn has_pending_guta(&self, realm_id: u32) -> RpcResult<bool>;
+
     #[method(name = "submit_realm_result")]
     async fn submit_realm_result(&self, realm_result: RealmDataForCoordinator<F>) -> RpcResult<()>;
 

@@ -48,6 +48,12 @@ pub trait CoordinatorRpcV2 {
         proof: &[u8],
         realm_id: u64,
     ) -> RpcResult<()>;
+
+    #[method(name = "has_pending_guta")]
+    async fn has_pending_guta(
+        &self,
+        realm_id: u32,
+    ) -> RpcResult<bool>;
 }
 
 #[derive(Debug, Clone)]
@@ -145,6 +151,15 @@ impl CoordinatorClient<F> for ConcreteCoordinatorClient {
                     Err(err)
                 },
             }
+        })
+        .await
+    }
+    async fn has_pending_guta(
+        &self,
+        realm_id: u32,
+    ) -> anyhow::Result<bool> {
+        self.retry_with_backoff("has_pending_guta", || async {
+            self.rpc_client.has_pending_guta(realm_id).await
         })
         .await
     }

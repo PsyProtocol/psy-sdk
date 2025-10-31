@@ -486,6 +486,7 @@ pub trait CoordinatorClient<F: RichField> {
         proof: &[u8],
         realm_id: u64,
     ) -> anyhow::Result<()>;
+    async fn has_pending_guta(&self, realm_id: u32) -> anyhow::Result<bool>;
 }
 
 pub trait RealmProcessorStateClient<F: RichField>: GlobalUserTreeMerkleReader<F> {

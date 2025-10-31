@@ -1148,6 +1148,12 @@ impl CoordinatorEdgeRpcServer for CoordinatorEdgeHandler {
         Ok(())
     }
 
+    async fn has_pending_guta(&self, realm_id: u32) -> RpcResult<bool> {
+        self.has_pending_guta(realm_id)
+            .await
+            .map_err(RpcError::Anyhow)
+    }
+
    async fn submit_realm_result(&self, realm_result: RealmDataForCoordinator<F>) -> RpcResult<()> {
         let checkpoint_id = realm_result.header.checkpoint_id;
         let current_checkpoint_id = self.get_current_checkpoint_id().await?;
