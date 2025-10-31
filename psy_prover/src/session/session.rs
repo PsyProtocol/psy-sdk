@@ -803,14 +803,14 @@ impl WalletSession {
         Ok(deploy_cmd)
     }
 
-    pub async fn deploy_contract(&self, deployer: QHashOut<F>, circuit_defs: Vec<DPNFunctionCircuitDefinition>) -> anyhow::Result<()> {
+    pub async fn deploy_contract(&self, deployer: QHashOut<F>, circuit_defs: Vec<DPNFunctionCircuitDefinition>) -> anyhow::Result<String> {
         let deploy_cmd = self.get_deploy_contract_cmd(deployer, circuit_defs)?;
 
-        self.st_provider
+        let contract_uuid = self
+            .st_provider
             .deploy_contract::<F>(QDeployContractRPCRequest { deploy_contract: deploy_cmd })
             .await?;
-
-        Ok(())
+        Ok(contract_uuid)
     }
 
     pub async fn get_claim_rewards_call_args(&self, mut job_infos: Vec<JobInfo>) -> anyhow::Result<Vec<ContractCallArgs>> {

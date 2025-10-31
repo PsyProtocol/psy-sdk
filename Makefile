@@ -239,6 +239,12 @@ run-realm-processor:
 	  --lmdbx-path ${PWD}/db/realm0 \
 	  --queue-biz-key realm0
 
+run-realm-store:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_dev_cli store \
+	  --database lmdbx\
+	  --lmdbx-path ${PWD}/db/realm0 
+	  --listen-addr=0.0.0.0:11111
+
 run-realm-edge:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_node_cli realm-edge \
 	  --redis-uri=redis://127.0.0.1:6379 \
@@ -518,9 +524,16 @@ register-random-user:
 deploy-contract:
 	@echo "Deploying contracts..."
 	@echo "USER0 deploying token contract..."
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_user_cli deploy-contract --private-key=${USER0_PRIVATE_KEY} --contract-path ${PROJECT_DIR}/token/target/token.json
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_user_cli deploy-contract --private-key=${USER0_PRIVATE_KEY} --contract-path ${PROJECT_DIR}/token/target/token.json --is-deploy
 	@echo "USER1 deploying token contract..."
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_user_cli deploy-contract --private-key=${USER1_PRIVATE_KEY} --contract-path ${PROJECT_DIR}/token/target/token.json
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_user_cli deploy-contract --private-key=${USER1_PRIVATE_KEY} --contract-path ${PROJECT_DIR}/token/target/token.json --is-deploy
+
+get-deploy-contract-cmd:
+	@echo "Deploying contracts..."
+	@echo "USER0 deploying token contract..."
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_user_cli deploy-contract --private-key=${USER0_PRIVATE_KEY} --contract-path ${PROJECT_DIR}/token/target/token.json --output-path ${PROJECT_DIR}/token/target/
+	@echo "USER1 deploying token contract..."
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_user_cli deploy-contract --private-key=${USER1_PRIVATE_KEY} --contract-path ${PROJECT_DIR}/token/target/token.json --output-path ${PROJECT_DIR}/token/target/
 
 multi-contract-call:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_user_cli wallet-session -p ${USER0_PRIVATE_KEY} --contract-id ${CONTRACT_ID}

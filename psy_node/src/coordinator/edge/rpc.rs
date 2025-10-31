@@ -18,6 +18,7 @@ use psy_data::{
     qdata::{
         checkpoint::{CheckpointSyncInfo, PsyBlockState, PsyCheckpointGlobalStateRoots, PsyCheckpointLeaf},
         contract::{ContractCodeDefinition, PsyContractLeaf},
+        contract_metadata::ContractMetaData,
         user::PsyUserLeaf,
     },
 };
@@ -355,6 +356,9 @@ pub trait CoordinatorEdgeRpc {
 
     #[method(name = "get_current_realm_status_on_coordinator")]
     async fn get_current_realm_status_on_coordinator(&self, realm_id: u64) -> RpcResult<BasicRealmStatusOnCoordinator<F>>;
+
+    #[method(name = "get_contract_metadata")]
+    async fn get_contract_metadata(&self, contract_uuid: &str) -> RpcResult<ContractMetaData<F>>;
 
     #[method(name = "get_current_checkpoint_id")]
     async fn get_current_checkpoint_id(&self) -> RpcResult<u64>;
