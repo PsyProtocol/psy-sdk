@@ -12,8 +12,8 @@ use tracing::info;
 pub mod api_request_id;
 pub mod jobs;
 pub mod traits;
-pub mod verifier;
 pub mod utils;
+pub mod verifier;
 pub fn log_proof_details(prefix: &str, job_id: QProvingJobDataID, proof: &PsyProof) {
     let job_id_hex = hex::encode(job_id.to_fixed_bytes());
     info!("{} - Job ID (hex): {}", prefix, job_id_hex);

@@ -1,11 +1,11 @@
 use chrono::{DateTime, Utc};
-use qed_api_services::models::UserEventTxType;
-use qed_core::job::id::{LayerId, ProvingJobCircuitType, QProvingJobDataID};
-use qed_data::{
-    config::store_config::QEDFelt,
+use psy_core::job::id::{LayerId, ProvingJobCircuitType, QProvingJobDataID};
+use psy_data::{
+    config::store_config::PsyFelt,
     qblock::cmds::deploy_contract::QFunctionMetadata,
-    qdata::{contract_uuid::ContractUUID, ups_end_cap_result::UPSEndCapResultCompact, user::QEDUserLeaf},
+    qdata::{contract_uuid::ContractUUID, ups_end_cap_result::UPSEndCapResultCompact, user::PsyUserLeaf},
 };
+use psy_services::models::UserEventTxType;
 use serde::{Deserialize, Serialize};
 
 use crate::watcher::timeout_watcher::WatcherSourceNodeType;
@@ -68,7 +68,7 @@ pub struct UserGutaSubmissionMetadata {
     pub checkpoint_id: u64,
     pub circuit_type: ProvingJobCircuitType,
     pub top_line_proof: TopLineProofData,
-    pub realm_proof_public_inputs: Vec<QEDFelt>,
+    pub realm_proof_public_inputs: Vec<PsyFelt>,
     pub node_id: String,
     pub node_type: String,
 }
@@ -124,9 +124,9 @@ pub struct UserEndcapSubmissionEvent {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UserEndcapSubmissionMetadata {
     pub checkpoint_id: u64,
-    pub state_transition: UPSEndCapResultCompact<QEDFelt>,
-    pub new_user_leaf: QEDUserLeaf<QEDFelt>,
-    pub endcap_proof_public_inputs: Vec<QEDFelt>,
+    pub state_transition: UPSEndCapResultCompact<PsyFelt>,
+    pub new_user_leaf: PsyUserLeaf<PsyFelt>,
+    pub endcap_proof_public_inputs: Vec<PsyFelt>,
     pub node_id: String,
     pub node_type: String,
 }

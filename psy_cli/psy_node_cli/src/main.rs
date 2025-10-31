@@ -41,7 +41,7 @@ async fn main() -> anyhow::Result<()> {
             database_url,
             max_connections,
         } => {
-            api_service::run_api_service(host, port, database_url, max_connections).await?;
+            api_service::run_services(host, port, database_url, max_connections).await?;
         }
         Commands::Watcher(args) => {
             watcher::run(args).await?;

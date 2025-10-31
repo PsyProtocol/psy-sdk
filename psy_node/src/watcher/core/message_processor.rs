@@ -5,7 +5,7 @@ use std::sync::{
 
 use bb8::Pool;
 use bb8_redis::RedisConnectionManager;
-use qed_store::queue::{QueueId, RsmqQueue};
+use psy_store::queue::{QueueId, RsmqQueue};
 use redis::AsyncCommands;
 use rsmq::RsmqMessage;
 use tokio::sync::Semaphore;

@@ -1,9 +1,15 @@
-use std::path::Path;
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::{
+    path::Path,
+    time::{SystemTime, UNIX_EPOCH},
+};
+
 use chrono::{DateTime, Utc};
 use plonky2::hash::hash_types::RichField;
-use psy_data::config::store_config::{PsyFelt, PsyHasher};
-use psy_data::qblock::cmds::deploy_contract::{QBCDeployContract, QContractMetadata, QFunctionMetadata};
+use psy_data::{
+    config::store_config::{PsyFelt, PsyHasher},
+    qblock::cmds::deploy_contract::{QBCDeployContract, QContractMetadata, QFunctionMetadata},
+};
+use psy_vm::dpn::vm::def::DPNFunctionCircuitDefinition;
 
 pub fn extract_contract_name(contract_path: &str) -> String {
     // Handle empty input
@@ -49,15 +55,14 @@ fn extract_base_name(file_name: &str) -> String {
     }
 }
 
-pub fn extract_contract_metadata(
-    contract: &QBCDeployContract<PsyFelt>,
-) -> anyhow::Result<QContractMetadata> {
+pub fn extract_contract_metadata(contract: &QBCDeployContract<PsyFelt>) -> anyhow::Result<QContractMetadata> {
     let mut functions = Vec::new();
 
     for function_def in &contract.code_definition.functions {
-        // Deserialize the CBOR-encoded code to get the original DPNFunctionCircuitDefinition
-        let dpn_def: DPNFunctionCircuitDefinition = serde_cbor::from_slice(&function_def.code)
-            .map_err(|e| anyhow::anyhow!("Failed to deserialize function code: {}", e))?;
+        // Deserialize the CBOR-encoded code to get the original
+        // DPNFunctionCircuitDefinition
+        let dpn_def: DPNFunctionCircuitDefinition =
+            serde_cbor::from_slice(&function_def.code).map_err(|e| anyhow::anyhow!("Failed to deserialize function code: {}", e))?;
 
         functions.push(QFunctionMetadata {
             method_id: function_def.method_id,
@@ -81,17 +86,11 @@ pub fn extract_contract_metadata(
 }
 
 pub fn current_timestamp() -> u64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap()
-        .as_secs()
+    SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs()
 }
 
 pub fn current_timestamp_millis() -> u64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap()
-        .as_millis() as u64
+    SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis() as u64
 }
 
 pub fn current_datetime() -> DateTime<Utc> {
@@ -104,26 +103,17 @@ mod tests {
 
     #[test]
     fn test_basic_extraction() {
-        assert_eq!(
-            extract_contract_name("${PROJECT_DIR}/token/target/token.json"),
-            "token"
-        );
+        assert_eq!(extract_contract_name("${PROJECT_DIR}/token/target/token.json"), "token");
     }
 
     #[test]
     fn test_absolute_path() {
-        assert_eq!(
-            extract_contract_name("/home/user/contracts/my_contract.json"),
-            "my_contract"
-        );
+        assert_eq!(extract_contract_name("/home/user/contracts/my_contract.json"), "my_contract");
     }
 
     #[test]
     fn test_relative_path() {
-        assert_eq!(
-            extract_contract_name("./contracts/test.json"),
-            "test"
-        );
+        assert_eq!(extract_contract_name("./contracts/test.json"), "test");
     }
 
     #[test]
@@ -133,10 +123,7 @@ mod tests {
 
     #[test]
     fn test_multiple_extensions() {
-        assert_eq!(
-            extract_contract_name("contract.tar.gz"),
-            "contract"
-        );
+        assert_eq!(extract_contract_name("contract.tar.gz"), "contract");
     }
 
     #[test]
@@ -153,10 +140,7 @@ mod tests {
 
     #[test]
     fn test_special_characters() {
-        assert_eq!(
-            extract_contract_name("my-contract_v2.json"),
-            "my-contract_v2"
-        );
+        assert_eq!(extract_contract_name("my-contract_v2.json"), "my-contract_v2");
     }
 
     #[test]
@@ -169,21 +153,12 @@ mod tests {
 
     #[test]
     fn test_windows_paths() {
-        assert_eq!(
-            extract_contract_name("C:\\contracts\\token.json"),
-            "token"
-        );
-        assert_eq!(
-            extract_contract_name("..\\contracts\\my_contract.json"),
-            "my_contract"
-        );
+        assert_eq!(extract_contract_name("C:\\contracts\\token.json"), "token");
+        assert_eq!(extract_contract_name("..\\contracts\\my_contract.json"), "my_contract");
     }
 
     #[test]
     fn test_spaces_in_name() {
-        assert_eq!(
-            extract_contract_name("my contract.json"),
-            "my contract"
-        );
+        assert_eq!(extract_contract_name("my contract.json"), "my contract");
     }
 }

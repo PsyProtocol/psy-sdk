@@ -14,10 +14,7 @@ use tracing::{debug, error, info, warn};
 
 use crate::{
     config::Config,
-    handlers::{
-        websocket::{UserEventManager, WorkerEventManager},
-        UnifiedWebSocketManager,
-    },
+    handlers::websocket::{UnifiedWebSocketManager, UserEventManager, WorkerEventManager},
     models::{
         CheckpointLeafStat, CheckpointRewardAggregation, CheckpointRewardDistribution, CheckpointRewardSummary, CheckpointStats,
         CreateCheckpointRewardDistribution, CreateWorkerJobEvent, WorkerCheckpointRewardStats, WorkerEvent, WorkerEventReward, WorkerJobEvent,

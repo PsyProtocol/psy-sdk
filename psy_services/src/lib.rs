@@ -18,7 +18,7 @@ use tokio::signal;
 use tower_http::{cors::CorsLayer, trace::TraceLayer};
 
 use crate::{
-    handlers::tps::start_tps_broadcast_task,
+    handlers::websocket::tps::start_tps_broadcast_task,
     services::{CheckpointRewardService, JobStatusService},
 };
 // Import JWT manager

@@ -9,7 +9,7 @@ use std::{
 use anyhow::Result;
 use async_trait::async_trait;
 use plonky2::hash::hash_types::RichField;
-use psy_data::{config::store_config::PsyFelt};
+use psy_data::config::store_config::PsyFelt;
 use psy_store::{
     node::{coordinator::PsyCoordinatorStoreReaderAsync, realm::PsyRealmStoreReaderAsync},
     store::PsyStore,

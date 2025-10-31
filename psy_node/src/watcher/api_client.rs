@@ -19,15 +19,18 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use tokio::{sync::RwLock, time::sleep};
 use tracing::{debug, error, info, warn};
-use crate::common::utils::current_datetime;
-use crate::watcher::{
-    checkpoint_sender::CheckpointLeafWithId,
-    constant::{DEFAULT_HTTP_TIMEOUT, DEFAULT_RETRY_DELAY, JWT_EXPIRATION_HOURS, MAX_BATCH_SIZE, MAX_RETRY_ATTEMPTS},
-    events::{
-        JobCompletedEvent, JobPendingEvent, JobStartedEvent, JobTimeoutEvent, UserContractMetadata, UserDeployContractEvent,
-        UserEndcapSubmissionEvent, UserGutaSubmissionEvent, UserRegistrationEvent, UserRegistrationMetadata,
+
+use crate::{
+    common::utils::current_datetime,
+    watcher::{
+        checkpoint_sender::CheckpointLeafWithId,
+        constant::{DEFAULT_HTTP_TIMEOUT, DEFAULT_RETRY_DELAY, JWT_EXPIRATION_HOURS, MAX_BATCH_SIZE, MAX_RETRY_ATTEMPTS},
+        events::{
+            JobCompletedEvent, JobPendingEvent, JobStartedEvent, JobTimeoutEvent, UserContractMetadata, UserDeployContractEvent,
+            UserEndcapSubmissionEvent, UserGutaSubmissionEvent, UserRegistrationEvent, UserRegistrationMetadata,
+        },
+        timeout_watcher::WatcherSourceNodeType,
     },
-    timeout_watcher::WatcherSourceNodeType,
 };
 
 #[derive(Debug, Serialize, Deserialize)]

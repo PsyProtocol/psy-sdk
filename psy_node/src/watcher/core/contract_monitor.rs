@@ -2,9 +2,7 @@
 use std::{collections::VecDeque, sync::Arc, time::Duration};
 
 use anyhow::Result;
-use psy_data::{
-    config::store_config::PsyFelt,
-};
+use psy_data::config::store_config::PsyFelt;
 use psy_store::{node::coordinator::PsyCoordinatorStoreReaderAsync, store::PsyStore};
 use serde::{Deserialize, Serialize};
 use tokio::{sync::mpsc, time::interval};
@@ -12,6 +10,7 @@ use tracing::{debug, error, info, warn};
 use uuid::Uuid;
 
 use crate::{
+    common::utils::current_datetime,
     watcher::{events::UserContractMetadata, ApiClient},
 };
 

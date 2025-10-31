@@ -14,6 +14,6 @@ pub async fn run(args: WatcherArgs) -> Result<()> {
     info!("Configuration: {:#?}", config);
 
     // Create and run service
-    let service = std::sync::Arc::new(WatcherService::new(config).await?);
+    let service = WatcherService::new(config).await?;
     service.run().await
 }

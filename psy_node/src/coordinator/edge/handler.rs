@@ -191,8 +191,18 @@ impl CoordinatorEdgeHandler {
         let latest = self.get_latest_checkpoint_id().await?;
         let next_checkpoint_id = latest + 1;
 
-        // Store contract details for reporting (before converting to with_root)
-        let deployer_str = format!("{}", contract.deployer.to_string_le());
+        let contract_metadata = extract_contract_metadata(&contract).unwrap_or_else(|e| {
+            error!("❌ Failed to extract contract metadata: {}", e);
+            QContractMetadata::default()
+        });
+
+        info!(
+            "Deploying contract with metadata: {} functions, deployer: {}, functions: {:?}",
+            contract_metadata.function_count,
+            contract_metadata.deployer,
+            contract_metadata.functions.iter().map(|f| &f.name).collect::<Vec<_>>()
+        );
+
         let state_tree_height = contract.code_definition.state_tree_height;
         let function_count = contract.code_definition.functions.len();
 
@@ -214,20 +224,18 @@ impl CoordinatorEdgeHandler {
         self.ctx.checkpoint_queue.cdq_push_imm(cd_for_queue).await?;
 
         // Report contract deployment to watcher
-        let metadata = UserDeployContractMetadata {
+        let metadata = UserContractMetadata {
             contract_uuid,
             state_tree_height,
             function_count,
-            function_whitelist_root: function_whitelist_root_str,
-            node_id: self.watcher_client.get_node_id().await.unwrap_or_default(),
-            node_type: "coordinator".to_string(),
+            functions: contract_metadata.functions,
+            function_whitelist_root: contract_metadata.function_whitelist_root,
         };
 
-        if let Err(e) = self.watcher_client.deploy_contract(&deployer_str, metadata).await {
-            // Log the error but don't fail the contract deployment
+        if let Err(e) = self.watcher_client.deploy_contract(&contract_metadata.deployer, metadata).await {
             warn!("❌ Failed to report contract deployment to watcher: {}", e);
         } else {
-            info!("📊 Contract deployment reported to watcher for deployer: {}", deployer_str);
+            info!("📊 Contract deployment reported to watcher for deployer: {}", contract_metadata.deployer);
         }
 
         Ok(contract_uuid)
@@ -645,6 +653,7 @@ use async_trait::async_trait;
 use jsonrpsee::core::RpcResult;
 use plonky2::field::goldilocks_field::GoldilocksField;
 use psy_core::config::network_constants::COORDINATOR_USER_TREE_HEIGHT;
+use psy_data::qblock::cmds::deploy_contract::QContractMetadata;
 use psy_rust_sdk::{
     request::{QDeployContractRPCRequest, QRegisterUserRPCRequest},
     wallet::secp_sign::SignedRequest,
@@ -657,12 +666,13 @@ use serde::Serialize;
 
 use super::{error::RpcError, rpc::CoordinatorEdgeRpcServer, types::LatestCheckpointResponse};
 use crate::{
-    common::whitelist::{WhiteList, WhiteListCache},
+    common::{
+        utils::extract_contract_metadata,
+        whitelist::{WhiteList, WhiteListCache},
+    },
     watcher::{
-        events::{JobCompletedEvent, JobStartedEvent, TopLineProofData, UserDeployContractMetadata, UserGutaSubmissionMetadata, WatcherMessage},
-        watcher::NodeType,
+        events::{JobCompletedEvent, JobStartedEvent, TopLineProofData, UserContractMetadata, UserGutaSubmissionMetadata, WatcherMessage},
         watcher_client::WatcherClient,
-        watcher_service::{current_timestamp, current_timestamp_mills},
     },
 };
 
@@ -1181,7 +1191,7 @@ impl JobSchedulerRpcServer for CoordinatorEdgeHandler {
                     let start_event = JobStartedEvent {
                         job_id: job.job_id,
                         worker_id,
-                        start_time: current_timestamp_mills(),
+                        start_time: current_timestamp_millis(),
                         layer_id: job.layer_id,
                     };
 

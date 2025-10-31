@@ -2,7 +2,7 @@ use std::str::FromStr;
 
 use anyhow::Result;
 use clap::Args;
-use qed_store::{queue::QueueId, store::backend::BackendConfig};
+use psy_store::{queue::QueueId, store::backend::BackendConfig};
 
 use crate::{realm::QueueConfig, watcher::timeout_watcher::WatcherSourceNodeType};
 

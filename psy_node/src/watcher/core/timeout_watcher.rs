@@ -4,7 +4,7 @@ use anyhow::{anyhow, Result};
 use bb8::Pool;
 use bb8_redis::RedisConnectionManager;
 use futures::StreamExt;
-use qed_store::queue::{
+use psy_store::queue::{
     task_queue::{current_timestamp_millis, QJobStatus, QProvingTaskStoreImpl, JOB_TIMEOUT_PREFIX},
     QueueId, RsmqQueue,
 };

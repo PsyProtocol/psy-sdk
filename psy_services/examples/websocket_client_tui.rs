@@ -190,7 +190,7 @@ fn ui(f: &mut Frame, app: &App) {
 fn render_header(f: &mut Frame, area: Rect, app: &App) {
     let header = Paragraph::new(vec![
         Line::from(vec![
-            Span::styled("QED WebSocket TUI Client", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
+            Span::styled("Psy WebSocket TUI Client", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
             Span::raw(" | "),
             Span::styled(
                 &app.connection_status,
