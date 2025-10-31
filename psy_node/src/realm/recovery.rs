@@ -9,10 +9,15 @@ use psy_data::{
     },
     models::checkpoint::sync_info::PsyCheckpointSyncInfoModelReaderCore,
 };
-use psy_store::{node::realm::PsyRealmStoreReaderAsync, queue::{new_redis_async_pool, ProofStoreRedis, QPendingUserStoreAsyncImm}, store, store::{
-    journal::{Journal, JournalStore},
-    PsyStore,
-}};
+use psy_store::{
+    node::realm::PsyRealmStoreReaderAsync,
+    queue::{new_redis_async_pool, ProofStoreRedis, QPendingUserStoreAsyncImm},
+    store,
+    store::{
+        journal::{Journal, JournalStore},
+        PsyStore,
+    },
+};
 use tracing::{error, info, warn};
 
 use super::backup::RealmS3BackupClient;

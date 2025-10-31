@@ -1,14 +1,18 @@
+pub mod edge_v2;
 pub mod error;
 pub mod handler;
 pub mod rpc;
-pub mod edge_v2;
 use std::sync::Arc;
 
 use anyhow::Result;
 pub use edge_v2::run_realm_edge_v2;
 use hyper::Method;
 use jsonrpsee::server::ServerBuilder;
-use psy_store::{queue::{new_redis_async_pool, task_queue::QProvingTaskStoreImpl, ProofStoreRedis}, store, store::PsyStore};
+use psy_store::{
+    queue::{new_redis_async_pool, task_queue::QProvingTaskStoreImpl, ProofStoreRedis},
+    store,
+    store::PsyStore,
+};
 use tower_http::cors::{Any, CorsLayer};
 use tracing::{debug, info};
 

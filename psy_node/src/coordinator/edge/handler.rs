@@ -47,7 +47,12 @@ use psy_data::{
     traits::qdatastore::{qmetadata::QMetaDataStoreReaderSync, qtreedata::QTreeDataStoreReaderSync},
 };
 use psy_network_circuit::verify_witness::verify_witness_and_proof;
-use psy_store::{node::coordinator::PsyCoordinatorStoreReaderAsync, queue::{new_redis_async_pool, rsmq_queue::CEQueueNotification, ProofStoreRedis}, store, store::{Backend, PsyStore}};
+use psy_store::{
+    node::coordinator::PsyCoordinatorStoreReaderAsync,
+    queue::{new_redis_async_pool, rsmq_queue::CEQueueNotification, ProofStoreRedis},
+    store,
+    store::{Backend, PsyStore},
+};
 use rand::RngCore;
 use tokio::sync::{mpsc, Mutex};
 use tracing::{debug, error, info, trace, warn};
@@ -744,7 +749,6 @@ impl CoordinatorEdgeRpcServer for CoordinatorEdgeHandler {
     async fn get_contract_leaf_data(&self, contract_id: u64) -> RpcResult<PsyContractLeaf<F>> {
         self.get_contract_leaf_data(contract_id).await.map_err(RpcError::Anyhow)
     }
-
 
     async fn get_contract_code_definition(&self, contract_id: u64) -> RpcResult<ContractCodeDefinition> {
         self.get_contract_code_definition(contract_id).await.map_err(RpcError::Anyhow)

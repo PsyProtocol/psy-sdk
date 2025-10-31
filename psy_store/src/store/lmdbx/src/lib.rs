@@ -1,4 +1,5 @@
 use std::{ops::RangeInclusive, path::PathBuf};
+
 use async_trait::async_trait;
 use kvq::traits::{KVQBinaryStore, KVQBinaryStoreAsync, KVQPair};
 use reth_libmdbx::{Cursor, Database, Environment, EnvironmentFlags, Geometry, Mode, SyncMode, TransactionKind, WriteFlags, RO, RW};
@@ -172,7 +173,7 @@ impl KVQBinaryStore for KVQlibmdbxStore {
 
 #[async_trait]
 impl KVQBinaryStoreAsync for KVQlibmdbxStore {
-   async fn get_exact_if_exists(&self, key: &Vec<u8>) -> anyhow::Result<Option<Vec<u8>>> {
+    async fn get_exact_if_exists(&self, key: &Vec<u8>) -> anyhow::Result<Option<Vec<u8>>> {
         KVQBinaryStore::get_exact_if_exists(self, key)
     }
 
@@ -228,7 +229,6 @@ impl KVQBinaryStoreAsync for KVQlibmdbxStore {
     async fn set_and_delete_many(&self, keys_to_set: &[KVQPair<&Vec<u8>, &Vec<u8>>], keys_to_delete: &[Vec<u8>]) -> anyhow::Result<()> {
         KVQBinaryStore::set_and_delete_many(self, keys_to_set, keys_to_delete)
     }
-
 }
 
 // Read-only transaction implementation

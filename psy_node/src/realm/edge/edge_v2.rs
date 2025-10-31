@@ -3,7 +3,11 @@ use std::sync::Arc;
 use anyhow::Result;
 use hyper::Method;
 use jsonrpsee::server::ServerBuilder;
-use psy_store::{queue::{new_redis_async_pool, task_queue::QProvingTaskStoreImpl, ProofStoreRedis}, store, store::PsyStore};
+use psy_store::{
+    queue::{new_redis_async_pool, task_queue::QProvingTaskStoreImpl, ProofStoreRedis},
+    store,
+    store::PsyStore,
+};
 use tower_http::cors::{Any, CorsLayer};
 use tracing::{debug, info};
 

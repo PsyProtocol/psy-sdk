@@ -81,14 +81,19 @@ use psy_data::{
     },
     traits::qdatastore::{qmetadata::QMetaDataStoreWriterSync, qtreedata::QTreeDataStoreWriterSync},
 };
-use psy_store::{node::realm::{PsyRealmStoreReaderAsync, PsyRealmStoreWriterAsyncImm}, queue::{
-    new_redis_async_pool,
-    task_queue::{QProvingTaskStore, QProvingTaskStoreImpl},
-    ProofStoreRedis, QPendingUserStoreAsyncImm,
-}, store, store::{
-    journal::{Journal, JournalStore},
-    PsyStore,
-}};
+use psy_store::{
+    node::realm::{PsyRealmStoreReaderAsync, PsyRealmStoreWriterAsyncImm},
+    queue::{
+        new_redis_async_pool,
+        task_queue::{QProvingTaskStore, QProvingTaskStoreImpl},
+        ProofStoreRedis, QPendingUserStoreAsyncImm,
+    },
+    store,
+    store::{
+        journal::{Journal, JournalStore},
+        PsyStore,
+    },
+};
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 use tokio::time::sleep;

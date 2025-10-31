@@ -44,14 +44,19 @@ use psy_data::{
     qdata::{checkpoint::CheckpointSyncInfo, user::PsyUserLeaf},
     traits::qdatastore::{qmetadata::QMetaDataStoreWriterSync, qtreedata::QTreeDataStoreWriterSync},
 };
-use psy_store::{node::realm::{PsyRealmStoreReaderAsync, PsyRealmStoreWriterAsyncImm}, queue::{
-    new_redis_async_pool,
-    task_queue::{QProvingTaskStore, QProvingTaskStoreImpl},
-    ProofStoreRedis, QPendingUserStoreAsyncImm,
-}, store, store::{
-    journal::{Journal, JournalStore},
-    PsyStore,
-}};
+use psy_store::{
+    node::realm::{PsyRealmStoreReaderAsync, PsyRealmStoreWriterAsyncImm},
+    queue::{
+        new_redis_async_pool,
+        task_queue::{QProvingTaskStore, QProvingTaskStoreImpl},
+        ProofStoreRedis, QPendingUserStoreAsyncImm,
+    },
+    store,
+    store::{
+        journal::{Journal, JournalStore},
+        PsyStore,
+    },
+};
 use tokio::{sync::mpsc, task::JoinHandle, time, time::Instant};
 use tower_http::follow_redirect::policy::PolicyExt;
 use tracing::{debug, error, info, trace, warn};

@@ -46,16 +46,21 @@ use psy_data::{
 };
 use psy_network_circuit::coordinator::coordinator_helper::PsyCoordinatorCircuitManager;
 use psy_prover::session::gen_contract_deploy_and_circuits_for_functions;
-use psy_store::{node::coordinator::{InitializeParams, PsyCoordinatorStoreReaderAsync, PsyCoordinatorStoreWriterAsyncImm}, queue::{
-    new_redis_async_pool,
-    redis_queue::{CheckpointDrainQueueConsumerAsyncImmWithPosition, NotificationQueue},
-    rsmq_queue::CEQueueNotification,
-    task_queue::{QProvingTaskStore, QProvingTaskStoreImpl},
-    ProofStoreRedis,
-}, store, store::{
-    journal::{Journal, JournalStore},
-    PsyStore,
-}};
+use psy_store::{
+    node::coordinator::{InitializeParams, PsyCoordinatorStoreReaderAsync, PsyCoordinatorStoreWriterAsyncImm},
+    queue::{
+        new_redis_async_pool,
+        redis_queue::{CheckpointDrainQueueConsumerAsyncImmWithPosition, NotificationQueue},
+        rsmq_queue::CEQueueNotification,
+        task_queue::{QProvingTaskStore, QProvingTaskStoreImpl},
+        ProofStoreRedis,
+    },
+    store,
+    store::{
+        journal::{Journal, JournalStore},
+        PsyStore,
+    },
+};
 use psy_vm::dpn::vm::{compile::PsyCompileResult, def::DPNFunctionCircuitDefinition};
 use serde_json;
 use tokio::{

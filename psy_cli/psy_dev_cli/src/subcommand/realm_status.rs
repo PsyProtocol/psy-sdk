@@ -14,7 +14,11 @@ use psy_rust_sdk::{
     provider::{QUserRpcProvider, RpcProvider},
     request::QRegisterUserRPCRequest,
 };
-use psy_store::{node::coordinator::{PsyCoordinatorStoreReaderAsync, PsyCoordinatorStoreWriterAsyncImm}, store, store::{backend::LmdbxConfig, journal::JournalStore, Backend, PsyStore}};
+use psy_store::{
+    node::coordinator::{PsyCoordinatorStoreReaderAsync, PsyCoordinatorStoreWriterAsyncImm},
+    store,
+    store::{backend::LmdbxConfig, journal::JournalStore, Backend, PsyStore},
+};
 use serde::{Deserialize, Serialize};
 use tokio::time::Instant;
 

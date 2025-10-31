@@ -3,10 +3,14 @@ use aws_sdk_s3::config::retry::ShouldAttempt::No;
 use kvq::traits::{KVQBinaryStore, KVQPair};
 use plonky2::field::goldilocks_field::GoldilocksField;
 use psy_data::config::genesis_config::GenesisConfig;
-use psy_store::{node::coordinator::PsyCoordinatorStoreReaderAsync, store, store::{
-    journal::{Journal, JournalStore},
-    PsyStore,
-}};
+use psy_store::{
+    node::coordinator::PsyCoordinatorStoreReaderAsync,
+    store,
+    store::{
+        journal::{Journal, JournalStore},
+        PsyStore,
+    },
+};
 use tracing::{error, info, warn};
 
 use super::backup::CoordinatorS3BackupClient;
