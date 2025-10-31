@@ -1,7 +1,7 @@
 use anyhow::Result;
 use kvq::traits::{KVQBinaryStore, KVQBinaryStoreAsync};
 use psy_data::config::store_config::*;
-use psy_store::store::{lmdbx::KVQlibmdbxStore, scylla::ScyllaStore};
+use psy_store::store::{scylla::ScyllaStore, KVQlibmdbxStore};
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn test_debug_checkpoint_tree() -> Result<()> {
@@ -34,7 +34,7 @@ async fn test_debug_checkpoint_tree() -> Result<()> {
     let value1 = b"checkpoint_100".to_vec();
 
     println!("   Key1: {:?} (len={})", key1, key1.len());
-    mdbx_store.set_ref(&key1, &value1)?;
+    <KVQlibmdbxStore as KVQBinaryStore>::set_ref(&mdbx_store, &key1, &value1)?;
     <ScyllaStore as KVQBinaryStoreAsync>::set_ref(&scylla_store, &key1, &value1).await?;
 
     // Query for height 150
@@ -50,7 +50,7 @@ async fn test_debug_checkpoint_tree() -> Result<()> {
     for fuzzy_bytes in &[0, 4, 8, 12] {
         println!("\n   Testing with fuzzy_bytes = {}", fuzzy_bytes);
 
-        let mdbx_result = mdbx_store.get_leq(&query_key, *fuzzy_bytes)?;
+        let mdbx_result = <KVQlibmdbxStore as KVQBinaryStore>::get_leq(&mdbx_store, &query_key, *fuzzy_bytes)?;
         let scylla_result = <ScyllaStore as KVQBinaryStoreAsync>::get_leq(&scylla_store, &query_key, *fuzzy_bytes).await?;
 
         println!("     LibMDBX: {:?}", mdbx_result.as_ref().map(|v| String::from_utf8_lossy(v)));

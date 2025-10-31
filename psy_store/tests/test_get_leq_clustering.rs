@@ -1,7 +1,7 @@
 use anyhow::Result;
 use kvq::traits::{KVQBinaryStore, KVQBinaryStoreAsync, KVQPair};
 use psy_data::config::store_config::*;
-use psy_store::store::{lmdbx::KVQlibmdbxStore, scylla::ScyllaStore};
+use psy_store::store::{scylla::ScyllaStore, KVQlibmdbxStore};
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn test_get_leq_clustering_tables() -> Result<()> {
@@ -42,7 +42,7 @@ async fn test_get_leq_clustering_tables() -> Result<()> {
 
         let value = format!("checkpoint_{}", checkpoint_id).into_bytes();
 
-        mdbx_store.set_ref(&key, &value)?;
+        <KVQlibmdbxStore as KVQBinaryStore>::set_ref(&mdbx_store, &key, &value)?;
         <ScyllaStore as KVQBinaryStoreAsync>::set_ref(&scylla_store, &key, &value).await?;
 
         println!("   Inserted checkpoint {} - key len: {}", checkpoint_id, key.len());
@@ -56,7 +56,7 @@ async fn test_get_leq_clustering_tables() -> Result<()> {
         key.extend_from_slice(&checkpoint_id.to_be_bytes());
         key.extend_from_slice(&0u32.to_be_bytes());
 
-        let mdbx_result = mdbx_store.get_leq(&key, 0)?;
+        let mdbx_result = <KVQlibmdbxStore as KVQBinaryStore>::get_leq(&mdbx_store, &key, 0)?;
         let scylla_result = <ScyllaStore as KVQBinaryStoreAsync>::get_leq(&scylla_store, &key, 0).await?;
 
         println!("   Checkpoint {} - Exact match: {}", checkpoint_id, mdbx_result == scylla_result);
@@ -82,7 +82,7 @@ async fn test_get_leq_clustering_tables() -> Result<()> {
         // Note: For checkpoint trees, partition_key_size = 22 (entire key)
         // So there's no clustering key, making this test problematic
         // Using fuzzy_bytes = 0 for exact match test
-        let mdbx_result = mdbx_store.get_leq(&key, 0)?;
+        let mdbx_result = <KVQlibmdbxStore as KVQBinaryStore>::get_leq(&mdbx_store, &key, 0)?;
         let scylla_result = <ScyllaStore as KVQBinaryStoreAsync>::get_leq(&scylla_store, &key, 0).await?;
 
         let mdbx_str = mdbx_result.as_ref().map(|v| String::from_utf8_lossy(v));
@@ -113,7 +113,7 @@ async fn test_get_leq_clustering_tables() -> Result<()> {
 
         let value = format!("user_{}_data", user_id).into_bytes();
 
-        mdbx_store.set_ref(&key, &value)?;
+        <KVQlibmdbxStore as KVQBinaryStore>::set_ref(&mdbx_store, &key, &value)?;
         <ScyllaStore as KVQBinaryStoreAsync>::set_ref(&scylla_store, &key, &value).await?;
     }
 
@@ -123,7 +123,7 @@ async fn test_get_leq_clustering_tables() -> Result<()> {
         key.extend_from_slice(&user_id.to_be_bytes());
         key.extend_from_slice(&(idx as u32).to_be_bytes());
 
-        let mdbx_result = mdbx_store.get_exact_if_exists(&key)?;
+        let mdbx_result = <KVQlibmdbxStore as KVQBinaryStore>::get_exact_if_exists(&mdbx_store, &key)?;
         let scylla_result = <ScyllaStore as KVQBinaryStoreAsync>::get_exact_if_exists(&scylla_store, &key).await?;
 
         assert_eq!(mdbx_result, scylla_result);
@@ -167,7 +167,7 @@ async fn test_checkpoint_block_state_special_case() -> Result<()> {
 
         let value = format!("block_state_{}", checkpoint_id).into_bytes();
 
-        mdbx_store.set_ref(&key, &value)?;
+        <KVQlibmdbxStore as KVQBinaryStore>::set_ref(&mdbx_store, &key, &value)?;
         <ScyllaStore as KVQBinaryStoreAsync>::set_ref(&scylla_store, &key, &value).await?;
 
         println!("   Inserted checkpoint block {}", checkpoint_id);
@@ -190,7 +190,7 @@ async fn test_checkpoint_block_state_special_case() -> Result<()> {
         key.extend_from_slice(&query_id.to_be_bytes());
 
         // The checkpoint block state table has special handling with fuzzy_bytes = 8
-        let mdbx_result = mdbx_store.get_leq(&key, 8)?;
+        let mdbx_result = <KVQlibmdbxStore as KVQBinaryStore>::get_leq(&mdbx_store, &key, 8)?;
         let scylla_result = <ScyllaStore as KVQBinaryStoreAsync>::get_leq(&scylla_store, &key, 8).await?;
 
         let mdbx_str = mdbx_result.as_ref().map(|v| String::from_utf8_lossy(v));

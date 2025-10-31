@@ -1,7 +1,7 @@
 use anyhow::Result;
 use kvq::traits::{KVQBinaryStore, KVQBinaryStoreAsync, KVQPair, KVQSerializable};
 use psy_data::config::store_config::*;
-use psy_store::store::{lmdbx::KVQlibmdbxStore, scylla::ScyllaStore};
+use psy_store::store::{scylla::ScyllaStore, KVQlibmdbxStore};
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn test_detailed_edge_cases() -> Result<()> {
@@ -43,11 +43,11 @@ async fn test_detailed_edge_cases() -> Result<()> {
     let mut zero_key = USER_LEAF_TABLE_TYPE.to_be_bytes().to_vec();
     zero_key.extend_from_slice(&[0u8; 12]); // Fill rest with zeros
     let zero_value = b"all_zeros".to_vec();
-    mdbx_store.set_ref(&zero_key, &zero_value)?;
+    <KVQlibmdbxStore as KVQBinaryStore>::set_ref(&mdbx_store, &zero_key, &zero_value)?;
     <ScyllaStore as KVQBinaryStoreAsync>::set_ref(&scylla_store, &zero_key, &zero_value).await?;
 
     for fuzzy in [0, 7, 14] {
-        let mdbx_res = mdbx_store.get_leq(&zero_key, fuzzy)?;
+        let mdbx_res = <KVQlibmdbxStore as KVQBinaryStore>::get_leq(&mdbx_store, &zero_key, fuzzy)?;
         let scylla_res = <ScyllaStore as KVQBinaryStoreAsync>::get_leq(&scylla_store, &zero_key, fuzzy).await?;
         check_consistency!(&format!("All-zero key with fuzzy={}", fuzzy), mdbx_res, scylla_res);
     }
@@ -57,11 +57,11 @@ async fn test_detailed_edge_cases() -> Result<()> {
     let mut ff_key = USER_LEAF_TABLE_TYPE.to_be_bytes().to_vec();
     ff_key.extend_from_slice(&[0xFF; 12]); // Fill rest with 0xFF
     let ff_value = b"all_ff".to_vec();
-    mdbx_store.set_ref(&ff_key, &ff_value)?;
+    <KVQlibmdbxStore as KVQBinaryStore>::set_ref(&mdbx_store, &ff_key, &ff_value)?;
     <ScyllaStore as KVQBinaryStoreAsync>::set_ref(&scylla_store, &ff_key, &ff_value).await?;
 
     for fuzzy in [0, 7, 14] {
-        let mdbx_res = mdbx_store.get_leq(&ff_key, fuzzy)?;
+        let mdbx_res = <KVQlibmdbxStore as KVQBinaryStore>::get_leq(&mdbx_store, &ff_key, fuzzy)?;
         let scylla_res = <ScyllaStore as KVQBinaryStoreAsync>::get_leq(&scylla_store, &ff_key, fuzzy).await?;
         check_consistency!(&format!("All-0xFF key with fuzzy={}", fuzzy), mdbx_res, scylla_res);
     }
@@ -77,7 +77,7 @@ async fn test_detailed_edge_cases() -> Result<()> {
         let mut key = base_key.clone();
         key[bit_pos] = 0x01;
         let value = format!("bit_{}", bit_pos).into_bytes();
-        mdbx_store.set_ref(&key, &value)?;
+        <KVQlibmdbxStore as KVQBinaryStore>::set_ref(&mdbx_store, &key, &value)?;
         <ScyllaStore as KVQBinaryStoreAsync>::set_ref(&scylla_store, &key, &value).await?;
     }
 
@@ -86,7 +86,7 @@ async fn test_detailed_edge_cases() -> Result<()> {
     query_key[13] = 0x02; // Slightly higher than any inserted
 
     for fuzzy in [0, 1, 7, 14] {
-        let mdbx_res = mdbx_store.get_leq(&query_key, fuzzy)?;
+        let mdbx_res = <KVQlibmdbxStore as KVQBinaryStore>::get_leq(&mdbx_store, &query_key, fuzzy)?;
         let scylla_res = <ScyllaStore as KVQBinaryStoreAsync>::get_leq(&scylla_store, &query_key, fuzzy).await?;
         check_consistency!(&format!("Single-bit diff query with fuzzy={}", fuzzy), mdbx_res, scylla_res);
     }
@@ -102,7 +102,7 @@ async fn test_detailed_edge_cases() -> Result<()> {
         key.extend_from_slice(&version.to_be_bytes());
 
         let value = format!("consecutive_v{}", version).into_bytes();
-        mdbx_store.set_ref(&key, &value)?;
+        <KVQlibmdbxStore as KVQBinaryStore>::set_ref(&mdbx_store, &key, &value)?;
         <ScyllaStore as KVQBinaryStoreAsync>::set_ref(&scylla_store, &key, &value).await?;
     }
 
@@ -113,7 +113,7 @@ async fn test_detailed_edge_cases() -> Result<()> {
     between_key[13] = 128; // Between version 5 and 6
 
     for fuzzy in [0, 2, 4] {
-        let mdbx_res = mdbx_store.get_leq(&between_key, fuzzy)?;
+        let mdbx_res = <KVQlibmdbxStore as KVQBinaryStore>::get_leq(&mdbx_store, &between_key, fuzzy)?;
         let scylla_res = <ScyllaStore as KVQBinaryStoreAsync>::get_leq(&scylla_store, &between_key, fuzzy).await?;
         check_consistency!(&format!("Between consecutive keys with fuzzy={}", fuzzy), mdbx_res, scylla_res);
     }
@@ -128,7 +128,7 @@ async fn test_detailed_edge_cases() -> Result<()> {
         key.extend_from_slice(&(val as u32).to_be_bytes());
 
         let value = format!("sparse_{}", val).into_bytes();
-        mdbx_store.set_ref(&key, &value)?;
+        <KVQlibmdbxStore as KVQBinaryStore>::set_ref(&mdbx_store, &key, &value)?;
         <ScyllaStore as KVQBinaryStoreAsync>::set_ref(&scylla_store, &key, &value).await?;
     }
 
@@ -140,7 +140,7 @@ async fn test_detailed_edge_cases() -> Result<()> {
         query_key.extend_from_slice(&(gap as u32).to_be_bytes());
 
         for fuzzy in [0, 4] {
-            let mdbx_res = mdbx_store.get_leq(&query_key, fuzzy)?;
+            let mdbx_res = <KVQlibmdbxStore as KVQBinaryStore>::get_leq(&mdbx_store, &query_key, fuzzy)?;
             let scylla_res = <ScyllaStore as KVQBinaryStoreAsync>::get_leq(&scylla_store, &query_key, fuzzy).await?;
             check_consistency!(&format!("Sparse gap {} with fuzzy={}", gap, fuzzy), mdbx_res, scylla_res);
         }
@@ -155,7 +155,7 @@ async fn test_detailed_edge_cases() -> Result<()> {
     range_key.extend_from_slice(&8u32.to_be_bytes());
 
     for fuzzy in [0, 4] {
-        let mdbx_range = mdbx_store.get_fuzzy_range_leq_kv(&range_key, fuzzy)?;
+        let mdbx_range = <KVQlibmdbxStore as KVQBinaryStore>::get_fuzzy_range_leq_kv(&mdbx_store, &range_key, fuzzy)?;
         let scylla_range = <ScyllaStore as KVQBinaryStoreAsync>::get_fuzzy_range_leq_kv(&scylla_store, &range_key, fuzzy).await?;
 
         total_tests += 1;
@@ -191,7 +191,7 @@ async fn test_detailed_edge_cases() -> Result<()> {
     non_exist_key.extend_from_slice(&[0x99, 0x99, 0x99, 0x99, 0x99, 0x99, 0x99, 0x99, 0x99, 0x99, 0x99, 0x99]);
 
     for fuzzy in [0, 7, 14] {
-        let mdbx_res = mdbx_store.get_leq(&non_exist_key, fuzzy)?;
+        let mdbx_res = <KVQlibmdbxStore as KVQBinaryStore>::get_leq(&mdbx_store, &non_exist_key, fuzzy)?;
         let scylla_res = <ScyllaStore as KVQBinaryStoreAsync>::get_leq(&scylla_store, &non_exist_key, fuzzy).await?;
         check_consistency!(&format!("Non-existent prefix with fuzzy={}", fuzzy), mdbx_res, scylla_res);
     }
@@ -203,7 +203,7 @@ async fn test_detailed_edge_cases() -> Result<()> {
     let mut overflow_key = USER_LEAF_TABLE_TYPE.to_be_bytes().to_vec();
     overflow_key.extend_from_slice(&[0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFE]);
     let overflow_value = b"near_overflow".to_vec();
-    mdbx_store.set_ref(&overflow_key, &overflow_value)?;
+    <KVQlibmdbxStore as KVQBinaryStore>::set_ref(&mdbx_store, &overflow_key, &overflow_value)?;
     <ScyllaStore as KVQBinaryStoreAsync>::set_ref(&scylla_store, &overflow_key, &overflow_value).await?;
 
     // Query with max value
@@ -211,7 +211,7 @@ async fn test_detailed_edge_cases() -> Result<()> {
     max_query.extend_from_slice(&[0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF]);
 
     for fuzzy in [0, 1, 4, 8, 12] {
-        let mdbx_res = mdbx_store.get_leq(&max_query, fuzzy)?;
+        let mdbx_res = <KVQlibmdbxStore as KVQBinaryStore>::get_leq(&mdbx_store, &max_query, fuzzy)?;
         let scylla_res = <ScyllaStore as KVQBinaryStoreAsync>::get_leq(&scylla_store, &max_query, fuzzy).await?;
         check_consistency!(&format!("Boundary overflow with fuzzy={}", fuzzy), mdbx_res, scylla_res);
     }
@@ -227,7 +227,7 @@ async fn test_detailed_edge_cases() -> Result<()> {
         key.extend_from_slice(&[0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01]);
 
         let value = format!("table_type_{}", tt).into_bytes();
-        mdbx_store.set_ref(&key, &value)?;
+        <KVQlibmdbxStore as KVQBinaryStore>::set_ref(&mdbx_store, &key, &value)?;
         <ScyllaStore as KVQBinaryStoreAsync>::set_ref(&scylla_store, &key, &value).await?;
     }
 
@@ -236,7 +236,7 @@ async fn test_detailed_edge_cases() -> Result<()> {
     mixed_query.extend_from_slice(&[0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x02]);
 
     for fuzzy in [0, 4, 12] {
-        let mdbx_res = mdbx_store.get_leq(&mixed_query, fuzzy)?;
+        let mdbx_res = <KVQlibmdbxStore as KVQBinaryStore>::get_leq(&mdbx_store, &mixed_query, fuzzy)?;
         let scylla_res = <ScyllaStore as KVQBinaryStoreAsync>::get_leq(&scylla_store, &mixed_query, fuzzy).await?;
         check_consistency!(&format!("Mixed table types with fuzzy={}", fuzzy), mdbx_res, scylla_res);
     }
