@@ -480,6 +480,8 @@ pub trait CoordinatorClient<F: RichField> {
         checkpoint_id: u64,
     ) -> anyhow::Result<CheckpointSyncInfo<F>>;
 
+    async fn get_latest_checkpoint_sync_info(&self, realm_id: u32) -> anyhow::Result<CheckpointSyncInfo<F>>;
+
     async fn submit_guta_v1(
         &self,
         input: &SubmitGUTARealmResultAPINoProofInput<F>,

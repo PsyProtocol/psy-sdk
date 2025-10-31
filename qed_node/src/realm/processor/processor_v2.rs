@@ -99,13 +99,11 @@ use crate::{
         RealmProcessorCombinedUpdate, RealmProcessorEdgeQueueHelper, RealmProcessorStateClient,
         SimpleTreeUpdateBuilder, UniqueQueueId
     },
-    common::clock::SlotTimer,
     common::retry::Retryable,
     common::slot::{LocalClock, Slot},
     common::verifier::get_cached_generic_verifier,
     coordinator::client_v2::ConcreteCoordinatorClient,
     realm::{RealmNodeConfig, RealmProcessor as RealmProcessorV1},
-    realm::processor::{ConcreteRealmProcessorContext, SyncCheckpointResult},
     realm::state::edge_queue_helper::RealmEdgeQueueHelper,
     realm::state::processor::RealmConfig,
     realm::state::processor_v2::RealmProcessorContextV2,

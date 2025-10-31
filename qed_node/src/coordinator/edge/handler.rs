@@ -448,7 +448,6 @@ impl CoordinatorEdgeHandler {
             sync_timestamp: Utc::now().timestamp() as u64,
             compact,
             realm_root: realm_merkle_proof.value,
-            has_pending_guta: self.has_pending_guta(realm_id).await?,
         };
         Ok(sync_info)
     }
@@ -1016,6 +1015,12 @@ impl CoordinatorEdgeHandler {
         .await
     }
 
+    pub async fn get_latest_checkpoint_sync_info(&self, realm_id: u32) -> anyhow::Result<CheckpointSyncInfo<F>> {
+        let latest_checkpoint_id = self.get_latest_checkpoint_id().await?;
+        let sync_info = self.get_checkpoint_sync_info(realm_id, latest_checkpoint_id).await?;
+        Ok(sync_info)
+    }
+
     pub async fn get_user_leaf_data(
         &self,
         checkpoint_id: u64,
@@ -1223,6 +1228,12 @@ impl CoordinatorEdgeRpcServer for CoordinatorEdgeHandler {
         checkpoint_id: u64,
     ) -> RpcResult<QCheckpointSyncInfoCompact> {
         self.get_checkpoint_sync_info_compact(checkpoint_id)
+            .await
+            .map_err(RpcError::Anyhow)
+    }
+
+    async fn get_latest_checkpoint_sync_info(&self, realm_id: u32) -> RpcResult<CheckpointSyncInfo<F>> {
+        self.get_latest_checkpoint_sync_info(realm_id)
             .await
             .map_err(RpcError::Anyhow)
     }

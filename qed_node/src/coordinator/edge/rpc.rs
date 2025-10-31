@@ -78,6 +78,9 @@ pub trait CoordinatorEdgeRpc {
     #[method(name = "get_checkpoint_sync_info_compact")]
     async fn get_checkpoint_sync_info_compact(&self, checkpoint_id: u64) -> RpcResult<QCheckpointSyncInfoCompact>;
 
+    #[method(name = "get_latest_checkpoint_sync_info")]
+    async fn get_latest_checkpoint_sync_info(&self, realm_id: u32) -> RpcResult<CheckpointSyncInfo<F>>;
+
     // Contract methods
     #[method(name = "get_contract_leaf_data")]
     async fn get_contract_leaf_data(&self, contract_id: u64) -> RpcResult<QEDContractLeaf<F>>;

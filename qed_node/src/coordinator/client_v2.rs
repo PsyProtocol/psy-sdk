@@ -41,6 +41,9 @@ pub trait CoordinatorRpcV2 {
         checkpoint_id: u64,
     ) -> RpcResult<CheckpointSyncInfo<F>> ;
 
+    #[method(name = "get_latest_checkpoint_sync_info")]
+    async fn get_latest_checkpoint_sync_info(&self, realm_id: u32) -> RpcResult<CheckpointSyncInfo<F>>;
+
     #[method(name = "submit_guta_v1")]
     async fn submit_guta_v1(
         &self,
@@ -129,6 +132,10 @@ impl CoordinatorClient<F> for ConcreteCoordinatorClient {
         checkpoint_id: u64,
     ) -> anyhow::Result<CheckpointSyncInfo<F>> {
         self.rpc_client.get_checkpoint_sync_info(realm_id, checkpoint_id).await.map_err(|e| anyhow::anyhow!(e))
+    }
+
+    async fn get_latest_checkpoint_sync_info(&self, realm_id: u32) -> anyhow::Result<CheckpointSyncInfo<F>> {
+        self.rpc_client.get_latest_checkpoint_sync_info(realm_id).await.map_err(|e| anyhow::anyhow!(e))
     }
 
     async fn submit_guta_v1(
