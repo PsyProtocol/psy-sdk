@@ -22,6 +22,14 @@ REALM_PROCESSOR2_LOG="$LOG_DIR/realm-processor2.log"
 REALM_EDGE2_LOG="$LOG_DIR/realm-edge2.log"
 REALM_PROCESSOR3_LOG="$LOG_DIR/realm-processor3.log"
 REALM_EDGE3_LOG="$LOG_DIR/realm-edge3.log"
+REALM_PROCESSOR4_LOG="$LOG_DIR/realm-processor4.log"
+REALM_EDGE4_LOG="$LOG_DIR/realm-edge4.log"
+REALM_PROCESSOR5_LOG="$LOG_DIR/realm-processor5.log"
+REALM_EDGE5_LOG="$LOG_DIR/realm-edge5.log"
+REALM_PROCESSOR6_LOG="$LOG_DIR/realm-processor6.log"
+REALM_EDGE6_LOG="$LOG_DIR/realm-edge6.log"
+REALM_PROCESSOR7_LOG="$LOG_DIR/realm-processor7.log"
+REALM_EDGE7_LOG="$LOG_DIR/realm-edge7.log"
 
 WORKER0_LOG="$LOG_DIR/worker0.log"
 WORKER1_LOG="$LOG_DIR/worker1.log"
@@ -49,6 +57,14 @@ echo "Clearing log files..."
 : > "$REALM_EDGE2_LOG"
 : > "$REALM_PROCESSOR3_LOG"
 : > "$REALM_EDGE3_LOG"
+: > "$REALM_PROCESSOR4_LOG"
+: > "$REALM_EDGE4_LOG"
+: > "$REALM_PROCESSOR5_LOG"
+: > "$REALM_EDGE5_LOG"
+: > "$REALM_PROCESSOR6_LOG"
+: > "$REALM_EDGE6_LOG"
+: > "$REALM_PROCESSOR7_LOG"
+: > "$REALM_EDGE7_LOG"
 : > "$LOCAL_PROVE_PROXY_LOG"
 : > "$WEB_WALLET_LOG"
 : > "$WORKER0_LOG"
@@ -111,6 +127,14 @@ run_service "make run-realm-processor2" "realm-processor2" "$REALM_PROCESSOR2_LO
 PIDS+=($!)
 run_service "make run-realm-processor3" "realm-processor3" "$REALM_PROCESSOR3_LOG" &
 PIDS+=($!)
+run_service "make run-realm-processor4" "realm-processor4" "$REALM_PROCESSOR4_LOG" &
+PIDS+=($!)
+run_service "make run-realm-processor5" "realm-processor5" "$REALM_PROCESSOR5_LOG" &
+PIDS+=($!)
+run_service "make run-realm-processor6" "realm-processor6" "$REALM_PROCESSOR6_LOG" &
+PIDS+=($!)
+run_service "make run-realm-processor7" "realm-processor7" "$REALM_PROCESSOR7_LOG" &
+PIDS+=($!)
 
 # Group 2: Start edge services (depend on processors)
 sleep 8
@@ -123,6 +147,14 @@ PIDS+=($!)
 run_service "make run-realm-edge2" "realm-edge2" "$REALM_EDGE2_LOG" &
 PIDS+=($!)
 run_service "make run-realm-edge3" "realm-edge3" "$REALM_EDGE3_LOG" &
+PIDS+=($!)
+run_service "make run-realm-edge4" "realm-edge4" "$REALM_EDGE4_LOG" &
+PIDS+=($!)
+run_service "make run-realm-edge5" "realm-edge5" "$REALM_EDGE5_LOG" &
+PIDS+=($!)
+run_service "make run-realm-edge6" "realm-edge6" "$REALM_EDGE6_LOG" &
+PIDS+=($!)
+run_service "make run-realm-edge7" "realm-edge7" "$REALM_EDGE7_LOG" &
 PIDS+=($!)
 
 # Group 3: Start worker services (depend on edges)

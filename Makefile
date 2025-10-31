@@ -308,6 +308,82 @@ run-realm-edge3:
       --realm-id=3 \
 	  --queue-biz-key realm3
 
+run-realm-processor4:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-processor \
+      --redis-uri=redis://127.0.0.1:6379 \
+      --database lmdbx \
+      --lmdbx-path ${PWD}/db/realm4 \
+      --node-id=2 \
+      --realm-id=4 \
+	  --queue-biz-key realm4
+
+run-realm-edge4:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-edge \
+      --listen-addr=0.0.0.0:8550 \
+      --redis-uri=redis://127.0.0.1:6379 \
+      --database lmdbx \
+      --lmdbx-path ${PWD}/db/realm4 \
+      --coordinator-addr=http://127.0.0.1:8545 \
+      --realm-id=4 \
+	  --queue-biz-key realm4
+
+run-realm-processor5:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-processor \
+      --redis-uri=redis://127.0.0.1:6379 \
+      --database lmdbx \
+      --lmdbx-path ${PWD}/db/realm5 \
+      --node-id=2 \
+      --realm-id=5 \
+	  --queue-biz-key realm5
+
+run-realm-edge5:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-edge \
+      --listen-addr=0.0.0.0:8551 \
+      --redis-uri=redis://127.0.0.1:6379 \
+      --database lmdbx \
+      --lmdbx-path ${PWD}/db/realm5 \
+      --coordinator-addr=http://127.0.0.1:8545 \
+      --realm-id=5 \
+	  --queue-biz-key realm5
+
+run-realm-processor6:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-processor \
+      --redis-uri=redis://127.0.0.1:6379 \
+      --database lmdbx \
+      --lmdbx-path ${PWD}/db/realm6 \
+      --node-id=2 \
+      --realm-id=6 \
+	  --queue-biz-key realm6
+
+run-realm-edge6:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-edge \
+      --listen-addr=0.0.0.0:8552 \
+      --redis-uri=redis://127.0.0.1:6379 \
+      --database lmdbx \
+      --lmdbx-path ${PWD}/db/realm6 \
+      --coordinator-addr=http://127.0.0.1:8545 \
+      --realm-id=6 \
+	  --queue-biz-key realm6
+
+run-realm-processor7:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-processor \
+      --redis-uri=redis://127.0.0.1:6379 \
+      --database lmdbx \
+      --lmdbx-path ${PWD}/db/realm3 \
+      --node-id=2 \
+      --realm-id=7 \
+	  --queue-biz-key realm7
+
+run-realm-edge7:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-edge \
+      --listen-addr=0.0.0.0:8553 \
+      --redis-uri=redis://127.0.0.1:6379 \
+      --database lmdbx \
+      --lmdbx-path ${PWD}/db/realm7 \
+      --coordinator-addr=http://127.0.0.1:8545 \
+      --realm-id=7 \
+	  --queue-biz-key realm7
+
 run-realm-processor-v2:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/qed_rollup_cli realm-processor-v2 \
       --redis-uri=redis://127.0.0.1:6380 \
