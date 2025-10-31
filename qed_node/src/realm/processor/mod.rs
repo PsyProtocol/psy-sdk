@@ -52,6 +52,10 @@ use kvq::traits::{KVQBinaryStoreAsync, KVQPair};
 use qed_store::queue::redis_queue::QueueOffsetState;
 use crate::realm::state::edge_queue_helper::RealmEdgeQueueHelper;
 use crate::realm::state::queue_factory::QueueFactory;
+use qed_data::qdata::hash_key::Hash4x64Key;
+use qed_data::qdata::realm_snapshot_key::RealmSnapshotKey;
+use qed_data::config::store_config::{REALM_SNAPSHOT_TABLE_TYPE, REALM_ROOT_VERSION_TABLE_TYPE};
+use kvq::traits::KVQSerializable;
 
 
 struct RealmBackupRequest {
@@ -215,6 +219,8 @@ impl RealmProcessor {
             if let Ok(CheckpointError::NotFound) = e.downcast::<CheckpointError>(){
                 // initialize genesis state
                 self.initialize_genesis_state().await?;
+                let block0 = self.coordinator_client.get_checkpoint_sync_info(self.realm_config.realm_id, 0).await?;
+                self.handle_sync_info(&self.context().await?, block0, 0).await?;
             }
         }
         Ok(())
@@ -254,11 +260,6 @@ impl RealmProcessor {
                 error!("❌ Failed to send realm backup request for checkpoint {}: {}", ret.checkpoint_id, e);
             }
         }
-        // if ret.latest_checkpoint_id < checkpoint || ret.checkpoint_id > checkpoint + 2 {
-        //     warn!("Rollback: invalid checkpoint sync result, latest_checkpoint_id: {}, pending checkpoint id: {}, synced checkpoint id: {}", ret.latest_checkpoint_id, checkpoint, ret.checkpoint_id);
-        //     build_ctx.rollback(checkpoint).await?;
-        // }
-
         Ok(())
     }
 
@@ -302,13 +303,12 @@ impl RealmProcessor {
     }
 
     async fn save_snapshot(&self, build_ctx: &ConcreteRealmProcessorContext, checkpoint_id: u64, offset_state: Vec<QueueOffsetState>) -> anyhow::Result<()> {
-        let (pre_realm_root,realm_root) = self.get_realm_root_diff(build_ctx, checkpoint_id).await?;
+        let (pre_realm_root, realm_root) = self.get_realm_root_diff(build_ctx, checkpoint_id).await?;
+        
         if let Some(cache) = build_ctx.store.get_cache()? {
-            let mut version = 0;
-            if let Some(data) = self.store.get_exact_if_exists(&realm_root.to_bytes()).await? {
-                version = bincode::deserialize(&data)?;
-                version = version + 1;
-            }
+            // Get or initialize version
+            let version = self.get_realm_root_version(realm_root).await?;
+            
             let snapshot = Snapshot {
                 version,
                 checkpoint_id,
@@ -317,16 +317,21 @@ impl RealmProcessor {
                 pre_root: pre_realm_root,
                 queue_offset_state: offset_state,
             };
-            let snapshot_key = self.snapshot_key(realm_root, version);
+            
+            // Serialize data
             let snapshot_value = bincode::serialize(&snapshot)?;
-            let realm_root_key = realm_root.to_bytes();
-            let version_value = bincode::serialize(&version)?;
+            let version_value = bincode::serialize(&(version + 1))?;
+            
+            // Use structured keys
+            let snapshot_key = RealmSnapshotKey::<REALM_SNAPSHOT_TABLE_TYPE>::new(realm_root, version).to_bytes()?;
+            let version_key = Hash4x64Key::<REALM_ROOT_VERSION_TABLE_TYPE>::from(realm_root).to_bytes()?;
+            
             let set = vec![
-                KVQPair{
-                    key: &realm_root_key,
+                KVQPair {
+                    key: &version_key,
                     value: &version_value,
                 },
-                KVQPair{
+                KVQPair {
                     key: &snapshot_key,
                     value: &snapshot_value,
                 },
@@ -336,21 +341,34 @@ impl RealmProcessor {
         Ok(())
     }
     
-    async fn load_snapshot(&self, realm_root: QHashOut<F>) -> anyhow::Result<Snapshot> {
-        let version = self.store.get_exact(&realm_root.to_bytes()).await?;
-        let version: u64 = bincode::deserialize(&version)?;
-        let snapshot = self.store.get_exact(&self.snapshot_key(realm_root, version)).await?;
-        let snapshot: Snapshot = bincode::deserialize(&snapshot)?;
+    async fn load_snapshot(&self, realm_root: QHashOut<F>) -> anyhow::Result<Snapshot> {        
+        // Get version
+        let version_key = Hash4x64Key::<REALM_ROOT_VERSION_TABLE_TYPE>::from(realm_root).to_bytes()?;
+        let version_data = self.store.get_exact(&version_key).await?;
+        let version: u64 = bincode::deserialize(&version_data)?;
+        
+        // Get snapshot
+        let snapshot_key = RealmSnapshotKey::<REALM_SNAPSHOT_TABLE_TYPE>::new(realm_root, version).to_bytes()?;
+        let snapshot_data = self.store.get_exact(&snapshot_key).await?;
+        let snapshot: Snapshot = bincode::deserialize(&snapshot_data)?;
         Ok(snapshot)
     }
-
-    async fn is_candidate(&self, realm_root: QHashOut<F>) -> anyhow::Result<bool> {
-        let version = self.store.get_exact_if_exists(&realm_root.to_bytes()).await?;
+    
+    async fn is_candidate(&self, realm_root: QHashOut<F>) -> anyhow::Result<bool> {        
+        let version_key = Hash4x64Key::<REALM_ROOT_VERSION_TABLE_TYPE>::from(realm_root).to_bytes()?;
+        let version = self.store.get_exact_if_exists(&version_key).await?;
         Ok(version.is_some())
     }
 
-    fn snapshot_key(&self,realm_root: QHashOut<F>, version: u64) -> Vec<u8> {
-        format!("REALM_SNAPSHOT:{}:{}", realm_root, version).into_bytes()
+    async fn get_realm_root_version(&self, realm_root: QHashOut<F>) -> anyhow::Result<u64> {
+        let version_key = Hash4x64Key::<REALM_ROOT_VERSION_TABLE_TYPE>::from(realm_root).to_bytes()?;
+        match self.store.get_exact_if_exists(&version_key).await? {
+            Some(data) => {
+                let version: u64 = bincode::deserialize(&data)?;
+                Ok(version)
+            }
+            None => Ok(0)
+        }
     }
 
     async fn submit_guta(
@@ -378,13 +396,8 @@ impl RealmProcessor {
 
     async fn sync_to_latest(&self) -> anyhow::Result<()> {
         loop {
-            let (next_expected_checkpoint,local_checkpoint_id) = if let Ok(local_checkpoint_id) = self.get_local_latest_checkpoint_id().await {
-                // Get the next expected checkpoint
-                (local_checkpoint_id + 1, local_checkpoint_id)
-            } else {
-                (0, 0)
-            };
-
+            let local_checkpoint_id = self.get_local_latest_checkpoint_id().await?;
+            let next_expected_checkpoint = local_checkpoint_id + 1;
             match self.coordinator_client.get_checkpoint_sync_info(self.realm_config.realm_id, next_expected_checkpoint).await {
                 Ok(block) => {
                     match self.handle_sync_info(&self.context().await?, block, local_checkpoint_id).await {
@@ -433,20 +446,19 @@ impl RealmProcessor {
             has_pending_guta: block.has_pending_guta,
         };
         info!("Checkpoint received checkpoint_id: {},latest_checkpoint_id: {} ,local_checkpoint_id: {}, has_pending_guta: {}", sync_checkpoint_id, latest_checkpoint_id, local_checkpoint_id, block.has_pending_guta);
-        if local_checkpoint_id >= latest_checkpoint_id && local_checkpoint_id > 0 {
+        if local_checkpoint_id >= latest_checkpoint_id {
             info!("Local checkpoint is latest");
             self.remote_latest_slot.store(block.compact.slot, Ordering::Relaxed);
             ret.is_synced = true;
             return Ok(ret);
         }
-        if local_checkpoint_id >= sync_checkpoint_id && local_checkpoint_id > 0 {
+        if local_checkpoint_id >= sync_checkpoint_id {
             info!("Local checkpoint is up to date");
             return Ok(ret);
         }
         match sync_ctx.handle_checkpoint_sync(block.compact.clone()).await {
             Ok(_) => {
                 info!("Checkpoint {} sync reg users len: {}", sync_checkpoint_id, block.compact.registered_users.len());
-
                 let (pair_to_set, remove_keys) = sync_ctx.store.commit(None)?;
                 // Auto backup after successful commit
                 if let Some(backup_tx) = &self.backup_tx {
@@ -464,9 +476,7 @@ impl RealmProcessor {
                 let pending_users_count = sync_ctx.sync_queue.get_pending_users_count().await?;
                 trace!("Pending users count after checkpoint sync: {}", pending_users_count);
 
-                if local_checkpoint_id + 1 == block.latest_checkpoint_id && block.latest_checkpoint_id == sync_checkpoint_id
-                    ||  local_checkpoint_id == sync_checkpoint_id && block.latest_checkpoint_id == sync_checkpoint_id && local_checkpoint_id == 0
-                {
+                if local_checkpoint_id + 1 == block.latest_checkpoint_id && block.latest_checkpoint_id == sync_checkpoint_id {
                     info!("Local checkpoint is latest: {}", sync_checkpoint_id);
                     self.remote_latest_slot.store(block.compact.slot, Ordering::Relaxed);
                     ret.is_synced = true;

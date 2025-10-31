@@ -419,15 +419,13 @@ impl CoordinatorEdgeHandler {
         request_checkpoint_id: u64,
     ) -> anyhow::Result<CheckpointSyncInfo<F>> {
         let latest = self.get_latest_checkpoint_id().await?;
-        let mut request_checkpoint_id = request_checkpoint_id;
 
         if request_checkpoint_id > latest {
-            trace!(
+            bail!(
                 "Requested checkpoint_id {} exceeds latest local checkpoint_id {}",
                 request_checkpoint_id,
                 latest
             );
-            request_checkpoint_id = latest;
         }
 
         let compact = self
