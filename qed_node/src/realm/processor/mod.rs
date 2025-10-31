@@ -12,7 +12,7 @@ use crate::realm::config::RealmNodeConfig;
 use crate::realm::state::processor::{RealmConfig, RealmProcessorContext};
 use crate::realm::{edge, C, D, F};
 use qed_core::config::network_constants::{COORDINATOR_USER_TREE_HEIGHT, GLOBAL_USER_TREE_HEIGHT};
-use qed_core::job::id::ProvingJobDataId;
+use qed_core::job::id::{ProvingJobDataId, QProvingJobDataID};
 use qed_crypto::common::generic_circuit_verifier::GenericCircuitVerifier;
 use qed_crypto::hash::merkle::utils::common::{QMerkleNode, SimpleMerkleNodeKey};
 use qed_crypto::hash::traits::hasher::MerkleZeroHasher;
@@ -49,6 +49,7 @@ use plonky2::plonk::config::GenericHashOut;
 use super::backup::RealmS3BackupClient;
 use tokio::sync::mpsc;
 use kvq::traits::{KVQBinaryStoreAsync, KVQPair};
+use qed_store::queue::redis_queue::QueueOffsetState;
 use crate::realm::state::edge_queue_helper::RealmEdgeQueueHelper;
 use crate::realm::state::queue_factory::QueueFactory;
 
@@ -66,6 +67,7 @@ pub struct Snapshot {
     pub cache: Vec<u8>,
     pub root: QHashOut<F>,
     pub pre_root: QHashOut<F>,
+    pub queue_offset_state: Vec<QueueOffsetState>,
 }
 
 type ConcreteRealmProcessorContext = RealmProcessorContext<
@@ -233,10 +235,11 @@ impl RealmProcessor {
     }
 
     async fn confirm_checkpoint(&self, ret: SyncCheckpointResult) -> anyhow::Result<()> {
-        let build_ctx = self.load_snapshot(ret.realm_root).await?;
-
+        let snapshot = self.load_snapshot(ret.realm_root).await?;
+        let build_ctx = self.context().await?;
+        build_ctx.store.restore_cache(snapshot.cache)?;
         trace!("synced checkpoint id: {}, latest checkpoint id: {}, realm root: {}", ret.checkpoint_id, ret.latest_checkpoint_id, ret.realm_root);
-        let (pair_to_set, remove_keys) = build_ctx.commit(ret.checkpoint_id).await.map_err(|e| anyhow!("Failed to commit checkpoint {}: {}", ret.checkpoint_id, e))?;
+        let (pair_to_set, remove_keys) = build_ctx.commit(ret.checkpoint_id, snapshot.queue_offset_state).await.map_err(|e| anyhow!("Failed to commit checkpoint {}: {}", ret.checkpoint_id, e))?;
         info!("Commit checkpoint {}, latest_checkpoint_id: {}", ret.checkpoint_id, ret.latest_checkpoint_id);
 
         // Auto backup after successful commit
@@ -284,8 +287,8 @@ impl RealmProcessor {
         let now = Instant::now();
         info!("Start building block checkpoint: {}, slot: {}", next_checkpoint_id, slot);
         match self.build_block(build_ctx, next_checkpoint_id, slot).await {
-            Ok(job_id) => {
-                self.save_snapshot(build_ctx, next_checkpoint_id).await?;
+            Ok((job_id, off_state)) => {
+                self.save_snapshot(build_ctx, next_checkpoint_id, off_state).await?;
                 self.submit_guta(build_ctx, job_id).await?;
                 info!("Build complete checkpoint: {}, slot: {}, cost time: {:?}", next_checkpoint_id, slot, now.elapsed());
             }
@@ -298,7 +301,7 @@ impl RealmProcessor {
         Ok(())
     }
 
-    async fn save_snapshot(&self, build_ctx: &ConcreteRealmProcessorContext, checkpoint_id: u64) -> anyhow::Result<()> {
+    async fn save_snapshot(&self, build_ctx: &ConcreteRealmProcessorContext, checkpoint_id: u64, offset_state: Vec<QueueOffsetState>) -> anyhow::Result<()> {
         let (pre_realm_root,realm_root) = self.get_realm_root_diff(build_ctx, checkpoint_id).await?;
         if let Some(cache) = build_ctx.store.get_cache()? {
             let mut version = 0;
@@ -312,6 +315,7 @@ impl RealmProcessor {
                 cache,
                 root: realm_root.clone(),
                 pre_root: pre_realm_root,
+                queue_offset_state: offset_state,
             };
             let snapshot_key = self.snapshot_key(realm_root, version);
             let snapshot_value = bincode::serialize(&snapshot)?;
@@ -332,14 +336,12 @@ impl RealmProcessor {
         Ok(())
     }
     
-    async fn load_snapshot(&self, realm_root: QHashOut<F>) -> anyhow::Result<ConcreteRealmProcessorContext> {
+    async fn load_snapshot(&self, realm_root: QHashOut<F>) -> anyhow::Result<Snapshot> {
         let version = self.store.get_exact(&realm_root.to_bytes()).await?;
         let version: u64 = bincode::deserialize(&version)?;
         let snapshot = self.store.get_exact(&self.snapshot_key(realm_root, version)).await?;
         let snapshot: Snapshot = bincode::deserialize(&snapshot)?;
-        let build_ctx = self.context().await?;
-        build_ctx.store.restore_cache(snapshot.cache)?;
-        Ok(build_ctx)
+        Ok(snapshot)
     }
 
     async fn is_candidate(&self, realm_root: QHashOut<F>) -> anyhow::Result<bool> {
@@ -485,8 +487,8 @@ impl RealmProcessor {
         build_ctx: &ConcreteRealmProcessorContext,
         next_checkpoint_id: u64,
         slot: u64,
-    ) -> anyhow::Result<ProvingJobDataId> {
-        build_ctx.build_block(next_checkpoint_id, slot).await.map(|job_id|ProvingJobDataId::new(next_checkpoint_id, job_id))
+    ) -> anyhow::Result<(ProvingJobDataId, Vec<QueueOffsetState>)> {
+        build_ctx.build_block(next_checkpoint_id, slot).await.map(|(job_id,state)|(ProvingJobDataId::new(next_checkpoint_id, job_id),state))
     }
 
     fn validate_slot(&self) -> anyhow::Result<()> {

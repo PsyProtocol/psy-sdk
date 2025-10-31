@@ -831,7 +831,7 @@ impl CheckpointDrainQueueConsumerAsyncImmWithPosition for ProofStoreRedisAsync {
 
         let state_key = format!("{}-{}-{}", self.worker_queue_key(), "DRAIN_CONSUMPTION_STATE", channel_id);
         let state_data = bincode::serialize(&state).map_err(|e| anyhow::anyhow!("Failed to serialize state: {}", e))?;
-        self.redis.set(state_key, state_data).await?;
+        // self.redis.set(state_key, state_data).await?;
 
         tracing::debug!("Consumed redis {} items from drain queue {} for checkpoint {}",
               items.len(), channel_id, checkpoint_id);

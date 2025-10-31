@@ -338,6 +338,7 @@ impl<
         Vec<ZKPublicKeyInfo<F>>,
         Vec<QHashOut<F>>,
         BidirectionalGraph<QProvingJobDataID>,
+        QueueOffsetState,
     )> {
         let last_l2_blockstate = self.store.get_latest_l2_block_state().await?;
 
@@ -426,6 +427,7 @@ impl<
             user_registrations,
             siblings,
             append_user_registration_graph,
+            consumption_state,
         ))
     }
 
@@ -433,12 +435,14 @@ impl<
         &self,
         checkpoint_id: u64,
         slot_id: u64,
-    ) -> anyhow::Result<(Vec<Vec<QProvingJobDataID>>, GlobalUserTreeAggregatorHeader<F>, BidirectionalGraph<QProvingJobDataID>)> {
+    ) -> anyhow::Result<(Vec<Vec<QProvingJobDataID>>, GlobalUserTreeAggregatorHeader<F>, BidirectionalGraph<QProvingJobDataID>, Vec<QueueOffsetState>)> {
+        let mut offset_states = vec![];
         tracing::debug!(checkpoint_id = checkpoint_id, "Processing checkpoint");
         let (mut guta_queue_items, consumption_state) = self
             .checkpoint_queue
             .peek_with_position::<SubmitGUTARealmResultAPIQueueItem<F>>(None, self.coordinator_config.guta_channel_id, checkpoint_id)
             .await?;
+        offset_states.push(consumption_state);
         tracing::debug!(guta_queue_items = %serde_json::to_string_pretty(&guta_queue_items).unwrap(), "GUTA queue items");
         let last_checkpoint_id = checkpoint_id.saturating_sub(1);
         let last_checkpoint_tree_root = self.store.get_checkpoint_tree_root(last_checkpoint_id).await?;
@@ -514,7 +518,7 @@ impl<
 
             let mut graph = BidirectionalGraph::new();
             graph.add_node(id.get_output_id());
-            return Ok((vec![vec![id]], guta_header, graph));
+            return Ok((vec![vec![id]], guta_header, graph, offset_states));
         } else if guta_queue_items.len() == 1 {
             tracing::debug!("Processing single GUTA queue item");
             let old_mp = self
@@ -602,7 +606,7 @@ impl<
                 for dep in &r_with_deps.dependencies {
                     graph.add_edge(id.get_output_id(), *dep);
                 }
-                return Ok((vec![vec![id]], r_with_deps.input.get_new_guta_header::<QEDHasher>(), graph));
+                return Ok((vec![vec![id]], r_with_deps.input.get_new_guta_header::<QEDHasher>(), graph, offset_states));
 
             }
 
@@ -674,7 +678,7 @@ impl<
             for dep in &r_with_deps.dependencies {
                 graph.add_edge(id.get_output_id(), *dep);
             }
-            return Ok((vec![vec![id]], r_with_deps.input.get_new_guta_header::<QEDHasher>(), graph));
+            return Ok((vec![vec![id]], r_with_deps.input.get_new_guta_header::<QEDHasher>(), graph, offset_states));
         }
 
         // TODO: OPT: Maybe use a sorted queue/zset so we don't have to sort after we
@@ -1068,7 +1072,7 @@ impl<
             tracing::debug!(guta = %serde_json::to_string_pretty(&guta).unwrap(), guta_hash = %guta.qfhash::<QEDHasher>(), "GUTA subtree");
         }
 
-        Ok((levels, guta, graph))
+        Ok((levels, guta, graph, offset_states))
     }
 
     pub async fn plan_jobs(
@@ -1128,7 +1132,7 @@ impl<
         Ok((state_part_1_id, root_state_transition))
     }
 
-    pub async fn build_block(&self, slot: u64) -> anyhow::Result<()> {
+    pub async fn build_block(&self, slot: u64) -> anyhow::Result<Vec<QueueOffsetState>> {
         let start = Instant::now();
         info!("coordinator STARTED new block");
 
@@ -1142,11 +1146,11 @@ impl<
         let new_checkpoint_id = last_l2_blockstate.checkpoint_id + 1;
         info!("💥 coordinator processor build block checkpoint_id: {}", new_checkpoint_id);
         let (deploy_jobs, deploy_transition, next_contract_id, deploy_graph) = self.handle_deploy_contracts(new_checkpoint_id, slot).await?;
-        let (user_registration_jobs, user_registration_transition, new_accounts, regsitered_users_start_pivot_siblings, user_reg_graph) =
+        let (user_registration_jobs, user_registration_transition, new_accounts, regsitered_users_start_pivot_siblings, user_reg_graph, offset_state) =
             self.handle_user_registrations(new_checkpoint_id, slot).await?;
 
-        let (guta_jobs, guta_transition, guta_graph) = self.handle_guta_from_realms(new_checkpoint_id, slot).await?;
-
+        let (guta_jobs, guta_transition, guta_graph,mut offset_states) = self.handle_guta_from_realms(new_checkpoint_id, slot).await?;
+        offset_states.push(offset_state);
         // Set the job dependency graphs
         self.task_store.set_job_dependency_graph(deploy_graph, user_reg_graph, guta_graph).await?;
 
@@ -1345,7 +1349,7 @@ impl<
         tracing::debug!(l2_sync = %serde_json::to_string_pretty(&l2_sync).unwrap(), "Checkpoint sync info");
         self.store.set_checkpoint_sync_info_imm(l2_sync.clone()).await?;
         trace!("build block {}, slot {}, cost time: {:?}",new_checkpoint_id, slot, start.elapsed());
-        Ok(())
+        Ok(offset_states)
     }
 
     pub async fn has_pending_tasks(&self, checkpoint_id: u64) -> anyhow::Result<bool> {
@@ -1381,9 +1385,11 @@ impl<
         Ok(false)
     }
 
-    pub async fn commit(&self, checkpoint_id: u64) -> anyhow::Result<(Vec<kvq::traits::KVQPair<Vec<u8>, Vec<u8>>>, Vec<Vec<u8>>)> {
+    pub async fn commit(&self, checkpoint_id: u64, offset_states: Vec<QueueOffsetState>) -> anyhow::Result<(Vec<kvq::traits::KVQPair<Vec<u8>, Vec<u8>>>, Vec<Vec<u8>>)> {
         let (pair_to_set, remove_keys) = self.store.commit(None)?;
-        self.commit_offset().await?;
+        for offset_state in offset_states.iter() {
+            self.checkpoint_queue.commit_offset(offset_state).await?;
+        }
         self.task_store
             .save_job_dependency_graph(checkpoint_id)
             .await
@@ -1394,27 +1400,5 @@ impl<
     pub async fn rollback(&self, checkpoint_id: u64) -> anyhow::Result<()> {
         self.task_store.clear_job_dependency_graph(checkpoint_id).await?;
         self.store.rollback(checkpoint_id)
-    }
-
-    // commit redis queue
-    pub async fn commit_offset(&self) -> anyhow::Result<()> {
-        if let Some(state) = self
-            .checkpoint_queue
-            .get_last_peek_offset(self.coordinator_config.deploy_contract_channel_id)
-            .await?
-        {
-            self.checkpoint_queue.commit_offset(&state).await?;
-        }
-        if let Some(state) = self.checkpoint_queue.get_last_peek_offset(COORD_API_REGISTER_USER_CHANNEL_ID).await? {
-            self.checkpoint_queue.commit_offset(&state).await?;
-        }
-        if let Some(state) = self
-            .checkpoint_queue
-            .get_last_peek_offset(self.coordinator_config.guta_channel_id)
-            .await?
-        {
-            self.checkpoint_queue.commit_offset(&state).await?;
-        }
-        Ok(())
     }
 }

@@ -44,6 +44,7 @@ use qed_store::{
 };
 use serde::{Deserialize, Serialize};
 use tracing::{debug, error, info, trace};
+use qed_store::queue::redis_queue::QueueOffsetState;
 use qed_store::store::journal::Journal;
 use crate::common::slot::SLOT_SIZE;
 
@@ -188,7 +189,7 @@ impl<
     async fn handle_guta_state_updates_from_users(
         &self,
         checkpoint_id: u64,
-    ) -> anyhow::Result<()> {
+    ) -> anyhow::Result<QueueOffsetState> {
         // Use position-based consumption for CST updates
         let (updates, consumption_state) = self
             .checkpoint_queue
@@ -201,7 +202,8 @@ impl<
         debug!(checkpoint_id = checkpoint_id, updates_count = updates.len(), "Checkpoint updates");
 
         // Process updates with error handling
-        self.store.injest_checked_cst_nodes_imm(&updates).await
+        self.store.injest_checked_cst_nodes_imm(&updates).await?;
+        Ok(consumption_state)
     }
 
     async fn handle_guta_from_users_ensure_no_topline(
@@ -214,10 +216,9 @@ impl<
         GlobalUserTreeAggregatorHeader<F>,
         DeltaMerkleProofCore<QHashOut<F>>,
         BidirectionalGraph<QProvingJobDataID>,
+        Vec<QueueOffsetState>,
     )> {
-        self.handle_guta_state_updates_from_users(checkpoint_id).await?;
-
-        let (jobs, guta, proof, mut guta_graph) = self.handle_guta_from_users(checkpoint_id, slot_id).await?;
+        let (jobs, guta, proof, mut guta_graph, consumption_state) = self.handle_guta_from_users(checkpoint_id, slot_id).await?;
         tracing::debug!(guta = %serde_json::to_string_pretty(&guta)?, guta_hash = %guta.qfhash::<QEDHasher>(), jobs = ?jobs, "Processing GUTA and jobs");
 
         let bp = self
@@ -310,7 +311,7 @@ impl<
                     .await?;
 
                 guta_graph.add_node(w_id.get_output_id());
-                return Ok((vec![vec![w_id]], guta, proof, guta_graph));
+                return Ok((vec![vec![w_id]], guta, proof, guta_graph,consumption_state));
             } else {
                 tracing::debug!("No jobs to process");
                 let guta_new = GlobalUserTreeAggregatorHeader {
@@ -363,12 +364,13 @@ impl<
                         guta_new.state_transition.new_node_value,
                     ),
                     guta_graph,
+                    consumption_state,
                 ));
             }
         } else if pending_register_users.len() == 0 {
             if guta.state_transition.node_level == F::from_canonical_u8(COORDINATOR_USER_TREE_HEIGHT) {
                 tracing::debug!("Processing top level GUTA");
-                return Ok((jobs, guta, proof, guta_graph));
+                return Ok((jobs, guta, proof, guta_graph,consumption_state));
             } else {
                 tracing::debug!("Processing non-top level GUTA");
                 let w_id = QProvingJobDataID::new(
@@ -420,6 +422,7 @@ impl<
                         n_guta.state_transition.new_node_value,
                     ),
                     guta_graph,
+                    consumption_state,
                 ));
             }
         }
@@ -499,6 +502,7 @@ impl<
                 n_guta.state_transition.new_node_value,
             ),
             guta_graph,
+            consumption_state,
         ))
     }
 
@@ -511,14 +515,17 @@ impl<
         GlobalUserTreeAggregatorHeader<F>,
         DeltaMerkleProofCore<QHashOut<F>>,
         BidirectionalGraph<QProvingJobDataID>,
+        Vec<QueueOffsetState>,
     )> {
-        self.handle_guta_state_updates_from_users(checkpoint_id).await?;
+        let mut consumption_state = vec![];
+        consumption_state.push(self.handle_guta_state_updates_from_users(checkpoint_id).await?);
 
         let (mut guta_queue_items, _consumption_state) = self.checkpoint_queue.peek_with_position::<UserEndCapNonProofCoreInputQueueItem<F>>(
             self.max_processed_end_caps_per_block,
             self.realm_config.guta_channel_id,
             checkpoint_id,
         ).await?;
+        consumption_state.push(_consumption_state);
         debug!(guta_queue_items = %serde_json::to_string_pretty(&guta_queue_items)?, "GUTA queue items for aggregation");
 
         let real_checkpoint_id = checkpoint_id.saturating_sub(1);
@@ -617,6 +624,7 @@ impl<
                     last_user_tree_root,
                 ),
                 BidirectionalGraph::new(),
+                consumption_state,
             ));
         } else if guta_queue_items.len() == 1 {
             debug!("Single GUTA queue item");
@@ -693,6 +701,7 @@ impl<
                 single.input.get_new_guta_header(),
                 r.link_proof,
                 graph,
+                consumption_state,
             ));
         }
 
@@ -915,7 +924,7 @@ impl<
 
         tracing::debug!(guta = %serde_json::to_string_pretty(&guta)?, guta_hash = %guta.qfhash::<QEDHasher>(), "Final aggregated GUTA");
 
-        Ok((levels, guta, res.link_proof, graph))
+        Ok((levels, guta, res.link_proof, graph, consumption_state))
     }
 
     async fn plan_jobs(
@@ -936,7 +945,7 @@ impl<
         Ok(())
     }
 
-    pub async fn build_block(&self, new_checkpoint_id: u64,slot: u64) -> anyhow::Result<QProvingJobDataID> {
+    pub async fn build_block(&self, new_checkpoint_id: u64,slot: u64) -> anyhow::Result<(QProvingJobDataID, Vec<QueueOffsetState>)> {
         self.task_store.clear_task_graph().await?;
         self.proof_store.cleanup_old_proofs(new_checkpoint_id.saturating_sub(1), MAX_CHECKPOINT_COUNT as u64).await?;
         info!("🔔 realm processor build block checkpoint_id: {}", new_checkpoint_id);
@@ -945,7 +954,7 @@ impl<
 
         // Use position-based consumption for pending users
         let (mut pending_users, _consumption_state) = self.sync_queue.peek_with_position(if has_guta { 32 } else { 64 }, new_checkpoint_id).await?;
-        let (guta_jobs, guta_transition, guta_dmp, guta_graph) = self.handle_guta_from_users_ensure_no_topline(new_checkpoint_id, slot, &mut pending_users).await?;
+        let (guta_jobs, guta_transition, guta_dmp, guta_graph,consumption_state) = self.handle_guta_from_users_ensure_no_topline(new_checkpoint_id, slot, &mut pending_users).await?;
 
         tracing::debug!("Generated GUTA jobs: {:#?}", guta_jobs);
         let finished_job = QProvingJobDataID::notify_realm_complete(new_checkpoint_id, slot, self.realm_config.realm_id);
@@ -970,7 +979,7 @@ impl<
             .prover_queue
             .wait_for_block_proving_jobs_imm(new_checkpoint_id, Some(Duration::from_millis(5*SLOT_SIZE)))
             .await?;
-        Ok(realm_worker_output_job_id)
+        Ok((realm_worker_output_job_id, consumption_state))
     }
 
     pub async fn has_pending_guta_tasks(&self, checkpoint_id: u64) -> anyhow::Result<bool> {
@@ -996,22 +1005,19 @@ impl<
     }
 
 
-    async fn commit_offset(&self, checkpoint_id: u64) -> anyhow::Result<()> {
+    async fn commit_offset(&self, checkpoint_id: u64, queue_offset_state: Vec<QueueOffsetState>) -> anyhow::Result<()> {
         if let Some(state) = self.sync_queue.get_last_peek_offset().await? {
             self.sync_queue.commit_offset(&state).await?;
         }
-        if let Some(state) = self.checkpoint_queue.get_last_peek_offset(CST_USER_UPDATE_CHANNEL_ID).await? {
-            self.checkpoint_queue.commit_offset(&state).await?;
-        }
-        if let Some(state) = self.checkpoint_queue.get_last_peek_offset(self.realm_config.guta_channel_id).await? {
+        for state in queue_offset_state {
             self.checkpoint_queue.commit_offset(&state).await?;
         }
         Ok(())
     }
 
-    pub async fn commit(&self, checkpoint_id: u64) -> anyhow::Result<(Vec<kvq::traits::KVQPair<Vec<u8>, Vec<u8>>>, Vec<Vec<u8>>)> {
+    pub async fn commit(&self, checkpoint_id: u64, queue_offset_state: Vec<QueueOffsetState>) -> anyhow::Result<(Vec<kvq::traits::KVQPair<Vec<u8>, Vec<u8>>>, Vec<Vec<u8>>)> {
         let (pair_to_set, remove_keys) = self.store.commit(Some(checkpoint_id))?;
-        self.commit_offset(checkpoint_id).await?;
+        self.commit_offset(checkpoint_id, queue_offset_state).await?;
         self.task_store.save_job_dependency_graph(checkpoint_id).await?;
         Ok((pair_to_set, remove_keys))
     }
