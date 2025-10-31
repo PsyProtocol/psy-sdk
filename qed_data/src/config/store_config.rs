@@ -25,7 +25,11 @@ use crate::models::{
     },
     realm_status::RealmStatusModel,
     user::user_leaf::UserLeafModel,
+    snapshot::RealmSnapshotModel,
+    realm_root_version::RealmRootVersionModel,
 };
+use crate::qdata::realm_snapshot_key::RealmSnapshotKey;
+
 pub const MAX_CHECKPOINT: u64 = 0xfffffffffffffff1u64;
 pub const CHECKPOINT_TREE_ID: u8 = 1u8;
 pub const USER_TREE_ID: u8 = 2u8;
@@ -69,6 +73,9 @@ pub const REALM_STATUS_TABLE_TYPE: u16 = 20;
 
 // Contract id table type
 pub const CONTRACT_METADATA_TABLE_TYPE: u16 = 21;
+
+pub const REALM_SNAPSHOT_TABLE_TYPE: u16 = 22;
+pub const REALM_ROOT_VERSION_TABLE_TYPE: u16 = 23;
 
 // Legacy - kept for backward compatibility, should not be used for new trees
 pub const PROTOCOL_TREE_TABLE_TYPE: u16 = 100;
@@ -159,6 +166,17 @@ pub type ContractMetaDataTableStore<F, S, IDKVA = KVQStandardAdapter<S, Contract
     IDKVA,
 >;
 
+pub type RealmSnapshotStore<S, IDKVA = KVQStandardAdapter<S, RealmSnapshotKey<REALM_SNAPSHOT_TABLE_TYPE>, Vec<u8>>> = RealmSnapshotModel<
+    REALM_SNAPSHOT_TABLE_TYPE,
+    S,
+    IDKVA,
+>;
+
+pub type RealmRootVersionStore<S, IDKVA = KVQStandardAdapter<S, Hash4x64Key<REALM_ROOT_VERSION_TABLE_TYPE>, u64>> = RealmRootVersionModel<
+    REALM_ROOT_VERSION_TABLE_TYPE,
+    S,
+    IDKVA,
+>;
 
 // Generic protocol tree template - no longer used directly
 pub type ProtocolTreeStore<S, const TREE_ID: u8, const HEIGHT: u8, const TABLE_TYPE: u16, IDKVA = KVQStandardAdapter<S, KVQMerkleNodeKey<TABLE_TYPE>, QEDHash>> = KVQFixedConfigMerkleTreeModel<

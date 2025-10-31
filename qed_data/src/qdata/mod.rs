@@ -20,3 +20,4 @@ pub mod realm_status;
 pub mod realm_id_key;
 pub mod contract_metadata;
 pub mod contract_uuid;
+pub mod realm_snapshot_key;
