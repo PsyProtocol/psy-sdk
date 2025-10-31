@@ -51,9 +51,9 @@ fn main() -> Result<()> {
             continue;
         }
 
-        let main_psy = contract_dir.join("src/main.qed");
+        let main_psy = contract_dir.join("src/main.psy");
         if !main_psy.exists() {
-            println!("cargo:warning=src/main.qed not found at {}", main_psy.display());
+            println!("cargo:warning=src/main.psy not found at {}", main_psy.display());
             continue;
         }
 
