@@ -10,7 +10,6 @@ use axum::{
         Query, State,
     },
     response::Response,
-    Json,
 };
 use futures::{stream::StreamExt, SinkExt};
 use serde::{Deserialize, Serialize};
@@ -285,6 +284,12 @@ impl UnifiedWebSocketManager {
         let mut dead_connections = Vec::new();
 
         for conn in connections.values() {
+            // Check if the connection is still alive
+            if !self.is_connection_alive(conn).await {
+                dead_connections.push(conn.id);
+                continue;
+            }
+
             // Check if subscribed to TPS updates
             if !conn.subscriptions.contains(&Channel::Tps) {
                 continue;
@@ -410,7 +415,7 @@ async fn handle_unified_websocket(socket: WebSocket, service: ApiService, initia
 
     // Spawn ping/pong heartbeat task
     let mut ping_task = tokio::spawn(async move {
-        use tokio::time::{interval, timeout};
+        use tokio::time::interval;
 
         const PING_INTERVAL: Duration = Duration::from_secs(30);
 

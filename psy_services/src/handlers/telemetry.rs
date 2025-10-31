@@ -1,18 +1,13 @@
-use std::{cmp::min, sync::Arc};
+use std::sync::Arc;
 
 use axum::{extract::State, http::StatusCode, middleware, response::Json, routing::post, Extension, Router};
-use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use tracing::{error, info};
 
 use crate::{
     auth::{auth_middleware, AuthExtension, JwtManager},
     models::*,
-    repositories::{
-        checkpoint_state::{CheckpointStatsRepository, WorkerJobEventRepository},
-        contracts::ContractRepository,
-        *,
-    },
+    repositories::{checkpoint_state::CheckpointStatsRepository, contracts::ContractRepository, *},
     services::ApiService,
 };
 

@@ -1,9 +1,6 @@
-// Create new file: repositories/contracts.rs
-
-use chrono::{DateTime, Utc};
 use serde_json::json;
 use sqlx::PgPool;
-use tracing::{debug, error, info};
+use tracing::info;
 use uuid::Uuid;
 
 use crate::models::{Contract, ContractMetadataReport, ContractResponse, ContractSummary, QFunctionMetadata, UserContractMetadata};
@@ -105,7 +102,6 @@ impl ContractRepository {
         );
 
         let mut bind_idx = 1;
-        let mut bindings: Vec<String> = Vec::new();
 
         if deployer.is_some() {
             query.push_str(&format!(" AND deployer = ${}", bind_idx));

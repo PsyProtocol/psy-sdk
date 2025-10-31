@@ -1,13 +1,6 @@
 use std::{collections::HashMap, sync::Arc};
 
-use axum::{
-    extract::{Query, State},
-    http::StatusCode,
-    routing::{get, post},
-    Json, Router,
-};
 use chrono::{DateTime, Utc};
-use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 use tokio::sync::RwLock;
 use tracing::{debug, error, info, warn};
@@ -17,13 +10,10 @@ use crate::{
     handlers::websocket::{UnifiedWebSocketManager, UserEventManager, WorkerEventManager},
     models::{
         CheckpointLeafStat, CheckpointRewardAggregation, CheckpointRewardDistribution, CheckpointRewardSummary, CheckpointStats,
-        CreateCheckpointRewardDistribution, CreateWorkerJobEvent, WorkerCheckpointRewardStats, WorkerEvent, WorkerEventReward, WorkerJobEvent,
+        CreateCheckpointRewardDistribution, CreateWorkerJobEvent, WorkerCheckpointRewardStats, WorkerJobEvent,
     },
-    repositories::{
-        checkpoint_state::{
-            CheckpointRewardAggregationRepository, CheckpointRewardDistributionRepository, CheckpointStatsRepository, WorkerJobEventRepository,
-        },
-        UserEventRepository, WorkerEventRepository,
+    repositories::checkpoint_state::{
+        CheckpointRewardAggregationRepository, CheckpointRewardDistributionRepository, CheckpointStatsRepository, WorkerJobEventRepository,
     },
 };
 

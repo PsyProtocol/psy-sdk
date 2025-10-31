@@ -1,20 +1,16 @@
 use std::{
-    cmp::max,
-    collections::{HashMap, HashSet},
+    collections::HashMap,
     sync::{
         atomic::{AtomicI64, Ordering},
         Arc,
     },
 };
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
-use tokio::{
-    sync::RwLock,
-    time::{interval, Duration},
-};
+use tokio::time::{interval, Duration};
 use tracing::{debug, error, info, warn};
 
 const BLOCK_FINALITY_DEPTH: i64 = 5; // Wait for checkpoint_id - 5 for finality
@@ -105,7 +101,6 @@ pub struct WorkerEventProcessor {
     pool: PgPool,
     config: EventProcessorConfig,
     current_checkpoint: Arc<AtomicI64>,
-    processing_states: Arc<RwLock<HashMap<i64, CheckpointProcessingState>>>,
 }
 
 impl WorkerEventProcessor {
@@ -118,7 +113,6 @@ impl WorkerEventProcessor {
             pool,
             config,
             current_checkpoint: Arc::new(AtomicI64::new(0)),
-            processing_states: Arc::new(RwLock::new(HashMap::new())),
         }
     }
 
@@ -260,7 +254,6 @@ impl WorkerEventProcessor {
             info!("No events found for checkpoint {}", checkpoint_id);
             self.mark_checkpoint_completed(checkpoint_id, 0).await?;
             return Ok(CheckpointResult {
-                checkpoint_id,
                 events_processed: 0,
                 events_by_status: HashMap::new(),
                 rollback_info: None,
@@ -296,7 +289,6 @@ impl WorkerEventProcessor {
         info!("Successfully processed checkpoint {}: {} events inserted", checkpoint_id, inserted_count);
 
         Ok(CheckpointResult {
-            checkpoint_id,
             events_processed: inserted_count,
             events_by_status,
             rollback_info,
@@ -637,7 +629,6 @@ impl WorkerEventProcessor {
 
 #[derive(Debug)]
 struct CheckpointResult {
-    checkpoint_id: i64,
     events_processed: usize,
     events_by_status: HashMap<String, usize>,
     rollback_info: Option<RollbackInfo>,

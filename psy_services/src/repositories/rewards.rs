@@ -1,10 +1,7 @@
 use chrono::Utc;
 use sqlx::PgPool;
 
-use crate::{
-    models::{WorkerEventReward, WorkerRewards},
-    Result,
-};
+use crate::{models::WorkerRewards, Result};
 
 pub struct WorkerRewardsRepository;
 // In rewards.rs - Update WorkerRewardsRepository to use new system

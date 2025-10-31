@@ -18,7 +18,7 @@ use crate::{
         rewards::WorkerRewardsRepository,
         *,
     },
-    services::{ApiService, CheckpointRewardService, JobStatusService, TimePeriod},
+    services::{ApiService, CheckpointRewardService, TimePeriod},
 };
 
 /// Parse order parameter from query string
@@ -731,26 +731,6 @@ async fn job_counts_handler(State(service): State<ApiService>) -> Result<Json<Ha
         }
         Err(e) => {
             tracing::error!("Failed to retrieve job counts: {}", e);
-            Err(StatusCode::INTERNAL_SERVER_ERROR)
-        }
-    }
-}
-
-/// POST /admin/refresh-job-status - Manually trigger materialized view refresh
-async fn refresh_job_status_handler(State(service): State<ApiService>) -> Result<Json<serde_json::Value>, StatusCode> {
-    tracing::info!("Manual job status refresh requested");
-
-    match JobStatusService::force_refresh(&service.pool).await {
-        Ok(_) => {
-            tracing::info!("Job status materialized view refreshed successfully");
-            Ok(Json(serde_json::json!({
-                "success": true,
-                "message": "Job status materialized view refreshed successfully",
-                "timestamp": Utc::now()
-            })))
-        }
-        Err(e) => {
-            tracing::error!("Failed to refresh job status materialized view: {}", e);
             Err(StatusCode::INTERNAL_SERVER_ERROR)
         }
     }

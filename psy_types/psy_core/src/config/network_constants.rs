@@ -114,7 +114,7 @@ pub const REALM_SLOT_SIZE_MS: u64 = 3000; // 3s
 pub const SLOT0_TIMESTAMP: u64 = 1753891200000; // 2025-07-31 00:00:00
 pub const NETWORK_COST_TIME_MS: u64 = 1000; // 1s
 
-use plonky2::{field::types::Field, hash::hash_types::RichField};
+use plonky2::{hash::hash_types::RichField};
 
 pub fn get_default_worker_public_key<F: RichField>() -> QHashOut<F> {
     QHashOut::from_values(1, 1, 1, 1)
