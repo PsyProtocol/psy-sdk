@@ -49,12 +49,12 @@ REALM_EDGE7_LOG="$LOG_DIR/realm-edge7-tikv.log"
 WORKER0_LOG="$LOG_DIR/worker0.log"
 WORKER1_LOG="$LOG_DIR/worker1.log"
 WORKER2_LOG="$LOG_DIR/worker2.log"
-WORKER3_LOG="$LOG_DIR/worker3.log"
-WORKER4_LOG="$LOG_DIR/worker4.log"
-WORKER5_LOG="$LOG_DIR/worker5.log"
-WORKER6_LOG="$LOG_DIR/worker6.log"
-WORKER7_LOG="$LOG_DIR/worker7.log"
-WORKER8_LOG="$LOG_DIR/worker8.log"
+# WORKER3_LOG="$LOG_DIR/worker3.log"
+# WORKER4_LOG="$LOG_DIR/worker4.log"
+# WORKER5_LOG="$LOG_DIR/worker5.log"
+# WORKER6_LOG="$LOG_DIR/worker6.log"
+# WORKER7_LOG="$LOG_DIR/worker7.log"
+# WORKER8_LOG="$LOG_DIR/worker8.log"
 
 API_SERVICES_LOG="$LOG_DIR/api-services.log"
 
@@ -91,12 +91,12 @@ echo "Clearing log files..."
 : > "$WORKER0_LOG"
 : > "$WORKER1_LOG"
 : > "$WORKER2_LOG"
-: > "$WORKER3_LOG"
-: > "$WORKER4_LOG"
-: > "$WORKER5_LOG"
-: > "$WORKER6_LOG"
-: > "$WORKER7_LOG"
-: > "$WORKER8_LOG"
+# : > "$WORKER3_LOG"
+# : > "$WORKER4_LOG"
+# : > "$WORKER5_LOG"
+# : > "$WORKER6_LOG"
+# : > "$WORKER7_LOG"
+# : > "$WORKER8_LOG"
 : > "$API_SERVICES_LOG"
 : > "$WATCHER_COORDINATOR_LOG"
 : > "$WATCHER_REALM0_LOG"
@@ -191,18 +191,18 @@ run_service "make run-worker1" "worker1" "$WORKER1_LOG" &
 PIDS+=($!)
 run_service "make run-worker2" "worker2" "$WORKER2_LOG" &
 PIDS+=($!)
-run_service "make run-worker3" "worker3" "$WORKER3_LOG" &
-PIDS+=($!)
-run_service "make run-worker4" "worker4" "$WORKER4_LOG" &
-PIDS+=($!)
-run_service "make run-worker5" "worker5" "$WORKER5_LOG" &
-PIDS+=($!)
-run_service "make run-worker6" "worker6" "$WORKER6_LOG" &
-PIDS+=($!)
-run_service "make run-worker7" "worker7" "$WORKER7_LOG" &
-PIDS+=($!)
-run_service "make run-worker8" "worker8" "$WORKER8_LOG" &
-PIDS+=($!)
+# run_service "make run-worker3" "worker3" "$WORKER3_LOG" &
+# PIDS+=($!)
+# run_service "make run-worker4" "worker4" "$WORKER4_LOG" &
+# PIDS+=($!)
+# run_service "make run-worker5" "worker5" "$WORKER5_LOG" &
+# PIDS+=($!)
+# run_service "make run-worker6" "worker6" "$WORKER6_LOG" &
+# PIDS+=($!)
+# run_service "make run-worker7" "worker7" "$WORKER7_LOG" &
+# PIDS+=($!)
+# run_service "make run-worker8" "worker8" "$WORKER8_LOG" &
+# PIDS+=($!)
 
 run_service "make run-api-services" "api-services" "$API_SERVICES_LOG" &
 PIDS+=($!)
