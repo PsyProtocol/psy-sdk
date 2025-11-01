@@ -220,7 +220,7 @@ impl RealmProcessor {
             warn!("Failed to get latest L2 block state: {:?}", e);
             if let Ok(CheckpointError::NotFound) = e.downcast::<CheckpointError>(){
                 // initialize genesis state
-                self.initialize_genesis_state().await?;
+                self.initialize_genesis_state(&ctx).await?;
                 let block0 = self.client.get_checkpoint_sync_info(self.realm_config.realm_id, 0).await?;
                 self.handle_sync_info(&ctx, block0).await?;
                 ctx.commit(0, vec![]).await?;
@@ -507,7 +507,7 @@ impl RealmProcessor {
         Ok(state.checkpoint_id)
     }
 
-    pub async fn initialize_store(store: &QEDStore, genesis_config: Option<GenesisConfig<GoldilocksField>>, realm_id: u32) -> anyhow::Result<()> {
+    pub async fn initialize_store(store: Arc<dyn KVQBinaryStore>, genesis_config: Option<GenesisConfig<GoldilocksField>>, realm_id: u32) -> anyhow::Result<()> {
         if let Some(genesis_config) = genesis_config {
             info!("Processing genesis state for realm {}", realm_id);
 
@@ -598,9 +598,10 @@ impl RealmProcessor {
         Ok(())
     }
 
-    async fn initialize_genesis_state(&self) -> anyhow::Result<()> {
+    async fn initialize_genesis_state(&self, ctx: &Context) -> anyhow::Result<()> {
         let genesis_config = GenesisConfig::from_path(&self.config_path)?;
-        Self::initialize_store(&self.store, genesis_config, self.realm_config.realm_id).await
+        let store = Arc::new(ctx.store.clone());
+        Self::initialize_store(store, genesis_config, self.realm_config.realm_id).await
     }
 
     async fn backup_task(mut rx: mpsc::UnboundedReceiver<BackupRequest>, backup_client: RealmS3BackupClient, realm_id: u32) {

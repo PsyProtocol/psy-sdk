@@ -1,3 +1,4 @@
+use std::sync::Arc;
 use anyhow::{Context, Result};
 use kvq::traits::{KVQBinaryStore, KVQPair};
 use plonky2::field::goldilocks_field::GoldilocksField;
@@ -71,7 +72,7 @@ impl RealmRecoveryManager {
         let target = target_checkpoint.unwrap_or(recovery_info.latest_checkpoint);
 
         let genesis_config = GenesisConfig::<GoldilocksField>::from_path(&self.config_path)?;
-        RealmProcessor::initialize_store(&self.qed_store, genesis_config, self.realm_id).await?;
+        RealmProcessor::initialize_store(Arc::new(self.qed_store.clone()), genesis_config, self.realm_id).await?;
 
         info!("⚡ Recovering realm {} from checkpoint 0 to {}", self.realm_id, target);
 
