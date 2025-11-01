@@ -1,7 +1,7 @@
 use anyhow::Result;
 use kvq::traits::{KVQBinaryStore, KVQBinaryStoreAsync, KVQSerializable};
 use psy_data::{config::store_config::*, qdata::u64_key::U64TableKey};
-use psy_store::store::{lmdbx::KVQlibmdbxStore, scylla::ScyllaStore};
+use psy_store::store::{scylla::ScyllaStore, KVQlibmdbxStore};
 
 const CHECKPOINT_ID_FUZZY_SIZE: usize = 8;
 
@@ -34,7 +34,7 @@ async fn test_checkpoint_block_state_real_usage() -> Result<()> {
 
         println!("   Checkpoint {} - key bytes: {:?} (len={})", checkpoint_id, key_bytes, key_bytes.len());
 
-        mdbx_store.set_ref(&key_bytes, &value)?;
+        <KVQlibmdbxStore as KVQBinaryStore>::set_ref(&mdbx_store, &key_bytes, &value)?;
         <ScyllaStore as KVQBinaryStoreAsync>::set_ref(&scylla_store, &key_bytes, &value).await?;
     }
 
@@ -47,7 +47,7 @@ async fn test_checkpoint_block_state_real_usage() -> Result<()> {
     println!("   Max key bytes: {:?}", max_key_bytes);
     println!("   Using fuzzy_bytes = {}", CHECKPOINT_ID_FUZZY_SIZE);
 
-    let mdbx_latest = mdbx_store.get_leq(&max_key_bytes, CHECKPOINT_ID_FUZZY_SIZE)?;
+    let mdbx_latest = <KVQlibmdbxStore as KVQBinaryStore>::get_leq(&mdbx_store, &max_key_bytes, CHECKPOINT_ID_FUZZY_SIZE)?;
     let scylla_latest = <ScyllaStore as KVQBinaryStoreAsync>::get_leq(&scylla_store, &max_key_bytes, CHECKPOINT_ID_FUZZY_SIZE).await?;
 
     println!("\n   Results:");
@@ -66,7 +66,7 @@ async fn test_checkpoint_block_state_real_usage() -> Result<()> {
     let query_key = U64TableKey::<CHECKPOINT_BLOCK_STATE_TABLE_TYPE>(250);
     let query_bytes = query_key.to_bytes()?;
 
-    let mdbx_result = mdbx_store.get_leq(&query_bytes, CHECKPOINT_ID_FUZZY_SIZE)?;
+    let mdbx_result = <KVQlibmdbxStore as KVQBinaryStore>::get_leq(&mdbx_store, &query_bytes, CHECKPOINT_ID_FUZZY_SIZE)?;
     let scylla_result = <ScyllaStore as KVQBinaryStoreAsync>::get_leq(&scylla_store, &query_bytes, CHECKPOINT_ID_FUZZY_SIZE).await?;
 
     println!("   - LibMDBX: {:?}", mdbx_result.as_ref().map(|v| String::from_utf8_lossy(v)));
@@ -107,8 +107,8 @@ async fn test_debug_fuzzy_comparison() -> Result<()> {
     let key2 = vec![0x00, 0x0C, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xC8]; // checkpoint 200
     let query = vec![0x00, 0x0C, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF]; // max checkpoint
 
-    mdbx_store.set_ref(&key1, &b"value1".to_vec())?;
-    mdbx_store.set_ref(&key2, &b"value2".to_vec())?;
+    <KVQlibmdbxStore as KVQBinaryStore>::set_ref(&mdbx_store, &key1, &b"value1".to_vec())?;
+    <KVQlibmdbxStore as KVQBinaryStore>::set_ref(&mdbx_store, &key2, &b"value2".to_vec())?;
     <ScyllaStore as KVQBinaryStoreAsync>::set_ref(&scylla_store, &key1, &b"value1".to_vec()).await?;
     <ScyllaStore as KVQBinaryStoreAsync>::set_ref(&scylla_store, &key2, &b"value2".to_vec()).await?;
 

@@ -1,7 +1,10 @@
 use anyhow::Result;
 use kvq::traits::{KVQBinaryStore, KVQBinaryStoreAsync};
 use psy_data::config::store_config::*;
-use psy_store::store::{lmdbx::KVQlibmdbxStore, scylla::ScyllaStore};
+use psy_store::store::{
+    scylla::{kvq_store::ScyllaKVQStore, ScyllaStore},
+    KVQlibmdbxStore,
+};
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn test_checkpoint_block_state_get_leq_issue() -> Result<()> {
@@ -39,7 +42,7 @@ async fn test_checkpoint_block_state_get_leq_issue() -> Result<()> {
 
         let value = format!("block_state_{}", checkpoint_id).into_bytes();
 
-        mdbx_store.set_ref(&key, &value)?;
+        <KVQlibmdbxStore as KVQBinaryStoreAsync>::set_ref(&mdbx_store, &key, &value).await?;
         <ScyllaStore as KVQBinaryStoreAsync>::set_ref(&scylla_store, &key, &value).await?;
 
         println!("\n   Inserted checkpoint {} - key: {:?}", checkpoint_id, key);
@@ -55,7 +58,7 @@ async fn test_checkpoint_block_state_get_leq_issue() -> Result<()> {
 
     println!("\n   Query key for checkpoint {}: {:?}", query_id, query_key);
 
-    let mdbx_result = mdbx_store.get_leq(&query_key, 8)?;
+    let mdbx_result = <KVQlibmdbxStore as KVQBinaryStoreAsync>::get_leq(&mdbx_store, &query_key, 8).await?;
     let scylla_result = <ScyllaStore as KVQBinaryStoreAsync>::get_leq(&scylla_store, &query_key, 8).await?;
 
     println!("\n   Results with fuzzy_bytes = 8:");
@@ -78,7 +81,7 @@ async fn test_checkpoint_block_state_get_leq_issue() -> Result<()> {
     let mut exact_key = table_type.to_be_bytes().to_vec();
     exact_key.extend_from_slice(&200u64.to_be_bytes());
 
-    let mdbx_exact = mdbx_store.get_leq(&exact_key, 0)?;
+    let mdbx_exact = <KVQlibmdbxStore as KVQBinaryStoreAsync>::get_leq(&mdbx_store, &exact_key, 0).await?;
     let scylla_exact = <ScyllaStore as KVQBinaryStoreAsync>::get_leq(&scylla_store, &exact_key, 0).await?;
 
     println!("   - LibMDBX: {:?}", mdbx_exact.as_ref().map(|v| String::from_utf8_lossy(v)));
@@ -90,7 +93,7 @@ async fn test_checkpoint_block_state_get_leq_issue() -> Result<()> {
     let mut max_key_final = max_key.clone();
     max_key_final.extend_from_slice(&0xFFFFFFFFFFFFFFFFu64.to_be_bytes());
 
-    let mdbx_latest = mdbx_store.get_leq(&max_key_final, 8)?;
+    let mdbx_latest = <KVQlibmdbxStore as KVQBinaryStoreAsync>::get_leq(&mdbx_store, &max_key_final, 8).await?;
     let scylla_latest = <ScyllaStore as KVQBinaryStoreAsync>::get_leq(&scylla_store, &max_key_final, 8).await?;
 
     println!("   Query with max checkpoint_id (0xFFFFFFFFFFFFFFFF):");

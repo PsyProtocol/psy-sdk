@@ -7,7 +7,7 @@ use clap::{Args, Parser, ValueEnum};
 use hyper::Method;
 use jsonrpsee::server::Server;
 use psy_prover::health::HealthLayer;
-use psy_store::store::{journal::JournalStore, BackendConfig, PsyStore};
+use psy_store::store::{from_backend, journal::JournalStore, BackendConfig, PsyStore};
 use serde::{Deserialize, Serialize};
 use tower_http::cors::{Any, CorsLayer};
 
@@ -45,7 +45,7 @@ pub struct StoreProvider {
 }
 
 pub async fn run_realm_store_server(args: StoreConfig) -> anyhow::Result<()> {
-    let store = JournalStore::new(PsyStore::new(&args.backend.to_backend()).await?);
+    let store = JournalStore::new(from_backend(args.backend.to_backend()).await?);
     let store_provider = StoreProvider { store: Arc::new(store) };
     let cors_opts = CorsLayer::new()
         .allow_methods([Method::POST, Method::OPTIONS])

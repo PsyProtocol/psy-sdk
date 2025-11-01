@@ -1,7 +1,7 @@
 use anyhow::Result;
 use kvq::traits::{KVQBinaryStore, KVQBinaryStoreAsync, KVQPair};
 use psy_data::config::store_config::*;
-use psy_store::store::lmdbx::KVQlibmdbxStore;
+use psy_store::store::KVQlibmdbxStore;
 
 // Test only libmdbx for now as ScyllaDB requires special runtime handling
 #[test]
@@ -62,14 +62,14 @@ fn test_libmdbx_basic_operations() -> Result<()> {
     println!("\n1. Testing WRITE operations:");
     for (name, table_type, key, value) in &test_cases {
         println!("   Writing to {} (table_type={})", name, table_type);
-        store.set_ref(key, value)?;
+        <KVQlibmdbxStore as KVQBinaryStore>::set_ref(&store, key, value)?;
         println!("   ✓ Written successfully");
     }
 
     // Read test
     println!("\n2. Testing READ operations:");
     for (name, _table_type, key, expected_value) in &test_cases {
-        let value = store.get_exact(key)?;
+        let value = <KVQlibmdbxStore as KVQBinaryStore>::get_exact(&store, key)?;
         assert_eq!(value, *expected_value, "Value mismatch for {}", name);
         println!("   ✓ {} read correctly", name);
     }
@@ -79,8 +79,8 @@ fn test_libmdbx_basic_operations() -> Result<()> {
     let update_key = vec![0x00, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02];
     let new_value = vec![0xFF, 0xEE, 0xDD, 0xCC];
 
-    store.set_ref(&update_key, &new_value)?;
-    let updated = store.get_exact(&update_key)?;
+    <KVQlibmdbxStore as KVQBinaryStore>::set_ref(&store, &update_key, &new_value)?;
+    let updated = <KVQlibmdbxStore as KVQBinaryStore>::get_exact(&store, &update_key)?;
     assert_eq!(updated, new_value);
     println!("   ✓ Update successful");
 
@@ -88,10 +88,10 @@ fn test_libmdbx_basic_operations() -> Result<()> {
     println!("\n4. Testing DELETE operations:");
     let delete_key = vec![0x00, 0x0B, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x05];
 
-    let deleted = store.delete(&delete_key)?;
+    let deleted = <KVQlibmdbxStore as KVQBinaryStore>::delete(&store, &delete_key)?;
     assert!(deleted, "Delete should return true");
 
-    let after_delete = store.get_exact_if_exists(&delete_key)?;
+    let after_delete = <KVQlibmdbxStore as KVQBinaryStore>::get_exact_if_exists(&store, &delete_key)?;
     assert!(after_delete.is_none(), "Key should be deleted");
     println!("   ✓ Delete successful");
 
@@ -111,11 +111,11 @@ fn test_libmdbx_basic_operations() -> Result<()> {
         })
         .collect();
 
-    store.set_many_vec(kvq_pairs)?;
+    <KVQlibmdbxStore as KVQBinaryStore>::set_many_vec(&store, kvq_pairs)?;
 
     // Verify batch writes
     for (key, expected_value) in &batch_data {
-        let value = store.get_exact(key)?;
+        let value = <KVQlibmdbxStore as KVQBinaryStore>::get_exact(&store, key)?;
         assert_eq!(value, *expected_value);
     }
     println!("   ✓ Batch operations successful");
@@ -129,12 +129,12 @@ fn test_libmdbx_basic_operations() -> Result<()> {
         let mut key = base_key.clone();
         key[9] = i;
         let value = vec![i * 10, i * 10 + 1];
-        store.set_ref(&key, &value)?;
+        <KVQlibmdbxStore as KVQBinaryStore>::set_ref(&store, &key, &value)?;
     }
 
     // Test get_leq (less than or equal)
     let search_key = vec![0x00, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0x03];
-    let leq_result = store.get_leq(&search_key, 0)?;
+    let leq_result = <KVQlibmdbxStore as KVQBinaryStore>::get_leq(&store, &search_key, 0)?;
     assert!(leq_result.is_some());
     println!("   ✓ Fuzzy operations successful");
 
@@ -164,14 +164,14 @@ fn test_table_type_isolation() -> Result<()> {
     let checkpoint_value = vec![0x33, 0x33];
 
     // Write different values
-    store.set_ref(&user_tree_key, &user_value)?;
-    store.set_ref(&contract_tree_key, &contract_value)?;
-    store.set_ref(&checkpoint_tree_key, &checkpoint_value)?;
+    <KVQlibmdbxStore as KVQBinaryStore>::set_ref(&store, &user_tree_key, &user_value)?;
+    <KVQlibmdbxStore as KVQBinaryStore>::set_ref(&store, &contract_tree_key, &contract_value)?;
+    <KVQlibmdbxStore as KVQBinaryStore>::set_ref(&store, &checkpoint_tree_key, &checkpoint_value)?;
 
     // Verify isolation
-    let read_user = store.get_exact(&user_tree_key)?;
-    let read_contract = store.get_exact(&contract_tree_key)?;
-    let read_checkpoint = store.get_exact(&checkpoint_tree_key)?;
+    let read_user = <KVQlibmdbxStore as KVQBinaryStore>::get_exact(&store, &user_tree_key)?;
+    let read_contract = <KVQlibmdbxStore as KVQBinaryStore>::get_exact(&store, &contract_tree_key)?;
+    let read_checkpoint = <KVQlibmdbxStore as KVQBinaryStore>::get_exact(&store, &checkpoint_tree_key)?;
 
     assert_eq!(read_user, user_value);
     assert_eq!(read_contract, contract_value);

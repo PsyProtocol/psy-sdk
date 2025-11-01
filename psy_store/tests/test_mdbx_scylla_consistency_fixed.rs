@@ -3,7 +3,7 @@ use std::sync::Arc;
 use anyhow::Result;
 use kvq::traits::{KVQBinaryStore, KVQBinaryStoreAsync, KVQPair};
 use psy_data::config::store_config::*;
-use psy_store::store::{lmdbx::KVQlibmdbxStore, scylla::ScyllaStore};
+use psy_store::store::{scylla::ScyllaStore, KVQlibmdbxStore};
 
 // Helper function to construct keys based on table type
 fn construct_key(table_type: u16, key_suffix: &[u8]) -> Vec<u8> {
@@ -145,11 +145,11 @@ async fn test_mdbx_scylla_consistency_fixed() -> Result<()> {
         println!("   Value: {:?}", value);
 
         // Write to both stores
-        mdbx_store.set_ref(&key, value)?;
+        <KVQlibmdbxStore as KVQBinaryStore>::set_ref(&mdbx_store, &key, value)?;
         <ScyllaStore as KVQBinaryStoreAsync>::set_ref(&scylla_store, &key, value).await?;
 
         // Immediately read back and verify
-        let mdbx_read = mdbx_store.get_exact(&key)?;
+        let mdbx_read = <KVQlibmdbxStore as KVQBinaryStore>::get_exact(&mdbx_store, &key)?;
         let scylla_read = <ScyllaStore as KVQBinaryStoreAsync>::get_exact(&scylla_store, &key).await?;
 
         assert_eq!(mdbx_read, *value, "LibMDBX write/read mismatch");
@@ -165,7 +165,7 @@ async fn test_mdbx_scylla_consistency_fixed() -> Result<()> {
     for (table_name, table_type, key_suffix, expected_value) in &test_data {
         let key = construct_key(*table_type, key_suffix);
 
-        let mdbx_value = mdbx_store.get_exact(&key)?;
+        let mdbx_value = <KVQlibmdbxStore as KVQBinaryStore>::get_exact(&mdbx_store, &key)?;
         let scylla_value = <ScyllaStore as KVQBinaryStoreAsync>::get_exact(&scylla_store, &key).await?;
 
         println!("   {} - LibMDBX: {:?}, ScyllaDB: {:?}", table_name, mdbx_value, scylla_value);
@@ -198,11 +198,11 @@ async fn test_mdbx_scylla_consistency_fixed() -> Result<()> {
         let key = construct_key(*table_type, key_suffix);
 
         // Update both stores
-        mdbx_store.set_ref(&key, new_value)?;
+        <KVQlibmdbxStore as KVQBinaryStore>::set_ref(&mdbx_store, &key, new_value)?;
         <ScyllaStore as KVQBinaryStoreAsync>::set_ref(&scylla_store, &key, new_value).await?;
 
         // Verify updates
-        let mdbx_updated = mdbx_store.get_exact(&key)?;
+        let mdbx_updated = <KVQlibmdbxStore as KVQBinaryStore>::get_exact(&mdbx_store, &key)?;
         let scylla_updated = <ScyllaStore as KVQBinaryStoreAsync>::get_exact(&scylla_store, &key).await?;
 
         assert_eq!(mdbx_updated, *new_value);
@@ -218,7 +218,7 @@ async fn test_mdbx_scylla_consistency_fixed() -> Result<()> {
     // Delete a key
     let delete_key = construct_key(CHECKPOINT_LEAF_TABLE_TYPE, &vec![0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x05]);
 
-    let mdbx_deleted = mdbx_store.delete(&delete_key)?;
+    let mdbx_deleted = <KVQlibmdbxStore as KVQBinaryStore>::delete(&mdbx_store, &delete_key)?;
     let scylla_deleted = <ScyllaStore as KVQBinaryStoreAsync>::delete(&scylla_store, &delete_key).await?;
 
     println!("   LibMDBX delete result: {}", mdbx_deleted);
@@ -226,7 +226,7 @@ async fn test_mdbx_scylla_consistency_fixed() -> Result<()> {
     assert_eq!(mdbx_deleted, scylla_deleted, "Delete results not consistent");
 
     // Verify deletion
-    let mdbx_after = mdbx_store.get_exact_if_exists(&delete_key)?;
+    let mdbx_after = <KVQlibmdbxStore as KVQBinaryStore>::get_exact_if_exists(&mdbx_store, &delete_key)?;
     let scylla_after = <ScyllaStore as KVQBinaryStoreAsync>::get_exact_if_exists(&scylla_store, &delete_key).await?;
 
     assert!(mdbx_after.is_none(), "LibMDBX: key should be deleted");
@@ -253,12 +253,12 @@ async fn test_mdbx_scylla_consistency_fixed() -> Result<()> {
         .collect();
 
     // Write batch to both stores
-    mdbx_store.set_many_vec(kvq_pairs.clone())?;
+    <KVQlibmdbxStore as KVQBinaryStore>::set_many_vec(&mdbx_store, kvq_pairs.clone())?;
     <ScyllaStore as KVQBinaryStoreAsync>::set_many_vec(&scylla_store, kvq_pairs).await?;
 
     // Verify all batch writes
     for (key, expected_value) in &batch_data {
-        let mdbx_batch = mdbx_store.get_exact(key)?;
+        let mdbx_batch = <KVQlibmdbxStore as KVQBinaryStore>::get_exact(&mdbx_store, key)?;
         let scylla_batch = <ScyllaStore as KVQBinaryStoreAsync>::get_exact(&scylla_store, key).await?;
 
         assert_eq!(mdbx_batch, *expected_value);
@@ -275,10 +275,10 @@ async fn test_mdbx_scylla_consistency_fixed() -> Result<()> {
     let empty_key = construct_key(USER_LEAF_TABLE_TYPE, &vec![0xFF, 0xFF]);
     let empty_value = vec![];
 
-    mdbx_store.set_ref(&empty_key, &empty_value)?;
+    <KVQlibmdbxStore as KVQBinaryStore>::set_ref(&mdbx_store, &empty_key, &empty_value)?;
     <ScyllaStore as KVQBinaryStoreAsync>::set_ref(&scylla_store, &empty_key, &empty_value).await?;
 
-    let mdbx_empty = mdbx_store.get_exact(&empty_key)?;
+    let mdbx_empty = <KVQlibmdbxStore as KVQBinaryStore>::get_exact(&mdbx_store, &empty_key)?;
     let scylla_empty = <ScyllaStore as KVQBinaryStoreAsync>::get_exact(&scylla_store, &empty_key).await?;
 
     assert_eq!(mdbx_empty, empty_value);
@@ -291,10 +291,10 @@ async fn test_mdbx_scylla_consistency_fixed() -> Result<()> {
     let large_key = construct_key(CONTRACT_CODE_TABLE_TYPE, &vec![0xAA, 0xBB]);
     let large_value = vec![0xAB; 10000]; // 10KB
 
-    mdbx_store.set_ref(&large_key, &large_value)?;
+    <KVQlibmdbxStore as KVQBinaryStore>::set_ref(&mdbx_store, &large_key, &large_value)?;
     <ScyllaStore as KVQBinaryStoreAsync>::set_ref(&scylla_store, &large_key, &large_value).await?;
 
-    let mdbx_large = mdbx_store.get_exact(&large_key)?;
+    let mdbx_large = <KVQlibmdbxStore as KVQBinaryStore>::get_exact(&mdbx_store, &large_key)?;
     let scylla_large = <ScyllaStore as KVQBinaryStoreAsync>::get_exact(&scylla_store, &large_key).await?;
 
     assert_eq!(mdbx_large.len(), 10000);
@@ -306,7 +306,7 @@ async fn test_mdbx_scylla_consistency_fixed() -> Result<()> {
     println!("   Testing non-existent keys...");
     let non_existent = construct_key(USER_TREE_TABLE_TYPE, &vec![0xFF; 10]);
 
-    let mdbx_none = mdbx_store.get_exact_if_exists(&non_existent)?;
+    let mdbx_none = <KVQlibmdbxStore as KVQBinaryStore>::get_exact_if_exists(&mdbx_store, &non_existent)?;
     let scylla_none = <ScyllaStore as KVQBinaryStoreAsync>::get_exact_if_exists(&scylla_store, &non_existent).await?;
 
     assert!(mdbx_none.is_none());
@@ -352,7 +352,7 @@ async fn test_concurrent_consistency() -> Result<()> {
             let value = vec![i * 10, i * 10 + 1, i * 10 + 2];
 
             // Write to both stores
-            mdbx.set_ref(&key, &value)?;
+            <KVQlibmdbxStore as KVQBinaryStore>::set_ref(&mdbx, &key, &value)?;
             <ScyllaStore as KVQBinaryStoreAsync>::set_ref(&scylla, &key, &value).await?;
 
             Ok::<(Vec<u8>, Vec<u8>), anyhow::Error>((key, value))
@@ -369,7 +369,7 @@ async fn test_concurrent_consistency() -> Result<()> {
     for (i, result) in results.iter().enumerate() {
         let (key, expected_value) = result.as_ref().unwrap().as_ref().unwrap();
 
-        let mdbx_value = mdbx_store.get_exact(key)?;
+        let mdbx_value = <KVQlibmdbxStore as KVQBinaryStore>::get_exact(&mdbx_store, key)?;
         let scylla_value = <ScyllaStore as KVQBinaryStoreAsync>::get_exact(&scylla_store, key).await?;
 
         assert_eq!(mdbx_value, *expected_value);

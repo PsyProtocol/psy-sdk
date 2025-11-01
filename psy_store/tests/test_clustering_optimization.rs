@@ -1,7 +1,7 @@
 use anyhow::Result;
 use kvq::traits::{KVQBinaryStore, KVQBinaryStoreAsync};
 use psy_data::config::store_config::*;
-use psy_store::store::{lmdbx::KVQlibmdbxStore, scylla::ScyllaStore};
+use psy_store::store::{scylla::ScyllaStore, KVQlibmdbxStore};
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn test_clustering_optimization() -> Result<()> {
@@ -35,7 +35,7 @@ async fn test_clustering_optimization() -> Result<()> {
 
         let value = format!("checkpoint_{}", checkpoint_id).into_bytes();
 
-        mdbx_store.set_ref(&key, &value)?;
+        <KVQlibmdbxStore as KVQBinaryStore>::set_ref(&mdbx_store, &key, &value)?;
         <ScyllaStore as KVQBinaryStoreAsync>::set_ref(&scylla_store, &key, &value).await?;
     }
 

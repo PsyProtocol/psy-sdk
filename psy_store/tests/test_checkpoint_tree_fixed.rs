@@ -1,7 +1,7 @@
 use anyhow::Result;
 use kvq::traits::{KVQBinaryStore, KVQBinaryStoreAsync};
 use psy_data::config::store_config::*;
-use psy_store::store::{lmdbx::KVQlibmdbxStore, scylla::ScyllaStore};
+use psy_store::store::{scylla::ScyllaStore, KVQlibmdbxStore};
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn test_checkpoint_tree_fixed() -> Result<()> {
@@ -53,7 +53,7 @@ async fn test_checkpoint_tree_fixed() -> Result<()> {
 
         let value = format!("checkpoint_{}", height).into_bytes();
 
-        mdbx_store.set_ref(&key, &value)?;
+        <KVQlibmdbxStore as KVQBinaryStore>::set_ref(&mdbx_store, &key, &value)?;
         <ScyllaStore as KVQBinaryStoreAsync>::set_ref(&scylla_store, &key, &value).await?;
     }
 
@@ -64,7 +64,7 @@ async fn test_checkpoint_tree_fixed() -> Result<()> {
     exact_key.extend_from_slice(&300u64.to_be_bytes());
     exact_key.extend_from_slice(&0u32.to_be_bytes());
 
-    let mdbx_exact = mdbx_store.get_exact_if_exists(&exact_key)?;
+    let mdbx_exact = <KVQlibmdbxStore as KVQBinaryStore>::get_exact_if_exists(&mdbx_store, &exact_key)?;
     let scylla_exact = <ScyllaStore as KVQBinaryStoreAsync>::get_exact_if_exists(&scylla_store, &exact_key).await?;
 
     println!("   LibMDBX: {:?}", mdbx_exact.is_some());
