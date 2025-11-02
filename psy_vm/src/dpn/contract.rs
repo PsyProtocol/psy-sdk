@@ -119,6 +119,9 @@ fn encode_state_cmd(buffer: &mut Vec<u64>, cmd: &DPNStateCmd<u64>) {
         DPNStateCmd::GetCheckpointLeafStats(c) => {
             buffer.push(c.checkpoint_id);
         }
+        DPNStateCmd::GetContractLeaf(c) => {
+            buffer.push(c.contract_id);
+        }
     }
 }
 

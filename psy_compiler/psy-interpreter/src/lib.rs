@@ -785,6 +785,10 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
                 match ctx_node {
                     CheckedIntrinsicExprNode::GetUserId { .. } => CheckedValueRef::from_felt(self.context.get_user_id()),
                     CheckedIntrinsicExprNode::GetContractId { .. } => CheckedValueRef::from_felt(self.context.get_contract_id()),
+                    CheckedIntrinsicExprNode::GetContractDeployer { contract_id, type_id, .. } => {
+                        let contract_id = self.interpret_expr(program, contract_id.clone(), ctx)?.to_felt();
+                        CheckedValueRef::from_vec(type_id.clone(), self.context.get_contract_deployer(contract_id))
+                    }
                     CheckedIntrinsicExprNode::GetCallerContractId { .. } => CheckedValueRef::from_felt(self.context.get_caller_contract_id()),
                     CheckedIntrinsicExprNode::GetCheckpointId { .. } => CheckedValueRef::from_felt(self.context.get_checkpoint_id()),
                     CheckedIntrinsicExprNode::GetLastNonce { .. } => CheckedValueRef::from_felt(self.context.get_last_nonce()),

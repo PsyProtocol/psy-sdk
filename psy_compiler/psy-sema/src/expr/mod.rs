@@ -91,6 +91,7 @@ impl<F> CheckedExprNode<F> {
             CheckedExprNode::Intrinsic(i) => match i {
                 CheckedIntrinsicExprNode::GetUserId { type_id, .. } => type_id.clone(),
                 CheckedIntrinsicExprNode::GetContractId { type_id, .. } => type_id.clone(),
+                CheckedIntrinsicExprNode::GetContractDeployer { type_id, .. } => type_id.clone(),
                 CheckedIntrinsicExprNode::GetCallerContractId { type_id, .. } => type_id.clone(),
                 CheckedIntrinsicExprNode::GetCheckpointId { type_id, .. } => type_id.clone(),
                 CheckedIntrinsicExprNode::GetLastNonce { type_id, .. } => type_id.clone(),
@@ -154,6 +155,7 @@ impl<F> CheckedExprNode<F> {
             CheckedExprNode::Intrinsic(i) => match i {
                 CheckedIntrinsicExprNode::GetUserId { location, .. } => location.clone(),
                 CheckedIntrinsicExprNode::GetContractId { location, .. } => location.clone(),
+                CheckedIntrinsicExprNode::GetContractDeployer { location, .. } => location.clone(),
                 CheckedIntrinsicExprNode::GetCallerContractId { location, .. } => location.clone(),
                 CheckedIntrinsicExprNode::GetCheckpointId { location, .. } => location.clone(),
                 CheckedIntrinsicExprNode::GetLastNonce { location, .. } => location.clone(),

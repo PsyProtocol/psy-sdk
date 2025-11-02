@@ -373,6 +373,7 @@ pub trait DPNContext<F: ContextFelt>: Debug + Clone {
 
     fn get_user_id(&mut self) -> F;
     fn get_contract_id(&mut self) -> F;
+    fn get_contract_deployer(&mut self, contract_id: F) -> [F; 4];
     fn get_caller_contract_id(&mut self) -> F;
     fn get_checkpoint_id(&mut self) -> F;
     fn get_last_nonce(&mut self) -> F;

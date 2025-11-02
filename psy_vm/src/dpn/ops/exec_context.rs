@@ -7,11 +7,12 @@ use super::{
     op_types::{DPNBuiltInDataType, DPNOpType},
     state_cmd::{
         data::{
-            DPNStateCmd, DPNStateCmdClearEntireTree, DPNStateCmdGetCheckpointLeafStats, DPNStateCmdGetOtherUserContractStateSlotHash,
-            DPNStateCmdGetOtherUserContractStateSlotRange, DPNStateCmdGetOtherUserContractStateSlotSingle,
-            DPNStateCmdGetSelfUserCurrentContractStateSlotHash, DPNStateCmdGetSelfUserExternalContractStateSlotHash,
-            DPNStateCmdInvokeExternalContractFunctionDeferred, DPNStateCmdInvokeExternalContractFunctionSync, DPNStateCmdSetContractStateSlotHash,
-            DPNStateCmdSetContractStateSlotRange, DPNStateCmdSetContractStateSlotSingle,
+            DPNStateCmd, DPNStateCmdClearEntireTree, DPNStateCmdGetCheckpointLeafStats, DPNStateCmdGetContractLeaf,
+            DPNStateCmdGetOtherUserContractStateSlotHash, DPNStateCmdGetOtherUserContractStateSlotRange,
+            DPNStateCmdGetOtherUserContractStateSlotSingle, DPNStateCmdGetSelfUserCurrentContractStateSlotHash,
+            DPNStateCmdGetSelfUserExternalContractStateSlotHash, DPNStateCmdInvokeExternalContractFunctionDeferred,
+            DPNStateCmdInvokeExternalContractFunctionSync, DPNStateCmdSetContractStateSlotHash, DPNStateCmdSetContractStateSlotRange,
+            DPNStateCmdSetContractStateSlotSingle,
         },
         store::DPNStateCommandStore,
         types::DPNStateCmdCore,
@@ -804,6 +805,12 @@ impl DPNContext<SymFeltRef> for QExecContext {
 
     fn get_contract_id(&mut self) -> SymFeltRef {
         SymFeltRef::new_valueless(DPNOpType::GetContractId)
+    }
+
+    fn get_contract_deployer(&mut self, contract_id: SymFeltRef) -> [SymFeltRef; 4] {
+        let cmd = DPNStateCmd::GetContractLeaf(DPNStateCmdGetContractLeaf { contract_id });
+        let b = self.resolve_state_cmd_base(cmd);
+        self.op_target_at_array::<4>(b)
     }
 
     fn get_caller_contract_id(&mut self) -> SymFeltRef {

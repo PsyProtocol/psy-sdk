@@ -169,6 +169,28 @@ impl StateReaderGadget {
                 )?;
                 wb_state.inc_deferred_tx_count();
             }
+            DPNStateCmd::GetContractLeaf(c) => {
+                let ck = StateCommandCacheKey::new_get_contract_leaf(c.contract_id);
+
+                if let Some(ref_key) = self.gadget_map.get(&ck) {
+                    match ref_key.gadget_type {
+                        StateReaderReferenceKeyType::ContractLeaf => {
+                            let index = ref_key.gadget_index;
+                            let contract_leaf_witness = cmd_witness.witness.get_contract_leaf_ref();
+
+                            self.contract_leaf_requests[index].set_witness(witness, &contract_leaf_witness.contract_leaf)?;
+
+                            self.contract_leaf_proofs[index].set_witness_generic::<W, F>(
+                                witness,
+                                F::from_noncanonical_u64(contract_leaf_witness.contract_tree_proof.index),
+                                contract_leaf_witness.contract_tree_proof.value,
+                                &contract_leaf_witness.contract_tree_proof.siblings,
+                            )?;
+                        }
+                        v => anyhow::bail!("GetContractLeaf expects ContractLeaf reference key type, but got {:?}", v),
+                    }
+                }
+            }
             DPNStateCmd::GetSelfUserCurrentContractStateSlotHash(c) => {
                 let ck = StateCommandCacheKey::new_read_current_contract_slot(c.slot_index, wb_state.write_epoch);
                 self.set_witness_for_key_mp(witness, &ck, cmd_witness.witness.get_merkle_proof_ref())?;

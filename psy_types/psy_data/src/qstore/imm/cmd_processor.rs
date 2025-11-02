@@ -132,6 +132,14 @@ pub struct DPNClearEntireTreeWitness<F: RichField> {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, TS)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
 #[ts(export, concrete(F = GoldilocksField))]
+pub struct DPNContractLeafWitness<F: RichField> {
+    pub contract_leaf: PsyContractLeaf<F>,
+    pub contract_tree_proof: MerkleProofCore<QHashOut<F>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, TS)]
+#[serde(bound = "for<'de2> F: Deserialize<'de2>")]
+#[ts(export, concrete(F = GoldilocksField))]
 pub enum DPNStateCmdWitness<F: RichField> {
     MerkleProof(MerkleProofCore<QHashOut<F>>),
     DeltaMerkleProof(DeltaMerkleProofCore<QHashOut<F>>),
@@ -141,6 +149,7 @@ pub enum DPNStateCmdWitness<F: RichField> {
     InvokeExternalContractFunctionDeferred(DPNInvokeDeferredMethodCallWitness<F>),
     CheckpointLeafStats(DPNCheckpointLeafStatsWitness<F>),
     ClearEntireTree(DPNClearEntireTreeWitness<F>),
+    ContractLeaf(DPNContractLeafWitness<F>),
     TargetArray(Vec<F>),
     TargetArray2D(Vec<Vec<F>>),
 }
@@ -227,6 +236,12 @@ impl<F: RichField> DPNStateCmdWitness<F> {
                 "get_clear_entire_tree_ref expects witness type to be ClearEntireTree, but got {:?}",
                 &self
             ),
+        }
+    }
+    pub fn get_contract_leaf_ref(&self) -> &DPNContractLeafWitness<F> {
+        match &self {
+            DPNStateCmdWitness::ContractLeaf(witness) => witness,
+            _ => panic!("get_contract_leaf_ref expects witness type to be ContractLeaf, but got {:?}", &self),
         }
     }
     pub fn get_merkle_proof(self) -> MerkleProofCore<QHashOut<F>> {

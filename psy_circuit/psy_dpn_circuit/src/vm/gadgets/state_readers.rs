@@ -21,7 +21,7 @@ use psy_config::network_constants::{CHECKPOINT_TREE_HEIGHT, DEFERRED_TRANSACTION
 use psy_core::data::{base_types::hash256::Hash256, qhashout::QHashOut};
 use psy_crypto::hash::core::sha256;
 use psy_network_circuit::gadgets::qdata::{
-    checkpoint_state_roots::PsyCheckpointGlobalStateRootsGadget, checkpoint_stats::PsyCheckpointLeafStatsGadget,
+    checkpoint_state_roots::PsyCheckpointGlobalStateRootsGadget, checkpoint_stats::PsyCheckpointLeafStatsGadget, contract::PsyContractLeafGadget,
     contract_function_call::DPNProvingSessionSimpleMethodCallGadget, user::PsyUserLeafGadget,
 };
 use psy_vm::dpn::ops::state_cmd::data::DPNStateCmd;
@@ -61,6 +61,7 @@ pub enum StateReaderReferenceKeyType {
     CheckpointStateRoots = 4,
     HistoricalProof = 5,
     ClearEntireTree = 6,
+    ContractLeaf = 7,
 }
 impl StateReaderReferenceKeyType {
     pub fn to_u8(&self) -> u8 {
@@ -84,6 +85,7 @@ impl TryFrom<u8> for StateReaderReferenceKeyType {
             4 => Ok(StateReaderReferenceKeyType::CheckpointStateRoots),
             5 => Ok(StateReaderReferenceKeyType::HistoricalProof),
             6 => Ok(StateReaderReferenceKeyType::ClearEntireTree),
+            7 => Ok(StateReaderReferenceKeyType::ContractLeaf),
             _ => Err(anyhow::format_err!("Invalid StateReaderReferenceKeyType value: {}", value)),
         }
     }
@@ -122,6 +124,12 @@ impl StateReaderReferenceKey {
     pub fn new_clear_entire_tree_key(index: usize) -> Self {
         Self {
             gadget_type: StateReaderReferenceKeyType::ClearEntireTree,
+            gadget_index: index,
+        }
+    }
+    pub fn new_contract_leaf_key(index: usize) -> Self {
+        Self {
+            gadget_type: StateReaderReferenceKeyType::ContractLeaf,
             gadget_index: index,
         }
     }
@@ -274,6 +282,11 @@ pub struct CKReadOtherUserContractContractSingle {
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone, Copy, Eq, Hash, PartialOrd, Ord)]
+pub struct CKGetContractLeaf {
+    pub contract_target_id: u64,
+}
+
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone, Copy, Eq, Hash, PartialOrd, Ord)]
 pub enum StateCommandCacheKey {
     InvokeDeferredMethodCall(CKInvokeDeferredMethodCall),
     ReadCurrentContractSlot(CKReadCurrentContractSlot),
@@ -294,6 +307,7 @@ pub enum StateCommandCacheKey {
     ReadOtherUserContractContractSingle(CKReadOtherUserContractContractSingle),
     GetCheckpointStats(CKGetCheckpointStats),
     ClearEntireTree(CKClearEntireTree),
+    GetContractLeaf(CKGetContractLeaf),
 }
 
 #[derive(Debug, Clone, Copy, Hash, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
@@ -436,6 +450,9 @@ impl StateCommandCacheKey {
     pub fn new_clear_entire_tree_with_condition(condition: u64, write_epoch: u32) -> Self {
         Self::ClearEntireTree(CKClearEntireTree { condition, write_epoch })
     }
+    pub fn new_get_contract_leaf(contract_target_id: u64) -> Self {
+        Self::GetContractLeaf(CKGetContractLeaf { contract_target_id })
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -447,6 +464,8 @@ pub struct StateReaderGadget {
     pub checkpoint_state_roots_requests: Vec<PsyCheckpointGlobalStateRootsGadget>,
     pub historical_proofs: Vec<HistoricalRootMerkleProofGadget>,
     pub clear_entire_tree_requests: Vec<ClearEntireTreeGadget>,
+    pub contract_leaf_requests: Vec<PsyContractLeafGadget>,
+    pub contract_leaf_proofs: Vec<MerkleProofGadget>,
     pub start_contract_state_root: HashOutTarget,
     pub end_contract_state_root: HashOutTarget,
     pub user_contract_tree_state_root: HashOutTarget,
@@ -494,6 +513,8 @@ impl StateReaderGadget {
             checkpoint_state_roots_requests: vec![],
             historical_proofs: vec![],
             clear_entire_tree_requests: vec![],
+            contract_leaf_requests: vec![],
+            contract_leaf_proofs: vec![],
             start_deferred_tx_tree_root: deferred_tx_tree_root,
             end_deferred_tx_tree_root: deferred_tx_tree_root,
             start_contract_state_root: contract_state_root,
@@ -598,6 +619,18 @@ impl StateReaderGadget {
         self.gadget_map.insert(key, ref_key);
         ref_key
     }
+    pub fn insert_contract_leaf_gadget(
+        &mut self,
+        key: StateCommandCacheKey,
+        contract_leaf_gadget: PsyContractLeafGadget,
+        contract_tree_proof: MerkleProofGadget,
+    ) -> StateReaderReferenceKey {
+        let ref_key = StateReaderReferenceKey::new_contract_leaf_key(self.contract_leaf_requests.len());
+        self.contract_leaf_requests.push(contract_leaf_gadget);
+        self.contract_leaf_proofs.push(contract_tree_proof);
+        self.gadget_map.insert(key, ref_key);
+        ref_key
+    }
 
     pub fn insert_checkpoint_stats_gadget(
         &mut self,
@@ -629,6 +662,24 @@ impl StateReaderGadget {
         let g = PsyUserLeafGadget::create_virtual(builder);
         self.insert_user_leaf_gadget(key, g);
         (true, self.user_leaves.last().unwrap())
+    }
+    pub fn resolve_or_insert_contract_leaf_gadget<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
+        &mut self,
+        builder: &mut CircuitBuilder<F, D>,
+        key: StateCommandCacheKey,
+    ) -> (bool, usize) {
+        if let Some(ref_key) = self.gadget_map.get(&key) {
+            if ref_key.gadget_type == StateReaderReferenceKeyType::ContractLeaf {
+                let index = ref_key.gadget_index;
+                return (false, index);
+            }
+        }
+
+        let contract_leaf_gadget = PsyContractLeafGadget::create_virtual::<F, D>(builder);
+        let contract_tree_proof = MerkleProofGadget::add_virtual_to::<H, F, D>(builder, GLOBAL_CONTRACT_TREE_HEIGHT as usize);
+        self.insert_contract_leaf_gadget(key, contract_leaf_gadget, contract_tree_proof);
+        let index = self.contract_leaf_requests.len() - 1;
+        (true, index)
     }
 
     // end resolvers
@@ -1173,6 +1224,40 @@ impl StateReaderGadget {
                 self.deferred_tx_count += 1;
 
                 tx_hash.elements.to_vec()
+            }
+            DPNStateCmd::GetContractLeaf(c) => {
+                let ck = StateCommandCacheKey::new_get_contract_leaf(c.contract_id);
+
+                if let Some(existing_result) = self.result_map.get(&ck) {
+                    existing_result.clone()
+                } else {
+                    let contract_id_target = dpn.resolve_target(c.contract_id);
+
+                    let (is_new, index) =
+                        self.resolve_or_insert_contract_leaf_gadget::<H, F, D>(builder, ck.clone());
+
+                    if is_new {
+                        {
+                            let contract_tree_proof = &self.contract_leaf_proofs[index];
+                            builder.connect_hashes(contract_tree_proof.root, self.chain_state_roots.contract_tree_root);
+                            builder.connect(contract_tree_proof.index, contract_id_target);
+
+                            let contract_leaf_hash = {
+                                let contract_leaf_gadget = &self.contract_leaf_requests[index];
+                                contract_leaf_gadget.to_hash::<H, F, D>(builder)
+                            };
+                            builder.connect_hashes(contract_tree_proof.value, contract_leaf_hash);
+                        }
+
+                        let targets = {
+                            let contract_leaf_gadget = &self.contract_leaf_requests[index];
+                            contract_leaf_gadget.to_targets()
+                        };
+                        self.result_map.insert(ck.clone(), targets);
+                    }
+
+                    self.result_map[&ck].clone()
+                }
             }
             DPNStateCmd::GetCheckpointLeafStats(c) => {
                 let ck = StateCommandCacheKey::new_get_checkpoint_stats(c.checkpoint_id);

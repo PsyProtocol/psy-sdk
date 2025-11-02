@@ -24,10 +24,10 @@ use psy_data::{
         imm::{
             cmd::{
                 QSRCmdGetCheckpointLeafData, QSRCmdGetContractLeafData, QSRMerkleCmd, QSRMerkleCmdGetCheckpointTreeMerkleProof,
-                QSRMerkleCmdGetUserContractStateTreeMerkleProof, QSRMerkleCmdGetUserContractTreeMerkleProof,
+                QSRMerkleCmdGetContractTreeMerkleProof, QSRMerkleCmdGetUserContractStateTreeMerkleProof, QSRMerkleCmdGetUserContractTreeMerkleProof,
             },
             cmd_processor::{
-                DPNCheckpointLeafStatsWitness, DPNClearEntireTreeWitness, DPNInvokeDeferredMethodCallWitness,
+                DPNCheckpointLeafStatsWitness, DPNClearEntireTreeWitness, DPNContractLeafWitness, DPNInvokeDeferredMethodCallWitness,
                 DPNReadOtherUserContractStateLeafMerkleProof, DPNStateCmdWitness, PsyReadCommandProcessorSync, PsyReadCommandProcessorSyncMut,
             },
         },
@@ -1002,6 +1002,31 @@ impl<R: PsyReadCommandProcessorSync<GF> + Send + Sync> PsyCmdInputWitnessResolve
                         }),
                     })
                 }
+            }
+            DPNStateCmd::GetContractLeaf(c) => {
+                let contract_leaf = self
+                    .cmd_store
+                    .resolve_get_contract_leaf_mut(&QSRCmdGetContractLeafData { contract_id: c.contract_id })
+                    .await?;
+
+                let contract_tree_proof = self
+                    .cmd_store
+                    .resolve_get_merkle_proof_mut(&QSRMerkleCmd::GetContractTreeMerkleProof(QSRMerkleCmdGetContractTreeMerkleProof {
+                        checkpoint_id: self.get_current_start_checkpoint_id_u64(),
+                        contract_id: c.contract_id as u32,
+                    }))
+                    .await?;
+
+                let result = contract_leaf.to_qfelts();
+
+                Ok(PsyCmdWithInputAndWitness {
+                    state_cmd: state_cmd.clone(),
+                    result,
+                    witness: DPNStateCmdWitness::ContractLeaf(DPNContractLeafWitness {
+                        contract_leaf,
+                        contract_tree_proof,
+                    }),
+                })
             }
             DPNStateCmd::GetCheckpointLeafStats(c) => {
                 let requested_checkpoint_id = c.checkpoint_id;

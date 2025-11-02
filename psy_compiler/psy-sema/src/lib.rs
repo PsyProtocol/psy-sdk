@@ -240,6 +240,21 @@ impl<F: Clone + From<u32> + ContextFelt, C> AstVisitor<F, C> for TypeChecker<F, 
                     location,
                 }));
             }
+            IntrinsicExprNode::GetContractDeployer { contract_id, location } => {
+                let contract_id = self.visit_expr(contract_id, ctx)?;
+                if !self.unify(contract_id.ty(), FELT_TYPE, ctx) {
+                    return Err(Error::TypeMismatch {
+                        location: contract_id.location(),
+                        expected: vec![FELT_TYPE],
+                        found: contract_id.ty(),
+                    });
+                }
+                return Ok(CheckedExprNode::Intrinsic(CheckedIntrinsicExprNode::GetContractDeployer {
+                    contract_id: self.program.exprs.alloc_item(contract_id),
+                    type_id: HASH_TYPE,
+                    location,
+                }));
+            }
             IntrinsicExprNode::GetCallerContractId { location } => {
                 return Ok(CheckedExprNode::Intrinsic(CheckedIntrinsicExprNode::GetCallerContractId {
                     type_id: FELT_TYPE,
