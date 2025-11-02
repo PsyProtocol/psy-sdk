@@ -1,5 +1,5 @@
 #![feature(min_specialization)]
-pub mod config;
+pub mod args;
 pub mod data;
 pub mod job;
 pub mod json_diff;

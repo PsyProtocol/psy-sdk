@@ -19,11 +19,14 @@ use plonky2::{
     plonk::proof::ProofWithPublicInputs,
 };
 pub use processor_v2::*;
-use psy_core::{
-    config::network_constants::{
+use psy_config::{
+    network_constants::{
         COORDINATOR_USER_TREE_HEIGHT, GLOBAL_CONTRACT_TREE_HEIGHT, GLOBAL_USER_TREE_HEIGHT, MAX_CONTRACT_STATE_TREE_HEIGHT, REALM_USER_TREE_HEIGHT,
         USERS_PER_REALM,
     },
+    GenesisConfigGoldilocks as GenesisConfig,
+};
+use psy_core::{
     data::qhashout::QHashOut,
     job::{
         history_queue::{CheckpointHistoryQueueConsumerAsyncImm, CheckpointHistoryQueueEmitterAsyncImm},
@@ -39,7 +42,7 @@ use psy_crypto::{
     },
 };
 use psy_data::{
-    config::{genesis_config::GenesisConfig, store_config::PsyHasher},
+    config::store_config::PsyHasher,
     guta::api::{GUTARealmCheckpointResult, SubmitGUTARealmResultAPINoProofInput},
     qdata::{checkpoint::CheckpointSyncInfo, user::PsyUserLeaf},
     traits::qdatastore::{qmetadata::QMetaDataStoreWriterSync, qtreedata::QTreeDataStoreWriterSync},
@@ -480,7 +483,7 @@ impl RealmProcessor {
         // Wait for the next checkpoint sync info
         self.sync_checkpoint
             .wait_for_next_item_imm::<CheckpointSyncInfo<F>>(
-                psy_core::config::network_constants::PSY_CHECKPOINT_SYNC_INFO_COMPACT_DRAIN_QUEUE_CHANNEL,
+                psy_config::network_constants::PSY_CHECKPOINT_SYNC_INFO_COMPACT_DRAIN_QUEUE_CHANNEL,
                 expected_checkpoint,
             )
             .await
@@ -619,7 +622,7 @@ impl RealmProcessor {
         Ok(state.checkpoint_id)
     }
 
-    pub async fn initialize_store(store: &PsyStore, genesis_config: Option<GenesisConfig<GoldilocksField>>, realm_id: u32) -> anyhow::Result<()> {
+    pub async fn initialize_store(store: &PsyStore, genesis_config: Option<GenesisConfig>, realm_id: u32) -> anyhow::Result<()> {
         if let Some(genesis_config) = genesis_config {
             info!("Processing genesis state for realm {}", realm_id);
 
@@ -673,7 +676,7 @@ impl RealmProcessor {
                 }
 
                 let user_leaf = PsyUserLeaf {
-                    public_key: genesis_users[register_id as usize].get_public_key::<PsyHasher>(),
+                    public_key: genesis_users[register_id as usize].qfhash::<PsyHasher>(),
                     user_state_tree_root: user_contract_tree_root,
                     balance: F::ZERO,
                     nonce: F::ZERO,
@@ -719,7 +722,14 @@ impl RealmProcessor {
     }
 
     async fn initialize_genesis_state(&self) -> anyhow::Result<()> {
-        let genesis_config = GenesisConfig::from_path(&self.config_path)?;
+        let config = psy_config::PsyConfigGoldilocks::from_file("config.json")?;
+        let network = config.get_current_network()?;
+        let genesis_config = if let Some(genesis) = &network.genesis {
+            let genesis_json = serde_json::to_string(genesis)?;
+            Some(GenesisConfig::from_json(&genesis_json)?)
+        } else {
+            None
+        };
         Self::initialize_store(&self.store, genesis_config, self.realm_config.realm_id).await
     }
 

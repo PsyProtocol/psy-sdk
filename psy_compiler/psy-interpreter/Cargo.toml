@@ -22,6 +22,7 @@ ariadne = { workspace = true }
 tokio = { workspace = true }
 psy_data = { workspace = true }
 psy_core = { workspace = true }
+psy_config = { workspace = true }
 psy_common_circuit = { workspace = true }
 psy_store = { workspace = true }
 

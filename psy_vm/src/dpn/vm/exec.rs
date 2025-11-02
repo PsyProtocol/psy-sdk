@@ -2,7 +2,7 @@ use plonky2::{
     hash::{hash_types::RichField, poseidon::PoseidonHash},
     plonk::config::Hasher,
 };
-use psy_core::config::network_constants::DEFAULT_CALLER_CONTRACT_ID_U64;
+use psy_config::network_constants::DEFAULT_CALLER_CONTRACT_ID_U64;
 
 use crate::dpn::ops::op_types::{decode_indexed_op_id, DPNBuiltInDataType, DPNIndexedVarDef, DPNOpType};
 

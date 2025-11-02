@@ -17,7 +17,7 @@ members = [
     "psy_cli/psy_user_cli",
     "psy_cli/psy_node_cli",
     "psy_cli/psy_dev_cli",
-    "psy_precompiles",
+    "psy_compiler/psy-precompiles",
     "psy_compiler/psy-fmt",
     "psy_compiler/psy-lsp-server",
     "psy_compiler/psy-parser",
@@ -30,6 +30,7 @@ members = [
     "psy_compiler/psy-dargo-cli",
     "psy_services",
     "psy_sdk/psy-rust-sdk",
+    "psy_types/psy_config",
 ]
 resolver = "2"
 
@@ -232,6 +233,7 @@ psy_crypto = { path = "./psy_types/psy_crypto" }
 psy_store = { path = "./psy_store", default-features = false}
 psy_data = { path = "./psy_types/psy_data", default-features = false}
 psy_core = { path = "./psy_types/psy_core" }
+psy_config = { path = "./psy_types/psy_config" }
 psy_node = { path = "./psy_node" }
 psy_prover = { path = "./psy_prover", default-features = false }
 psy_common_circuit = { path = "./psy_circuit/psy_common_circuit", default-features = false}
@@ -239,7 +241,7 @@ psy_dpn_circuit = { path = "./psy_circuit/psy_dpn_circuit", default-features = f
 psy_ups_circuit = { path = "./psy_circuit/psy_ups_circuit", default-features = false}
 kvq = { path = "./psy_types/kvq" }
 psy_network_circuit = { path = "./psy_circuit/psy_network_circuit", default-features = false}
-psy_precompiles = { path = "./psy_precompiles" , default-features = false}
+psy-precompiles = { path = "./psy-precompiles" , default-features = false}
 
 psy-ast = { path = "./psy_compiler/psy-ast" }
 psy-fmt = { path = "./psy_compiler/psy-fmt" }
@@ -254,6 +256,7 @@ dargo = { path = "./psy_compiler/psy-dargo-cli" }
 psy-abi = { path = "./psy_compiler/psy-abi" }
 psy_services = { path = "./psy_services" }
 psy_rust_sdk = { path = "./psy_sdk/psy-rust-sdk" }
+psy_provider = { path = "./psy_provider" }
 
 serial_test = "3.2"
 
@@ -306,6 +309,7 @@ strum_macros = "0.27"
 # AWS dependencies
 aws-config = "1.0"
 aws-sdk-s3 = "1.0"
+
 
 [profile.release]
 debug = false

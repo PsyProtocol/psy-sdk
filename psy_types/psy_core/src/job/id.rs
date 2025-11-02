@@ -52,8 +52,10 @@ impl<T: QProofStoreAsyncImm> QJobRewardDataProvider for T {
         }))
     }
 }
+// Avoid circular dependency by hardcoding this constant
+const REALM_PROCESSOR_TO_EDGE_CHANNEL: u64 = 0x524C4D50524F4F46;
+
 use crate::{
-    config::network_constants::REALM_PROCESSOR_TO_EDGE_CHANNEL,
     data::qhashout::QHashOut,
     job::{
         drain_queue::{DrainQueueMetadata, DrainQueueMetadataTagged},

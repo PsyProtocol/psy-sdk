@@ -621,8 +621,8 @@ impl CoordinatorEdgeHandler {
 use async_trait::async_trait;
 use jsonrpsee::core::RpcResult;
 use plonky2::field::goldilocks_field::GoldilocksField;
-use psy_core::config::network_constants::COORDINATOR_USER_TREE_HEIGHT;
-use psy_rust_sdk::{
+use psy_config::network_constants::COORDINATOR_USER_TREE_HEIGHT;
+use psy_provider::{
     request::{QDeployContractRPCRequest, QRegisterUserRPCRequest},
     wallet::secp_sign::SignedRequest,
 };

@@ -23,6 +23,7 @@ async-trait = { workspace = true }
 maybe-async = { workspace = true }
 tracing = { workspace = true }
 
+psy_config = { workspace = true }
 psy_core = { workspace = true }
 psy_data = { workspace = true, default-features = false }
 psy_crypto = { workspace = true }

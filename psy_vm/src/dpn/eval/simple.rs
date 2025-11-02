@@ -1,5 +1,5 @@
 use hashbrown::HashMap;
-use psy_core::config::network_constants::DEFAULT_CALLER_CONTRACT_ID_U64;
+use psy_config::network_constants::DEFAULT_CALLER_CONTRACT_ID_U64;
 
 use super::traits::ContextInput;
 

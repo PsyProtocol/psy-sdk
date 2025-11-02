@@ -9,8 +9,8 @@ use plonky2::{
         proof::ProofWithPublicInputs,
     },
 };
+use psy_config::get_default_worker_public_key;
 use psy_core::{
-    config::network_constants::get_default_worker_public_key,
     data::qhashout::QHashOut,
     job::{id::QProvingJobDataID, traits::QProofStore},
 };

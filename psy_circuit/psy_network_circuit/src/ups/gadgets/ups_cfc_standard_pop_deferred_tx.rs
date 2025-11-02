@@ -5,7 +5,7 @@ use plonky2::{
     plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher},
 };
 use psy_common_circuit::{hash::merkle::gadgets::delta_merkle_proof::DeltaMerkleProofGadget, traits::WitnessValueFor};
-use psy_core::config::network_constants::DEFERRED_TRANSACTION_TREE_HEIGHT;
+use psy_config::network_constants::DEFERRED_TRANSACTION_TREE_HEIGHT;
 use psy_crypto::hash::traits::hasher::MerkleZeroHasher;
 use psy_data::ups::ups_standard_cfc_input::UPSVerifyPopDeferredTxStepInput;
 

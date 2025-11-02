@@ -2,10 +2,7 @@ use std::time::Instant;
 
 use anyhow::Result;
 use kvq::traits::{KVQBinaryStore, KVQBinaryStoreAsync, KVQPair};
-use psy_store::store::{
-    lmdbx::KVQlibmdbxStore,
-    scylla::{kvq_store::ScyllaKVQStore, ScyllaStore},
-};
+use psy_store::store::{scylla::kvq_store::ScyllaKVQStore, KVQlibmdbxStore};
 use tempfile::TempDir;
 
 mod common;
@@ -124,14 +121,14 @@ async fn test_performance_small_dataset() -> Result<()> {
     println!("\n--- MDBX Single Operations ---");
     let start = Instant::now();
     for i in 0..count {
-        mdbx_store.set(keys[i].clone(), values[i].clone())?;
+        <KVQlibmdbxStore as KVQBinaryStore>::set_ref(&mdbx_store, &keys[i], &values[i])?;
     }
     let mdbx_insert = start.elapsed().as_secs_f64();
     println!("Insert: {:.3}s ({:.0} ops/sec)", mdbx_insert, count as f64 / mdbx_insert);
 
     let start = Instant::now();
     for i in 0..count {
-        let _ = mdbx_store.get_exact(&keys[i])?;
+        let _ = <KVQlibmdbxStore as KVQBinaryStore>::get_exact(&mdbx_store, &keys[i])?;
     }
     let mdbx_read = start.elapsed().as_secs_f64();
     println!("Read: {:.3}s ({:.0} ops/sec)", mdbx_read, count as f64 / mdbx_read);
@@ -180,7 +177,7 @@ async fn test_performance_fuzzy_search() -> Result<()> {
     scylla_store.set_many_ref(&items).await?;
 
     for i in 0..count {
-        mdbx_store.set(keys[i].clone(), values[i].clone())?;
+        <KVQlibmdbxStore as KVQBinaryStore>::set_ref(&mdbx_store, &keys[i], &values[i])?;
     }
 
     let query_keys: Vec<Vec<u8>> = (0..1000)
@@ -196,7 +193,7 @@ async fn test_performance_fuzzy_search() -> Result<()> {
     println!("\n--- MDBX Fuzzy Search ---");
     let start = Instant::now();
     for key in &query_keys {
-        let _ = mdbx_store.get_leq(key, 4)?;
+        let _ = <KVQlibmdbxStore as KVQBinaryStore>::get_leq(&mdbx_store, key, 4)?;
     }
     let mdbx_fuzzy = start.elapsed().as_secs_f64();
     println!("get_leq (1000 queries): {:.3}s ({:.0} ops/sec)", mdbx_fuzzy, 1000.0 / mdbx_fuzzy);

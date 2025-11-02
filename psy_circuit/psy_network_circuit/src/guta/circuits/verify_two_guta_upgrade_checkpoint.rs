@@ -17,8 +17,8 @@ use psy_common_circuit::{
     proof_minifier::{pm_chain_dynamic::PsyProofMinifierDynamicChain, pm_core::get_circuit_fingerprint_generic},
     traits::{CreatableTarget, ToTargets},
 };
+use psy_config::network_constants::CHECKPOINT_TREE_HEIGHT;
 use psy_core::{
-    config::network_constants::CHECKPOINT_TREE_HEIGHT,
     data::qhashout::QHashOut,
     job::{id::QProvingJobDataID, traits::QProofStoreReaderAsync},
 };

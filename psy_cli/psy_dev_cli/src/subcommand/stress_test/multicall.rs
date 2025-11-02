@@ -5,7 +5,8 @@ use num_cpus;
 use parking_lot::RwLock;
 use plonky2::field::goldilocks_field::GoldilocksField;
 use psy_common_circuit::circuits::zk_signature3::manager::SimplePsyZKSignatureManager;
-use psy_core::{config::network_constants::MAX_CONTRACT_STATE_TREE_HEIGHT, data::qhashout::QHashOut};
+use psy_config::network_constants::MAX_CONTRACT_STATE_TREE_HEIGHT;
+use psy_core::data::qhashout::QHashOut;
 use psy_crypto::{hash::traits::qhashable::QFieldHashable, signature::zk::wallet::SimplePsyPrivateKey};
 use psy_data::config::store_config::{PsyHasher, C, D};
 use psy_prover::{
@@ -21,7 +22,7 @@ use scheduled_thread_pool::ScheduledThreadPool;
 use tracing::log::{error, info};
 
 use crate::subcommand::{
-    stress_test::{load_rpc_config, wait_for_new_block, RpcConfig},
+    stress_test::{load_rpc_config, wait_for_new_block, NetworkConfig},
     StressTestArgs,
 };
 
@@ -85,11 +86,11 @@ struct UserInfo {
 pub struct Multicast {
     wallet_session: Arc<RwLock<WalletSession>>,
     pool: ScheduledThreadPool,
-    rpc_config: RpcConfig,
+    rpc_config: NetworkConfig<GoldilocksField>,
 }
 
 impl Multicast {
-    pub async fn new(rpc_config: RpcConfig) -> Result<Self> {
+    pub async fn new(rpc_config: NetworkConfig<GoldilocksField>) -> Result<Self> {
         let wallet_session = Arc::new(RwLock::new(WalletSession::new(&rpc_config).await?));
         let pool = ScheduledThreadPool::new(num_cpus::get());
         Ok(Self {
@@ -332,7 +333,7 @@ impl Multicast {
         let mint_amount = 250000000000u64;
         let (from_user_id, public_key0) = self.init_user0(mint_amount).await?;
         if contract_path.is_empty() {
-            contract_path = "./psy_precompiles/token/target/token.json".to_string();
+            contract_path = "./psy-precompiles/token/target/token.json".to_string();
         }
         info!("deploying contract from {}", contract_path.clone());
         let defs_array: Vec<DPNFunctionCircuitDefinition> = serde_json::from_str(&fs::read_to_string(contract_path)?)?;

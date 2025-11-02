@@ -9,7 +9,7 @@ use crate::dpn::ops::context_trait::{ContextFelt, ToFelts};
 
 // Constants for field sizes
 const PM_REWARD_COMMITMENT_SIZE: usize = 12; // 3 roots * 4 field elements each
-const DA_CHALLENGE_WINDOW: usize = 14; // Matching psy_core::config::network_constants::DA_CHALLENGE_WINDOW
+const DA_CHALLENGE_WINDOW: usize = 14; // Matching psy_config::network_constants::DA_CHALLENGE_WINDOW
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Hash, PartialOrd, Ord, Eq, Copy, TS)]
 #[ts(export, concrete(T = GoldilocksField))]

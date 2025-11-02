@@ -7,8 +7,8 @@ use plonky2::{
     plonk::config::PoseidonGoldilocksConfig,
 };
 use psy_common_circuit::circuits::{traits::qstandard::QStandardCircuit, zk_signature3::manager::SimplePsyZKSignatureManager};
+use psy_config::{network_constants::UPS_SESSION_PROOF_TREE_HEIGHT, PSY_NETWORK_MAGIC};
 use psy_core::{
-    config::network_constants::{PSY_NETWORK_MAGIC_REGTEST, UPS_SESSION_PROOF_TREE_HEIGHT},
     data::qhashout::QHashOut,
     job::traits::{QProofStoreAsyncImm, QProofStoreReaderAsync},
     ups::circuits::LocalCircuitType,
@@ -38,7 +38,7 @@ use psy_node::{
     },
     worker::{simple_async_coord::SimpleAsyncCoordinatorWorker, simple_async_realm::SimpleAsyncRealmWorker},
 };
-use psy_rust_sdk::provider::UPSCircuitManagerTrait;
+use psy_rust_sdk::common::UPSCircuitManagerTrait;
 use psy_store::{
     node::coordinator::{PsyCoordinatorStoreReaderAsync, PsyCoordinatorStoreWriterAsyncImm},
     queue::{
@@ -89,7 +89,7 @@ async fn run_test3() -> anyhow::Result<()> {
     let proof_verifier = Arc::new(get_cached_generic_verifier::<C, D>());
     timer.lap("created proof verifier");
 
-    use psy_core::config::network_constants::get_default_worker_public_key;
+    use psy_config::get_default_worker_public_key;
     let coordinator_worker_circuits =
         PsyCoordinatorCircuitManager::<C, D>::new_with_library(&proof_verifier.library, get_default_worker_public_key::<GoldilocksField>());
 
@@ -217,7 +217,7 @@ async fn run_test3() -> anyhow::Result<()> {
 
     timer.lap("start: init PsyUPSStepCircuitManager");
 
-    let main_circuits = QCircuitManager::Local(PsyUPSStepCircuitManager::<C, D>::new_with_config(PSY_NETWORK_MAGIC_REGTEST));
+    let main_circuits = QCircuitManager::Local(PsyUPSStepCircuitManager::<C, D>::new_with_config(PSY_NETWORK_MAGIC));
     //main_circuits.print_common_config();
 
     timer.lap("end: init PsyUPSStepCircuitManager");

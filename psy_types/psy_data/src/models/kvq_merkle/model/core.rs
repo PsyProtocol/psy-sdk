@@ -1018,7 +1018,8 @@ pub trait KVQMerkleTreeModelCore<
 mod tests {
     use kvq::{memory::simple::KVQSimpleMemoryBackingStore, traits::KVQPair};
     use plonky2::field::goldilocks_field::GoldilocksField;
-    use psy_core::{config::network_constants::GLOBAL_USER_TREE_HEIGHT, data::qhashout::QHashOut};
+    use psy_config::network_constants::GLOBAL_USER_TREE_HEIGHT;
+    use psy_core::data::qhashout::QHashOut;
 
     use super::*;
     use crate::{

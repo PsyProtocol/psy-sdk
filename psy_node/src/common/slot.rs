@@ -1,6 +1,6 @@
 use auto_impl::auto_impl;
 use chrono::Utc;
-pub use psy_core::config::network_constants::{NETWORK_COST_TIME_MS, REALM_SLOT_SIZE_MS, SLOT0, SLOT0_TIMESTAMP, SLOT_SIZE};
+pub use psy_config::network_constants::{NETWORK_COST_TIME_MS, REALM_SLOT_SIZE_MS, SLOT0, SLOT0_TIMESTAMP, SLOT_SIZE};
 
 #[auto_impl(&, Box, Arc)]
 pub trait Clock {

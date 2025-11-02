@@ -1,7 +1,7 @@
 use anyhow::Result;
 use kvq::traits::{KVQBinaryStore, KVQBinaryStoreAsync, KVQSerializable};
 use psy_data::{config::store_config::*, models::kvq_merkle::key::KVQMerkleNodeKey, qdata::u64_key::U64TableKey};
-use psy_store::store::{lmdbx::KVQlibmdbxStore, scylla::ScyllaStore};
+use psy_store::store::{scylla::scylla_store::ScyllaStore, KVQlibmdbxStore};
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn test_comprehensive_consistency() -> Result<()> {
@@ -43,7 +43,7 @@ async fn test_comprehensive_consistency() -> Result<()> {
             let key_bytes = key.to_bytes()?;
             let value = format!("checkpoint_{}_dataset_{}", id, dataset).into_bytes();
 
-            mdbx_store.set_ref(&key_bytes, &value)?;
+            <KVQlibmdbxStore as KVQBinaryStoreAsync>::set_ref(&mdbx_store, &key_bytes, &value).await?;
             <ScyllaStore as KVQBinaryStoreAsync>::set_ref(&scylla_store, &key_bytes, &value).await?;
         }
 
@@ -56,7 +56,7 @@ async fn test_comprehensive_consistency() -> Result<()> {
                 let query_key = U64TableKey::<CHECKPOINT_BLOCK_STATE_TABLE_TYPE>(query_id);
                 let query_bytes = query_key.to_bytes()?;
 
-                let mdbx_result = mdbx_store.get_leq(&query_bytes, fuzzy_bytes)?;
+                let mdbx_result = <KVQlibmdbxStore as KVQBinaryStoreAsync>::get_leq(&mdbx_store, &query_bytes, fuzzy_bytes).await?;
                 let scylla_result = <ScyllaStore as KVQBinaryStoreAsync>::get_leq(&scylla_store, &query_bytes, fuzzy_bytes).await?;
 
                 total_tests += 1;
@@ -98,7 +98,7 @@ async fn test_comprehensive_consistency() -> Result<()> {
                     let key_bytes = node_key.to_bytes()?;
                     let value = format!("tree_node_{}_{}_{}", level, index, checkpoint_id).into_bytes();
 
-                    mdbx_store.set_ref(&key_bytes, &value)?;
+                    <KVQlibmdbxStore as KVQBinaryStoreAsync>::set_ref(&mdbx_store, &key_bytes, &value).await?;
                     <ScyllaStore as KVQBinaryStoreAsync>::set_ref(&scylla_store, &key_bytes, &value).await?;
                 }
             }
@@ -123,7 +123,7 @@ async fn test_comprehensive_consistency() -> Result<()> {
 
                 let query_bytes = query_key.to_bytes()?;
 
-                let mdbx_result = mdbx_store.get_leq(&query_bytes, fuzzy_bytes)?;
+                let mdbx_result = <KVQlibmdbxStore as KVQBinaryStoreAsync>::get_leq(&mdbx_store, &query_bytes, fuzzy_bytes).await?;
                 let scylla_result = <ScyllaStore as KVQBinaryStoreAsync>::get_leq(&scylla_store, &query_bytes, fuzzy_bytes).await?;
 
                 total_tests += 1;
@@ -159,7 +159,7 @@ async fn test_comprehensive_consistency() -> Result<()> {
 
                 let value = format!("user_{}_v{}", user_id, version).into_bytes();
 
-                mdbx_store.set_ref(&key, &value)?;
+                <KVQlibmdbxStore as KVQBinaryStoreAsync>::set_ref(&mdbx_store, &key, &value).await?;
                 <ScyllaStore as KVQBinaryStoreAsync>::set_ref(&scylla_store, &key, &value).await?;
             }
         }
@@ -175,7 +175,7 @@ async fn test_comprehensive_consistency() -> Result<()> {
                 query_key.extend_from_slice(&query_user.to_be_bytes());
                 query_key.extend_from_slice(&query_version.to_be_bytes());
 
-                let mdbx_result = mdbx_store.get_leq(&query_key, fuzzy_bytes)?;
+                let mdbx_result = <KVQlibmdbxStore as KVQBinaryStoreAsync>::get_leq(&mdbx_store, &query_key, fuzzy_bytes).await?;
                 let scylla_result = <ScyllaStore as KVQBinaryStoreAsync>::get_leq(&scylla_store, &query_key, fuzzy_bytes).await?;
 
                 total_tests += 1;
@@ -211,7 +211,7 @@ async fn test_comprehensive_consistency() -> Result<()> {
 
                 let value = format!("pubkey_user_{}_v{}", user_id, key_version).into_bytes();
 
-                mdbx_store.set_ref(&key, &value)?;
+                <KVQlibmdbxStore as KVQBinaryStoreAsync>::set_ref(&mdbx_store, &key, &value).await?;
                 <ScyllaStore as KVQBinaryStoreAsync>::set_ref(&scylla_store, &key, &value).await?;
             }
         }
@@ -227,7 +227,7 @@ async fn test_comprehensive_consistency() -> Result<()> {
                 query_key.extend_from_slice(&query_user.to_be_bytes());
                 query_key.extend_from_slice(&query_version.to_be_bytes());
 
-                let mdbx_result = mdbx_store.get_leq(&query_key, fuzzy_bytes)?;
+                let mdbx_result = <KVQlibmdbxStore as KVQBinaryStoreAsync>::get_leq(&mdbx_store, &query_key, fuzzy_bytes).await?;
                 let scylla_result = <ScyllaStore as KVQBinaryStoreAsync>::get_leq(&scylla_store, &query_key, fuzzy_bytes).await?;
 
                 total_tests += 1;
@@ -255,7 +255,7 @@ async fn test_comprehensive_consistency() -> Result<()> {
         query_key[0] = 0;
         query_key[1] = USER_LEAF_TABLE_TYPE as u8;
 
-        let mdbx_result = mdbx_store.get_leq(&query_key, fuzzy_bytes)?;
+        let mdbx_result = <KVQlibmdbxStore as KVQBinaryStoreAsync>::get_leq(&mdbx_store, &query_key, fuzzy_bytes).await?;
         let scylla_result = <ScyllaStore as KVQBinaryStoreAsync>::get_leq(&scylla_store, &query_key, fuzzy_bytes).await?;
 
         total_tests += 1;
@@ -272,13 +272,13 @@ async fn test_comprehensive_consistency() -> Result<()> {
     // Insert boundary values
     let boundary_key = vec![0x00, 0x0A, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x01];
     let boundary_value = b"boundary".to_vec();
-    mdbx_store.set_ref(&boundary_key, &boundary_value)?;
+    <KVQlibmdbxStore as KVQBinaryStoreAsync>::set_ref(&mdbx_store, &boundary_key, &boundary_value).await?;
     <ScyllaStore as KVQBinaryStoreAsync>::set_ref(&scylla_store, &boundary_key, &boundary_value).await?;
 
     // Query at boundary
     let query_boundary = vec![0x00, 0x0A, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x02];
     for fuzzy_bytes in [0, 4, 8, 12] {
-        let mdbx_result = mdbx_store.get_leq(&query_boundary, fuzzy_bytes)?;
+        let mdbx_result = <KVQlibmdbxStore as KVQBinaryStoreAsync>::get_leq(&mdbx_store, &query_boundary, fuzzy_bytes).await?;
         let scylla_result = <ScyllaStore as KVQBinaryStoreAsync>::get_leq(&scylla_store, &query_boundary, fuzzy_bytes).await?;
 
         total_tests += 1;

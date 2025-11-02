@@ -4,7 +4,8 @@ use plonky2::{
     iop::witness::Witness,
     plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher},
 };
-use psy_core::{config::network_constants::get_default_worker_public_key, data::qhashout::QHashOut};
+use psy_config::get_default_worker_public_key;
+use psy_core::data::qhashout::QHashOut;
 use psy_data::{guta::proof_input::GUTARegisterUserFullInput, qdata::user::PsyUserLeaf};
 
 use super::{guta_header::GlobalUserTreeAggregatorHeaderGadget, guta_register_users::GUTARegisterUsersGadget, helpers::ToGUTAHeader};

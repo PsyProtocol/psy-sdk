@@ -1,9 +1,13 @@
-pub mod request;
-pub mod session;
-pub mod wallet;
+// Re-export core types and constants
+pub use psy_config::network_constants;
+pub use psy_core;
+pub use psy_crypto;
+// Re-export provider functionality
+pub use psy_provider::{common, request};
+// Re-export provider functionality (native only)
+#[cfg(not(target_arch = "wasm32"))]
+pub use psy_provider::{lps, provider, session, wallet};
 
-// These modules use async/await and are only available for native
-// #[cfg(not(target_arch = "wasm32"))]
-pub mod provider;
-// #[cfg(not(target_arch = "wasm32"))]
-pub mod lps;
+// WASM module
+#[cfg(target_arch = "wasm32")]
+pub mod wasm;

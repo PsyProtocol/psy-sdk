@@ -11,10 +11,8 @@ use psy_common_circuit::circuits::{
     secp256k1_signature::Secp256K1SignatureCircuit, traits::qstandard::QStandardCircuit, zk_signature::inner,
     zk_signature3::core::PsyBasicZKSignatureCircuit,
 };
-use psy_core::{
-    config::network_constants::UPS_SESSION_PROOF_TREE_HEIGHT,
-    data::{alt::AltVerifierOnlyCircuitData, base_types::hash256::Hash256, qhashout::QHashOut, secp256k1::CompressedPublicKey},
-};
+use psy_config::network_constants::UPS_SESSION_PROOF_TREE_HEIGHT;
+use psy_core::data::{alt::AltVerifierOnlyCircuitData, base_types::hash256::Hash256, qhashout::QHashOut, secp256k1::CompressedPublicKey};
 use psy_crypto::{
     common::witnesses::qrecursion::{
         header::QRecursionAggStandardHeader,
@@ -37,9 +35,12 @@ use psy_data::{
     },
 };
 use psy_dpn_circuit::circuits::cfc::DapenContractFunctionCircuit;
+use psy_provider::request::{QSoftwareDefinedSignatureInput, QSoftwareDefinedSignatureWitnessInput};
 // use crate::local::provider::LocalCommonCircuitsData;
-use psy_rust_sdk::provider::{QCommonCircuitData, RpcConfig, RpcProvider, UPSCircuitManagerTrait};
-use psy_rust_sdk::wallet::software_defined_circuit::{QSoftwareDefinedSignatureInput, QSoftwareDefinedSignatureWitnessInput};
+use psy_provider::{
+    common::UPSCircuitManagerTrait,
+    provider::{NetworkConfig, QCommonCircuitData, RpcProvider},
+};
 use psy_ups_circuit::circuit_manager::core::PsyUPSStepCircuitManager;
 use psy_vm::{dpn::contract::cfc_code_definition_to_dapen_fc, vm::cfc_input::DapenContractFunctionCircuitInput};
 use serde::{Deserialize, Deserializer, Serialize};
@@ -232,7 +233,7 @@ pub struct ProveProxyServerProvider {
 }
 
 impl ProveProxyServerProvider {
-    pub async fn new_with_config(rpc_config: RpcConfig, network_magic: u64) -> anyhow::Result<Self> {
+    pub async fn new_with_config(rpc_config: psy_config::NetworkConfigGoldilocks, network_magic: u64) -> anyhow::Result<Self> {
         use psy_common_circuit::circuits::traits::qstandard::QStandardCircuit;
         use psy_core::ups::circuits::LocalCircuitType;
         use psy_data::qstore::controllers::session_info::SessionCircuitInfoStore;

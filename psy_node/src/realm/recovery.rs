@@ -1,12 +1,10 @@
 use anyhow::{Context, Result};
 use kvq::traits::{KVQBinaryStore, KVQPair};
 use plonky2::field::goldilocks_field::GoldilocksField;
+use psy_config::GenesisConfigGoldilocks as GenesisConfig;
 use psy_crypto::common::user_id::get_user_id_from_registration_id;
 use psy_data::{
-    config::{
-        genesis_config::GenesisConfig,
-        store_config::{CheckpointSyncInfoTableStore, QCheckpointSyncInfoCompact},
-    },
+    config::store_config::{CheckpointSyncInfoTableStore, QCheckpointSyncInfoCompact},
     models::checkpoint::sync_info::PsyCheckpointSyncInfoModelReaderCore,
 };
 use psy_store::{
@@ -71,7 +69,14 @@ impl RealmRecoveryManager {
         // Determine which checkpoint to recover to
         let target = target_checkpoint.unwrap_or(recovery_info.latest_checkpoint);
 
-        let genesis_config = GenesisConfig::<GoldilocksField>::from_path(&self.config_path)?;
+        let config = psy_config::PsyConfigGoldilocks::from_file("config.json")?;
+        let network = config.get_current_network()?;
+        let genesis_config = if let Some(genesis) = &network.genesis {
+            let genesis_json = serde_json::to_string(genesis)?;
+            Some(GenesisConfig::from_json(&genesis_json)?)
+        } else {
+            None
+        };
         RealmProcessor::initialize_store(&self.psy_store, genesis_config, self.realm_id).await?;
 
         info!("⚡ Recovering realm {} from checkpoint 0 to {}", self.realm_id, target);
@@ -205,7 +210,7 @@ impl RealmRecoveryManager {
     // Helper method to check if a user ID belongs to this realm
     // This logic should match RealmConfig::includes_user_id
     fn includes_user_id(&self, user_id: u64) -> bool {
-        let users_per_realm = 1usize << (psy_core::config::network_constants::REALM_USER_TREE_HEIGHT as usize);
+        let users_per_realm = 1usize << (psy_config::network_constants::REALM_USER_TREE_HEIGHT as usize);
         let r64 = self.realm_id as u64;
         user_id >= r64 * (users_per_realm as u64) && user_id < (r64 + 1) * (users_per_realm as u64)
     }

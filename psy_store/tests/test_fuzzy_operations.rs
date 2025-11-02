@@ -3,7 +3,7 @@ use std::sync::Arc;
 use anyhow::Result;
 use kvq::traits::{KVQBinaryStore, KVQBinaryStoreAsync, KVQPair};
 use psy_data::config::store_config::*;
-use psy_store::store::{lmdbx::KVQlibmdbxStore, scylla::ScyllaStore};
+use psy_store::store::{scylla::ScyllaStore, KVQlibmdbxStore};
 
 // Helper function to construct keys based on table type
 fn construct_key(table_type: u16, key_suffix: &[u8]) -> Vec<u8> {
@@ -57,7 +57,7 @@ async fn test_get_leq_consistency() -> Result<()> {
         let key = construct_key(table_type, &key_suffix);
         let value = format!("user_data_v{}", version).into_bytes();
 
-        mdbx_store.set_ref(&key, &value)?;
+        <KVQlibmdbxStore as KVQBinaryStore>::set_ref(&mdbx_store, &key, &value)?;
         <ScyllaStore as KVQBinaryStoreAsync>::set_ref(&scylla_store, &key, &value).await?;
 
         println!("   Inserted version {} - key: {:?}", version, key);
@@ -71,7 +71,7 @@ async fn test_get_leq_consistency() -> Result<()> {
         key_suffix.extend_from_slice(&version.to_be_bytes());
         let key = construct_key(table_type, &key_suffix);
 
-        let mdbx_result = mdbx_store.get_leq(&key, 0)?;
+        let mdbx_result = <KVQlibmdbxStore as KVQBinaryStore>::get_leq(&mdbx_store, &key, 0)?;
         let scylla_result = <ScyllaStore as KVQBinaryStoreAsync>::get_leq(&scylla_store, &key, 0).await?;
 
         println!(
@@ -102,7 +102,7 @@ async fn test_get_leq_consistency() -> Result<()> {
         let key = construct_key(table_type, &key_suffix);
 
         // Use fuzzy_bytes = 4 to allow matching on the last 4 bytes (version field)
-        let mdbx_result = mdbx_store.get_leq(&key, 4)?;
+        let mdbx_result = <KVQlibmdbxStore as KVQBinaryStore>::get_leq(&mdbx_store, &key, 4)?;
         let scylla_result = <ScyllaStore as KVQBinaryStoreAsync>::get_leq(&scylla_store, &key, 4).await?;
 
         let mdbx_str = mdbx_result.as_ref().map(|v| String::from_utf8_lossy(v));
@@ -167,7 +167,7 @@ async fn test_get_fuzzy_range_leq_kv_consistency() -> Result<()> {
 
         let value = vec![i * 10, i * 10 + 1, i * 10 + 2];
 
-        mdbx_store.set_ref(&full_key, &value)?;
+        <KVQlibmdbxStore as KVQBinaryStore>::set_ref(&mdbx_store, &full_key, &value)?;
         <ScyllaStore as KVQBinaryStoreAsync>::set_ref(&scylla_store, &full_key, &value).await?;
 
         println!("   Inserted entry {} - key: {:?}, value: {:?}", i, full_key, value);
@@ -200,7 +200,7 @@ async fn test_get_fuzzy_range_leq_kv_consistency() -> Result<()> {
     for (query_key, expected_count) in test_keys {
         println!("\n   Testing query key: {:?}", query_key);
 
-        let mdbx_results = mdbx_store.get_fuzzy_range_leq_kv(&query_key, 1)?;
+        let mdbx_results = <KVQlibmdbxStore as KVQBinaryStore>::get_fuzzy_range_leq_kv(&mdbx_store, &query_key, 1)?;
         let scylla_results = <ScyllaStore as KVQBinaryStoreAsync>::get_fuzzy_range_leq_kv(&scylla_store, &query_key, 1).await?;
 
         println!("   LibMDBX returned {} entries", mdbx_results.len());
@@ -237,7 +237,7 @@ async fn test_get_fuzzy_range_leq_kv_consistency() -> Result<()> {
         0x00, 0x02, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
     ];
 
-    let mdbx_empty = mdbx_store.get_fuzzy_range_leq_kv(&non_existent_key, 1)?;
+    let mdbx_empty = <KVQlibmdbxStore as KVQBinaryStore>::get_fuzzy_range_leq_kv(&mdbx_store, &non_existent_key, 1)?;
     let scylla_empty = <ScyllaStore as KVQBinaryStoreAsync>::get_fuzzy_range_leq_kv(&scylla_store, &non_existent_key, 1).await?;
 
     println!(
@@ -288,7 +288,7 @@ async fn test_checkpoint_tree_fuzzy_operations() -> Result<()> {
 
         let value = format!("checkpoint_at_{}", height).into_bytes();
 
-        mdbx_store.set_ref(&key, &value)?;
+        <KVQlibmdbxStore as KVQBinaryStore>::set_ref(&mdbx_store, &key, &value)?;
         <ScyllaStore as KVQBinaryStoreAsync>::set_ref(&scylla_store, &key, &value).await?;
 
         println!("   Created checkpoint at height {}", height);
@@ -307,7 +307,7 @@ async fn test_checkpoint_tree_fuzzy_operations() -> Result<()> {
 
         // Use fuzzy_bytes = 12 to match on tree_id + height (ignoring node_id)
         let fuzzy_bytes = 12;
-        let mdbx_result = mdbx_store.get_leq(&query_key, fuzzy_bytes)?;
+        let mdbx_result = <KVQlibmdbxStore as KVQBinaryStore>::get_leq(&mdbx_store, &query_key, fuzzy_bytes)?;
         let scylla_result = <ScyllaStore as KVQBinaryStoreAsync>::get_leq(&scylla_store, &query_key, fuzzy_bytes).await?;
 
         let mdbx_str = mdbx_result.as_ref().map(|v| String::from_utf8_lossy(v));

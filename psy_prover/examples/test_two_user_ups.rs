@@ -9,8 +9,11 @@ use plonky2::{
     plonk::config::PoseidonGoldilocksConfig,
 };
 use psy_common_circuit::circuits::{traits::qstandard::QStandardCircuit, zk_signature3::manager::SimplePsyZKSignatureManager};
+use psy_config::{
+    network_constants::{GLOBAL_USER_TREE_HEIGHT, UPS_SESSION_PROOF_TREE_HEIGHT},
+    PSY_NETWORK_MAGIC,
+};
 use psy_core::{
-    config::network_constants::{GLOBAL_USER_TREE_HEIGHT, PSY_NETWORK_MAGIC_REGTEST, UPS_SESSION_PROOF_TREE_HEIGHT},
     data::qhashout::QHashOut,
     ups::circuits::{LocalCircuitId, LocalCircuitType},
     utils::debug_timer::DebugTimer,
@@ -32,7 +35,7 @@ use psy_data::{
 use psy_dpn_circuit::circuits::cfc::DapenContractFunctionCircuit;
 use psy_network_circuit::guta::guta_helper::PsyGUTACircuitManager;
 use psy_prover::local::simple::SimpleAPI;
-use psy_rust_sdk::provider::UPSCircuitManagerTrait;
+use psy_provider::common::UPSCircuitManagerTrait;
 use psy_store::{node::coordinator::PsyCoordinatorStoreWriterAsyncImm, prepare_environment_with_real_contract};
 use psy_ups_circuit::{
     circuit_manager::core::{PsyUPSStepCircuitManager, QCircuitManager},
@@ -230,7 +233,7 @@ async fn demo_user_proving_session() -> anyhow::Result<()> {
 
     timer.lap("start: init PsyUPSStepCircuitManager");
 
-    let main_circuits = QCircuitManager::Local(PsyUPSStepCircuitManager::<C, D>::new_with_config(PSY_NETWORK_MAGIC_REGTEST));
+    let main_circuits = QCircuitManager::Local(PsyUPSStepCircuitManager::<C, D>::new_with_config(PSY_NETWORK_MAGIC));
     //main_circuits.print_common_config();
 
     timer.lap("end: init PsyUPSStepCircuitManager");
@@ -286,12 +289,15 @@ async fn demo_user_proving_session() -> anyhow::Result<()> {
         QCircuitManager::Local(manager) => manager.ups_end_cap.get_common_circuit_data_ref(),
         QCircuitManager::Rpc(provider) => unimplemented!(),
     };
-    use psy_core::config::network_constants::get_default_worker_public_key;
+    use psy_config::get_default_worker_public_key;
 
     let guta_circuits = PsyGUTACircuitManager::<C, D>::new_with_config(
         end_cap_proof_common_data,
-        main_circuits.ups_end_cap_circuit_verifier_config().await?.constants_sigmas_cap.height(),
-        main_circuits.ups_end_cap_circuit_fingerprint().await?,
+        UPSCircuitManagerTrait::ups_end_cap_circuit_verifier_config(&main_circuits)
+            .await?
+            .constants_sigmas_cap
+            .height(),
+        UPSCircuitManagerTrait::ups_end_cap_circuit_fingerprint(&main_circuits).await?,
         get_default_worker_public_key::<GoldilocksField>(),
     );
     timer.lap("built guta circuits");
@@ -309,7 +315,7 @@ async fn demo_user_proving_session() -> anyhow::Result<()> {
         wallet.circuit.get_verifier_config_ref().into(),
     );
 
-    main_circuits.register_info(&mut circuit_info);
+    UPSCircuitManagerTrait::register_info(&main_circuits, &mut circuit_info).await;
     circuit_info.register_circuit(
         LocalCircuitId::new_cfc(contract_id.to_canonical_u64() as u32, simple_mint_debug_def.method_id),
         simple_mint_debug_circuit.get_fingerprint(),
@@ -326,9 +332,12 @@ async fn demo_user_proving_session() -> anyhow::Result<()> {
         simple_claim_circuit.get_verifier_config_ref().into(),
     );
 
-    let mut mgr =
-        UserProvingSessionManager::<GoldilocksField, PsyHasher, _, C, D>::new(lps, circuit_info, main_circuits.ups_circuit_whitelist_root().await?)
-            .await?;
+    let mut mgr = UserProvingSessionManager::<GoldilocksField, PsyHasher, _, C, D>::new(
+        lps,
+        circuit_info,
+        UPSCircuitManagerTrait::ups_circuit_whitelist_root(&main_circuits).await?,
+    )
+    .await?;
 
     timer.lap("START USER PROVING SESSION");
 
@@ -356,7 +365,7 @@ async fn demo_user_proving_session() -> anyhow::Result<()> {
     timer.lap("proved token.simple_transfer(recipient: 2, amount: 100)");
 
     let new_nonce = GoldilocksField::from_noncanonical_u64(1);
-    let sighash = mgr.get_sighash(PSY_NETWORK_MAGIC_REGTEST, new_nonce);
+    let sighash = mgr.get_sighash(PSY_NETWORK_MAGIC, new_nonce);
 
     let signature_proof = wallet.zk_sign_for_private_key_value(priv_key_0, sighash)?;
     timer.lap("generated zk signature for UPS transaction batch");
@@ -366,7 +375,7 @@ async fn demo_user_proving_session() -> anyhow::Result<()> {
     let end_cap_proof = mgr
         .prove_end_cap(
             &main_circuits,
-            PSY_NETWORK_MAGIC_REGTEST,
+            PSY_NETWORK_MAGIC,
             new_nonce,
             wallet.circuit.get_fingerprint(),
             public_key_param,
@@ -414,7 +423,7 @@ async fn demo_user_proving_session() -> anyhow::Result<()> {
     timer.lap("proved token.simple_transfer(recipient: 3, amount: 1337)");
 
     let new_nonce = GoldilocksField::from_noncanonical_u64(1);
-    let sighash = mgr.get_sighash(PSY_NETWORK_MAGIC_REGTEST, new_nonce);
+    let sighash = mgr.get_sighash(PSY_NETWORK_MAGIC, new_nonce);
 
     let signature_proof = wallet.zk_sign_for_private_key_value(priv_key_1, sighash)?;
     timer.lap("generated zk signature for UPS transaction batch");
@@ -424,7 +433,7 @@ async fn demo_user_proving_session() -> anyhow::Result<()> {
     let end_cap_proof = mgr
         .prove_end_cap(
             &main_circuits,
-            PSY_NETWORK_MAGIC_REGTEST,
+            PSY_NETWORK_MAGIC,
             new_nonce,
             wallet.circuit.get_fingerprint(),
             public_key_param,
@@ -451,7 +460,8 @@ async fn demo_user_proving_session() -> anyhow::Result<()> {
     let (pairs, left_over) = api.get_start_witnesses().await?;
     timer.lap("finished generating start witnesses");
     for p in pairs.into_iter() {
-        let _proof = api.proof_start_dbg(p, &main_circuits.ups_end_cap_circuit_verifier_config().await?)?;
+        let verifier = UPSCircuitManagerTrait::ups_end_cap_circuit_verifier_config(&main_circuits).await?;
+        let _proof = api.proof_start_dbg(p, &verifier)?;
         timer.lap("Proved Recursive Global User Tree Aggregation");
     }
 

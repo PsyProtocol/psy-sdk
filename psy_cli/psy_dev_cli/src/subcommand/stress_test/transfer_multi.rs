@@ -16,7 +16,7 @@ use psy_prover::{
     local::args::{ContractCallArgs, SignType},
     session::session::WalletSession,
 };
-use psy_rust_sdk::provider::RpcConfig;
+use psy_rust_sdk::provider::NetworkConfig;
 use tracing::{error, info, warn};
 
 use crate::subcommand::{
@@ -26,7 +26,7 @@ use crate::subcommand::{
 
 #[derive(Clone)]
 struct TransferTaskConfig {
-    pub rpc_config: RpcConfig,
+    pub rpc_config: NetworkConfig<GoldilocksField>,
 }
 
 #[derive(Default)]
@@ -282,7 +282,7 @@ pub async fn run(args: StressTestArgs) -> Result<()> {
 
 async fn run_transfer_multi_task_sync(
     task_id: usize,
-    rpc_config: RpcConfig,
+    rpc_config: NetworkConfig<GoldilocksField>,
     stats: Arc<StressTestStats>,
     should_stop: Arc<AtomicBool>,
     task_counter: Arc<AtomicU64>,

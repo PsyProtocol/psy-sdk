@@ -7,10 +7,8 @@ use plonky2::{
     },
     hash::hash_types::RichField,
 };
-use psy_core::{
-    config::network_constants::{DEFERRED_TRANSACTION_TREE_HEIGHT, INLINE_TRANSACTION_TREE_HEIGHT},
-    data::qhashout::QHashOut,
-};
+use psy_config::network_constants::{DEFERRED_TRANSACTION_TREE_HEIGHT, INLINE_TRANSACTION_TREE_HEIGHT};
+use psy_core::data::qhashout::QHashOut;
 use psy_crypto::hash::{
     merkle::{
         core::{DeltaMerkleProofCore, MerkleProofCore},

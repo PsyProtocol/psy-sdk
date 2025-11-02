@@ -5,7 +5,7 @@ use plonky2::{
     plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher},
 };
 use psy_common_circuit::traits::{AlgebraicHashableTarget, CreatableTarget, FromTargets, ToTargets, WitnessValueFor};
-use psy_core::config::network_constants::DA_CHALLENGE_WINDOW;
+use psy_config::network_constants::DA_CHALLENGE_WINDOW;
 use psy_data::qdata::checkpoint::PsyCheckpointLeafStats;
 
 use super::{

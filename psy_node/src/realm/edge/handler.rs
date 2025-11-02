@@ -15,8 +15,8 @@ use plonky2::{
     },
     plonk::{config::PoseidonGoldilocksConfig, proof::ProofWithPublicInputs},
 };
+use psy_config::network_constants::{GLOBAL_CONTRACT_TREE_HEIGHT, GLOBAL_USER_TREE_HEIGHT};
 use psy_core::{
-    config::network_constants::{GLOBAL_CONTRACT_TREE_HEIGHT, GLOBAL_USER_TREE_HEIGHT},
     data::qhashout::QHashOut,
     job::{
         drain_queue::CheckpointDrainQueueEmitterAsyncImm,
@@ -46,7 +46,7 @@ use psy_data::{
     },
 };
 use psy_network_circuit::verify_witness::verify_witness_and_proof;
-use psy_rust_sdk::{session::TxStatus, wallet::secp_sign::SignedRequest};
+use psy_provider::{session::TxStatus, wallet::secp_sign::SignedRequest};
 use psy_store::{
     node::realm::PsyRealmStoreReaderAsync,
     queue::{

@@ -10,18 +10,16 @@ use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use kvq::traits::KVQSerializable;
 use plonky2::plonk::{config::GenericConfig, proof::ProofWithPublicInputs};
-use psy_core::{
-    config::network_constants::COORDINATOR_EDGE_TO_PROCESSOR_CHANNEL,
-    job::{
-        drain_queue::{CheckpointDrainQueueConsumerAsyncImm, CheckpointDrainQueueEmitterAsyncImm, DQSerializable},
-        history_queue::{
-            CheckpointHistoryQueueConsumerAsyncImm, CheckpointHistoryQueueEmitterAsyncImm, HQSerializable, HistoryQueueMetadata,
-            HistoryQueueMetadataTagged,
-        },
-        id::{QProvingJobDataID, QWorkerJobBenchmark},
-        traits::QProofStoreReaderAsync,
-        worker_queue::{WorkerEventReceiverAsyncImm, WorkerEventTransmitterAsyncImm},
+use psy_config::network_constants::COORDINATOR_EDGE_TO_PROCESSOR_CHANNEL;
+use psy_core::job::{
+    drain_queue::{CheckpointDrainQueueConsumerAsyncImm, CheckpointDrainQueueEmitterAsyncImm, DQSerializable},
+    history_queue::{
+        CheckpointHistoryQueueConsumerAsyncImm, CheckpointHistoryQueueEmitterAsyncImm, HQSerializable, HistoryQueueMetadata,
+        HistoryQueueMetadataTagged,
     },
+    id::{QProvingJobDataID, QWorkerJobBenchmark},
+    traits::QProofStoreReaderAsync,
+    worker_queue::{WorkerEventReceiverAsyncImm, WorkerEventTransmitterAsyncImm},
 };
 use rsmq::{PoolOptions, PooledRsmq, RedisBytes, RsmqConnection, RsmqConnectionSync, RsmqError, RsmqMessage, RsmqOptions, RsmqSync};
 use serde::{Deserialize, Serialize};

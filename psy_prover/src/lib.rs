@@ -5,40 +5,14 @@ pub mod wallet;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod health;
 
-use psy_core::config::network_constants::PSY_NETWORK_MAGIC_REGTEST;
+// WASM exports
 #[cfg(target_arch = "wasm32")]
-use wasm_bindgen::prelude::*;
+pub mod wasm;
 
-#[cfg(not(target_arch = "wasm32"))]
+use psy_config::PSY_NETWORK_MAGIC;
+
 use crate::local::native::prove_proxy::ProveProxyServerProvider;
 
-#[cfg(target_arch = "wasm32")]
-#[wasm_bindgen(start)]
-pub fn main() {
-    // Initialize panic hook for better error messages in browser console
-    console_error_panic_hook::set_once();
-
-    // Initialize wasm-logger for log crate compatibility
-    wasm_logger::init(wasm_logger::Config::default());
-
-    // Initialize tracing subscriber for WASM
-    wasm_tracing::set_as_global_default();
-
-    // Log initialization success
-    tracing::info!("WASM module initialized successfully with tracing support");
-}
-
-// Optional manual initialization function
-#[cfg(target_arch = "wasm32")]
-#[wasm_bindgen]
-pub fn init_logging() {
-    console_error_panic_hook::set_once();
-    wasm_logger::init(wasm_logger::Config::default());
-    wasm_tracing::set_as_global_default();
-    tracing::info!("Logging initialized manually");
-}
-
-#[cfg(not(target_arch = "wasm32"))]
 pub async fn run_server(args: crate::local::args::ProverArgs) -> anyhow::Result<()> {
     use std::{net::SocketAddr, sync::Arc};
 
@@ -46,7 +20,7 @@ pub async fn run_server(args: crate::local::args::ProverArgs) -> anyhow::Result<
     use jsonrpsee::server::Server;
     use parking_lot::{Mutex, RwLock};
     use psy_core::data::base_types::hash256::Hash256;
-    use psy_rust_sdk::provider::RpcConfig;
+    use psy_provider::provider::NetworkConfig;
     use tower_http::cors::{Any, CorsLayer};
 
     use crate::{
@@ -73,9 +47,8 @@ pub async fn run_server(args: crate::local::args::ProverArgs) -> anyhow::Result<
 
     let server = Server::builder().set_http_middleware(cors).build(server_addr).await?;
 
-    let config_str = std::fs::read_to_string(&args.rpc_config)?;
-    let json_value: serde_json::Value = serde_json::from_str(&config_str)?;
-    let rpc_config: RpcConfig = serde_json::from_value(json_value["network"].clone())?;
+    let psy_config = psy_config::PsyConfigGoldilocks::from_file(&args.rpc_config)?;
+    let rpc_config = psy_config.get_current_network()?;
 
     // let store = Arc::new(Mutex::new(UserProverWorkerStore::new()));
     let wallet_session = Arc::new(RwLock::new(WalletSession::new(&rpc_config).await?));
@@ -85,21 +58,19 @@ pub async fn run_server(args: crate::local::args::ProverArgs) -> anyhow::Result<
     Ok(())
 }
 
-#[cfg(not(target_arch = "wasm32"))]
 pub async fn run_prove_proxy_server(args: crate::local::args::ProveProxyArgs) -> anyhow::Result<()> {
     use std::net::SocketAddr;
 
     use hyper::Method;
     use jsonrpsee::server::Server;
-    use psy_rust_sdk::provider::RpcConfig;
+    use psy_provider::provider::NetworkConfig;
     use tower_http::cors::{Any, CorsLayer};
 
     use crate::{health::HealthLayer, local::native::prove_proxy::ProveProxyRpcServer};
 
-    let config_str = std::fs::read_to_string(&args.rpc_config)?;
-    let json_value: serde_json::Value = serde_json::from_str(&config_str)?;
-    let rpc_config: RpcConfig = serde_json::from_value(json_value["network"].clone())?;
-    let prove_proxy = ProveProxyServerProvider::new_with_config(rpc_config, PSY_NETWORK_MAGIC_REGTEST).await?;
+    let psy_config = psy_config::PsyConfigGoldilocks::from_file(&args.rpc_config)?;
+    let rpc_config = psy_config.get_current_network()?;
+    let prove_proxy = ProveProxyServerProvider::new_with_config(rpc_config.clone(), PSY_NETWORK_MAGIC).await?;
     let cors_opts = CorsLayer::new()
         .allow_methods([Method::POST, Method::OPTIONS])
         .allow_origin(Any)

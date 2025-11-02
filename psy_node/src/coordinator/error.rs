@@ -7,7 +7,7 @@ pub enum CoordinatorError {
     #[error("User already registered with id: {user_id}")]
     UserAlreadyRegistered { user_id: u64 },
 
-    #[error("User not found for public key: {public_key:?}")]
+    #[error("User not found for public key: {public_key}")]
     UserNotFound { public_key: QHashOut<PsyFelt> },
 
     #[error("Store error: {0}")]

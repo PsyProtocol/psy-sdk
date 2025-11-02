@@ -1,6 +1,6 @@
 use plonky2::hash::hash_types::RichField;
 
-//use psy_core::config::network_constants::PsyTreeConfig;
+//use psy_config::network_constants::PsyTreeConfig;
 use crate::qdata::{
     checkpoint::{PsyBlockState, PsyCheckpointLeaf},
     contract::{ContractCodeDefinition, PsyContractLeaf},

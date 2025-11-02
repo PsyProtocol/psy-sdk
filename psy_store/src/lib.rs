@@ -8,7 +8,7 @@ pub mod store;
 use anyhow::Result;
 use kvq::memory::simple::KVQSimpleMemoryBackingStore;
 use plonky2::field::types::Field;
-use psy_core::config::network_constants::GLOBAL_USER_TREE_HEIGHT;
+use psy_config::network_constants::GLOBAL_USER_TREE_HEIGHT;
 #[cfg(not(target_arch = "wasm32"))]
 use psy_data::qblock::process::simple::SimpleBlockProcessor;
 use psy_data::{

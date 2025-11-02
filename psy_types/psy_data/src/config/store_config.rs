@@ -4,13 +4,11 @@ use plonky2::{
     hash::poseidon::PoseidonHash,
     plonk::{config::PoseidonGoldilocksConfig, proof::ProofWithPublicInputs},
 };
-use psy_core::{
-    config::network_constants::{
-        CHECKPOINT_TREE_HEIGHT, CONTRACT_FUNCTION_TREE_HEIGHT, GLOBAL_CONTRACT_TREE_HEIGHT, GLOBAL_DEPOSIT_TREE_HEIGHT, GLOBAL_USER_TREE_HEIGHT,
-        GLOBAL_WITHDRAWAL_TREE_HEIGHT,
-    },
-    data::qhashout::QHashOut,
+use psy_config::network_constants::{
+    CHECKPOINT_TREE_HEIGHT, CONTRACT_FUNCTION_TREE_HEIGHT, GLOBAL_CONTRACT_TREE_HEIGHT, GLOBAL_DEPOSIT_TREE_HEIGHT, GLOBAL_USER_TREE_HEIGHT,
+    GLOBAL_WITHDRAWAL_TREE_HEIGHT,
 };
+use psy_core::data::qhashout::QHashOut;
 use psy_crypto::hash::merkle::core::{DeltaMerkleProofCore, MerkleProofCore};
 
 use crate::{
@@ -195,14 +193,15 @@ pub type F = crate::config::store_config::PsyFelt;
 // GLOBAL_CONTRACT_TREE_HEIGHT-th zero hash
 #[cfg(test)]
 mod tests {
-    use psy_core::config::network_constants::{DEFAULT_USER_STATE_TREE_ROOT, GLOBAL_CONTRACT_TREE_HEIGHT};
+    use psy_config::{get_default_user_state_tree_root, network_constants::GLOBAL_CONTRACT_TREE_HEIGHT};
     use psy_crypto::hash::traits::hasher::{MerkleZeroHasher, PoseidonHasher};
 
     #[test]
     fn check_default_user_state_tree_root() {
         let expected_empty_user_state_tree_root = PoseidonHasher::get_zero_hash(GLOBAL_CONTRACT_TREE_HEIGHT as usize);
         assert_eq!(
-            DEFAULT_USER_STATE_TREE_ROOT, expected_empty_user_state_tree_root,
+            get_default_user_state_tree_root(),
+            expected_empty_user_state_tree_root,
             "DEFAULT_USER_STATE_TREE_ROOT does not match the expected value"
         );
         // TODO: make sure the default user tree root is correct

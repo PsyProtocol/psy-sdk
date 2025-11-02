@@ -3,11 +3,8 @@ use plonky2::{
     field::goldilocks_field::GoldilocksField,
     hash::hash_types::{HashOut, RichField},
 };
-use psy_core::{
-    config::network_constants::{DEFAULT_USER_STATE_TREE_ROOT_U64, GLOBAL_USER_TREE_HEIGHT},
-    data::qhashout::QHashOut,
-    job::id::QProvingJobDataID,
-};
+use psy_config::{network_constants::GLOBAL_USER_TREE_HEIGHT, DEFAULT_USER_STATE_TREE_ROOT_U64};
+use psy_core::{data::qhashout::QHashOut, job::id::QProvingJobDataID};
 use psy_crypto::hash::{
     merkle::{
         core::{

@@ -8,7 +8,7 @@ use psy_common_circuit::{
     builder::{core::CircuitBuilderHelpersCore, hash::core::CircuitBuilderHashCore},
     traits::{AlgebraicHashableTarget, WitnessValueFor},
 };
-use psy_core::config::network_constants::PSY_SIG_ACTION_SIGN_UPS_END_CAP;
+use psy_config::network_constants::PSY_SIG_ACTION_SIGN_UPS_END_CAP;
 use psy_data::qdata::ups_signature::PsyUserProvingSessionSignatureDataCompact;
 
 use crate::gadgets::{

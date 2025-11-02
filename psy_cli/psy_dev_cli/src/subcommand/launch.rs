@@ -88,8 +88,10 @@ impl Drop for ProcessManager {
 }
 
 // Load config.json structure
+use psy_config::RedisConfig;
+
 use super::{
-    generate::{BackendConfig, Config, CoordinatorNode, NodesConfig, RealmNode, RedisConfig, ServiceConfig},
+    generate::{BackendConfig, Config, CoordinatorNode, NodesConfig, RealmNode, ServiceConfig},
     LaunchArgs,
 };
 

@@ -2,7 +2,7 @@ use anyhow::{Context, Result};
 use aws_sdk_s3::config::retry::ShouldAttempt::No;
 use kvq::traits::{KVQBinaryStore, KVQPair};
 use plonky2::field::goldilocks_field::GoldilocksField;
-use psy_data::config::genesis_config::GenesisConfig;
+use psy_config::GenesisConfigGoldilocks as GenesisConfig;
 use psy_store::{
     node::coordinator::PsyCoordinatorStoreReaderAsync,
     store,
@@ -42,7 +42,14 @@ impl CoordinatorRecoveryManager {
 
     pub async fn sync_from_s3(&mut self, target_checkpoint: Option<u64>) -> Result<()> {
         info!("🔄 Starting coordinator recovery from S3...");
-        let genesis_config = GenesisConfig::<GoldilocksField>::from_path(&self.config_path)?;
+        let config = psy_config::PsyConfigGoldilocks::from_file("config.json")?;
+        let network = config.get_current_network()?;
+        let genesis_config = if let Some(genesis) = &network.genesis {
+            let genesis_json = serde_json::to_string(genesis)?;
+            Some(GenesisConfig::from_json(&genesis_json)?)
+        } else {
+            None
+        };
 
         // Get recovery info from S3
         let recovery_info = self.backup_client.fetch_recovery_info().await?;

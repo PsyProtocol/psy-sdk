@@ -3,6 +3,7 @@ use std::str::FromStr;
 use kvq::traits::KVQSerializable;
 use plonky2::{field::goldilocks_field::GoldilocksField, hash::poseidon::PoseidonHash, plonk::config::PoseidonGoldilocksConfig};
 use psy_common_circuit::circuits::zk_signature3::manager::SimplePsyZKSignatureManager;
+use psy_config::PSY_NETWORK_MAGIC;
 use psy_core::data::{base_types::hash256::Hash256, qhashout::QHashOut};
 use psy_crypto::{
     hash::traits::qhashable::QFieldHashable,
@@ -40,7 +41,7 @@ pub async fn run(args: GetPublicKeyArgs) -> anyhow::Result<()> {
             let wallet = Wallet::from_hex(&args.private_key)?;
 
             let main_circuits = QCircuitManager::Local(PsyUPSStepCircuitManager::<C, D>::new_with_config(
-                psy_core::config::network_constants::PSY_NETWORK_MAGIC_REGTEST,
+                psy_config::network_constants::PSY_NETWORK_MAGIC,
             ));
 
             let mut memory_wallet = PsyMemoryWallet::new(vec![Box::new(main_circuits)]);

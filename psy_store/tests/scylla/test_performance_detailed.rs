@@ -2,7 +2,7 @@ use std::time::Instant;
 
 use anyhow::Result;
 use kvq::traits::{KVQBinaryStore, KVQBinaryStoreAsync, KVQPair};
-use psy_store::store::{lmdbx::KVQlibmdbxStore, scylla::kvq_store::ScyllaKVQStore};
+use psy_store::store::{scylla::kvq_store::ScyllaKVQStore, KVQlibmdbxStore};
 use tempfile::TempDir;
 
 mod common;
@@ -41,7 +41,7 @@ async fn test_performance_comparison_detailed() -> Result<()> {
         // MDBX individual inserts (no batch API)
         let start = Instant::now();
         for i in 0..size {
-            mdbx_store.set(keys[i].clone(), values[i].clone())?;
+            <KVQlibmdbxStore as KVQBinaryStore>::set_ref(&mdbx_store, &keys[i].clone(), &values[i].clone())?;
         }
         let mdbx_insert = start.elapsed().as_secs_f64();
         println!("MDBX Insert: {:.3}s ({:.0} ops/sec)", mdbx_insert, size as f64 / mdbx_insert);
@@ -59,7 +59,7 @@ async fn test_performance_comparison_detailed() -> Result<()> {
         // MDBX individual reads
         let start = Instant::now();
         for key in &keys {
-            let _ = mdbx_store.get_exact(key)?;
+            let _ = <KVQlibmdbxStore as KVQBinaryStore>::get_exact(&mdbx_store, key)?;
         }
         let mdbx_read = start.elapsed().as_secs_f64();
         println!("MDBX Read: {:.3}s ({:.0} ops/sec)", mdbx_read, size as f64 / mdbx_read);
@@ -113,7 +113,7 @@ async fn test_get_leq_performance_comparison() -> Result<()> {
     scylla_store.set_many_ref(&items).await?;
 
     for (k, v) in keys.iter().zip(values.iter()) {
-        mdbx_store.set(k.clone(), v.clone())?;
+        <KVQlibmdbxStore as KVQBinaryStore>::set_ref(&mdbx_store, &k.clone(), &v.clone())?;
     }
 
     // Test get_leq performance
@@ -137,7 +137,7 @@ async fn test_get_leq_performance_comparison() -> Result<()> {
     // MDBX individual get_leq
     let start = Instant::now();
     for key in &query_keys {
-        let _ = mdbx_store.get_leq(key, 4)?;
+        let _ = <KVQlibmdbxStore as KVQBinaryStore>::get_leq(&mdbx_store, key, 4)?;
     }
     let mdbx_time = start.elapsed().as_secs_f64();
     println!("MDBX get_leq: {:.3}s ({:.0} ops/sec)", mdbx_time, query_count as f64 / mdbx_time);

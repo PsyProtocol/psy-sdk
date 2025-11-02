@@ -14,11 +14,8 @@ use psy_common_circuit::{
     proof_minifier::pm_core::get_circuit_fingerprint_generic,
     treeprover::qrecursion::standard::gadgets::attest_tree_aware_proof_in_tree::compute_tree_aware_proof_public_inputs,
 };
-use psy_core::{
-    config::network_constants::{UPS_CIRCUIT_WHITELIST_TREE_HEIGHT, UPS_SESSION_PROOF_TREE_HEIGHT},
-    data::qhashout::QHashOut,
-    job::traits::QProofStoreReaderSync,
-};
+use psy_config::network_constants::{UPS_CIRCUIT_WHITELIST_TREE_HEIGHT, UPS_SESSION_PROOF_TREE_HEIGHT};
+use psy_core::{data::qhashout::QHashOut, job::traits::QProofStoreReaderSync};
 use psy_crypto::hash::traits::hasher::MerkleZeroHasher;
 use psy_data::ups::ups_cfc_standard_step::UPSCFCStandardTransactionCircuitInput;
 

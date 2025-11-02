@@ -7,11 +7,14 @@ use plonky2::{
     hash::hash_types::RichField,
     plonk::config::PoseidonGoldilocksConfig,
 };
-use psy_core::{
-    config::network_constants::{
-        BATCH_USER_REGISTRAITION_SUB_TREE_HEIGHT, COORDINATOR_EDGE_TO_PROCESSOR_CHANNEL, COORDINATOR_USER_TREE_HEIGHT, DEFAULT_USER_STATE_TREE_ROOT,
-        GLOBAL_CONTRACT_TREE_HEIGHT, GLOBAL_USER_TREE_HEIGHT, MAX_CONTRACT_STATE_TREE_HEIGHT, REALM_USER_TREE_HEIGHT, USERS_PER_REALM,
+use psy_config::{
+    get_default_user_state_tree_root, get_default_worker_public_key,
+    network_constants::{
+        BATCH_USER_REGISTRAITION_SUB_TREE_HEIGHT, COORDINATOR_EDGE_TO_PROCESSOR_CHANNEL, COORDINATOR_USER_TREE_HEIGHT, GLOBAL_CONTRACT_TREE_HEIGHT,
+        GLOBAL_USER_TREE_HEIGHT, MAX_CONTRACT_STATE_TREE_HEIGHT, REALM_USER_TREE_HEIGHT, USERS_PER_REALM,
     },
+};
+use psy_core::{
     data::qhashout::QHashOut,
     job::{
         drain_queue::CheckpointDrainQueueConsumerAsyncImm,
@@ -29,12 +32,10 @@ use psy_crypto::{
         },
         traits::qhashable::QFieldHashable,
     },
+    signature::zk::data::ZKPublicKeyInfo,
 };
 use psy_data::{
-    config::{
-        genesis_config::GenesisConfig,
-        store_config::{PsyFelt, PsyHasher, UserTreeStore},
-    },
+    config::store_config::{PsyFelt, PsyHasher, UserTreeStore},
     qblock::cmds::deploy_contract::QBCDeployContractWithRoot,
     qdata::{
         contract::{ContractCodeDefinition, ContractFunctionCodeDefinition, PsyContractLeaf},
@@ -245,7 +246,9 @@ impl
         let psy_store = store::from_backend(cp_config.backend.to_backend()).await?;
         let psy_store = JournalStore::new(psy_store);
 
-        let genesis_config = GenesisConfig::from_path(&cp_config.config_path)?;
+        let config = psy_config::PsyConfigGoldilocks::from_file("config.json")?;
+        let network = config.get_current_network()?;
+        let genesis_config = network.genesis.clone();
 
         match Self::initialize_store(&psy_store, genesis_config).await {
             Ok(checkpoint_id) if checkpoint_id == 0 => {
@@ -282,7 +285,7 @@ impl
         )
         .await?;
 
-        use psy_core::config::network_constants::get_default_worker_public_key;
+        // get_default_worker_public_key is already imported at the top
         let coordinator_worker_circuits =
             PsyCoordinatorCircuitManager::<C, D>::new_with_library(&proof_verifier.library, get_default_worker_public_key::<F>());
 
@@ -299,7 +302,10 @@ impl
         .await)
     }
 
-    pub async fn initialize_store(psy_store: &JournalStore<PsyStore>, genesis_config: Option<GenesisConfig<GoldilocksField>>) -> anyhow::Result<u64> {
+    pub async fn initialize_store(
+        psy_store: &JournalStore<PsyStore>,
+        genesis_config: Option<psy_config::GenesisConfigGoldilocks>,
+    ) -> anyhow::Result<u64> {
         let genesis_store_config = if let Some(ref config) = genesis_config {
             info!("initialize_store Some()");
             let deploy_root = Self::process_genesis_contracts(psy_store, config).await?;
@@ -431,20 +437,18 @@ impl
 
     async fn process_genesis_contracts<SR: PsyCoordinatorStoreWriterAsyncImm<F> + PsyCoordinatorStoreReaderAsync<F>>(
         store: &SR,
-        genesis_config: &GenesisConfig<F>,
+        genesis_config: &psy_config::GenesisConfigGoldilocks,
     ) -> anyhow::Result<QHashOut<F>> {
         for (contract_index, precompile_config) in genesis_config.get_precompile_configs().iter().enumerate() {
-            let contract_json_path = format!("{}/target/{}.json", precompile_config.path, precompile_config.name);
-            let contract_path = std::path::Path::new(&contract_json_path);
-            if !contract_path.exists() {
-                return Err(anyhow::anyhow!("contract target: {} doesn't exists", contract_path.display()));
-            }
-
-            let contract_json = std::fs::read_to_string(contract_path)?;
-            let function_defs: Vec<DPNFunctionCircuitDefinition> = serde_json::from_str(&contract_json)?;
+            // Convert bytecode JSON array to function definitions
+            let function_defs: Vec<DPNFunctionCircuitDefinition> = precompile_config
+                .bytecode
+                .iter()
+                .filter_map(|value| serde_json::from_value(value.clone()).ok())
+                .collect();
 
             if !function_defs.is_empty() {
-                let genesis_deployer = precompile_config.deployer;
+                let genesis_deployer: QHashOut<F> = precompile_config.deployer;
 
                 let (circuits, deploy_cmd) =
                     gen_contract_deploy_and_circuits_for_functions::<C, D>(genesis_deployer, MAX_CONTRACT_STATE_TREE_HEIGHT, &function_defs)?;
@@ -478,7 +482,7 @@ impl
         SR: PsyCoordinatorStoreWriterAsyncImm<F> + PsyCoordinatorStoreReaderAsync<F> + QTreeDataStoreWriterSync<F>,
     >(
         store: &SR,
-        genesis_config: &GenesisConfig<F>,
+        genesis_config: &psy_config::GenesisConfigGoldilocks,
     ) -> anyhow::Result<QHashOut<F>> {
         let mut user_contract_states: HashMap<u64, HashMap<u64, QHashOut<F>>> = HashMap::new();
         let mut user_id_to_register_id: HashMap<u64, u64> = HashMap::new();
@@ -519,7 +523,7 @@ impl
 
             let register_id = user_id_to_register_id[&user_id];
             let user_leaf = PsyUserLeaf {
-                public_key: genesis_users[register_id as usize].get_public_key::<PsyHasher>(),
+                public_key: genesis_users[register_id as usize].qfhash::<PsyHasher>(),
                 user_state_tree_root: user_state_root,
                 balance: F::ZERO,
                 nonce: F::ZERO,
@@ -573,7 +577,7 @@ impl
 
     async fn process_genesis_user_registrations<S: PsyCoordinatorStoreWriterAsyncImm<F> + PsyCoordinatorStoreReaderAsync<F>>(
         store: &S,
-        config: &GenesisConfig<F>,
+        config: &psy_config::GenesisConfigGoldilocks,
     ) -> anyhow::Result<QHashOut<F>> {
         let start_registration_user_id = 0u64;
         let user_registrations = config.get_genesis_users();
@@ -587,7 +591,7 @@ impl
                 PsyUserPublicKeyRecord {
                     public_key_param: x.public_key_param,
                     fingerprint: x.fingerprint,
-                    public_key: x.get_public_key::<PsyHasher>(),
+                    public_key: x.qfhash::<PsyHasher>(),
                     user_id,
                     checkpoint_id: 0,
                 }
@@ -596,7 +600,7 @@ impl
 
         store.set_user_public_key_records(&new_user_records).await?;
 
-        let new_public_keys: Vec<QHashOut<F>> = user_registrations.iter().map(|x| x.get_public_key::<PsyHasher>()).collect();
+        let new_public_keys: Vec<QHashOut<F>> = user_registrations.iter().map(|x| x.qfhash::<PsyHasher>()).collect();
 
         let _wits = store
             .batch_append_user_registration_tree_imm(

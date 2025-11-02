@@ -19,6 +19,7 @@ async-trait = { workspace = true }
 chrono = { workspace = true }
 kvq = { workspace = true }
 psy_core = { workspace = true }
+psy_config = { workspace = true }
 psy_common_circuit = { workspace = true }
 psy_network_circuit = { workspace = true }
 psy_data = { workspace = true }
@@ -50,7 +51,7 @@ tower-http = { workspace = true }
 reqwest = { workspace = true }
 jsonwebtoken = { workspace = true }
 psy_prover = { workspace = true }
-psy_rust_sdk = { workspace = true }
+psy_provider = { workspace = true }
 http = { workspace = true }
 axum = { workspace = true }
 headers = { workspace = true }

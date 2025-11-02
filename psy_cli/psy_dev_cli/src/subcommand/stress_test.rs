@@ -13,7 +13,7 @@ use plonky2::field::goldilocks_field::GoldilocksField;
 use psy_data::traits::qdatastore::qmetadata::QMetaDataStoreReaderSync;
 use psy_node::common::slot::{LocalClock, Slot, SLOT_SIZE};
 use psy_prover::session::WalletSession;
-use psy_rust_sdk::provider::{QUserRpcProvider, RpcConfig, RpcProvider};
+use psy_rust_sdk::provider::{NetworkConfig, QUserRpcProvider, RpcProvider};
 use tracing::{error, info};
 
 use crate::subcommand::StressTestArgs;
@@ -33,7 +33,7 @@ pub async fn run(args: StressTestArgs) -> Result<()> {
     }
 }
 
-pub(crate) fn load_rpc_config(config_path: &str) -> Result<RpcConfig> {
+pub(crate) fn load_rpc_config(config_path: &str) -> Result<NetworkConfig<GoldilocksField>> {
     // Try to find config file in current directory or relative to executable
     // location
     let config_file_path = if Path::new(config_path).exists() {
@@ -52,9 +52,8 @@ pub(crate) fn load_rpc_config(config_path: &str) -> Result<RpcConfig> {
     };
 
     // Load network configuration
-    let config_str = std::fs::read_to_string(&config_file_path)?;
-    let json_value: serde_json::Value = serde_json::from_str(&config_str)?;
-    let rpc_config: RpcConfig = serde_json::from_value(json_value["network"].clone())?;
+    let psy_config = psy_config::PsyConfigGoldilocks::from_file(&config_file_path.to_string_lossy())?;
+    let rpc_config = psy_config.get_current_network()?.clone();
 
     Ok(rpc_config)
 }

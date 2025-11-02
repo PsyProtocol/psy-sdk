@@ -3,7 +3,8 @@ use std::time::SystemTime;
 
 use kvq::traits::KVQBinaryStore;
 use plonky2::field::types::{Field, PrimeField64};
-use psy_core::{config::network_constants::DEFAULT_USER_STATE_TREE_ROOT, data::qhashout::QHashOut};
+use psy_config::get_default_user_state_tree_root;
+use psy_core::data::qhashout::QHashOut;
 use psy_crypto::hash::traits::qhashable::QFieldHashable;
 
 use crate::{
@@ -59,7 +60,7 @@ impl SimpleBlockProcessor {
             let user_id = current_block_state.next_user_id + i as u64;
             let user = PsyUserLeaf {
                 public_key: r.get_public_key::<PsyHasher>(),
-                user_state_tree_root: DEFAULT_USER_STATE_TREE_ROOT,
+                user_state_tree_root: get_default_user_state_tree_root(),
                 balance: PsyFelt::ZERO,
                 nonce: PsyFelt::ZERO,
                 last_checkpoint_id: new_checkpoint_id_f,

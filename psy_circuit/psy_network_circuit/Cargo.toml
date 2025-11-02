@@ -17,6 +17,7 @@ psy_core = { workspace = true }
 psy_common_circuit = { workspace = true, default-features = false }
 psy_data = { workspace = true, default-features = false }
 psy_crypto = { workspace = true }
+psy_config = { workspace = true }
 
 
 [features]

@@ -6,7 +6,7 @@ use psy_core::{
     data::qhashout::QHashOut,
     job::id::{ProvingJobCircuitType, QProvingJobDataID},
 };
-pub use psy_rust_sdk::provider::{JobInfo, JobLocation};
+pub use psy_data::args::{JobInfo, JobLocation};
 use serde::{Deserialize, Serialize};
 use tracing::{error, info, trace, warn};
 

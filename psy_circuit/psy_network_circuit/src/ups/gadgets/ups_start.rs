@@ -9,10 +9,10 @@ use psy_common_circuit::{
     hash::merkle::gadgets::merkle_proof::MerkleProofGadget,
     traits::{CreatableTarget, CreatableWithHasherTarget, WitnessValueFor},
 };
-use psy_core::{
-    config::network_constants::{CHECKPOINT_TREE_HEIGHT, DEFERRED_TRANSACTION_TREE_HEIGHT, GLOBAL_USER_TREE_HEIGHT, INLINE_TRANSACTION_TREE_HEIGHT},
-    data::qhashout::QHashOut,
+use psy_config::network_constants::{
+    CHECKPOINT_TREE_HEIGHT, DEFERRED_TRANSACTION_TREE_HEIGHT, GLOBAL_USER_TREE_HEIGHT, INLINE_TRANSACTION_TREE_HEIGHT,
 };
+use psy_core::data::qhashout::QHashOut;
 use psy_crypto::hash::traits::hasher::iterate_merkle_hasher_alg;
 use psy_data::ups::start_step::UPSStartStepInput;
 

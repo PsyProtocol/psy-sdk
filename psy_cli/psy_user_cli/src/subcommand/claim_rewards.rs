@@ -11,13 +11,14 @@ use plonky2::{
     plonk::config::PoseidonGoldilocksConfig,
 };
 use psy_common_circuit::circuits::zk_signature3::manager::SimplePsyZKSignatureManager;
+use psy_config::{MINING_REWARDS_CONTRACT_ID, network_constants::{MAX_CONTRACT_STATE_TREE_HEIGHT, TOKEN_CONTRACT_ID}};
 use psy_core::{
-    config::network_constants::{MAX_CONTRACT_STATE_TREE_HEIGHT, TOKEN_CONTRACT_ID},
     data::{base_types::hash256::Hash256, qhashout::QHashOut},
     job::id::{ProvingJobCircuitType, QProvingJobDataID, VariableHeightRewardMerkleProof, GUTA_REWARDS_TREE_MAX_HEIGHT},
 };
 use psy_crypto::signature::zk::wallet::SimplePsyPrivateKey;
 use psy_data::{
+    args::{JobInfo, JobLocation},
     config::store_config::PsyHasher,
     traits::qdatastore::{qmetadata::QMetaDataStoreReaderSync, qtreedata::QTreeDataStoreReaderSync},
 };
@@ -26,7 +27,7 @@ use psy_prover::{
     local::args::{ContractCallArgs, SignData, SignType},
     session::WalletSession,
 };
-use psy_rust_sdk::provider::{JobInfo, JobLocation, RpcConfig, RpcProvider};
+use psy_rust_sdk::provider::{NetworkConfig, RpcProvider};
 use psy_services::models::{WorkerEvent, WorkerEventSource};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -47,13 +48,11 @@ type F = GoldilocksField;
 type C = PoseidonGoldilocksConfig;
 const D: usize = 2;
 
-const MINING_REWARDS_CONTRACT_ID: u64 = 1;
 const LAST_CLAIMED_CHECKPOINT_SLOT: u64 = 0;
 
 pub async fn run(args: ClaimRewardsArgs) -> Result<()> {
-    let config_str = std::fs::read_to_string(&args.rpc_config)?;
-    let json_value: serde_json::Value = serde_json::from_str(&config_str)?;
-    let rpc_config: RpcConfig = serde_json::from_value(json_value["network"].clone())?;
+    let psy_config = psy_config::PsyConfigGoldilocks::from_file(&args.rpc_config)?;
+    let rpc_config = psy_config.get_current_network()?.clone();
     let private_key = QHashOut::from(Hash256::from_hex_string(&args.private_key)?);
 
     let provider = RpcProvider::new_with_config(&rpc_config)?;
@@ -126,27 +125,18 @@ pub async fn run(args: ClaimRewardsArgs) -> Result<()> {
         }
         info!("Loaded {} checkpoints from manual job specs", all_jobs.len());
         all_jobs
-    } else if args.api_service_url.is_empty() {
-        info!("Loading jobs from file (api_service_url is empty)");
-        let all_jobs_from_file = load_jobs_from_tracker_file(&user_pk_hash)?;
-        let mut all_jobs = HashMap::new();
-        for job in all_jobs_from_file {
-            let checkpoint_id = job.job_id.goal_id;
-            if checkpoint_id >= start_checkpoint && checkpoint_id <= max_claimable_checkpoint {
-                all_jobs.entry(checkpoint_id).or_insert_with(Vec::new).push(job);
-            }
-        }
-        all_jobs
     } else {
-        info!("Using API service at {}", args.api_service_url);
-        let result = load_jobs_from_api_service(
-            &args.api_service_url,
-            &user_pk_hash,
-            start_checkpoint,
-            max_claimable_checkpoint,
-            args.limit,
-        )
-        .await?;
+        let api_services = rpc_config
+            .api_services_url
+            .as_ref()
+            .ok_or_else(|| anyhow::anyhow!("No API services configured in network config"))?;
+
+        let api_service_url = api_services
+            .first()
+            .ok_or_else(|| anyhow::anyhow!("API services list is empty in network config"))?;
+
+        info!("Using API service from config at {}", api_service_url);
+        let result = load_jobs_from_api_service(api_service_url, &user_pk_hash, start_checkpoint, max_claimable_checkpoint, args.limit).await?;
         result
     };
 
@@ -246,7 +236,7 @@ pub async fn run(args: ClaimRewardsArgs) -> Result<()> {
     }
     let last_checkpoint = all_proofs_with_checkpoints.last().unwrap().checkpoint_id;
     all_contract_calls.push(ContractCallArgs {
-        contract_id: MINING_REWARDS_CONTRACT_ID,
+        contract_id: MINING_REWARDS_CONTRACT_ID as u64,
         method_name: "end_session".to_string(),
         inputs: vec![last_checkpoint],
     });
@@ -262,7 +252,7 @@ pub async fn run(args: ClaimRewardsArgs) -> Result<()> {
     info!("Executing {} contract calls in single transaction", all_contract_calls.len());
     let sign_data = fingerprint.map(|fp| SignData {
         fingerprint: fp,
-        sign_contract_id: MINING_REWARDS_CONTRACT_ID,
+        sign_contract_id: MINING_REWARDS_CONTRACT_ID as u64,
         sign_inputs: vec![],
     });
     let tx_hash = wallet_session
@@ -312,7 +302,7 @@ fn build_claim_calls_for_multi_checkpoints(all_proofs: &[ProofWithCheckpoint]) -
         }
 
         contract_call_args.push(ContractCallArgs {
-            contract_id: MINING_REWARDS_CONTRACT_ID,
+            contract_id: MINING_REWARDS_CONTRACT_ID as u64,
             method_name: "claim_guta_rewards_5".to_string(),
             inputs: batch_inputs,
         });
@@ -338,7 +328,7 @@ fn build_claim_calls_for_multi_checkpoints(all_proofs: &[ProofWithCheckpoint]) -
         }
 
         contract_call_args.push(ContractCallArgs {
-            contract_id: MINING_REWARDS_CONTRACT_ID,
+            contract_id: MINING_REWARDS_CONTRACT_ID as u64,
             method_name: "claim_guta_rewards_2".to_string(),
             inputs: batch_inputs,
         });
@@ -358,7 +348,7 @@ fn build_claim_calls_for_multi_checkpoints(all_proofs: &[ProofWithCheckpoint]) -
         batch_inputs.push(proof_with_checkpoint.proposed_reward);
 
         contract_call_args.push(ContractCallArgs {
-            contract_id: MINING_REWARDS_CONTRACT_ID,
+            contract_id: MINING_REWARDS_CONTRACT_ID as u64,
             method_name: "claim_guta_rewards_1".to_string(),
             inputs: batch_inputs,
         });

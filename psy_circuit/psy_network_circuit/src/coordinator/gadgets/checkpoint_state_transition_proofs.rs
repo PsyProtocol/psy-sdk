@@ -13,7 +13,8 @@ use psy_common_circuit::{
     builder::{comparison::CircuitBuilderComparison, hash::core::CircuitBuilderHashCore, verify::CircuitBuilderVerifyProofHelpers},
     traits::CreatableTarget,
 };
-use psy_core::{config::network_constants::DA_CHALLENGE_WINDOW, data::qhashout::QHashOut};
+use psy_config::network_constants::DA_CHALLENGE_WINDOW;
+use psy_core::data::qhashout::QHashOut;
 use psy_crypto::hash::merkle::treeprover::AggStateTransition;
 use psy_data::{
     guta::header::GlobalUserTreeAggregatorHeader,

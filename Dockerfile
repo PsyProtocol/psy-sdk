@@ -25,9 +25,9 @@ COPY ./psy_services/migrations /psy-node/migrations
 COPY .env /psy-node/.env
 
 # Copy precompiles
-COPY ./psy_precompiles/token           /psy-node/psy_precompiles/token
-COPY ./psy_precompiles/rewards         /psy-node/psy_precompiles/rewards
-COPY ./psy_precompiles/mining_rewards  /psy-node/psy_precompiles/mining_rewards
+COPY ./psy-precompiles/token           /psy-node/psy-precompiles/token
+COPY ./psy-precompiles/rewards         /psy-node/psy-precompiles/rewards
+COPY ./psy-precompiles/mining_rewards  /psy-node/psy-precompiles/mining_rewards
 
 
 RUN echo '#!/bin/bash\n/psy-node/psy_node_cli $@' > /psy-node/.entrypoint.sh

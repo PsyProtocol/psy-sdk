@@ -5,10 +5,8 @@ use plonky2::{
     plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher},
 };
 use psy_common_circuit::treeprover::qrecursion::standard::gadgets::attest_proof_in_tree::AttestProofInTreeGadget;
-use psy_core::{
-    config::network_constants::{DEFERRED_TRANSACTION_TREE_HEIGHT, INLINE_TRANSACTION_TREE_HEIGHT},
-    data::qhashout::QHashOut,
-};
+use psy_config::network_constants::{DEFERRED_TRANSACTION_TREE_HEIGHT, INLINE_TRANSACTION_TREE_HEIGHT};
+use psy_core::data::qhashout::QHashOut;
 use psy_crypto::{common::witnesses::qrecursion::header::AttestProofInTreeInput, hash::traits::hasher::MerkleZeroHasher};
 use psy_data::{
     qdata::user_contract_state::UserContractState,

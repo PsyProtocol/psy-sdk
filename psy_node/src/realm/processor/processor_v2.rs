@@ -20,10 +20,13 @@ use plonky2::{
     plonk::config::PoseidonGoldilocksConfig,
 };
 use psy_common_circuit::hash::merkle::gadgets::delta_merkle_proof;
-use psy_core::{
-    config::network_constants::{
+use psy_config::{
+    network_constants::{
         COORDINATOR_USER_TREE_HEIGHT, GLOBAL_CONTRACT_TREE_HEIGHT, GLOBAL_USER_TREE_HEIGHT, MAX_CONTRACT_STATE_TREE_HEIGHT, REALM_USER_TREE_HEIGHT,
     },
+    GenesisConfigGoldilocks as GenesisConfig,
+};
+use psy_core::{
     data::qhashout::QHashOut,
     job::{
         id::{ProvingJobCircuitType, ProvingJobDataType, QJobTopic, QProvingJobDataID},
@@ -51,14 +54,12 @@ use psy_crypto::{
             qhashable::QFieldHashable,
         },
     },
+    signature::zk::data::ZKPublicKeyInfo,
 };
 use psy_data::{
-    config::{
-        genesis_config::GenesisConfig,
-        store_config::{
-            BaseContractStateTreeStore, PsyHash, PsyHasher, PsyProof, StagingCheckpointInfoStore, StagingDeltaRecordStore, UserContractTreeStore,
-            CONTRACT_STATE_TREE_ID, MAX_CHECKPOINT, USER_CONTRACT_STATE_TREE_TABLE_TYPE,
-        },
+    config::store_config::{
+        BaseContractStateTreeStore, PsyHash, PsyHasher, PsyProof, StagingCheckpointInfoStore, StagingDeltaRecordStore, UserContractTreeStore,
+        CONTRACT_STATE_TREE_ID, MAX_CHECKPOINT, USER_CONTRACT_STATE_TREE_TABLE_TYPE,
     },
     guta::{
         header::GlobalUserTreeAggregatorHeader,
@@ -714,7 +715,14 @@ impl RealmProcessorV2 {
                     self.apply_only_global_block_update_dangerous(update).await?;
                 }
 
-                let genesis_config = GenesisConfig::from_path(&self.config_path)?.ok_or(anyhow::format_err!("Genesis config not found"))?;
+                let config = psy_config::PsyConfigGoldilocks::from_file("config.json")?;
+                let network = config.get_current_network()?;
+                let genesis_config = if let Some(genesis) = &network.genesis {
+                    let genesis_json = serde_json::to_string(genesis)?;
+                    GenesisConfig::from_json(&genesis_json)?
+                } else {
+                    anyhow::bail!("Genesis config not found")
+                };
                 self.process_genesis_user_states(&genesis_config).await?;
 
                 let next_queue_id = UniqueQueueId {
@@ -1604,7 +1612,7 @@ impl RealmProcessorV2 {
         Ok(())
     }
 
-    async fn process_genesis_user_states(&self, genesis_config: &GenesisConfig<F>) -> anyhow::Result<()> {
+    async fn process_genesis_user_states(&self, genesis_config: &GenesisConfig) -> anyhow::Result<()> {
         let realm_id = self.realm_config.realm_id as u64;
         tracing::info!("Processing genesis state for realm {}", realm_id);
 
@@ -1657,7 +1665,7 @@ impl RealmProcessorV2 {
             }
 
             let user_leaf = PsyUserLeaf {
-                public_key: genesis_users[register_id as usize].get_public_key::<PsyHasher>(),
+                public_key: genesis_users[register_id as usize].qfhash::<PsyHasher>(),
                 user_state_tree_root: user_contract_tree_root,
                 balance: F::ZERO,
                 nonce: F::ZERO,

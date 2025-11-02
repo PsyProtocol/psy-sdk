@@ -15,10 +15,11 @@ mod tests {
             traits::TreeProverAggCircuit,
         },
     };
-    use psy_core::{
-        config::network_constants::{PSY_NETWORK_MAGIC_REGTEST, UPS_CIRCUIT_WHITELIST_TREE_HEIGHT, UPS_SESSION_PROOF_TREE_HEIGHT},
-        data::qhashout::QHashOut,
+    use psy_config::{
+        network_constants::{UPS_CIRCUIT_WHITELIST_TREE_HEIGHT, UPS_SESSION_PROOF_TREE_HEIGHT},
+        PSY_NETWORK_MAGIC,
     };
+    use psy_core::data::qhashout::QHashOut;
     use psy_crypto::hash::{merkle::utils::simple_merkle_tree::SimpleMerkleTree, traits::hasher::PoseidonHasher};
 
     use crate::{
@@ -38,7 +39,7 @@ mod tests {
         let ups_start = UPSStartSessionCircuit::<C, D>::new();
         let ups_cfc_standard_tx = UPSCFCStandardTransactionCircuit::<C, D>::new();
         let ups_cfc_deferred_tx = UPSCFCDeferredTransactionCircuit::<C, D>::new();
-        let network_magic = PSY_NETWORK_MAGIC_REGTEST;
+        let network_magic = PSY_NETWORK_MAGIC;
         let mut ups_circuit_whitelist_proofs = SimpleMerkleTree::<PoseidonHasher, QHashOut<F>>::gen_fast_tree_inclusion_proofs(
             UPS_CIRCUIT_WHITELIST_TREE_HEIGHT,
             &[

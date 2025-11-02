@@ -8,7 +8,7 @@ use psy_common_circuit::{
     builder::core::CircuitBuilderHelpersCore,
     traits::{AlgebraicHashableTarget, CreatableTarget, FromTargets, ToTargets, WitnessValueFor},
 };
-use psy_core::config::network_constants::MAX_CONTRACT_STATE_TREE_HEIGHT;
+use psy_config::network_constants::MAX_CONTRACT_STATE_TREE_HEIGHT;
 use psy_data::qdata::contract::PsyContractLeaf;
 
 #[derive(Clone, Debug, PartialEq, Eq, Copy)]

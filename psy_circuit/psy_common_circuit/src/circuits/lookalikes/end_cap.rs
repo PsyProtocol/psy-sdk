@@ -1,4 +1,5 @@
 use plonky2::{hash::hash_types::HashOutTarget, plonk::{circuit_builder::CircuitBuilder, circuit_data::{CircuitConfig, CircuitData}, config::{AlgebraicHasher, GenericConfig}}};
+use psy_config::PSY_NETWORK_MAGIC;
 use psy_common_circuit::{builder::{hash::core::CircuitBuilderHashCore, pad_circuit::{pad_circuit_degree, CircuitBuilderPsyCommonGates}}, proof_minifier::pm_core::get_circuit_fingerprint_generic};
 use psy_core::data::qhashout::QHashOut;
 
@@ -41,7 +42,7 @@ where
 mod tests {
     use plonky2::{field::goldilocks_field::GoldilocksField, plonk::config::PoseidonGoldilocksConfig};
     use psy_common_circuit::{circuits::traits::qstandard::QStandardCircuit, treeprover::qrecursion::standard::manager::portable::circuits::PortableQTreeRecursionCircuits};
-    use psy_core::{config::network_constants::{PSY_NETWORK_MAGIC_REGTEST, UPS_CIRCUIT_WHITELIST_TREE_HEIGHT, UPS_SESSION_PROOF_TREE_HEIGHT}, data::qhashout::QHashOut};
+    use psy_core::{config::network_constants::{PSY_NETWORK_MAGIC, UPS_CIRCUIT_WHITELIST_TREE_HEIGHT, UPS_SESSION_PROOF_TREE_HEIGHT}, data::qhashout::QHashOut};
     use psy_crypto::hash::{merkle::utils::simple_merkle_tree::SimpleMerkleTree, traits::hasher::PoseidonHasher};
 
     use crate::{lookalikes::end_cap::EndCapLookalikeCircuit, ups::circuits::{end_cap::UPSStandardEndCapCircuit, ups_cfc_deferred_tx::UPSCFCDeferredTransactionCircuit, ups_cfc_standard::UPSCFCStandardTransactionCircuit, ups_start::UPSStartSessionCircuit}};
@@ -55,7 +56,7 @@ mod tests {
         let ups_start = UPSStartSessionCircuit::<C,D>::new();
         let ups_cfc_standard_tx = UPSCFCStandardTransactionCircuit::<C,D>::new();
         let ups_cfc_deferred_tx = UPSCFCDeferredTransactionCircuit::<C,D>::new();
-        let network_magic = PSY_NETWORK_MAGIC_REGTEST;
+        let network_magic = PSY_NETWORK_MAGIC;
         let mut ups_circuit_whitelist_proofs =
             SimpleMerkleTree::<PoseidonHasher, QHashOut<F>>::gen_fast_tree_inclusion_proofs(
                 UPS_CIRCUIT_WHITELIST_TREE_HEIGHT,

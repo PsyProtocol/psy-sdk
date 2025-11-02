@@ -10,7 +10,7 @@ use anyhow::Result;
 use indexmap::IndexSet;
 use plonky2::field::goldilocks_field::GoldilocksField;
 use psy_core::data::qhashout::QHashOut;
-use psy_rust_sdk::wallet::secp_sign::{Eip712Signable, SignedRequest};
+use psy_provider::wallet::secp_sign::{Eip712Signable, SignedRequest};
 use serde::{Deserialize, Serialize};
 use tokio::task::JoinHandle;
 use tracing::{error, info};

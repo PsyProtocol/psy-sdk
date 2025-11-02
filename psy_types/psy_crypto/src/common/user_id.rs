@@ -4,7 +4,7 @@ use plonky2::{
     iop::target::{BoolTarget, Target},
     plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher},
 };
-use psy_core::config::network_constants::{COORDINATOR_USER_TREE_HEIGHT, GLOBAL_USER_TREE_HEIGHT, GROUP_REALM_HEIGHT, REALM_USER_TREE_HEIGHT};
+use psy_config::network_constants::{COORDINATOR_USER_TREE_HEIGHT, GLOBAL_USER_TREE_HEIGHT, GROUP_REALM_HEIGHT, REALM_USER_TREE_HEIGHT};
 
 fn reverse_bits_in_limit(x: u64, num_bits: u8) -> u64 {
     let dif = 64 - num_bits as u64;
@@ -234,7 +234,7 @@ mod tests {
             proof::ProofWithPublicInputs,
         },
     };
-    use psy_core::config::network_constants::GLOBAL_USER_TREE_HEIGHT;
+    use psy_config::network_constants::GLOBAL_USER_TREE_HEIGHT;
     use rand::{thread_rng, RngCore};
 
     use super::{UserIdBitsStrategy1, UserIdBitsStrategy2, UserIdBitsStrategy3, UserIdBitsStrategy4, UserIdGeneratorStrategy};

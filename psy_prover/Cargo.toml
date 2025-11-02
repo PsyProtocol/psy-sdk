@@ -5,9 +5,6 @@ version = "0.1.0"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
-[lib]
-crate-type = ["cdylib", "rlib"]
-
 [dependencies]
 maybe-async = { workspace = true }
 async-trait = { workspace = true }
@@ -25,26 +22,17 @@ dashmap = { workspace = true }
 
 kvq = { workspace = true }
 psy_core = { workspace = true }
+psy_config = { workspace = true }
 psy_common_circuit = { workspace = true, default-features = false }
 psy_network_circuit = { workspace = true, default-features = false }
 psy_dpn_circuit = { workspace = true, default-features = false }
-psy_ups_circuit = { workspace = true, default-features = false }
 psy-common = { workspace = true }
 psy_vm = { workspace = true }
 psy_data = { workspace = true, default-features = false }
 psy_crypto = { workspace = true }
 psy_store = { workspace = true, default-features = false }
-psy_rust_sdk = { path = "../psy_sdk/psy-rust-sdk" }
+psy_provider = { workspace = true }
 psylang_macros = { workspace = true }
-wasm-bindgen = { workspace = true }
-console_error_panic_hook = { workspace = true }
-wasm-logger = { workspace = true }
-wasm-tracing = { workspace = true }
-cfg-if = {workspace = true}
-web-sys = { workspace = true }
-js-sys = { workspace = true }
-wasm-bindgen-futures = { workspace = true }
-serde-wasm-bindgen = { workspace = true }
 
 k256 = { workspace = true }
 
@@ -54,6 +42,7 @@ hex = {workspace = true}
 
 # Native-only dependencies
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+psy_ups_circuit = { workspace = true, default-features = false }
 futures = { workspace = true }
 tokio = { workspace = true }
 tower = { workspace = true }
@@ -74,15 +63,6 @@ alloy-signer-local = { workspace = true }
 alloy-primitives = { workspace = true }
 parking_lot = { workspace = true}
 http = { workspace = true }
-
-
-# WASM-specific dependencies
-[target.'cfg(target_arch = "wasm32")'.dependencies]
-reqwest = { workspace = true, features = ["json"] }
-
-
-[package.metadata.wasm-pack.profile.release]
-wasm-opt = ["-O", "--enable-bulk-memory", "--enable-nontrapping-float-to-int"]
 
 [features]
 # default = ["is_sync"]

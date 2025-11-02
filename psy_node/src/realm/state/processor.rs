@@ -9,11 +9,14 @@ use plonky2::{
     field::types::{Field, PrimeField64},
     plonk::{config::PoseidonGoldilocksConfig, proof::ProofWithPublicInputs},
 };
-use psy_core::{
-    config::network_constants::{
-        COORDINATOR_USER_TREE_HEIGHT, COORD_API_GUTA_FROM_REALMS_CHANNEL_ID, CST_USER_UPDATE_CHANNEL_ID, DEFAULT_USER_STATE_TREE_ROOT,
-        GLOBAL_USER_TREE_HEIGHT, REALM_API_GUTA_FROM_USER_CHANNEL_ID, REALM_API_UPDATE_CONTRACT_STATE_TREE_CHANNEL_ID, REALM_USER_TREE_HEIGHT,
+use psy_config::{
+    get_default_user_state_tree_root,
+    network_constants::{
+        COORDINATOR_USER_TREE_HEIGHT, COORD_API_GUTA_FROM_REALMS_CHANNEL_ID, CST_USER_UPDATE_CHANNEL_ID, GLOBAL_USER_TREE_HEIGHT,
+        REALM_API_GUTA_FROM_USER_CHANNEL_ID, REALM_API_UPDATE_CONTRACT_STATE_TREE_CHANNEL_ID, REALM_USER_TREE_HEIGHT,
     },
+};
+use psy_core::{
     data::qhashout::QHashOut,
     job::{
         drain_queue::CheckpointDrainQueueConsumerAsyncImm,
@@ -102,7 +105,7 @@ impl RealmConfig {
                 .root,
             realm_id,
             realm_manager_id: 0,
-            default_user_state_tree_root: DEFAULT_USER_STATE_TREE_ROOT,
+            default_user_state_tree_root: get_default_user_state_tree_root(),
             contract_state_tree_update_channel_id: REALM_API_UPDATE_CONTRACT_STATE_TREE_CHANNEL_ID,
         }
     }

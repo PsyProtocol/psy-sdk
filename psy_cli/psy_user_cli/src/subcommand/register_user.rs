@@ -7,10 +7,8 @@ use plonky2::{
     plonk::config::PoseidonGoldilocksConfig,
 };
 use psy_common_circuit::circuits::traits::qstandard::QStandardCircuit;
-use psy_core::{
-    config::network_constants::{MAX_CONTRACT_STATE_TREE_HEIGHT, UPS_SESSION_PROOF_TREE_HEIGHT},
-    data::qhashout::QHashOut,
-};
+use psy_config::network_constants::{MAX_CONTRACT_STATE_TREE_HEIGHT, UPS_SESSION_PROOF_TREE_HEIGHT};
+use psy_core::data::qhashout::QHashOut;
 use psy_crypto::{
     hash::traits::qhashable::QFieldHashable,
     signature::{
@@ -31,8 +29,7 @@ use psy_prover::{
 };
 use psy_rust_sdk::{
     provider::{QUserRpcProvider, RpcProvider},
-    request::QRegisterUserRPCRequest,
-    wallet::software_defined_circuit::QSoftwareDefinedSignatureInput,
+    request::{QRegisterUserRPCRequest, QSoftwareDefinedSignatureInput},
 };
 use psy_vm::dpn::vm::def::DPNFunctionCircuitDefinition;
 

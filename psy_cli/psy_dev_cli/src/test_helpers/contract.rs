@@ -6,12 +6,8 @@ use plonky2::{
     plonk::config::{AlgebraicHasher, GenericConfig, PoseidonGoldilocksConfig},
 };
 use psy_common_circuit::circuits::traits::qstandard::QStandardCircuit;
-use psy_core::{
-    config::network_constants::{GLOBAL_USER_TREE_HEIGHT, UPS_SESSION_PROOF_TREE_HEIGHT},
-    data::qhashout::QHashOut,
-    ups::circuits::LocalCircuitId,
-    utils::debug_timer::DebugTimer,
-};
+use psy_config::network_constants::{GLOBAL_USER_TREE_HEIGHT, UPS_SESSION_PROOF_TREE_HEIGHT};
+use psy_core::{data::qhashout::QHashOut, ups::circuits::LocalCircuitId, utils::debug_timer::DebugTimer};
 use psy_crypto::hash::{traits::hasher::MerkleZeroHasher, utils::gen_dapen_contract_function_method_id};
 use psy_data::{
     qblock::cmds::deploy_contract::QBCDeployContract,
