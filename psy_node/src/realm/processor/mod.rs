@@ -26,7 +26,7 @@ use psy_config::{
     },
     GenesisConfigGoldilocks as GenesisConfig,
 };
-use psy_core::{
+use psy_common::{
     data::qhashout::QHashOut,
     job::{
         history_queue::{CheckpointHistoryQueueConsumerAsyncImm, CheckpointHistoryQueueEmitterAsyncImm},
@@ -426,7 +426,7 @@ impl RealmProcessor {
     }
 
     async fn submit_guta(&self, build_ctx: &ConcreteRealmProcessorContext, job_id: QProvingJobDataID) -> anyhow::Result<()> {
-        use psy_core::job::traits::QProofStoreReaderAsync;
+        use psy_common::job::traits::QProofStoreReaderAsync;
         let bytes = build_ctx.proof_store.get_bytes_by_id(job_id).await?;
         // Deserialize realm result
         let realm_result: GUTARealmCheckpointResult<F> = bincode::deserialize(&bytes)?;

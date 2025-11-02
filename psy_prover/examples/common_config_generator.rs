@@ -6,7 +6,7 @@ use psy_common_circuit::circuits::{
     traits::qstandard::QStandardCircuit,
 };
 use psy_config::PSY_NETWORK_MAGIC;
-use psy_core::{data::qhashout::QHashOut, job::id::ProvingJobCircuitType};
+use psy_common::{data::qhashout::QHashOut, job::id::ProvingJobCircuitType};
 use psy_crypto::common::generic_circuit_verifier::GenericCircuitVerifier;
 use psy_data::config::store_config::PsyFelt;
 use psy_network_circuit::{coordinator::coordinator_helper::PsyCoordinatorCircuitManager, guta::guta_helper::PsyGUTACircuitManager};
@@ -122,7 +122,7 @@ fn run_gen_config() -> anyhow::Result<()> {
     let common_info_data = serde_json::to_string(&gcv_ser.common)?;
 
     // Write to cached_circuit_library.rs
-    let library_path = "./psy_types/psy_crypto/src/common/cached_circuit_library.rs";
+    let library_path = "./psy_core/psy_crypto/src/common/cached_circuit_library.rs";
     let mut library_file = File::create(&library_path)?;
     write!(
         library_file,

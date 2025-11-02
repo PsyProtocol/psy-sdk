@@ -63,7 +63,7 @@ mod tests {
             config::{GenericConfig, PoseidonGoldilocksConfig},
         },
     };
-    use psy_core::utils::debug_timer::DebugTimer;
+    use psy_common::utils::debug_timer::DebugTimer;
     use psy_crypto::signature::secp256k1::curve::{
         curve_types::CurveScalar,
         ecdsa::{sign_message, ECDSAPublicKey, ECDSASecretKey, ECDSASignature},

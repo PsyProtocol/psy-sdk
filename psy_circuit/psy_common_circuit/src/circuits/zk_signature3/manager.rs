@@ -5,7 +5,7 @@ use plonky2::{
         proof::ProofWithPublicInputs,
     },
 };
-use psy_core::data::qhashout::QHashOut;
+use psy_common::data::qhashout::QHashOut;
 use psy_crypto::signature::zk::{data::ZKPublicKeyInfo, wallet::SimplePsyPrivateKey};
 
 use super::core::PsyBasicZKSignatureCircuit;
@@ -125,7 +125,7 @@ where
 mod tests {
 
     use plonky2::{hash::poseidon::PoseidonHash, plonk::config::PoseidonGoldilocksConfig};
-    use psy_core::utils::debug_timer::DebugTimer;
+    use psy_common::utils::debug_timer::DebugTimer;
 
     use super::*;
 

@@ -1,5 +1,5 @@
 use plonky2::{hash::hash_types::RichField, plonk::proof::ProofWithPublicInputs};
-use psy_core::{
+use psy_common::{
     data::{base_types::hash256::Hash256, qhashout::QHashOut},
     job::id::{QJobTopic, QProvingJobDataID},
 };

@@ -2,7 +2,7 @@ use std::result::Result::Ok;
 
 use plonky2::field::goldilocks_field::GoldilocksField;
 use psy_config::network_constants::{COORDINATOR_USER_TREE_HEIGHT, GLOBAL_USER_TREE_HEIGHT, REALM_USER_TREE_HEIGHT};
-use psy_core::data::qhashout::QHashOut;
+use psy_common::data::qhashout::QHashOut;
 use psy_crypto::hash::merkle::core::MerkleProofCore;
 use psy_data::{
     config::store_config::PsyHasher,
@@ -32,7 +32,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         checkpoint_id: u64,
         user_id: u64,
         contract_id: u32,
-    ) -> anyhow::Result<psy_core::data::qhashout::QHashOut<F>> {
+    ) -> anyhow::Result<psy_common::data::qhashout::QHashOut<F>> {
         debug!(
             checkpoint_id = checkpoint_id,
             user_id = user_id,
@@ -72,7 +72,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         contract_id: u32,
         height: u8,
         leaf_id: u64,
-    ) -> anyhow::Result<psy_core::data::qhashout::QHashOut<F>> {
+    ) -> anyhow::Result<psy_common::data::qhashout::QHashOut<F>> {
         debug!(
             checkpoint_id = checkpoint_id,
             user_id = user_id,
@@ -118,7 +118,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         contract_id: u32,
         height: u8,
         leaf_id: u64,
-    ) -> anyhow::Result<psy_crypto::hash::merkle::core::MerkleProofCore<psy_core::data::qhashout::QHashOut<F>>> {
+    ) -> anyhow::Result<psy_crypto::hash::merkle::core::MerkleProofCore<psy_common::data::qhashout::QHashOut<F>>> {
         debug!(
             checkpoint_id = checkpoint_id,
             user_id = user_id,
@@ -162,7 +162,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
     }
 
     #[instrument(skip(self), fields(checkpoint_id, user_id))]
-    async fn get_user_contract_tree_root(&self, checkpoint_id: u64, user_id: u64) -> anyhow::Result<psy_core::data::qhashout::QHashOut<F>> {
+    async fn get_user_contract_tree_root(&self, checkpoint_id: u64, user_id: u64) -> anyhow::Result<psy_common::data::qhashout::QHashOut<F>> {
         debug!(checkpoint_id = checkpoint_id, user_id = user_id, "Fetching user contract tree root");
         let rpc_url = self.get_realm_url(user_id)?;
         let input = QUserContractTreeRootRPCRequest { checkpoint_id, user_id };
@@ -190,7 +190,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         checkpoint_id: u64,
         user_id: u64,
         contract_id: u32,
-    ) -> anyhow::Result<psy_core::data::qhashout::QHashOut<F>> {
+    ) -> anyhow::Result<psy_common::data::qhashout::QHashOut<F>> {
         debug!(
             checkpoint_id = checkpoint_id,
             user_id = user_id,
@@ -228,7 +228,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         checkpoint_id: u64,
         user_id: u64,
         contract_id: u32,
-    ) -> anyhow::Result<psy_crypto::hash::merkle::core::MerkleProofCore<psy_core::data::qhashout::QHashOut<F>>> {
+    ) -> anyhow::Result<psy_crypto::hash::merkle::core::MerkleProofCore<psy_common::data::qhashout::QHashOut<F>>> {
         debug!(
             checkpoint_id = checkpoint_id,
             user_id = user_id,
@@ -267,7 +267,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
     }
 
     #[instrument(skip(self), fields(checkpoint_id))]
-    async fn get_user_registration_tree_root(&self, checkpoint_id: u64) -> anyhow::Result<psy_core::data::qhashout::QHashOut<F>> {
+    async fn get_user_registration_tree_root(&self, checkpoint_id: u64) -> anyhow::Result<psy_common::data::qhashout::QHashOut<F>> {
         debug!(checkpoint_id = checkpoint_id, "Fetching user registration tree root");
         let rpc_url = self.get_coordinator_url()?;
         let input = QUserRegistrationTreeRootRPCRequest { checkpoint_id };
@@ -293,7 +293,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         &self,
         checkpoint_id: u64,
         leaf_index: u64,
-    ) -> anyhow::Result<psy_core::data::qhashout::QHashOut<F>> {
+    ) -> anyhow::Result<psy_common::data::qhashout::QHashOut<F>> {
         debug!(
             checkpoint_id = checkpoint_id,
             leaf_index = leaf_index,
@@ -324,7 +324,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         &self,
         checkpoint_id: u64,
         leaf_index: u64,
-    ) -> anyhow::Result<psy_crypto::hash::merkle::core::MerkleProofCore<psy_core::data::qhashout::QHashOut<F>>> {
+    ) -> anyhow::Result<psy_crypto::hash::merkle::core::MerkleProofCore<psy_common::data::qhashout::QHashOut<F>>> {
         debug!(
             checkpoint_id = checkpoint_id,
             leaf_index = leaf_index,
@@ -356,7 +356,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
     }
 
     #[instrument(skip(self), fields(checkpoint_id))]
-    async fn get_user_tree_root(&self, checkpoint_id: u64) -> anyhow::Result<psy_core::data::qhashout::QHashOut<F>> {
+    async fn get_user_tree_root(&self, checkpoint_id: u64) -> anyhow::Result<psy_common::data::qhashout::QHashOut<F>> {
         debug!(checkpoint_id = checkpoint_id, "Fetching user tree root");
         let rpc_url = self.get_coordinator_url()?;
         let input = QUserTreeRootRPCRequest { checkpoint_id };
@@ -378,7 +378,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
     }
 
     #[instrument(skip(self), fields(checkpoint_id, user_id))]
-    async fn get_user_tree_leaf_hash(&self, checkpoint_id: u64, user_id: u64) -> anyhow::Result<psy_core::data::qhashout::QHashOut<F>> {
+    async fn get_user_tree_leaf_hash(&self, checkpoint_id: u64, user_id: u64) -> anyhow::Result<psy_common::data::qhashout::QHashOut<F>> {
         info!("Fetching user tree leaf hash checkpoint_id: {}, user_id: {}", checkpoint_id, user_id);
         let rpc_url = self.get_realm_url(user_id)?;
         let input = QUserTreeLeafHashRPCRequest { checkpoint_id, user_id };
@@ -405,7 +405,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         &self,
         checkpoint_id: u64,
         user_id: u64,
-    ) -> anyhow::Result<psy_crypto::hash::merkle::core::MerkleProofCore<psy_core::data::qhashout::QHashOut<F>>> {
+    ) -> anyhow::Result<psy_crypto::hash::merkle::core::MerkleProofCore<psy_common::data::qhashout::QHashOut<F>>> {
         info!("Fetching user tree merkle proof checkpoint_id: {}, user_id: {}", checkpoint_id, user_id);
         let rpc_url = self.get_realm_url(user_id)?;
         let input = QUserTreeMerkleProofRPCRequest { checkpoint_id, user_id };
@@ -472,7 +472,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         root_level: u8,
         leaf_level: u8,
         leaf_index: u64,
-    ) -> anyhow::Result<psy_crypto::hash::merkle::core::MerkleProofCore<psy_core::data::qhashout::QHashOut<F>>> {
+    ) -> anyhow::Result<psy_crypto::hash::merkle::core::MerkleProofCore<psy_common::data::qhashout::QHashOut<F>>> {
         info!(
             "Fetching user sub tree merkle proof checkpoint_id: {}, root_level: {}, leaf_level: {}, leaf_index: {}",
             checkpoint_id, root_level, leaf_level, leaf_index
@@ -560,7 +560,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
     }
 
     #[instrument(skip(self), fields(checkpoint_id, contract_id))]
-    async fn get_contract_function_tree_root(&self, checkpoint_id: u64, contract_id: u32) -> anyhow::Result<psy_core::data::qhashout::QHashOut<F>> {
+    async fn get_contract_function_tree_root(&self, checkpoint_id: u64, contract_id: u32) -> anyhow::Result<psy_common::data::qhashout::QHashOut<F>> {
         debug!(
             checkpoint_id = checkpoint_id,
             contract_id = contract_id,
@@ -592,7 +592,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         checkpoint_id: u64,
         contract_id: u32,
         function_id: u32,
-    ) -> anyhow::Result<psy_core::data::qhashout::QHashOut<F>> {
+    ) -> anyhow::Result<psy_common::data::qhashout::QHashOut<F>> {
         debug!(
             checkpoint_id = checkpoint_id,
             contract_id = contract_id,
@@ -630,7 +630,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         checkpoint_id: u64,
         contract_id: u32,
         function_id: u32,
-    ) -> anyhow::Result<psy_crypto::hash::merkle::core::MerkleProofCore<psy_core::data::qhashout::QHashOut<F>>> {
+    ) -> anyhow::Result<psy_crypto::hash::merkle::core::MerkleProofCore<psy_common::data::qhashout::QHashOut<F>>> {
         debug!(
             checkpoint_id = checkpoint_id,
             contract_id = contract_id,
@@ -668,7 +668,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
     }
 
     #[instrument(skip(self), fields(checkpoint_id))]
-    async fn get_contract_tree_root(&self, checkpoint_id: u64) -> anyhow::Result<psy_core::data::qhashout::QHashOut<F>> {
+    async fn get_contract_tree_root(&self, checkpoint_id: u64) -> anyhow::Result<psy_common::data::qhashout::QHashOut<F>> {
         debug!(checkpoint_id = checkpoint_id, "Fetching contract tree root");
         let rpc_url = self.get_coordinator_url()?;
         let input = QContractTreeRootRPCRequest { checkpoint_id };
@@ -690,7 +690,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
     }
 
     #[instrument(skip(self), fields(checkpoint_id, contract_id))]
-    async fn get_contract_tree_leaf_hash(&self, checkpoint_id: u64, contract_id: u32) -> anyhow::Result<psy_core::data::qhashout::QHashOut<F>> {
+    async fn get_contract_tree_leaf_hash(&self, checkpoint_id: u64, contract_id: u32) -> anyhow::Result<psy_common::data::qhashout::QHashOut<F>> {
         info!(
             "Fetching contract tree leaf hash checkpoint_id: {}, contract_id: {}",
             checkpoint_id, contract_id
@@ -720,7 +720,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         &self,
         checkpoint_id: u64,
         contract_id: u32,
-    ) -> anyhow::Result<psy_crypto::hash::merkle::core::MerkleProofCore<psy_core::data::qhashout::QHashOut<F>>> {
+    ) -> anyhow::Result<psy_crypto::hash::merkle::core::MerkleProofCore<psy_common::data::qhashout::QHashOut<F>>> {
         info!(
             "Fetching contract tree merkle proof checkpoint_id: {}, contract_id: {}",
             checkpoint_id, contract_id
@@ -751,7 +751,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
     }
 
     #[instrument(skip(self), fields(checkpoint_id))]
-    async fn get_deposit_tree_root(&self, checkpoint_id: u64) -> anyhow::Result<psy_core::data::qhashout::QHashOut<F>> {
+    async fn get_deposit_tree_root(&self, checkpoint_id: u64) -> anyhow::Result<psy_common::data::qhashout::QHashOut<F>> {
         debug!(checkpoint_id = checkpoint_id, "Fetching deposit tree root");
         let rpc_url = self.get_coordinator_url()?;
         let input = QDepositTreeRootRPCRequest { checkpoint_id };
@@ -773,7 +773,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
     }
 
     #[instrument(skip(self), fields(checkpoint_id, deposit_id))]
-    async fn get_deposit_tree_leaf_hash(&self, checkpoint_id: u64, deposit_id: u32) -> anyhow::Result<psy_core::data::qhashout::QHashOut<F>> {
+    async fn get_deposit_tree_leaf_hash(&self, checkpoint_id: u64, deposit_id: u32) -> anyhow::Result<psy_common::data::qhashout::QHashOut<F>> {
         debug!(checkpoint_id = checkpoint_id, deposit_id = deposit_id, "Fetching deposit tree leaf hash");
         let rpc_url = self.get_coordinator_url()?;
         let input = QDepositTreeLeafHashRPCRequest { checkpoint_id, deposit_id };
@@ -800,7 +800,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         &self,
         checkpoint_id: u64,
         deposit_id: u32,
-    ) -> anyhow::Result<psy_crypto::hash::merkle::core::MerkleProofCore<psy_core::data::qhashout::QHashOut<F>>> {
+    ) -> anyhow::Result<psy_crypto::hash::merkle::core::MerkleProofCore<psy_common::data::qhashout::QHashOut<F>>> {
         info!("Fetching deposit tree merkle proof");
         let rpc_url = self.get_coordinator_url()?;
         let input = QDepositTreeMerkleProofRPCRequest { checkpoint_id, deposit_id };
@@ -828,7 +828,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
     }
 
     #[instrument(skip(self), fields(checkpoint_id))]
-    async fn get_withdrawal_tree_root(&self, checkpoint_id: u64) -> anyhow::Result<psy_core::data::qhashout::QHashOut<F>> {
+    async fn get_withdrawal_tree_root(&self, checkpoint_id: u64) -> anyhow::Result<psy_common::data::qhashout::QHashOut<F>> {
         info!("Fetching withdrawal tree root");
         let rpc_url = self.get_coordinator_url()?;
         let input = QWithdrawalTreeRootRPCRequest { checkpoint_id };
@@ -850,7 +850,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
     }
 
     #[instrument(skip(self), fields(checkpoint_id, withdrawal_id))]
-    async fn get_withdrawal_tree_leaf_hash(&self, checkpoint_id: u64, withdrawal_id: u32) -> anyhow::Result<psy_core::data::qhashout::QHashOut<F>> {
+    async fn get_withdrawal_tree_leaf_hash(&self, checkpoint_id: u64, withdrawal_id: u32) -> anyhow::Result<psy_common::data::qhashout::QHashOut<F>> {
         info!("Fetching withdrawal tree leaf hash");
         let rpc_url = self.get_coordinator_url()?;
         let input = QWithdrawalTreeLeafHashRPCRequest {
@@ -880,7 +880,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         &self,
         checkpoint_id: u64,
         withdrawal_id: u32,
-    ) -> anyhow::Result<psy_crypto::hash::merkle::core::MerkleProofCore<psy_core::data::qhashout::QHashOut<F>>> {
+    ) -> anyhow::Result<psy_crypto::hash::merkle::core::MerkleProofCore<psy_common::data::qhashout::QHashOut<F>>> {
         info!("Fetching withdrawal tree merkle proof");
         let rpc_url = self.get_coordinator_url()?;
         let input = QWithdrawalTreeMerkleProofRPCRequest {
@@ -911,7 +911,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
     }
 
     #[instrument(skip(self))]
-    async fn get_latest_checkpoint_tree_root(&self) -> anyhow::Result<psy_core::data::qhashout::QHashOut<F>> {
+    async fn get_latest_checkpoint_tree_root(&self) -> anyhow::Result<psy_common::data::qhashout::QHashOut<F>> {
         info!("Fetching latest checkpoint tree root");
         let rpc_url = self.get_coordinator_url()?;
         let input = QLatestCheckpointTreeRootRPCRequest {};
@@ -932,7 +932,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
     }
 
     #[instrument(skip(self), fields(checkpoint_id))]
-    async fn get_checkpoint_tree_root(&self, checkpoint_id: u64) -> anyhow::Result<psy_core::data::qhashout::QHashOut<F>> {
+    async fn get_checkpoint_tree_root(&self, checkpoint_id: u64) -> anyhow::Result<psy_common::data::qhashout::QHashOut<F>> {
         info!("Fetching checkpoint tree root");
         let rpc_url = self.get_coordinator_url()?;
         let input = QCheckpointTreeRootRPCRequest { checkpoint_id };
@@ -958,7 +958,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         &self,
         checkpoint_id: u64,
         leaf_checkpoint_id: u64,
-    ) -> anyhow::Result<psy_core::data::qhashout::QHashOut<F>> {
+    ) -> anyhow::Result<psy_common::data::qhashout::QHashOut<F>> {
         info!("Fetching checkpoint tree leaf hash");
         let rpc_url = self.get_coordinator_url()?;
         let input = QCheckpointTreeLeafHashRPCRequest {
@@ -988,7 +988,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         &self,
         checkpoint_id: u64,
         leaf_checkpoint_id: u64,
-    ) -> anyhow::Result<psy_crypto::hash::merkle::core::MerkleProofCore<psy_core::data::qhashout::QHashOut<F>>> {
+    ) -> anyhow::Result<psy_crypto::hash::merkle::core::MerkleProofCore<psy_common::data::qhashout::QHashOut<F>>> {
         info!("Fetching checkpoint tree merkle proof");
         let rpc_url = self.get_coordinator_url()?;
         let input = QCheckpointTreeMerkleProofRPCRequest {

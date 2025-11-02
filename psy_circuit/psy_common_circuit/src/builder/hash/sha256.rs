@@ -402,7 +402,7 @@ mod tests {
             config::{GenericConfig, Hasher, PoseidonGoldilocksConfig},
         },
     };
-    use psy_core::{
+    use psy_common::{
         data::{base_types::hash256::Hash256, qhashout::QHashOut},
         utils::binary_helpers::{bytes_to_u32_vec_be, u32_vec_to_bytes_be},
     };

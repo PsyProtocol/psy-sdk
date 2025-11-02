@@ -19,7 +19,7 @@ use psy_config::network_constants::{
     DEFAULT_CALLER_CONTRACT_ID_U64, DEFERRED_TRANSACTION_TREE_HEIGHT, GUTA_FEE, INLINE_TRANSACTION_TREE_HEIGHT, TOKEN_CONTRACT_ID,
     TOKEN_SIMPLE_BURN_METHOD_ID, UPS_SESSION_PROOF_TREE_HEIGHT,
 };
-use psy_core::{data::qhashout::QHashOut, ups::circuits::LocalCircuitType, utils::debug_timer::DebugTimer};
+use psy_common::{data::qhashout::QHashOut, ups::circuits::LocalCircuitType, utils::debug_timer::DebugTimer};
 use psy_crypto::{
     common::witnesses::qrecursion::{
         header::{AttestProofInTreeInput, AttestTreeAwareProofInTreeInput},

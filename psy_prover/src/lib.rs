@@ -19,7 +19,7 @@ pub async fn run_server(args: crate::local::args::ProverArgs) -> anyhow::Result<
     use hyper::Method;
     use jsonrpsee::server::Server;
     use parking_lot::{Mutex, RwLock};
-    use psy_core::data::base_types::hash256::Hash256;
+    use psy_common::data::base_types::hash256::Hash256;
     use psy_provider::provider::NetworkConfig;
     use tower_http::cors::{Any, CorsLayer};
 

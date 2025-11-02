@@ -15,7 +15,7 @@ use psy_common_circuit::{
     circuits::traits::qstandard::QStandardCircuit,
     proof_minifier::{pm_chain_dynamic::PsyProofMinifierDynamicChain, pm_core::get_circuit_fingerprint_generic},
 };
-use psy_core::data::qhashout::QHashOut;
+use psy_common::data::qhashout::QHashOut;
 
 #[derive(Debug)]
 pub struct SimplePerfCircuit<C: GenericConfig<D> + 'static, const D: usize>

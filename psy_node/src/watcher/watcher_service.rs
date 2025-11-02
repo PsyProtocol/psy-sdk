@@ -10,7 +10,7 @@ use anyhow::{anyhow, Result};
 use bb8::Pool;
 use bb8_redis::RedisConnectionManager;
 use chrono::{DateTime, Utc};
-use psy_core::job::id::QProvingJobDataID;
+use psy_common::job::id::QProvingJobDataID;
 use psy_store::{
     node::{coordinator::PsyCoordinatorStoreReaderAsync, realm::PsyRealmStoreReaderAsync},
     queue::{new_redis_async_pool, task_queue::QProvingTaskStoreImpl, QueueId, RsmqQueue},

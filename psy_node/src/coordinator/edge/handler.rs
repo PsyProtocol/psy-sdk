@@ -9,7 +9,7 @@ use plonky2::{
     field::types::Field,
     plonk::{config::PoseidonGoldilocksConfig, proof::ProofWithPublicInputs},
 };
-use psy_core::{
+use psy_common::{
     data::qhashout::QHashOut,
     job::{
         drain_queue::{CheckpointDrainQueueConsumerAsyncImm, CheckpointDrainQueueEmitterAsyncImm, DrainQueueMetadataTagged, WithDrainQueueMetadata},

@@ -1,4 +1,4 @@
-use psy_core::data::base_types::hash256::Hash256;
+use psy_common::data::base_types::hash256::Hash256;
 use psy_crypto::hash::core::sha256::CoreSha256Hasher;
 
 pub trait SimpleEncryptionHelper: Clone + Send + Sync {

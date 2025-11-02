@@ -18,7 +18,7 @@ use plonky2::{
     },
     util::serialization::{Buffer, IoResult, Read, Write},
 };
-use psy_core::utils::math::ceil_div_usize;
+use psy_common::utils::math::ceil_div_usize;
 
 /// A gate which can decompose a number into base B little-endian limbs.
 #[derive(Copy, Clone, Debug)]

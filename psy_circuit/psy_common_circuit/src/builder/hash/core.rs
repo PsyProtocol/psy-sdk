@@ -7,7 +7,7 @@ use plonky2::{
     iop::target::{BoolTarget, Target},
     plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher},
 };
-use psy_core::data::qhashout::QHashOut;
+use psy_common::data::qhashout::QHashOut;
 
 use crate::{
     builder::{comparison::CircuitBuilderComparison, core::CircuitBuilderHelpersCore, select::CircuitBuilderSelectHelpers},

@@ -6,8 +6,8 @@ version = "0.1.0"
 [dependencies]
 psy-ast = { workspace = true }
 psy-lexer = { workspace = true }
+psy_common = { workspace = true }
 lalrpop-util = { workspace = true }
-psy-common = { workspace = true }
 thiserror = { workspace = true }
 psy_vm = { workspace = true }
 indexmap = { workspace = true }

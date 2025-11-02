@@ -19,7 +19,7 @@ use psy_common_circuit::{
     proof_minifier::pm_core::get_circuit_fingerprint_generic,
     treeprover::qrecursion::standard::manager::portable::{circuits::PortableQTreeRecursionCircuits, core::PortableQTreeRecursionManager},
 };
-use psy_core::{data::qhashout::QHashOut, utils::debug_timer::DebugTimer};
+use psy_common::{data::qhashout::QHashOut, utils::debug_timer::DebugTimer};
 use psy_crypto::{
     common::witnesses::qrecursion::proof_data::InputLeafProof,
     hash::merkle::{core::MerkleProofCore, utils::simple_merkle_tree::SimpleMerkleTree},

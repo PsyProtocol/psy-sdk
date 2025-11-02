@@ -10,7 +10,7 @@ use alloy_primitives::{keccak256, Address, B256, U256};
 use anyhow::{Context, Result};
 use plonky2::field::goldilocks_field::GoldilocksField;
 use psy_config::PSY_NETWORK_MAGIC;
-use psy_core::data::qhashout::QHashOut;
+use psy_common::data::qhashout::QHashOut;
 use serde::{Deserialize, Serialize};
 
 use crate::wallet::secp_wallet::Wallet;
@@ -178,7 +178,7 @@ impl SignedRequest<QHashOut<GoldilocksField>> {
 
         let data_bytes = bincode::serialize(data).context("Failed to serialize data")?;
         let hash = keccak256(&data_bytes);
-        let qhash = QHashOut::from_hash256_le(psy_core::data::base_types::hash256::Hash256(hash.0));
+        let qhash = QHashOut::from_hash256_le(psy_common::data::base_types::hash256::Hash256(hash.0));
 
         SignedRequest::new(wallet, qhash)
     }
@@ -188,7 +188,7 @@ impl SignedRequest<QHashOut<GoldilocksField>> {
 
         let data_bytes = bincode::serialize(original_data).context("Failed to serialize original data")?;
         let expected_hash = keccak256(&data_bytes);
-        let expected_qhash = QHashOut::from_hash256_le(psy_core::data::base_types::hash256::Hash256(expected_hash.0));
+        let expected_qhash = QHashOut::from_hash256_le(psy_common::data::base_types::hash256::Hash256(expected_hash.0));
 
         if self.data != expected_qhash {
             return Ok(false);
@@ -362,7 +362,7 @@ mod tests {
             use alloy_primitives::keccak256;
             let data_bytes = bincode::serialize(&test_data).unwrap();
             let hash = keccak256(&data_bytes);
-            QHashOut::from_hash256_le(psy_core::data::base_types::hash256::Hash256(hash.0))
+            QHashOut::from_hash256_le(psy_common::data::base_types::hash256::Hash256(hash.0))
         };
 
         let old_signed = SignedRequest::new_with_timestamp(&wallet, hash, old_timestamp).unwrap();

@@ -9,7 +9,7 @@ use plonky2::{
         proof::ProofWithPublicInputs,
     },
 };
-use psy_core::data::qhashout::QHashOut;
+use psy_common::data::qhashout::QHashOut;
 use psy_crypto::{hash::traits::hasher::MerkleZeroHasher, signature::zk::wallet::PRIVATE_KEY_CONSTANTS};
 
 use super::{

@@ -13,7 +13,7 @@ use psy_config::{
     network_constants::{GLOBAL_USER_TREE_HEIGHT, UPS_SESSION_PROOF_TREE_HEIGHT},
     PSY_NETWORK_MAGIC,
 };
-use psy_core::{
+use psy_common::{
     data::qhashout::QHashOut,
     ups::circuits::{LocalCircuitId, LocalCircuitType},
     utils::debug_timer::DebugTimer,

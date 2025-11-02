@@ -222,7 +222,7 @@ impl WasmConstants {
             "realm_rpc_urls": Self::realm_rpc_urls(),
             "coordinator_rpc_url": Self::coordinator_rpc_url(),
             "psy_network_magic": psy_config::network_constants::PSY_NETWORK_MAGIC,
-            "guta_rewards_tree_max_height": psy_core::job::id::GUTA_REWARDS_TREE_MAX_HEIGHT,
+            "guta_rewards_tree_max_height": psy_common::job::id::GUTA_REWARDS_TREE_MAX_HEIGHT,
             "ups_session_proof_tree_height": psy_config::network_constants::UPS_SESSION_PROOF_TREE_HEIGHT,
             "ups_circuit_whitelist_tree_height": psy_config::network_constants::UPS_CIRCUIT_WHITELIST_TREE_HEIGHT,
             "realm_user_tree_height": psy_config::network_constants::REALM_USER_TREE_HEIGHT,
@@ -243,7 +243,7 @@ impl WasmConstants {
 use std::str::FromStr;
 
 use plonky2::{field::goldilocks_field::GoldilocksField, plonk::config::PoseidonGoldilocksConfig};
-use psy_core::data::{base_types::hash256::Hash256, qhashout::QHashOut};
+use psy_common::data::{base_types::hash256::Hash256, qhashout::QHashOut};
 use psy_vm::dpn::vm::def::DPNFunctionCircuitDefinition;
 
 type F = GoldilocksField;
@@ -253,8 +253,8 @@ const D: usize = 2;
 // Import types needed for the original implementation
 // WASM-compatible types and imports
 #[cfg(target_arch = "wasm32")]
-use psy_core::args::{ContractCallArgs, SignType};
-use psy_core::data::u8bytes::U8Bytes;
+use psy_common::args::{ContractCallArgs, SignType};
+use psy_common::data::u8bytes::U8Bytes;
 use psy_crypto::signature::zk::data::ZKPublicKeyInfo;
 use psy_data::{args::JobInfo, guta::end_cap_input::SubmitUserEndCapNonProofInput, qblock::cmds::deploy_contract::QBCDeployContract};
 #[cfg(not(target_arch = "wasm32"))]

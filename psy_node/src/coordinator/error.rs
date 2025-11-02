@@ -1,4 +1,4 @@
-use psy_core::data::qhashout::QHashOut;
+use psy_common::data::qhashout::QHashOut;
 use psy_data::config::store_config::PsyFelt;
 use thiserror::Error;
 

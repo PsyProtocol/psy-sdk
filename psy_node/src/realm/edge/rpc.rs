@@ -1,6 +1,6 @@
 use jsonrpsee::{core::RpcResult, proc_macros::rpc};
 use plonky2::{field::types::PrimeField64, plonk::proof::ProofWithPublicInputs};
-use psy_core::{
+use psy_common::{
     data::qhashout::QHashOut,
     job::id::{QProvingJobDataID, VariableHeightRewardMerkleProof},
 };

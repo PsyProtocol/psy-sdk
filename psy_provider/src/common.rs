@@ -9,7 +9,7 @@ use plonky2::{
     },
 };
 use psy_common_circuit::treeprover::qrecursion::standard::manager::portable::circuits::PortableQTreeRecursionCircuitsTrait;
-use psy_core::data::qhashout::QHashOut;
+use psy_common::data::qhashout::QHashOut;
 use psy_crypto::{
     common::witnesses::qrecursion::proof_data::AggProofRecord,
     hash::traits::{hasher::MerkleZeroHasher, qhashable::QFieldHashable},

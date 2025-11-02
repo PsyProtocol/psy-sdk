@@ -16,7 +16,7 @@ use psy_common_circuit::{
     },
     treeprover::qrecursion::standard::gadgets::{verify_agg_proof::VerifyAggProofGadget, verify_agg_root::VerifyAggRootGadget},
 };
-use psy_core::{
+use psy_common::{
     config::network_constants::{UPS_CIRCUIT_WHITELIST_TREE_HEIGHT, UPS_SESSION_PROOF_TREE_HEIGHT},
     data::qhashout::QHashOut,
 };

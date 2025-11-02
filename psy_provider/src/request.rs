@@ -8,7 +8,7 @@ use plonky2::{
         proof::ProofWithPublicInputs,
     },
 };
-use psy_core::data::{
+use psy_common::data::{
     alt::AltVerifierOnlyCircuitData,
     base_types::{hash160::Hash160, hash256::Hash256},
     qhashout::QHashOut,

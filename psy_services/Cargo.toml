@@ -8,7 +8,7 @@ repository.workspace = true
 
 
 [dependencies]
-psy_core = { workspace = true }
+psy_common = { workspace = true }
 
 # Web framework
 axum = { workspace = true, features = ["ws"] }

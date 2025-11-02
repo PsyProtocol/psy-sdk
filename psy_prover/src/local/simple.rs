@@ -10,7 +10,7 @@ use plonky2::{
     },
 };
 use psy_config::get_default_worker_public_key;
-use psy_core::{
+use psy_common::{
     data::qhashout::QHashOut,
     job::{id::QProvingJobDataID, traits::QProofStore},
 };

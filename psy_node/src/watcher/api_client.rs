@@ -1,6 +1,6 @@
 use anyhow::Result;
 use chrono::{DateTime, Utc};
-use psy_core::job::id::QProvingJobDataID;
+use psy_common::job::id::QProvingJobDataID;
 use psy_services::{
     handlers::{TelemetryPayload, TelemetryResponse},
     models::{UserEvent, UserEventTxType, WorkerEvent, WorkerEventSource, WorkerEventStatus},

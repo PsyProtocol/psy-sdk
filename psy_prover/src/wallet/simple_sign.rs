@@ -31,7 +31,7 @@ use psy_common_circuit::{
     u32::gates::comparison::ComparisonGate,
 };
 use psy_config::network_constants::MAX_CONTRACT_STATE_TREE_HEIGHT;
-use psy_core::data::qhashout::QHashOut;
+use psy_common::data::qhashout::QHashOut;
 use psy_crypto::{
     hash::{
         merkle::core::MerkleProofCore,

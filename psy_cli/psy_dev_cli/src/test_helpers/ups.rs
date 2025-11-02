@@ -10,7 +10,7 @@ use psy_common_circuit::{
     wallet::zk::SimpleZKSignatureWallet,
 };
 use psy_config::PSY_NETWORK_MAGIC;
-use psy_core::{
+use psy_common::{
     data::qhashout::QHashOut,
     job::{drain_queue::CheckpointDrainQueueEmitterAsyncImm, traits::QProofStoreAsyncImm},
     utils::debug_timer::DebugTimer,

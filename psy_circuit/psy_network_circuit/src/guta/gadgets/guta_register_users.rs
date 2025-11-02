@@ -11,7 +11,7 @@ use psy_common_circuit::{
     },
     treeprover::subtree::gadgets::subtree_core::SubTreeNodeStateTransitionGadget,
 };
-use psy_core::data::qhashout::QHashOut;
+use psy_common::data::qhashout::QHashOut;
 use psy_data::guta::proof_input::GUTARegisterUserFullInput;
 
 use super::guta_register_user_full::GUTARegisterUserFullGadget;

@@ -9,7 +9,7 @@ use plonky2::{
         proof::ProofWithPublicInputs,
     },
 };
-use psy_core::data::qhashout::QHashOut;
+use psy_common::data::qhashout::QHashOut;
 use psy_crypto::hash::{merkle::core::DeltaMerkleProofCore, traits::hasher::MerkleZeroHasher};
 
 use crate::{

@@ -27,7 +27,7 @@ use psy_common_circuit::{
     proof_minifier::pm_chain::PsyProofMinifierChain,
     u32::gates::comparison::ComparisonGate,
 };
-use psy_core::data::qhashout::QHashOut;
+use psy_common::data::qhashout::QHashOut;
 use psy_crypto::{hash::traits::hasher::MerkleZeroHasher, signature::zk::wallet::PRIVATE_KEY_CONSTANTS};
 use psy_dpn_circuit::vm::compile::PsyContractFunctionBuilderGadget;
 use psy_provider::{

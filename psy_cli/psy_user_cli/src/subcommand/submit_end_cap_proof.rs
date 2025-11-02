@@ -2,7 +2,7 @@ use std::str::FromStr;
 
 use plonky2::field::goldilocks_field::GoldilocksField;
 use psy_config::network_constants::{MAX_CONTRACT_STATE_TREE_HEIGHT, UPS_SESSION_PROOF_TREE_HEIGHT};
-use psy_core::data::qhashout::QHashOut;
+use psy_common::data::qhashout::QHashOut;
 use psy_data::traits::qdatastore::qmetadata::QMetaDataStoreReaderSync;
 use psy_prover::{
     local::args::{ContractCallArgs, SignData, SignType, WalletSessionArgs},

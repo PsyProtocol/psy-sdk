@@ -19,7 +19,7 @@ use psy_common_circuit::{
     treeprover::qrecursion::standard::gadgets::attest_tree_aware_proof_in_tree::compute_tree_aware_proof_public_inputs,
 };
 use psy_config::network_constants::UPS_SESSION_PROOF_TREE_HEIGHT;
-use psy_core::{data::qhashout::QHashOut, job::traits::QProofStoreReaderSync};
+use psy_common::{data::qhashout::QHashOut, job::traits::QProofStoreReaderSync};
 use psy_crypto::hash::traits::hasher::MerkleZeroHasher;
 use psy_data::ups::start_step::UPSStartStepInput;
 

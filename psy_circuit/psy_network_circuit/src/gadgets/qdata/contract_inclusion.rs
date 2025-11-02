@@ -10,7 +10,7 @@ use psy_common_circuit::{
     traits::{CreatableTarget, CreatableWithHasherTarget, WitnessValueFor},
 };
 use psy_config::network_constants::{CONTRACT_FUNCTION_TREE_HEIGHT, GLOBAL_CONTRACT_TREE_HEIGHT};
-use psy_core::data::qhashout::QHashOut;
+use psy_common::data::qhashout::QHashOut;
 use psy_crypto::hash::merkle::core::MerkleProofCore;
 use psy_data::qdata::{
     contract::PsyContractLeaf,

@@ -3,7 +3,7 @@ use psy_common_circuit::{
     circuits::traits::qstandard::QStandardCircuit,
     wallet::zk::{SimpleZKSignatureWallet, ZKSignatureBasicWalletProvider},
 };
-use psy_core::{data::qhashout::QHashOut, utils::debug_timer::DebugTimer};
+use psy_common::{data::qhashout::QHashOut, utils::debug_timer::DebugTimer};
 use psy_network_circuit::circuits::cfc_placeholder::CFCPlaceholderCircuit;
 
 //type F = GoldilocksField;

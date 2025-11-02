@@ -3,7 +3,7 @@ use kvq::traits::KVQPair;
     KVQPair, KVQSerializable,
 };
 use plonky2::field::goldilocks_field::GoldilocksField;
-use psy_core::data::qhashout::QHashOut;
+use psy_common::data::qhashout::QHashOut;
 use psy_store::store::scylla::{
     checkpoint_store::ScyllaCheckpointStore,
     kvq_store::ScyllaKVQStore,
@@ -105,7 +105,7 @@ pub fn generate_merkle_node_keys<const TABLE_TYPE: u16>(
 
 pub fn generate_test_hashes(count: usize) -> Vec<QHashOut<GoldilocksField>> {
     use plonky2::field::goldilocks_field::GoldilocksField;
-    use psy_core::data::qhashout::QHashOut;
+    use psy_common::data::qhashout::QHashOut;
 
     (0..count)
         .map(|i| QHashOut::from_values(i as u64, (i * 2) as u64, (i * 3) as u64, (i * 4) as u64))

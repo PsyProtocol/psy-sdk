@@ -13,7 +13,7 @@ use plonky2::{
         config::GenericConfig,
     },
 };
-use psy_core::data::qhashout::QHashOut;
+use psy_common::data::qhashout::QHashOut;
 use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]

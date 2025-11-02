@@ -16,7 +16,8 @@ use psy_common_circuit::{
     },
 };
 use psy_config::network_constants::REALM_USER_TREE_HEIGHT;
-use psy_core::{
+use psy_common::{
+    JobInfo, JobLocation,
     data::{alt::AltVerifierOnlyCircuitData, qhashout::QHashOut},
     job::id::{QProvingJobDataID, VariableHeightRewardMerkleProof},
     traits::to_qfelts::ToQFelts,
@@ -34,7 +35,6 @@ use psy_crypto::{
     signature::secp256k1::core::PsyCompressedSecp256K1Signature,
 };
 use psy_data::{
-    args::{JobInfo, JobLocation},
     config::store_config::{PsyFelt, PsyHasher},
     qdata::{checkpoint::PsyBlockState, contract::ContractCodeDefinition, user},
     qstore::controllers::session_info::SessionCircuitInfoStore,

@@ -20,7 +20,7 @@ use psy_common_circuit::{
     traits::{ToTargets, WitnessValueFor},
 };
 use psy_config::get_default_worker_public_key;
-use psy_core::{
+use psy_common::{
     data::qhashout::QHashOut,
     job::{
         id::QProvingJobDataID,

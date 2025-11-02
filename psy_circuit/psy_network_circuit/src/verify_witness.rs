@@ -1,6 +1,6 @@
 use plonky2::{field::types::Field, plonk::proof::ProofWithPublicInputs};
 use psy_config::network_constants::{COORDINATOR_USER_TREE_HEIGHT, REALM_USER_TREE_HEIGHT};
-use psy_core::{
+use psy_common::{
     data::qhashout::QHashOut,
     job::{
         id::{ProvingJobCircuitType, QProvingJobDataID},

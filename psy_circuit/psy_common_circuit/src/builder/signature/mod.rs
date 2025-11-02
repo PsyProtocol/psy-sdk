@@ -4,7 +4,7 @@ use plonky2::{
     iop::{target::Target, witness::Witness},
     plonk::circuit_builder::CircuitBuilder,
 };
-use psy_core::utils::binary_helpers::read_u32_le_at;
+use psy_common::utils::binary_helpers::read_u32_le_at;
 pub trait CircuitBuilderSignatureHelpers<F: RichField + Extendable<D>, const D: usize> {
     fn bytes33_to_public_key(&mut self, value: &[Target]) -> [Target; 9];
 }

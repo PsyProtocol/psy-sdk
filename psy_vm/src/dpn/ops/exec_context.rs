@@ -1,5 +1,5 @@
 use plonky2::field::goldilocks_field::GoldilocksField;
-use psy_core::traits::to_qfelts::QFeltSized;
+use psy_common::traits::to_qfelts::QFeltSized;
 use psy_data::qdata::checkpoint::PsyCheckpointLeafStats;
 
 use super::{

@@ -4,7 +4,7 @@ use plonky2::{
     iop::{target::Target, witness::Witness},
     plonk::{circuit_builder::CircuitBuilder, circuit_data::VerifierCircuitTarget, config::AlgebraicHasher, proof::ProofWithPublicInputsTarget},
 };
-use psy_core::data::qhashout::QHashOut;
+use psy_common::data::qhashout::QHashOut;
 use psy_crypto::hash::merkle::treeprover::{AggStateTransition, AggStateTransitionWithEvents, TPCircuitFingerprintConfig};
 
 use crate::builder::{connect::CircuitBuilderConnectHelpers, hash::core::CircuitBuilderHashCore, verify::CircuitBuilderVerifyProofHelpers};

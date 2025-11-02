@@ -3,7 +3,7 @@ use kvq::traits::KVQPair;
     KVQPair, KVQSerializable,
 };
 use plonky2::field::goldilocks_field::GoldilocksField;
-use psy_core::data::qhashout::QHashOut;
+use psy_common::data::qhashout::QHashOut;
 use psy_store::store::scylla::{
     checkpoint_store::{chop_table_key, unchop_table_key, ScyllaCheckpointStore},
     kvq_store::ScyllaKVQStore,

@@ -8,7 +8,7 @@ use std::{sync::Arc, time::Duration};
 
 use job_tracker::{JobLocation, WorkerJobTracker};
 use plonky2::field::goldilocks_field::GoldilocksField;
-use psy_core::{
+use psy_common::{
     data::qhashout::QHashOut,
     job::{
         id::{ProvingJobCircuitType, QJobTopic, QProvingJobDataID},

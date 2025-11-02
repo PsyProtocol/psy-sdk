@@ -26,7 +26,7 @@ use psy_config::{
     },
     GenesisConfigGoldilocks as GenesisConfig,
 };
-use psy_core::{
+use psy_common::{
     data::qhashout::QHashOut,
     job::{
         id::{ProvingJobCircuitType, ProvingJobDataType, QJobTopic, QProvingJobDataID},

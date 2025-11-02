@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use aws_sdk_s3::config::retry::ShouldAttempt::No;
 use fred::prelude::*;
-use psy_core::{
+use psy_common::{
     job::{
         id::{ProvingJobCircuitType, QProvingJobDataID},
         traits::QProofStoreWriterAsyncImm,

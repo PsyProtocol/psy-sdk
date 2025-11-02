@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use fred::prelude::*;
 use kvq::traits::KVQSerializable;
-use psy_core::{
+use psy_common::{
     job::drain_queue::{CheckpointDrainQueueConsumerAsyncImm, CheckpointDrainQueueEmitterAsyncImm, DrainQueueMetadata, DrainQueueMetadataTagged},
     utils::debug_timer::DebugTimer,
 };

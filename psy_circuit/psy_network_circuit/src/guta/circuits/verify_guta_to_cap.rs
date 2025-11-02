@@ -18,7 +18,7 @@ use psy_common_circuit::{
     traits::ToTargets,
 };
 use psy_config::network_constants::GLOBAL_USER_TREE_HEIGHT;
-use psy_core::{
+use psy_common::{
     data::qhashout::QHashOut,
     job::{id::QProvingJobDataID, traits::QProofStoreReaderAsync},
 };

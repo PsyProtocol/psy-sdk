@@ -14,7 +14,7 @@ use psy_common_circuit::{
     traits::CreatableTarget,
 };
 use psy_config::network_constants::DA_CHALLENGE_WINDOW;
-use psy_core::data::qhashout::QHashOut;
+use psy_common::data::qhashout::QHashOut;
 use psy_crypto::hash::merkle::treeprover::AggStateTransition;
 use psy_data::{
     guta::header::GlobalUserTreeAggregatorHeader,

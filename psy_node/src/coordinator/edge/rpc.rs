@@ -6,7 +6,7 @@ use plonky2::{
         proof::ProofWithPublicInputs,
     },
 };
-use psy_core::{
+use psy_common::{
     data::qhashout::QHashOut,
     job::id::{QProvingJobDataID, VariableHeightRewardMerkleProof},
 };

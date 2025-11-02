@@ -18,7 +18,7 @@ use psy_common_circuit::{
     traits::{CreatableTarget, ToTargets},
 };
 use psy_config::network_constants::CHECKPOINT_TREE_HEIGHT;
-use psy_core::{
+use psy_common::{
     data::qhashout::QHashOut,
     job::{id::QProvingJobDataID, traits::QProofStoreReaderAsync},
 };
@@ -261,7 +261,7 @@ where
     C::Hasher: AlgebraicHasher<C::F>,
 {
     fn get_fingerprint(&self) -> QHashOut<C::F> {
-        psy_core::data::qhashout::QHashOut(self.minifier_chain.get_fingerprint())
+        psy_common::data::qhashout::QHashOut(self.minifier_chain.get_fingerprint())
     }
 
     fn get_verifier_config_ref(&self) -> &VerifierOnlyCircuitData<C, D> {
