@@ -215,15 +215,14 @@ impl RealmProcessor {
     }
 
     async fn initialize(&self) -> anyhow::Result<()> {
-        let ctx = self.context().await?;
         if let Err(e) = self.store.get_latest_l2_block_state().await {
             warn!("Failed to get latest L2 block state: {:?}", e);
             if let Ok(CheckpointError::NotFound) = e.downcast::<CheckpointError>(){
+                let ctx = self.context().await?;
                 // initialize genesis state
                 self.initialize_genesis_state(&ctx).await?;
                 let block0 = self.client.get_checkpoint_sync_info(self.realm_config.realm_id, 0).await?;
                 self.handle_sync_info(&ctx, block0).await?;
-                ctx.commit(0, vec![]).await?;
             }
         }
         Ok(())
@@ -306,7 +305,7 @@ impl RealmProcessor {
             
             // Serialize data
             let snapshot_value = bincode::serialize(&snapshot)?;
-            let version_value = bincode::serialize(&(version + 1))?;
+            let version_value = bincode::serialize(&version)?;
             
             // Use structured keys
             let snapshot_key = self.snapshot_key(realm_root, version)?;
@@ -330,12 +329,14 @@ impl RealmProcessor {
     fn load_snapshot(&self, realm_root: QHashOut<F>) -> anyhow::Result<Snapshot> {
         // Get version
         let version_key = self.version_key(realm_root)?;
-        let version_data = self.store.get_exact(&version_key)?;
+        let version_data = self.store.get_exact_if_exists(&version_key)?
+            .ok_or_else(|| anyhow!("Snapshot version not found for realm root: {}", realm_root))?;
         let version: u64 = bincode::deserialize(&version_data)?;
         
         // Get snapshot
         let snapshot_key = self.snapshot_key(realm_root, version)?;
-        let snapshot_data = self.store.get_exact(&snapshot_key)?;
+        let snapshot_data = self.store.get_exact_if_exists(&snapshot_key)?
+            .ok_or_else(|| anyhow!("Snapshot data not found for realm root: {}, version: {}", realm_root, version))?;
         let snapshot: Snapshot = bincode::deserialize(&snapshot_data)?;
         Ok(snapshot)
     }
@@ -361,7 +362,7 @@ impl RealmProcessor {
         match self.store.get_exact_if_exists(&version_key)? {
             Some(data) => {
                 let version: u64 = bincode::deserialize(&data)?;
-                Ok(version)
+                Ok(version + 1)
             }
             None => Ok(0)
         }
@@ -425,10 +426,12 @@ impl RealmProcessor {
 
                 let pending_users_count = sync_ctx.sync_queue.get_pending_users_count().await?;
                 trace!("Pending users count after checkpoint sync: {}", pending_users_count);
+                sync_ctx.store.commit(None)?;
                 Ok(())
             }
             Err(err) => {
                 error!(?sync_checkpoint_id, ?err, "Error sync checkpoint");
+                sync_ctx.store.rollback(sync_checkpoint_id)?;
                 Err(err)
             }
         }
@@ -441,20 +444,24 @@ impl RealmProcessor {
             return Ok(());
         }
         let start_sync_info = sync_infos.remove(0);
-        let mut local_realm_root = start_sync_info.realm_root;
+        let expected_realm_root = start_sync_info.realm_root;
         let mut local_checkpoint_id = start_sync_info.compact.l2_block_state.checkpoint_id;
+        let mut local_realm_root_from_store = self.get_realm_root(&self.store, start).await?;
+        if expected_realm_root != local_realm_root_from_store {
+            return Err(anyhow!("Realm root mismatch:  expected_realm_root {} != local_realm_root_from_store {}, checkpoint_id: {}", expected_realm_root, local_realm_root_from_store, start));
+        }
 
         for block in sync_infos {
             let sync_checkpoint_id = block.compact.l2_block_state.checkpoint_id;
             let latest_checkpoint_id = block.latest_checkpoint_id;
             let remote_realm_root = block.realm_root;
             info!("Checkpoint received checkpoint_id: {},latest_checkpoint_id: {} ,local_checkpoint_id: {}, local_realm_root: {}, remote_realm_root: {}",
-                sync_checkpoint_id, latest_checkpoint_id, local_checkpoint_id, local_realm_root, remote_realm_root);
+                sync_checkpoint_id, latest_checkpoint_id, local_checkpoint_id, local_realm_root_from_store, remote_realm_root);
             self.handle_sync_info(&self.context().await?, block).await.map_err(|e| anyhow!("Handle sync info attempt failed: {:?}", e))?;
             // confirm pending checkpoint
-            if local_realm_root != remote_realm_root && self.is_candidate(remote_realm_root.clone())? {
+            if local_realm_root_from_store != remote_realm_root && self.is_candidate(remote_realm_root.clone())? {
                 self.confirm_checkpoint(remote_realm_root.clone(), sync_checkpoint_id, latest_checkpoint_id).await?;
-                local_realm_root = remote_realm_root;
+                local_realm_root_from_store = remote_realm_root;
             }
             local_checkpoint_id = sync_checkpoint_id;
         }
@@ -472,8 +479,12 @@ impl RealmProcessor {
 
     async fn is_state_normal(&self) -> anyhow::Result<bool> {
         if let Ok(checkpoint_id) = self.get_local_latest_checkpoint_id().await {
-            let realm_root = self.get_realm_root(&self.store, checkpoint_id).await?;
-            return self.is_candidate(realm_root);
+            // if checkpoint_id == 0 {
+            //     return Ok(true);
+            // }
+            // let realm_root = self.get_realm_root(&self.store, checkpoint_id).await?;
+            // return self.is_candidate(realm_root);
+            return Ok(true);
         }
         Ok(false)
     }
