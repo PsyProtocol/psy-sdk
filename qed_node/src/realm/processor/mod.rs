@@ -21,7 +21,7 @@ use qed_store::queue::QPendingUserStoreAsyncImm;
 use qed_store::queue::task_queue::QProvingTaskStoreImpl;
 use qed_store::store::QEDStore;
 use std::sync::Arc;
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::time::Duration;
 use tokio::time::Instant;
 use anyhow::{anyhow, bail};
@@ -53,7 +53,7 @@ use crate::realm::state::queue_factory::QueueFactory;
 use qed_data::qdata::hash_key::Hash4x64Key;
 use qed_data::qdata::realm_snapshot_key::RealmSnapshotKey;
 use qed_data::config::store_config::{REALM_SNAPSHOT_TABLE_TYPE, REALM_ROOT_VERSION_TABLE_TYPE};
-use kvq::traits::KVQSerializable;
+use kvq::traits::KVQSerializable;  
 
 const CHECKPOINT_BATCH_SIZE: u64 = 25; // sync info batch size
 
@@ -90,6 +90,7 @@ pub struct RealmProcessor {
     pub queue_helper: Arc<RealmEdgeQueueHelper<F>>,
     pub client: Arc<ConcreteCoordinatorClient>,
     pub backup_tx: Option<mpsc::UnboundedSender<BackupRequest>>,
+    pub is_state_normal: AtomicBool,
 }
 
 pub async fn run_realm_processor(config: RealmNodeConfig) -> anyhow::Result<()> {
@@ -156,6 +157,7 @@ impl RealmProcessor {
             queue_helper: Arc::new(queue_helper),
             client: coordinator_client,
             backup_tx,
+            is_state_normal: AtomicBool::new(true),
         };
         Ok(processor)
     }
@@ -217,12 +219,14 @@ impl RealmProcessor {
     async fn initialize(&self) -> anyhow::Result<()> {
         if let Err(e) = self.store.get_latest_l2_block_state().await {
             warn!("Failed to get latest L2 block state: {:?}", e);
-            if let Ok(CheckpointError::NotFound) = e.downcast::<CheckpointError>(){
+            if let Ok(CheckpointError::NotFound) = e.downcast::<CheckpointError>() {
                 let ctx = self.context().await?;
                 // initialize genesis state
                 self.initialize_genesis_state(&ctx).await?;
                 let block0 = self.client.get_checkpoint_sync_info(self.realm_config.realm_id, 0).await?;
                 self.handle_sync_info(&ctx, block0).await?;
+            } else {
+                self.is_state_normal.store(false, Ordering::Relaxed);
             }
         }
         Ok(())
@@ -248,7 +252,7 @@ impl RealmProcessor {
     }
 
     async fn build(&self) -> anyhow::Result<()> {
-        if !self.is_state_normal().await? {
+        if !self.is_state_normal.load(Ordering::Relaxed) {
             warn!("State is not normal, skipping");
             return Ok(());
         }
@@ -438,7 +442,7 @@ impl RealmProcessor {
     }
 
     async fn sync_checkpoint_range(&self, start: u64, end: u64) -> anyhow::Result<()> {
-        // [start, end]
+        // [start, end)
         let mut sync_infos = self.fetch_remote_sync_infos(start, end).await.map_err(|e| anyhow!("Fetch remote sync infos error: {:?}", e))?;
         if sync_infos.is_empty() {
             return Ok(());
@@ -448,7 +452,8 @@ impl RealmProcessor {
         let mut local_checkpoint_id = start_sync_info.compact.l2_block_state.checkpoint_id;
         let mut local_realm_root_from_store = self.get_realm_root(&self.store, start).await?;
         if expected_realm_root != local_realm_root_from_store {
-            return Err(anyhow!("Realm root mismatch:  expected_realm_root {} != local_realm_root_from_store {}, checkpoint_id: {}", expected_realm_root, local_realm_root_from_store, start));
+            self.is_state_normal.store(false, Ordering::Relaxed);
+            return Err(anyhow!("Realm root mismatch: expected_realm_root {} != local_realm_root_from_store {}, checkpoint_id: {}", expected_realm_root, local_realm_root_from_store, start));
         }
 
         for block in sync_infos {
@@ -475,18 +480,6 @@ impl RealmProcessor {
 
     async fn fetch_remote_sync_infos(&self, start: u64, end: u64) -> anyhow::Result<Vec<CheckpointSyncInfo<F>>> {
         self.client.get_latest_block_updates_from_coordinator(self.realm_config.realm_id as u64, start, end).await
-    }
-
-    async fn is_state_normal(&self) -> anyhow::Result<bool> {
-        if let Ok(checkpoint_id) = self.get_local_latest_checkpoint_id().await {
-            // if checkpoint_id == 0 {
-            //     return Ok(true);
-            // }
-            // let realm_root = self.get_realm_root(&self.store, checkpoint_id).await?;
-            // return self.is_candidate(realm_root);
-            return Ok(true);
-        }
-        Ok(false)
     }
 
     pub async fn build_block(

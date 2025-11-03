@@ -738,7 +738,7 @@ impl QPendingUserStoreAsyncImm for ProofStoreRedisAsync {
             .map_err(|e| anyhow::anyhow!("Failed to serialize state: {}", e))?;
         self.redis.set(state_key, state_data).await?;
 
-        tracing::debug!("Consumed {} users from positions {}-{} for checkpoint {}",
+        tracing::debug!("peek {} users from positions {}-{} for checkpoint {}",
               users.len(), start_position, end_position, checkpoint_id);
 
         Ok((users, state))
@@ -829,11 +829,11 @@ impl CheckpointDrainQueueConsumerAsyncImmWithPosition for ProofStoreRedisAsync {
             consumed_count: items.len(),
         };
 
-        let state_key = format!("{}-{}-{}", self.worker_queue_key(), "DRAIN_CONSUMPTION_STATE", channel_id);
-        let state_data = bincode::serialize(&state).map_err(|e| anyhow::anyhow!("Failed to serialize state: {}", e))?;
+        // let state_key = format!("{}-{}-{}", self.worker_queue_key(), "DRAIN_CONSUMPTION_STATE", channel_id);
+        // let state_data = bincode::serialize(&state).map_err(|e| anyhow::anyhow!("Failed to serialize state: {}", e))?;
         // self.redis.set(state_key, state_data).await?;
 
-        tracing::debug!("Consumed redis {} items from drain queue {} for checkpoint {}",
+        tracing::debug!("peek redis {} items from drain queue {} for checkpoint {}",
               items.len(), channel_id, checkpoint_id);
 
         Ok((items, state))
