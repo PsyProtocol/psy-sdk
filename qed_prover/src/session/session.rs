@@ -3,7 +3,7 @@ use std::{collections::HashMap, str::FromStr};
 use crate::{
     dpn::circuits::cfc::DapenContractFunctionCircuit, local::{
         args::{ContractCallArgs, JobLocation, SignData, SignType},
-        provider::{ProveProxyRpcProvider, ProveProxyRpcTrait},
+        provider::{ProveProxyRpcProvider, UPSCircuitManagerTrait},
     }, session::{build_claim_calls_for_multi_checkpoints, ProofWithCheckpoint, MINING_REWARDS_CONTRACT_ID}, ups::{
         circuit_manager::core::{QCircuitManager, QEDUPSStepCircuitManager},
         session::UserProvingSessionManager,
@@ -57,17 +57,17 @@ use qed_store::controllers::local::{
     proving_session::QEDLocalProvingSessionStore, session_info::SessionCircuitInfoStore,
 };
 use qedlang_core::dpn::{
-    contract::{cfc_code_definition_to_dapen_fc, dapen_fc_to_cfc_code_definition}, vm::def::DPNFunctionCircuitDefinition,
+    contract::{cfc_code_definition_to_dapen_fc, dapen_fc_to_cfc_code_definition, hash_dpn_function}, vm::def::DPNFunctionCircuitDefinition,
 };
-use qed_core::job::id::{ProvingJobCircuitType, VariableHeightRewardMerkleProof};
+use qed_core::job::id::{ProvingJobCircuitType, VariableHeightRewardMerkleProof, GUTA_REWARDS_TREE_MAX_HEIGHT};
 use serde::{Deserialize, Serialize};
+use tracing::warn;
 
 use crate::local::{
     args::WalletSessionArgs,
     provider::{QUserRpcProvider, RpcConfig, RpcProvider},
         request::{QDeployContractRPCRequest, QRegisterUserRPCRequest, QSubmitEndCapRPCRequest},
 };
-use crate::session::get_job_proof;
 use crate::local::args::JobInfo;
 
 pub fn gen_contract_deploy_and_circuits_for_functions<C: GenericConfig<D>, const D: usize>(
@@ -85,7 +85,7 @@ where
         .iter()
         .map(|x| dapen_fc_to_cfc_code_definition(x))
         .collect::<Vec<_>>();
-    let mut fingerprints = Vec::with_capacity(defs.len() * 2);
+    let mut whitelist_leaves = Vec::with_capacity(defs.len() * 4);
     let circuits = defs
         .iter()
         .map(|x| {
@@ -95,16 +95,19 @@ where
                 UPS_SESSION_PROOF_TREE_HEIGHT as usize,
                 false,
             );
-            fingerprints.push(c.get_fingerprint());
+            whitelist_leaves.push(c.get_fingerprint());
 
             let inputs_outputs_combo =
                 ((x.circuit_outputs.len() as u64) << 32u64) | (x.circuit_inputs.len() as u64);
-            fingerprints.push(QHashOut::from_values(
+            whitelist_leaves.push(QHashOut::from_values(
                 x.method_id as u64,
                 inputs_outputs_combo,
                 0,
                 0,
             ));
+            let code_hash = hash_dpn_function::<C::F>(x);
+            whitelist_leaves.push(code_hash);
+            whitelist_leaves.push(QHashOut::from_values(0, 0, 0, 0));
             c
         })
         .collect::<Vec<_>>();
@@ -115,7 +118,7 @@ where
             state_tree_height: contract_state_tree_height as u16,
             functions: code_defs,
         },
-        function_whitelist: fingerprints,
+        function_whitelist: whitelist_leaves,
     };
 
     Ok((circuits, deploy))
@@ -127,9 +130,9 @@ type F = GoldilocksField;
 
 #[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
 #[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
-pub async fn prove_func<R: QEDReadCommandProcessorSync<F> + Send + Sync>(
+pub async fn prove_func<R: QEDReadCommandProcessorSync<F> + Send + Sync, CM: UPSCircuitManagerTrait<C, D> + ?Sized>(
     st: &R,
-    circuit_mgr: &QCircuitManager<C, D>,
+    circuit_mgr: &CM,
     mgr: &mut UserProvingSessionManager<F, PoseidonHash, R, C, D>,
     contract_id: u64,
     fn_name: &str,
@@ -177,13 +180,13 @@ pub struct UserSessionStateManager {
 #[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
 #[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
 impl UserSessionStateManager {
-    pub async fn new(
+    pub async fn new<CM: UPSCircuitManagerTrait<C, D> + ?Sized>(
         user_id: u64,
         nonce: F,
         checkpoint_id: u64,
         st_provider: RpcProvider,
         circuit_info: SessionCircuitInfoStore<F>,
-        main_circuits: &QCircuitManager<C, D>,
+        main_circuits: &CM,
     ) -> anyhow::Result<UserSessionStateManager> {
         tracing::info!("create local proving session store");
         let mut rpc_provider = st_provider.clone();
@@ -243,15 +246,29 @@ impl UserSessionStateManager {
     }
 
     pub async fn check_user_state(&self) -> anyhow::Result<()> {
-        let latest_checkpoint_id = self.rpc_provider.get_realm_latest_l2_block_state().await?.checkpoint_id;
-        let user_leaf = self.rpc_provider.get_user_leaf_data(latest_checkpoint_id, self.user_id).await?;
-        if user_leaf.nonce + F::ONE != self.nonce {
-            tracing::error!("user nonce {} must be equal to onchain nonce {} + 1", self.nonce, user_leaf.nonce);
-            anyhow::bail!("user lps nonce {} must be equal to onchain nonce {} + 1", self.nonce, user_leaf.nonce);
-        }
 
-        Ok(())
+        match self.rpc_provider.get_tx_status(self.user_id, self.nonce.to_noncanonical_u64()).await? {
+            TxStatus::Confirmed => {
+                tracing::warn!("tx status is confirmed");
+                Err(anyhow::format_err!("another similar tx is confirmed while building this tx, please rebuild the tx later"))
+            }
+            TxStatus::Pending => {
+                tracing::warn!("tx status is pending");
+                Err(anyhow::format_err!("another similar tx is pending, please wait for it to be confirmed"))
+            }
+            TxStatus::Submittable => {
+                tracing::debug!("tx status is submittable");
+                Ok(())
+            }
+        }
     }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum TxStatus {
+    Pending,
+    Confirmed,
+    Submittable,
 }
 
 pub struct WalletSession {
@@ -273,18 +290,18 @@ impl WalletSession {
 
         tracing::info!("init wallet");
         tracing::info!("init ups step circuit manager");
-        let mut main_circuits = Vec::new();
+        let mut main_circuits: Vec<Box<dyn UPSCircuitManagerTrait<C, D> + Send + Sync>> = Vec::new();
 
         for proxy_url in rpc_config.prove_proxy_url.iter() {
             if let Ok(main_circuit) = ProveProxyRpcProvider::new_with_config(proxy_url.to_string()).await {
-                main_circuits.push(QCircuitManager::Rpc(main_circuit));
+                main_circuits.push(Box::new(main_circuit));
             } else {
                 tracing::info!("prove proxy url `{}` is invalid, skip", proxy_url);
             }
         }
         if main_circuits.is_empty() {
             tracing::warn!("no valid prove proxy url, use local circuit manager");
-            main_circuits.push(QCircuitManager::Local(QEDUPSStepCircuitManager::<C, D>::new_with_config(
+            main_circuits.push(Box::new(QEDUPSStepCircuitManager::<C, D>::new_with_config(
                 QED_NETWORK_MAGIC_REGTEST,
             )));
         }
@@ -305,7 +322,7 @@ impl WalletSession {
         );
 
         for main_circuit in main_circuits.iter() {
-            main_circuit.register_info(&mut circuit_info).await;
+            main_circuit.as_ref().register_info(&mut circuit_info).await;
         }
 
         let wallet = QEDMemoryWallet::new(main_circuits);
@@ -440,7 +457,7 @@ impl WalletSession {
                             checkpoint_id,
                             self.st_provider.clone(),
                             self.circuit_info.clone(),
-                            &self.wallet.random_circuit_manager(),
+                            self.wallet.random_circuit_manager().as_ref(),
                         )
                         .await?,
                     );
@@ -574,7 +591,7 @@ impl WalletSession {
                         latest_l2_block_state.checkpoint_id,
                         self.st_provider.clone(),
                         self.circuit_info.clone(),
-                        &self.wallet.random_circuit_manager(),
+                        self.wallet.random_circuit_manager().as_ref(),
                     )
                     .await?;
                 };
@@ -604,7 +621,7 @@ impl WalletSession {
                     checkpoint_id,
                     self.st_provider.clone(),
                     self.circuit_info.clone(),
-                    &self.wallet.random_circuit_manager(),
+                    self.wallet.random_circuit_manager().as_ref(),
                 )
                 .await?;
             }
@@ -616,7 +633,7 @@ impl WalletSession {
 
         user_session_mgr
             .mgr
-            .prove_ups_start(&self.wallet.random_circuit_manager())
+            .prove_ups_start(self.wallet.random_circuit_manager().as_ref())
             .await?;
 
         user_session_mgr.check_user_state().await?;
@@ -640,7 +657,7 @@ impl WalletSession {
         );
         prove_func(
             &user_session_mgr.rpc_provider.clone(),
-            &self.wallet.random_circuit_manager(),
+            self.wallet.random_circuit_manager().as_ref(),
             &mut user_session_mgr.mgr,
             contract_call_arg.contract_id,
             &contract_call_arg.method_name,
@@ -651,7 +668,7 @@ impl WalletSession {
                 .collect(),
         )
         .await?;
-        user_session_mgr.mgr.prove_burn_fee(&self.wallet.random_circuit_manager()).await?;
+        user_session_mgr.mgr.prove_burn_fee(self.wallet.random_circuit_manager().as_ref()).await?;
         Ok(())
     }
 
@@ -672,7 +689,7 @@ impl WalletSession {
             );
             prove_func(
                 &user_session_mgr.rpc_provider.clone(),
-                &self.wallet.random_circuit_manager(),
+                self.wallet.random_circuit_manager().as_ref(),
                 &mut user_session_mgr.mgr,
                 contract_call_arg.contract_id,
                 &contract_call_arg.method_name,
@@ -684,9 +701,9 @@ impl WalletSession {
             )
             .await?;
         }
-        user_session_mgr.mgr.prove_burn_fee(&self.wallet.random_circuit_manager()).await?;
+        user_session_mgr.mgr.prove_burn_fee(self.wallet.random_circuit_manager().as_ref()).await?;
         user_session_mgr.check_user_state().await?;
-        
+
         Ok(())
     }
 
@@ -841,7 +858,7 @@ impl WalletSession {
         user_session_mgr
             .mgr
             .proof_tree_state
-            .finalize_tree(self.wallet.random_circuit_manager())
+            .finalize_tree(self.wallet.random_circuit_manager().as_ref())
             .await?;
 
         let public_key_param = self
@@ -855,19 +872,20 @@ impl WalletSession {
 
         let (circuit_fingerprint, circuit_verifier_config) = match sign_type {
             SignType::ZKSign => (
-                self.wallet.random_circuit_manager().zk_circuit_fingerprint().await?,
+                self.wallet.random_circuit_manager().as_ref().zk_circuit_fingerprint().await?,
                 self.wallet
                     .random_circuit_manager()
+                    .as_ref()
                     .zk_circuit_verifier_config()
                     .await?,
             ),
             SignType::SECP256K1Sign => (
                 self.wallet
-                    .random_circuit_manager()
+                    .random_circuit_manager().as_ref()
                     .secp_circuit_fingerprint()
                     .await?,
                 self.wallet
-                    .random_circuit_manager()
+                    .random_circuit_manager().as_ref()
                     .secp_circuit_verifier_config()
                     .await?,
             ),
@@ -902,7 +920,7 @@ impl WalletSession {
         let end_cap_proof = user_session_mgr
             .mgr
             .prove_end_cap(
-                &self.wallet.random_circuit_manager(),
+                self.wallet.random_circuit_manager().as_ref(),
                 QED_NETWORK_MAGIC_REGTEST,
                 nonce,
                 circuit_fingerprint,
@@ -924,6 +942,8 @@ impl WalletSession {
             anyhow::bail!("end user leaf hash not match");
         }
 
+        user_session_mgr.check_user_state().await?;
+
         let req = QSubmitEndCapRPCRequest {
             user_ec_input,
             proof: end_cap_proof,
@@ -934,7 +954,6 @@ impl WalletSession {
             .submit_end_cap_proof::<F>(req)
             .await?;
 
-        user_session_mgr.check_user_state().await?;
         // update nonce
         // user_session_mgr.nonce = nonce + F::from_noncanonical_u64(1);
 
@@ -960,62 +979,54 @@ impl WalletSession {
         &self,
         deployer: QHashOut<F>,
         circuit_defs: Vec<DPNFunctionCircuitDefinition>,
-    ) -> anyhow::Result<()> {
+    ) -> anyhow::Result<String> {
         let deploy_cmd = self.get_deploy_contract_cmd(deployer, circuit_defs)?;
 
-        self.st_provider
-            .deploy_contract::<F>(QDeployContractRPCRequest {
-                deploy_contract: deploy_cmd,
-            })
+        let contract_uuid = self
+            .st_provider
+            .deploy_contract::<F>(QDeployContractRPCRequest { deploy_contract: deploy_cmd })
             .await?;
-
-        Ok(())
+        Ok(contract_uuid)
     }
 
     pub async fn get_claim_rewards_call_args(
         &self,
-        public_key: QHashOut<F>,
-        proofs_with_checkpoints: Vec<(u64, Vec<JobInfo>)>
+        mut job_infos: Vec<JobInfo>
     ) -> anyhow::Result<Vec<ContractCallArgs>> {
-        let mut checkpoint_jobs: HashMap<u64, Vec<(JobInfo, VariableHeightRewardMerkleProof)>> = HashMap::new();
+        job_infos.retain(|job_info| {
+            matches!(job_info.job_id.circuit_type,
+                ProvingJobCircuitType::GUTAOnlyRegisterUsers
+                | ProvingJobCircuitType::GUTARegisterUsers
+                | ProvingJobCircuitType::GUTATwoEndCap
+                | ProvingJobCircuitType::GUTATwoGUTA
+                | ProvingJobCircuitType::GUTALeftEndCapRightGUTA
+                | ProvingJobCircuitType::GUTALeftGUTARightEndCap
+                | ProvingJobCircuitType::GUTASingleEndCap
+                | ProvingJobCircuitType::GUTAVerifyToCap
+                | ProvingJobCircuitType::GUTATwoGUTAWithCheckpointUpgrade
+                | ProvingJobCircuitType::GUTAVerifyToCapWithCheckpointUpgrade
+                | ProvingJobCircuitType::GUTANoChange
+            )
+        });
 
-        for (checkpoint_id, mut job_infos) in proofs_with_checkpoints {
+        if job_infos.is_empty() {
+            tracing::info!("No valid GUTA jobs found after filtering");
+            return Ok(Vec::new());
+        }
 
-            job_infos.retain(|job_info| {
-                matches!(job_info.job_id.circuit_type,
-                    ProvingJobCircuitType::GUTAOnlyRegisterUsers
-                    | ProvingJobCircuitType::GUTARegisterUsers
-                    | ProvingJobCircuitType::GUTATwoEndCap
-                    | ProvingJobCircuitType::GUTATwoGUTA
-                    | ProvingJobCircuitType::GUTALeftEndCapRightGUTA
-                    | ProvingJobCircuitType::GUTALeftGUTARightEndCap
-                    | ProvingJobCircuitType::GUTASingleEndCap
-                    | ProvingJobCircuitType::GUTAVerifyToCap
-                    | ProvingJobCircuitType::GUTATwoGUTAWithCheckpointUpgrade
-                    | ProvingJobCircuitType::GUTAVerifyToCapWithCheckpointUpgrade
-                    | ProvingJobCircuitType::GUTANoChange
-                )
-            });
+        let mut checkpoint_jobs: HashMap<u64, Vec<VariableHeightRewardMerkleProof>> = HashMap::new();
 
-            if job_infos.is_empty() {
-                continue;
-            }
-
-            tracing::info!("Checkpoint {} - Found {} valid jobs", checkpoint_id, job_infos.len());
-
-            for job_info in job_infos {
-
-                match get_job_proof(&self.st_provider, &job_info, checkpoint_id).await {
-                    Ok((actual_checkpoint_id, job_proof)) => {
-                        tracing::info!("Found job proof for checkpoint {}, job {:?}", actual_checkpoint_id, job_info.job_id);
-                        checkpoint_jobs.entry(actual_checkpoint_id)
-                            .or_insert_with(Vec::new)
-                            .push((job_info, job_proof));
-                    }
-                    Err(e) => {
-                        tracing::warn!("Failed to get job proof for checkpoint {}, job {:?}: {}", checkpoint_id, job_info.job_id, e);
-                    }
+        match self.st_provider.get_job_proofs(job_infos).await {
+            Ok(results) => {
+                for (root_job_id, job_proof) in results {
+                    let actual_checkpoint_id = root_job_id.goal_id;
+                    checkpoint_jobs.entry(actual_checkpoint_id)
+                        .or_insert_with(Vec::new)
+                        .push(job_proof.pad_to_height(GUTA_REWARDS_TREE_MAX_HEIGHT));
                 }
+            }
+            Err(e) => {
+                tracing::warn!("Failed to get job proofs: {}", e);
             }
         }
 
@@ -1030,7 +1041,7 @@ impl WalletSession {
         let mut all_proofs_with_checkpoints = Vec::new();
 
         for &checkpoint_id in &sorted_checkpoints {
-            let jobs = checkpoint_jobs.get(&checkpoint_id).unwrap();
+            let proofs = checkpoint_jobs.get(&checkpoint_id).unwrap();
 
             let checkpoint_leaf = self.st_provider.get_checkpoint_leaf_data(checkpoint_id).await?;
             let fees_collected = checkpoint_leaf.stats.fees_collected.to_canonical_u64();
@@ -1044,15 +1055,8 @@ impl WalletSession {
                 continue;
             }
 
-            tracing::info!("Checkpoint {} - Reward: {}, Jobs: {}", checkpoint_id, proposed_reward, jobs.len());
-            for (job_info, _) in jobs {
-                tracing::info!("  - {} ({})", job_info.job_id.to_hex_string(), match &job_info.location {
-                    JobLocation::Coordinator => "coordinator".to_string(),
-                    JobLocation::Realm(id) => format!("realm:{}", id),
-                });
-            }
-
-            for (_, proof) in jobs {
+            tracing::info!("Checkpoint {} - Reward: {}, Jobs: {}", checkpoint_id, proposed_reward, proofs.len());
+            for proof in proofs {
                 all_proofs_with_checkpoints.push(ProofWithCheckpoint {
                     checkpoint_id,
                     proof: proof.clone(),
@@ -1099,79 +1103,14 @@ impl WalletSession {
         Ok(all_contract_calls)
     }
 
-    fn add_claim_call_for_batch(
-        &self,
-        contract_call_args: &mut Vec<ContractCallArgs>,
-        mining_rewards_contract_id: u64,
-        batch: Vec<(u64, VariableHeightRewardMerkleProof, u64)>,
-        method_name: &str,
-    ) -> anyhow::Result<()> {
-        let batch_size = batch.len();
-        let mut batch_inputs = Vec::new();
-
-        for (checkpoint_id, _, _) in &batch {
-            batch_inputs.push(*checkpoint_id);
-        }
-
-        for (_, proof, _) in &batch {
-            self.serialize_proof_to_inputs(proof, &mut batch_inputs);
-        }
-
-        for (_, _, proposed_reward) in &batch {
-            batch_inputs.push(*proposed_reward);
-        }
-
-        contract_call_args.push(ContractCallArgs {
-            contract_id: mining_rewards_contract_id,
-            method_name: method_name.to_string(),
-            inputs: batch_inputs,
-        });
-
-        tracing::info!("Added {} call with {} proofs", method_name, batch_size);
-        Ok(())
-    }
-
-    fn serialize_proof_to_inputs(&self, proof: &VariableHeightRewardMerkleProof, inputs: &mut Vec<u64>) {
-        for j in 0..qed_core::job::id::GUTA_REWARDS_TREE_MAX_HEIGHT {
-            if j < proof.top_siblings.len() {
-                let sibling = &proof.top_siblings[j];
-                inputs.extend(vec![
-                    sibling.sibling_branch.0.elements[0].0,
-                    sibling.sibling_branch.0.elements[1].0,
-                    sibling.sibling_branch.0.elements[2].0,
-                    sibling.sibling_branch.0.elements[3].0,
-                    sibling.sibling_reward_leaf.0.elements[0].0,
-                    sibling.sibling_reward_leaf.0.elements[1].0,
-                    sibling.sibling_reward_leaf.0.elements[2].0,
-                    sibling.sibling_reward_leaf.0.elements[3].0,
-                ]);
-            } else {
-                inputs.extend(vec![0u64; 8]);
-            }
-        }
-        inputs.extend(vec![
-            proof.sibling_branch.0.elements[0].0,
-            proof.sibling_branch.0.elements[1].0,
-            proof.sibling_branch.0.elements[2].0,
-            proof.sibling_branch.0.elements[3].0,
-        ]);
-        inputs.extend(vec![
-            proof.reward_leaf.0.elements[0].0,
-            proof.reward_leaf.0.elements[1].0,
-            proof.reward_leaf.0.elements[2].0,
-            proof.reward_leaf.0.elements[3].0,
-        ]);
-        inputs.extend(vec![proof.proof_height.0, proof.index.0]);
-    }
-
     pub async fn claim_rewards(
         &self,
         user_pk_hash: QHashOut<F>,
-        proofs_with_checkpoints: Vec<(u64, Vec<JobInfo>)>,
+        job_infos: Vec<JobInfo>,
     ) -> anyhow::Result<()> {
         self.claim_rewards_with_sign_type(
             user_pk_hash,
-            proofs_with_checkpoints,
+            job_infos,
             None,
         ).await?;
         Ok(())
@@ -1180,13 +1119,11 @@ impl WalletSession {
     pub async fn claim_rewards_with_sign_type(
         &self,
         user_pk_hash: QHashOut<F>,
-        proofs_with_checkpoints: Vec<(u64, Vec<JobInfo>)>,
-        // sign_type: SignType,
+        job_infos: Vec<JobInfo>,
         sign_data: Option<SignData<F>>,
     ) -> anyhow::Result<()> {
         let contract_call_args = self.get_claim_rewards_call_args(
-            user_pk_hash,
-            proofs_with_checkpoints,
+            job_infos,
         ).await?;
 
         self.exec_contract_call_with_sign_data(

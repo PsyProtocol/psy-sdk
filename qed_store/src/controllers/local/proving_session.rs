@@ -105,6 +105,12 @@ impl<F: RichField, R: QEDReadCommandProcessorSync<F> + Send + Sync> QEDLocalProv
             .call_data
             .contract_id
     }
+    pub fn get_current_caller_contract_id(&self) -> F {
+        self.active_transaction_record
+            .call_data
+            .call_data
+            .caller_contract_id
+    }
     pub fn get_start_contract_state_roots(&self) -> Vec<(u64, QHashOut<F>)> {
         let mut mapping = HashMap::<u64, QHashOut<F>>::new();
         for t in self.transaction_records.iter() {
@@ -117,7 +123,6 @@ impl<F: RichField, R: QEDReadCommandProcessorSync<F> + Send + Sync> QEDLocalProv
         mapping.into_iter().map(|(k,v)|{
             (k, v)
         }).collect()
-
     }
     pub fn get_total_slots_modified(&self) -> F {
         F::from_canonical_u32(self.local_state_tracker.total_slots_modified)
@@ -380,6 +385,11 @@ impl<R: QEDReadCommandProcessorSync<GoldilocksField> + Send + Sync>
         };
 
         let call_data = DPNProvingSessionCompactMethodCall {
+            caller_contract_id: self
+                .active_transaction_record
+                .call_data
+                .call_data
+                .caller_contract_id,
             contract_id,
             method_id,
             inputs_length: GF::from_canonical_u64(inputs.len() as u64),

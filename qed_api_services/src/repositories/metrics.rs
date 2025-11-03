@@ -73,39 +73,37 @@ impl TpsRepository {
 impl WorkerLeaderboardRepository {
     /// Get worker leaderboard for the last 24 hours
     /// Returns top workers ranked by total rewards earned, limited to specified count
+    // In metrics.rs - WorkerLeaderboardRepository::get_leaderboard_24h()
+
     pub async fn get_leaderboard_24h(
         pool: &PgPool,
-        limit: i64, // Maximum number of entries to return (e.g., 100)
+        limit: i64,
     ) -> Result<Vec<WorkerLeaderboardEntry>> {
         let twenty_four_hours_ago = Utc::now() - chrono::Duration::hours(24);
 
-        // Standard reward per completed proof (5*10^9 psy)
-        const REWARD_PER_PROOF: i64 = 5_000_000_000;
-
-        // Query to get worker leaderboard data based on worker_events table
-        // This approach calculates rewards based on completed tasks in the last 24 hours
-        // Prioritizes workers by proof count first, then by public key for consistent ranking
+        // Query the worker_rewards_1d continuous aggregate for actual reward data
+        // This pulls from checkpoint_reward_distributions which has the real calculated rewards
         let rows = sqlx::query!(
             r#"
-            WITH worker_stats AS (
+            WITH worker_rewards_24h AS (
                 SELECT
-                    we.public_key,
-                    COUNT(CASE WHEN we.status = 'COMPLETED' THEN 1 END)::BIGINT as proofs_24h
-                FROM worker_events we
-                WHERE we.public_key IS NOT NULL
-                    AND we.timestamp >= $1
-                GROUP BY we.public_key
-                HAVING COUNT(CASE WHEN we.status = 'COMPLETED' THEN 1 END) > 0
+                    worker_public_key,
+                    SUM(completed_proofs)::BIGINT as proofs_24h,
+                    SUM(total_rewards)::BIGINT as rewards_24h
+                FROM worker_rewards_1d
+                WHERE bucket >= $1
+                GROUP BY worker_public_key
+                HAVING SUM(total_rewards) > 0
             ),
             ranked_workers AS (
                 SELECT
-                    ws.public_key as worker_public_key,
+                    wr.worker_public_key,
                     ui.twitter_handle as twitter_username,
-                    ws.proofs_24h,
-                    (ws.proofs_24h * $3)::BIGINT as rewards_24h,
-                    ROW_NUMBER() OVER (ORDER BY ws.proofs_24h DESC, ws.public_key ASC) as rank
-                FROM worker_stats ws
-                LEFT JOIN user_info ui ON ws.public_key = ui.public_key
+                    wr.proofs_24h,
+                    wr.rewards_24h,
+                    ROW_NUMBER() OVER (ORDER BY wr.rewards_24h DESC, wr.worker_public_key ASC) as rank
+                FROM worker_rewards_24h wr
+                LEFT JOIN user_info ui ON wr.worker_public_key = ui.public_key
             )
             SELECT
                 worker_public_key,
@@ -118,23 +116,26 @@ impl WorkerLeaderboardRepository {
             ORDER BY rank ASC
             "#,
             twenty_four_hours_ago,
-            limit,
-            REWARD_PER_PROOF
+            limit
         )
         .fetch_all(pool)
         .await?;
 
-        let entries = rows
+        let leaderboard: Vec<WorkerLeaderboardEntry> = rows
             .into_iter()
-            .map(|row| WorkerLeaderboardEntry {
-                worker_public_key: row.worker_public_key.unwrap_or_default(),
-                twitter_username: row.twitter_username,
-                proofs_24h: row.proofs_24h.unwrap_or(0),
-                rewards_24h: row.rewards_24h.unwrap_or(0),
-                rank: row.rank.unwrap_or(0),
+            .filter_map(|row| {
+                // All these fields should be non-null due to the query structure,
+                // but sqlx infers them as Option. We filter out any unexpected nulls.
+                Some(WorkerLeaderboardEntry {
+                    worker_public_key: row.worker_public_key?,
+                    twitter_username: row.twitter_username,
+                    proofs_24h: row.proofs_24h?,
+                    rewards_24h: row.rewards_24h?,
+                    rank: row.rank?,
+                })
             })
             .collect();
 
-        Ok(entries)
+        Ok(leaderboard)
     }
 }

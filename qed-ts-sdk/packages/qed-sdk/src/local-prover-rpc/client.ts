@@ -61,7 +61,7 @@ class QedRPCUserProverProvider extends BaseProvider implements IQedUserProverPro
         return this.rpc<QHashOut>(QedUserProverRPCCommand.SignAndSubmitWithData, [pk_hash, signData]);
     }
 
-    async getClaimRewardsCallArgs(pkHash: PublicKey, jobInfos: string): Promise<ContractCallArgs[]> {
+    async getClaimRewardsCallArgs(jobInfos: string): Promise<ContractCallArgs[]> {
         throw new Error("Method not implemented.");
     }
 

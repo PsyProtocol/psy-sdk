@@ -3,7 +3,7 @@ use super::rpc::RealmEdgeRpcServer;
 use crate::common::jobs::{JobSchedulerRpcServer, MESSAGE_CLAIM_JOB};
 use crate::realm::state::edge::RealmEdgeContext;
 use crate::realm::{C, D, F, H};
-use crate::watcher::current_timestamp_mills;
+use crate::watcher::timeout_watcher::WatcherSourceNodeType;
 use async_trait::async_trait;
 use jsonrpsee::core::{client::ClientT, RpcResult};
 use jsonrpsee::http_client::{HttpClient, HttpClientBuilder};
@@ -26,6 +26,7 @@ use qed_data::qdata::checkpoint::{
     QEDCheckpointGlobalStateRoots, QEDCheckpointLeaf, QEDL2BlockState,
 };
 use qed_data::qdata::user::QEDUserLeaf;
+use qed_prover::session::TxStatus;
 use qed_store::node::realm::QEDRealmStoreReaderAsync;
 use qed_store::queue::ProofStoreRedisAsync;
 use std::sync::Arc;
@@ -44,10 +45,11 @@ use qed_prover::wallet::secp_sign::SignedRequest;
 use qed_store::queue::task_queue::{QProvingTaskStore, QProvingTaskStoreImpl, JobValidationStatus, QJob, current_timestamp_millis};
 use crate::coordinator::edge::ProofStore;
 use qed_rollup_circuit::verify_witness::verify_witness_and_proof;
+use crate::common::utils::current_datetime;
 use crate::common::whitelist::{WhiteList, WhiteListCache};
 use crate::common_v2::traits::realm::{RealmEdgeContractStateTreeUpdate, RealmEdgeStateHelper, RealmEdgeUserContractTreeUpdate, RealmEdgeUserUpdateSubmission, SimpleTreeUpdateBuilder, UniqueQueueId};
 use crate::realm::state::edge_queue_helper::RealmEdgeQueueHelper;
-use crate::watcher::events::{JobCompletedEvent, JobStartedEvent, WatcherMessage};
+use crate::watcher::events::{JobCompletedEvent, JobStartedEvent, UserEndcapSubmissionEvent, UserEndcapSubmissionMetadata, WatcherMessage};
 use crate::watcher::watcher_client::WatcherClient;
 
 #[derive(Clone)]
@@ -370,11 +372,41 @@ where
         user_ec_input: SubmitUserEndCapNonProofInput<F>,
         proof: ProofWithPublicInputs<F, C, D>,
     ) -> RpcResult<String> {
-        Ok(self
-            .ctx
+        let checkpoint_id = self.ctx.store_reader.get_latest_l2_block_state().await.map_err(RpcError::Anyhow)?.checkpoint_id;
+        let endcap_event = UserEndcapSubmissionEvent {
+            realm_id: self.ctx.realm_config.realm_id as u64,
+            user_id: user_ec_input.core.state_transition.user_id.to_canonical_u64(),
+            metadata: UserEndcapSubmissionMetadata { 
+                checkpoint_id, 
+                state_transition: user_ec_input.core.state_transition, 
+                new_user_leaf: user_ec_input.core.new_user_leaf, 
+                endcap_proof_public_inputs: proof.public_inputs.clone(), 
+                node_id: self.watcher_client.node_id.clone().unwrap_or_default(),
+                node_type: WatcherSourceNodeType::Realm.to_string(),
+            },
+            timestamp: current_datetime(),
+        };
+        self.ctx
             .handle_recv_end_cap_from_user(user_ec_input, &proof)
             .await
-            .map(|_| "ok".to_string())
+            .map_err(RpcError::Anyhow)?;
+
+        if let Err(e) = self.watcher_client.send_event(WatcherMessage::EndcapSubmission(endcap_event)).await {
+            warn!("⚠️ Failed to report endcap submission event to watcher: {}", e);
+        }
+
+        Ok("ok".to_string())
+    }
+
+    async fn get_tx_status(
+        &self,
+        user_id: u64,
+        nonce: u64,
+    ) -> RpcResult<TxStatus> {
+        Ok(self
+            .ctx
+            .get_tx_status(user_id, nonce)
+            .await
             .map_err(RpcError::Anyhow)?)
     }
 
@@ -927,9 +959,7 @@ where
                         ProvingJobCircuitType::GUTASingleEndCap | ProvingJobCircuitType::GUTATwoEndCap |
                         ProvingJobCircuitType::GUTALeftEndCapRightGUTA | ProvingJobCircuitType::GUTALeftGUTARightEndCap |
                         ProvingJobCircuitType::GUTATwoGUTAWithCheckpointUpgrade  |
-                        ProvingJobCircuitType::GUTAVerifyToCapWithCheckpointUpgrade => {
-                            graph.guta_graph.has_node(job_id)
-                        } |
+                        ProvingJobCircuitType::GUTAVerifyToCapWithCheckpointUpgrade |
                         ProvingJobCircuitType::GUTAVerifyToCap => {
                             graph.guta_graph.has_node(job_id)
                         }
@@ -1086,7 +1116,7 @@ where
                 let start_event = JobStartedEvent {
                     job_id: job.job_id,
                     worker_id,
-                    start_time: current_timestamp_mills(),
+                    start_time: current_timestamp_millis(),
                     layer_id: job.layer_id,
                 };
 

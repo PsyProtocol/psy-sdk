@@ -1,6 +1,3 @@
-// Alternative implementation using runtime-checked queries
-// repositories/job_status.rs
-
 use chrono::{DateTime, Utc};
 use sqlx::{PgPool, Row};
 use crate::models::{JobStatusSummary, RealmJobStatusSummary};

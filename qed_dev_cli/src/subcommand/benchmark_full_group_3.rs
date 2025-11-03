@@ -56,7 +56,7 @@ use qed_node::{
     },
 };
 use qed_node::common::verifier::get_cached_generic_verifier;
-use qed_prover::{local::provider::ProveProxyRpcTrait, ups::{
+use qed_prover::{local::provider::UPSCircuitManagerTrait, ups::{
     circuit_manager::core::{QCircuitManager, QEDUPSStepCircuitManager}, session::UserProvingSessionManager,
 }};
 use qed_rollup_circuit::coordinator::coordinator_helper::QEDCoordinatorCircuitManager;
@@ -197,7 +197,9 @@ impl<
     }
 
     pub async fn produce_block(&mut self) -> anyhow::Result<()> {
-        self.realm_proc.build_block(0).await?;
+        let last_l2_blockstate = self.realm_proc.store.get_latest_l2_block_state().await?;
+        let new_checkpoint_id = last_l2_blockstate.checkpoint_id+1;
+        self.realm_proc.build_block(new_checkpoint_id,0).await?;
         let realm_worker_output_job_id = SimpleAsyncRealmWorker::run_worker_until_done::<
             _,
             _,

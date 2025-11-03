@@ -301,7 +301,7 @@ curl "http://localhost:3000/worker_events_aggregations?start_time=2023-01-01T00:
 const ws = new WebSocket('ws://localhost:3000/ws/subscribe');
 
 // Configure filters
-ws.send(JSON.stringify({
+ws.send(QedJSON.stringify({
   filters: {
     realm_ids: ["0"],
     event_types: ["worker_event"]
@@ -310,7 +310,7 @@ ws.send(JSON.stringify({
 
 // Receive real-time events
 ws.onmessage = (event) => {
-  const data = JSON.parse(event.data);
+  const data = QedJSON.parse(event.data);
   console.log('Received event:', data);
 };
 ```
@@ -330,7 +330,7 @@ const tpsWs = new WebSocket('ws://localhost:3000/ws/tps');
 
 // Receive TPS updates every 12 seconds
 tpsWs.onmessage = (event) => {
-  const tpsEvent = JSON.parse(event.data);
+  const tpsEvent = QedJSON.parse(event.data);
   console.log(`Current TPS: ${tpsEvent.data.tps}`);
   console.log(`Transactions in last 12s: ${tpsEvent.data.transaction_count}`);
 };

@@ -8,8 +8,8 @@ use qed_core::{
     data::qhashout::QHashOut,
 };
 use qed_crypto::hash::merkle::core::{DeltaMerkleProofCore, MerkleProofCore};
-use crate::{models::staging::{staging_checkpoint_info::StagingCheckpointInfoModel, staging_delta_record::StagingDeltaRecordModelCore}, qdata::{
-    checkpoint::{QEDCheckpointLeaf, QEDL2BlockState}, checkpoint_id_key::CheckpointTableIdKey, contract::{ContractCodeDefinition, QEDContractLeaf}, hash_cache_result::QEDHashHelperResult, hash_key::Hash4x64Key, hash_key_with_id::Hash4x64KeyWithId, staging_checkpoint_info::StagingCheckpointInfo, staging_checkpoint_key::StagingCheckpointKey, staging_delta_record_key::StagingDeltaRecordKey, u64_key::U64TableKey, user::QEDUserLeaf, user_public_key::QEDUserPublicKeyRecord
+use crate::{models::{contract_metadata::ContractMetaDataModel, staging::{staging_checkpoint_info::StagingCheckpointInfoModel, staging_delta_record::StagingDeltaRecordModelCore}}, qdata::{
+    checkpoint::{QEDCheckpointLeaf, QEDL2BlockState}, checkpoint_id_key::CheckpointTableIdKey, contract::{ContractCodeDefinition, QEDContractLeaf}, contract_uuid::ContractTableIdKey, contract_metadata::ContractMetaData, hash_cache_result::QEDHashHelperResult, hash_key::Hash4x64Key, hash_key_with_id::Hash4x64KeyWithId, staging_checkpoint_info::StagingCheckpointInfo, staging_checkpoint_key::StagingCheckpointKey, staging_delta_record_key::StagingDeltaRecordKey, u64_key::U64TableKey, user::QEDUserLeaf, user_public_key::QEDUserPublicKeyRecord
 }, qsync::coordinator::QEDCheckpointSyncInfoCompact};
 use crate::qdata::realm_status::BasicRealmStatus;
 use crate::qdata::realm_id_key::RealmTableIdKey;
@@ -66,6 +66,9 @@ pub const STAGING_DELTA_RECORD_TABLE_TYPE: u16 = 19;
 
 // Realm status table type
 pub const REALM_STATUS_TABLE_TYPE: u16 = 20;
+
+// Contract id table type
+pub const CONTRACT_METADATA_TABLE_TYPE: u16 = 21;
 
 // Legacy - kept for backward compatibility, should not be used for new trees
 pub const PROTOCOL_TREE_TABLE_TYPE: u16 = 100;
@@ -144,6 +147,13 @@ pub type StagingDeltaRecordStore<S, IDKVA = KVQStandardAdapter<S, StagingDeltaRe
 
 pub type RealmStatusTableStore<F, S, IDKVA = KVQStandardAdapter<S, RealmTableIdKey<REALM_STATUS_TABLE_TYPE>, BasicRealmStatus<F>>> = RealmStatusModel<
     REALM_STATUS_TABLE_TYPE,
+    F,
+    S,
+    IDKVA,
+>;
+
+pub type ContractMetaDataTableStore<F, S, IDKVA = KVQStandardAdapter<S, ContractTableIdKey<CONTRACT_METADATA_TABLE_TYPE>, ContractMetaData<F>>> = ContractMetaDataModel<
+    CONTRACT_METADATA_TABLE_TYPE,
     F,
     S,
     IDKVA,

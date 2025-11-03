@@ -10,7 +10,7 @@ use qed_data::{
         core::QEDBlockCommands, deploy_contract::QBCDeployContract, register_user::QBCRegisterUser,
     }, qdata::contract::{ContractCodeDefinition, ContractFunctionCodeDefinition}
 };
-use qed_prover::{dpn::circuits::cfc::DapenContractFunctionCircuit, local::{provider::ProveProxyRpcTrait, simple::SimpleAPI}, ups::{circuit_manager::core::{QCircuitManager, QEDUPSStepCircuitManager}, session::UserProvingSessionManager}};
+use qed_prover::{dpn::circuits::cfc::DapenContractFunctionCircuit, local::{provider::UPSCircuitManagerTrait, simple::SimpleAPI}, ups::{circuit_manager::core::{QCircuitManager, QEDUPSStepCircuitManager}, session::UserProvingSessionManager}};
 use qed_rollup_circuit::guta::guta_helper::QEDGUTACircuitManager;
 use qed_data::{
     config::store_config::QEDHasher, qblock::process::simple::SimpleBlockProcessor, traits::qdatastore::{qmetadata::QMetaDataStoreReaderSync, qtreedata::QEDComboDataStoreReaderWriterSync}
@@ -315,8 +315,8 @@ async fn demo_user_proving_session() -> anyhow::Result<()> {
                 function_whitelist: vec![
                     QHashOut::rand(),
                     QHashOut::rand(),
-                    QHashOut::rand(),
-                    QHashOut::rand(),
+                    QHashOut::from_values(1, 0, 0, 0),
+                    QHashOut::from_values(0, 0, 0, 0),
                 ],
             },
             QBCDeployContract {
@@ -328,8 +328,8 @@ async fn demo_user_proving_session() -> anyhow::Result<()> {
                 function_whitelist: vec![
                     QHashOut::rand(),
                     QHashOut::rand(),
-                    QHashOut::rand(),
-                    QHashOut::rand(),
+                    QHashOut::from_values(2, 0, 0, 0),
+                    QHashOut::from_values(0, 0, 0, 0),
                 ],
             },
             deploy_cmd,

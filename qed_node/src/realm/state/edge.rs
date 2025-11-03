@@ -5,6 +5,7 @@ use plonky2::{field::{goldilocks_field::GoldilocksField, types::{Field, PrimeFie
 use qed_core::{config::network_constants::GLOBAL_USER_TREE_HEIGHT, data::qhashout::QHashOut, job::{drain_queue::CheckpointDrainQueueEmitterAsyncImm, id::{ProvingJobCircuitType, ProvingJobDataType, QJobTopic, QProvingJobDataID}, traits::QProofStoreAsyncImm}};
 use qed_crypto::{common::generic_circuit_verifier::GenericCircuitVerifier, hash::traits::{hasher::{MerkleZeroHasher, PoseidonHasher}, qhashable::QFieldHashable}};
 use qed_data::{config::store_config::{QCheckpointSyncInfoCompact, QEDHasher}, guta::{api::{SimpleContractHeightCache, UserEndCapNonProofCoreInputQueueItem}, end_cap_input::SubmitUserEndCapNonProofInput}};
+use qed_prover::session::TxStatus;
 use qed_store::node::realm::QEDRealmStoreReaderAsync;
 use tracing::debug;
 use crate::realm::{C, D, F, H};
@@ -276,6 +277,43 @@ impl<
         debug!("enqueued queue item successfully");
 
         Ok(())
+    }
+
+    pub async fn get_tx_status(
+        &self,
+        user_id: u64,
+        nonce: u64,
+    ) -> anyhow::Result<TxStatus> {
+        let latest_checkpoint_id = self.store_reader.get_latest_l2_block_state().await?.checkpoint_id;
+        let onchain_nonce = self
+            .store_reader
+            .get_user_leaf_data(latest_checkpoint_id, user_id)
+            .await?
+            .nonce
+            .to_canonical_u64();
+        tracing::debug!("get user {} tx status at nonce {}, onchain_nonce {}", user_id, nonce, onchain_nonce);
+
+        let proof_id = QProvingJobDataID::new(
+            QJobTopic::GenerateStandardProof,
+            u64::MAX,
+            0,
+            self.realm_config.realm_id,
+            user_id as u32,
+            (onchain_nonce + 1) as u32,
+            ProvingJobCircuitType::UserEndCap,
+            ProvingJobDataType::OutputProof,
+            0,
+        );
+
+        if nonce != onchain_nonce + 1 {
+            tracing::warn!("nonce {} != onchain_nonce {}", nonce, onchain_nonce);
+            Ok(TxStatus::Confirmed)
+        } else if self.proof_store.contains_id(proof_id).await? {
+            Ok(TxStatus::Pending)
+        } else {
+            Ok(TxStatus::Submittable)
+        } 
+
     }
 
     pub async fn handle_recv_checkpoint_sync(

@@ -7,7 +7,8 @@ CREATE TABLE user_event_tx_types (
 INSERT INTO user_event_tx_types (tx_type) VALUES
     ('REGISTER_USER'),
     ('DEPLOY_CONTRACT'),
-    ('GUTA');
+    ('GUTA'),
+    ('USER_ENDCAP');
 
 CREATE TABLE user_events (
     user_id VARCHAR(255),

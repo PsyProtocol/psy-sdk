@@ -347,7 +347,7 @@ export class QedProverClient implements IQedUserProverProvider {
         return this.callServerMethod(QedUserProverRPCCommand.AddUserWithType, [privateKey, signType, fingerprint]);
     }
 
-    async getClaimRewardsCallArgs(pkHash: PublicKey, jobInfos: string): Promise<ContractCallArgs[]> {
+    async getClaimRewardsCallArgs(jobInfos: string): Promise<ContractCallArgs[]> {
         throw new Error("Method not implemented.");
     }
 

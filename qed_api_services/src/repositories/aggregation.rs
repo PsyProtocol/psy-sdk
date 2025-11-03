@@ -99,7 +99,8 @@ impl UserEventAggregationRepository {
 
 /// Worker Rewards Aggregation Repository
 impl WorkerRewardsAggregationRepository {
-    /// Get worker rewards aggregations from materialized views with fallback to raw data
+    /// Get worker rewards aggregations from continuous aggregates
+    /// These aggregates now query checkpoint_reward_distributions for actual rewards
     pub async fn get_aggregations(
         pool: &PgPool,
         view_name: &str,
@@ -108,218 +109,108 @@ impl WorkerRewardsAggregationRepository {
         end_time: Option<DateTime<Utc>>,
         limit: i64,
     ) -> Result<Vec<WorkerRewardsAggregation>> {
-        // First, try to get data from the continuous aggregate
-        let query = format!(
-            r#"
-            SELECT
-                bucket,
-                public_key,
-                completed_proofs::BIGINT as completed_proofs,
-                total_rewards::BIGINT as total_rewards,
-                max_checkpoint::BIGINT as max_checkpoint
-            FROM {}
-            WHERE public_key = $1
-                AND ($2::TIMESTAMPTZ IS NULL OR bucket >= $2)
-                AND ($3::TIMESTAMPTZ IS NULL OR bucket <= $3)
-            ORDER BY bucket DESC
-            LIMIT $4
-            "#,
-            view_name
-        );
-
-        tracing::debug!(
-            "Querying continuous aggregate {} for worker {}",
-            view_name,
-            worker_public_key
-        );
-
-        let aggregations = sqlx::query_as::<_, WorkerRewardsAggregation>(&query)
-            .bind(worker_public_key)
-            .bind(start_time)
-            .bind(end_time)
-            .bind(limit)
-            .fetch_all(pool)
-            .await?;
-
-        // If we got data from the aggregate, return it
-        if !aggregations.is_empty() {
-            tracing::info!(
-                "Found {} aggregation buckets from continuous aggregate {} for worker {}",
-                aggregations.len(),
-                view_name,
-                worker_public_key
-            );
-            return Ok(aggregations);
-        }
-
-        // Fallback: Query raw data from worker_event_rewards table
-        tracing::info!(
-            "Continuous aggregate {} is empty for worker {}, falling back to raw data",
-            view_name,
-            worker_public_key
-        );
-
-        // First, check if there's any data at all for this worker
-        let check_query = sqlx::query!(
-            r#"
-            SELECT COUNT(*) as count
-            FROM worker_event_rewards
-            WHERE public_key = $1
-            "#,
-            worker_public_key
-        )
-        .fetch_one(pool)
-        .await?;
-
-        let total_records = check_query.count.unwrap_or(0);
-
-        if total_records == 0 {
-            tracing::warn!(
-                "No rewards data found in worker_event_rewards table for worker {}",
-                worker_public_key
-            );
-            return Ok(Vec::new());
-        }
-
-        tracing::info!(
-            "Found {} total reward records for worker {}, aggregating by time buckets",
-            total_records,
-            worker_public_key
-        );
-
-        // Determine the bucket interval based on view_name
-        let interval = match view_name {
-            "worker_rewards_1d" => "1 day",
-            "worker_rewards_1w" => "1 week",
-            "worker_rewards_1m" => "1 month",
-            _ => {
-                tracing::error!("Unknown view name: {}", view_name);
-                return Ok(Vec::new());
-            }
-        };
-
-        // Build and execute the fallback query using dynamic SQL
-        // We use dynamic query here because sqlx has issues with time_bucket and intervals
-        let fallback_query = format!(
-            r#"
-            SELECT
-                time_bucket('{}', timestamp) AS bucket,
-                public_key,
-                COUNT(*)::BIGINT as completed_proofs,
-                COALESCE(SUM(reward_amount), 0)::BIGINT as total_rewards,
-                COALESCE(MAX(checkpoint_id), 0)::BIGINT as max_checkpoint
-            FROM worker_event_rewards
-            WHERE public_key = $1
-                AND ($2::TIMESTAMPTZ IS NULL OR timestamp >= $2)
-                AND ($3::TIMESTAMPTZ IS NULL OR timestamp <= $3)
-            GROUP BY time_bucket('{}', timestamp), public_key
-            ORDER BY bucket DESC
-            LIMIT $4
-            "#,
-            interval,
-            interval
-        );
-
-        let rows = sqlx::query(&fallback_query)
-            .bind(worker_public_key)
-            .bind(start_time)
-            .bind(end_time)
-            .bind(limit)
-            .fetch_all(pool)
-            .await?;
-
-        let mut fallback_aggregations = Vec::new();
-        for row in rows {
-            let bucket: DateTime<Utc> = row.try_get("bucket")?;
-            let public_key: String = row.try_get("public_key")?;
-            let completed_proofs: i64 = row.try_get("completed_proofs")?;
-            let total_rewards: i64 = row.try_get("total_rewards")?;
-            let max_checkpoint: i64 = row.try_get("max_checkpoint")?;
-
-            fallback_aggregations.push(WorkerRewardsAggregation {
-                bucket,
-                public_key,
-                completed_proofs,
-                total_rewards,
-                max_checkpoint,
-            });
-        }
-
-        if fallback_aggregations.is_empty() {
-            tracing::warn!(
-                "Could not create aggregations from raw data for worker {} with interval {}",
-                worker_public_key,
-                interval
-            );
-
-            // As a last resort, try to get a single aggregation of all data
-            tracing::info!("Attempting to create a single aggregation bucket for all data");
-
-            let single_bucket_query = r#"
-                SELECT
-                    date_trunc('day', MIN(timestamp)) AS bucket,
-                    public_key,
-                    COUNT(*)::BIGINT as completed_proofs,
-                    COALESCE(SUM(reward_amount), 0)::BIGINT as total_rewards,
-                    COALESCE(MAX(checkpoint_id), 0)::BIGINT as max_checkpoint
-                FROM worker_event_rewards
-                WHERE public_key = $1
-                GROUP BY public_key
-                HAVING COUNT(*) > 0
-            "#;
-
-            let single_row = sqlx::query(single_bucket_query)
-                .bind(worker_public_key)
-                .fetch_optional(pool)
-                .await?;
-
-            if let Some(row) = single_row {
-                let bucket: DateTime<Utc> = row.try_get("bucket")?;
-                let public_key: String = row.try_get("public_key")?;
-                let completed_proofs: i64 = row.try_get("completed_proofs")?;
-                let total_rewards: i64 = row.try_get("total_rewards")?;
-                let max_checkpoint: i64 = row.try_get("max_checkpoint")?;
-
-                let aggregation = WorkerRewardsAggregation {
-                    bucket,
-                    public_key,
-                    completed_proofs,
-                    total_rewards,
-                    max_checkpoint,
-                };
-
-                tracing::info!(
-                    "Created single aggregation bucket with {} proofs and {} total rewards",
-                    aggregation.completed_proofs,
-                    aggregation.total_rewards
-                );
-                return Ok(vec![aggregation]);
-            }
-        } else {
-            tracing::info!(
-                "Successfully created {} aggregation buckets from raw data for worker {}",
-                fallback_aggregations.len(),
-                worker_public_key
-            );
-        }
-
-        Ok(fallback_aggregations)
-    }
-
-    /// Force refresh a continuous aggregate (useful for testing and manual intervention)
-    pub async fn refresh_aggregate(
-        pool: &PgPool,
-        view_name: &str,
-    ) -> Result<()> {
         // Validate view name to prevent SQL injection
-        let valid_views = vec!["worker_rewards_1d", "worker_rewards_1w", "worker_rewards_1m"];
+        let valid_views = vec![
+            "worker_rewards_1d",
+            "worker_rewards_1w",
+            "worker_rewards_1m",
+            "worker_rewards"
+        ];
         if !valid_views.contains(&view_name) {
             return Err(anyhow::anyhow!("Invalid view name: {}", view_name));
         }
 
-        tracing::info!("Manually refreshing continuous aggregate: {}", view_name);
+        // All-time view has different structure (no bucket column)
+        let aggregations = if view_name == "worker_rewards" {
+            let query = r#"
+                SELECT
+                    last_reward_time as bucket,
+                    worker_public_key as public_key,
+                    total_jobs_completed::BIGINT as completed_proofs,
+                    total_rewards::BIGINT as total_rewards,
+                    COALESCE(max_checkpoint, 0)::BIGINT as max_checkpoint
+                FROM worker_rewards
+                WHERE worker_public_key = $1
+                LIMIT 1
+            "#;
 
-        // Use CALL to invoke the refresh procedure
+            tracing::debug!(
+                "Querying worker_rewards table for worker {}",
+                worker_public_key
+            );
+
+            sqlx::query_as::<_, WorkerRewardsAggregation>(query)
+                .bind(worker_public_key)
+                .fetch_all(pool)
+                .await?
+        } else {
+            let query = format!(
+                r#"
+                SELECT
+                    bucket,
+                    worker_public_key as public_key,
+                    completed_proofs::BIGINT as completed_proofs,
+                    total_rewards::BIGINT as total_rewards,
+                    max_checkpoint::BIGINT as max_checkpoint
+                FROM {}
+                WHERE worker_public_key = $1
+                    AND ($2::TIMESTAMPTZ IS NULL OR bucket >= $2)
+                    AND ($3::TIMESTAMPTZ IS NULL OR bucket <= $3)
+                ORDER BY bucket DESC
+                LIMIT $4
+                "#,
+                view_name
+            );
+
+            tracing::debug!(
+                "Querying continuous aggregate {} for worker {} (start: {:?}, end: {:?}, limit: {})",
+                view_name,
+                worker_public_key,
+                start_time,
+                end_time,
+                limit
+            );
+
+            sqlx::query_as::<_, WorkerRewardsAggregation>(&query)
+                .bind(worker_public_key)
+                .bind(start_time)
+                .bind(end_time)
+                .bind(limit)
+                .fetch_all(pool)
+                .await?
+        };
+
+        if aggregations.is_empty() {
+            tracing::info!(
+                "No aggregation data found in {} for worker {}. This is normal if the worker has no reward-eligible jobs in checkpoint_reward_distributions.",
+                view_name,
+                worker_public_key
+            );
+        } else {
+            tracing::info!(
+                "Found {} aggregation buckets from {} for worker {}",
+                aggregations.len(),
+                view_name,
+                worker_public_key
+            );
+        }
+        Ok(aggregations)
+    }
+
+    /// Force refresh an aggregate
+    /// Note: worker_rewards table is updated via trigger, so no need to manual refresh
+    pub async fn refresh_aggregate(pool: &PgPool, view_name: &str) -> Result<()> {
+        let valid_views = vec![
+            "worker_rewards_1d",
+            "worker_rewards_1w",
+            "worker_rewards_1m"
+        ];
+        if !valid_views.contains(&view_name) {
+            return Err(anyhow::anyhow!("Invalid view name: {}", view_name));
+        }
+
+        tracing::info!("Manually refreshing aggregate: {}", view_name);
+
         let query = format!(
             "CALL refresh_continuous_aggregate('{}', NULL, NULL)",
             view_name
@@ -333,8 +224,75 @@ impl WorkerRewardsAggregationRepository {
                 anyhow::anyhow!("Failed to refresh aggregate {}: {}", view_name, e)
             })?;
 
-        tracing::info!("Successfully refreshed continuous aggregate: {}", view_name);
+        tracing::info!("Successfully refreshed aggregate: {}", view_name);
         Ok(())
+    }
+
+    /// Get total rewards for a worker across time range from aggregates
+    pub async fn get_worker_rewards_with_period(
+        pool: &PgPool,
+        view_name: &str,
+        worker_public_key: &str,
+        start_time: Option<DateTime<Utc>>,
+        end_time: Option<DateTime<Utc>>,
+    ) -> Result<(i64, i64)> {
+        let valid_views = vec![
+            "worker_rewards_1d",
+            "worker_rewards_1w",
+            "worker_rewards_1m",
+        ];
+        if !valid_views.contains(&view_name) {
+            return Err(anyhow::anyhow!("Invalid view name: {}", view_name));
+        }
+
+        let query = format!(
+            r#"
+            SELECT
+                COALESCE(SUM(completed_proofs), 0)::BIGINT as total_proofs,
+                COALESCE(SUM(total_rewards), 0)::BIGINT as total_rewards
+            FROM {}
+            WHERE public_key = $1
+                AND ($2::TIMESTAMPTZ IS NULL OR bucket >= $2)
+                AND ($3::TIMESTAMPTZ IS NULL OR bucket <= $3)
+            "#,
+            view_name
+        );
+
+        let row = sqlx::query(&query)
+            .bind(worker_public_key)
+            .bind(start_time)
+            .bind(end_time)
+            .fetch_one(pool)
+            .await?;
+
+        let total_proofs: i64 = row.try_get("total_proofs")?;
+        let total_rewards: i64 = row.try_get("total_rewards")?;
+
+        Ok((total_proofs, total_rewards))
+    }
+
+    /// Get total rewards for a worker across all time buckets
+    pub async fn get_worker_rewards_all(
+        pool: &PgPool,
+        worker_public_key: &str,
+    ) -> Result<i64> {
+
+        let query = r#"
+            SELECT COALESCE(total_rewards, 0) AS total_rewards
+            FROM worker_rewards
+            WHERE worker_public_key = $1
+        "#;
+
+        let row = sqlx::query(query)
+            .bind(worker_public_key)
+            .fetch_optional(pool)
+            .await?;
+
+        if let Some(row) = row {
+            Ok(row.try_get("total_rewards")?)
+        } else {
+            Ok(0)
+        }
     }
 
     /// Check if a continuous aggregate has any data

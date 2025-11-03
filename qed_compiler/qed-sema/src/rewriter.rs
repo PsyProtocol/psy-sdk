@@ -573,6 +573,9 @@ impl<F: Clone + From<u32> + ContextFelt, C> Rewriter<F, C> for TypeChecker<F, C>
                     CheckedIntrinsicExprNode::GetContractId { type_id, .. } => {
                         *type_id = self.substitute_all(*type_id, ctx)?;
                     }
+                    CheckedIntrinsicExprNode::GetCallerContractId { type_id, .. } => {
+                        *type_id = self.substitute_all(*type_id, ctx)?;
+                    }
                     CheckedIntrinsicExprNode::GetCheckpointId { type_id, .. } => {
                         *type_id = self.substitute_all(*type_id, ctx)?;
                     }

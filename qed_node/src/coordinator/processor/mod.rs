@@ -11,6 +11,7 @@ use qed_core::config::network_constants::GLOBAL_USER_TREE_HEIGHT;
 use qed_crypto::common::user_id::get_user_id_from_registration_id;
 use qed_crypto::hash::merkle::utils::common::QMerkleNode;
 use qed_data::config::genesis_config::GenesisConfig;
+use qed_data::qblock::cmds::deploy_contract::QBCDeployContractWithRoot;
 use qed_core::config::network_constants::MAX_CONTRACT_STATE_TREE_HEIGHT;
 use qed_core::data::qhashout::QHashOut;
 use qed_core::job::worker_queue::WorkerEventReceiverAsyncImm;

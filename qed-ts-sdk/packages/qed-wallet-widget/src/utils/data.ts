@@ -1,4 +1,4 @@
-import { Felt, QedUserWalletProvider } from "@qed/qed-sdk";
+import { Felt, QedJSON, QedUserWalletProvider } from "@qed/qed-sdk";
 import { useCallback, useEffect, useState } from "react";
 
 
@@ -6,7 +6,7 @@ const fetchBlockNumber = async (walletProvider: QedUserWalletProvider) => {
     try {
         console.log("Fetching latest L2 block state from coordinator...");
         const latestBlockState = await walletProvider.coordinatorEdgeRpcProvider.getLatestL2BlockState();
-        console.log("Latest block state:", JSON.stringify(latestBlockState, null, 2));
+        console.log("Latest block state:", QedJSON.stringify(latestBlockState, 2));
         if (latestBlockState) {
             return Number(latestBlockState.checkpoint_id);
         }

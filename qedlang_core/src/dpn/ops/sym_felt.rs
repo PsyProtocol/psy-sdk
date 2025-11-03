@@ -99,13 +99,23 @@ impl SymFeltRef {
                 GetCheckpointId = 48,
                 GetNonce = 49,
                 GetUserPublicKeyHash = 50,
+                GetCallerContractId = 79,
 
                 U32InputTarget = 66,
                 ConstantU32 = 67,
 
                 BoolInputTarget = 74,
         */
-        type_id > 3 && (type_id < 46 || type_id > 50) && (type_id < 66 || type_id > 67) && type_id != 74
+        type_id > 3
+            && type_id != DPNOpType::GetUserId as u16
+            && type_id != DPNOpType::GetContractId as u16
+            && type_id != DPNOpType::GetCallerContractId as u16
+            && type_id != DPNOpType::GetCheckpointId as u16
+            && type_id != DPNOpType::GetNonce as u16
+            && type_id != DPNOpType::GetUserPublicKeyHash as u16
+            && type_id != DPNOpType::U32InputTarget as u16
+            && type_id != DPNOpType::ConstantU32 as u16
+            && type_id != DPNOpType::BoolInputTarget as u16
     }
     pub fn constant_true() -> SymFeltRef {
         SymFeltRef((DPNOpType::ConstantTrue as u128)<<112)

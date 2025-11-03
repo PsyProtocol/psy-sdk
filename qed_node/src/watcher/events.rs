@@ -1,8 +1,13 @@
 use chrono::{DateTime, Utc};
+use qed_data::qdata::user::QEDUserLeaf;
 use serde::{Deserialize, Serialize};
 use qed_api_services::models::UserEventTxType;
 use qed_core::job::id::{LayerId, ProvingJobCircuitType, QProvingJobDataID};
 use qed_data::config::store_config::QEDFelt;
+use qed_data::qblock::cmds::deploy_contract::QFunctionMetadata;
+use qed_data::qdata::contract_uuid::ContractUUID;
+use qed_data::qdata::ups_end_cap_result::UPSEndCapResultCompact;
+use crate::watcher::timeout_watcher::WatcherSourceNodeType;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum WatcherMessage {
@@ -10,6 +15,7 @@ pub enum WatcherMessage {
     UserRegistration(UserRegistrationEvent),
     DeployContract(UserDeployContractEvent),
     GutaSubmission(UserGutaSubmissionEvent),
+    EndcapSubmission(UserEndcapSubmissionEvent),
 
     // Job status - immediate reporting
     JobPending(JobPendingEvent),
@@ -20,31 +26,33 @@ pub enum WatcherMessage {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UserRegistrationEvent {
-    pub public_key: String,
     pub timestamp: DateTime<Utc>,
+    pub node_id: String,
+    pub node_type: WatcherSourceNodeType,
+    pub metadata: UserRegistrationMetadata,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UserRegistrationMetadata {
-    pub registration_time: DateTime<Utc>,
-    pub node_id: String,
-    pub node_type: String,
+    pub public_key: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UserDeployContractEvent {
     pub deployer: String,
-    pub metadata: UserDeployContractMetadata,  // Contains contract details without code
     pub timestamp: DateTime<Utc>,
+    pub metadata: UserContractMetadata,  // Contains contract details without code
+    pub node_id: String,
+    pub node_type: WatcherSourceNodeType,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct UserDeployContractMetadata {
+pub struct UserContractMetadata {
+    pub contract_uuid: ContractUUID,
     pub state_tree_height: u16,
     pub function_count: usize,
+    pub functions: Vec<QFunctionMetadata>,
     pub function_whitelist_root: String,
-    pub node_id: String,
-    pub node_type: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -105,17 +113,19 @@ pub struct JobTimeoutEvent {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct BackupProofEvent {
-    pub job_id: QProvingJobDataID,
-    pub proof_data: Vec<u8>,
-    pub timestamp: u64,
-    pub delete_after_blocks: u64,  // Delete after N blocks (e.g., 256)
+pub struct UserEndcapSubmissionEvent {
+    pub realm_id: u64,
+    pub user_id: u64,
+    pub metadata: UserEndcapSubmissionMetadata,
+    pub timestamp: DateTime<Utc>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct BackupWitnessEvent {
-    pub job_id: QProvingJobDataID,
-    pub witness_data: Vec<u8>,
-    pub timestamp: u64,
-    pub delete_after_blocks: u64,
+pub struct UserEndcapSubmissionMetadata {
+    pub checkpoint_id: u64,
+    pub state_transition: UPSEndCapResultCompact<QEDFelt>,
+    pub new_user_leaf: QEDUserLeaf<QEDFelt>,
+    pub endcap_proof_public_inputs: Vec<QEDFelt>,
+    pub node_id: String,
+    pub node_type: String,
 }

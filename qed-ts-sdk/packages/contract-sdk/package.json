@@ -11,6 +11,7 @@
     "postgenerate": "prettier --write ./generated/**/*.ts"
   },
   "dependencies": {
+    "@qed/qed-sdk": "workspace:*",
     "@qed/utils": "workspace:*",
     "commander": "^11.0.0",
     "ethers": "^6.9.0"

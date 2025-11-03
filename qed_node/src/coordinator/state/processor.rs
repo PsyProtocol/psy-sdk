@@ -40,6 +40,8 @@ use qed_crypto::{
     },
     signature::zk::data::ZKPublicKeyInfo,
 };
+use qed_data::qdata::contract_metadata::ContractMetaData;
+use qed_data::qdata::contract_uuid::ContractUUID;
 use qed_data::{
     config::store_config::{QCheckpointSyncInfoCompact, QEDFelt, QEDHasher, UserPublicKeyTableStore, UserTreeStore},
     guta::{
@@ -229,12 +231,25 @@ impl<
         let start_contract_id = last_l2_blockstate.next_contract_id;
 
         for (i, dc) in deploy_contract_items.iter().enumerate() {
+            let contract_id = start_contract_id as u64 + i as u64;
             self.store
-                .set_contract_code_definition_imm(checkpoint_id, start_contract_id as u64 + i as u64, &dc.payload.code_definition)
+                .set_contract_code_definition_imm(checkpoint_id, contract_id, &dc.payload.code_definition)
                 .await?;
             self.store
-                .set_contract_function_whitelist_imm(checkpoint_id, start_contract_id as u64 + i as u64, &dc.payload.function_whitelist)
+                .set_contract_function_whitelist_imm(checkpoint_id, contract_id, &dc.payload.function_whitelist)
                 .await?;
+
+            let contract_uuid = ContractUUID {
+                checkpoint_id: dc.metadata.checkpoint_id,
+                uuid: dc.metadata.item_id,
+            };
+            let contract_metadata = ContractMetaData {
+                checkpoint_id: dc.metadata.checkpoint_id,
+                contract_id,
+                deployer: dc.payload.deployer,
+                function_whitelist_root: dc.payload.function_whitelist_root,
+            };
+            self.store.set_contract_metadata(contract_uuid, &contract_metadata).await?;
         }
         for (i, l) in new_contract_leaves.iter().enumerate() {
             self.store
@@ -471,7 +486,7 @@ impl<
                     slots_modified: F::ZERO,
                 },
             };
-            tracing::debug!(guta_header = ?guta_header, guta_header_hash = ?guta_header.qfhash::<QEDHasher>(), "GUTA header");
+            tracing::debug!(guta_header = %serde_json::to_string_pretty(&guta_header).unwrap(), guta_header_hash = %guta_header.qfhash::<QEDHasher>(), "GUTA header");
             let input = GUTANoChangeFullInput {
                 checkpoint_tree_proof,
                 checkpoint_leaf: QEDCheckpointLeafCompactWithStateRoots {
@@ -479,7 +494,7 @@ impl<
                     global_state_roots: roots,
                 },
             };
-            tracing::debug!(input = ?input, "Single GUTA input");
+            tracing::debug!(input = %serde_json::to_string_pretty(&input).unwrap(), "Single GUTA input");
 
             let id = QProvingJobDataID::new(
                 QJobTopic::GenerateStandardProof,

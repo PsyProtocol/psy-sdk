@@ -15,6 +15,7 @@ use qed_data::traits::qdatastore::qmetadata::QMetaDataStoreReaderSync;
 use qed_prover::local::args::SignType;
 use qed_prover::local::provider::{QUserRpcProvider, RpcProvider};
 use qed_prover::local::request::QRegisterUserRPCRequest;
+use qed_prover::wallet::memory_wallet::{SECP256K1_FINGERPRINT, ZK_FINGERPRINT};
 use qed_prover::wallet::simple_sign::SoftwareDefinedSignGadget;
 use qed_prover::wallet::software_defined_circuit::{
     get_sdc_public_key_param, PSoftwareDefinedSignatureInput, QSoftwareDefinedSignatureInput,
@@ -23,10 +24,6 @@ use qed_prover::wallet::software_defined_circuit::{
 use qed_prover::wallet::utils::{get_secp_public_key, hash_no_pad_compressed_public_key};
 use qedlang_core::dpn::vm::def::DPNFunctionCircuitDefinition;
 use std::str::FromStr;
-
-const ZK_FINGERPRINT: &str = "d2f572f1402fa8a92c9af0a2226e05ef8f5f4f34d764c6515b90d2b391fc48c1";
-const SECP256K1_FINGERPRINT: &str =
-    "993bbdad2ba78319a70ab7d9ecd84b36eca0affc9f8ec4f9006b39a8fe29672c";
 
 pub async fn run(args: RegisterUserArgs) -> Result<()> {
     let provider = RpcProvider::new_with_config_path(&args.rpc_config)?;

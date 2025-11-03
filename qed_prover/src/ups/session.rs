@@ -5,7 +5,7 @@ use plonky2::{
 };
 use qed_common_circuit::treeprover::qrecursion::standard::manager::portable::core::PortableQTreeRecursionManager;
 use qed_common_circuit::circuits::traits::qstandard::QStandardCircuit;
-use qed_core::{config::network_constants::{DEFERRED_TRANSACTION_TREE_HEIGHT, GUTA_FEE, INLINE_TRANSACTION_TREE_HEIGHT, TOKEN_CONTRACT_ID, TOKEN_SIMPLE_BURN_METHOD_ID, UPS_SESSION_PROOF_TREE_HEIGHT}, data::qhashout::QHashOut, ups::circuits::LocalCircuitType, utils::debug_timer::DebugTimer};
+use qed_core::{config::network_constants::{DEFAULT_CALLER_CONTRACT_ID_U64, DEFERRED_TRANSACTION_TREE_HEIGHT, GUTA_FEE, INLINE_TRANSACTION_TREE_HEIGHT, TOKEN_CONTRACT_ID, TOKEN_SIMPLE_BURN_METHOD_ID, UPS_SESSION_PROOF_TREE_HEIGHT}, data::qhashout::QHashOut, ups::circuits::LocalCircuitType, utils::debug_timer::DebugTimer};
 use qed_crypto::{common::witnesses::qrecursion::{header::{AttestProofInTreeInput, AttestTreeAwareProofInTreeInput}, proof_data::{InputLeafProof, TreeAwareTreeProofRecord}}, hash::traits::{hasher::{FieldQHasher, MerkleZeroHasher}, qhashable::QFieldHashable}};
 use qed_data::{
     dpn::proving_session::{DPNProvingSessionCompactMethodCall, DPNProvingSessionSimpleMethodCall, DPNTransactionDebtItem, QEDLocalTransactionRecord}, guta::{api::SubmitUserEndCapNonProofCoreInput, end_cap_input::SubmitUserEndCapNonProofInput, stats::GUTAStats}, qdata::{checkpoint::{QEDCheckpointGlobalStateRoots, QEDCheckpointLeaf, QEDCheckpointLeafCompact, QEDCheckpointLeafCompactWithStateRoots}, ups_end_cap_result::UPSEndCapResultCompact, ups_signature::QEDUserProvingSessionSignatureDataCompact, user::QEDUserLeaf, user_contract_state::{SignContext, UserContractState}}, qstore::imm::cmd::QSRCmdGetContractCodeDefinition, ups::{start_step::UPSStartStepInput, ups_cfc_standard_step::{UPSCFCDeferredTransactionCircuitInput, UPSCFCStandardTransactionCircuitInput}, ups_context_input::{UserProvingSessionCurrentState, UserProvingSessionHeader}, ups_end_cap::UPSEndCapFromProofTreeGadgetInput, ups_standard_cfc_input::{UPSCFCStandardStateDeltaInput, UPSVerifyCFCStandardStepInput, UPSVerifyPopDeferredTxStepInput}, verify_previous_ups_step::VerifyPreviousUPSStepProofInProofTreeInput}
@@ -18,7 +18,7 @@ use qed_store::controllers::local::{proving_session::QEDLocalProvingSessionStore
 use qedlang_core::dpn::{contract::cfc_code_definition_to_dapen_fc, vm::def::DPNFunctionCircuitDefinition};
 use serde::Serialize;
 
-use crate::{dpn::circuits::cfc::DapenContractFunctionCircuit, local::provider::ProveProxyRpcTrait, ups::circuit_manager::core::QCircuitManager};
+use crate::{dpn::circuits::cfc::DapenContractFunctionCircuit, local::provider::UPSCircuitManagerTrait, ups::circuit_manager::core::QCircuitManager};
 
 use super::circuit_manager::core::QEDUPSStepCircuitManager;
 
@@ -213,9 +213,9 @@ impl<
         new_hash_tip
     }
 
-    pub async fn prove_ups_start(
+    pub async fn prove_ups_start<CM: UPSCircuitManagerTrait<C, D> + ?Sized>(
         &mut self,
-        circuit_mgr: &QCircuitManager<C, D>,
+        circuit_mgr: &CM,
     ) -> anyhow::Result<()> {
         let mut timer = DebugTimer::new("prove_ups_start");
         timer.lap("start");
@@ -331,9 +331,9 @@ impl<
         Ok((fn_id, fn_circuit_def))
     }
 
-    pub async fn prove_contract_call(
+    pub async fn prove_contract_call<CM: UPSCircuitManagerTrait<C, D> + ?Sized>(
         &mut self,
-        circuit_mgr: &QCircuitManager<C, D>,
+        circuit_mgr: &CM,
         contract_id: F,
         fn_id: u32,
         fn_circuit_def: &DPNFunctionCircuitDefinition,
@@ -350,9 +350,9 @@ impl<
         Ok(())
     }
 
-    pub async fn prove_standard_call(
+    pub async fn prove_standard_call<CM: UPSCircuitManagerTrait<C, D> + ?Sized>(
         &mut self,
-        circuit_mgr: &QCircuitManager<C, D>,
+        circuit_mgr: &CM,
         contract_id: F,
         fn_id: u32,
         fn_circuit_def: &DPNFunctionCircuitDefinition,
@@ -361,6 +361,7 @@ impl<
         let deferred_tx_pivot_index = self.lps.get_deferred_tx_debt_latest_index();
         let inline_tx_pivot_index = self.lps.get_inline_tx_debt_latest_index();
         let tx_log_item = DPNProvingSessionSimpleMethodCall {
+            caller_contract_id: F::from_canonical_u64(DEFAULT_CALLER_CONTRACT_ID_U64),
             contract_id,
             method_id: F::from_canonical_u32(fn_circuit_def.method_id),
             inputs: inputs.clone(),
@@ -506,9 +507,9 @@ impl<
         sighash
     }
 
-    pub async fn prove_burn_fee(
+    pub async fn prove_burn_fee<CM: UPSCircuitManagerTrait<C, D> + ?Sized>(
         &mut self,
-        circuit_mgr: &QCircuitManager<C, D>,
+        circuit_mgr: &CM,
     ) -> anyhow::Result<()> {
         tracing::info!("Adding burn transaction for GUTA fee: {}", GUTA_FEE);
 
@@ -534,9 +535,9 @@ impl<
         Ok(())
     }
 
-    pub async fn prove_end_cap(
+    pub async fn prove_end_cap<CM: UPSCircuitManagerTrait<C, D> + ?Sized>(
         &mut self,
-        circuit_mgr: &QCircuitManager<C, D>,
+        circuit_mgr: &CM,
         network_magic: u64,
         nonce: F,
         zk_sig_fingerprint: QHashOut<F>,
@@ -625,9 +626,10 @@ impl<
         Ok(proof)
     }
 
-    pub async fn exec_contract_call(
+    pub async fn exec_deferred_contract_call(
         &mut self,
         contract_id: F,
+        caller_contract_id: F,
         fn_circuit_def: &DPNFunctionCircuitDefinition,
         inputs: Vec<F>,
     ) -> anyhow::Result<DapenContractFunctionCircuitInput<F>> {
@@ -635,17 +637,27 @@ impl<
             self.proof_tree_state.get_proof_tree_root().await
         );
         QEDEvalSessionResult::new()
-            .exec_contract_call(
+            .exec_deferred_contract_call(
                 &mut self.lps,
                 contract_id,
+                caller_contract_id,
                 fn_circuit_def,
                 inputs
             ).await
     }
 
-    async fn repay_deferred_debt(
+    pub async fn exec_contract_call(
         &mut self,
-        circuit_mgr: &QCircuitManager<C, D>,
+        contract_id: F,
+        fn_circuit_def: &DPNFunctionCircuitDefinition,
+        inputs: Vec<F>,
+    ) -> anyhow::Result<DapenContractFunctionCircuitInput<F>> {
+        self.exec_deferred_contract_call(contract_id, F::from_canonical_u64(DEFAULT_CALLER_CONTRACT_ID_U64), fn_circuit_def, inputs).await
+    }
+
+    async fn repay_deferred_debt<CM: UPSCircuitManagerTrait<C, D> + ?Sized>(
+        &mut self,
+        circuit_mgr: &CM,
         initial_debt_item: &qed_data::dpn::proving_session::DPNTransactionDebtItem<DPNProvingSessionSimpleMethodCall<F>, F>,
     ) -> anyhow::Result<()> {
         let mut debt_queue = vec![initial_debt_item.clone()];
@@ -665,9 +677,9 @@ impl<
         Ok(())
     }
 
-    async fn prove_deferred_call(
+    async fn prove_deferred_call<CM: UPSCircuitManagerTrait<C, D> + ?Sized>(
         &mut self,
-        circuit_mgr: &QCircuitManager<C, D>,
+        circuit_mgr: &CM,
         debt_item: &DPNTransactionDebtItem<DPNProvingSessionSimpleMethodCall<F>, F>,
     ) -> anyhow::Result<()> {
         let (_, debt_removal_proof) = self.lps.repay_deferred_tx_debt(debt_item.tree_index)?;
@@ -675,8 +687,9 @@ impl<
         let method_id = deferred_tx.method_id.to_canonical_u64() as u32;
         let contract_id = deferred_tx.contract_id.to_canonical_u64();
         let (fn_id, fn_circuit_def) = self.resolve_contract_function(contract_id, method_id).await?;
-        let cfc_proof_input = self.exec_contract_call(
+        let cfc_proof_input = self.exec_deferred_contract_call(
             deferred_tx.contract_id,
+            deferred_tx.caller_contract_id,
             &fn_circuit_def,
             deferred_tx.inputs.clone(),
         ).await?;
@@ -751,6 +764,7 @@ impl<
             user_id: self.current_ups_header.current_state.user_leaf.user_id,
         };
         let tx_log_item = DPNProvingSessionSimpleMethodCall {
+            caller_contract_id: deferred_tx.caller_contract_id,
             contract_id: deferred_tx.contract_id,
             method_id: deferred_tx.method_id,
             inputs: deferred_tx.inputs.clone(),

@@ -70,8 +70,16 @@ pub struct DeployContractArgs {
     pub rpc_config: String,
     #[clap(long, env)]
     pub private_key: String,
+    #[clap(long, short, default_value = "zk")]
+    pub sign_type: SignType,
+    #[clap(long, env)]
+    pub fingerprint: Option<String>,
     #[clap(long)]
     pub contract_path: String,
+    #[clap(long, env)]
+    pub output_path: Option<String>,
+    #[clap(long, env)]
+    pub is_deploy: bool, 
 }
 
 #[derive(Clone, Args, Serialize, Deserialize)]
@@ -494,6 +502,10 @@ pub struct ClaimRewardsArgs {
     /// Starting checkpoint ID (optional, if not provided will start from last claimed + 1)
     #[clap(long)]
     pub start_checkpoint_id: Option<u64>,
+
+    /// API service URL for fetching worker events (if empty, uses file-based loading)
+    #[clap(long, default_value = "http://127.0.0.1:3000")]
+    pub api_service_url: String,
 }
 
 #[derive(Clone, Args, Serialize, Deserialize)]

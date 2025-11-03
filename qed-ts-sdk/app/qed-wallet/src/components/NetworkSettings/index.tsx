@@ -17,6 +17,7 @@ import {
 import { IconInfoCircle, IconPlus, IconTrash, IconDownload, IconUpload } from '@tabler/icons-react';
 import { useWalletConfig, NetworkConfig, RealmConfig, CoordinatorConfig, defaultConfig } from '../../config';
 import { useTokens } from '../../contexts/TokensContext';
+import { QedJSON } from '@qed/qed-sdk';
 
 interface NetworkSettingsProps {
   opened: boolean;
@@ -113,7 +114,7 @@ export const NetworkSettings: React.FC<NetworkSettingsProps> = ({
   };
 
   const exportConfig = () => {
-    const configJson = JSON.stringify(localConfig, null, 2);
+    const configJson = QedJSON.stringify(localConfig, null, 2);
     const blob = new Blob([configJson], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -125,7 +126,7 @@ export const NetworkSettings: React.FC<NetworkSettingsProps> = ({
 
   const importConfig = () => {
     try {
-      const parsed = JSON.parse(importText);
+      const parsed = QedJSON.parse(importText);
       // Validate the structure
       if (!parsed.users_per_realm || !parsed.realm_configs || !parsed.coordinator_configs) {
         throw new Error('Invalid configuration format');

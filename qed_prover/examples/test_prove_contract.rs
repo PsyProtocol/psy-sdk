@@ -150,8 +150,8 @@ async fn test_prove_simple() -> anyhow::Result<()> {
         function_whitelist: vec![
             QHashOut::rand(),
             QHashOut::rand(),
-            QHashOut::rand(),
-            QHashOut::rand(),
+            QHashOut::from_values(1, 0, 0, 0),
+            QHashOut::from_values(0, 0, 0, 0),
         ],
     };
     

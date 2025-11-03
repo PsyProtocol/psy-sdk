@@ -4,3 +4,4 @@ pub mod checkpoint;
 pub mod contract;
 pub mod staging;
 pub mod realm_status;
+pub mod contract_metadata;

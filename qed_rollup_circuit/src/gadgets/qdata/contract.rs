@@ -52,7 +52,7 @@ impl CreatableTarget for QEDContractLeafGadget {
             function_tree_root,
             state_tree_height,
         }
-        
+
     }
 }
 impl ToTargets for QEDContractLeafGadget {
@@ -91,7 +91,7 @@ impl FromTargets for QEDContractLeafGadget {
                 targets[7],
             ]
         };
-        let state_tree_height = targets [8];
+        let state_tree_height = targets[8];
         Self {
             deployer,
             function_tree_root,

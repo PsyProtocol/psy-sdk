@@ -17,7 +17,7 @@ use qed_node::{
     }, realm::state::{edge::RealmEdgeContext, processor::{RealmConfig, RealmProcessorContext}}, worker::{simple_async_coord::SimpleAsyncCoordinatorWorker, simple_async_realm::SimpleAsyncRealmWorker}
 };
 use qed_node::common::verifier::get_cached_generic_verifier;
-use qed_prover::{local::provider::ProveProxyRpcTrait, ups::{circuit_manager::core::{QCircuitManager, QEDUPSStepCircuitManager}, session::UserProvingSessionManager}};
+use qed_prover::{local::provider::UPSCircuitManagerTrait, ups::{circuit_manager::core::{QCircuitManager, QEDUPSStepCircuitManager}, session::UserProvingSessionManager}};
 use qed_rollup_circuit::coordinator::coordinator_helper::QEDCoordinatorCircuitManager;
 use qed_data::{config::store_config::{QEDFelt, QEDHasher}, traits::qdatastore::qtreedata::QEDComboDataStoreReaderWriterSync};
 use qed_store::{controllers::local::{proving_session::QEDLocalProvingSessionStore, session_info::SessionCircuitInfoStore}, node::coordinator::{QEDCoordinatorStoreReaderAsync, QEDCoordinatorStoreWriterAsyncImm}, queue::ProofStoreFred, queue::task_queue::{QProvingTaskStore, QProvingTaskStoreImpl}};
@@ -177,7 +177,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
 
     let sync1 = coordinator_processor_node.store.get_checkpoint_sync_info_compact(1).await?;
     realm_processor_node.handle_checkpoint_sync(sync1).await?;
-    realm_processor_node.build_block(0).await?;
+    realm_processor_node.build_block(realm_processor_node.latest_checkpoint().await? + 1,0).await?;
     let realm_worker_output_job_id = SimpleAsyncRealmWorker::run_worker_until_done::<
         _,
         _,
@@ -355,8 +355,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
         mgr.get_api_input().await?,
         &end_cap_proof
     ).await?;
-
-    realm_processor_node.build_block(0).await?;
+    realm_processor_node.build_block(realm_processor_node.latest_checkpoint().await? + 1, 0).await?;
     let realm_worker_output_job_id = SimpleAsyncRealmWorker::run_worker_until_done::<
         _,
         _,
@@ -408,8 +407,7 @@ async fn run_fred_test3() -> anyhow::Result<()> {
     ).await?;
 
     timer.lap("finished jobs");
-
-    realm_processor_node.build_block(0).await?;
+    realm_processor_node.build_block(realm_processor_node.latest_checkpoint().await? + 1, 0).await?;
     let realm_worker_output_job_id = SimpleAsyncRealmWorker::run_worker_until_done::<
         _,
         _,

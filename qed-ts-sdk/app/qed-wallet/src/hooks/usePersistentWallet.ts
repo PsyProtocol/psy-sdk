@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { useWalletState } from '@qed/qed-wallet-widget';
+import { QedJSON } from '@qed/qed-sdk';
 
 export const WALLET_STORAGE_KEY = 'psy_wallet_data';
 
@@ -37,6 +38,8 @@ export interface StoredWalletData {
     networkId: string;
     publicKeyHex: string;
     privateKey: string | null;
+    signType: string;
+    fingerprint: string | null;
   }[];
   activeWalletId?: number;
   lastUpdated: number;
@@ -57,7 +60,7 @@ export const usePersistentWallet = () => {
         console.log('Stored data:', stored);
         
         if (stored) {
-          const data: StoredWalletData = JSON.parse(stored);
+          const data: StoredWalletData = QedJSON.parse(stored);
           console.log('Parsed stored data:', data);
           
           // Check if data is not too old (24 hours)
@@ -76,7 +79,7 @@ export const usePersistentWallet = () => {
                 if (walletData.privateKey) {
                   try {
                     console.log('Restoring wallet:', walletData.userId, 'with private key length:', walletData.privateKey.length);
-                    await addWalletFromPrivateKey(walletData.privateKey, true, false);
+                    await addWalletFromPrivateKey(walletData.privateKey, walletData.signType, walletData.fingerprint, true, false);
                   } catch (error) {
                     console.warn('Failed to restore wallet:', walletData.userId, error);
                   }
@@ -123,6 +126,8 @@ export const usePersistentWallet = () => {
               try {
                 // Get private key asynchronously
                 const privateKey = await wallet.wallet?.signer?.getPrivateKeyHex?.();
+                const signType = await wallet.wallet?.signer?.getSignType?.();
+                const fingerprint = await wallet.wallet?.signer?.getFingerprint?.();
                 
                 // Clean the data to remove any BigInt or non-serializable values
                 const cleanWalletData = {
@@ -134,6 +139,8 @@ export const usePersistentWallet = () => {
                   publicKeyHex: wallet.publicKeyHex,
                   // Note: In production, you should encrypt private keys or use a more secure storage method
                   privateKey: privateKey || null,
+                  signType: signType || null,
+                  fingerprint: fingerprint || null,
                 };
                 
                 return cleanWalletData;
@@ -164,7 +171,7 @@ export const usePersistentWallet = () => {
           // Clean all BigInt values recursively
           const cleanedData = cleanBigIntValues(dataToStore);
           
-          localStorage.setItem(WALLET_STORAGE_KEY, JSON.stringify(cleanedData));
+          localStorage.setItem(WALLET_STORAGE_KEY, QedJSON.stringify(cleanedData));
           console.log('Saved wallets to storage:', dataToStore.wallets.length);
         } catch (error) {
           console.warn('Failed to save wallets:', error);

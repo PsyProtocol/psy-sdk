@@ -1,6 +1,6 @@
 export * from "./http";
 export * from "./core";
-export * from "./utils/felt";
+export * from "./utils";
 export * from "./utils/json";
 
 // Enhanced RPC Provider exports
