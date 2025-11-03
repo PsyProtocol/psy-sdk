@@ -63,11 +63,11 @@ cleanup() {
             kill -TERM "$pid" 2>/dev/null
         fi
     done
-    pkill -f qed_user_cli
-    pkill -f qed_rollup_cli
-    pkill -f qed_dev_cli
+    pkill -f psy_user_cli
+    pkill -f psy_node_cli
+    pkill -f psy_dev_cli
     pkill -f register_user
-    pkill -f qed_api_services
+    pkill -f psy_services
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] All processes terminated. Exiting."
     exit 0
 }
@@ -129,10 +129,6 @@ run_service "make run-watcher-realm1" "watcher-realm1" "$WATCHER_REALM1_LOG" &
 PIDS+=($!)
 
 sleep 1
-# run_service "make run-user-prover" "local-user-prover" "$LOCAL_USER_PROVER_LOG" &
-# PIDS+=($!)
-run_service "make run-web-wallet" "web-wallet" "$WEB_WALLET_LOG" &
-PIDS+=($!)
 run_service "make run-prove-proxy" "local-prove-proxy" "$LOCAL_PROVE_PROXY_LOG" &
 PIDS+=($!)
 

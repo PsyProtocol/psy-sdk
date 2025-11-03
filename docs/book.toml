@@ -1,9 +1,9 @@
 [book]
-authors = ["QEDProtocol"]
+authors = ["PsyProtocol"]
 language = "en"
 multilingual = false
 src = "src"
-title = "QED Protocol Design"
+title = "Psy Protocol Documentation"
 
 [preprocessor]
 

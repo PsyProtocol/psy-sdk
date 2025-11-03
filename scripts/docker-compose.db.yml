@@ -1,7 +1,7 @@
 services:
   redis-data:
     image: redis:alpine
-    container_name: qed-redis-coordinator
+    container_name: psy-redis-coordinator
     network_mode: host
     volumes:
       - ${PWD}/db/redis-coordinator:/data
@@ -19,7 +19,7 @@ services:
 
   timescaledb:
     image: timescale/timescaledb:latest-pg17
-    container_name: qed-timescaledb
+    container_name: psy-timescaledb
     network_mode: host
     environment:
       - POSTGRES_PASSWORD=password

@@ -138,13 +138,13 @@ jobs:
           TAG_NAME: ${{ (env.IS_NIGHTLY == 'true' && 'nightly') || needs.prepare.outputs.tag_name }}
           TARGET: ${{ matrix.target }}
           OUT_DIR: target/${{ matrix.target }}/${{ env.PROFILE }}
-          DARGO_STD_PATH: ${{ github.workspace }}/qed_compiler/qed-std/std.qed
+          DARGO_STD_PATH: ${{ github.workspace }}/psy_compiler/psy-std/std.psy
           SQLX_OFFLINE: true
         shell: bash
         run: |
           set -eo pipefail
           flags=(--target $TARGET --profile $PROFILE 
-            --bin qed_user_cli --bin qed_rollup_cli --bin qed_dev_cli --bin dargo --bin qed-lsp-server)
+            --bin psy_user_cli --bin psy_node_cli --bin psy_dev_cli --bin dargo --bin psy-lsp-server)
 
           [[ "$TARGET" == *windows* ]] && ext=".exe"
 
@@ -154,7 +154,7 @@ jobs:
             cargo build "${flags[@]}"
           fi
 
-          bins=(qed_user_cli qed_rollup_cli qed_dev_cli dargo qed-lsp-server)
+          bins=(psy_user_cli psy_node_cli psy_dev_cli dargo psy-lsp-server)
           for name in "${bins[@]}"; do
             bin=$OUT_DIR/$name$ext
             echo ""
@@ -177,18 +177,18 @@ jobs:
         shell: bash
         run: |
           if [[ "$PLATFORM_NAME" == "linux" || "$PLATFORM_NAME" == "alpine" ]]; then
-            tar -czvf "qed_${VERSION_NAME}_${PLATFORM_NAME}_${ARCH}.tar.gz" -C $OUT_DIR qed_user_cli qed_rollup_cli qed_dev_cli dargo qed-lsp-server
-            echo "file_name=qed_${VERSION_NAME}_${PLATFORM_NAME}_${ARCH}.tar.gz" >> $GITHUB_OUTPUT
+            tar -czvf "psy_${VERSION_NAME}_${PLATFORM_NAME}_${ARCH}.tar.gz" -C $OUT_DIR psy_user_cli psy_node_cli psy_dev_cli dargo psy-lsp-server
+            echo "file_name=psy_${VERSION_NAME}_${PLATFORM_NAME}_${ARCH}.tar.gz" >> $GITHUB_OUTPUT
           elif [ "$PLATFORM_NAME" == "darwin" ]; then
             # We need to use gtar here otherwise the archive is corrupt.
             # See: https://github.com/actions/virtual-environments/issues/2619
-            gtar -czvf "qed_${VERSION_NAME}_${PLATFORM_NAME}_${ARCH}.tar.gz" -C $OUT_DIR qed_user_cli qed_rollup_cli qed_dev_cli dargo qed-lsp-server
-            echo "file_name=qed_${VERSION_NAME}_${PLATFORM_NAME}_${ARCH}.tar.gz" >> $GITHUB_OUTPUT
+            gtar -czvf "psy_${VERSION_NAME}_${PLATFORM_NAME}_${ARCH}.tar.gz" -C $OUT_DIR psy_user_cli psy_node_cli psy_dev_cli dargo psy-lsp-server
+            echo "file_name=psy_${VERSION_NAME}_${PLATFORM_NAME}_${ARCH}.tar.gz" >> $GITHUB_OUTPUT
           else
             cd $OUT_DIR
-            7z a -tzip "qed_${VERSION_NAME}_${PLATFORM_NAME}_${ARCH}.zip" qed_user_cli.exe qed_rollup_cli.exe qed_dev_cli.exe dargo.exe qed-lsp-server.exe
-            mv "qed_${VERSION_NAME}_${PLATFORM_NAME}_${ARCH}.zip" ../../../
-            echo "file_name=qed_${VERSION_NAME}_${PLATFORM_NAME}_${ARCH}.zip" >> $GITHUB_OUTPUT
+            7z a -tzip "psy_${VERSION_NAME}_${PLATFORM_NAME}_${ARCH}.zip" psy_user_cli.exe psy_node_cli.exe psy_dev_cli.exe dargo.exe psy-lsp-server.exe
+            mv "psy_${VERSION_NAME}_${PLATFORM_NAME}_${ARCH}.zip" ../../../
+            echo "file_name=psy_${VERSION_NAME}_${PLATFORM_NAME}_${ARCH}.zip" >> $GITHUB_OUTPUT
           fi
 
       - name: Build man page
@@ -200,18 +200,18 @@ jobs:
         shell: bash
         run: |
           sudo apt-get -y install help2man
-          help2man -N $OUT_DIR/qed_user_cli > qed_user_cli.1 || echo "Manual page for qed_user_cli" > qed_user_cli.1
-          help2man -N $OUT_DIR/qed_rollup_cli > qed_rollup_cli.1 || echo "Manual page for qed_rollup_cli" > qed_rollup_cli.1
-          help2man -N $OUT_DIR/qed_dev_cli > qed_dev_cli.1 || echo "Manual page for qed_dev_cli" > qed_dev_cli.1
+          help2man -N $OUT_DIR/psy_user_cli > psy_user_cli.1 || echo "Manual page for psy_user_cli" > psy_user_cli.1
+          help2man -N $OUT_DIR/psy_node_cli > psy_node_cli.1 || echo "Manual page for psy_node_cli" > psy_node_cli.1
+          help2man -N $OUT_DIR/psy_dev_cli > psy_dev_cli.1 || echo "Manual page for psy_dev_cli" > psy_dev_cli.1
           help2man -N $OUT_DIR/dargo > dargo.1 || echo "Manual page for dargo" > dargo.1
-          help2man -N $OUT_DIR/qed-lsp-server > qed-lsp-server.1 || echo "Manual page for qed-lsp-server" > qed-lsp-server.1
-          gzip qed_user_cli.1
-          gzip qed_rollup_cli.1
-          gzip qed_dev_cli.1
+          help2man -N $OUT_DIR/psy-lsp-server > psy-lsp-server.1 || echo "Manual page for psy-lsp-server" > psy-lsp-server.1
+          gzip psy_user_cli.1
+          gzip psy_node_cli.1
+          gzip psy_dev_cli.1
           gzip dargo.1
-          gzip qed-lsp-server.1
-          tar -czvf "qed_man_${VERSION_NAME}.tar.gz" qed_user_cli.1.gz qed_rollup_cli.1.gz qed_dev_cli.1.gz dargo.1.gz qed-lsp-server.1.gz
-          echo "qed_man=qed_man_${VERSION_NAME}.tar.gz" >> $GITHUB_OUTPUT
+          gzip psy-lsp-server.1
+          tar -czvf "psy_man_${VERSION_NAME}.tar.gz" psy_user_cli.1.gz psy_node_cli.1.gz psy_dev_cli.1.gz dargo.1.gz psy-lsp-server.1.gz
+          echo "psy_man=psy_man_${VERSION_NAME}.tar.gz" >> $GITHUB_OUTPUT
 
       # Creates the release for this specific version
       - name: Create release
@@ -223,17 +223,17 @@ jobs:
           body: ${{ needs.prepare.outputs.changelog }}
           files: |
             ${{ steps.artifacts.outputs.file_name }}
-            ${{ steps.man.outputs.qed_man }}
+            ${{ steps.man.outputs.psy_man }}
 
       - name: Binaries attestation
         uses: actions/attest-build-provenance@v2
         with:
           subject-path: |
-            ${{ env.qed_user_cli_bin_path }}
-            ${{ env.qed_rollup_cli_bin_path }}
-            ${{ env.qed_dev_cli_bin_path }}
+            ${{ env.psy_user_cli_bin_path }}
+            ${{ env.psy_node_cli_bin_path }}
+            ${{ env.psy_dev_cli_bin_path }}
             ${{ env.dargo_bin_path }}
-            ${{ env.qed_lsp_server_bin_path }}
+            ${{ env.psy_lsp_server_bin_path }}
 
       # If this is a nightly release, it also updates the release
       # tagged `nightly` for compatibility with `psyup`
@@ -247,7 +247,7 @@ jobs:
           body: ${{ needs.prepare.outputs.changelog }}
           files: |
             ${{ steps.artifacts.outputs.file_name }}
-            ${{ steps.man.outputs.qed_man }}
+            ${{ steps.man.outputs.psy_man }}
 
   cleanup:
     name: Release cleanup

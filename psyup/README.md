@@ -1,13 +1,13 @@
 # psyup
 
-The QED toolchain installer and manager, inspired by [foundryup](https://github.com/foundry-rs/foundry/tree/master/foundryup).
+The Psy toolchain installer and manager, inspired by [foundryup](https://github.com/foundry-rs/foundry/tree/master/foundryup).
 
 ## Installation
 
 To install psyup, run:
 
 ```bash
-curl -L https://raw.githubusercontent.com/QEDProtocol/qedlang-rust/master/psyup/install | bash
+curl -L https://raw.githubusercontent.com/PsyProtocol/psy-v1/master/psyup/install | bash
 ```
 
 Then restart your shell or run `source ~/.bashrc` (or appropriate shell config).
@@ -35,13 +35,13 @@ psyup --install nightly
 ### Build from Source (Latest)
 
 ```bash
-psyup --repo QEDProtocol/qedlang-rust
+psyup --repo PsyProtocol/psy-v1
 ```
 
 ### Build from Local Repository
 
 ```bash
-psyup --path /path/to/qedlang-rust
+psyup --path /path/to/psylang-rust
 ```
 
 ### List Installed Versions
@@ -64,20 +64,20 @@ psyup --update
 
 ## What Gets Installed
 
-psyup installs the following QED tools:
+psyup installs the following Psy tools:
 
-- **qed_user_cli** - User-facing command line interface
-- **qed_rollup_cli** - Rollup management and operation tools
-- **qed_dev_cli** - Development and testing utilities
-- **dargo** - QED language compiler and toolchain
-- **qed-lsp-server** - Language Server Protocol support for IDEs
+- **psy_user_cli** - User-facing command line interface
+- **psy_node_cli** - Rollup management and operation tools
+- **psy_dev_cli** - Development and testing utilities
+- **dargo** - Psy language compiler and toolchain
+- **psy-lsp-server** - Language Server Protocol support for IDEs
 
 ## Directory Structure
 
-psyup installs everything under `~/.qed/`:
+psyup installs everything under `~/.psy/`:
 
 ```
-~/.qed/
+~/.psy/
 ├── bin/           # Symlinks to current version binaries
 ├── versions/      # Version-specific installations
 │   ├── stable/
@@ -88,7 +88,7 @@ psyup installs everything under `~/.qed/`:
 
 ## Multi-Platform Support
 
-psyup supports the same platforms as the main QED toolchain:
+psyup supports the same platforms as the main Psy toolchain:
 
 - Linux (x86_64, aarch64)
 - macOS (x86_64, aarch64)
@@ -128,7 +128,7 @@ psyup --branch main
 psyup --pr 123
 
 # Build from local source
-psyup --path ~/qedlang-rust
+psyup --path ~/psylang-rust
 
 # Use specific installed version
 psyup --use v1.1.0

@@ -1,9 +1,0 @@
-[package]
-name = "bar"
-version = "0.1.0"
-type = "lib"
-#entry = "main.qed"
-description = "bar test module"
-author = "qed"
-
-[dependencies]

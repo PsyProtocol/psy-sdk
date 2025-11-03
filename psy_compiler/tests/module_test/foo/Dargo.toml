@@ -1,0 +1,10 @@
+[package]
+name    = "foo"
+version = "0.1.0"
+type = "bin"
+#entry = "main.psy"
+description = "foo test module"
+author = "psy"
+
+[dependencies]
+bar = { path = "../bar" }

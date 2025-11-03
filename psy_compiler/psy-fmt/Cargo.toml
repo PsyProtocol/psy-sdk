@@ -1,0 +1,9 @@
+[package]
+edition = "2021"
+name    = "psy-fmt"
+version = "0.1.0"
+
+[dependencies]
+psy-ast = { workspace = true }
+psy_vm = { workspace = true }
+psy_common = { workspace = true }
