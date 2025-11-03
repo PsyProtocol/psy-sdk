@@ -26,6 +26,7 @@ use qed_data::qdata::checkpoint::QEDCheckpointLeaf;
 use crate::watcher::{api_client::ApiClient, config::WatcherConfig, events::WatcherMessage, timeout_watcher::{NodeInfo, WatcherSourceNodeType, TimeoutWatcher}, ApiClientConfig};
 use crate::watcher::block_sync::BlockSyncService;
 use crate::watcher::checkpoint_sender::CheckpointSenderService;
+use crate::watcher::contract_monitor::ContractMonitorService;
 use crate::watcher::message_processor::MessageProcessor;
 use crate::watcher::utils::get_queue_name;
 
@@ -46,6 +47,7 @@ pub struct WatcherService {
     block_height_sync_service: BlockSyncService,
     checkpoint_sender: Option<CheckpointSenderService>,
     timeout_watcher: Arc<TimeoutWatcher>,
+    contract_monitor: Option<ContractMonitorService>,
 }
 
 impl WatcherService {
@@ -109,6 +111,19 @@ impl WatcherService {
             &queue_name,
         ));
 
+        // Initialize contract monitor (only for Coordinator nodes)
+        let (contract_monitor, contract_monitor_handle) = if config.node_type == WatcherSourceNodeType::Coordinator {
+            info!("Initializing contract monitor (Coordinator node)");
+            let (service, handle) = ContractMonitorService::new(
+                qed_store.clone(),
+                api_client.clone(),
+            );
+            (Some(service), Some(handle))
+        } else {
+            info!("Skipping contract monitor (Realm node)");
+            (None, None)
+        };
+
         // Initialize message processor
         let message_processor = MessageProcessor::new(
             rsmq_queue,
@@ -116,6 +131,7 @@ impl WatcherService {
             api_client.clone(),
             redis_pool,
             config.node_id.clone(),
+            contract_monitor_handle,
         );
 
         // Only create checkpoint sender for Coordinator nodes
@@ -123,7 +139,7 @@ impl WatcherService {
             info!("Initializing checkpoint sender (Coordinator node)");
             Some(CheckpointSenderService::new(
                 qed_store.clone(),
-                api_client,
+                api_client.clone(),
                 Arc::clone(&shared_block_height),
             ))
         } else {
@@ -131,16 +147,36 @@ impl WatcherService {
             None
         };
 
+
         Ok(Self {
             message_processor,
             block_height_sync_service: block_sync_service,
             checkpoint_sender,
             timeout_watcher,
+            contract_monitor
         })
     }
 
-    pub async fn run(self: Arc<Self>) -> Result<()> {
+    pub async fn run(mut self) -> Result<()> {
         info!("Starting Watcher Service");
+
+        // Extract contract_monitor early so we can move it into a separate task
+        // We need to do this because contract_monitor.run() consumes self,
+        // whereas the other services' run() methods only borrow &self
+        let contract_monitor_task = if let Some(monitor) = self.contract_monitor.take() {
+            Some(tokio::spawn(async move {
+                info!("Contract monitor service started");
+                if let Err(e) = monitor.run().await {
+                    error!("Contract monitor stopped with error: {:?}", e);
+                    Err(e)
+                } else {
+                    Ok(())
+                }
+            }))
+        } else {
+            None
+        };
+
 
         let checkpoint_future = async {
             match &self.checkpoint_sender {
@@ -152,7 +188,7 @@ impl WatcherService {
             }
         };
 
-        tokio::select! {
+        let result = tokio::select! {
             result = self.message_processor.run() => {
                 error!("Message processor stopped: {:?}", result);
                 result.map_err(Into::into)
@@ -169,7 +205,14 @@ impl WatcherService {
                 error!("Send checkpoint  stopped: {:?}", result);
                 result.map_err(Into::into)
             }
+        };
+
+        // If we had a contract monitor task, wait for it to finish
+        if let Some(task) = contract_monitor_task {
+            let _ = task.await;
         }
+
+        result
     }
 
 

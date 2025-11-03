@@ -8,6 +8,7 @@ pub mod job_status;
 pub mod checkpoint_state;
 pub mod worker_event_processor;
 pub mod rewards;
+pub mod contracts;
 
 // Re-export all repository structs for backward compatibility
 pub use aggregation::{
@@ -18,3 +19,4 @@ pub use stats::{RealmStatsRepository, WorkerStatsRepository};
 pub use users::{UserEventRepository, UserRepository};
 pub use workers::WorkerEventRepository;
 pub use job_status::*;
+pub use contracts::*;

@@ -543,3 +543,135 @@ pub struct CheckpointLeavesResponse {
 }
 
 
+// ============================================================================
+// Core contract data structures
+// ============================================================================
+
+// Function metadata that will be stored within the JSONB metadata field
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
+pub struct QFunctionMetadata {
+    pub method_id: u32,
+    pub name: String,
+    pub num_inputs: u32,
+    pub num_outputs: u32,
+}
+
+// The UserContractMetadata that gets stored in the metadata JSONB field
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UserContractMetadata {
+    pub contract_uuid: Uuid,
+    pub state_tree_height: u16,
+    pub function_count: usize,
+    pub functions: Vec<QFunctionMetadata>,
+    pub function_whitelist_root: String,
+    pub contract_id: u64,
+    // Any additional fields can be added here without schema changes
+}
+
+// ============================================================================
+// Watcher report structure (what the API receives)
+// ============================================================================
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ContractMetadataReport {
+    pub contract_uuid: Uuid,
+    pub checkpoint_id: u64,
+    pub contract_id: u64,
+    pub deployer: String,
+    pub function_whitelist_root: String,
+    pub metadata: JsonValue,  // JSONB field storing complete UserContractMetadata
+    pub timestamp: DateTime<Utc>,
+}
+
+// ============================================================================
+// Database models
+// ============================================================================
+
+// Database model for the contracts table
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct Contract {
+    pub contract_id: i64,  // BIGINT in PostgreSQL
+    pub contract_uuid: Uuid,
+    pub checkpoint_id: i64,  // BIGINT in PostgreSQL
+    pub deployer: String,
+    pub function_whitelist_root: String,
+    pub metadata: JsonValue,  // Complete UserContractMetadata as JSONB
+    pub timestamp: DateTime<Utc>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+// ============================================================================
+// API response models
+// ============================================================================
+
+// Response model for the frontend API - includes extracted function names
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ContractResponse {
+    pub contract_id: i64,
+    pub contract_uuid: Uuid,
+    pub checkpoint_id: i64,
+    pub deployer: String,
+    pub function_whitelist_root: String,
+    pub state_tree_height: Option<u16>,  // Extracted from metadata if available
+    pub function_count: Option<usize>,   // Extracted from metadata if available
+    pub functions: Vec<QFunctionMetadata>,  // Extracted from metadata for convenience
+    pub metadata: JsonValue,  // Full metadata for extensibility
+    pub timestamp: DateTime<Utc>,
+}
+
+// Simplified response for list operations
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ContractSummary {
+    pub contract_id: i64,
+    pub contract_uuid: Uuid,
+    pub deployer: String,
+    pub checkpoint_id: i64,
+    pub function_count: Option<usize>,
+    pub timestamp: DateTime<Utc>,
+}
+
+// ============================================================================
+// Request/Response models for telemetry endpoint
+// ============================================================================
+
+// Request payload for the telemetry endpoint
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ContractTelemetryPayload {
+    pub report: ContractMetadataReport,
+}
+
+// Response from the telemetry endpoint
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ContractTelemetryResponse {
+    pub success: bool,
+    pub contract_id: i64,
+    pub message: String,
+}
+
+// ============================================================================
+// Query parameters
+// ============================================================================
+
+#[derive(Debug, Deserialize)]
+pub struct ListContractsParams {
+    #[serde(default = "default_limit")]
+    pub limit: i64,
+    #[serde(default)]
+    pub offset: i64,
+    pub deployer: Option<String>,
+    pub checkpoint_id: Option<i64>,
+    pub function_name: Option<String>,
+}
+
+fn default_limit() -> i64 {
+    20
+}
+
+#[derive(Debug, Serialize)]
+pub struct ListContractsResponse {
+    pub contracts: Vec<ContractSummary>,
+    pub total: i64,
+    pub limit: i64,
+    pub offset: i64,
+}

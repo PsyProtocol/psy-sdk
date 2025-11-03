@@ -222,10 +222,10 @@ impl WorkerStatsRepository {
         let rewards_24h_row = sqlx::query!(
                 r#"
                 SELECT
-                    COALESCE(SUM(completed_proofs), 0)::BIGINT as total_proofs,
-                    COALESCE(SUM(total_rewards), 0)::BIGINT as total_rewards_24h
+                    COALESCE(SUM(completed_proofs), 0)::BIGINT as proofs_24h,
+                    COALESCE(SUM(total_rewards), 0)::BIGINT as rewards_24h
                 FROM worker_rewards_1d
-                WHERE public_key = $1
+                WHERE worker_public_key = $1
                     AND bucket >= $2
                 "#,
                 worker_public_key,
@@ -234,8 +234,8 @@ impl WorkerStatsRepository {
             .fetch_one(pool)
             .await?;
 
-        let total_proofs = rewards_24h_row.total_proofs.unwrap_or(0);
-        let total_rewards_24h = rewards_24h_row.total_rewards_24h.unwrap_or(0);
+        let proofs_24h = rewards_24h_row.proofs_24h.unwrap_or(0);
+        let total_rewards_24h = rewards_24h_row.rewards_24h.unwrap_or(0);
 
         // Get all-time total rewards from worker_rewards_all_time aggregate
         // This is refreshed hourly and much more efficient than querying raw table
@@ -312,7 +312,7 @@ impl WorkerStatsRepository {
             processing_tasks,
             total_processing_tasks,
             total_rewards,
-            total_proofs,
+            total_proofs: proofs_24h, // 24-hour proofs from worker_rewards_1d view
             completed_24h,
             failed_24h,
             total_rewards_24h,

@@ -87,7 +87,7 @@ impl WorkerLeaderboardRepository {
             r#"
             WITH worker_rewards_24h AS (
                 SELECT
-                    public_key as worker_public_key,
+                    worker_public_key,
                     SUM(completed_proofs)::BIGINT as proofs_24h,
                     SUM(total_rewards)::BIGINT as rewards_24h
                 FROM worker_rewards_1d

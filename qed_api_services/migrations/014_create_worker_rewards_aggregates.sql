@@ -19,7 +19,7 @@ BEGIN
         'CREATE MATERIALIZED VIEW %I WITH (timescaledb.continuous) AS
          SELECT
              time_bucket(%L, timestamp) AS bucket,
-             worker_public_key as public_key,
+             worker_public_key,
              COUNT(DISTINCT job_id) as completed_proofs,
              SUM(reward_amount) as total_rewards,
              MAX(checkpoint_id) as max_checkpoint

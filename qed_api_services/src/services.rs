@@ -15,13 +15,15 @@ use axum::routing::{get, post};
 use serde::{Deserialize, Serialize};
 use tokio::sync::RwLock;
 use tracing::{debug, error, info, warn};
+use crate::handlers::UnifiedWebSocketManager;
 use crate::repositories::checkpoint_state::{CheckpointRewardAggregationRepository, CheckpointRewardDistributionRepository, CheckpointStatsRepository, WorkerJobEventRepository};
 
 #[derive(Clone)]
 pub struct ApiService {
     pub pool: PgPool,
-    pub user_event_manager: UserEventManager,
-    pub worker_event_manager: WorkerEventManager,
+    pub user_event_manager: UserEventManager,  //will be deprecated
+    pub worker_event_manager: WorkerEventManager, //will be deprecated
+    pub unified_websocket_manager: UnifiedWebSocketManager,
 }
 
 impl ApiService {
@@ -35,6 +37,8 @@ impl ApiService {
             worker_event_manager: WorkerEventManager {
                 connections: Arc::new(RwLock::new(HashMap::new())),
             },
+            unified_websocket_manager: UnifiedWebSocketManager::new(),  // NEW
+
         }
     }
 }
@@ -77,7 +81,7 @@ pub struct JobStatusService;
 impl JobStatusService {
     /// Refresh the latest_job_status materialized view
     pub async fn refresh_materialized_view(pool: &PgPool) -> crate::Result<()> {
-        debug!("Refreshing latest_job_status materialized view");
+        tracing::debug!("Refreshing latest_job_status materialized view");
 
         let start = std::time::Instant::now();
 
@@ -90,7 +94,7 @@ impl JobStatusService {
 
         match result {
             Ok(_) => {
-                info!(
+                tracing::info!(
                     "Successfully refreshed latest_job_status materialized view in {:?}",
                     duration
                 );
@@ -108,7 +112,7 @@ impl JobStatusService {
 
     /// Background task that refreshes the materialized view periodically
     pub async fn start_refresh_task(pool: PgPool, refresh_interval_secs: u64) {
-        info!(
+        tracing::info!(
             "Starting job status materialized view refresh task (interval: {}s)",
             refresh_interval_secs
         );

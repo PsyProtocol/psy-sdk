@@ -11,6 +11,7 @@ use crate::common::utils::current_timestamp;
 // use anyhow::Result;
 use crate::watcher::ApiClient;
 use crate::watcher::constant::{FAILURE_BACKOFF_DURATION, MAX_CONCURRENT_TASKS, MAX_RETRY_ATTEMPTS, MAX_SINGLE_MESSAGE_PROCESSING_TIME, RETRY_ATTEMPT_TTL_SECS, SLEEP_TIME_IF_HAVE_MSG, SLEEP_TIME_IF_NO_MSG};
+use crate::watcher::contract_monitor::ContractMonitorHandle;
 use crate::watcher::error::WatcherError;
 use crate::watcher::events::WatcherMessage;
 
@@ -20,6 +21,7 @@ pub struct MessageProcessor {
     api_client: Arc<ApiClient>,
     redis_pool: Arc<Pool<RedisConnectionManager>>,
     node_id: String,
+    contract_monitor_handle: Option<ContractMonitorHandle>,
 }
 
 impl MessageProcessor {
@@ -29,6 +31,8 @@ impl MessageProcessor {
         api_client: Arc<ApiClient>,
         redis_pool: Arc<Pool<RedisConnectionManager>>,
         node_id: String,
+        contract_monitor_handle: Option<ContractMonitorHandle>,
+
     ) -> Self {
         Self {
             rsmq_queue,
@@ -36,6 +40,7 @@ impl MessageProcessor {
             api_client,
             redis_pool,
             node_id,
+            contract_monitor_handle
         }
     }
 
@@ -108,6 +113,7 @@ impl MessageProcessor {
             api_client: self.api_client.clone(),
             redis_pool: self.redis_pool.clone(),
             node_id: self.node_id.clone(),
+            contract_monitor_handle: self.contract_monitor_handle.clone(),
         };
 
         let active_tasks_clone = active_tasks.clone();
@@ -129,6 +135,7 @@ struct MessageProcessorHandle {
     api_client: Arc<ApiClient>,
     redis_pool: Arc<Pool<RedisConnectionManager>>,
     node_id: String,
+    contract_monitor_handle: Option<ContractMonitorHandle>,
 }
 
 impl MessageProcessorHandle {
@@ -168,7 +175,24 @@ impl MessageProcessorHandle {
             DeployContract(event) => {
                 info!("UserEvent: contract deployment deployer={}", event.deployer);
                 self.api_client.send_contract_deployment(event.clone()).await
-                    .map_err(|e| WatcherError::ApiClient(e.to_string()))
+                    .map_err(|e| WatcherError::ApiClient(e.to_string()))?;
+
+                // Send complete UserContractMetadata to monitor for contract ID tracking
+                if let Some(ref handle) = self.contract_monitor_handle {
+                    if let Err(e) = handle.send(event.metadata.clone()) {
+                        warn!("Failed to send contract metadata to monitor: {}", e);
+                    } else {
+                        debug!(
+                            "📋 Contract {} added to monitoring queue (state_tree_height={}, {} functions)",
+                            event.metadata.contract_uuid.to_string(),
+                            event.metadata.state_tree_height,
+                            event.metadata.function_count
+                        );
+                    }
+                }
+
+                Ok(())
+
             }
             GutaSubmission(event) => {
                 info!("UserEvent: GUTA realm={} circuit={}",
