@@ -44,6 +44,9 @@ type C = PoseidonGoldilocksConfig;
 const D: usize = 2;
 type F = GoldilocksField;
 
+pub const ZK_FINGERPRINT: &str = "d2f572f1402fa8a92c9af0a2226e05ef8f5f4f34d764c6515b90d2b391fc48c1";
+pub const SECP256K1_FINGERPRINT: &str = "993bbdad2ba78319a70ab7d9ecd84b36eca0affc9f8ec4f9006b39a8fe29672c";
+
 // #[derive(Clone)]
 pub struct PsyMemoryWallet {
     // pub zk_circuit: Option<PsyBasicZKSignatureCircuit<C, D>>,

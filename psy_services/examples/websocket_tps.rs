@@ -77,7 +77,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
                     match serde_json::from_str::<WebSocketEvent>(&text) {
                         Ok(event) => {
-                            if matches!(event.event_type, EventType::TpsUpdate) {
+                            if matches!(event.event_type, EventType::Tps) {
                                 match serde_json::from_value::<TpsData>(event.data.clone()) {
                                     Ok(tps_data) => {
                                         println!("📊 TPS Update #{}", update_count);

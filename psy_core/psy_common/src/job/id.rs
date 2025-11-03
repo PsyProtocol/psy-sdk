@@ -1,12 +1,10 @@
 use std::{
     collections::HashMap,
     fmt,
-    sync::atomic::{AtomicU64, Ordering},
 };
 
 use anyhow::{Context, Result};
 use hex::FromHexError;
-use indexmap::{IndexMap, IndexSet};
 use kvq::traits::KVQSerializable;
 use plonky2::{
     field::{
@@ -19,7 +17,6 @@ use plonky2::{
     },
     plonk::{
         config::{GenericConfig, Hasher, PoseidonGoldilocksConfig},
-        proof::ProofWithPublicInputs,
     },
 };
 use serde::{Deserialize, Serialize};
@@ -58,7 +55,7 @@ const REALM_PROCESSOR_TO_EDGE_CHANNEL: u64 = 0x524C4D50524F4F46;
 use crate::{
     data::qhashout::QHashOut,
     job::{
-        drain_queue::{DrainQueueMetadata, DrainQueueMetadataTagged},
+        drain_queue::{DrainQueueMetadataTagged},
         history_queue::{HistoryQueueMetadata, HistoryQueueMetadataTagged},
     },
     utils::graph::BidirectionalGraph,

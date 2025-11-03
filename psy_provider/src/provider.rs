@@ -321,7 +321,7 @@ pub trait QUserRpcProvider {
 
     async fn token_transfer<F: RichField>(&self, req: QTokenTransferRPCRequest) -> anyhow::Result<()>;
 
-    async fn deploy_contract<F: RichField>(&self, req: QDeployContractRPCRequest<F>) -> anyhow::Result<()>;
+    async fn deploy_contract<F: RichField>(&self, req: QDeployContractRPCRequest<F>) -> anyhow::Result<String>;
 
     async fn submit_end_cap_proof<F: RichField>(&self, req: QSubmitEndCapRPCRequest<F>) -> anyhow::Result<()>;
 }
@@ -351,9 +351,19 @@ impl QUserRpcProvider for RpcProvider {
         unimplemented!()
     }
 
-    async fn deploy_contract<F: RichField>(&self, req: QDeployContractRPCRequest<F>) -> anyhow::Result<()> {
+    async fn deploy_contract<F: RichField>(&self, req: QDeployContractRPCRequest<F>) -> anyhow::Result<String> {
         let url = self.get_coordinator_url()?;
-        psy_rpc_call!(self, url, RequestParams::<F>::DeployContract(req))
+        let response = psy_rpc_call_back!(self, url, RequestParams::<F>::DeployContract(req), String);
+        match response.result {
+            ResponseResult::Success(contract_uuid) => {
+                tracing::debug!("deployed contract {}", contract_uuid);
+                Ok(contract_uuid)
+            }
+            ResponseResult::Error(e) => {
+                tracing::error!("RPC call failed: {:?}", e);
+                Err(anyhow::format_err!("deploy_contract rpc call failed `{:?}`", e))
+            }
+        }
     }
 
     async fn submit_end_cap_proof<F: RichField>(&self, req: QSubmitEndCapRPCRequest<F>) -> anyhow::Result<()> {

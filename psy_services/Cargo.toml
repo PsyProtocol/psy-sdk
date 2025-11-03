@@ -13,7 +13,7 @@ psy_common = { workspace = true }
 # Web framework
 axum = { workspace = true, features = ["ws"] }
 tower-http = { workspace = true }
-tokio = { workspace = true, features = ["signal"]}
+tokio = { workspace = true, features = ["full"]}
 
 # Serialization
 serde = { workspace = true }
@@ -34,11 +34,21 @@ futures = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 
+
+clap = {workspace = true}
+jsonwebtoken = {workspace = true}
+dotenv = {workspace = true}
+
 [dev-dependencies]
 reqwest = { workspace = true, features = ["json"] }
-rand = { workspace = true }
 tokio-tungstenite = { version = "0.28", features = ["native-tls"] }
+colored = {workspace = true}
 futures-util = { workspace = true }
+env_logger = { version = "0"}
+
+# For TUI example
+ratatui = "0.26"
+crossterm = "0.27"
 
 [lints]
 workspace = true

@@ -4,19 +4,22 @@ use anyhow::Result;
 use psy_common::job::id::{LayerId, QProvingJobDataID};
 use psy_store::queue::{QueueId, RsmqQueue};
 
-use crate::watcher::{
-    common::get_queue_name,
-    events::{
-        BackupProofEvent, BackupWitnessEvent, JobCompletedEvent, JobStartedEvent, JobTimeoutEvent, UserDeployContractEvent,
-        UserDeployContractMetadata, UserGutaSubmissionEvent, UserGutaSubmissionMetadata, UserRegistrationEvent, WatcherMessage,
+use crate::{
+    common::utils::{current_datetime, current_timestamp_millis},
+    watcher::{
+        events::{
+            JobCompletedEvent, JobStartedEvent, JobTimeoutEvent, UserContractMetadata, UserDeployContractEvent, UserGutaSubmissionEvent,
+            UserGutaSubmissionMetadata, UserRegistrationEvent, UserRegistrationMetadata, WatcherMessage,
+        },
+        timeout_watcher::WatcherSourceNodeType,
+        utils::get_queue_name,
     },
-    watcher_service::{current_datetime, current_timestamp, current_timestamp_mills},
 };
 
 pub struct WatcherClient {
     rsmq: Arc<RsmqQueue>,
     queue_id: QueueId,
-    node_id: Option<String>,
+    pub node_id: Option<String>,
 }
 
 impl WatcherClient {
@@ -48,17 +51,23 @@ impl WatcherClient {
     // Convenience methods
     pub async fn register_user(&self, public_key: &str) -> Result<()> {
         self.send_event(WatcherMessage::UserRegistration(UserRegistrationEvent {
-            public_key: public_key.to_string(),
             timestamp: current_datetime(),
+            node_id: self.node_id.clone().unwrap_or_default(),
+            node_type: WatcherSourceNodeType::Coordinator,
+            metadata: UserRegistrationMetadata {
+                public_key: public_key.to_string(),
+            },
         }))
         .await
     }
 
-    pub async fn deploy_contract(&self, deployer: &str, metadata: UserDeployContractMetadata) -> Result<()> {
+    pub async fn deploy_contract(&self, deployer: &str, metadata: UserContractMetadata) -> Result<()> {
         self.send_event(WatcherMessage::DeployContract(UserDeployContractEvent {
             deployer: deployer.to_string(),
             metadata,
             timestamp: current_datetime(),
+            node_id: self.node_id.clone().unwrap_or_default(),
+            node_type: WatcherSourceNodeType::Coordinator,
         }))
         .await
     }
@@ -77,7 +86,7 @@ impl WatcherClient {
         self.send_event(WatcherMessage::JobStarted(JobStartedEvent {
             job_id,
             worker_id: worker_id.to_string(),
-            start_time: current_timestamp_mills(),
+            start_time: current_timestamp_millis(),
             layer_id,
         }))
         .await

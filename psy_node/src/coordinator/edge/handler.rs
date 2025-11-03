@@ -1,5 +1,5 @@
 // std
-use std::{collections::HashMap, sync::Arc, time::Duration};
+use std::{collections::HashMap, str::FromStr, sync::Arc, time::Duration};
 
 use anyhow::{anyhow, bail};
 use chrono::Utc;
@@ -41,6 +41,8 @@ use psy_data::{
     qdata::{
         checkpoint::{CheckpointSyncInfo, PsyBlockState, PsyCheckpointGlobalStateRoots, PsyCheckpointLeaf},
         contract::{ContractCodeDefinition, PsyContractLeaf},
+        contract_metadata::ContractMetaData,
+        contract_uuid::ContractUUID,
         user::PsyUserLeaf,
     },
     qsync::coordinator::{PsyCheckpointSyncInfo, PsyCheckpointSyncInfoCompact},
@@ -185,12 +187,22 @@ impl CoordinatorEdgeHandler {
         })
     }
 
-    pub async fn deploy_contract(&self, mut contract: QBCDeployContract<PsyFelt>) -> anyhow::Result<()> {
+    pub async fn deploy_contract(&self, mut contract: QBCDeployContract<PsyFelt>) -> anyhow::Result<ContractUUID> {
         let latest = self.get_latest_checkpoint_id().await?;
         let next_checkpoint_id = latest + 1;
 
-        // Store contract details for reporting (before converting to with_root)
-        let deployer_str = format!("{}", contract.deployer.to_string_le());
+        let contract_metadata = extract_contract_metadata(&contract).unwrap_or_else(|e| {
+            error!("❌ Failed to extract contract metadata: {}", e);
+            QContractMetadata::default()
+        });
+
+        info!(
+            "Deploying contract with metadata: {} functions, deployer: {}, functions: {:?}",
+            contract_metadata.function_count,
+            contract_metadata.deployer,
+            contract_metadata.functions.iter().map(|f| &f.name).collect::<Vec<_>>()
+        );
+
         let state_tree_height = contract.code_definition.state_tree_height;
         let function_count = contract.code_definition.functions.len();
 
@@ -204,25 +216,29 @@ impl CoordinatorEdgeHandler {
             with_root,
         );
 
+        let contract_uuid = ContractUUID {
+            checkpoint_id: cd_for_queue.metadata.checkpoint_id,
+            uuid: cd_for_queue.metadata.item_id,
+        };
+
         self.ctx.checkpoint_queue.cdq_push_imm(cd_for_queue).await?;
 
         // Report contract deployment to watcher
-        let metadata = UserDeployContractMetadata {
+        let metadata = UserContractMetadata {
+            contract_uuid,
             state_tree_height,
             function_count,
-            function_whitelist_root: function_whitelist_root_str,
-            node_id: self.watcher_client.get_node_id().await.unwrap_or_default(),
-            node_type: "coordinator".to_string(),
+            functions: contract_metadata.functions,
+            function_whitelist_root: contract_metadata.function_whitelist_root,
         };
 
-        if let Err(e) = self.watcher_client.deploy_contract(&deployer_str, metadata).await {
-            // Log the error but don't fail the contract deployment
+        if let Err(e) = self.watcher_client.deploy_contract(&contract_metadata.deployer, metadata).await {
             warn!("❌ Failed to report contract deployment to watcher: {}", e);
         } else {
-            info!("📊 Contract deployment reported to watcher for deployer: {}", deployer_str);
+            info!("📊 Contract deployment reported to watcher for deployer: {}", contract_metadata.deployer);
         }
 
-        Ok(())
+        Ok(contract_uuid)
     }
 
     pub async fn submit_guta(
@@ -616,12 +632,28 @@ impl CoordinatorEdgeHandler {
             realm_root_hash: realm_status.realm_root_hash,
         })
     }
+
+    pub async fn get_contract_metadata(&self, contract_uuid: &str) -> anyhow::Result<ContractMetaData<F>> {
+        let contract_uuid = ContractUUID::from_str(contract_uuid)?;
+        let contract_meta = self.store.get_contract_metadata(contract_uuid).await?;
+        Ok(contract_meta)
+    }
+
+    pub async fn get_contract_metadatas(&self, contract_uuids: &[&str]) -> anyhow::Result<Vec<ContractMetaData<F>>> {
+        let contract_uuids = contract_uuids
+            .iter()
+            .map(|s| ContractUUID::from_str(s))
+            .collect::<anyhow::Result<Vec<_>>>()?;
+        let contract_metadatas = self.store.get_contract_metadatas(&contract_uuids).await?;
+        Ok(contract_metadatas)
+    }
 }
 
 use async_trait::async_trait;
 use jsonrpsee::core::RpcResult;
 use plonky2::field::goldilocks_field::GoldilocksField;
 use psy_config::network_constants::COORDINATOR_USER_TREE_HEIGHT;
+use psy_data::qblock::cmds::deploy_contract::QContractMetadata;
 use psy_provider::{
     request::{QDeployContractRPCRequest, QRegisterUserRPCRequest},
     wallet::secp_sign::SignedRequest,
@@ -634,12 +666,13 @@ use serde::Serialize;
 
 use super::{error::RpcError, rpc::CoordinatorEdgeRpcServer, types::LatestCheckpointResponse};
 use crate::{
-    common::whitelist::{WhiteList, WhiteListCache},
+    common::{
+        utils::extract_contract_metadata,
+        whitelist::{WhiteList, WhiteListCache},
+    },
     watcher::{
-        events::{JobCompletedEvent, JobStartedEvent, TopLineProofData, UserDeployContractMetadata, UserGutaSubmissionMetadata, WatcherMessage},
-        watcher::NodeType,
+        events::{JobCompletedEvent, JobStartedEvent, TopLineProofData, UserContractMetadata, UserGutaSubmissionMetadata, WatcherMessage},
         watcher_client::WatcherClient,
-        watcher_service::{current_timestamp, current_timestamp_mills},
     },
 };
 
@@ -659,7 +692,7 @@ impl CoordinatorEdgeRpcServer for CoordinatorEdgeHandler {
     async fn deploy_contract(&self, deploy_contract: QBCDeployContract<F>) -> RpcResult<String> {
         self.deploy_contract(deploy_contract)
             .await
-            .map(|_| "ok".to_string())
+            .map(|contract_uuid| contract_uuid.to_string())
             .map_err(RpcError::Anyhow)
     }
 
@@ -1063,6 +1096,10 @@ impl CoordinatorEdgeRpcServer for CoordinatorEdgeHandler {
         self.get_current_realm_status_on_coordinator(realm_id).await.map_err(RpcError::Anyhow)
     }
 
+    async fn get_contract_metadata(&self, contract_uuid: &str) -> RpcResult<ContractMetaData<F>> {
+        self.get_contract_metadata(contract_uuid).await.map_err(RpcError::Anyhow)
+    }
+
     async fn get_current_checkpoint_id(&self) -> RpcResult<u64> {
         self.get_latest_checkpoint_id().await.map_err(RpcError::Anyhow)
     }
@@ -1154,7 +1191,7 @@ impl JobSchedulerRpcServer for CoordinatorEdgeHandler {
                     let start_event = JobStartedEvent {
                         job_id: job.job_id,
                         worker_id,
-                        start_time: current_timestamp_mills(),
+                        start_time: current_timestamp_millis(),
                         layer_id: job.layer_id,
                     };
 

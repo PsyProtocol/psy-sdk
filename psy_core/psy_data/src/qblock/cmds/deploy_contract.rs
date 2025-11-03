@@ -89,3 +89,21 @@ impl<F: RichField> KVQSerializable for QBCDeployContractWithRoot<F> {
         bincode::deserialize(bytes).map_err(|e| anyhow::anyhow!(e))
     }
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
+pub struct QContractMetadata {
+    pub contract_id: Option<u64>,
+    pub deployer: String,
+    pub state_tree_height: u16,
+    pub function_count: usize,
+    pub function_whitelist_root: String,
+    pub functions: Vec<QFunctionMetadata>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
+pub struct QFunctionMetadata {
+    pub method_id: u32,
+    pub name: String,
+    pub num_inputs: u32,
+    pub num_outputs: u32,
+}

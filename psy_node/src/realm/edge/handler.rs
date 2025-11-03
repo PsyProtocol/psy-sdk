@@ -72,7 +72,6 @@ use crate::{
         C, D, F, H,
     },
     watcher::{
-        current_timestamp_mills,
         events::{JobCompletedEvent, JobStartedEvent, WatcherMessage},
         watcher_client::WatcherClient,
     },
@@ -803,7 +802,7 @@ where
                 let start_event = JobStartedEvent {
                     job_id: job.job_id,
                     worker_id,
-                    start_time: current_timestamp_mills(),
+                    start_time: current_timestamp_millis(),
                     layer_id: job.layer_id,
                 };
 

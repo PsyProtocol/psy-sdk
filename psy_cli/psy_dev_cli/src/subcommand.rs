@@ -17,6 +17,7 @@ pub mod produce_block;
 pub mod qhash;
 pub mod realm_status;
 pub mod register_user;
+pub mod store;
 pub mod stress_test;
 pub mod test_full_group_1;
 pub mod test_register_v2;
@@ -87,6 +88,9 @@ pub enum Commands {
     RealmStatus,
     #[command(about = "Check registered users")]
     CheckRegisteredUsers(check_registered_users::CheckRegisteredUsersArgs),
+
+    #[command(about = "Store utility commands")]
+    Store(store::StoreConfig),
 }
 
 #[derive(Parser)]

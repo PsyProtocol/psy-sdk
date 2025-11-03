@@ -18,6 +18,7 @@ use crate::{
             sync_info::PsyCheckpointSyncInfoModel, user_public_keys::PsyUserPublicKeyHelperModel,
         },
         contract::{contract_code::ContractCodeModel, contract_leaf::ContractLeafModel},
+        contract_metadata::ContractMetaDataModel,
         kvq_merkle::{
             key::KVQMerkleNodeKey,
             model::{KVQFixedConfigMerkleTreeModel, KVQMerkleTreeModel, KVQSemiFixedConfigMerkleTreeModel},
@@ -30,6 +31,8 @@ use crate::{
         checkpoint::{PsyBlockState, PsyCheckpointLeaf},
         checkpoint_id_key::CheckpointTableIdKey,
         contract::{ContractCodeDefinition, PsyContractLeaf},
+        contract_metadata::ContractMetaData,
+        contract_uuid::ContractTableIdKey,
         hash_cache_result::PsyHashHelperResult,
         hash_key::Hash4x64Key,
         hash_key_with_id::Hash4x64KeyWithId,
@@ -85,6 +88,9 @@ pub const STAGING_DELTA_RECORD_TABLE_TYPE: u16 = 19;
 // Realm status table type
 pub const REALM_STATUS_TABLE_TYPE: u16 = 20;
 
+// Contract id table type
+pub const CONTRACT_METADATA_TABLE_TYPE: u16 = 21;
+
 // Legacy - kept for backward compatibility, should not be used for new trees
 pub const PROTOCOL_TREE_TABLE_TYPE: u16 = 100;
 
@@ -132,6 +138,9 @@ pub type StagingDeltaRecordStore<S, IDKVA = KVQStandardAdapter<S, StagingDeltaRe
 
 pub type RealmStatusTableStore<F, S, IDKVA = KVQStandardAdapter<S, RealmTableIdKey<REALM_STATUS_TABLE_TYPE>, BasicRealmStatus<F>>> =
     RealmStatusModel<REALM_STATUS_TABLE_TYPE, F, S, IDKVA>;
+
+pub type ContractMetaDataTableStore<F, S, IDKVA = KVQStandardAdapter<S, ContractTableIdKey<CONTRACT_METADATA_TABLE_TYPE>, ContractMetaData<F>>> =
+    ContractMetaDataModel<CONTRACT_METADATA_TABLE_TYPE, F, S, IDKVA>;
 
 // Generic protocol tree template - no longer used directly
 pub type ProtocolTreeStore<

@@ -13,12 +13,14 @@ use psy_crypto::hash::{
 use psy_data::{
     config::store_config::{CheckpointSyncInfoTableStore, PsyHasher, UserTreeStore},
     models::{
-        checkpoint::sync_info::PsyCheckpointSyncInfoModelCore, kvq_merkle::model::KVQFixedConfigMerkleTreeModelCore,
-        realm_status::RealmStatusModelCore,
+        checkpoint::sync_info::PsyCheckpointSyncInfoModelCore, contract_metadata::ContractMetaDataModelCore,
+        kvq_merkle::model::KVQFixedConfigMerkleTreeModelCore, realm_status::RealmStatusModelCore,
     },
     qdata::{
         checkpoint::{PsyBlockState, PsyCheckpointLeaf, PsyCheckpointLeafStats},
         contract::{ContractCodeDefinition, PsyContractLeaf},
+        contract_metadata::ContractMetaData,
+        contract_uuid::ContractUUID,
         realm_status::BasicRealmStatus,
     },
     qsync::coordinator::PsyCheckpointSyncInfoCompact,
@@ -192,5 +194,10 @@ impl<T: KVQBinaryStore + PsyCoordinatorStoreReaderAsync<F>> PsyCoordinatorStoreW
     async fn set_realm_statuses(&self, realm_ids: &[u64], realm_statuses: &[BasicRealmStatus<F>]) -> anyhow::Result<()> {
         use psy_data::config::store_config::RealmStatusTableStore;
         RealmStatusTableStore::<F, Self>::set_realm_statuses(self, realm_ids, realm_statuses)
+    }
+
+    async fn set_contract_metadatas(&self, contract_uuids: &[ContractUUID], contract_metadatas: &[ContractMetaData<F>]) -> anyhow::Result<()> {
+        use psy_data::config::store_config::ContractMetaDataTableStore;
+        ContractMetaDataTableStore::<F, Self>::set_contract_metadatas(self, contract_uuids, contract_metadatas)
     }
 }

@@ -626,16 +626,16 @@ impl WasmRpcServer {
     }
 
     #[wasm_bindgen]
-    pub async fn deploy_contract_json(&self, deployer: &str, circuit_defs_json: &str) -> Result<String, JsValue> {
-        let deployer = QHashOut::<F>::from_str(deployer).map_err(|e| JsValue::from_str(&format!("Parse deployer error: {}", e)))?;
+    pub async fn deploy_contract_json(&self, deployer: &str, circuit_defs_json: &str) -> Result<String, JsError> {
+        let deployer = QHashOut::<F>::from_str(deployer).map_err(|e| JsError::new(&format!("Parse deployer error: {}", e)))?;
         let circuit_defs: Vec<DPNFunctionCircuitDefinition> =
-            serde_json::from_str(circuit_defs_json).map_err(|e| JsValue::from_str(&format!("Parse circuit defs JSON error: {}", e)))?;
+            serde_json::from_str(circuit_defs_json).map_err(|e| JsError::new(&format!("Parse circuit defs JSON error: {}", e)))?;
 
         let contract_uuid = self
             .wallet_session
             .deploy_contract(deployer, circuit_defs)
             .await
-            .map_err(|e| JsValue::from_str(&format!("Deploy contract error: {}", e)))?;
+            .map_err(|e| JsError::new(&format!("Deploy contract error: {}", e)))?;
         Ok(contract_uuid)
     }
 
