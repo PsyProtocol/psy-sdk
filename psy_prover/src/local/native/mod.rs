@@ -9,7 +9,7 @@ use jsonrpsee::{
 };
 use parking_lot::{Mutex, RwLock};
 use plonky2::{field::goldilocks_field::GoldilocksField, plonk::config::PoseidonGoldilocksConfig};
-use psy_core::data::qhashout::QHashOut;
+use psy_common::data::qhashout::QHashOut;
 use psy_crypto::signature::zk::data::ZKPublicKeyInfo;
 use psy_data::qblock::cmds::deploy_contract::QBCDeployContract;
 use psy_provider::provider::RpcProvider;

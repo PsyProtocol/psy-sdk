@@ -9,7 +9,7 @@ use plonky2::{
     },
 };
 use psy_config::PSY_NETWORK_MAGIC;
-use psy_core::{
+use psy_common::{
     data::{alt::AltVerifierOnlyCircuitData, qhashout::QHashOut},
     utils::debug_timer::DebugTimer,
 };

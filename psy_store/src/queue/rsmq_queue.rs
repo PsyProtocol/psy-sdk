@@ -11,7 +11,7 @@ use async_trait::async_trait;
 use kvq::traits::KVQSerializable;
 use plonky2::plonk::{config::GenericConfig, proof::ProofWithPublicInputs};
 use psy_config::network_constants::COORDINATOR_EDGE_TO_PROCESSOR_CHANNEL;
-use psy_core::job::{
+use psy_common::job::{
     drain_queue::{CheckpointDrainQueueConsumerAsyncImm, CheckpointDrainQueueEmitterAsyncImm, DQSerializable},
     history_queue::{
         CheckpointHistoryQueueConsumerAsyncImm, CheckpointHistoryQueueEmitterAsyncImm, HQSerializable, HistoryQueueMetadata,
@@ -437,7 +437,7 @@ impl RsmqQueue {
 #[async_trait]
 impl CheckpointDrainQueueEmitterAsyncImm for RsmqQueue {
     async fn cdq_push_imm<T: DQSerializable>(&self, item: T) -> anyhow::Result<()> {
-        let metadata: psy_core::job::drain_queue::DrainQueueMetadata = item.get_dq_metadata();
+        let metadata: psy_common::job::drain_queue::DrainQueueMetadata = item.get_dq_metadata();
         let bytes = item.to_bytes()?;
         let queue_id = QueueId::CheckpointDrain {
             queue_biz_key: self.worker_queue_key().clone(),

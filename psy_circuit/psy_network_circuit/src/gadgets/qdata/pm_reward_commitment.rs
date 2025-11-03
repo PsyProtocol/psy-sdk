@@ -8,7 +8,7 @@ use plonky2::{
     plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher},
 };
 use psy_common_circuit::traits::{AlgebraicHashableTarget, CreatableTarget, FromTargets, ToTargets, WitnessValueFor};
-use psy_core::data::qhashout::QHashOut;
+use psy_common::data::qhashout::QHashOut;
 use psy_data::qdata::pm_reward_commitment::PMRewardCommitment;
 
 pub const PM_REWARD_COMMITMENT_TARGET_SIZE: usize = 12; // 3 QHashOut, each with 4 fields

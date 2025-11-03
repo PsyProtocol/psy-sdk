@@ -14,7 +14,7 @@ use psy_common_circuit::{
     traits::CreatableTarget,
     treeprover::aggregation::gadgets::{verify_state_transition::VerifyStateTransitionProofGadget, AggStateTransitionGadget},
 };
-use psy_core::data::qhashout::QHashOut;
+use psy_common::data::qhashout::QHashOut;
 use psy_crypto::hash::merkle::{
     core::MerkleProofCore,
     treeprover::{AggStateTransition, TPAltCircuitFingerprintConfig},

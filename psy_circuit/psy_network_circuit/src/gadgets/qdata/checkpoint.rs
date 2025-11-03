@@ -9,7 +9,7 @@ use psy_common_circuit::{
     traits::{AlgebraicHashableTarget, CreatableTarget, FromTargets, ToTargets, WitnessValueFor},
 };
 use psy_config::network_constants::DA_CHALLENGE_WINDOW;
-use psy_core::data::qhashout::QHashOut;
+use psy_common::data::qhashout::QHashOut;
 use psy_data::qdata::checkpoint::{PsyCheckpointLeaf, PsyCheckpointLeafCompact};
 
 use super::{checkpoint_stats::PsyCheckpointLeafStatsGadget, pm_reward_commitment::PM_REWARD_COMMITMENT_TARGET_SIZE};

@@ -16,7 +16,7 @@ use psy_common_circuit::{
     proof_minifier::{pm_chain_dynamic::PsyProofMinifierDynamicChain, pm_core::get_circuit_fingerprint_generic},
     traits::ToTargets,
 };
-use psy_core::{
+use psy_common::{
     data::qhashout::QHashOut,
     job::{
         id::{ProvingJobCircuitType, QProvingJobDataID},

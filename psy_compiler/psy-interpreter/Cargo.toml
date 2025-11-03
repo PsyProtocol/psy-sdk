@@ -10,7 +10,6 @@ psy-sema = { workspace = true }
 anyhow = { workspace = true }
 tracing = { workspace = true }
 thiserror = { workspace = true }
-psy-common = { workspace = true }
 insta = { workspace = true }
 psy-fmt = { workspace = true }
 plonky2 = { workspace = true }
@@ -21,7 +20,7 @@ psy_crypto = { workspace = true }
 ariadne = { workspace = true }
 tokio = { workspace = true }
 psy_data = { workspace = true }
-psy_core = { workspace = true }
+psy_common = { workspace = true }
 psy_config = { workspace = true }
 psy_common_circuit = { workspace = true }
 psy_store = { workspace = true }

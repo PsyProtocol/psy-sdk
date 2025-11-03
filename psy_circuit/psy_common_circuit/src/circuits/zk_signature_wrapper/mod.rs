@@ -8,7 +8,7 @@ use plonky2::{
         proof::{ProofWithPublicInputs, ProofWithPublicInputsTarget},
     },
 };
-use psy_core::data::qhashout::QHashOut;
+use psy_common::data::qhashout::QHashOut;
 
 use super::{traits::qstandard::QStandardCircuit, zk_signature::ZKSignatureCircuit};
 use crate::{builder::verify::CircuitBuilderVerifyProofHelpers, proof_minifier::pm_core::get_circuit_fingerprint_generic};

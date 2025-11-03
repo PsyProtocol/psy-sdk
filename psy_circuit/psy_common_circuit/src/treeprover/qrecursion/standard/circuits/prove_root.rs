@@ -8,7 +8,7 @@ use plonky2::{
         proof::ProofWithPublicInputs,
     },
 };
-use psy_core::data::qhashout::QHashOut;
+use psy_common::data::qhashout::QHashOut;
 use psy_crypto::{
     common::witnesses::qrecursion::header::QRecursionAggStandardHeader,
     hash::{merkle::core::MerkleProofCore, traits::hasher::MerkleZeroHasher},

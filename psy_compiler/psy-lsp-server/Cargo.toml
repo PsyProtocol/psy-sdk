@@ -14,11 +14,11 @@ unicode-segmentation = { workspace = true }
 psy-sema = { workspace = true }
 psy-ast = { workspace = true }
 psy-interpreter = { workspace = true }
-psy-common = { workspace = true }
 dargo = { workspace = true }
 psy-package = { workspace = true }
 
 psy_vm = { workspace = true }
+psy_common = { workspace = true }
 
 [[bin]]
 name = "psy-lsp-server"

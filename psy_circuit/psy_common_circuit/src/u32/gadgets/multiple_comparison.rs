@@ -4,7 +4,7 @@ use plonky2::{
     iop::target::{BoolTarget, Target},
     plonk::circuit_builder::CircuitBuilder,
 };
-use psy_core::utils::math::ceil_div_usize;
+use psy_common::utils::math::ceil_div_usize;
 
 use super::super::{gadgets::arithmetic_u32::U32Target, gates::comparison::ComparisonGate};
 pub fn list_le_circuit<F: RichField + Extendable<D>, const D: usize>(

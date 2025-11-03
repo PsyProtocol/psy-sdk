@@ -2,11 +2,11 @@ use std::{fs, path::Path};
 
 use indexmap::IndexMap;
 use plonky2::field::goldilocks_field::GoldilocksField;
-use psy_core::{
+use psy_common::{
     data::qhashout::QHashOut,
     job::id::{ProvingJobCircuitType, QProvingJobDataID},
 };
-pub use psy_data::args::{JobInfo, JobLocation};
+pub use psy_common::{JobInfo, JobLocation};
 use serde::{Deserialize, Serialize};
 use tracing::{error, info, trace, warn};
 

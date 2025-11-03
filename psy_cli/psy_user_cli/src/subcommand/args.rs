@@ -1,6 +1,6 @@
 use clap::{Args, Parser, Subcommand, ValueEnum};
 use plonky2::field::goldilocks_field::GoldilocksField;
-use psy_core::data::qhashout::QHashOut;
+use psy_common::data::qhashout::QHashOut;
 use psy_prover::local::args::SignType;
 use psy_rust_sdk::provider::NetworkConfig;
 use serde::{Deserialize, Serialize};

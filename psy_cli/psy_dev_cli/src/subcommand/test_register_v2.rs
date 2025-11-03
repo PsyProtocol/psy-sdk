@@ -8,7 +8,7 @@ use plonky2::{
 };
 use psy_common_circuit::circuits::{traits::qstandard::QStandardCircuit, zk_signature3::manager::SimplePsyZKSignatureManager};
 use psy_config::{network_constants::UPS_SESSION_PROOF_TREE_HEIGHT, PSY_NETWORK_MAGIC};
-use psy_core::{
+use psy_common::{
     data::qhashout::QHashOut,
     job::traits::{QProofStoreAsyncImm, QProofStoreReaderAsync},
     ups::circuits::LocalCircuitType,

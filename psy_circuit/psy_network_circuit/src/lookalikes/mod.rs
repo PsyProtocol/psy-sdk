@@ -19,7 +19,7 @@ mod tests {
         network_constants::{UPS_CIRCUIT_WHITELIST_TREE_HEIGHT, UPS_SESSION_PROOF_TREE_HEIGHT},
         PSY_NETWORK_MAGIC,
     };
-    use psy_core::data::qhashout::QHashOut;
+    use psy_common::data::qhashout::QHashOut;
     use psy_crypto::hash::{merkle::utils::simple_merkle_tree::SimpleMerkleTree, traits::hasher::PoseidonHasher};
 
     use crate::{

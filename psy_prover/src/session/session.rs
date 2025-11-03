@@ -14,7 +14,7 @@ use psy_config::{
     network_constants::{MAX_CONTRACT_STATE_TREE_HEIGHT, TOKEN_CONTRACT_ID, UPS_SESSION_PROOF_TREE_HEIGHT},
     PSY_NETWORK_MAGIC, MINING_REWARDS_CONTRACT_ID,
 };
-use psy_core::{
+use psy_common::{
     data::qhashout::QHashOut,
     job::id::{ProvingJobCircuitType, VariableHeightRewardMerkleProof, GUTA_REWARDS_TREE_MAX_HEIGHT},
     traits::to_qfelts::ToQFelts,

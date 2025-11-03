@@ -24,7 +24,7 @@ use psy_config::{
     network_constants::{GLOBAL_USER_TREE_HEIGHT, REALM_USER_TREE_HEIGHT},
     DEFAULT_USER_STATE_TREE_ROOT_U64,
 };
-use psy_core::{
+use psy_common::{
     data::qhashout::QHashOut,
     job::{
         id::{ProvingJobCircuitType, QProvingJobDataID},

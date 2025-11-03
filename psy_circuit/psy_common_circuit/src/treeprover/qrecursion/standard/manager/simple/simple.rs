@@ -7,7 +7,7 @@ use plonky2::{
         config::{AlgebraicHasher, GenericConfig, Hasher},
     },
 };
-use psy_core::{data::qhashout::QHashOut, utils::debug_timer::DebugTimer};
+use psy_common::{data::qhashout::QHashOut, utils::debug_timer::DebugTimer};
 use psy_crypto::{
     common::witnesses::qrecursion::{
         header::QRecursionAggStandardHeader,

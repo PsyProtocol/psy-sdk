@@ -10,7 +10,7 @@ use plonky2::{
         proof::ProofWithPublicInputs,
     },
 };
-use psy_core::utils::debug_timer::DebugTimer;
+use psy_common::utils::debug_timer::DebugTimer;
 use psy_crypto::signature::secp256k1::curve::{
     ecdsa::{ECDSAPublicKey, ECDSASignature},
     secp256k1::Secp256K1,

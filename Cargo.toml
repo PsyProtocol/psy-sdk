@@ -3,12 +3,12 @@ members = [
     "psy_vm",
     "psy_compiler/psylang_ex",
     "psy_compiler/psylang_macros",
-    "psy_types/kvq",
-    "psy_types/psy_core",
-    "psy_types/psy_crypto",
+    "psy_core/kvq",
+    "psy_core/psy_common",
+    "psy_core/psy_crypto",
     "psy_store",
     "psy_prover",
-    "psy_types/psy_data",
+    "psy_core/psy_data",
     "psy_circuit/psy_common_circuit",
     "psy_circuit/psy_network_circuit",
     "psy_circuit/psy_ups_circuit",
@@ -21,7 +21,6 @@ members = [
     "psy_compiler/psy-fmt",
     "psy_compiler/psy-lsp-server",
     "psy_compiler/psy-parser",
-    "psy_compiler/psy-common",
     "psy_compiler/psy-ast",
     "psy_compiler/psy-sema",
     "psy_compiler/psy-lexer",
@@ -30,7 +29,7 @@ members = [
     "psy_compiler/psy-dargo-cli",
     "psy_services",
     "psy_sdk/psy-rust-sdk",
-    "psy_types/psy_config",
+    "psy_core/psy_config",
 ]
 resolver = "2"
 
@@ -229,17 +228,17 @@ config = "0.15"
 
 psy_vm = { path = "./psy_vm", default-features = false }
 psylang_macros = { path = "./psy_compiler/psylang_macros" }
-psy_crypto = { path = "./psy_types/psy_crypto" }
+psy_crypto = { path = "./psy_core/psy_crypto" }
 psy_store = { path = "./psy_store", default-features = false}
-psy_data = { path = "./psy_types/psy_data", default-features = false}
-psy_core = { path = "./psy_types/psy_core" }
-psy_config = { path = "./psy_types/psy_config" }
+psy_data = { path = "./psy_core/psy_data", default-features = false}
+psy_common = { path = "./psy_core/psy_common" }
+psy_config = { path = "./psy_core/psy_config" }
 psy_node = { path = "./psy_node" }
 psy_prover = { path = "./psy_prover", default-features = false }
 psy_common_circuit = { path = "./psy_circuit/psy_common_circuit", default-features = false}
 psy_dpn_circuit = { path = "./psy_circuit/psy_dpn_circuit", default-features = false}
 psy_ups_circuit = { path = "./psy_circuit/psy_ups_circuit", default-features = false}
-kvq = { path = "./psy_types/kvq" }
+kvq = { path = "./psy_core/kvq" }
 psy_network_circuit = { path = "./psy_circuit/psy_network_circuit", default-features = false}
 psy-precompiles = { path = "./psy-precompiles" , default-features = false}
 
@@ -247,7 +246,6 @@ psy-ast = { path = "./psy_compiler/psy-ast" }
 psy-fmt = { path = "./psy_compiler/psy-fmt" }
 psy-lsp-server = { path = "./psy_compiler/psy-lsp-server" }
 psy-parser = { path = "./psy_compiler/psy-parser" }
-psy-common = { path = "./psy_compiler/psy-common" }
 psy-sema = { path = "./psy_compiler/psy-sema" }
 psy-lexer = { path = "./psy_compiler/psy-lexer" }
 psy-interpreter = { path = "./psy_compiler/psy-interpreter" }

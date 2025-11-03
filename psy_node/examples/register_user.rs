@@ -5,7 +5,7 @@ use std::{
 
 use anyhow::Result;
 use plonky2::field::goldilocks_field::GoldilocksField;
-use psy_core::data::qhashout::QHashOut;
+use psy_common::data::qhashout::QHashOut;
 use psy_crypto::signature::zk::data::ZKPublicKeyInfo;
 use psy_provider::request::{Id, QRegisterUserRPCRequest, RequestParams, RpcRequest, Version};
 use rand::Rng;

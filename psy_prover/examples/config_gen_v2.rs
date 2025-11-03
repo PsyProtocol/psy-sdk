@@ -9,7 +9,7 @@ use psy_common_circuit::circuits::{
     traits::qstandard::QStandardCircuit,
 };
 use psy_config::PSY_NETWORK_MAGIC;
-use psy_core::job::id::ProvingJobCircuitType;
+use psy_common::job::id::ProvingJobCircuitType;
 use psy_crypto::common::generic_circuit_verifier::GenericCircuitVerifier;
 use psy_network_circuit::{coordinator::coordinator_helper::PsyCoordinatorCircuitManager, guta::guta_helper::PsyGUTACircuitManager};
 use psy_ups_circuit::circuit_manager::core::PsyUPSStepCircuitManager;
@@ -200,7 +200,7 @@ fn gen_write_config() -> anyhow::Result<()> {
     let (cached_circuit_library, cached_common_data) = run_gen_config()?;
 
     write_file(
-        PathBuf::from_iter(["psy_types", "psy_crypto", "src", "common", "cached_circuit_library.rs"]),
+        PathBuf::from_iter(["psy_core", "psy_crypto", "src", "common", "cached_circuit_library.rs"]),
         &cached_circuit_library,
     )?;
     write_file(

@@ -7,7 +7,7 @@ use plonky2::{
     hash::hash_types::{HashOut, RichField},
 };
 use psy_config::network_constants::DEFAULT_CALLER_CONTRACT_ID_U64;
-use psy_core::{data::qhashout::QHashOut, traits::to_qfelts::ToQFelts};
+use psy_common::{data::qhashout::QHashOut, traits::to_qfelts::ToQFelts};
 use psy_crypto::hash::{
     merkle::core::{DeltaMerkleProofCore, MerkleProofCore},
     traits::{hasher::MerkleZeroHasher, qhashable::QFieldHashable},

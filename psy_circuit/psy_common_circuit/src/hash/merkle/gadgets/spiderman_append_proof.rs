@@ -4,7 +4,7 @@ use plonky2::{
     iop::{target::BoolTarget, witness::Witness},
     plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher},
 };
-use psy_core::data::qhashout::QHashOut;
+use psy_common::data::qhashout::QHashOut;
 use psy_crypto::hash::merkle::{core::DeltaMerkleProofCore, spiderman::SpidermanUpdateProof};
 
 use super::{delta_merkle_proof::DeltaMerkleProofGadget, full_merkle_tree_append::FullMerkleTreeAppendGadget};
@@ -73,7 +73,7 @@ mod tests {
             proof::ProofWithPublicInputs,
         },
     };
-    use psy_core::data::qhashout::QHashOut;
+    use psy_common::data::qhashout::QHashOut;
     use psy_crypto::hash::{
         merkle::{spiderman::SpidermanUpdateProof, utils::simple_merkle_tree::SimpleMerkleTree},
         traits::hasher::PoseidonHasher,

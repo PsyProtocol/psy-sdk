@@ -15,7 +15,7 @@ use psy_common_circuit::{
     hash::merkle::gadgets::delta_merkle_proof::DeltaMerkleProofGadget,
     proof_minifier::{pm_chain_dynamic::PsyProofMinifierDynamicChain, pm_core::get_circuit_fingerprint_generic},
 };
-use psy_core::data::qhashout::QHashOut;
+use psy_common::data::qhashout::QHashOut;
 use psy_crypto::hash::{
     merkle::{core::DeltaMerkleProofCore, utils::simple_merkle_tree::SimpleMerkleTree},
     traits::hasher::MerkleZeroHasher,

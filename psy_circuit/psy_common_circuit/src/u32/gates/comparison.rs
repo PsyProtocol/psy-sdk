@@ -26,7 +26,7 @@ use plonky2::{
         serialization::{Buffer, IoResult, Read, Write},
     },
 };
-use psy_core::utils::math::ceil_div_usize;
+use psy_common::utils::math::ceil_div_usize;
 
 /// A gate for checking that one value is less than or equal to another.
 #[derive(Clone, Debug)]

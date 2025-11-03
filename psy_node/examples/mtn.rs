@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use fred::prelude::*;
-use psy_core::{
+use psy_common::{
     job::{
         id::{ProvingJobCircuitType, QProvingJobDataID},
         traits::QProofStoreWriterAsyncImm,

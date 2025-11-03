@@ -16,7 +16,7 @@ use plonky2::{
     plonk::{config::PoseidonGoldilocksConfig, proof::ProofWithPublicInputs},
 };
 use psy_config::network_constants::{GLOBAL_CONTRACT_TREE_HEIGHT, GLOBAL_USER_TREE_HEIGHT};
-use psy_core::{
+use psy_common::{
     data::qhashout::QHashOut,
     job::{
         drain_queue::CheckpointDrainQueueEmitterAsyncImm,

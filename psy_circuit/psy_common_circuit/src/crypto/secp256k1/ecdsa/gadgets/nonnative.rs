@@ -15,7 +15,7 @@ use plonky2::{
     plonk::{circuit_builder::CircuitBuilder, circuit_data::CommonCircuitData},
     util::serialization::{Buffer, IoResult, Read, Write},
 };
-use psy_core::utils::math::ceil_div_usize;
+use psy_common::utils::math::ceil_div_usize;
 
 use super::super::gadgets::biguint::{BigUintTarget, CircuitBuilderBiguint, GeneratedValuesBigUint, WitnessBigUint};
 use crate::u32::{

@@ -15,7 +15,7 @@ use psy_common_circuit::{
     treeprover::qrecursion::standard::gadgets::verify_agg_proof::VerifyAggProofGadget,
 };
 use psy_config::network_constants::{UPS_CIRCUIT_WHITELIST_TREE_HEIGHT, UPS_SESSION_PROOF_TREE_HEIGHT};
-use psy_core::data::qhashout::QHashOut;
+use psy_common::data::qhashout::QHashOut;
 use psy_crypto::{
     common::witnesses::qrecursion::header::QRecursionAggStandardHeader,
     hash::{merkle::core::MerkleProofCore, traits::hasher::MerkleZeroHasher},

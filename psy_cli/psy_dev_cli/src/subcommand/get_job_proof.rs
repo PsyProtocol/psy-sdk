@@ -7,7 +7,7 @@ use plonky2::{
     hash::hash_types::HashOut,
     plonk::config::PoseidonGoldilocksConfig,
 };
-use psy_core::{
+use psy_common::{
     data::{base_types::hash256::Hash256, qhashout::QHashOut},
     job::id::{ProvingJobCircuitType, QProvingJobDataID, VariableHeightRewardMerkleProof, GUTA_REWARDS_TREE_MAX_HEIGHT},
 };
@@ -132,7 +132,7 @@ pub async fn run(args: GetJobProofArgs) -> Result<()> {
     Ok(())
 }
 
-async fn get_job_proof(provider: &RpcProvider, job_info: &JobInfo, checkpoint_id: u64) -> Result<psy_core::job::id::VariableHeightRewardMerkleProof> {
+async fn get_job_proof(provider: &RpcProvider, job_info: &JobInfo, checkpoint_id: u64) -> Result<psy_common::job::id::VariableHeightRewardMerkleProof> {
     let results = provider.get_job_proofs(vec![job_info.clone()]).await?;
 
     if results.is_empty() {

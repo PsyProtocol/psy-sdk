@@ -19,7 +19,7 @@ use plonky2::{
     },
     util::serialization::{Buffer, IoResult, Read, Write},
 };
-use psy_core::utils::math::ceil_div_usize;
+use psy_common::utils::math::ceil_div_usize;
 
 const LOG2_MAX_NUM_ADDENDS: usize = 4;
 const MAX_NUM_ADDENDS: usize = 24;

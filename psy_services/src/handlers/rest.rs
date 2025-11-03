@@ -8,7 +8,7 @@ use axum::{
     Router,
 };
 use chrono::{DateTime, Utc};
-use psy_core::job::id::{ProvingJobCircuitType, QJobTopic};
+use psy_common::job::id::{ProvingJobCircuitType, QJobTopic};
 use serde::{Deserialize, Serialize};
 
 use crate::{

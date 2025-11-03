@@ -10,7 +10,7 @@ use plonky2::{
     },
     plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher},
 };
-use psy_core::data::qhashout::QHashOut;
+use psy_common::data::qhashout::QHashOut;
 use psy_crypto::{
     field::conversions::bytes33_to_public_key,
     signature::secp256k1::curve::{
@@ -317,7 +317,7 @@ mod tests {
             config::{GenericConfig, PoseidonGoldilocksConfig},
         },
     };
-    use psy_core::data::qhashout::QHashOut;
+    use psy_common::data::qhashout::QHashOut;
     use psy_crypto::signature::secp256k1::curve::{
         curve_types::{AffinePoint, Curve, CurveScalar},
         ecdsa::{sign_message, ECDSAPublicKey, ECDSASecretKey, ECDSASignature},
@@ -529,7 +529,7 @@ mod tests {
                 config::{GenericConfig, PoseidonGoldilocksConfig},
             },
         };
-        use psy_core::data::{base_types::hash256::Hash256, qhashout::QHashOut};
+        use psy_common::data::{base_types::hash256::Hash256, qhashout::QHashOut};
         use psy_crypto::signature::secp256k1::curve::secp256k1::Secp256K1;
 
         use crate::{

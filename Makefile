@@ -111,7 +111,7 @@ ci:
 update-snapshots:
 	@cargo insta review
 
-WATCHED_DIRS := psy_network_circuit psy_common_circuit psy_prover/src/dpn psy_prover/src/ups psy_core/src/config/network_constants.rs psy_crypto/src/common/user_id.rs
+WATCHED_DIRS := psy_network_circuit psy_common_circuit psy_dpn_circuit psy_ups_circuit psy_core/psy_config/src/network_constants.rs psy_core/psy_crypto/src/common/user_id.rs
 
 config_gen_v2:
 	@if git diff --name-only --diff-filter=M | grep -q -E "$(subst $() $(),|,$(WATCHED_DIRS)).*\.rs$$"; then \

@@ -101,6 +101,7 @@ fn main() -> Result<()> {
     }
 
     generate_precompile_api(&config, out_path)?;
+    generate_precompiled_contracts(&config, out_path)?;
 
     Ok(())
 }
@@ -188,6 +189,25 @@ pub fn list_contract_methods(contract_name: &str) -> Vec<String> {
 
     let api_file = out_path.join("precompile_api.rs");
     std::fs::write(api_file, api_code)?;
+
+    Ok(())
+}
+
+fn generate_precompiled_contracts(config: &PrecompilesBuildConfigGoldilocks, out_path: &Path) -> Result<()> {
+    let mut constants = String::new();
+
+    constants.push_str("// Generated contract ID constants\n\n");
+
+    for (index, contract) in config.contracts.iter().enumerate() {
+        constants.push_str(&format!(
+            "pub const {}_CONTRACT_ID: u32 = {};\n",
+            contract.name.to_uppercase(),
+            index
+        ));
+    }
+
+    let contracts_file = out_path.join("precompiled_contracts.rs");
+    std::fs::write(contracts_file, constants)?;
 
     Ok(())
 }

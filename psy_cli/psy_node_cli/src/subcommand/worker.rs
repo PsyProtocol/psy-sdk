@@ -13,7 +13,7 @@ use plonky2::{
     plonk::config::GenericHashOut,
 };
 use psy_config::{get_default_worker_public_key, PSY_NETWORK_MAGIC};
-use psy_core::data::{base_types::hash256::Hash256, qhashout::QHashOut};
+use psy_common::data::{base_types::hash256::Hash256, qhashout::QHashOut};
 use psy_crypto::{common::simple_circuit_library::SimpleCircuitLibrary, hash::traits::qhashable::QFieldHashable};
 use psy_data::config::store_config::{PsyFelt, PsyHash, PsyHasher};
 use psy_network_circuit::coordinator::coordinator_helper::PsyCoordinatorCircuitManager;

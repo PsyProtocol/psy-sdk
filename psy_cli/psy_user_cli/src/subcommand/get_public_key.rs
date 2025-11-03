@@ -4,7 +4,7 @@ use kvq::traits::KVQSerializable;
 use plonky2::{field::goldilocks_field::GoldilocksField, hash::poseidon::PoseidonHash, plonk::config::PoseidonGoldilocksConfig};
 use psy_common_circuit::circuits::zk_signature3::manager::SimplePsyZKSignatureManager;
 use psy_config::PSY_NETWORK_MAGIC;
-use psy_core::data::{base_types::hash256::Hash256, qhashout::QHashOut};
+use psy_common::data::{base_types::hash256::Hash256, qhashout::QHashOut};
 use psy_crypto::{
     hash::traits::qhashable::QFieldHashable,
     signature::{

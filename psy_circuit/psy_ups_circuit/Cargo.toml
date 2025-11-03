@@ -21,12 +21,11 @@ ts-rs = { workspace = true }
 dashmap = { workspace = true }
 
 kvq = { workspace = true }
-psy_core = { workspace = true }
+psy_common = { workspace = true }
 psy_config = { workspace = true }
 psy_common_circuit = { workspace = true, default-features = false }
 psy_network_circuit = { workspace = true, default-features = false }
 psy_dpn_circuit = { workspace = true, default-features = false }
-psy-common = { workspace = true }
 psy_vm = { workspace = true, default-features = false }
 psy_data = { workspace = true, default-features = false }
 psy_crypto = { workspace = true }

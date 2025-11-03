@@ -6,7 +6,7 @@ use parking_lot::RwLock;
 use plonky2::field::goldilocks_field::GoldilocksField;
 use psy_common_circuit::circuits::zk_signature3::manager::SimplePsyZKSignatureManager;
 use psy_config::network_constants::MAX_CONTRACT_STATE_TREE_HEIGHT;
-use psy_core::data::qhashout::QHashOut;
+use psy_common::data::qhashout::QHashOut;
 use psy_crypto::{hash::traits::qhashable::QFieldHashable, signature::zk::wallet::SimplePsyPrivateKey};
 use psy_data::config::store_config::{PsyHasher, C, D};
 use psy_prover::{

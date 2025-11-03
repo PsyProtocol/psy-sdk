@@ -6,7 +6,7 @@ use plonky2::{
 };
 pub const NUM_HASH_OUT_ELEMENTS: usize = 4;
 use bitflags::bitflags;
-use psy_core::data::qhashout::QHashOut;
+use psy_common::data::qhashout::QHashOut;
 use psy_crypto::hash::{
     merkle::core::{DeltaMerkleProof, DeltaMerkleProofBase, DeltaMerkleProofCore},
     traits::hasher::MerkleZeroHasher,

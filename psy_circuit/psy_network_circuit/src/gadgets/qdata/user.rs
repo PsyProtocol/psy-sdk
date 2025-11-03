@@ -8,7 +8,7 @@ use psy_common_circuit::{
     builder::hash::core::CircuitBuilderHashCore,
     traits::{AlgebraicHashableTarget, CreatableTarget, FromTargets, ToTargets, WitnessValueFor},
 };
-use psy_core::data::qhashout::QHashOut;
+use psy_common::data::qhashout::QHashOut;
 use psy_data::qdata::user::PsyUserLeaf;
 
 #[derive(Clone, Debug, PartialEq, Eq, Copy)]

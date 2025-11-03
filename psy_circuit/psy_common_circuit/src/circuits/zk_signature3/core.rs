@@ -11,7 +11,7 @@ use plonky2::{
     },
     util::serialization::{DefaultGateSerializer, DefaultGeneratorSerializer},
 };
-use psy_core::{data::qhashout::QHashOut, utils::debug_timer::DebugTimer};
+use psy_common::{data::qhashout::QHashOut, utils::debug_timer::DebugTimer};
 use psy_crypto::{
     common::witnesses::zk_signature::PsyZKSignatureCircuitInput, hash::traits::hasher::MerkleZeroHasher, signature::zk::wallet::PRIVATE_KEY_CONSTANTS,
 };
@@ -320,7 +320,7 @@ where
 
 mod test {
     use plonky2::plonk::config::PoseidonGoldilocksConfig;
-    use psy_core::utils::debug_timer::DebugTimer;
+    use psy_common::utils::debug_timer::DebugTimer;
 
     use super::*;
 

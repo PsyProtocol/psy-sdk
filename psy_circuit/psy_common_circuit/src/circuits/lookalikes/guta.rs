@@ -1,6 +1,6 @@
 use plonky2::{hash::hash_types::HashOutTarget, plonk::{circuit_builder::CircuitBuilder, circuit_data::{CircuitConfig, CircuitData}, config::{AlgebraicHasher, GenericConfig}}};
 use psy_common_circuit::{builder::{hash::core::CircuitBuilderHashCore, pad_circuit::{pad_circuit_degree, CircuitBuilderPsyCommonGates}}, proof_minifier::pm_core::get_circuit_fingerprint_generic};
-use psy_core::data::qhashout::QHashOut;
+use psy_common::data::qhashout::QHashOut;
 
 
 pub struct GUTALookalikeCircuit<C: GenericConfig<D>, const D: usize>
@@ -41,7 +41,7 @@ where
 mod tests {
     use plonky2::plonk::config::PoseidonGoldilocksConfig;
     use psy_common_circuit::circuits::traits::qstandard::QStandardCircuit;
-    use psy_core::data::qhashout::QHashOut;
+    use psy_common::data::qhashout::QHashOut;
 
     use crate::{guta::circuits::verify_two_end_cap::GUTAVerifyTwoEndCapCircuit, lookalikes::{end_cap::EndCapLookalikeCircuit, guta::GUTALookalikeCircuit}};
 

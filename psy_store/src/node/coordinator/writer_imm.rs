@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use kvq::traits::KVQBinaryStore;
 use plonky2::field::goldilocks_field::GoldilocksField;
-use psy_core::data::qhashout::QHashOut;
+use psy_common::data::qhashout::QHashOut;
 use psy_crypto::hash::{
     merkle::{
         core::DeltaMerkleProofCore,

@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use kvq::memory::simple::KVQSimpleMemoryBackingStore;
 use plonky2::hash::poseidon::PoseidonHash;
-use psy_core::{data::qhashout::QHashOut, utils::debug_timer::DebugTimer};
+use psy_common::{data::qhashout::QHashOut, utils::debug_timer::DebugTimer};
 use psy_data::{
     config::store_config::UserTreeStore,
     models::kvq_merkle::model::{KVQFixedConfigMerkleTreeModelCore, KVQFixedConfigMerkleTreeModelReaderCore},

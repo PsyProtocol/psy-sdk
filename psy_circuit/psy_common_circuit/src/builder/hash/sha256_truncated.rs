@@ -139,7 +139,7 @@ mod tests {
         iop::witness::PartialWitness,
         plonk::{circuit_builder::CircuitBuilder, circuit_data::CircuitConfig, config::PoseidonGoldilocksConfig},
     };
-    use psy_core::data::base_types::hash192::Hash192;
+    use psy_common::data::base_types::hash192::Hash192;
 
     use crate::{
         builder::hash::sha256_truncated::CircuitBuilderTruncatedSha256,

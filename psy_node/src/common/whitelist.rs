@@ -9,7 +9,7 @@ use alloy_primitives::Address;
 use anyhow::Result;
 use indexmap::IndexSet;
 use plonky2::field::goldilocks_field::GoldilocksField;
-use psy_core::data::qhashout::QHashOut;
+use psy_common::data::qhashout::QHashOut;
 use psy_provider::wallet::secp_sign::{Eip712Signable, SignedRequest};
 use serde::{Deserialize, Serialize};
 use tokio::task::JoinHandle;

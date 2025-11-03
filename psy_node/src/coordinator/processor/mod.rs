@@ -14,7 +14,7 @@ use psy_config::{
         GLOBAL_USER_TREE_HEIGHT, MAX_CONTRACT_STATE_TREE_HEIGHT, REALM_USER_TREE_HEIGHT, USERS_PER_REALM,
     },
 };
-use psy_core::{
+use psy_common::{
     data::qhashout::QHashOut,
     job::{
         drain_queue::CheckpointDrainQueueConsumerAsyncImm,

@@ -12,7 +12,7 @@ use psy_common_circuit::circuits::{
     zk_signature3::core::PsyBasicZKSignatureCircuit,
 };
 use psy_config::network_constants::UPS_SESSION_PROOF_TREE_HEIGHT;
-use psy_core::data::{alt::AltVerifierOnlyCircuitData, base_types::hash256::Hash256, qhashout::QHashOut, secp256k1::CompressedPublicKey};
+use psy_common::data::{alt::AltVerifierOnlyCircuitData, base_types::hash256::Hash256, qhashout::QHashOut, secp256k1::CompressedPublicKey};
 use psy_crypto::{
     common::witnesses::qrecursion::{
         header::QRecursionAggStandardHeader,
@@ -235,7 +235,7 @@ pub struct ProveProxyServerProvider {
 impl ProveProxyServerProvider {
     pub async fn new_with_config(rpc_config: psy_config::NetworkConfigGoldilocks, network_magic: u64) -> anyhow::Result<Self> {
         use psy_common_circuit::circuits::traits::qstandard::QStandardCircuit;
-        use psy_core::ups::circuits::LocalCircuitType;
+        use psy_common::ups::circuits::LocalCircuitType;
         use psy_data::qstore::controllers::session_info::SessionCircuitInfoStore;
 
         let rpc_provider = RpcProvider::new_with_config(&rpc_config)?;

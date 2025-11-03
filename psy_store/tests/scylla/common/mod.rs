@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use kvq::traits::KVQPair;
 use plonky2::field::goldilocks_field::GoldilocksField;
-use psy_core::data::qhashout::QHashOut;
+use psy_common::data::qhashout::QHashOut;
 use psy_data::models::kvq_merkle::key::KVQMerkleNodeKey;
 use psy_store::store::scylla::{clustering_store::ScyllaClusteringStore, kvq_store::ScyllaKVQStore, ScyllaStore};
 use scylla::{Session, SessionBuilder};

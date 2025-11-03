@@ -4,7 +4,7 @@ use plonky2::plonk::{
     config::GenericConfig,
     proof::ProofWithPublicInputs,
 };
-use psy_core::{
+use psy_common::{
     data::qhashout::QHashOut,
     job::{
         id::QProvingJobDataID,

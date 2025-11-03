@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 use plonky2::hash::hash_types::RichField;
-use psy_core::data::qhashout::QHashOut;
+use psy_common::data::qhashout::QHashOut;
 use psy_crypto::hash::merkle::{
     core::{DeltaMerkleProofCore, MerkleProofCore},
     utils::{common::QMerkleNode, sub_tree_nca::UpdateNCAProofsWithDependencies},

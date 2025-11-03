@@ -4,7 +4,7 @@ use std::str::FromStr;
 use anyhow::Ok;
 use plonky2::{field::goldilocks_field::GoldilocksField, plonk::config::PoseidonGoldilocksConfig};
 use psy_common_circuit::circuits::zk_signature3::manager::SimplePsyZKSignatureManager;
-use psy_core::data::qhashout::QHashOut;
+use psy_common::data::qhashout::QHashOut;
 use psy_crypto::{
     hash::traits::qhashable::QFieldHashable,
     signature::zk::{data::ZKPublicKeyInfo, wallet::SimplePsyPrivateKey},

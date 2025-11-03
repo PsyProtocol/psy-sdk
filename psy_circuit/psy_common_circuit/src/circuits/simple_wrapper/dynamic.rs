@@ -7,7 +7,7 @@ use plonky2::{
         proof::{ProofWithPublicInputs, ProofWithPublicInputsTarget},
     },
 };
-use psy_core::data::qhashout::QHashOut;
+use psy_common::data::qhashout::QHashOut;
 
 use super::super::traits::qstandard::QStandardCircuit;
 use crate::{
