@@ -183,7 +183,7 @@ mod tests {
             config::{GenericConfig, PoseidonGoldilocksConfig},
         },
     };
-    use psy_core::data::{base_types::hash256::Hash256, qhashout::QHashOut};
+    use psy_common::data::{base_types::hash256::Hash256, qhashout::QHashOut};
 
     use super::*;
 

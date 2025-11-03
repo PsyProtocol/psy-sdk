@@ -8,7 +8,7 @@ use anyhow::{anyhow, Context, Result};
 use async_trait::async_trait;
 use bb8::Pool;
 use bb8_redis::RedisConnectionManager;
-use psy_core::{
+use psy_common::{
     job::id::{LayerId, QProvingJobDataID, QProvingJobGraph, QProvingTask, QProvingTaskGraph, QProvingTaskLayer, TaskId},
     utils::graph::BidirectionalGraph,
 };
@@ -733,7 +733,7 @@ impl QProvingTaskStore for QProvingTaskStoreImpl {
     }
 
     async fn get_graph_for_job(&self, job_id: &QProvingJobDataID) -> Result<BidirectionalGraph<QProvingJobDataID>> {
-        use psy_core::job::id::ProvingJobCircuitType;
+        use psy_common::job::id::ProvingJobCircuitType;
 
         match job_id.circuit_type {
             ProvingJobCircuitType::BatchDeployContracts

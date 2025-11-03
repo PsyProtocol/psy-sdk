@@ -1,5 +1,5 @@
 use chrono::{DateTime, Utc};
-use psy_core::job::id::{LayerId, ProvingJobCircuitType, QProvingJobDataID};
+use psy_common::job::id::{LayerId, ProvingJobCircuitType, QProvingJobDataID};
 use psy_data::{
     config::store_config::PsyFelt,
     qblock::cmds::deploy_contract::QFunctionMetadata,

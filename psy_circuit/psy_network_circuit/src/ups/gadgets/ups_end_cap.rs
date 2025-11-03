@@ -5,7 +5,7 @@ use plonky2::{
     plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher},
 };
 use psy_common_circuit::builder::{comparison::CircuitBuilderComparison, core::CircuitBuilderHelpersCore, hash::core::CircuitBuilderHashCore};
-use psy_core::config::network_constants::{
+use psy_config::network_constants::{
     CHECKPOINT_TREE_HEIGHT, DEFAULT_CALLER_CONTRACT_ID_U64, GUTA_FEE, TOKEN_CONTRACT_ID, TOKEN_SIMPLE_BURN_METHOD_ID,
 };
 

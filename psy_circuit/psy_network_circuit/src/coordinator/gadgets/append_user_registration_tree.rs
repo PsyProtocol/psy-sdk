@@ -5,7 +5,7 @@ use plonky2::{
     plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher},
 };
 use psy_common_circuit::hash::merkle::gadgets::spiderman_append_proof::SpidermanAppendProofGadget;
-use psy_core::data::qhashout::QHashOut;
+use psy_common::data::qhashout::QHashOut;
 use psy_crypto::hash::merkle::spiderman::SpidermanUpdateProof;
 
 // we keep this separate from DPNProvingSessionCompactMethodCallGadget incase it

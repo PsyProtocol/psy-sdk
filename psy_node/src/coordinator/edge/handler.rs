@@ -9,7 +9,7 @@ use plonky2::{
     field::types::Field,
     plonk::{config::PoseidonGoldilocksConfig, proof::ProofWithPublicInputs},
 };
-use psy_core::{
+use psy_common::{
     data::qhashout::QHashOut,
     job::{
         drain_queue::{CheckpointDrainQueueConsumerAsyncImm, CheckpointDrainQueueEmitterAsyncImm, DrainQueueMetadataTagged, WithDrainQueueMetadata},
@@ -652,9 +652,9 @@ impl CoordinatorEdgeHandler {
 use async_trait::async_trait;
 use jsonrpsee::core::RpcResult;
 use plonky2::field::goldilocks_field::GoldilocksField;
-use psy_core::config::network_constants::COORDINATOR_USER_TREE_HEIGHT;
+use psy_config::network_constants::COORDINATOR_USER_TREE_HEIGHT;
 use psy_data::qblock::cmds::deploy_contract::QContractMetadata;
-use psy_rust_sdk::{
+use psy_provider::{
     request::{QDeployContractRPCRequest, QRegisterUserRPCRequest},
     wallet::secp_sign::SignedRequest,
 };

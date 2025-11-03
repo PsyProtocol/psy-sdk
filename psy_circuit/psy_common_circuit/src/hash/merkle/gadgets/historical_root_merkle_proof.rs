@@ -7,7 +7,7 @@ use plonky2::{
     },
     plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher},
 };
-use psy_core::data::qhashout::QHashOut;
+use psy_common::data::qhashout::QHashOut;
 use psy_crypto::hash::{merkle::core::MerkleProofCore, traits::hasher::MerkleZeroHasher};
 
 use crate::builder::{hash::core::CircuitBuilderHashCore, select::CircuitBuilderSelectHelpers};
@@ -177,7 +177,7 @@ mod tests {
             config::{GenericConfig, PoseidonGoldilocksConfig},
         },
     };
-    use psy_core::data::qhashout::QHashOut;
+    use psy_common::data::qhashout::QHashOut;
     use psy_crypto::hash::merkle::{
         core::{compute_historical_and_current_merkle_roots_core, MerkleProofCore},
         utils::simple_merkle_tree::SimpleMerkleTree,

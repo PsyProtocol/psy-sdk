@@ -1,10 +1,8 @@
 use std::str::FromStr;
 
 use plonky2::field::goldilocks_field::GoldilocksField;
-use psy_core::{
-    config::network_constants::{MAX_CONTRACT_STATE_TREE_HEIGHT, UPS_SESSION_PROOF_TREE_HEIGHT},
-    data::qhashout::QHashOut,
-};
+use psy_config::network_constants::{MAX_CONTRACT_STATE_TREE_HEIGHT, UPS_SESSION_PROOF_TREE_HEIGHT};
+use psy_common::data::qhashout::QHashOut;
 use psy_data::traits::qdatastore::qmetadata::QMetaDataStoreReaderSync;
 use psy_prover::{
     local::args::{ContractCallArgs, SignData, SignType, WalletSessionArgs},
@@ -14,7 +12,7 @@ use psy_prover::{
         software_defined_circuit::{PSoftwareDefinedSignatureInput, SoftwareDefinedSignatureInput},
     },
 };
-use psy_rust_sdk::{provider::RpcConfig, wallet::software_defined_circuit::QSoftwareDefinedSignatureInput};
+use psy_rust_sdk::{provider::NetworkConfig, request::QSoftwareDefinedSignatureInput};
 use psy_vm::dpn::vm::def::DPNFunctionCircuitDefinition;
 use serde::{Deserialize, Serialize};
 
@@ -22,7 +20,7 @@ use super::args::SubmitEndCapArgs;
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct ExecContractCallArgs {
-    pub rpc_config: RpcConfig,
+    pub rpc_config: NetworkConfig<GoldilocksField>,
     pub private_key: QHashOut<GoldilocksField>,
     pub contract_id: u64,
     pub contract_call_args: Vec<ContractCallArgs>,
@@ -38,9 +36,8 @@ pub async fn run(args: SubmitEndCapArgs) -> anyhow::Result<()> {
         inputs: args.inputs,
     }];
 
-    let config_str = std::fs::read_to_string(&args.rpc_config)?;
-    let json_value: serde_json::Value = serde_json::from_str(&config_str)?;
-    let rpc_config: RpcConfig = serde_json::from_value(json_value["network"].clone())?;
+    let psy_config = psy_config::PsyConfigGoldilocks::from_file(&args.rpc_config)?;
+    let rpc_config = psy_config.get_current_network()?.clone();
     let private_key = QHashOut::<GoldilocksField>::from_str(&args.private_key).map_err(|e| anyhow::format_err!("{}", e.to_string()))?;
 
     let exec_contract_call_args = ExecContractCallArgs {
@@ -60,9 +57,8 @@ pub async fn run_multi(args: WalletSessionArgs) -> anyhow::Result<()> {
     tracing::info!("local proving start with {}", serde_json::to_string_pretty(&args)?);
     let contract_call_args: Vec<ContractCallArgs> = serde_json::from_str(&std::fs::read_to_string(&args.contract_calls)?)?;
 
-    let config_str = std::fs::read_to_string(&args.rpc_config)?;
-    let json_value: serde_json::Value = serde_json::from_str(&config_str)?;
-    let rpc_config: RpcConfig = serde_json::from_value(json_value["network"].clone())?;
+    let psy_config = psy_config::PsyConfigGoldilocks::from_file(&args.rpc_config)?;
+    let rpc_config = psy_config.get_current_network()?.clone();
     let private_key = QHashOut::<GoldilocksField>::from_str(&args.private_key).map_err(|e| anyhow::format_err!("{}", e.to_string()))?;
 
     let exec_contract_call_args = ExecContractCallArgs {

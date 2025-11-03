@@ -3,7 +3,7 @@ use plonky2::{
     field::types::{Field, PrimeField64},
     plonk::{config::PoseidonGoldilocksConfig, proof::ProofWithPublicInputs},
 };
-use psy_core::job::{id::QProvingJobDataID, traits::QProofStoreWriterSyncImm};
+use psy_common::job::{id::QProvingJobDataID, traits::QProofStoreWriterSyncImm};
 use psy_crypto::common::user_id::get_user_id_from_registration_id;
 use psy_data::{
     api::coordinator::register_user::PsyAPIRegisterUserRequestForUserId,

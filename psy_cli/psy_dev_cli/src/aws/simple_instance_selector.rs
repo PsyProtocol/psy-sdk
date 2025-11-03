@@ -64,7 +64,7 @@ impl SimpleInstanceSelector {
     pub fn new() -> Self {
         Self {
             instances: Self::load_instances(),
-            resource_margin: 0.25, // 25% 余量
+            resource_margin: 0.25, // 25% margin
         }
     }
 
@@ -99,7 +99,7 @@ impl SimpleInstanceSelector {
                 memory_gb: 64.0,
                 price_per_hour: 0.768,
             },
-            // C5/C6i 系列 - 计算优化型 (Worker/Processor/Prover)
+            // C5/C6i series - Compute optimized (Worker/Processor/Prover)
             SimpleInstance {
                 name: "c5.large".to_string(),
                 family: InstanceFamily::ComputeOptimized,
@@ -156,7 +156,7 @@ impl SimpleInstanceSelector {
                 memory_gb: 32.0,
                 price_per_hour: 0.68,
             },
-            // R5/R6i 系列 - 内存优化型 (Redis)
+            // R5/R6i series - Memory optimized (Redis)
             SimpleInstance {
                 name: "r5.large".to_string(),
                 family: InstanceFamily::MemoryOptimized,
@@ -199,7 +199,7 @@ impl SimpleInstanceSelector {
                 memory_gb: 64.0,
                 price_per_hour: 0.504,
             },
-            // I3/I3en 系列 - 存储优化型 (ScyllaDB)
+            // I3/I3en series - Storage optimized (ScyllaDB)
             SimpleInstance {
                 name: "i3.large".to_string(),
                 family: InstanceFamily::StorageOptimized,
@@ -260,7 +260,7 @@ impl SimpleInstanceSelector {
     pub fn calculate_recommendation(&self, requirements: &ServiceGroupRequirements) -> Result<SimpleInstanceRecommendation> {
         let preferred_family = Self::get_preferred_family(requirements.service_type);
 
-        // 应用25%余量
+        // Apply 25% margin
         let required_vcpus = (requirements.total_vcpus as f32 * (1.0 + self.resource_margin)).ceil() as u32;
         let required_memory = requirements.total_memory_gb * (1.0 + self.resource_margin);
 
@@ -488,7 +488,7 @@ impl SimpleInstanceSelector {
         if total_vcpus > 0 {
             Some(ServiceGroupRequirements {
                 name: "Coordinator".to_string(),
-                service_type: ServiceType::Worker, // 改为Worker类型以使用计算优化型实例
+                service_type: ServiceType::Worker, // Use Worker type for compute-optimized instances
                 total_vcpus,
                 total_memory_gb,
                 instance_count,

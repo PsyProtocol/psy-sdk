@@ -4,7 +4,7 @@ use plonky2::{
     iop::witness::Witness,
     plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher},
 };
-use psy_core::data::qhashout::QHashOut;
+use psy_common::data::qhashout::QHashOut;
 use psy_crypto::{
     common::witnesses::qrecursion::header::AttestTreeAwareProofInTreeInput,
     hash::{merkle::core::MerkleProofCore, traits::hasher::MerkleZeroHasher},

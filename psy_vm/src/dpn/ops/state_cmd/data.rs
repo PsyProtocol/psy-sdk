@@ -9,7 +9,8 @@ use crate::dpn::ops::context_trait::{ContextFelt, ToFelts};
 
 // Constants for field sizes
 const PM_REWARD_COMMITMENT_SIZE: usize = 12; // 3 roots * 4 field elements each
-const DA_CHALLENGE_WINDOW: usize = 14; // Matching psy_core::config::network_constants::DA_CHALLENGE_WINDOW
+const DA_CHALLENGE_WINDOW: usize = 14; // Matching psy_config::network_constants::DA_CHALLENGE_WINDOW
+const CONTRACT_LEAF_FELT_SIZE: usize = 9;
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Hash, PartialOrd, Ord, Eq, Copy, TS)]
 #[ts(export, concrete(T = GoldilocksField))]
@@ -440,6 +441,32 @@ impl<T> DPNStateCmdGetCheckpointLeafStats<T> {
     }
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Hash, PartialOrd, Ord, Eq, Copy, TS)]
+#[ts(export, concrete(T = GoldilocksField))]
+pub struct DPNStateCmdGetContractLeaf<T> {
+    pub contract_id: T,
+}
+
+impl<T> DPNStateCmdGetContractLeaf<T> {
+    pub fn new(contract_id: T) -> Self {
+        Self { contract_id }
+    }
+}
+
+impl<T: Copy + Clone + Hash + Ord> DPNStateCmdCore<T> for DPNStateCmdGetContractLeaf<T> {
+    fn get_inputs(&self) -> Vec<T> {
+        vec![self.contract_id]
+    }
+
+    fn get_state_command_type(&self) -> DPNStateCommandType {
+        DPNStateCommandType::GetContractLeaf
+    }
+
+    fn get_output_felt_size(&self) -> usize {
+        CONTRACT_LEAF_FELT_SIZE
+    }
+}
+
 impl<T: Ord + Hash + Clone + Copy> DPNStateCmdCore<T> for DPNStateCmdGetCheckpointLeafStats<T> {
     fn get_inputs(&self) -> Vec<T> {
         vec![self.checkpoint_id]
@@ -476,6 +503,7 @@ pub enum DPNStateCmd<T> {
     GetOtherUserContractStateSlotSingle(DPNStateCmdGetOtherUserContractStateSlotSingle<T>),
     GetOtherUserContractStateSlotRange(DPNStateCmdGetOtherUserContractStateSlotRange<T>),
     GetCheckpointLeafStats(DPNStateCmdGetCheckpointLeafStats<T>),
+    GetContractLeaf(DPNStateCmdGetContractLeaf<T>),
 }
 impl<T> DPNStateCmd<T> {
     pub fn set_contract_state_slot_hash(condition: T, slot_index: T, value: [T; 4]) -> Self {
@@ -581,6 +609,9 @@ impl<T> DPNStateCmd<T> {
     pub fn get_checkpoint_leaf_stats(checkpoint_id: T) -> Self {
         DPNStateCmd::GetCheckpointLeafStats(DPNStateCmdGetCheckpointLeafStats::<T>::new(checkpoint_id))
     }
+    pub fn get_contract_leaf(contract_id: T) -> Self {
+        DPNStateCmd::GetContractLeaf(DPNStateCmdGetContractLeaf::<T>::new(contract_id))
+    }
 }
 impl<T: Copy + Clone + Hash + Ord> DPNStateCmdCore<T> for DPNStateCmd<T> {
     fn get_inputs(&self) -> Vec<T> {
@@ -601,6 +632,7 @@ impl<T: Copy + Clone + Hash + Ord> DPNStateCmdCore<T> for DPNStateCmd<T> {
             DPNStateCmd::GetOtherUserContractStateSlotSingle(c) => c.get_inputs(),
             DPNStateCmd::GetOtherUserContractStateSlotRange(c) => c.get_inputs(),
             DPNStateCmd::GetCheckpointLeafStats(c) => c.get_inputs(),
+            DPNStateCmd::GetContractLeaf(c) => c.get_inputs(),
         }
     }
 
@@ -622,6 +654,7 @@ impl<T: Copy + Clone + Hash + Ord> DPNStateCmdCore<T> for DPNStateCmd<T> {
             DPNStateCmd::GetOtherUserContractStateSlotSingle(c) => c.get_state_command_type(),
             DPNStateCmd::GetOtherUserContractStateSlotRange(c) => c.get_state_command_type(),
             DPNStateCmd::GetCheckpointLeafStats(c) => c.get_state_command_type(),
+            DPNStateCmd::GetContractLeaf(c) => c.get_state_command_type(),
         }
     }
 
@@ -643,6 +676,7 @@ impl<T: Copy + Clone + Hash + Ord> DPNStateCmdCore<T> for DPNStateCmd<T> {
             DPNStateCmd::GetOtherUserContractStateSlotSingle(c) => c.get_output_felt_size(),
             DPNStateCmd::GetOtherUserContractStateSlotRange(c) => c.get_output_felt_size(),
             DPNStateCmd::GetCheckpointLeafStats(c) => c.get_output_felt_size(),
+            DPNStateCmd::GetContractLeaf(c) => c.get_output_felt_size(),
         }
     }
 }
@@ -741,6 +775,9 @@ impl<F: ContextFelt> ToFelts<F> for DPNStateCmd<u64> {
             }
             DPNStateCmd::GetCheckpointLeafStats(cmd) => {
                 out.push(F::cns(cmd.checkpoint_id));
+            }
+            DPNStateCmd::GetContractLeaf(cmd) => {
+                out.push(F::cns(cmd.contract_id));
             }
         }
         out
@@ -935,6 +972,10 @@ impl<F: ContextFelt> ToFelts<F> for DPNStateCmd<u64> {
                 let checkpoint_id = take(felts, &mut idx);
                 DPNStateCmd::GetCheckpointLeafStats(DPNStateCmdGetCheckpointLeafStats::new(checkpoint_id))
             }
+            DPNStateCommandType::GetContractLeaf => {
+                let contract_id = take(felts, &mut idx);
+                DPNStateCmd::GetContractLeaf(DPNStateCmdGetContractLeaf::new(contract_id))
+            }
         }
     }
 }
@@ -1026,6 +1067,7 @@ impl<T: Copy + Clone + Hash + Ord> DPNStateCmd<T> {
             DPNStateCmd::GetCheckpointLeafStats(c) => {
                 DPNStateCmd::GetCheckpointLeafStats(DPNStateCmdGetCheckpointLeafStats::<u64>::new(inputs_as_u64[0]))
             }
+            DPNStateCmd::GetContractLeaf(_c) => DPNStateCmd::GetContractLeaf(DPNStateCmdGetContractLeaf::<u64>::new(inputs_as_u64[0])),
         }
     }
 }

@@ -12,6 +12,11 @@ pub enum CheckedIntrinsicExprNode {
         type_id: TypeId,
         location: Location,
     },
+    GetContractDeployer {
+        contract_id: ExprId,
+        type_id: TypeId,
+        location: Location,
+    },
     GetCallerContractId {
         type_id: TypeId,
         location: Location,

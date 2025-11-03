@@ -7,7 +7,7 @@ use plonky2::{
     hash::hash_types::HashOut,
     plonk::config::PoseidonGoldilocksConfig,
 };
-use psy_core::{
+use psy_common::{
     data::{base_types::hash256::Hash256, qhashout::QHashOut},
     job::id::{ProvingJobCircuitType, QProvingJobDataID, VariableHeightRewardMerkleProof, GUTA_REWARDS_TREE_MAX_HEIGHT},
 };
@@ -15,7 +15,7 @@ use psy_crypto::signature::zk::wallet::SimplePsyPrivateKey;
 use psy_data::{config::store_config::PsyHasher, traits::qdatastore::qmetadata::QMetaDataStoreReaderSync};
 use psy_node::worker::job_tracker::{JobInfo, JobLocation, WorkerJobTracker};
 use psy_prover::session::WalletSession;
-use psy_rust_sdk::provider::{RpcConfig, RpcProvider};
+use psy_rust_sdk::provider::{NetworkConfig, RpcProvider};
 use serde_json::json;
 use tracing::info;
 
@@ -28,9 +28,8 @@ const D: usize = 2;
 pub async fn run(args: GetJobProofArgs) -> Result<()> {
     info!("Starting get job proof with checkpoint_id: {}", args.checkpoint_id);
 
-    let config_str = std::fs::read_to_string(&args.rpc_config)?;
-    let json_value: serde_json::Value = serde_json::from_str(&config_str)?;
-    let rpc_config: RpcConfig = serde_json::from_value(json_value["network"].clone())?;
+    let psy_config = psy_config::PsyConfig::from_file(&args.rpc_config)?;
+    let rpc_config = psy_config.get_current_network()?;
     let private_key = QHashOut::from(Hash256::from_hex_string(&args.private_key)?);
 
     let provider = RpcProvider::new_with_config(&rpc_config)?;
@@ -133,7 +132,7 @@ pub async fn run(args: GetJobProofArgs) -> Result<()> {
     Ok(())
 }
 
-async fn get_job_proof(provider: &RpcProvider, job_info: &JobInfo, checkpoint_id: u64) -> Result<psy_core::job::id::VariableHeightRewardMerkleProof> {
+async fn get_job_proof(provider: &RpcProvider, job_info: &JobInfo, checkpoint_id: u64) -> Result<psy_common::job::id::VariableHeightRewardMerkleProof> {
     let results = provider.get_job_proofs(vec![job_info.clone()]).await?;
 
     if results.is_empty() {

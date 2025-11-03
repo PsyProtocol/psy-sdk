@@ -5,7 +5,7 @@ use chrono::{DateTime, Utc};
 use http::StatusCode;
 use jsonwebtoken::{encode, EncodingKey, Header};
 use plonky2::field::types::PrimeField64;
-use psy_core::job::id::QProvingJobDataID;
+use psy_common::job::id::QProvingJobDataID;
 use psy_data::{config::store_config::PsyFelt, qdata::checkpoint::PsyCheckpointLeaf};
 use psy_services::{
     handlers::{TelemetryPayload, TelemetryResponse},

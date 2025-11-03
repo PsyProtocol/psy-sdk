@@ -6,11 +6,9 @@ use plonky2::{
     hash::{hashing::hash_n_to_hash_no_pad, poseidon::PoseidonPermutation},
     plonk::config::PoseidonGoldilocksConfig,
 };
+use psy_common::data::qhashout::QHashOut;
 use psy_common_circuit::circuits::{traits::qstandard::QStandardCircuit, zk_signature3::manager::SimplePsyZKSignatureManager};
-use psy_core::{
-    config::network_constants::{GLOBAL_USER_TREE_HEIGHT, MAX_CONTRACT_STATE_TREE_HEIGHT, UPS_SESSION_PROOF_TREE_HEIGHT},
-    data::qhashout::QHashOut,
-};
+use psy_config::network_constants::{GLOBAL_USER_TREE_HEIGHT, MAX_CONTRACT_STATE_TREE_HEIGHT, UPS_SESSION_PROOF_TREE_HEIGHT};
 use psy_crypto::{hash::traits::qhashable::QFieldHashable, signature::zk::wallet::SimplePsyPrivateKey};
 use psy_data::{
     config::store_config::{PsyHasher, C, D, F},
@@ -23,7 +21,7 @@ use psy_prover::{
     session::{gen_contract_deploy_and_circuits_for_functions, WalletSession},
 };
 use psy_rust_sdk::{
-    provider::{QUserRpcProvider, RpcConfig, RpcProvider},
+    provider::{QUserRpcProvider, RpcProvider},
     request::QDeployContractRPCRequest,
 };
 use psy_vm::dpn::vm::def::DPNFunctionCircuitDefinition;
@@ -34,9 +32,8 @@ use super::args::DeployContractArgs;
 pub async fn run(args: DeployContractArgs) -> anyhow::Result<()> {
     tracing::info!("deploying contract");
 
-    let config_str = std::fs::read_to_string(&args.rpc_config)?;
-    let json_value: serde_json::Value = serde_json::from_str(&config_str)?;
-    let rpc_config: RpcConfig = serde_json::from_value(json_value["network"].clone())?;
+    let psy_config = psy_config::PsyConfigGoldilocks::from_file(&args.rpc_config)?;
+    let rpc_config = psy_config.get_current_network()?.clone();
 
     let mut wallet_session = WalletSession::new(&rpc_config).await?;
 

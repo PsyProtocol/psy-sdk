@@ -9,7 +9,7 @@ use psy_common_circuit::{
     hash::merkle::gadgets::variable_height_delta_merkle_proof_opt::VariableHeightDeltaMerkleProofOptGadget,
     treeprover::subtree::gadgets::subtree_core::SubTreeNodeStateTransitionGadget,
 };
-use psy_core::data::qhashout::QHashOut;
+use psy_common::data::qhashout::QHashOut;
 use psy_crypto::hash::merkle::core::DeltaMerkleProofCore;
 
 use crate::gadgets::qdata::user::PsyUserLeafGadget;

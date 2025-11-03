@@ -11,7 +11,7 @@ use plonky2::{
         proof::{ProofWithPublicInputs, ProofWithPublicInputsTarget},
     },
 };
-use psy_core::utils::debug_timer::DebugTimer;
+use psy_common::utils::debug_timer::DebugTimer;
 
 use super::{pm_core::get_circuit_fingerprint_generic, pm_custom::PMCircuitCustomizer};
 use crate::builder::verify::CircuitBuilderVerifyProofHelpers;

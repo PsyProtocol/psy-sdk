@@ -12,7 +12,7 @@ use psy_common_circuit::{
     },
     traits::WitnessValueFor,
 };
-use psy_core::config::network_constants::{
+use psy_config::network_constants::{
     DEFERRED_TRANSACTION_TREE_HEIGHT, GLOBAL_CONTRACT_TREE_HEIGHT, INLINE_TRANSACTION_TREE_HEIGHT, MAX_CONTRACT_STATE_TREE_HEIGHT,
 };
 use psy_crypto::hash::traits::hasher::MerkleZeroHasher;

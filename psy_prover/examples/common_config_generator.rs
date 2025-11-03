@@ -5,7 +5,8 @@ use psy_common_circuit::circuits::{
     lookalikes::{get_agg_state_transition_type_d_common_data, get_end_cap_type_e_common_data, get_guta_type_c_common_data},
     traits::qstandard::QStandardCircuit,
 };
-use psy_core::{config::network_constants::PSY_NETWORK_MAGIC_REGTEST, data::qhashout::QHashOut, job::id::ProvingJobCircuitType};
+use psy_config::PSY_NETWORK_MAGIC;
+use psy_common::{data::qhashout::QHashOut, job::id::ProvingJobCircuitType};
 use psy_crypto::common::generic_circuit_verifier::GenericCircuitVerifier;
 use psy_data::config::store_config::PsyFelt;
 use psy_network_circuit::{coordinator::coordinator_helper::PsyCoordinatorCircuitManager, guta::guta_helper::PsyGUTACircuitManager};
@@ -25,11 +26,11 @@ fn run_gen_config() -> anyhow::Result<()> {
     gcv.common
         .insert_common_data(ProvingJobCircuitType::TypeE, get_end_cap_type_e_common_data::<C, D>());
 
-    let main_circuits = PsyUPSStepCircuitManager::<C, D>::new_with_config(PSY_NETWORK_MAGIC_REGTEST);
+    let main_circuits = PsyUPSStepCircuitManager::<C, D>::new_with_config(PSY_NETWORK_MAGIC);
 
     gcv.register_circuit_triplet(ProvingJobCircuitType::UserEndCap, main_circuits.ups_end_cap.get_verifier_triplet());
 
-    use psy_core::config::network_constants::get_default_worker_public_key;
+    use psy_config::get_default_worker_public_key;
     let guta_circuits = PsyGUTACircuitManager::<C, D>::new_with_config(
         main_circuits.ups_end_cap.get_common_circuit_data_ref(),
         main_circuits.ups_end_cap.get_verifier_config_ref().constants_sigmas_cap.height(),
@@ -121,7 +122,7 @@ fn run_gen_config() -> anyhow::Result<()> {
     let common_info_data = serde_json::to_string(&gcv_ser.common)?;
 
     // Write to cached_circuit_library.rs
-    let library_path = "./psy_crypto/src/common/cached_circuit_library.rs";
+    let library_path = "./psy_core/psy_crypto/src/common/cached_circuit_library.rs";
     let mut library_file = File::create(&library_path)?;
     write!(
         library_file,

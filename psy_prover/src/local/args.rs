@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use clap::{Args, Parser, ValueEnum};
 use plonky2::hash::hash_types::RichField;
-use psy_core::{data::qhashout::QHashOut, job::id::QProvingJobDataID};
+use psy_common::{data::qhashout::QHashOut, job::id::QProvingJobDataID};
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 use ts_rs::TS;
@@ -77,7 +77,7 @@ pub struct ProveProxyArgs {
     pub rpc_config: String,
 }
 
-pub use psy_rust_sdk::provider::{JobInfo, JobLocation};
+pub use psy_common::{JobInfo, JobLocation};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RealmJobData {

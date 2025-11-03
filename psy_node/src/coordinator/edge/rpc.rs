@@ -6,7 +6,7 @@ use plonky2::{
         proof::ProofWithPublicInputs,
     },
 };
-use psy_core::{
+use psy_common::{
     data::qhashout::QHashOut,
     job::id::{QProvingJobDataID, VariableHeightRewardMerkleProof},
 };
@@ -22,8 +22,7 @@ use psy_data::{
         user::PsyUserLeaf,
     },
 };
-// Import the request types from psy_rust_sdk
-use psy_rust_sdk::request::{QDeployContractRPCRequest, QRegisterUserRPCRequest};
+use psy_provider::request::{QDeployContractRPCRequest, QRegisterUserRPCRequest};
 
 use super::types::LatestCheckpointResponse;
 use crate::common_v2::traits::realm::{BasicRealmStatusOnCoordinator, GlobalBlockUpdateFromCoordinator, RealmDataForCoordinator};

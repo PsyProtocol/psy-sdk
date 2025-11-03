@@ -21,8 +21,8 @@ fix:
 	@cargo fix --all-targets --allow-dirty --allow-staged
 
 build: config_gen_v2
-	@RUSTFLAGS="-A warnings" cargo build --profile ${PROFILE} -p psy_precompiles
-	@RUSTFLAGS="-A warnings" cargo build --profile ${PROFILE} --bin psy_user_cli --bin psy_node_cli --bin psy_dev_cli --bin dargo --bin psy-lsp-server --bin psy_services --examples
+	@RUSTFLAGS="-A warnings" cargo build --profile ${PROFILE} -p psy-precompiles
+	@RUSTFLAGS="-A warnings" cargo build --profile ${PROFILE} --bin psy_user_cli --bin psy_node_cli --bin psy_dev_cli --bin dargo --bin psy-lsp-server --bin psy_services
 
 fmt:
 	@cargo fmt
@@ -111,7 +111,7 @@ ci:
 update-snapshots:
 	@cargo insta review
 
-WATCHED_DIRS := psy_network_circuit psy_common_circuit psy_prover/src/dpn psy_prover/src/ups psy_core/src/config/network_constants.rs psy_crypto/src/common/user_id.rs
+WATCHED_DIRS := psy_network_circuit psy_common_circuit psy_dpn_circuit psy_ups_circuit psy_core/psy_config/src/network_constants.rs psy_core/psy_crypto/src/common/user_id.rs
 
 config_gen_v2:
 	@if git diff --name-only --diff-filter=M | grep -q -E "$(subst $() $(),|,$(WATCHED_DIRS)).*\.rs$$"; then \
@@ -145,7 +145,7 @@ USER3_SECP_ZK_PUBLIC_KEY := 1e44a84db33d52243068ccfbf6519beb1e072d1128ee792fe628
 CURRENT_USER_PRIVATE_KEY := ${USER0_PRIVATE_KEY}
 CURRENT_USER_PUBLIC_KEY  := ${USER0_PUBLIC_KEY}
 
-CHECKPOINT_ID            := 0
+CHECKPOINT_ID            := 18446744073709551615
 LEAF_CHECKPOINT_ID       := ${CHECKPOINT_ID}
 USER_ID                  := 0
 CONTRACT_ID              := 0
@@ -156,11 +156,11 @@ REGISTRATION_ID          := 1
 STRATEGY                 := 4
 SIGN_TYPE                := zk
 
-COORDINATOR_RPC_URL      := $(shell jq -r '.network.coordinator_configs[].rpc_url[]' config.json)
-REALM_RPC_URL            := $(shell jq -r '.network.realm_configs[${REALM_ID}].rpc_url[]' config.json)
+COORDINATOR_RPC_URL      := $(shell jq -r '.networks.localhost.coordinator_configs[].rpc_url[]' config.json)
+REALM_RPC_URL            := $(shell jq -r '.networks.localhost.realm_configs[${REALM_ID}].rpc_url[]' config.json)
 
-GLOBAL_USER_TREE_HEIGHT  := $(shell jq -r '.network.global_user_tree_height' config.json)
-REALM_USER_TREE_HEIGHT   := $(shell jq -r '.network.realm_user_tree_height' config.json)
+GLOBAL_USER_TREE_HEIGHT  := $(shell jq -r '.networks.localhost.global_user_tree_height' config.json)
+REALM_USER_TREE_HEIGHT   := $(shell jq -r '.networks.localhost.realm_user_tree_height' config.json)
 REALM_TREE_LEAF_LEVEL    := $(shell echo $$(($(GLOBAL_USER_TREE_HEIGHT) - $(REALM_USER_TREE_HEIGHT))))
 
 init:
@@ -481,8 +481,8 @@ run-benchmark-flow-repeat:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_dev_cli stress-test --task-type multicall --only-flow --repeat 100
 
 run-benchmark-deploy:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_user_cli deploy-contract --private-key=17c975c2668ebe0ca7c87f67c6414ebb7fd664f46370a0af2a3b204c8824ac5a --contract-path ./psy_precompiles/token/target/token.json
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_dev_cli stress-test --task-type multicall --only-deploy-contract  --concurrent-tasks 100  --contract-path ./psy_precompiles/token/target/token.json
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_user_cli deploy-contract --private-key=17c975c2668ebe0ca7c87f67c6414ebb7fd664f46370a0af2a3b204c8824ac5a --contract-path ./psy_compiler/psy-precompiles/token/target/token.json
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_dev_cli stress-test --task-type multicall --only-deploy-contract  --concurrent-tasks 100  --contract-path ./psy_compiler/psy-precompiles/token/target/token.json
 
 generate-access-token:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_node_cli generate-access-token
@@ -564,7 +564,7 @@ return-back:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_user_cli submit-end-caproof -p ${USER0_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_transfer --inputs 1048576 --inputs 250000000000 --sign-type $(SIGN_TYPE)
 
 claim-rewards:
-	@RUST_LOG=info ./target/${PROFILE}/psy_user_cli claim-rewards --private-key ${USER2_PRIVATE_KEY} --sign-type secp256k1 --limit 10000
+	@RUST_LOG=info ./target/${PROFILE}/psy_user_cli claim-rewards --private-key ${CURRENT_USER_PRIVATE_KEY} --sign-type secp256k1 --limit 10000
 
 get-job-proof:
 	@RUST_LOG=info ./target/${PROFILE}/psy_dev_cli get-job-proof --checkpoint-id ${CHECKPOINT_ID} --private-key ${CURRENT_USER_PRIVATE_KEY} --sign-type secp256k1
@@ -697,8 +697,10 @@ image:
 		-f Dockerfile .
 
 wasm-build:
-	@cd psy_prover && wasm-pack build --target web --out-dir ../psy_sdk/psy-ts-sdk/packages/psy-sdk/src/local-web-prover --no-pack --release --no-default-features && cp ../psy_sdk/psy-ts-sdk/.gitignore.template ../psy_sdk/psy-ts-sdk/packages/psy-sdk/src/local-web-prover/.gitignore
-	@cd psy_prover && wasm-pack build --target nodejs --out-dir ../psy_sdk/psy-ts-sdk/packages/psy-sdk/src/local-prover  --no-pack --release --no-default-features && cp ../psy_sdk/psy-ts-sdk/.gitignore.template ../psy_sdk/psy-ts-sdk/packages/psy-sdk/src/local-prover/.gitignore
+	@cd psy_sdk/psy-rust-sdk && wasm-pack build --target web --out-dir ../psy-ts-sdk/packages/psy-sdk/src/local-web-prover --out-name psy_prover --no-pack --release
+	@cd psy_sdk/psy-rust-sdk && cp ../psy-ts-sdk/.gitignore.template ../psy-ts-sdk/packages/psy-sdk/src/local-web-prover/.gitignore
+	@cd psy_sdk/psy-rust-sdk && wasm-pack build --target nodejs --out-dir ../psy-ts-sdk/packages/psy-sdk/src/local-prover --out-name psy_prover --no-pack --release
+	@cd psy_sdk/psy-rust-sdk && cp ../psy-ts-sdk/.gitignore.template ../psy-ts-sdk/packages/psy-sdk/src/local-prover/.gitignore
 
 help:
 	@grep -E '^[a-zA-Z_-]+:.*?' Makefile | cut -d: -f1 | sort

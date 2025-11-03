@@ -23,7 +23,8 @@ clap = { workspace = true }
 hex = { workspace = true }
 
 kvq = { workspace = true }
-psy_core = { workspace = true }
+psy_config = { workspace = true }
+psy_common = { workspace = true }
 psy_data = { workspace = true, default-features = false }
 psy_crypto = { workspace = true }
 psy_vm = { workspace = true }

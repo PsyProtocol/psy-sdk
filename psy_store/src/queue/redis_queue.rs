@@ -12,7 +12,7 @@ use plonky2::{
     hash::hash_types::RichField,
     plonk::{config::GenericConfig, proof::ProofWithPublicInputs},
 };
-use psy_core::{
+use psy_common::{
     data::qhashout::QHashOut,
     job::{
         drain_queue::{CheckpointDrainQueueConsumerAsyncImm, CheckpointDrainQueueEmitterAsyncImm, DQSerializable},

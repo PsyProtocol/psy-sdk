@@ -8,7 +8,7 @@ use std::{
 };
 
 use anyhow::Result;
-use psy_core::config::network_constants::SLOT_SIZE;
+use psy_config::network_constants::SLOT_SIZE;
 use psy_data::{config::store_config::PsyFelt, qdata::checkpoint::PsyCheckpointLeaf};
 use psy_store::{node::coordinator::PsyCoordinatorStoreReaderAsync, store::PsyStore};
 use serde::{Deserialize, Serialize};

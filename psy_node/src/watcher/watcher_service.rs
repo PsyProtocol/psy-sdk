@@ -10,7 +10,8 @@ use anyhow::{anyhow, Result};
 use bb8::Pool;
 use bb8_redis::RedisConnectionManager;
 use chrono::{DateTime, Utc};
-use psy_core::{config::network_constants::SLOT_SIZE, job::id::QProvingJobDataID};
+use psy_common::job::id::QProvingJobDataID;
+use psy_config::network_constants::SLOT_SIZE;
 use psy_data::{config::store_config::PsyFelt, qdata::checkpoint::PsyCheckpointLeaf};
 use psy_store::{
     node::{coordinator::PsyCoordinatorStoreReaderAsync, realm::PsyRealmStoreReaderAsync},

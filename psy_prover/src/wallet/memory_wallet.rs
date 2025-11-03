@@ -15,10 +15,8 @@ use plonky2::{
 use psy_common_circuit::circuits::{
     secp256k1_signature::Secp256K1SignatureCircuit, traits::qstandard::QStandardCircuit, zk_signature3::core::PsyBasicZKSignatureCircuit,
 };
-use psy_core::{
-    config::network_constants::{MAX_CONTRACT_STATE_TREE_HEIGHT, UPS_SESSION_PROOF_TREE_HEIGHT},
-    data::{base_types::hash256::Hash256, qhashout::QHashOut, secp256k1::CompressedPublicKey},
-};
+use psy_config::network_constants::{MAX_CONTRACT_STATE_TREE_HEIGHT, UPS_SESSION_PROOF_TREE_HEIGHT};
+use psy_common::data::{base_types::hash256::Hash256, qhashout::QHashOut, secp256k1::CompressedPublicKey};
 use psy_crypto::{
     hash::traits::{hasher::MerkleZeroHasher, qhashable::QFieldHashable},
     signature::{
@@ -27,7 +25,7 @@ use psy_crypto::{
     },
 };
 use psy_data::{config::store_config::PsyHasher, qstore::imm::cmd_processor::PsyReadCommandProcessorSync};
-use psy_rust_sdk::provider::UPSCircuitManagerTrait;
+use psy_provider::common::UPSCircuitManagerTrait;
 use psy_ups_circuit::{circuit_manager, circuit_manager::core::QCircuitManager};
 use psy_vm::{dpn::vm::def::DPNFunctionCircuitDefinition, vm::cfc_input::DapenContractFunctionCircuitInput};
 
@@ -223,9 +221,7 @@ impl PsyMemoryWallet {
     pub async fn register_software_defined_circuit(&mut self, input: SoftwareDefinedSignatureInput) -> anyhow::Result<QHashOut<F>> {
         // Convert prover's enum to SDK's enum
         let sdk_input = match input {
-            SoftwareDefinedSignatureInput::Psy(psy_input) => {
-                psy_rust_sdk::wallet::software_defined_circuit::SoftwareDefinedSignatureInput::Psy(psy_input)
-            }
+            SoftwareDefinedSignatureInput::Psy(psy_input) => psy_provider::common::SoftwareDefinedSignatureInput::Psy(psy_input),
             SoftwareDefinedSignatureInput::PLONKY2(_) => {
                 anyhow::bail!("PLONKY2 variant not supported for SDK integration")
             }
@@ -258,7 +254,7 @@ mod tests {
     use anyhow::Result;
     use plonky2::{field::goldilocks_field::GoldilocksField, plonk::config::PoseidonGoldilocksConfig};
     use psy_common_circuit::circuits::{secp256k1_signature::Secp256K1SignatureCircuit, traits::qstandard::QStandardCircuit};
-    use psy_core::data::qhashout::QHashOut;
+    use psy_common::data::qhashout::QHashOut;
 
     use super::*;
 
@@ -269,7 +265,7 @@ mod tests {
     #[test]
     fn test_raw_secp256k1_sign() -> Result<()> {
         use k256::ecdsa::signature::hazmat::PrehashSigner;
-        use psy_core::data::base_types::hash256::Hash256;
+        use psy_common::data::base_types::hash256::Hash256;
         use psy_crypto::signature::secp256k1::core::PsyCompressedSecp256K1Signature;
 
         // Create a test private key and signature hash
@@ -334,7 +330,7 @@ mod tests {
         use psy_data::config::store_config::PsyHasher;
 
         let public_key_param = psy_crypto::signature::secp256k1::wallet::hash_no_pad_compressed_public_key::<F, PoseidonPermutation<F>>(
-            psy_core::data::secp256k1::CompressedPublicKey(compressed_pk),
+            psy_common::data::secp256k1::CompressedPublicKey(compressed_pk),
         );
         let message_hash: QHashOut<F> = QHashOut::from(Hash256::from(sig_hash));
 
@@ -355,7 +351,7 @@ mod tests {
 
     #[test]
     fn test_memory_wallet_secp256k1_sign() -> Result<()> {
-        use psy_core::data::base_types::hash256::Hash256;
+        use psy_common::data::base_types::hash256::Hash256;
         use psy_crypto::signature::secp256k1::core::PsyCompressedSecp256K1Signature;
 
         // Create a test private key and signature hash
@@ -412,7 +408,7 @@ mod tests {
 
         // Get public key param the same way as in memory wallet
         let public_key_param = psy_crypto::signature::secp256k1::wallet::hash_no_pad_compressed_public_key::<F, PoseidonPermutation<F>>(
-            psy_core::data::secp256k1::CompressedPublicKey(secp_signature.public_key),
+            psy_common::data::secp256k1::CompressedPublicKey(secp_signature.public_key),
         );
         let message_hash: QHashOut<F> = QHashOut::from(secp_signature.message);
 

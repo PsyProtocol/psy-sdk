@@ -8,7 +8,7 @@ use std::{sync::Arc, time::Duration};
 
 use job_tracker::{JobLocation, WorkerJobTracker};
 use plonky2::field::goldilocks_field::GoldilocksField;
-use psy_core::{
+use psy_common::{
     data::qhashout::QHashOut,
     job::{
         id::{ProvingJobCircuitType, QJobTopic, QProvingJobDataID},
@@ -20,7 +20,7 @@ use psy_crypto::common::{
     generic_circuit_verifier::GenericCircuitVerifier, simple_circuit_library::SimpleCircuitLibrary, worker::QNextGenWorkerGenericProverAsyncMut,
 };
 use psy_network_circuit::coordinator::coordinator_helper::PsyCoordinatorCircuitManager;
-use psy_rust_sdk::wallet::secp_wallet::Wallet;
+use psy_provider::wallet::secp_wallet::Wallet;
 use tokio::{sync::Mutex, time::timeout};
 use tracing::{debug, error, info, trace, warn};
 pub use worker_state::*;

@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use plonky2::plonk::config::GenericConfig;
-use psy_core::{
+use psy_common::{
     job::{
         self,
         id::{ProvingJobCircuitType, QJobTopic, QProvingJobDataID, QWorkerModeFilter},

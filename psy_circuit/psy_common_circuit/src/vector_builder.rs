@@ -1,7 +1,7 @@
 use core::fmt::Debug;
 
 use plonky2::{field::extension::Extendable, hash::hash_types::RichField, iop::target::Target, plonk::circuit_builder::CircuitBuilder};
-use psy_core::data::varuint::encode_varuint;
+use psy_common::data::varuint::encode_varuint;
 use serde::{Deserialize, Serialize};
 
 use super::u32::arithmetic_u32::{CircuitBuilderU32, U32Target};

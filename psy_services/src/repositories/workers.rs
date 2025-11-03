@@ -1,5 +1,5 @@
 use chrono::{DateTime, Utc};
-use psy_core::job::id::{ProvingJobCircuitType, QJobTopic, QProvingJobDataID};
+use psy_common::job::id::{ProvingJobCircuitType, QJobTopic, QProvingJobDataID};
 use sqlx::PgPool;
 
 use crate::{
@@ -170,7 +170,7 @@ impl WorkerEventRepository {
                 .await?
         };
 
-        use psy_core::job::id::ProvingJobCircuitType;
+        use psy_common::job::id::ProvingJobCircuitType;
         use sqlx::Row;
 
         use crate::models::job_id_from_json;

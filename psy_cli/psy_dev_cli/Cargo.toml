@@ -20,8 +20,8 @@ hyper = { workspace = true }
 tower = { workspace = true }
 
 # Psy dependencies
-psy-common = { workspace = true }
-psy_core = { workspace = true }
+psy_common = { workspace = true }
+psy_config = { workspace = true }
 psy_data = { workspace = true }
 psy_crypto = { workspace = true }
 psy_store = { workspace = true }

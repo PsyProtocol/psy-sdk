@@ -8,8 +8,8 @@ use plonky2::{
     },
     plonk::proof::ProofWithPublicInputs,
 };
-use psy_core::{
-    config::network_constants::GLOBAL_USER_TREE_HEIGHT,
+use psy_config::network_constants::GLOBAL_USER_TREE_HEIGHT;
+use psy_common::{
     data::qhashout::QHashOut,
     job::{
         drain_queue::CheckpointDrainQueueEmitterAsyncImm,

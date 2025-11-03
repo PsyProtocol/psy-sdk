@@ -4,7 +4,7 @@ use plonky2::{
     hash::hash_types::HashOut,
     plonk::config::{AlgebraicHasher, GenericConfig, Hasher},
 };
-use psy_core::data::qhashout::QHashOut;
+use psy_common::data::qhashout::QHashOut;
 use psy_crypto::{
     common::witnesses::qrecursion::{
         header::QRecursionAggStandardHeader,

@@ -19,8 +19,8 @@ use psy_common_circuit::{
     proof_minifier::pm_core::get_circuit_fingerprint_generic,
     traits::{ToTargets, WitnessValueFor},
 };
-use psy_core::{
-    config::network_constants::get_default_worker_public_key,
+use psy_config::get_default_worker_public_key;
+use psy_common::{
     data::qhashout::QHashOut,
     job::{
         id::QProvingJobDataID,

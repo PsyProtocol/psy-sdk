@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use k256::ecdsa::{signature::hazmat::PrehashSigner, SigningKey};
+use psy_config::MINING_REWARDS_CONTRACT_ID;
 use maybe_async::maybe_async;
 use plonky2::{
     field::goldilocks_field::GoldilocksField,
@@ -10,7 +11,7 @@ use plonky2::{
     },
     plonk::config::PoseidonGoldilocksConfig,
 };
-use psy_core::{
+use psy_common::{
     data::{
         qhashout::QHashOut,
         secp256k1::{bytes_to_u32_vec_le, CompressedPublicKey},
@@ -18,7 +19,7 @@ use psy_core::{
     job::id::{ProvingJobCircuitType, QProvingJobDataID, VariableHeightRewardMerkleProof, GUTA_REWARDS_TREE_MAX_HEIGHT},
 };
 use psy_crypto::signature::secp256k1::core::PsyCompressedSecp256K1Signature;
-use psy_rust_sdk::provider::RpcProvider;
+use psy_provider::provider::RpcProvider;
 use serde::{Deserialize, Serialize};
 
 use crate::local::args::{ContractCallArgs, JobInfo, JobLocation, WorkerJobTracker};
@@ -27,7 +28,6 @@ type C = PoseidonGoldilocksConfig;
 const D: usize = 2;
 type F = GoldilocksField;
 
-pub const MINING_REWARDS_CONTRACT_ID: u64 = 1;
 pub const LAST_CLAIMED_CHECKPOINT_SLOT: u64 = 0;
 
 #[derive(Clone)]
@@ -64,7 +64,7 @@ pub async fn build_claim_calls_for_multi_checkpoints(all_proofs: &[ProofWithChec
         }
 
         contract_call_args.push(ContractCallArgs {
-            contract_id: MINING_REWARDS_CONTRACT_ID,
+            contract_id: MINING_REWARDS_CONTRACT_ID as u64,
             method_name: "claim_guta_rewards_5".to_string(),
             inputs: batch_inputs,
         });
@@ -90,7 +90,7 @@ pub async fn build_claim_calls_for_multi_checkpoints(all_proofs: &[ProofWithChec
         }
 
         contract_call_args.push(ContractCallArgs {
-            contract_id: MINING_REWARDS_CONTRACT_ID,
+            contract_id: MINING_REWARDS_CONTRACT_ID as u64,
             method_name: "claim_guta_rewards_2".to_string(),
             inputs: batch_inputs,
         });
@@ -110,7 +110,7 @@ pub async fn build_claim_calls_for_multi_checkpoints(all_proofs: &[ProofWithChec
         batch_inputs.push(proof_with_checkpoint.proposed_reward);
 
         contract_call_args.push(ContractCallArgs {
-            contract_id: MINING_REWARDS_CONTRACT_ID,
+            contract_id: MINING_REWARDS_CONTRACT_ID as u64,
             method_name: "claim_guta_rewards_1".to_string(),
             inputs: batch_inputs,
         });

@@ -9,10 +9,8 @@ use psy_common_circuit::{
     hash::merkle::gadgets::merkle_proof::MerkleProofGadget,
     traits::{CreatableTarget, CreatableWithHasherTarget, WitnessValueFor},
 };
-use psy_core::{
-    config::network_constants::{CONTRACT_FUNCTION_TREE_HEIGHT, GLOBAL_CONTRACT_TREE_HEIGHT},
-    data::qhashout::QHashOut,
-};
+use psy_config::network_constants::{CONTRACT_FUNCTION_TREE_HEIGHT, GLOBAL_CONTRACT_TREE_HEIGHT};
+use psy_common::data::qhashout::QHashOut;
 use psy_crypto::hash::merkle::core::MerkleProofCore;
 use psy_data::qdata::{
     contract::PsyContractLeaf,

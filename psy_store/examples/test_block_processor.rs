@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use kvq::memory::simple::KVQSimpleMemoryBackingStore;
 use plonky2::field::goldilocks_field::GoldilocksField;
-use psy_core::{data::qhashout::QHashOut, utils::debug_timer::DebugTimer};
+use psy_common::{data::qhashout::QHashOut, utils::debug_timer::DebugTimer};
 use psy_data::{
     protocol::circuit_fingerprints::PsyWorkerToolboxCoreCircuitFingerprints,
     qblock::{
@@ -19,7 +19,7 @@ async fn test_simple_block_processor() -> anyhow::Result<()> {
     let mut t = DebugTimer::new("test_kvq_simple_store_arc");
     t.lap("start");
     let st = Arc::new(KVQSimpleMemoryBackingStore::new());
-    use psy_core::data::qhashout::QHashOut;
+    use psy_common::data::qhashout::QHashOut;
     let cur_checkpoint = st.initialize_store(None).await?;
     t.event(format!("current_checkpoint: {}", cur_checkpoint));
 

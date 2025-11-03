@@ -1,6 +1,6 @@
 use std::{ops::Deref, sync::Arc};
 
-use psy_core::config::network_constants::REALM_SLOT_SIZE_MS;
+use psy_config::network_constants::REALM_SLOT_SIZE_MS;
 use tokio::time::{sleep, Duration};
 
 use crate::common::slot::{Clock, Slot};

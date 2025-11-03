@@ -11,11 +11,11 @@ use jsonrpsee::{
     proc_macros::rpc,
 };
 use plonky2::plonk::{config::GenericConfig, proof::ProofWithPublicInputs};
-use psy_core::job::{
+use psy_common::job::{
     id::{ProvingJobDataType, QProvingJobDataID},
     traits::QProofStoreReaderAsync,
 };
-use psy_rust_sdk::wallet::{
+use psy_provider::wallet::{
     secp_sign::{Eip712Signable, SignedRequest},
     secp_wallet::Wallet,
 };
@@ -53,7 +53,7 @@ impl JobClient {
 impl JobReceiver for JobClient {
     async fn get_next_job(&self, wallet: Arc<Wallet>, worker_public_key: &str) -> anyhow::Result<QJob> {
         loop {
-            let mut signed_request = psy_rust_sdk::wallet::secp_sign::SignedRequest::sign_hashable(&wallet, &MESSAGE_CLAIM_JOB)?;
+            let mut signed_request = psy_provider::wallet::secp_sign::SignedRequest::sign_hashable(&wallet, &MESSAGE_CLAIM_JOB)?;
             signed_request.worker_public_key = worker_public_key.to_string();
             if let Some(job) = JobSchedulerRpcClient::get_pending_job(&self.rpc_client, signed_request).await? {
                 return Ok(job);
@@ -64,7 +64,7 @@ impl JobReceiver for JobClient {
     }
     async fn submit_job_proof(&self, job: QJob, proof: PsyProof, wallet: Arc<Wallet>, worker_public_key: &str) -> anyhow::Result<()> {
         trace!("Submitted job proof for job_id: {:?}", job);
-        let mut signed = psy_rust_sdk::wallet::secp_sign::SignedRequest::sign_hashable(&wallet, &proof)?;
+        let mut signed = psy_provider::wallet::secp_sign::SignedRequest::sign_hashable(&wallet, &proof)?;
         signed.worker_public_key = worker_public_key.to_string();
         JobSchedulerRpcClient::set_proof_by_id(&self.rpc_client, job, proof, signed).await?;
         Ok(())

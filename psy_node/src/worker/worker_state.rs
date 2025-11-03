@@ -26,7 +26,7 @@ pub struct WorkerState {
 
 impl WorkerState {
     pub async fn new(redis_url: String, pool_size: usize, biz_key: String) -> anyhow::Result<Self> {
-        use psy_core::config::network_constants::get_default_worker_public_key;
+        use psy_config::get_default_worker_public_key;
         // Create storage and queues
         let realm_qps = ProofStoreRedis::new(redis_url.as_str(), biz_key).await?;
 

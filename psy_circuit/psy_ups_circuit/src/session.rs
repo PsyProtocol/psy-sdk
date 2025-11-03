@@ -15,15 +15,11 @@ use plonky2::{
 use psy_common_circuit::{
     circuits::traits::qstandard::QStandardCircuit, treeprover::qrecursion::standard::manager::portable::core::PortableQTreeRecursionManager,
 };
-use psy_core::{
-    config::network_constants::{
-        DEFAULT_CALLER_CONTRACT_ID_U64, DEFERRED_TRANSACTION_TREE_HEIGHT, GUTA_FEE, INLINE_TRANSACTION_TREE_HEIGHT, TOKEN_CONTRACT_ID,
-        TOKEN_SIMPLE_BURN_METHOD_ID, UPS_SESSION_PROOF_TREE_HEIGHT,
-    },
-    data::qhashout::QHashOut,
-    ups::circuits::LocalCircuitType,
-    utils::debug_timer::DebugTimer,
+use psy_config::network_constants::{
+    DEFAULT_CALLER_CONTRACT_ID_U64, DEFERRED_TRANSACTION_TREE_HEIGHT, GUTA_FEE, INLINE_TRANSACTION_TREE_HEIGHT, TOKEN_CONTRACT_ID,
+    TOKEN_SIMPLE_BURN_METHOD_ID, UPS_SESSION_PROOF_TREE_HEIGHT,
 };
+use psy_common::{data::qhashout::QHashOut, ups::circuits::LocalCircuitType, utils::debug_timer::DebugTimer};
 use psy_crypto::{
     common::witnesses::qrecursion::{
         header::{AttestProofInTreeInput, AttestTreeAwareProofInTreeInput},
@@ -70,7 +66,7 @@ use psy_data::{
     },
 };
 use psy_dpn_circuit::circuits::cfc::DapenContractFunctionCircuit;
-use psy_rust_sdk::provider::UPSCircuitManagerTrait;
+use psy_provider::common::UPSCircuitManagerTrait;
 use psy_vm::{
     dpn::{contract::cfc_code_definition_to_dapen_fc, vm::def::DPNFunctionCircuitDefinition},
     vm::{cfc_input::DapenContractFunctionCircuitInput, exec::PsyEvalSessionResult},

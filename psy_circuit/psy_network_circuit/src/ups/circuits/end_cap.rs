@@ -14,10 +14,8 @@ use psy_common_circuit::{
     proof_minifier::{pm_chain_dynamic::PsyProofMinifierDynamicChain, pm_core::get_circuit_fingerprint_generic},
     treeprover::qrecursion::standard::gadgets::verify_agg_proof::VerifyAggProofGadget,
 };
-use psy_core::{
-    config::network_constants::{UPS_CIRCUIT_WHITELIST_TREE_HEIGHT, UPS_SESSION_PROOF_TREE_HEIGHT},
-    data::qhashout::QHashOut,
-};
+use psy_config::network_constants::{UPS_CIRCUIT_WHITELIST_TREE_HEIGHT, UPS_SESSION_PROOF_TREE_HEIGHT};
+use psy_common::data::qhashout::QHashOut;
 use psy_crypto::{
     common::witnesses::qrecursion::header::QRecursionAggStandardHeader,
     hash::{merkle::core::MerkleProofCore, traits::hasher::MerkleZeroHasher},

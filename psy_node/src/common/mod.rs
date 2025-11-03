@@ -2,7 +2,7 @@ use plonky2::{
     field::goldilocks_field::GoldilocksField,
     plonk::{config::PoseidonGoldilocksConfig, proof::ProofWithPublicInputs},
 };
-use psy_core::{
+use psy_common::{
     data::qhashout::QHashOut,
     job::id::{ProvingJobCircuitType, QProvingJobDataID},
 };

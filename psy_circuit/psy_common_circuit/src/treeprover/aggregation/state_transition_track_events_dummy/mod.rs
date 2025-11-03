@@ -9,7 +9,7 @@ use plonky2::{
         proof::ProofWithPublicInputs,
     },
 };
-use psy_core::{data::qhashout::QHashOut, job::traits::QProofStoreReaderSync};
+use psy_common::{data::qhashout::QHashOut, job::traits::QProofStoreReaderSync};
 use psy_crypto::hash::merkle::treeprover::DummyAggStateTransitionWithEvents;
 
 use crate::{

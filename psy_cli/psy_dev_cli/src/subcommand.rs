@@ -183,7 +183,7 @@ pub struct RandomArgs {
 
 #[derive(Parser)]
 pub struct GenerateArgs {
-    #[clap(env, long, default_value = "config-deploy.json", env)]
+    #[clap(env, long, default_value = "deploy.json", env)]
     pub config: String,
     #[command(subcommand)]
     pub command: GenerateCommands,

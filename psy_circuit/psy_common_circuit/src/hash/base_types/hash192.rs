@@ -7,7 +7,7 @@ use plonky2::{
     },
     plonk::circuit_builder::CircuitBuilder,
 };
-use psy_core::{
+use psy_common::{
     data::base_types::hash192::Hash192,
     utils::binary_helpers::{read_u32_be_at, read_u32_le_at},
 };

@@ -5,7 +5,7 @@ use plonky2::plonk::{
     config::{AlgebraicHasher, GenericConfig},
     proof::ProofWithPublicInputs,
 };
-use psy_core::{data::qhashout::QHashOut, job::traits::QProofStoreReaderSync};
+use psy_common::{data::qhashout::QHashOut, job::traits::QProofStoreReaderSync};
 use serde::{de::DeserializeOwned, Serialize};
 
 use crate::{

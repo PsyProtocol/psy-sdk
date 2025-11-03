@@ -27,12 +27,12 @@ use psy_common_circuit::{
     proof_minifier::pm_chain::PsyProofMinifierChain,
     u32::gates::comparison::ComparisonGate,
 };
-use psy_core::data::qhashout::QHashOut;
+use psy_common::data::qhashout::QHashOut;
 use psy_crypto::{hash::traits::hasher::MerkleZeroHasher, signature::zk::wallet::PRIVATE_KEY_CONSTANTS};
 use psy_dpn_circuit::vm::compile::PsyContractFunctionBuilderGadget;
-use psy_rust_sdk::{
+use psy_provider::{
     provider::RpcProvider,
-    wallet::software_defined_circuit::{QSoftwareDefinedSignatureInput, QSoftwareDefinedSignatureWitnessInput},
+    request::{QSoftwareDefinedSignatureInput, QSoftwareDefinedSignatureWitnessInput},
 };
 use psy_vm::{dpn::vm::def::DPNFunctionCircuitDefinition, vm::cfc_input::DapenContractFunctionCircuitInput};
 use serde::{Deserialize, Serialize};
@@ -158,7 +158,6 @@ pub enum SoftwareDefinedSignatureGadget {
     PLONKY2(PSoftwareDefinedSignatureGadget),
 }
 
-// Extended enum that includes prover-specific PLONKY2 variant
 #[derive(Debug)]
 pub enum SoftwareDefinedSignatureInput {
     Psy(QSoftwareDefinedSignatureInput),
@@ -174,7 +173,7 @@ pub struct PSoftwareDefinedSignatureWitnessInput {
     pub state_reader: StateReader<GF, D, RpcProvider>,
     pub circuit_inputs: Vec<GF>,
 }
-// Extended enum that includes prover-specific PLONKY2 variant
+
 #[derive(Debug)]
 pub enum SoftwareDefinedSignatureWitnessInput {
     Psy(QSoftwareDefinedSignatureWitnessInput),

@@ -30,7 +30,8 @@ use psy_common_circuit::{
     proof_minifier::pm_chain::PsyProofMinifierChain,
     u32::gates::comparison::ComparisonGate,
 };
-use psy_core::{config::network_constants::MAX_CONTRACT_STATE_TREE_HEIGHT, data::qhashout::QHashOut};
+use psy_config::network_constants::MAX_CONTRACT_STATE_TREE_HEIGHT;
+use psy_common::data::qhashout::QHashOut;
 use psy_crypto::{
     hash::{
         merkle::core::MerkleProofCore,
@@ -49,7 +50,7 @@ use psy_data::{
     },
 };
 use psy_network_circuit::gadgets::qdata::user_contract_state::UserContractStateGadget;
-use psy_rust_sdk::provider::RpcProvider;
+use psy_provider::provider::RpcProvider;
 use psy_vm::dpn::ops::state_cmd::data::{
     DPNStateCmd, DPNStateCmdGetOtherUserContractStateSlotHash, DPNStateCmdGetSelfUserCurrentContractStateSlotHash,
     DPNStateCmdGetSelfUserExternalContractStateSlotHash,

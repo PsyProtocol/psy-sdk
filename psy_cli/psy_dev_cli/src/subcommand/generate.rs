@@ -9,6 +9,7 @@ use std::{
 
 use anyhow::{Context, Result};
 use minijinja::{context, Environment};
+use plonky2::{field::goldilocks_field::GoldilocksField, hash::hash_types::RichField};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tokio::time::{sleep, Duration};
@@ -19,333 +20,37 @@ use crate::aws::{SimpleInstanceRecommendation, SimpleInstanceSelector};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
-    pub network: NetworkConfig,
-    pub nodes: NodesConfig,
+    pub network: NetworkConfig<GoldilocksField>,
+    pub nodes: NodesConfig<GoldilocksField>,
     pub global_api_services: Option<GlobalApiServices>,
 }
 
-pub use psy_rust_sdk::provider::{CoordinatorConfig, NetworkConfig, RealmConfig};
+pub use psy_config::{
+    AwsDeploymentConfig, AwsServiceConfig, BackendConfig, CoordinatorConfig, CoordinatorNode, DeploymentConfig, DeploymentType,
+    DockerDeploymentConfig, Ec2Config, Ec2ServiceConfig, EcrConfig, EcsConfig, EcsDeploymentConfig, EcsServiceConfig, ElastiCacheConfig,
+    FargateConfig, GlobalApiServices, LmdbxAwsConfig, LmdbxConfig, LoadBalancerConfig, NetworkConfig, NodesConfig, PlacementStrategy, RdsConfig,
+    RealmConfig, RealmNode, RedisAwsConfig, RedisDeploymentType, RedisEc2Config, RedisInstance, RedisRealm, S3Config, ScyllaAwsConfig, ScyllaConfig,
+    ServiceConfig, TikvAwsConfig, TikvConfig, TimescaleDbConfig, VpcConfig, WorkerConfig, WorkerGlobalConfig,
+};
 
 use crate::subcommand::launch::ensure_worker_config_file;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct NodesConfig {
-    pub coordinator: CoordinatorNode,
-    pub realms: Vec<RealmNode>,
-    pub prover: Option<ServiceConfig>,
-    pub deployment: DeploymentConfig,
-    pub workers: Option<WorkerConfig>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct WorkerConfig {
-    pub enabled: bool,
-    pub args: HashMap<String, Value>,
-    pub env: HashMap<String, String>,
-    pub aws: Option<AwsServiceConfig>,
-}
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct WorkerGlobalConfig {
-    pub task_discovery_interval: u32,
-    pub max_concurrent_tasks: u32,
-}
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct BackendConfig {
-    #[serde(rename = "type")]
-    pub database: String,
-    pub lmdbx: Option<LmdbxConfig>,
-    pub scylla: Option<ScyllaConfig>,
-    pub tikv: Option<TikvConfig>,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct LmdbxConfig {
-    pub path: String,
-    pub mmap_size_gb: u32,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub aws: Option<LmdbxAwsConfig>,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct LmdbxAwsConfig {
-    pub volume_size: u32,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct ScyllaConfig {
-    pub endpoints: Vec<String>,
-    pub replication_factor: u32,
-    pub consistency_level: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub aws: Option<ScyllaAwsConfig>,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct ScyllaAwsConfig {
-    pub cpu: u32,
-    pub memory: u32,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub deployment_type: Option<DeploymentType>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub ec2: Option<Ec2Config>,
-    #[serde(default = "default_data_volume_size")]
-    pub data_volume_size: u32,
-    #[serde(default = "default_commitlog_volume_size")]
-    pub commitlog_volume_size: u32,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct TikvConfig {
-    pub pd_endpoints: Vec<String>,
-    pub namespace: String,
-    pub aws: Option<TikvAwsConfig>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct TikvAwsConfig {
-    pub cpu: u32,
-    pub memory: u32,
-    pub deployment_type: Option<DeploymentType>,
-    pub ec2: Option<Ec2ServiceConfig>,
-    #[serde(default = "default_data_volume_size")]
-    pub data_volume_size: u32,
-    #[serde(default = "default_pd_count")]
-    pub pd_count: u32,
-    #[serde(default = "default_tikv_count")]
-    pub tikv_count: u32,
-}
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RedisConfig {
-    pub coordinator: RedisInstance,
-    pub realms: Vec<RedisRealm>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RedisInstance {
-    pub uri: String,
-    pub pool_size: u32,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub aws: Option<RedisAwsConfig>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RedisAwsConfig {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub deployment_type: Option<RedisDeploymentType>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub cpu: Option<u32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub memory: Option<u32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub volume_size: Option<u32>,
-    // ElastiCache configuration
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub elasticache: Option<ElastiCacheConfig>,
-    // EC2 configuration
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub ec2: Option<RedisEc2Config>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum RedisDeploymentType {
-    ElastiCache,
-    EC2,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ElastiCacheConfig {
-    pub node_type: String,
-    pub num_cache_nodes: u32,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RedisEc2Config {
-    pub min_instances: u32,
-    pub max_instances: u32,
-    pub desired_instances: u32,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RedisRealm {
-    pub id: u64,
-    pub uri: String,
-    pub pool_size: u32,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CoordinatorNode {
-    pub id: u64,
-    pub redis: Option<RedisInstance>,
-    pub backend: Option<BackendConfig>,
-    pub processor: ServiceConfig,
-    pub edge: ServiceConfig,
-    pub watcher: Option<ServiceConfig>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RealmNode {
-    pub id: u64,
-    pub redis: Option<RedisInstance>,
-    pub backend: Option<BackendConfig>,
-    pub processor: ServiceConfig,
-    pub edge: ServiceConfig,
-    pub watcher: Option<ServiceConfig>,
-}
-// Add new top-level service configuration
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct GlobalApiServices {
-    pub api_service: Option<ServiceConfig>,
-    pub timescaledb: Option<TimescaleDbConfig>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct TimescaleDbConfig {
-    pub enabled: bool,
-    pub connection_string: String,
-    pub aws: Option<RdsConfig>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RdsConfig {
-    pub instance_class: String,
-    pub allocated_storage: u32,
-    pub multi_az: bool,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ServiceConfig {
-    pub enabled: bool,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub instances: Option<u32>,
-    pub args: HashMap<String, Value>,
-    pub env: HashMap<String, String>,
-    pub aws: Option<AwsServiceConfig>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AwsServiceConfig {
-    pub cpu: u32,
-    pub memory: u32,
-    pub deployment_type: Option<DeploymentType>,
-    pub load_balancer: Option<LoadBalancerConfig>,
-    // EC2-specific config
-    pub ec2: Option<Ec2ServiceConfig>,
-    // ECS-specific config
-    pub ecs: Option<EcsServiceConfig>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct LoadBalancerConfig {
-    pub port: u16,
-    pub health_check_path: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum DeploymentType {
-    #[serde(rename = "ecs")]
-    ECS,
-    #[serde(rename = "ec2")]
-    EC2,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Ec2ServiceConfig {
-    pub instance_type: Option<String>, // Optional, can be auto-calculated
-    pub min_instances: u32,
-    pub max_instances: u32,
-    pub desired_instances: u32,
-    pub security_groups: Option<Vec<String>>,
-    pub iam_role: Option<String>,
-    pub user_data: Option<String>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct EcsServiceConfig {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub instances: Option<u32>, // For local deployment
-    pub task_count: u32, // For AWS ECS deployment
-    pub deployment_configuration: Option<EcsDeploymentConfig>,
-    pub network_mode: Option<String>, // awsvpc, bridge, host
-    pub placement_strategy: Option<Vec<PlacementStrategy>>,
-    pub placement_constraints: Option<Vec<String>>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct EcsDeploymentConfig {
-    pub maximum_percent: Option<u32>,
-    pub minimum_healthy_percent: Option<u32>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PlacementStrategy {
-    pub r#type: String,        // spread, binpack, random
-    pub field: Option<String>, // instanceId, attribute:ecs.availability-zone
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct DeploymentConfig {
-    pub aws: AwsDeploymentConfig,
-    pub docker: DockerDeploymentConfig,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AwsDeploymentConfig {
-    pub region: String,
-    pub project_name: String,
-    pub vpc: VpcConfig,
-    pub ecs: EcsConfig,
-    pub ecr: EcrConfig,
-    pub s3: S3Config,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct VpcConfig {
-    pub cidr: String,
-    pub availability_zones: u32,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct EcsConfig {
-    pub cluster_name: String,
-    pub log_group: String,
-    pub ec2: Option<Ec2Config>,
-    pub fargate: Option<FargateConfig>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Ec2Config {
-    pub instance_type: Option<String>,
-    pub min_instances: u32,
-    pub max_instances: u32,
-    pub desired_instances: u32,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct FargateConfig {
-    pub enabled: bool,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct EcrConfig {
-    pub repository_name: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct S3Config {
-    pub bucket_prefix: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct DockerDeploymentConfig {
-    pub network_name: String,
-    pub network_subnet: String,
-}
-
 pub async fn run(args: GenerateArgs) -> Result<()> {
-    // Load config
-    let config_content = fs::read_to_string(&args.config).with_context(|| format!("Failed to read config file: {}", args.config))?;
-    let config: Config = serde_json::from_str(&config_content).with_context(|| "Failed to parse config.json")?;
+    // Load network config from config.json
+    let psy_config = psy_config::PsyConfig::from_file("config.json").with_context(|| "Failed to load config.json")?;
+    let network = psy_config.get_current_network()?.clone();
+
+    // Load deployment config from deploy.json (or the specified config file which
+    // should be deploy.json)
+    let deploy_content = fs::read_to_string(&args.config).with_context(|| format!("Failed to read deploy config file: {}", args.config))?;
+    let nodes: NodesConfig<GoldilocksField> = serde_json::from_str(&deploy_content).with_context(|| "Failed to parse deploy.json")?;
+
+    let global_api_services = nodes.global_api_services.clone();
+    let config = Config {
+        network,
+        nodes,
+        global_api_services,
+    };
 
     match args.command {
         GenerateCommands::DockerCompose(compose_args) => generate_docker_compose(&config, compose_args).await,
@@ -354,9 +59,20 @@ pub async fn run(args: GenerateArgs) -> Result<()> {
 }
 
 pub async fn run_deployment(args: RunArgs) -> Result<()> {
-    // Load config
-    let config_content = fs::read_to_string(&args.config).with_context(|| format!("Failed to read config file: {}", args.config))?;
-    let config: Config = serde_json::from_str(&config_content).with_context(|| "Failed to parse config.json")?;
+    // Load network config from config.json
+    let psy_config = psy_config::PsyConfig::from_file("config.json").with_context(|| "Failed to load config.json")?;
+    let network = psy_config.get_current_network()?.clone();
+
+    // Load deployment config from deploy.json (or the specified config file which
+    // should be deploy.json)
+    let deploy_content = fs::read_to_string(&args.config).with_context(|| format!("Failed to read deploy config file: {}", args.config))?;
+    let nodes: NodesConfig<GoldilocksField> = serde_json::from_str(&deploy_content).with_context(|| "Failed to parse deploy.json")?;
+
+    let config = Config {
+        network,
+        nodes: nodes.clone(),
+        global_api_services: nodes.global_api_services,
+    };
 
     if args.stop {
         return stop_deployment().await;

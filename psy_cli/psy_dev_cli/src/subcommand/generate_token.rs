@@ -1,4 +1,4 @@
-use psy_core::jwt::{decrypt_jwt_token, generate_jwt_token};
+use psy_common::jwt::{decrypt_jwt_token, generate_jwt_token};
 
 pub async fn run(args: super::GenerateTokenArgs) -> anyhow::Result<()> {
     let token = generate_jwt_token(&args.private_key, args.realm_id)?;

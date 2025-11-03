@@ -32,6 +32,7 @@ pub enum DPNStateCommandType {
 
     // checkpoint state commands (not order sensitive) (40-47)
     GetCheckpointLeafStats = 40,
+    GetContractLeaf = 41,
 }
 
 impl From<u8> for DPNStateCommandType {
@@ -58,6 +59,7 @@ impl From<u8> for DPNStateCommandType {
             34 => DPNStateCommandType::GetOtherUserContractStateSlotRange,
 
             40 => DPNStateCommandType::GetCheckpointLeafStats,
+            41 => DPNStateCommandType::GetContractLeaf,
             _ => panic!("Unknown DPNStateCommandType: {}", value),
         }
     }
@@ -89,6 +91,7 @@ impl DPNStateCommandType {
             DPNStateCommandType::GetOtherUserContractStateSlotSingle => DPNBuiltInDataType::Target,
             DPNStateCommandType::GetOtherUserContractStateSlotRange => DPNBuiltInDataType::TargetArray,
             DPNStateCommandType::GetCheckpointLeafStats => DPNBuiltInDataType::TargetArray,
+            DPNStateCommandType::GetContractLeaf => DPNBuiltInDataType::TargetArray,
         }
     }
     pub fn is_read_only(&self) -> bool {
@@ -109,6 +112,7 @@ impl DPNStateCommandType {
             DPNStateCommandType::GetOtherUserContractStateSlotSingle => true,
             DPNStateCommandType::GetOtherUserContractStateSlotRange => true,
             DPNStateCommandType::GetCheckpointLeafStats => true,
+            DPNStateCommandType::GetContractLeaf => true,
         }
     }
     pub fn updates_state(&self) -> bool {
@@ -133,6 +137,7 @@ impl DPNStateCommandType {
             DPNStateCommandType::GetOtherUserContractStateSlotSingle => false,
             DPNStateCommandType::GetOtherUserContractStateSlotRange => false,
             DPNStateCommandType::GetCheckpointLeafStats => false,
+            DPNStateCommandType::GetContractLeaf => false,
         }
     }
     pub fn is_set_state_order_sensitive(&self) -> bool {
@@ -155,6 +160,7 @@ impl DPNStateCommandType {
             DPNStateCommandType::GetOtherUserContractStateSlotSingle => false,
             DPNStateCommandType::GetOtherUserContractStateSlotRange => false,
             DPNStateCommandType::GetCheckpointLeafStats => false,
+            DPNStateCommandType::GetContractLeaf => false,
         }
     }
     pub fn is_inline_external_call_cmd(&self) -> bool {
@@ -194,6 +200,7 @@ impl std::fmt::Display for DPNStateCommandType {
             DPNStateCommandType::GetOtherUserContractStateSlotSingle => "GetOtherUserContractStateSlotSingle",
             DPNStateCommandType::GetOtherUserContractStateSlotRange => "GetOtherUserContractStateSlotRange",
             DPNStateCommandType::GetCheckpointLeafStats => "GetCheckpointLeafStats",
+            DPNStateCommandType::GetContractLeaf => "GetContractLeaf",
         };
         write!(f, "DPNStateCommandType::{}", r)
     }

@@ -8,6 +8,10 @@ pub enum IntrinsicExprNode {
     GetContractId {
         location: Location,
     },
+    GetContractDeployer {
+        contract_id: ExprId,
+        location: Location,
+    },
     GetCallerContractId {
         location: Location,
     },

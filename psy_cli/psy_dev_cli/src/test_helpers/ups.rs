@@ -9,8 +9,8 @@ use psy_common_circuit::{
     circuits::{traits::qstandard::QStandardCircuit, zk_signature3::manager::SimplePsyZKSignatureManager},
     wallet::zk::SimpleZKSignatureWallet,
 };
-use psy_core::{
-    config::network_constants::PSY_NETWORK_MAGIC_REGTEST,
+use psy_config::PSY_NETWORK_MAGIC;
+use psy_common::{
     data::qhashout::QHashOut,
     job::{drain_queue::CheckpointDrainQueueEmitterAsyncImm, traits::QProofStoreAsyncImm},
     utils::debug_timer::DebugTimer,
@@ -126,7 +126,7 @@ impl ExampleDemoUserInfoStore {
         let new_nonce = old_nonce + 1;
         self.nonce_map.insert(user_id_u64, new_nonce);
 
-        let sighash = mgr.get_sighash(PSY_NETWORK_MAGIC_REGTEST, F::from_canonical_u64(new_nonce));
+        let sighash = mgr.get_sighash(PSY_NETWORK_MAGIC, F::from_canonical_u64(new_nonce));
 
         let signature_proof = self
             .wallet
@@ -138,7 +138,7 @@ impl ExampleDemoUserInfoStore {
         let end_cap_proof = mgr
             .prove_end_cap(
                 &circuit_mgr,
-                PSY_NETWORK_MAGIC_REGTEST,
+                PSY_NETWORK_MAGIC,
                 F::from_canonical_u64(new_nonce),
                 self.wallet.circuit.get_fingerprint(),
                 public_key_param,
@@ -194,7 +194,7 @@ impl ExampleDemoUserInfoStore {
             let new_nonce = old_nonce + 1;
             self.nonce_map.insert(user_id_u64, new_nonce);
 
-            let sighash = mgr.get_sighash(PSY_NETWORK_MAGIC_REGTEST, F::from_canonical_u64(new_nonce));
+            let sighash = mgr.get_sighash(PSY_NETWORK_MAGIC, F::from_canonical_u64(new_nonce));
 
             let signature_proof = self
                 .wallet
@@ -206,7 +206,7 @@ impl ExampleDemoUserInfoStore {
             let end_cap_proof = mgr
                 .prove_end_cap(
                     &circuit_mgr,
-                    PSY_NETWORK_MAGIC_REGTEST,
+                    PSY_NETWORK_MAGIC,
                     F::from_canonical_u64(new_nonce),
                     self.wallet.circuit.get_fingerprint(),
                     public_key_param,

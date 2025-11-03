@@ -8,7 +8,7 @@ use plonky2::{
         proof::ProofWithPublicInputs,
     },
 };
-use psy_core::{data::qhashout::QHashOut, utils::debug_timer::DebugTimer};
+use psy_common::{data::qhashout::QHashOut, utils::debug_timer::DebugTimer};
 use psy_crypto::signature::secp256k1::core::{PsyCompressedSecp256K1Signature, PsyPreparedSecp256K1Signature};
 
 use super::traits::qstandard::QStandardCircuit;

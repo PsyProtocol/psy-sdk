@@ -7,8 +7,8 @@ use plonky2::{
     plonk::config::PoseidonGoldilocksConfig,
 };
 use psy_common_circuit::circuits::{traits::qstandard::QStandardCircuit, zk_signature3::manager::SimplePsyZKSignatureManager};
-use psy_core::{
-    config::network_constants::{PSY_NETWORK_MAGIC_REGTEST, UPS_SESSION_PROOF_TREE_HEIGHT},
+use psy_config::{network_constants::UPS_SESSION_PROOF_TREE_HEIGHT, PSY_NETWORK_MAGIC};
+use psy_common::{
     data::qhashout::QHashOut,
     job::traits::{QProofStoreAsyncImm, QProofStoreReaderAsync},
     ups::circuits::LocalCircuitType,
@@ -38,7 +38,7 @@ use psy_node::{
     },
     worker::{simple_async_coord::SimpleAsyncCoordinatorWorker, simple_async_realm::SimpleAsyncRealmWorker},
 };
-use psy_rust_sdk::provider::UPSCircuitManagerTrait;
+use psy_rust_sdk::common::UPSCircuitManagerTrait;
 use psy_store::{
     node::coordinator::{PsyCoordinatorStoreReaderAsync, PsyCoordinatorStoreWriterAsyncImm},
     queue::{
@@ -91,7 +91,7 @@ async fn run_test3() -> anyhow::Result<()> {
     let proof_verifier = Arc::new(get_cached_generic_verifier::<C, D>());
     timer.lap("created proof verifier");
 
-    use psy_core::config::network_constants::get_default_worker_public_key;
+    use psy_config::get_default_worker_public_key;
     let coordinator_worker_circuits =
         PsyCoordinatorCircuitManager::<C, D>::new_with_library(&proof_verifier.library, get_default_worker_public_key::<F>());
 
@@ -209,7 +209,7 @@ async fn run_test3() -> anyhow::Result<()> {
 
     timer.lap("start: init PsyUPSStepCircuitManager");
 
-    let main_circuits = QCircuitManager::Local(PsyUPSStepCircuitManager::<C, D>::new_with_config(PSY_NETWORK_MAGIC_REGTEST));
+    let main_circuits = QCircuitManager::Local(PsyUPSStepCircuitManager::<C, D>::new_with_config(PSY_NETWORK_MAGIC));
     //main_circuits.print_common_config();
 
     timer.lap("end: init PsyUPSStepCircuitManager");
@@ -278,7 +278,7 @@ async fn run_test3() -> anyhow::Result<()> {
     timer.lap("proved token.simple_transfer(recipient: 2, amount: 100)");
 
     let new_nonce = GoldilocksField::from_noncanonical_u64(1);
-    let sighash = mgr.get_sighash(PSY_NETWORK_MAGIC_REGTEST, new_nonce);
+    let sighash = mgr.get_sighash(PSY_NETWORK_MAGIC, new_nonce);
 
     let signature_proof = wallet.zk_sign_for_private_key_value(priv_key_user_0, sighash)?;
     timer.lap("generated zk signature for UPS transaction batch");
@@ -291,7 +291,7 @@ async fn run_test3() -> anyhow::Result<()> {
     let end_cap_proof = mgr
         .prove_end_cap(
             &main_circuits,
-            PSY_NETWORK_MAGIC_REGTEST,
+            PSY_NETWORK_MAGIC,
             new_nonce,
             wallet.circuit.get_fingerprint(),
             public_key_param,

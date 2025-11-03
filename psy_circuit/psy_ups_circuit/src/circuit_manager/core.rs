@@ -21,8 +21,8 @@ use psy_common_circuit::{
         },
     },
 };
-use psy_core::{
-    config::network_constants::{UPS_CIRCUIT_WHITELIST_TREE_HEIGHT, UPS_SESSION_PROOF_TREE_HEIGHT},
+use psy_config::network_constants::{UPS_CIRCUIT_WHITELIST_TREE_HEIGHT, UPS_SESSION_PROOF_TREE_HEIGHT};
+use psy_common::{
     data::{alt::AltVerifierOnlyCircuitData, qhashout::QHashOut},
     ups::circuits::LocalCircuitType,
 };
@@ -51,8 +51,10 @@ use psy_network_circuit::ups::circuits::{
     end_cap::UPSStandardEndCapCircuit, ups_cfc_deferred_tx::UPSCFCDeferredTransactionCircuit, ups_cfc_standard::UPSCFCStandardTransactionCircuit,
     ups_start::UPSStartSessionCircuit,
 };
-use psy_rust_sdk::{
-    provider::{ProveProxyRpcProvider, UPSCircuitManagerTrait},
+#[cfg(not(target_arch = "wasm32"))]
+use psy_provider::provider::ProveProxyRpcProvider;
+use psy_provider::{
+    common::{SoftwareDefinedSignatureInput, SoftwareDefinedSignatureWitnessInput, UPSCircuitManagerTrait},
     request::QAggProofRecord,
 };
 use psy_vm::{dpn::contract::cfc_code_definition_to_dapen_fc, vm::cfc_input::DapenContractFunctionCircuitInput};
@@ -349,10 +351,7 @@ where
         self.secp_circuit.prove(&signature)
     }
 
-    async fn register_software_defined_circuit(
-        &self,
-        input: psy_rust_sdk::wallet::software_defined_circuit::SoftwareDefinedSignatureInput,
-    ) -> anyhow::Result<QHashOut<C::F>> {
+    async fn register_software_defined_circuit(&self, input: SoftwareDefinedSignatureInput) -> anyhow::Result<QHashOut<C::F>> {
         unimplemented!("register_software_defined_circuit");
     }
 
@@ -360,7 +359,7 @@ where
         &self,
         fingerprint: QHashOut<C::F>,
         private_key: QHashOut<C::F>,
-        input: psy_rust_sdk::wallet::software_defined_circuit::SoftwareDefinedSignatureWitnessInput,
+        input: SoftwareDefinedSignatureWitnessInput,
         sig_hash: QHashOut<C::F>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         unimplemented!("prove_software_defined_sign");
@@ -778,10 +777,7 @@ where
         }
     }
 
-    async fn register_software_defined_circuit(
-        &self,
-        input: psy_rust_sdk::wallet::software_defined_circuit::SoftwareDefinedSignatureInput,
-    ) -> anyhow::Result<QHashOut<C::F>> {
+    async fn register_software_defined_circuit(&self, input: SoftwareDefinedSignatureInput) -> anyhow::Result<QHashOut<C::F>> {
         match self {
             QCircuitManager::Local(_) => unreachable!(),
             QCircuitManager::Rpc(provider) => provider.register_software_defined_circuit(input).await,
@@ -792,7 +788,7 @@ where
         &self,
         fingerprint: QHashOut<C::F>,
         private_key: QHashOut<C::F>,
-        input: psy_rust_sdk::wallet::software_defined_circuit::SoftwareDefinedSignatureWitnessInput,
+        input: SoftwareDefinedSignatureWitnessInput,
         sig_hash: QHashOut<C::F>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         match self {

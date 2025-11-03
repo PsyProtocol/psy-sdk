@@ -10,8 +10,11 @@ use plonky2::{
     plonk::config::{AlgebraicHasher, GenericConfig, PoseidonGoldilocksConfig},
 };
 use psy_common_circuit::circuits::traits::qstandard::QStandardCircuit;
-use psy_core::{
-    config::network_constants::{MAX_CONTRACT_STATE_TREE_HEIGHT, PSY_NETWORK_MAGIC_REGTEST, TOKEN_CONTRACT_ID, UPS_SESSION_PROOF_TREE_HEIGHT},
+use psy_config::{
+    network_constants::{MAX_CONTRACT_STATE_TREE_HEIGHT, TOKEN_CONTRACT_ID, UPS_SESSION_PROOF_TREE_HEIGHT},
+    PSY_NETWORK_MAGIC, MINING_REWARDS_CONTRACT_ID,
+};
+use psy_common::{
     data::qhashout::QHashOut,
     job::id::{ProvingJobCircuitType, VariableHeightRewardMerkleProof, GUTA_REWARDS_TREE_MAX_HEIGHT},
     traits::to_qfelts::ToQFelts,
@@ -35,11 +38,12 @@ use psy_data::{
     traits::qdatastore::{qmetadata::QMetaDataStoreReaderSync, qtreedata::QTreeDataStoreReaderSync},
 };
 use psy_dpn_circuit::circuits::cfc::DapenContractFunctionCircuit;
-// Import from SDK
-use psy_rust_sdk::{
-    provider::{ProveProxyRpcProvider, QUserRpcProvider, RpcConfig, RpcProvider, UPSCircuitManagerTrait},
+// Import from provider crate
+use psy_provider::{
+    common::UPSCircuitManagerTrait,
+    provider::{NetworkConfig, ProveProxyRpcProvider, QUserRpcProvider, RpcProvider},
+    request::QSoftwareDefinedSignatureWitnessInput,
     request::{QDeployContractRPCRequest, QRegisterUserRPCRequest, QSubmitEndCapRPCRequest},
-    wallet::software_defined_circuit::QSoftwareDefinedSignatureWitnessInput,
 };
 use psy_ups_circuit::{
     circuit_manager::core::{PsyUPSStepCircuitManager, QCircuitManager},
@@ -54,7 +58,7 @@ use tracing::warn;
 
 use crate::{
     local::args::{ContractCallArgs, JobInfo, JobLocation, SignData, SignType, WalletSessionArgs},
-    session::{build_claim_calls_for_multi_checkpoints, ProofWithCheckpoint, MINING_REWARDS_CONTRACT_ID},
+    session::{build_claim_calls_for_multi_checkpoints, ProofWithCheckpoint},
     wallet::{
         memory_wallet::PsyMemoryWallet,
         simple_sign::StateReader,
@@ -231,8 +235,8 @@ impl UserSessionStateManager {
     }
 }
 
-// Use TxStatus from SDK
-pub use psy_rust_sdk::session::TxStatus;
+// Use TxStatus from provider crate
+pub use psy_provider::session::TxStatus;
 
 pub struct WalletSession {
     pub wallet: PsyMemoryWallet,
@@ -247,7 +251,7 @@ pub struct WalletSession {
 #[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
 #[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
 impl WalletSession {
-    pub async fn new(rpc_config: &RpcConfig) -> anyhow::Result<Self> {
+    pub async fn new(rpc_config: &psy_config::NetworkConfigGoldilocks) -> anyhow::Result<Self> {
         tracing::info!("init rpc provider");
         let st_provider = RpcProvider::new_with_config(rpc_config)?;
 
@@ -264,7 +268,7 @@ impl WalletSession {
         }
         if main_circuits.is_empty() {
             tracing::warn!("no valid prove proxy url, use local circuit manager");
-            main_circuits.push(Box::new(PsyUPSStepCircuitManager::<C, D>::new_with_config(PSY_NETWORK_MAGIC_REGTEST)));
+            main_circuits.push(Box::new(PsyUPSStepCircuitManager::<C, D>::new_with_config(PSY_NETWORK_MAGIC)));
         }
 
         let mut circuit_info = SessionCircuitInfoStore::new();
@@ -291,7 +295,6 @@ impl WalletSession {
         Ok(WalletSession {
             wallet,
             wallet_keys_store: DashMap::new(),
-            // main_circuits,
             circuit_info,
             st_provider,
             user_session_mgrs: DashMap::new(),
@@ -619,7 +622,7 @@ impl WalletSession {
             .get_mut(&public_key)
             .ok_or_else(|| anyhow::format_err!("user {} not found", public_key.to_string()))?;
 
-        let sighash = user_session_mgr.mgr.get_sighash(PSY_NETWORK_MAGIC_REGTEST, user_session_mgr.nonce);
+        let sighash = user_session_mgr.mgr.get_sighash(PSY_NETWORK_MAGIC, user_session_mgr.nonce);
 
         tracing::info!("zk sign for signhash: {}", sighash.to_string());
         let signature_proof = match sign_type {
@@ -747,7 +750,7 @@ impl WalletSession {
 
         tracing::info!(
             "prove end cap with network magic {:x}, nonce {}, fingerprint {}, public key param {}, signature proof {:?}",
-            PSY_NETWORK_MAGIC_REGTEST,
+            PSY_NETWORK_MAGIC,
             user_session_mgr.nonce,
             circuit_fingerprint,
             public_key_param,
@@ -758,7 +761,7 @@ impl WalletSession {
             .mgr
             .prove_end_cap(
                 self.wallet.random_circuit_manager().as_ref(),
-                PSY_NETWORK_MAGIC_REGTEST,
+                PSY_NETWORK_MAGIC,
                 nonce,
                 circuit_fingerprint,
                 public_key_param,
@@ -907,7 +910,7 @@ impl WalletSession {
         let last_checkpoint = all_proofs_with_checkpoints.last().unwrap().checkpoint_id;
 
         all_contract_calls.push(ContractCallArgs {
-            contract_id: MINING_REWARDS_CONTRACT_ID,
+            contract_id: MINING_REWARDS_CONTRACT_ID as u64,
             method_name: "end_session".to_string(),
             inputs: vec![last_checkpoint],
         });
@@ -971,9 +974,8 @@ pub struct WalletKeyPair {
 
 // #[cfg(feature = "is_sync")]
 pub async fn run(args: WalletSessionArgs) -> anyhow::Result<()> {
-    let config_str = std::fs::read_to_string(&args.rpc_config)?;
-    let json_value: serde_json::Value = serde_json::from_str(&config_str)?;
-    let rpc_config: RpcConfig = serde_json::from_value(json_value["network"].clone())?;
+    let psy_config = psy_config::PsyConfigGoldilocks::from_file(&args.rpc_config)?;
+    let rpc_config = psy_config.get_current_network()?;
     let private_key = QHashOut::<F>::from_str(&args.private_key).map_err(|e| anyhow::format_err!("{}", e.to_string()))?;
     let contract_call_args: Vec<ContractCallArgs> = serde_json::from_str(&std::fs::read_to_string(args.contract_calls)?)?;
 
@@ -1003,9 +1005,8 @@ mod tests {
         let private_key0 = QHashOut::<GoldilocksField>::from_str("17c975c2668ebe0ca7c87f67c6414ebb7fd664f46370a0af2a3b204c8824ac5a")?;
         let private_key1 = QHashOut::<GoldilocksField>::from_str("f07f91a0bdc0df4ec763285ba0eb578cb6e7a0811c3150494ab54e56f761fc1d")?;
 
-        let config_str = std::fs::read_to_string(Path::new(&project_path).join("../../../config.json"))?;
-        let json_value: serde_json::Value = serde_json::from_str(&config_str)?;
-        let rpc_config: RpcConfig = serde_json::from_value(json_value["network"].clone())?;
+        let psy_config = psy_config::PsyConfigGoldilocks::from_file(&Path::new(&project_path).join("../../../config.json").to_string_lossy())?;
+        let rpc_config = psy_config.get_current_network()?;
 
         let circuit_defs = serde_json::from_str::<Vec<DPNFunctionCircuitDefinition>>(&std::fs::read_to_string(
             Path::new(&project_path).join("../examples/target/examples.json"),
@@ -1106,9 +1107,8 @@ mod tests {
         let private_key0 = QHashOut::<GoldilocksField>::from_str("17c975c2668ebe0ca7c87f67c6414ebb7fd664f46370a0af2a3b204c8824ac5a")?;
         let private_key1 = QHashOut::<GoldilocksField>::from_str("f07f91a0bdc0df4ec763285ba0eb578cb6e7a0811c3150494ab54e56f761fc1d")?;
 
-        let config_str = std::fs::read_to_string(Path::new(&project_path).join("../../../config.json"))?;
-        let json_value: serde_json::Value = serde_json::from_str(&config_str)?;
-        let rpc_config: RpcConfig = serde_json::from_value(json_value["network"].clone())?;
+        let psy_config = psy_config::PsyConfigGoldilocks::from_file(&Path::new(&project_path).join("../../../config.json").to_string_lossy())?;
+        let rpc_config = psy_config.get_current_network()?;
 
         let circuit_defs = serde_json::from_str::<Vec<DPNFunctionCircuitDefinition>>(&std::fs::read_to_string(
             Path::new(&project_path).join("../examples/target/examples.json"),

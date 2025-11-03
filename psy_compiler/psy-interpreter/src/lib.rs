@@ -785,6 +785,10 @@ impl<F: ContextFelt + From<u32>, C: DPNContext<F> + 'static> Interpreter<F, C> {
                 match ctx_node {
                     CheckedIntrinsicExprNode::GetUserId { .. } => CheckedValueRef::from_felt(self.context.get_user_id()),
                     CheckedIntrinsicExprNode::GetContractId { .. } => CheckedValueRef::from_felt(self.context.get_contract_id()),
+                    CheckedIntrinsicExprNode::GetContractDeployer { contract_id, type_id, .. } => {
+                        let contract_id = self.interpret_expr(program, contract_id.clone(), ctx)?.to_felt();
+                        CheckedValueRef::from_vec(type_id.clone(), self.context.get_contract_deployer(contract_id))
+                    }
                     CheckedIntrinsicExprNode::GetCallerContractId { .. } => CheckedValueRef::from_felt(self.context.get_caller_contract_id()),
                     CheckedIntrinsicExprNode::GetCheckpointId { .. } => CheckedValueRef::from_felt(self.context.get_checkpoint_id()),
                     CheckedIntrinsicExprNode::GetLastNonce { .. } => CheckedValueRef::from_felt(self.context.get_last_nonce()),
@@ -1525,7 +1529,8 @@ mod tests {
     use insta::assert_snapshot;
     use plonky2::field::{goldilocks_field::GoldilocksField, types::Field};
     use psy_common_circuit::circuits::zk_signature3::manager::SimplePsyZKSignatureManager;
-    use psy_core::{config::network_constants::GLOBAL_USER_TREE_HEIGHT, data::qhashout::QHashOut};
+    use psy_config::network_constants::GLOBAL_USER_TREE_HEIGHT;
+    use psy_common::data::qhashout::QHashOut;
     use psy_crypto::signature::zk::wallet::SimplePsyPrivateKey;
     use psy_data::{
         config::store_config::{PsyHasher, C, D},

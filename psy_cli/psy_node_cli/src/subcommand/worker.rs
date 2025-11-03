@@ -12,10 +12,8 @@ use plonky2::{
     hash::hash_types::HashOut,
     plonk::config::GenericHashOut,
 };
-use psy_core::{
-    config::network_constants::get_default_worker_public_key,
-    data::{base_types::hash256::Hash256, qhashout::QHashOut},
-};
+use psy_config::{get_default_worker_public_key, PSY_NETWORK_MAGIC};
+use psy_common::data::{base_types::hash256::Hash256, qhashout::QHashOut};
 use psy_crypto::{common::simple_circuit_library::SimpleCircuitLibrary, hash::traits::qhashable::QFieldHashable};
 use psy_data::config::store_config::{PsyFelt, PsyHash, PsyHasher};
 use psy_network_circuit::coordinator::coordinator_helper::PsyCoordinatorCircuitManager;
@@ -63,8 +61,7 @@ pub async fn run(
     info!("Worker starting...");
     info!("Loading config from: {}", config);
 
-    let config_str = fs::read_to_string(&config)?;
-    let config: psy_rust_sdk::provider::Config = serde_json::from_str(&config_str)?;
+    let config = psy_rust_sdk::provider::Config::from_file(&config)?;
 
     let wallet = Wallet::load(
         private_key.as_deref(),
@@ -77,7 +74,7 @@ pub async fn run(
     let wallet = Arc::new(wallet);
 
     let main_circuits = psy_ups_circuit::circuit_manager::core::QCircuitManager::Local(PsyUPSStepCircuitManager::<C, D>::new_with_config(
-        psy_core::config::network_constants::PSY_NETWORK_MAGIC_REGTEST,
+        psy_config::network_constants::PSY_NETWORK_MAGIC,
     ));
 
     let mut memory_wallet = psy_prover::wallet::memory_wallet::PsyMemoryWallet::new(vec![Box::new(main_circuits)]);
@@ -88,7 +85,8 @@ pub async fn run(
 
     let proof_verifier = Arc::new(get_cached_generic_verifier::<C, D>());
 
-    let worker_coordinator_client = WorkerCoordinatorClient::new(&config.network.coordinator_configs[0].rpc_url[0]).await?;
+    let network = config.get_current_network()?;
+    let worker_coordinator_client = WorkerCoordinatorClient::new(&network.coordinator_configs[0].rpc_url[0]).await?;
 
     // Use retry_with_backoff from retry.rs
     let retry_config = RetryConfig {
@@ -119,7 +117,7 @@ pub async fn run(
 
     let mut handles = Vec::new();
 
-    for coordinator_config in &config.network.coordinator_configs {
+    for coordinator_config in &network.coordinator_configs {
         for rpc_url in &coordinator_config.rpc_url {
             let handle = tokio::spawn(run_worker(
                 rpc_url.clone(),
@@ -135,7 +133,7 @@ pub async fn run(
         }
     }
 
-    for realm_config in &config.network.realm_configs {
+    for realm_config in &network.realm_configs {
         for rpc_url in &realm_config.rpc_url {
             let handle = tokio::spawn(run_worker(
                 rpc_url.clone(),

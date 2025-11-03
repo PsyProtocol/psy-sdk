@@ -4,7 +4,7 @@ use plonky2::plonk::{
     config::{AlgebraicHasher, GenericConfig},
     proof::ProofWithPublicInputs,
 };
-use psy_core::data::qhashout::QHashOut;
+use psy_common::data::qhashout::QHashOut;
 use psy_crypto::signature::zk::wallet::SimplePrivateKey;
 
 use crate::circuits::{

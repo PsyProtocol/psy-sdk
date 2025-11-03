@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use anyhow::Result;
-use psy_core::job::id::{LayerId, QProvingJobDataID};
+use psy_common::job::id::{LayerId, QProvingJobDataID};
 use psy_store::queue::{QueueId, RsmqQueue};
 
 use crate::{

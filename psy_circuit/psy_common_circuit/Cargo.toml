@@ -18,8 +18,9 @@ bitflags = { workspace = true }
 bincode = { workspace = true }
 hashbrown = { workspace = true }
 kvq = { workspace = true }
+psy_config = { workspace = true }
 psy_crypto = { workspace = true }
-psy_core = { workspace = true }
+psy_common = { workspace = true }
 psy_data = { workspace = true }
 async-trait = { workspace = true }
 tracing = { workspace = true }
