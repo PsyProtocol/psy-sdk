@@ -891,7 +891,7 @@ impl<
         Ok(())
     }
 
-    pub async fn build_block(&self, new_checkpoint_id: u64,slot: u64) -> anyhow::Result<(QProvingJobDataID, Vec<QueueOffsetState>)> {
+    pub async fn build_block(&self, slot: u64) -> anyhow::Result<(QProvingJobDataID, Vec<QueueOffsetState>)> {
         self.task_store.clear_task_graph().await?;
 
         let last_blockstate = self.store.get_latest_block_state().await?;
