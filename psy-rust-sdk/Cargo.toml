@@ -1,0 +1,73 @@
+[package]
+edition = "2021"
+name    = "psy_rust_sdk"
+version = "0.1.0"
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+maybe-async = "0.2"
+async-trait = "0.1.88"
+anyhow = "1.0.75"
+serde = { version = "1.0.193", features = ["derive"] }
+serde_json = "1.0"
+serde_repr = "0.1.19"
+serde_with = { version = "3.4.0", features = ["hex"] }
+plonky2 = { git = "https://github.com/PsyProtocol/plonky2-hwa", rev = "5bf6940a3ea2d27e854931787e93bb46be27ffa3" }
+tracing = "0.1.40"
+serde_cbor = "0.11.2"
+clap = { version = "4.5.39", features = ["derive", "env"] }
+ts-rs = "10.1.0"
+dashmap = "6.1"
+
+kvq = { git = "https://github.com/PsyProtocol/psy-core", rev = "b87fd2200a7e2edeb029a46771edd3ec65ad0626" }
+psy_common = { git = "https://github.com/PsyProtocol/psy-core", rev = "b87fd2200a7e2edeb029a46771edd3ec65ad0626" }
+psy_config = { git = "https://github.com/PsyProtocol/psy-core", rev = "b87fd2200a7e2edeb029a46771edd3ec65ad0626" }
+psy_common_circuit = { git = "https://github.com/PsyProtocol/psy-circuit", rev = "8b9cfc169f4ebc5eba4de870c648e30d7c16df30", default-features = false }
+psy_network_circuit = { git = "https://github.com/PsyProtocol/psy-circuit", rev = "8b9cfc169f4ebc5eba4de870c648e30d7c16df30", default-features = false }
+psy_vm = { git = "https://github.com/PsyProtocol/psy-core", rev = "b87fd2200a7e2edeb029a46771edd3ec65ad0626", default-features = false }
+psy_data = { git = "https://github.com/PsyProtocol/psy-core", rev = "b87fd2200a7e2edeb029a46771edd3ec65ad0626", default-features = false }
+psy_crypto = { git = "https://github.com/PsyProtocol/psy-core", rev = "b87fd2200a7e2edeb029a46771edd3ec65ad0626" }
+
+wasm-bindgen = "0.2"
+console_error_panic_hook = "0.1"
+wasm-logger = "0.2"
+wasm-tracing = "2.0"
+cfg-if = "1.0"
+web-sys = "0.3"
+js-sys = "0.3"
+wasm-bindgen-futures = "0.4"
+serde-wasm-bindgen = "0.6"
+
+k256 = { version = "0.13.2", features = ["arithmetic", "ecdsa", "pkcs8", "precomputed-tables", "schnorr", "signature", "std", "serde"] }
+
+rand = "0.8.5"
+getrandom = { version = "0.2", features = ["js"] }
+hex = "0.4.3"
+
+psy_provider = { git = "https://github.com/PsyProtocol/psy-circuit", rev = "8b9cfc169f4ebc5eba4de870c648e30d7c16df30" }
+
+# Native-only dependencies
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+psy_prover = { git = "https://github.com/PsyProtocol/psy-circuit", rev = "8b9cfc169f4ebc5eba4de870c648e30d7c16df30" }
+
+# WASM-specific dependencies
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+reqwest = { version = "0.12", default-features = false, features = ["json"] }
+getrandom = { version = "0.2", features = ["js"] }
+
+
+[package.metadata.wasm-pack.profile.release]
+wasm-opt = ["-O", "--enable-bulk-memory", "--enable-nontrapping-float-to-int"]
+
+[features]
+# default = ["is_sync"]
+is_sync = [
+    "psy_data/is_sync",
+    "maybe-async/is_sync",
+    "psy_vm/is_sync",
+    "psy_common_circuit/is_sync",
+    "psy_network_circuit/is_sync",
+]

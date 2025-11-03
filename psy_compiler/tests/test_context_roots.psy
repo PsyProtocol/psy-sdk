@@ -1,9 +1,0 @@
-fn main() -> [Hash; 3] {
-    let checkpoint_id: Felt = 0;
-
-    let register_users_root = get_register_users_root(checkpoint_id);
-    let gutas_root = get_gutas_root(checkpoint_id);
-    let deploy_contracts_root = get_deploy_contracts_root(checkpoint_id);
-
-    [register_users_root, gutas_root, deploy_contracts_root]
-}

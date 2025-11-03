@@ -1,8 +1,0 @@
-fn not_equal(x: Felt, y: Felt) -> bool {
-    x != y
-}
-
-#[test]
-fn test_not_equal() {
-    assert(not_equal(1, 2), "1 != 2");
-}

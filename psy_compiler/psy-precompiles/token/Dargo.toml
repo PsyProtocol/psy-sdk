@@ -1,7 +1,0 @@
-[package]
-name = "token"
-type = "bin"
-authors = [""]
-
-[dependencies]
-# mining_rewards = { path = "../mining_rewards" }
