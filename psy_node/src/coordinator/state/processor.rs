@@ -251,6 +251,7 @@ impl<
 
         let start_contract_id = last_blockstate.next_contract_id;
 
+        let now = Instant::now();
         for (i, dc) in deploy_contract_items.iter().enumerate() {
             let contract_id = start_contract_id as u64 + i as u64;
             self.store
@@ -277,6 +278,7 @@ impl<
                 .set_contract_leaf_data_imm(checkpoint_id, start_contract_id as u64 + i as u64, l)
                 .await?;
         }
+        tracing::debug!("deploy contract cost time: {:?}", now.elapsed());
         let next_contract_id = start_contract_id + new_contract_leaves.len() as u32;
         let mut psb = ProofStoreBuilder::new();
         let now = Instant::now();
