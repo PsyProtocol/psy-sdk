@@ -192,8 +192,8 @@ impl ContractMonitorService {
             contract_uuid,
             checkpoint_id: contract_metadata.checkpoint_id,
             contract_id: contract_metadata.contract_id,
-            deployer: format!("{}", contract_metadata.deployer.to_string_le()),
-            function_whitelist_root: format!("{}", contract_metadata.function_whitelist_root.to_string_le()),
+            deployer: format!("{}", contract_metadata.deployer.to_string()),
+            function_whitelist_root: format!("{}", contract_metadata.function_whitelist_root.to_string()),
             metadata: metadata_json, // Store complete UserContractMetadata as JSONB
             timestamp: current_datetime(),
         };
