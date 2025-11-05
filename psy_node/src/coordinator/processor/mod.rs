@@ -332,11 +332,12 @@ impl
     pub async fn build_block(&self, next_checkpoint_id: u64, slot: u64) -> anyhow::Result<u64> {
         let ctx = self.ctx.clone();
         let now = Instant::now();
-        if let Err(e) = ctx.build_block(slot).await {
+        let ret = ctx.build_block(slot).await;
+        if let Err(e) = ret {
             ctx.rollback(next_checkpoint_id).await?;
             bail!("Rollback: Failed to build and prove block: {}", e);
         }
-        let (pair_to_set, remove_keys) = match self.ctx.commit(next_checkpoint_id).await {
+        let (pair_to_set, remove_keys) = match self.ctx.commit(next_checkpoint_id, ret.unwrap()).await {
             Ok((pair_to_set, remove_keys)) => (pair_to_set, remove_keys),
             Err(e) => {
                 ctx.rollback(next_checkpoint_id).await?;

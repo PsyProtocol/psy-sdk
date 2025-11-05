@@ -5,3 +5,5 @@ pub mod kvq_merkle;
 pub mod realm_status;
 pub mod staging;
 pub mod user;
+pub mod snapshot;
+pub mod realm_root_version;

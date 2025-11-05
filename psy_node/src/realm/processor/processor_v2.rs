@@ -114,7 +114,6 @@ use crate::{
     },
     coordinator::client_v2::ConcreteCoordinatorClient,
     realm::{
-        processor::{ConcreteRealmProcessorContext, SyncCheckpointResult},
         state::{
             edge_queue_helper::RealmEdgeQueueHelper, processor::RealmConfig, processor_v2::RealmProcessorContextV2, queue_factory::QueueFactory,
         },

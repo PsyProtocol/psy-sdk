@@ -401,6 +401,16 @@ impl CoordinatorEdgeHandler {
         Ok(())
     }
 
+    pub async fn has_pending_guta(&self, realm_id: u32) -> anyhow::Result<bool> {
+        let guta :Vec<SubmitGUTARealmResultAPIQueueItem<GoldilocksField>> = self.history_queue.peek_all(self.ctx.coordinator_config.guta_channel_id).await?;
+        for guta_item in guta.iter() {
+            if guta_item.realm_id == realm_id as u64{
+                return Ok(true);
+            }
+        }
+        Ok(false)
+    }
+
     pub async fn get_checkpoint_sync_info(&self, realm_id: u32, request_checkpoint_id: u64) -> anyhow::Result<CheckpointSyncInfo<F>> {
         let latest = self.get_latest_checkpoint_id().await?;
 
@@ -662,7 +672,7 @@ use psy_store::queue::{
     task_queue::{current_timestamp_millis, JobValidationStatus, QJob, QProvingTaskStore, QProvingTaskStoreImpl},
 };
 use serde::Serialize;
-
+use psy_store::queue::redis_queue::CheckpointDrainQueueConsumerAsyncImmWithPosition;
 use super::{error::RpcError, rpc::CoordinatorEdgeRpcServer, types::LatestCheckpointResponse};
 use crate::{
     common::{
@@ -708,6 +718,12 @@ impl CoordinatorEdgeRpcServer for CoordinatorEdgeHandler {
         self.submit_guta(input, proof, realm_id)
             .await
             .map(|_| "ok".to_string())
+            .map_err(RpcError::Anyhow)
+    }
+
+    async fn has_pending_guta(&self, realm_id: u32) -> RpcResult<bool> {
+        self.has_pending_guta(realm_id)
+            .await
             .map_err(RpcError::Anyhow)
     }
 
@@ -777,6 +793,13 @@ impl CoordinatorEdgeRpcServer for CoordinatorEdgeHandler {
     async fn get_checkpoint_sync_info_compact(&self, checkpoint_id: u64) -> RpcResult<QCheckpointSyncInfoCompact> {
         self.get_checkpoint_sync_info_compact(checkpoint_id).await.map_err(RpcError::Anyhow)
     }
+
+    async fn get_latest_checkpoint_sync_info(&self, realm_id: u32) -> RpcResult<CheckpointSyncInfo<F>> {
+        let latest_checkpoint_id = self.get_latest_checkpoint_id().await.map_err(RpcError::Anyhow)?;
+        let sync_info = self.get_checkpoint_sync_info(realm_id, latest_checkpoint_id).await.map_err(RpcError::Anyhow)?;
+        Ok(sync_info)
+    }
+
 
     async fn get_contract_leaf_data(&self, contract_id: u64) -> RpcResult<PsyContractLeaf<F>> {
         self.get_contract_leaf_data(contract_id).await.map_err(RpcError::Anyhow)

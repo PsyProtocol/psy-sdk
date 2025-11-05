@@ -26,6 +26,8 @@ use crate::{
         realm_status::RealmStatusModel,
         staging::{staging_checkpoint_info::StagingCheckpointInfoModel, staging_delta_record::StagingDeltaRecordModelCore},
         user::user_leaf::UserLeafModel,
+        snapshot::RealmSnapshotModel,
+        realm_root_version::RealmRootVersionModel,
     },
     qdata::{
         checkpoint::{PsyBlockState, PsyCheckpointLeaf},
@@ -90,6 +92,9 @@ pub const REALM_STATUS_TABLE_TYPE: u16 = 20;
 
 // Contract id table type
 pub const CONTRACT_METADATA_TABLE_TYPE: u16 = 21;
+
+pub const REALM_SNAPSHOT_TABLE_TYPE: u16 = 22;
+pub const REALM_ROOT_VERSION_TABLE_TYPE: u16 = 23;
 
 // Legacy - kept for backward compatibility, should not be used for new trees
 pub const PROTOCOL_TREE_TABLE_TYPE: u16 = 100;

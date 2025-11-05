@@ -20,3 +20,4 @@ pub mod ups_signature;
 pub mod user;
 pub mod user_contract_state;
 pub mod user_public_key;
+pub mod realm_snapshot_key;
