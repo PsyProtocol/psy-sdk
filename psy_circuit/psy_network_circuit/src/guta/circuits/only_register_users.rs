@@ -10,6 +10,13 @@ use plonky2::{
         proof::ProofWithPublicInputs,
     },
 };
+use psy_common::{
+    data::qhashout::QHashOut,
+    job::{
+        id::{ProvingJobCircuitType, QProvingJobDataID},
+        traits::QProofStoreReaderAsync,
+    },
+};
 use psy_common_circuit::{
     builder::{
         comparison::CircuitBuilderComparison,
@@ -23,13 +30,6 @@ use psy_common_circuit::{
 use psy_config::{
     network_constants::{GLOBAL_USER_TREE_HEIGHT, REALM_USER_TREE_HEIGHT},
     DEFAULT_USER_STATE_TREE_ROOT_U64,
-};
-use psy_common::{
-    data::qhashout::QHashOut,
-    job::{
-        id::{ProvingJobCircuitType, QProvingJobDataID},
-        traits::QProofStoreReaderAsync,
-    },
 };
 use psy_crypto::{common::circuit_library::CircuitInfoLibrary, hash::traits::hasher::MerkleZeroHasher};
 use psy_data::{

@@ -7,13 +7,6 @@ use plonky2::{
     hash::hash_types::RichField,
     plonk::config::PoseidonGoldilocksConfig,
 };
-use psy_config::{
-    get_default_user_state_tree_root, get_default_worker_public_key,
-    network_constants::{
-        BATCH_USER_REGISTRAITION_SUB_TREE_HEIGHT, COORDINATOR_EDGE_TO_PROCESSOR_CHANNEL, COORDINATOR_USER_TREE_HEIGHT, GLOBAL_CONTRACT_TREE_HEIGHT,
-        GLOBAL_USER_TREE_HEIGHT, MAX_CONTRACT_STATE_TREE_HEIGHT, REALM_USER_TREE_HEIGHT, USERS_PER_REALM,
-    },
-};
 use psy_common::{
     data::qhashout::QHashOut,
     job::{
@@ -21,6 +14,13 @@ use psy_common::{
         history_queue::{CheckpointHistoryQueueConsumerAsyncImm, CheckpointHistoryQueueEmitterAsyncImm},
         traits::{QProofStoreAsyncImm, QProofStoreReaderAsync, QProofStoreWriterAsyncImm},
         worker_queue::{WorkerEventReceiverAsyncImm, WorkerEventTransmitterAsyncImm},
+    },
+};
+use psy_config::{
+    get_default_user_state_tree_root, get_default_worker_public_key,
+    network_constants::{
+        BATCH_USER_REGISTRAITION_SUB_TREE_HEIGHT, COORDINATOR_EDGE_TO_PROCESSOR_CHANNEL, COORDINATOR_USER_TREE_HEIGHT, GLOBAL_CONTRACT_TREE_HEIGHT,
+        GLOBAL_USER_TREE_HEIGHT, MAX_CONTRACT_STATE_TREE_HEIGHT, REALM_USER_TREE_HEIGHT, USERS_PER_REALM,
     },
 };
 use psy_crypto::{

@@ -5,9 +5,9 @@ use std::{clone::Clone, collections::HashMap, ops::Deref};
 use num_bigint::BigUint;
 use plonky2::field::{goldilocks_field::GoldilocksField, types::Field};
 use psy_ast::{ModuleId, VisitorContext};
+use psy_common::data::qhashout::QHashOut;
 use psy_common_circuit::circuits::zk_signature3::manager::SimplePsyZKSignatureManager;
 use psy_config::network_constants::GLOBAL_USER_TREE_HEIGHT;
-use psy_common::data::qhashout::QHashOut;
 use psy_crypto::signature::zk::wallet::SimplePsyPrivateKey;
 use psy_data::{
     config::store_config::{PsyHasher, C, D},

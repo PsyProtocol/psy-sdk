@@ -19,13 +19,6 @@ use plonky2::{
     hash::hash_types::RichField,
     plonk::config::PoseidonGoldilocksConfig,
 };
-use psy_common_circuit::hash::merkle::gadgets::delta_merkle_proof;
-use psy_config::{
-    network_constants::{
-        COORDINATOR_USER_TREE_HEIGHT, GLOBAL_CONTRACT_TREE_HEIGHT, GLOBAL_USER_TREE_HEIGHT, MAX_CONTRACT_STATE_TREE_HEIGHT, REALM_USER_TREE_HEIGHT,
-    },
-    GenesisConfigGoldilocks as GenesisConfig,
-};
 use psy_common::{
     data::qhashout::QHashOut,
     job::{
@@ -34,6 +27,13 @@ use psy_common::{
         worker_queue::WorkerEventTransmitterAsyncImm,
     },
     utils::graph::BidirectionalGraph,
+};
+use psy_common_circuit::hash::merkle::gadgets::delta_merkle_proof;
+use psy_config::{
+    network_constants::{
+        COORDINATOR_USER_TREE_HEIGHT, GLOBAL_CONTRACT_TREE_HEIGHT, GLOBAL_USER_TREE_HEIGHT, MAX_CONTRACT_STATE_TREE_HEIGHT, REALM_USER_TREE_HEIGHT,
+    },
+    GenesisConfigGoldilocks as GenesisConfig,
 };
 use psy_crypto::{
     common::{

@@ -1,8 +1,8 @@
 use std::{collections::HashMap, fmt::Display};
 
 use kvq::traits::{KVQPair, KVQSerializable};
-use psy_config::network_constants::CST_USER_UPDATE_CHANNEL_ID;
 use psy_common::job::drain_queue::{DrainQueueMetadata, DrainQueueMetadataTagged};
+use psy_config::network_constants::CST_USER_UPDATE_CHANNEL_ID;
 use psy_crypto::hash::{
     merkle::{
         core::DeltaMerkleProofCore,

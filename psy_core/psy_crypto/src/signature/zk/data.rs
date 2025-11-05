@@ -1,10 +1,10 @@
 use kvq::traits::KVQSerializable;
 use plonky2::{field::goldilocks_field::GoldilocksField, hash::hash_types::RichField};
-use psy_config::network_constants::COORD_API_REGISTER_USER_CHANNEL_ID;
 use psy_common::{
     data::qhashout::QHashOut,
     job::drain_queue::{DrainQueueMetadata, DrainQueueMetadataTagged},
 };
+use psy_config::network_constants::COORD_API_REGISTER_USER_CHANNEL_ID;
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 

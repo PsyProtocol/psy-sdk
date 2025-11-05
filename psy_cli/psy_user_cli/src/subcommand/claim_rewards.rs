@@ -10,12 +10,15 @@ use plonky2::{
     hash::hash_types::HashOut,
     plonk::config::PoseidonGoldilocksConfig,
 };
-use psy_common_circuit::circuits::zk_signature3::manager::SimplePsyZKSignatureManager;
-use psy_config::{MINING_REWARDS_CONTRACT_ID, network_constants::{MAX_CONTRACT_STATE_TREE_HEIGHT, TOKEN_CONTRACT_ID}};
 use psy_common::{
-    JobInfo, JobLocation,
     data::{base_types::hash256::Hash256, qhashout::QHashOut},
     job::id::{ProvingJobCircuitType, QProvingJobDataID, VariableHeightRewardMerkleProof, GUTA_REWARDS_TREE_MAX_HEIGHT},
+    JobInfo, JobLocation,
+};
+use psy_common_circuit::circuits::zk_signature3::manager::SimplePsyZKSignatureManager;
+use psy_config::{
+    network_constants::{MAX_CONTRACT_STATE_TREE_HEIGHT, TOKEN_CONTRACT_ID},
+    MINING_REWARDS_CONTRACT_ID,
 };
 use psy_crypto::signature::zk::wallet::SimplePsyPrivateKey;
 use psy_data::{

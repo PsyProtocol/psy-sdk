@@ -1,7 +1,6 @@
 use std::{
     collections::{HashMap, HashSet, VecDeque},
     hash::Hash,
-    ops::Deref,
 };
 
 use indexmap::IndexSet;

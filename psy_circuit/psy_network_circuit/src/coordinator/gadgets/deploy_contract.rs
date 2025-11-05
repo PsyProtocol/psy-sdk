@@ -4,11 +4,11 @@ use plonky2::{
     iop::witness::Witness,
     plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher},
 };
+use psy_common::data::qhashout::QHashOut;
 use psy_common_circuit::{
     builder::connect::CircuitBuilderConnectHelpers, hash::merkle::gadgets::spiderman_append_proof::SpidermanAppendProofGadget,
     traits::CreatableTarget,
 };
-use psy_common::data::qhashout::QHashOut;
 use psy_crypto::hash::merkle::spiderman::SpidermanUpdateProof;
 use psy_data::qdata::contract::PsyContractLeaf;
 

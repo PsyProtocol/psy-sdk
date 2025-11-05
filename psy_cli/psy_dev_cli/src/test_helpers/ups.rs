@@ -5,16 +5,16 @@ use plonky2::{
     hash::poseidon::PoseidonHash,
     plonk::{config::PoseidonGoldilocksConfig, proof::ProofWithPublicInputs},
 };
-use psy_common_circuit::{
-    circuits::{traits::qstandard::QStandardCircuit, zk_signature3::manager::SimplePsyZKSignatureManager},
-    wallet::zk::SimpleZKSignatureWallet,
-};
-use psy_config::PSY_NETWORK_MAGIC;
 use psy_common::{
     data::qhashout::QHashOut,
     job::{drain_queue::CheckpointDrainQueueEmitterAsyncImm, traits::QProofStoreAsyncImm},
     utils::debug_timer::DebugTimer,
 };
+use psy_common_circuit::{
+    circuits::{traits::qstandard::QStandardCircuit, zk_signature3::manager::SimplePsyZKSignatureManager},
+    wallet::zk::SimpleZKSignatureWallet,
+};
+use psy_config::PSY_NETWORK_MAGIC;
 use psy_crypto::{common::user_id::get_user_id_from_registration_id, signature::zk::wallet::SimplePsyPrivateKey};
 use psy_data::{
     config::store_config::PsyHasher, guta::end_cap_input::SubmitUserEndCapNonProofInput, qstore::imm::cmd_processor::PsyReadCommandProcessorSync,

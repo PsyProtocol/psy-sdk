@@ -1,11 +1,8 @@
-use std::str::FromStr;
-
 use chrono::{Duration, Utc};
 #[cfg(not(target_arch = "wasm32"))]
 use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
 use serde::{Deserialize, Serialize};
 pub use tracing::Level;
-use tracing_subscriber::{prelude::*, EnvFilter};
 
 pub const JWT_COMPANY: &str = "PsyProtocol";
 pub const JWT_SUBJECT: &str = "psylang-rust";

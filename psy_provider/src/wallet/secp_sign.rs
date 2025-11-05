@@ -9,8 +9,8 @@ use std::{
 use alloy_primitives::{keccak256, Address, B256, U256};
 use anyhow::{Context, Result};
 use plonky2::field::goldilocks_field::GoldilocksField;
-use psy_config::PSY_NETWORK_MAGIC;
 use psy_common::data::qhashout::QHashOut;
+use psy_config::PSY_NETWORK_MAGIC;
 use serde::{Deserialize, Serialize};
 
 use crate::wallet::secp_wallet::Wallet;

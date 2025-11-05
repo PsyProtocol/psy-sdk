@@ -1,8 +1,8 @@
 use anyhow::ensure;
 use kvq::traits::KVQSerializable;
 use plonky2::{field::goldilocks_field::GoldilocksField, hash::hash_types::RichField};
-use psy_config::network_constants::CONTRACT_FUNCTION_TREE_HEIGHT;
 use psy_common::data::qhashout::QHashOut;
+use psy_config::network_constants::CONTRACT_FUNCTION_TREE_HEIGHT;
 use psy_crypto::hash::{merkle::utils::simple_merkle_tree::SimpleMerkleTree, traits::hasher::MerkleZeroHasher};
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;

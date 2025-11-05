@@ -7,8 +7,6 @@ use plonky2::{
     hash::hash_types::{HashOut, RichField},
     plonk::config::{AlgebraicHasher, GenericConfig, PoseidonGoldilocksConfig},
 };
-use psy_common_circuit::circuits::{traits::qstandard::QStandardCircuit, zk_signature3::manager::SimplePsyZKSignatureManager};
-use psy_config::{network_constants::UPS_SESSION_PROOF_TREE_HEIGHT, PSY_NETWORK_MAGIC};
 use psy_common::{
     data::qhashout::QHashOut,
     job::{
@@ -21,6 +19,8 @@ use psy_common::{
     ups::circuits::LocalCircuitType,
     utils::debug_timer::DebugTimer,
 };
+use psy_common_circuit::circuits::{traits::qstandard::QStandardCircuit, zk_signature3::manager::SimplePsyZKSignatureManager};
+use psy_config::{network_constants::UPS_SESSION_PROOF_TREE_HEIGHT, PSY_NETWORK_MAGIC};
 use psy_crypto::{
     common::{generic_circuit_verifier::GenericCircuitVerifier, simple_circuit_library::SimpleCircuitLibrary},
     hash::traits::{

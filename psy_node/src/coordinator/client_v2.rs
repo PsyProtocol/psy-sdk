@@ -10,8 +10,8 @@ use tracing::{error, info, trace};
 use crate::{
     common::retry::{RetryConfig, Retryable},
     common_v2::traits::realm::*,
+    coordinator::edge::rpc::CoordinatorEdgeRpcClient,
 };
-use crate::coordinator::edge::rpc::CoordinatorEdgeRpcClient;
 
 type F = PsyFelt;
 type C = PoseidonGoldilocksConfig;
@@ -111,17 +111,15 @@ impl CoordinatorClient<F> for ConcreteCoordinatorClient {
         })
         .await
     }
-    async fn has_pending_guta(
-        &self,
-        realm_id: u32,
-    ) -> anyhow::Result<bool> {
-        self.retry_with_backoff("has_pending_guta", || async {
-            self.rpc_client.has_pending_guta(realm_id).await
-        })
-        .await
+    async fn has_pending_guta(&self, realm_id: u32) -> anyhow::Result<bool> {
+        self.retry_with_backoff("has_pending_guta", || async { self.rpc_client.has_pending_guta(realm_id).await })
+            .await
     }
 
     async fn get_latest_checkpoint_sync_info(&self, realm_id: u32) -> anyhow::Result<CheckpointSyncInfo<F>> {
-        self.rpc_client.get_latest_checkpoint_sync_info(realm_id).await.map_err(|e| anyhow::anyhow!(e))
+        self.rpc_client
+            .get_latest_checkpoint_sync_info(realm_id)
+            .await
+            .map_err(|e| anyhow::anyhow!(e))
     }
 }

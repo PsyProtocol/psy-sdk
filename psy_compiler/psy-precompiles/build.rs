@@ -199,11 +199,7 @@ fn generate_precompiled_contracts(config: &PrecompilesBuildConfigGoldilocks, out
     constants.push_str("// Generated contract ID constants\n\n");
 
     for (index, contract) in config.contracts.iter().enumerate() {
-        constants.push_str(&format!(
-            "pub const {}_CONTRACT_ID: u32 = {};\n",
-            contract.name.to_uppercase(),
-            index
-        ));
+        constants.push_str(&format!("pub const {}_CONTRACT_ID: u32 = {};\n", contract.name.to_uppercase(), index));
     }
 
     let contracts_file = out_path.join("precompiled_contracts.rs");

@@ -10,18 +10,18 @@ use plonky2::{
         verifier_v2::verify_standard_proof,
     },
 };
-use psy_common_circuit::{
-    builder::hash::core::CircuitBuilderHashCore,
-    circuits::traits::qstandard::{QStandardCircuit, QStandardCircuitProvableWithProofStoreAndRefLibraryAsync},
-    proof_minifier::{pm_chain_dynamic::PsyProofMinifierDynamicChain, pm_core::get_circuit_fingerprint_generic},
-    traits::ToTargets,
-};
 use psy_common::{
     data::qhashout::QHashOut,
     job::{
         id::{ProvingJobCircuitType, QProvingJobDataID},
         traits::QProofStoreReaderAsync,
     },
+};
+use psy_common_circuit::{
+    builder::hash::core::CircuitBuilderHashCore,
+    circuits::traits::qstandard::{QStandardCircuit, QStandardCircuitProvableWithProofStoreAndRefLibraryAsync},
+    proof_minifier::{pm_chain_dynamic::PsyProofMinifierDynamicChain, pm_core::get_circuit_fingerprint_generic},
+    traits::ToTargets,
 };
 use psy_crypto::{
     common::circuit_library::CircuitInfoLibrary,

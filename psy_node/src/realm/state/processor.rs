@@ -9,13 +9,6 @@ use plonky2::{
     field::types::{Field, PrimeField64},
     plonk::{config::PoseidonGoldilocksConfig, proof::ProofWithPublicInputs},
 };
-use psy_config::{
-    get_default_user_state_tree_root,
-    network_constants::{
-        COORDINATOR_USER_TREE_HEIGHT, COORD_API_GUTA_FROM_REALMS_CHANNEL_ID, CST_USER_UPDATE_CHANNEL_ID, GLOBAL_USER_TREE_HEIGHT,
-        REALM_API_GUTA_FROM_USER_CHANNEL_ID, REALM_API_UPDATE_CONTRACT_STATE_TREE_CHANNEL_ID, REALM_USER_TREE_HEIGHT,
-    },
-};
 use psy_common::{
     data::qhashout::QHashOut,
     job::{
@@ -26,6 +19,13 @@ use psy_common::{
         worker_queue::WorkerEventTransmitterAsyncImm,
     },
     utils::graph::BidirectionalGraph,
+};
+use psy_config::{
+    get_default_user_state_tree_root,
+    network_constants::{
+        COORDINATOR_USER_TREE_HEIGHT, COORD_API_GUTA_FROM_REALMS_CHANNEL_ID, CST_USER_UPDATE_CHANNEL_ID, GLOBAL_USER_TREE_HEIGHT,
+        REALM_API_GUTA_FROM_USER_CHANNEL_ID, REALM_API_UPDATE_CONTRACT_STATE_TREE_CHANNEL_ID, REALM_USER_TREE_HEIGHT,
+    },
 };
 use psy_crypto::{
     common::{
@@ -59,7 +59,7 @@ use psy_data::{
 use psy_store::{
     node::realm::{PsyRealmStoreReaderAsync, PsyRealmStoreWriterAsyncImm},
     queue::{
-        redis_queue::{CheckpointDrainQueueConsumerAsyncImmWithPosition,QueueOffsetState, MAX_CHECKPOINT_COUNT},
+        redis_queue::{CheckpointDrainQueueConsumerAsyncImmWithPosition, QueueOffsetState, MAX_CHECKPOINT_COUNT},
         task_queue::QProvingTaskStore,
         QPendingUserStoreAsyncImm,
     },
@@ -302,7 +302,7 @@ impl<
                     .await?;
 
                 guta_graph.add_node(w_id.get_output_id());
-                return Ok((vec![vec![w_id]], guta, proof, guta_graph,consumption_state));
+                return Ok((vec![vec![w_id]], guta, proof, guta_graph, consumption_state));
             } else {
                 tracing::debug!("No jobs to process");
                 let guta_new = GlobalUserTreeAggregatorHeader {
@@ -353,7 +353,7 @@ impl<
         } else if pending_register_users.len() == 0 {
             if guta.state_transition.node_level == F::from_canonical_u8(COORDINATOR_USER_TREE_HEIGHT) {
                 tracing::debug!("Processing top level GUTA");
-                return Ok((jobs, guta, proof, guta_graph,consumption_state));
+                return Ok((jobs, guta, proof, guta_graph, consumption_state));
             } else {
                 tracing::debug!("Processing non-top level GUTA");
                 let w_id = QProvingJobDataID::new(
@@ -657,13 +657,7 @@ impl<
             self.proof_store
                 .set_bytes_by_id(id.get_input_witness_id(), &bincode::serialize(&single)?)
                 .await?;
-            return Ok((
-                vec![vec![id]],
-                single.input.get_new_guta_header(),
-                r.link_proof,
-                graph,
-                consumption_state,
-            ));
+            return Ok((vec![vec![id]], single.input.get_new_guta_header(), r.link_proof, graph, consumption_state));
         }
 
         let mnu = guta_queue_items
@@ -971,7 +965,11 @@ impl<
         Ok(())
     }
 
-    pub async fn commit(&self, checkpoint_id: u64, queue_offset_state: Vec<QueueOffsetState>) -> anyhow::Result<(Vec<kvq::traits::KVQPair<Vec<u8>, Vec<u8>>>, Vec<Vec<u8>>)> {
+    pub async fn commit(
+        &self,
+        checkpoint_id: u64,
+        queue_offset_state: Vec<QueueOffsetState>,
+    ) -> anyhow::Result<(Vec<kvq::traits::KVQPair<Vec<u8>, Vec<u8>>>, Vec<Vec<u8>>)> {
         let (pair_to_set, remove_keys) = self.store.commit(Some(checkpoint_id))?;
         self.commit_offset(checkpoint_id, queue_offset_state).await?;
         self.task_store.save_job_dependency_graph(checkpoint_id).await?;
@@ -987,5 +985,4 @@ impl<
         let last_l2_blockstate = self.store.get_latest_block_state().await?;
         Ok(last_l2_blockstate.checkpoint_id)
     }
-
 }

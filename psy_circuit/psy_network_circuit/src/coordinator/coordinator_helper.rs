@@ -6,6 +6,13 @@ use plonky2::{
         proof::ProofWithPublicInputs,
     },
 };
+use psy_common::{
+    data::qhashout::QHashOut,
+    job::{
+        id::{ProvingJobCircuitType, QProvingJobDataID},
+        traits::QProofStoreReaderAsync,
+    },
+};
 use psy_common_circuit::{
     circuits::traits::qstandard::{QStandardCircuit, QStandardCircuitProvableWithProofStoreAndRefLibraryAsync},
     treeprover::{
@@ -16,13 +23,6 @@ use psy_common_circuit::{
 use psy_config::network_constants::{
     BATCH_DEPLOY_CONTRACT_SUB_TREE_HEIGHT, BATCH_USER_REGISTRAITION_MAX_SUB_TREES, BATCH_USER_REGISTRAITION_SUB_TREE_HEIGHT,
     GLOBAL_CONTRACT_TREE_HEIGHT, GLOBAL_USER_TREE_HEIGHT,
-};
-use psy_common::{
-    data::qhashout::QHashOut,
-    job::{
-        id::{ProvingJobCircuitType, QProvingJobDataID},
-        traits::QProofStoreReaderAsync,
-    },
 };
 use psy_crypto::{
     common::{

@@ -1,7 +1,7 @@
 use kvq::traits::{KVQBinaryStore, KVQSerializable};
 use plonky2::hash::hash_types::RichField;
-use psy_config::network_constants::REALM_USER_TREE_HEIGHT;
 use psy_common::{data::qhashout::QHashOut, utils::math::ceil_div_usize};
+use psy_config::network_constants::REALM_USER_TREE_HEIGHT;
 
 use crate::qdata::staging_delta_record_key::StagingDeltaRecordKey;
 

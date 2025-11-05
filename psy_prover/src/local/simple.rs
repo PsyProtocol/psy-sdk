@@ -9,11 +9,11 @@ use plonky2::{
         proof::ProofWithPublicInputs,
     },
 };
-use psy_config::get_default_worker_public_key;
 use psy_common::{
     data::qhashout::QHashOut,
     job::{id::QProvingJobDataID, traits::QProofStore},
 };
+use psy_config::get_default_worker_public_key;
 use psy_crypto::hash::{merkle::utils::sub_tree_nca::PartialUpdateNearestCommonAncestorProof, traits::hasher::MerkleZeroHasher};
 use psy_data::{
     guta::{

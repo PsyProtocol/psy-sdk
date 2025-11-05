@@ -9,6 +9,10 @@ use plonky2::{
         proof::ProofWithPublicInputs,
     },
 };
+use psy_common::{
+    data::{alt::AltVerifierOnlyCircuitData, qhashout::QHashOut},
+    ups::circuits::LocalCircuitType,
+};
 use psy_common_circuit::{
     circuits::{
         secp256k1_signature::Secp256K1SignatureCircuit, traits::qstandard::QStandardCircuit, zk_signature3::core::PsyBasicZKSignatureCircuit,
@@ -22,10 +26,6 @@ use psy_common_circuit::{
     },
 };
 use psy_config::network_constants::{UPS_CIRCUIT_WHITELIST_TREE_HEIGHT, UPS_SESSION_PROOF_TREE_HEIGHT};
-use psy_common::{
-    data::{alt::AltVerifierOnlyCircuitData, qhashout::QHashOut},
-    ups::circuits::LocalCircuitType,
-};
 use psy_crypto::{
     common::{
         circuit_library::CircuitInfoLibraryBuilder,

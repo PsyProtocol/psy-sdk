@@ -1,6 +1,5 @@
 use kvq::traits::KVQSerializable;
 use plonky2::hash::hash_types::RichField;
-use psy_config::network_constants::PSY_CHECKPOINT_SYNC_INFO_COMPACT_DRAIN_QUEUE_CHANNEL;
 use psy_common::{
     data::qhashout::QHashOut,
     job::{
@@ -8,6 +7,7 @@ use psy_common::{
         history_queue::{HistoryQueueMetadata, HistoryQueueMetadataTagged},
     },
 };
+use psy_config::network_constants::PSY_CHECKPOINT_SYNC_INFO_COMPACT_DRAIN_QUEUE_CHANNEL;
 use psy_crypto::{
     hash::{
         merkle::{

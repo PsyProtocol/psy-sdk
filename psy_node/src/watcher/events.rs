@@ -12,13 +12,11 @@ use crate::watcher::timeout_watcher::WatcherSourceNodeType;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum WatcherMessage {
-    // User operations - immediate reporting
     UserRegistration(UserRegistrationEvent),
     DeployContract(UserDeployContractEvent),
     GutaSubmission(UserGutaSubmissionEvent),
     EndcapSubmission(UserEndcapSubmissionEvent),
 
-    // Job status - immediate reporting
     JobPending(JobPendingEvent),
     JobStarted(JobStartedEvent),
     JobCompleted(JobCompletedEvent),

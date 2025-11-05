@@ -11,11 +11,6 @@ use plonky2::{
     field::types::Field,
     plonk::{config::PoseidonGoldilocksConfig, proof::ProofWithPublicInputs},
 };
-use psy_config::network_constants::{
-    BATCH_DEPLOY_CONTRACT_SUB_TREE_HEIGHT, BATCH_USER_REGISTRAITION_MAX_SUB_TREES, BATCH_USER_REGISTRAITION_SUB_TREE_HEIGHT,
-    COORDINATOR_USER_TREE_HEIGHT, COORD_API_DEPLOY_CONTRACT_CHANNEL_ID, COORD_API_GUTA_FROM_REALMS_CHANNEL_ID, COORD_API_REGISTER_USER_CHANNEL_ID,
-    CST_USER_UPDATE_CHANNEL_ID, DA_CHALLENGE_WINDOW, REALM_USER_TREE_HEIGHT,
-};
 use psy_common::{
     data::qhashout::QHashOut,
     job::{
@@ -26,6 +21,11 @@ use psy_common::{
         worker_queue::WorkerEventTransmitterAsyncImm,
     },
     utils::graph::BidirectionalGraph,
+};
+use psy_config::network_constants::{
+    BATCH_DEPLOY_CONTRACT_SUB_TREE_HEIGHT, BATCH_USER_REGISTRAITION_MAX_SUB_TREES, BATCH_USER_REGISTRAITION_SUB_TREE_HEIGHT,
+    COORDINATOR_USER_TREE_HEIGHT, COORD_API_DEPLOY_CONTRACT_CHANNEL_ID, COORD_API_GUTA_FROM_REALMS_CHANNEL_ID, COORD_API_REGISTER_USER_CHANNEL_ID,
+    CST_USER_UPDATE_CHANNEL_ID, DA_CHALLENGE_WINDOW, REALM_USER_TREE_HEIGHT,
 };
 use psy_crypto::{
     common::{
@@ -278,7 +278,11 @@ impl<
                 .set_contract_leaf_data_imm(checkpoint_id, start_contract_id as u64 + i as u64, l)
                 .await?;
         }
-        tracing::debug!("deploy contract cost time: {:?}, deploy_contract_items len: {}", now.elapsed(), deploy_contract_items.len());
+        tracing::debug!(
+            "deploy contract cost time: {:?}, deploy_contract_items len: {}",
+            now.elapsed(),
+            deploy_contract_items.len()
+        );
         let next_contract_id = start_contract_id + new_contract_leaves.len() as u32;
         let mut psb = ProofStoreBuilder::new();
         let now = Instant::now();
@@ -516,10 +520,10 @@ impl<
         let last_checkpoint_tree_root = self.store.get_checkpoint_tree_root(last_checkpoint_id).await?;
         tracing::debug!("last_checkpoint_tree_root: {}", last_checkpoint_tree_root);
         //let mut guta_queue_items = guta_queue_items.into_iter().filter(|x| {
-        //     let is = x.checkpoint_id <= checkpoint_id && x.checkpoint_id >= checkpoint_id.saturating_sub(2);//todo: fix this
-        //     if !is {
-        //         warn!("Filtering GUTA queue items for checkpoint_id: {}, current guta checkpoint_id: {}", checkpoint_id, x.checkpoint_id);
-        //     }
+        //     let is = x.checkpoint_id <= checkpoint_id && x.checkpoint_id >=
+        // checkpoint_id.saturating_sub(2);//todo: fix this     if !is {
+        //         warn!("Filtering GUTA queue items for checkpoint_id: {}, current guta
+        // checkpoint_id: {}", checkpoint_id, x.checkpoint_id);     }
         //     is
         // }).collect::<Vec<_>>();
 
@@ -1231,7 +1235,7 @@ impl<
         let (user_registration_jobs, user_registration_transition, new_accounts, regsitered_users_start_pivot_siblings, user_reg_graph, offset_state) =
             self.handle_user_registrations(new_checkpoint_id, slot).await?;
 
-        let (guta_jobs, guta_transition, guta_graph,mut offset_states) = self.handle_guta_from_realms(new_checkpoint_id, slot).await?;
+        let (guta_jobs, guta_transition, guta_graph, mut offset_states) = self.handle_guta_from_realms(new_checkpoint_id, slot).await?;
         offset_states.push(offset_state);
         // Set the job dependency graphs
         self.task_store.set_job_dependency_graph(deploy_graph, user_reg_graph, guta_graph).await?;
@@ -1474,7 +1478,11 @@ impl<
         Ok(false)
     }
 
-    pub async fn commit(&self, checkpoint_id: u64, offset_states: Vec<QueueOffsetState>) -> anyhow::Result<(Vec<kvq::traits::KVQPair<Vec<u8>, Vec<u8>>>, Vec<Vec<u8>>)> {
+    pub async fn commit(
+        &self,
+        checkpoint_id: u64,
+        offset_states: Vec<QueueOffsetState>,
+    ) -> anyhow::Result<(Vec<kvq::traits::KVQPair<Vec<u8>, Vec<u8>>>, Vec<Vec<u8>>)> {
         let (pair_to_set, remove_keys) = self.store.commit(None)?;
         for offset_state in offset_states.iter() {
             self.checkpoint_queue.commit_offset(offset_state).await?;

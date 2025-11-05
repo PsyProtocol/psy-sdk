@@ -172,10 +172,9 @@ where
         // );
         let endcap_checkpoint_id = user_ec_input.core.checkpoint_id.to_canonical_u64();
         if endcap_checkpoint_id != checkpoint_id {
-            tracing::warn!(
+            warn!(
                 "user cap checkpoint is behind current checkpoint: {} != {}",
-                endcap_checkpoint_id,
-                checkpoint_id
+                endcap_checkpoint_id, checkpoint_id
             );
         }
 
@@ -238,10 +237,9 @@ where
         ensure!(historical_root == user_ec_input.core.state_transition.checkpoint_tree_root_hash);
 
         if checkpoint_proof.root != user_ec_input.core.state_transition.checkpoint_tree_root_hash {
-            tracing::warn!(
+            warn!(
                 "ensure checkpoint_proof: {} == user_ec_input.core.state_transition.checkpoint_tree_root_hash {}",
-                checkpoint_proof.root,
-                user_ec_input.core.state_transition.checkpoint_tree_root_hash,
+                checkpoint_proof.root, user_ec_input.core.state_transition.checkpoint_tree_root_hash,
             );
             // anyhow::bail!("invalid checkpoint_root_hash");
         }
@@ -759,7 +757,7 @@ where
                     };
 
                     if computed_root != expected_root {
-                        tracing::warn!(
+                        warn!(
                             "Root mismatch for job({}): expected {}, got {}",
                             job_id.to_hex_string(),
                             expected_root,

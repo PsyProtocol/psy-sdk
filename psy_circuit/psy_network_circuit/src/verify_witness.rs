@@ -1,5 +1,4 @@
 use plonky2::{field::types::Field, plonk::proof::ProofWithPublicInputs};
-use psy_config::network_constants::{COORDINATOR_USER_TREE_HEIGHT, REALM_USER_TREE_HEIGHT};
 use psy_common::{
     data::qhashout::QHashOut,
     job::{
@@ -7,6 +6,7 @@ use psy_common::{
         traits::QProofStoreAsyncImm,
     },
 };
+use psy_config::network_constants::{COORDINATOR_USER_TREE_HEIGHT, REALM_USER_TREE_HEIGHT};
 use psy_crypto::{
     common::{circuit_library::CircuitInfoLibraryCore, generic_circuit_verifier::GenericCircuitVerifier},
     hash::{

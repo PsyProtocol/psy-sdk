@@ -4,11 +4,11 @@ use plonky2::{
     hash::poseidon::PoseidonHash,
     plonk::{config::PoseidonGoldilocksConfig, proof::ProofWithPublicInputs},
 };
+use psy_common::data::qhashout::QHashOut;
 use psy_config::network_constants::{
     CHECKPOINT_TREE_HEIGHT, CONTRACT_FUNCTION_TREE_HEIGHT, GLOBAL_CONTRACT_TREE_HEIGHT, GLOBAL_DEPOSIT_TREE_HEIGHT, GLOBAL_USER_TREE_HEIGHT,
     GLOBAL_WITHDRAWAL_TREE_HEIGHT,
 };
-use psy_common::data::qhashout::QHashOut;
 use psy_crypto::hash::merkle::core::{DeltaMerkleProofCore, MerkleProofCore};
 
 use crate::{
@@ -23,11 +23,11 @@ use crate::{
             key::KVQMerkleNodeKey,
             model::{KVQFixedConfigMerkleTreeModel, KVQMerkleTreeModel, KVQSemiFixedConfigMerkleTreeModel},
         },
+        realm_root_version::RealmRootVersionModel,
         realm_status::RealmStatusModel,
+        snapshot::RealmSnapshotModel,
         staging::{staging_checkpoint_info::StagingCheckpointInfoModel, staging_delta_record::StagingDeltaRecordModelCore},
         user::user_leaf::UserLeafModel,
-        snapshot::RealmSnapshotModel,
-        realm_root_version::RealmRootVersionModel,
     },
     qdata::{
         checkpoint::{PsyBlockState, PsyCheckpointLeaf},

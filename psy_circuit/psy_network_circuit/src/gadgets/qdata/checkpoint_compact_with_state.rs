@@ -4,8 +4,8 @@ use plonky2::{
     iop::witness::Witness,
     plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher},
 };
-use psy_common_circuit::traits::{AlgebraicHashableTarget, CreatableTarget, CreatableWithHasherTarget, WitnessValueFor};
 use psy_common::data::qhashout::QHashOut;
+use psy_common_circuit::traits::{AlgebraicHashableTarget, CreatableTarget, CreatableWithHasherTarget, WitnessValueFor};
 use psy_data::qdata::checkpoint::{PsyCheckpointGlobalStateRoots, PsyCheckpointLeafCompactWithStateRoots};
 
 use super::{checkpoint::PsyCheckpointLeafCompactGadget, checkpoint_state_roots::PsyCheckpointGlobalStateRootsGadget};
