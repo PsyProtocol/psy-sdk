@@ -12,26 +12,6 @@ fn main() -> Result<()> {
     let out_dir = env::var("OUT_DIR")?;
     let out_path = std::path::Path::new(&out_dir);
 
-    // Set DARGO_STD_PATH if not already set
-    if env::var("DARGO_STD_PATH").is_err() {
-        let manifest_path = Path::new(&manifest_dir);
-        
-        // Navigate from psy_compiler/psy-precompiles to workspace root
-        let workspace_root = manifest_path
-            .parent()  // -> psy_compiler
-            .and_then(|p| p.parent())  // -> workspace root
-            .ok_or_else(|| anyhow::anyhow!("Failed to determine workspace root"))?;
-        
-        let std_path = workspace_root.join("psy_compiler/psy-std/std.psy");
-        
-        if !std_path.exists() {
-            anyhow::bail!("std.psy not found at: {}", std_path.display());
-        }
-        
-        env::set_var("DARGO_STD_PATH", &std_path);
-        println!("cargo:warning=Set DARGO_STD_PATH to {}", std_path.display());
-    }
-
     // Use local precompiles.json configuration
     let precompiles_config_path = Path::new(&manifest_dir).join("precompiles.json");
 

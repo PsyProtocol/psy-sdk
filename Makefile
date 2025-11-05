@@ -1,4 +1,3 @@
-export DARGO_STD_PATH := $(PWD)/psy_compiler/psy-std/std.psy
 export SQLX_OFFLINE=true
 
 PROFILE := release

@@ -11,7 +11,7 @@ pub use files::*;
 pub use package::*;
 // Individual re-exports for backward compatibility
 pub use package::{CrateName, Dependency, Package, PackageType};
-pub use workspace::{Workspace, *};
+pub use workspace::Workspace;
 
 pub const FILE_EXTENSION: &str = "psy";
 
@@ -42,7 +42,6 @@ struct PackageConfig {
 
 const STD_GIT_PATH_HTTPS: &str = "https://github.com/PsyProtocol/psy-v1";
 const STD_GIT_PATH_SSH: &str = "git@github.com:PsyProtocol/psy-v1.git";
-const STD_TAG: &str = "v0.0.1-rc";
 const TAG_LATEST: &str = "latest";
 const STD_FILE: &str = "psy_compiler/psy-std/std.psy";
 
@@ -60,9 +59,9 @@ impl PackageConfig {
         };
 
         if std::env::var("DARGO_STD_PATH").is_err() {
-            let psy_path = try_clone_std("feature/psy-lang-realms")?;
+            let std_path = resolve_std_path()?;
             unsafe {
-                std::env::set_var("DARGO_STD_PATH", psy_path.join(STD_FILE));
+                std::env::set_var("DARGO_STD_PATH", std_path);
             }
         }
 
@@ -118,14 +117,65 @@ impl PackageConfig {
     }
 }
 
+/// Try to resolve the std library path from multiple sources:
+/// 1. Check DARGO_STD_PATH environment variable
+/// 2. Search relative paths from current file location (using file!() macro)
+/// 3. Search relative paths from CARGO_MANIFEST_DIR
+/// 4. As a last resort, try to clone from git
+fn resolve_std_path() -> Result<PathBuf, ManifestError> {
+    // 1. Check environment variable first
+    if let Ok(std_path) = std::env::var("DARGO_STD_PATH") {
+        let path = PathBuf::from(std_path);
+        if path.exists() {
+            return Ok(path);
+        }
+    }
+
+    // 2. Try to find std.psy relative to current source file
+    let current_file = std::path::Path::new(file!());
+    if let Some(package_dir) = current_file.parent().and_then(|p| p.parent()) {
+        // From psy-package/src/lib.rs -> psy_compiler/psy-package -> psy_compiler
+        let std_path = package_dir.join("psy-std/std.psy");
+        if std_path.exists() {
+            if let Ok(canonical) = std_path.canonicalize() {
+                return Ok(canonical);
+            }
+        }
+    }
+
+    // 3. Try to find std.psy relative to CARGO_MANIFEST_DIR
+    if let Ok(cargo_dir) = std::env::var("CARGO_MANIFEST_DIR") {
+        let candidates = [
+            "../psy-std/std.psy",              // from psy-package -> psy_compiler/psy-std
+            "../../psy-std/std.psy",           // fallback
+            "../../../psy-std/std.psy",        // fallback
+            "../psy_compiler/psy-std/std.psy", // from workspace root
+            "../../psy_compiler/psy-std/std.psy", // from nested dirs
+        ];
+
+        for candidate in &candidates {
+            let std_path = PathBuf::from(&cargo_dir).join(candidate);
+            if std_path.exists() {
+                if let Ok(canonical) = std_path.canonicalize() {
+                    return Ok(canonical);
+                }
+            }
+        }
+    }
+
+    // 4. Last resort: try to clone from git
+    eprintln!("[Psy] Could not find psy-std locally, attempting to clone from git...");
+    try_clone_std("main")
+}
+
 pub fn try_clone_std(tag: &str) -> Result<PathBuf, ManifestError> {
     match clone_git_repo(STD_GIT_PATH_HTTPS, tag) {
-        Ok(path) => return Ok(path),
+        Ok(path) => return Ok(path.join(STD_FILE)),
         Err(e) => eprintln!("[Psy] HTTPS clone failed: {}", e),
     }
 
     match clone_git_repo(STD_GIT_PATH_SSH, tag) {
-        Ok(path) => Ok(path),
+        Ok(path) => Ok(path.join(STD_FILE)),
         Err(e) => {
             eprintln!("[Psy] SSH clone failed: {}", e);
             Err(ManifestError::GitError(format!(
