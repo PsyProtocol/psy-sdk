@@ -278,7 +278,7 @@ impl<
                 .set_contract_leaf_data_imm(checkpoint_id, start_contract_id as u64 + i as u64, l)
                 .await?;
         }
-        tracing::debug!("deploy contract cost time: {:?}", now.elapsed());
+        tracing::debug!("deploy contract cost time: {:?}, deploy_contract_items len: {}", now.elapsed(), deploy_contract_items.len());
         let next_contract_id = start_contract_id + new_contract_leaves.len() as u32;
         let mut psb = ProofStoreBuilder::new();
         let now = Instant::now();
