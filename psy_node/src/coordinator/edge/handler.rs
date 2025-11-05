@@ -167,7 +167,7 @@ impl CoordinatorEdgeHandler {
         info!("✅ User pushed to checkpoint queue.");
 
         // Convert public key to string representation
-        let public_key_str = format!("{}", public_key_hash.to_string_le());
+        let public_key_str = format!("{}", public_key_hash.to_string());
 
         // Report to watcher
         if let Err(e) = self.watcher_client.register_user(&public_key_str).await {
@@ -207,7 +207,6 @@ impl CoordinatorEdgeHandler {
         let function_count = contract.code_definition.functions.len();
 
         let with_root = contract.into_with_whitelist_root::<PsyHasher>()?;
-        let function_whitelist_root_str = format!("{}", with_root.function_whitelist_root.to_string_le());
 
         let cd_for_queue = WithDrainQueueMetadata::new_params(
             self.ctx.coordinator_config.deploy_contract_channel_id,
@@ -260,7 +259,7 @@ impl CoordinatorEdgeHandler {
         let expected_realm_checkpoint_tree_root =
             PsyCoordinatorStoreReaderAsync::get_checkpoint_tree_root(&self.store, input.checkpoint_id.saturating_sub(1)).await?;
         if expected_realm_checkpoint_tree_root != input.checkpoint_tree_root {
-            anyhow::bail!(
+            bail!(
                 "invalid checkpoint tree root {} from realm, expected {}",
                 input.checkpoint_tree_root,
                 expected_realm_checkpoint_tree_root
@@ -276,7 +275,7 @@ impl CoordinatorEdgeHandler {
             || input.top_line_proof.new_root != input.top_line_proof.new_value
             || input.top_line_proof.siblings.len() != 0
         {
-            anyhow::bail!("top line not currently supported for guta proofs");
+            bail!("top line not currently supported for guta proofs");
         }
 
         //if circuit type is GUTANoChange, disable the proof
@@ -285,7 +284,7 @@ impl CoordinatorEdgeHandler {
             return Ok(());
         }
         if input.top_line_proof.new_root == input.top_line_proof.old_root {
-            anyhow::bail!("⚠️ realm root should be different");
+            bail!("⚠️ realm root should be different");
         }
 
         // verify state consistency
@@ -297,21 +296,21 @@ impl CoordinatorEdgeHandler {
         info!("old root from db: {}", latest_realm_root);
         info!("old root from realm: {}", input.top_line_proof.old_root);
         if latest_realm_root != input.top_line_proof.old_root {
-            tracing::error!(
+            error!(
                 "invalid top line proof old value {} from realm, expected {}",
                 input.top_line_proof.old_root,
                 latest_realm_root
             );
-            anyhow::bail!("invalid top line proof old value from realm");
+            bail!("invalid top line proof old value from realm");
         }
         let top_line_proof_data = TopLineProofData {
-            old_root: format!("{}", input.top_line_proof.old_root.to_string_le()),
-            new_root: format!("{}", input.top_line_proof.new_root.to_string_le()),
-            old_value: format!("{}", input.top_line_proof.old_value.to_string_le()),
-            new_value: format!("{}", input.top_line_proof.new_value.to_string_le()),
+            old_root: format!("{}", input.top_line_proof.old_root.to_string()),
+            new_root: format!("{}", input.top_line_proof.new_root.to_string()),
+            old_value: format!("{}", input.top_line_proof.old_value.to_string()),
+            new_value: format!("{}", input.top_line_proof.new_value.to_string()),
         };
 
-        tracing::info!("✅ verified guta result proof public input: {:?} ", proof.public_inputs);
+        info!("✅ verified guta result proof public input: {:?} ", proof.public_inputs);
 
         // verify witness
         let guta_header = GlobalUserTreeAggregatorHeader {
@@ -328,12 +327,12 @@ impl CoordinatorEdgeHandler {
         let proof_public_inputs_hash = QHashOut::from_qfelts(&proof.public_inputs[11..15]);
         let expected_proof_public_inputs_hash = guta_header.qfhash::<PsyHasher>();
         if expected_proof_public_inputs_hash != proof_public_inputs_hash {
-            tracing::error!(
+            error!(
                 "ensure expected_proof_public_inputs_hash: {} == proof.public_inputs[11..15] {}",
                 expected_proof_public_inputs_hash,
                 proof_public_inputs_hash,
             );
-            anyhow::bail!("invalid realm submit guta proof public inputs hash");
+            bail!("invalid realm submit guta proof public inputs hash");
         }
 
         // verify proof
@@ -351,7 +350,7 @@ impl CoordinatorEdgeHandler {
                 "❌ Invalid checkpoint id from realm: {}, latest checkpoint id {}",
                 input.checkpoint_id, checkpoint_id
             );
-            anyhow::bail!("invalid checkpoint id from realm");
+            bail!("invalid checkpoint id from realm");
         }
 
         // build queue item
