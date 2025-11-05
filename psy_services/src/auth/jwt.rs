@@ -41,6 +41,7 @@ impl Claims {
 pub struct JwtManager {
     encoding_key: EncodingKey,
     decoding_key: DecodingKey,
+
     validation: Validation,
 }
 
