@@ -3,11 +3,11 @@ use plonky2::{
     field::goldilocks_field::GoldilocksField,
     hash::hash_types::{HashOut, RichField},
 };
-use psy_config::network_constants::DA_CHALLENGE_WINDOW;
 use psy_common::{
     data::qhashout::QHashOut,
     traits::to_qfelts::{QFeltSized, ToQFelts},
 };
+use psy_config::network_constants::DA_CHALLENGE_WINDOW;
 use psy_crypto::hash::traits::{hasher::FieldQHasher, qhashable::QFieldHashable};
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;

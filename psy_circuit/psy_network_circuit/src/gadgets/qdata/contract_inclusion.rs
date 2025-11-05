@@ -4,13 +4,13 @@ use plonky2::{
     iop::{target::Target, witness::Witness},
     plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher},
 };
+use psy_common::data::qhashout::QHashOut;
 use psy_common_circuit::{
     builder::core::CircuitBuilderHelpersCore,
     hash::merkle::gadgets::merkle_proof::MerkleProofGadget,
     traits::{CreatableTarget, CreatableWithHasherTarget, WitnessValueFor},
 };
 use psy_config::network_constants::{CONTRACT_FUNCTION_TREE_HEIGHT, GLOBAL_CONTRACT_TREE_HEIGHT};
-use psy_common::data::qhashout::QHashOut;
 use psy_crypto::hash::merkle::core::MerkleProofCore;
 use psy_data::qdata::{
     contract::PsyContractLeaf,

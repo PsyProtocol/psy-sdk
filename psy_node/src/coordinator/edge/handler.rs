@@ -244,7 +244,7 @@ impl CoordinatorEdgeHandler {
         &self,
         input: SubmitGUTARealmResultAPINoProofInput<PsyFelt>,
         proof: ProofWithPublicInputs<PsyFelt, PoseidonGoldilocksConfig, 2>,
-        realm_id: u64,
+        _realm_id: u64,
     ) -> anyhow::Result<()> {
         debug!("submit_guta input: {}", serde_json::to_string_pretty(&input)?);
         let checkpoint_id = self.get_latest_checkpoint_id().await?;
@@ -270,6 +270,7 @@ impl CoordinatorEdgeHandler {
         let proof_store = self.ctx.proof_store.clone();
         let config = self.ctx.coordinator_config.clone();
         let verifier = self.ctx.proof_verifier.clone();
+
         // verify top line proof
         if input.top_line_proof.old_root != input.top_line_proof.old_value
             || input.top_line_proof.new_root != input.top_line_proof.new_value
@@ -298,17 +299,10 @@ impl CoordinatorEdgeHandler {
         if latest_realm_root != input.top_line_proof.old_root {
             error!(
                 "invalid top line proof old value {} from realm, expected {}",
-                input.top_line_proof.old_root,
-                latest_realm_root
+                input.top_line_proof.old_root, latest_realm_root
             );
             bail!("invalid top line proof old value from realm");
         }
-        let top_line_proof_data = TopLineProofData {
-            old_root: format!("{}", input.top_line_proof.old_root.to_string()),
-            new_root: format!("{}", input.top_line_proof.new_root.to_string()),
-            old_value: format!("{}", input.top_line_proof.old_value.to_string()),
-            new_value: format!("{}", input.top_line_proof.new_value.to_string()),
-        };
 
         info!("✅ verified guta result proof public input: {:?} ", proof.public_inputs);
 
@@ -329,17 +323,13 @@ impl CoordinatorEdgeHandler {
         if expected_proof_public_inputs_hash != proof_public_inputs_hash {
             error!(
                 "ensure expected_proof_public_inputs_hash: {} == proof.public_inputs[11..15] {}",
-                expected_proof_public_inputs_hash,
-                proof_public_inputs_hash,
+                expected_proof_public_inputs_hash, proof_public_inputs_hash,
             );
             bail!("invalid realm submit guta proof public inputs hash");
         }
 
         // verify proof
         verifier.verify_proof_of_type(input.proof_id.circuit_type, &proof)?;
-
-        let realm_proof_public_inputs = proof.public_inputs.clone();
-        let circuit_type = input.proof_id.circuit_type;
 
         // Report GUTA submission to watcher with structured metadata
         let checkpoint_id = self.get_latest_checkpoint_id().await?;
@@ -368,23 +358,6 @@ impl CoordinatorEdgeHandler {
         let items_len: usize = checkpoint_queue.cdq_len_imm(metadata.channel_id).await?;
         debug!("Retrieved GUTA queue items: {} items, metadata: {:#?}", items_len, metadata);
 
-        // Report GUTA submission to watcher with structured metadata
-        let metadata = UserGutaSubmissionMetadata {
-            checkpoint_id,
-            circuit_type,
-            top_line_proof: top_line_proof_data,
-            realm_proof_public_inputs,
-            node_id: self.watcher_client.get_node_id().await.unwrap_or_default(),
-            node_type: "coordinator".to_string(),
-        };
-
-        if let Err(e) = self.watcher_client.submit_guta(realm_id, metadata).await {
-            // Log the error but don't fail the GUTA submission
-            warn!("❌ Failed to report GUTA submission to watcher: {}", e);
-        } else {
-            info!("📊 GUTA submission reported to watcher for realm_id: {}", realm_id);
-        }
-
         Ok(())
     }
 
@@ -402,9 +375,10 @@ impl CoordinatorEdgeHandler {
     }
 
     pub async fn has_pending_guta(&self, realm_id: u32) -> anyhow::Result<bool> {
-        let guta :Vec<SubmitGUTARealmResultAPIQueueItem<GoldilocksField>> = self.history_queue.peek_all(self.ctx.coordinator_config.guta_channel_id).await?;
+        let guta: Vec<SubmitGUTARealmResultAPIQueueItem<GoldilocksField>> =
+            self.history_queue.peek_all(self.ctx.coordinator_config.guta_channel_id).await?;
         for guta_item in guta.iter() {
-            if guta_item.realm_id == realm_id as u64{
+            if guta_item.realm_id == realm_id as u64 {
                 return Ok(true);
             }
         }
@@ -668,11 +642,11 @@ use psy_provider::{
     wallet::secp_sign::SignedRequest,
 };
 use psy_store::queue::{
-    redis_queue::NotificationQueue,
+    redis_queue::{CheckpointDrainQueueConsumerAsyncImmWithPosition, NotificationQueue},
     task_queue::{current_timestamp_millis, JobValidationStatus, QJob, QProvingTaskStore, QProvingTaskStoreImpl},
 };
 use serde::Serialize;
-use psy_store::queue::redis_queue::CheckpointDrainQueueConsumerAsyncImmWithPosition;
+
 use super::{error::RpcError, rpc::CoordinatorEdgeRpcServer, types::LatestCheckpointResponse};
 use crate::{
     common::{
@@ -722,9 +696,7 @@ impl CoordinatorEdgeRpcServer for CoordinatorEdgeHandler {
     }
 
     async fn has_pending_guta(&self, realm_id: u32) -> RpcResult<bool> {
-        self.has_pending_guta(realm_id)
-            .await
-            .map_err(RpcError::Anyhow)
+        self.has_pending_guta(realm_id).await.map_err(RpcError::Anyhow)
     }
 
     async fn submit_guta_v1(&self, input: SubmitGUTARealmResultAPINoProofInput<F>, proof: Vec<u8>, realm_id: u64) -> RpcResult<()> {
@@ -796,10 +768,12 @@ impl CoordinatorEdgeRpcServer for CoordinatorEdgeHandler {
 
     async fn get_latest_checkpoint_sync_info(&self, realm_id: u32) -> RpcResult<CheckpointSyncInfo<F>> {
         let latest_checkpoint_id = self.get_latest_checkpoint_id().await.map_err(RpcError::Anyhow)?;
-        let sync_info = self.get_checkpoint_sync_info(realm_id, latest_checkpoint_id).await.map_err(RpcError::Anyhow)?;
+        let sync_info = self
+            .get_checkpoint_sync_info(realm_id, latest_checkpoint_id)
+            .await
+            .map_err(RpcError::Anyhow)?;
         Ok(sync_info)
     }
-
 
     async fn get_contract_leaf_data(&self, contract_id: u64) -> RpcResult<PsyContractLeaf<F>> {
         self.get_contract_leaf_data(contract_id).await.map_err(RpcError::Anyhow)

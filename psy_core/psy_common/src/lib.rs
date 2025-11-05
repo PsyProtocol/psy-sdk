@@ -20,8 +20,7 @@ pub use arena::Arena;
 pub use error::*;
 pub use file_resolver::{FileId, FileResolver};
 pub use graph::Graph;
-pub use logging::*;
-pub use tree::{Tree, TreeNode};
-
 // Re-export commonly used job types
 pub use job::info::{JobInfo, JobLocation};
+pub use logging::*;
+pub use tree::{Tree, TreeNode};

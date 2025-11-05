@@ -139,7 +139,7 @@ impl<S: KVQBinaryStore> KVQBinaryStoreCachedTrait for KVQBinaryStoreCached<S> {
 
     fn flush_simple(&self, checkpoint_id: Option<u64>) -> anyhow::Result<(Vec<KVQPair<Vec<u8>, Vec<u8>>>, Vec<Vec<u8>>)> {
         let (keys_to_set, removed_keys) = {
-            let mut map = self.map.write();
+            let map = self.map.write();
             let keys_to_set: Vec<KVQPair<Vec<u8>, Vec<u8>>> = map
                 .iter()
                 .filter(|(_, vt)| match vt {

@@ -8,6 +8,7 @@ use plonky2::{
         proof::ProofWithPublicInputs,
     },
 };
+use psy_common::{data::qhashout::QHashOut, job::traits::QProofStoreReaderSync};
 use psy_common_circuit::{
     builder::pad_circuit::{pad_circuit_degree, CircuitBuilderPsyCommonGates},
     circuits::traits::qstandard::{provable::QStandardCircuitProvable, QStandardCircuit, QStandardCircuitProvableWithProofStoreSync},
@@ -15,7 +16,6 @@ use psy_common_circuit::{
     treeprover::qrecursion::standard::gadgets::attest_tree_aware_proof_in_tree::compute_tree_aware_proof_public_inputs,
 };
 use psy_config::network_constants::{UPS_CIRCUIT_WHITELIST_TREE_HEIGHT, UPS_SESSION_PROOF_TREE_HEIGHT};
-use psy_common::{data::qhashout::QHashOut, job::traits::QProofStoreReaderSync};
 use psy_crypto::hash::traits::hasher::MerkleZeroHasher;
 use psy_data::ups::ups_cfc_standard_step::UPSCFCDeferredTransactionCircuitInput;
 

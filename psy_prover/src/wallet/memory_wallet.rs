@@ -12,11 +12,11 @@ use plonky2::{
         proof::ProofWithPublicInputs,
     },
 };
+use psy_common::data::{base_types::hash256::Hash256, qhashout::QHashOut, secp256k1::CompressedPublicKey};
 use psy_common_circuit::circuits::{
     secp256k1_signature::Secp256K1SignatureCircuit, traits::qstandard::QStandardCircuit, zk_signature3::core::PsyBasicZKSignatureCircuit,
 };
 use psy_config::network_constants::{MAX_CONTRACT_STATE_TREE_HEIGHT, UPS_SESSION_PROOF_TREE_HEIGHT};
-use psy_common::data::{base_types::hash256::Hash256, qhashout::QHashOut, secp256k1::CompressedPublicKey};
 use psy_crypto::{
     hash::traits::{hasher::MerkleZeroHasher, qhashable::QFieldHashable},
     signature::{
@@ -253,8 +253,8 @@ mod tests {
 
     use anyhow::Result;
     use plonky2::{field::goldilocks_field::GoldilocksField, plonk::config::PoseidonGoldilocksConfig};
-    use psy_common_circuit::circuits::{secp256k1_signature::Secp256K1SignatureCircuit, traits::qstandard::QStandardCircuit};
     use psy_common::data::qhashout::QHashOut;
+    use psy_common_circuit::circuits::{secp256k1_signature::Secp256K1SignatureCircuit, traits::qstandard::QStandardCircuit};
 
     use super::*;
 

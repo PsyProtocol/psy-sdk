@@ -1,7 +1,7 @@
 use kvq::traits::KVQSerializable;
 use plonky2::hash::hash_types::{HashOut, RichField};
-use psy_config::network_constants::DA_CHALLENGE_WINDOW;
 use psy_common::data::qhashout::QHashOut;
+use psy_config::network_constants::DA_CHALLENGE_WINDOW;
 use psy_crypto::hash::{
     merkle::core::{DeltaMerkleProofCore, MerkleProofCore},
     traits::{hasher::FieldQHasher, qhashable::QFieldHashable},

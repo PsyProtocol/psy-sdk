@@ -10,7 +10,6 @@ use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use kvq::traits::KVQSerializable;
 use plonky2::plonk::{config::GenericConfig, proof::ProofWithPublicInputs};
-use psy_config::network_constants::COORDINATOR_EDGE_TO_PROCESSOR_CHANNEL;
 use psy_common::job::{
     drain_queue::{CheckpointDrainQueueConsumerAsyncImm, CheckpointDrainQueueEmitterAsyncImm, DQSerializable},
     history_queue::{
@@ -21,6 +20,7 @@ use psy_common::job::{
     traits::QProofStoreReaderAsync,
     worker_queue::{WorkerEventReceiverAsyncImm, WorkerEventTransmitterAsyncImm},
 };
+use psy_config::network_constants::COORDINATOR_EDGE_TO_PROCESSOR_CHANNEL;
 use rsmq::{PoolOptions, PooledRsmq, RedisBytes, RsmqConnection, RsmqConnectionSync, RsmqError, RsmqMessage, RsmqOptions, RsmqSync};
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
@@ -298,7 +298,6 @@ impl RsmqQueue {
     }
 
     // ===== Type-safe serialization methods =====
-
 
     /// Send a serializable object to the queue
     pub async fn send_object<T: Serialize>(&self, queue: &QueueId, obj: &T) -> Result<()> {

@@ -1,6 +1,6 @@
 // Re-export core types and constants
-pub use psy_config::network_constants;
 pub use psy_common;
+pub use psy_config::network_constants;
 pub use psy_crypto;
 // Re-export provider functionality
 pub use psy_provider::{common, request};

@@ -9,6 +9,13 @@ use plonky2::{
         proof::ProofWithPublicInputs,
     },
 };
+use psy_common::{
+    data::{alt::AltVerifierOnlyCircuitData, qhashout::QHashOut},
+    job::id::{QProvingJobDataID, VariableHeightRewardMerkleProof},
+    traits::to_qfelts::ToQFelts,
+    ups::circuits::LocalCircuitType,
+    JobInfo, JobLocation,
+};
 use psy_common_circuit::{
     circuits::zk_signature3::core::PsyBasicZKSignatureInnerCircuit,
     treeprover::qrecursion::standard::manager::portable::circuits::{
@@ -16,13 +23,6 @@ use psy_common_circuit::{
     },
 };
 use psy_config::network_constants::REALM_USER_TREE_HEIGHT;
-use psy_common::{
-    JobInfo, JobLocation,
-    data::{alt::AltVerifierOnlyCircuitData, qhashout::QHashOut},
-    job::id::{QProvingJobDataID, VariableHeightRewardMerkleProof},
-    traits::to_qfelts::ToQFelts,
-    ups::circuits::LocalCircuitType,
-};
 use psy_crypto::{
     common::witnesses::qrecursion::{
         header::QRecursionAggStandardHeader,

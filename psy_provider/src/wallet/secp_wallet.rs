@@ -14,8 +14,8 @@ use k256::{
     sha2::{Digest, Sha256},
 };
 use plonky2::{field::goldilocks_field::GoldilocksField, hash::poseidon::PoseidonPermutation};
-use psy_config::PSY_NETWORK_MAGIC;
 use psy_common::data::{qhashout::QHashOut, secp256k1::CompressedPublicKey};
+use psy_config::PSY_NETWORK_MAGIC;
 use psy_crypto::signature::zk::data::ZKPublicKeyInfo;
 use serde::Serialize;
 

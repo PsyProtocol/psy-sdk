@@ -44,7 +44,6 @@ pub enum ConfigError {
     InvalidConfig(String),
 }
 
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
 pub struct NetworkConfig<F: RichField> {
@@ -88,7 +87,6 @@ pub struct FeeConfig {
     pub deploy_contract_fee: u64,
     pub guta_fee: u64,
 }
-
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
@@ -151,7 +149,6 @@ pub struct GenesisUserContractState<F: RichField> {
     #[serde(skip)]
     _phantom: std::marker::PhantomData<F>,
 }
-
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
@@ -519,7 +516,6 @@ impl<F: RichField> PsyConfig<F> {
         let content = std::fs::read_to_string(path)?;
         let config: Config<F> = serde_json::from_str(&content)?;
 
-
         if !config.networks.contains_key("localhost") {
             return Err(ConfigError::InvalidConfig("Configuration must contain 'localhost' network".to_string()));
         }
@@ -535,7 +531,6 @@ impl<F: RichField> PsyConfig<F> {
 
     pub fn from_json(json: &str) -> Result<Self, ConfigError> {
         let config: Config<F> = serde_json::from_str(json)?;
-
 
         if !config.networks.contains_key("localhost") {
             return Err(ConfigError::InvalidConfig("Configuration must contain 'localhost' network".to_string()));
@@ -649,21 +644,16 @@ impl<F: RichField> PsyConfigBuilder<F> {
 
     pub fn build(self) -> Result<PsyConfig<F>, ConfigError> {
         let mut config = if let Some(json) = self.config_json {
-
             PsyConfig::from_json(&json)?
         } else if let Some(path) = self.config_path {
-
             PsyConfig::from_file(&path)?
         } else {
-
             PsyConfig::from_file("config.json")?
         };
-
 
         if let Some(deploy_path) = self.deploy_path {
             config.load_deploy_config(&deploy_path)?;
         }
-
 
         if let Some(network) = self.initial_network {
             config.use_network(&network)?;
@@ -697,7 +687,6 @@ impl Constants {
     pub const COORDINATOR_RPC_URL: &'static str = COORDINATOR_RPC_URL;
     pub const REALM_RPC_URLS: &'static [&'static str] = REALM_RPC_URLS;
 
-
     pub const DEFAULT_USER_STATE_TREE_ROOT_U64: [u64; 4] = DEFAULT_USER_STATE_TREE_ROOT_U64;
     pub const DEFAULT_WORKER_PUBLIC_KEY_U64: [u64; 4] = network_constants::DEFAULT_WORKER_PUBLIC_KEY_U64;
     pub const REALM_PROCESSOR_TO_EDGE_CHANNEL: u64 = network_constants::REALM_PROCESSOR_TO_EDGE_CHANNEL;
@@ -725,7 +714,6 @@ pub fn get_default_worker_public_key<F: RichField>() -> QHashOut<F> {
     })
 }
 
-
 pub type PsyConfigGoldilocks = PsyConfig<GoldilocksField>;
 pub type ConfigGoldilocks = Config<GoldilocksField>;
 pub type NetworkConfigGoldilocks = NetworkConfig<GoldilocksField>;
@@ -740,7 +728,6 @@ pub type GenesisUserContractStateGoldilocks = GenesisUserContractState<Goldilock
 pub type ZKPublicKeyInfoGoldilocks = GenesisUser<GoldilocksField>;
 
 pub type PsyConfigBuilderGoldilocks = PsyConfigBuilder<GoldilocksField>;
-
 
 impl<F: RichField> GenesisConfig<F> {
     pub fn from_json(json_str: &str) -> anyhow::Result<Self> {
@@ -768,7 +755,6 @@ mod tests {
 
     #[test]
     fn test_config_loading() {
-
         let config_path = "/home/cj/Projects/qedlang-rust/config.json";
         let config = PsyConfigGoldilocks::from_file(config_path).unwrap();
 
@@ -827,7 +813,6 @@ mod tests {
 
         let mut config = PsyConfigGoldilocks::from_json(json).unwrap();
 
-
         config.use_network("testnet").unwrap();
         assert_eq!(config.current_network_name(), "testnet");
 
@@ -882,20 +867,16 @@ mod tests {
             "defaultNetwork": "dev"
         }"#;
 
-
         let config1 = PsyConfigGoldilocks::from_json(json).unwrap();
         assert_eq!(config1.current_network_name(), "localhost");
         assert_eq!(config1.get_current_network().unwrap().native_currency, "LOCAL");
-
 
         let config2 = PsyConfigGoldilocks::builder().json(json).network("dev").build().unwrap();
         assert_eq!(config2.current_network_name(), "dev");
         assert_eq!(config2.get_current_network().unwrap().native_currency, "DEV");
 
-
         let config3 = PsyConfigGoldilocks::builder().json(json).build().unwrap();
         assert_eq!(config3.current_network_name(), "localhost");
-
     }
 
     #[test]
@@ -944,23 +925,19 @@ mod tests {
             "defaultNetwork": "localhost"
         }"#;
 
-
         let mut config = PsyConfigGoldilocks::from_json(json).unwrap();
         assert_eq!(config.current_network_name(), "localhost");
         assert_eq!(config.get_current_network().unwrap().users_per_realm, 512);
-
 
         config.use_network("dev").unwrap();
         assert_eq!(config.current_network_name(), "dev");
         assert_eq!(config.get_current_network().unwrap().users_per_realm, 1024);
         assert_eq!(config.get_current_network().unwrap().native_currency, "DEV");
 
-
         config.use_network("localhost").unwrap();
         assert_eq!(config.current_network_name(), "localhost");
         assert_eq!(config.get_current_network().unwrap().users_per_realm, 512);
         assert_eq!(config.get_current_network().unwrap().native_currency, "LOCAL");
-
 
         let networks = config.list_networks();
         assert_eq!(networks.len(), 2);
@@ -995,11 +972,9 @@ mod tests {
             "defaultNetwork": "only_network"
         }"#;
 
-
         let result = PsyConfigGoldilocks::from_json(json);
         assert!(result.is_err());
         assert!(matches!(result.unwrap_err(), ConfigError::InvalidConfig(_)));
-
 
         let bad_json = r#"{"invalid": json}"#;
         let result = PsyConfigGoldilocks::from_json(bad_json);

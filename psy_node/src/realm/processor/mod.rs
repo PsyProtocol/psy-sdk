@@ -1,56 +1,74 @@
 pub mod processor_v2;
-use plonky2::plonk::proof::ProofWithPublicInputs;
-pub use processor_v2::*;
-use serde::{Deserialize, Serialize};
+use std::{
+    collections::HashMap,
+    sync::{
+        atomic::{AtomicBool, AtomicU64, Ordering},
+        Arc,
+    },
+    time::Duration,
+};
 
-use crate::common::verifier::get_cached_generic_verifier;
-use crate::common_v2::traits::realm::CoordinatorClient;
-use crate::coordinator::client_v2::ConcreteCoordinatorClient;
-use crate::realm::config::RealmNodeConfig;
-use crate::realm::state::processor::{RealmConfig, RealmProcessorContext};
-use crate::realm::{C, D, F};
-use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-use std::time::Duration;
-use tokio::time::Instant;
 use anyhow::{anyhow, bail};
+use kvq::traits::{KVQBinaryStore, KVQPair, KVQSerializable};
+use plonky2::{
+    field::{goldilocks_field::GoldilocksField, types::Field},
+    plonk::proof::ProofWithPublicInputs,
+};
+pub use processor_v2::*;
+use psy_common::{
+    data::qhashout::QHashOut,
+    job::{id::QProvingJobDataID, traits::QProofStoreReaderAsync},
+};
+use psy_config::{
+    network_constants::{GLOBAL_CONTRACT_TREE_HEIGHT, MAX_CONTRACT_STATE_TREE_HEIGHT},
+    GenesisConfig, COORDINATOR_USER_TREE_HEIGHT, GLOBAL_USER_TREE_HEIGHT, USERS_PER_REALM,
+};
+use psy_crypto::{
+    common::{generic_circuit_verifier::GenericCircuitVerifier, user_id::get_user_id_from_registration_id},
+    hash::{
+        merkle::utils::common::{QMerkleNode, SimpleMerkleNodeKey},
+        traits::{hasher::MerkleZeroHasher, qhashable::QFieldHashable},
+    },
+};
+use psy_data::{
+    config::store_config::{PsyHasher, REALM_ROOT_VERSION_TABLE_TYPE, REALM_SNAPSHOT_TABLE_TYPE},
+    guta::api::{GUTARealmCheckpointResult, SubmitGUTARealmResultAPINoProofInput},
+    models::checkpoint::sync_info::CheckpointError,
+    qdata::{checkpoint::CheckpointSyncInfo, hash_key::Hash4x64Key, realm_snapshot_key::RealmSnapshotKey, user::PsyUserLeaf},
+    traits::qdatastore::{qmetadata::QMetaDataStoreWriterSync, qtreedata::QTreeDataStoreWriterSync},
+};
+use psy_store::{
+    node::realm::{PsyRealmStoreReaderAsync, PsyRealmStoreWriterAsyncImm},
+    queue::{redis_queue::QueueOffsetState, task_queue::QProvingTaskStoreImpl, ProofStoreRedis, QPendingUserStoreAsyncImm},
+    store,
+    store::{
+        journal::{BackupJournalStore, BackupRequest, Journal, JournalStore},
+        PsyStore,
+    },
+};
+use serde::{Deserialize, Serialize};
+use tokio::{sync::mpsc, time::Instant};
 use tracing::{error, info, trace, warn};
-use psy_data::qdata::checkpoint::CheckpointSyncInfo;
-use psy_store::node::realm::{PsyRealmStoreReaderAsync, PsyRealmStoreWriterAsyncImm};
-use psy_store::queue::{ProofStoreRedis, QPendingUserStoreAsyncImm};
-use psy_store::store::journal::{Journal, JournalStore, BackupJournalStore, BackupRequest};
-use crate::common::clock::SlotTimer;
-use crate::common::slot::{LocalClock, Slot};
-use psy_crypto::hash::traits::qhashable::QFieldHashable;
-use psy_crypto::common::user_id::get_user_id_from_registration_id;
-use plonky2::field::types::Field;
-use psy_data::traits::qdatastore::{qtreedata::QTreeDataStoreWriterSync, qmetadata::QMetaDataStoreWriterSync};
-use std::collections::HashMap;
-use plonky2::field::goldilocks_field::GoldilocksField;
+
 use super::backup::RealmS3BackupClient;
-use tokio::sync::mpsc;
-use kvq::traits::{KVQBinaryStore, KVQPair};
-use psy_store::queue::redis_queue::QueueOffsetState;
-use crate::realm::state::edge_queue_helper::RealmEdgeQueueHelper;
-use crate::realm::state::queue_factory::QueueFactory;
-use psy_data::qdata::hash_key::Hash4x64Key;
-use psy_data::qdata::realm_snapshot_key::RealmSnapshotKey;
-use psy_data::config::store_config::{REALM_SNAPSHOT_TABLE_TYPE, REALM_ROOT_VERSION_TABLE_TYPE, PsyHasher};
-use kvq::traits::KVQSerializable;
-use psy_common::data::qhashout::QHashOut;
-use psy_common::job::id::QProvingJobDataID;
-use psy_common::job::traits::QProofStoreReaderAsync;
-use psy_config::{GenesisConfig, COORDINATOR_USER_TREE_HEIGHT, GLOBAL_USER_TREE_HEIGHT, USERS_PER_REALM};
-use psy_config::network_constants::{GLOBAL_CONTRACT_TREE_HEIGHT, MAX_CONTRACT_STATE_TREE_HEIGHT};
-use psy_crypto::common::generic_circuit_verifier::GenericCircuitVerifier;
-use psy_crypto::hash::merkle::utils::common::{QMerkleNode, SimpleMerkleNodeKey};
-use psy_crypto::hash::traits::hasher::MerkleZeroHasher;
-use psy_data::guta::api::{GUTARealmCheckpointResult, SubmitGUTARealmResultAPINoProofInput};
-use psy_data::models::checkpoint::sync_info::CheckpointError;
-use psy_data::qdata::user::PsyUserLeaf;
-use psy_store::queue::task_queue::QProvingTaskStoreImpl;
-use psy_store::store;
-use psy_store::store::PsyStore;
+use crate::{
+    common::{
+        clock::SlotTimer,
+        slot::{LocalClock, Slot},
+        verifier::get_cached_generic_verifier,
+    },
+    common_v2::traits::realm::CoordinatorClient,
+    coordinator::client_v2::ConcreteCoordinatorClient,
+    realm::{
+        config::RealmNodeConfig,
+        state::{
+            edge_queue_helper::RealmEdgeQueueHelper,
+            processor::{RealmConfig, RealmProcessorContext},
+            queue_factory::QueueFactory,
+        },
+        C, D, F,
+    },
+};
 
 const CHECKPOINT_BATCH_SIZE: u64 = 25; // sync info batch size
 
@@ -104,11 +122,8 @@ impl RealmProcessor {
             config.redis.pool_size.unwrap_or(10),
             &config.queue.queue_biz_key,
         )
-            .await?;
-        let realm_qps = ProofStoreRedis::new(
-            &config.redis.redis_uri,
-            config.queue.queue_biz_key,
-        ).await?;
+        .await?;
+        let realm_qps = ProofStoreRedis::new(&config.redis.redis_uri, config.queue.queue_biz_key).await?;
         let store = store::new(&config.backend.to_backend()).await?;
         let proof_verifier = Arc::new(get_cached_generic_verifier::<C, D>());
         let realm_config = RealmConfig::get_standard(config.realm.realm_id);
@@ -125,7 +140,7 @@ impl RealmProcessor {
                 });
                 info!("Started realm backup task");
                 Some(tx)
-            },
+            }
             Err(e) => {
                 warn!("⚠️ S3 backup client initialization failed: {}", e);
                 None
@@ -138,7 +153,8 @@ impl RealmProcessor {
             config.redis.pool_size.unwrap_or(10),
             config.realm.realm_id,
             Arc::new(store.clone()),
-        ).await?;
+        )
+        .await?;
 
         let processor = RealmProcessor {
             realm_config,
@@ -187,7 +203,8 @@ impl RealmProcessor {
             realm_qps.clone(),
             self.task_store.clone(),
             self.proof_verifier.clone(),
-        ).await
+        )
+        .await
     }
 
     async fn get_realm_root_diff(&self, build_ctx: &Context, checkpoint_id: u64) -> anyhow::Result<(QHashOut<F>, QHashOut<F>)> {
@@ -197,12 +214,9 @@ impl RealmProcessor {
     }
 
     async fn get_realm_root(&self, store: &dyn PsyRealmStoreReaderAsync<F>, checkpoint_id: u64) -> anyhow::Result<QHashOut<F>> {
-        let realm_root = store.get_user_sub_tree_merkle_proof(
-            checkpoint_id,
-            0,
-            COORDINATOR_USER_TREE_HEIGHT,
-            self.realm_config.realm_id as u64,
-        ).await?;
+        let realm_root = store
+            .get_user_sub_tree_merkle_proof(checkpoint_id, 0, COORDINATOR_USER_TREE_HEIGHT, self.realm_config.realm_id as u64)
+            .await?;
         Ok(realm_root.value)
     }
 
@@ -232,7 +246,7 @@ impl RealmProcessor {
     async fn run(&self) -> anyhow::Result<()> {
         loop {
             tokio::time::sleep(Duration::from_millis(500)).await;
-            if let Err(err) =  self.build().await {
+            if let Err(err) = self.build().await {
                 error!("Build error: {:?}", err);
             }
         }
@@ -242,8 +256,16 @@ impl RealmProcessor {
         let snapshot = self.load_snapshot(realm_root)?;
         let build_ctx = self.context().await?;
         build_ctx.store.restore_cache(snapshot.cache)?;
-        trace!("synced checkpoint id: {}, latest checkpoint id: {}, realm root: {}", checkpoint_id, latest_checkpoint_id, realm_root);
-        build_ctx.commit(checkpoint_id, snapshot.queue_offset_state).await.map_err(|e| anyhow!("Failed to commit checkpoint {}: {}", checkpoint_id, e))?;
+        trace!(
+            "synced checkpoint id: {}, latest checkpoint id: {}, realm root: {}",
+            checkpoint_id,
+            latest_checkpoint_id,
+            realm_root
+        );
+        build_ctx
+            .commit(checkpoint_id, snapshot.queue_offset_state)
+            .await
+            .map_err(|e| anyhow!("Failed to commit checkpoint {}: {}", checkpoint_id, e))?;
         info!("Commit checkpoint {}, latest_checkpoint_id: {}", checkpoint_id, latest_checkpoint_id);
         Ok(())
     }
@@ -277,7 +299,12 @@ impl RealmProcessor {
             Ok((job_id, off_state)) => {
                 self.save_snapshot(build_ctx, next_checkpoint_id, off_state).await?;
                 self.submit_guta(build_ctx, job_id).await?;
-                info!("Build complete checkpoint: {}, slot: {}, cost time: {:?}", next_checkpoint_id, slot, now.elapsed());
+                info!(
+                    "Build complete checkpoint: {}, slot: {}, cost time: {:?}",
+                    next_checkpoint_id,
+                    slot,
+                    now.elapsed()
+                );
             }
             Err(err) => {
                 // Rollback database changes
@@ -330,13 +357,17 @@ impl RealmProcessor {
     fn load_snapshot(&self, realm_root: QHashOut<F>) -> anyhow::Result<Snapshot> {
         // Get version
         let version_key = self.version_key(realm_root)?;
-        let version_data = self.store.get_exact_if_exists(&version_key)?
+        let version_data = self
+            .store
+            .get_exact_if_exists(&version_key)?
             .ok_or_else(|| anyhow!("Snapshot version not found for realm root: {}", realm_root))?;
         let version: u64 = bincode::deserialize(&version_data)?;
 
         // Get snapshot
         let snapshot_key = self.snapshot_key(realm_root, version)?;
-        let snapshot_data = self.store.get_exact_if_exists(&snapshot_key)?
+        let snapshot_data = self
+            .store
+            .get_exact_if_exists(&snapshot_key)?
             .ok_or_else(|| anyhow!("Snapshot data not found for realm root: {}, version: {}", realm_root, version))?;
         let snapshot: Snapshot = bincode::deserialize(&snapshot_data)?;
         Ok(snapshot)
@@ -365,28 +396,25 @@ impl RealmProcessor {
                 let version: u64 = bincode::deserialize(&data)?;
                 Ok(version + 1)
             }
-            None => Ok(0)
+            None => Ok(0),
         }
     }
 
-    async fn submit_guta(
-        &self,
-        build_ctx: &Context,
-        job_id: QProvingJobDataID,
-    ) -> anyhow::Result<()> {
+    async fn submit_guta(&self, build_ctx: &Context, job_id: QProvingJobDataID) -> anyhow::Result<()> {
         let bytes = build_ctx.proof_store.get_bytes_by_id(job_id).await?;
         // Deserialize realm result
         let realm_result: GUTARealmCheckpointResult<F> = bincode::deserialize(&bytes)?;
         // Get proof with retry
-        let proof: ProofWithPublicInputs<F, C, D> =  build_ctx.proof_store.get_proof_by_id(realm_result.proof_id.get_output_id()).await?;
-        // let proof = self.get_proof_with_retry(proof_store, realm_result.proof_id.get_output_id()).await?;
+        let proof: ProofWithPublicInputs<F, C, D> = build_ctx.proof_store.get_proof_by_id(realm_result.proof_id.get_output_id()).await?;
+        // let proof = self.get_proof_with_retry(proof_store,
+        // realm_result.proof_id.get_output_id()).await?;
         let input = SubmitGUTARealmResultAPINoProofInput::<F> {
             realm_id: self.realm_config.realm_id as u64,
             checkpoint_id: realm_result.checkpoint_id,
             guta_stats: realm_result.guta_stats,
             top_line_proof: realm_result.top_line_proof,
             checkpoint_tree_root: realm_result.checkpoint_tree_root,
-            proof_id: realm_result.proof_id.get_output_id()
+            proof_id: realm_result.proof_id.get_output_id(),
         };
         self.client.submit_guta_v1(&input, &bincode::serialize(&proof)?, input.realm_id).await
     }
@@ -414,15 +442,15 @@ impl RealmProcessor {
         }
     }
 
-    pub async fn handle_sync_info(
-        &self,
-        sync_ctx: &Context,
-        block: CheckpointSyncInfo<F>,
-    ) -> anyhow::Result<()> {
+    pub async fn handle_sync_info(&self, sync_ctx: &Context, block: CheckpointSyncInfo<F>) -> anyhow::Result<()> {
         let sync_checkpoint_id = block.compact.block_state.checkpoint_id;
         match sync_ctx.handle_checkpoint_sync(block.compact.clone()).await {
             Ok(_) => {
-                info!("Checkpoint {} sync reg users len: {}", sync_checkpoint_id, block.compact.registered_users.len());
+                info!(
+                    "Checkpoint {} sync reg users len: {}",
+                    sync_checkpoint_id,
+                    block.compact.registered_users.len()
+                );
 
                 let pending_users_count = sync_ctx.sync_queue.get_pending_users_count().await?;
                 trace!("Pending users count after checkpoint sync: {}", pending_users_count);
@@ -439,7 +467,10 @@ impl RealmProcessor {
 
     async fn sync_checkpoint_range(&self, start: u64, end: u64) -> anyhow::Result<()> {
         // [start, end)
-        let mut sync_infos = self.fetch_remote_sync_infos(start, end).await.map_err(|e| anyhow!("Fetch remote sync infos error: {:?}", e))?;
+        let mut sync_infos = self
+            .fetch_remote_sync_infos(start, end)
+            .await
+            .map_err(|e| anyhow!("Fetch remote sync infos error: {:?}", e))?;
         if sync_infos.is_empty() {
             return Ok(());
         }
@@ -449,7 +480,12 @@ impl RealmProcessor {
         let mut local_realm_root_from_store = self.get_realm_root(&self.store, start).await?;
         if expected_realm_root != local_realm_root_from_store {
             self.is_state_normal.store(false, Ordering::Relaxed);
-            return Err(anyhow!("Realm root mismatch: expected_realm_root {} != local_realm_root_from_store {}, checkpoint_id: {}", expected_realm_root, local_realm_root_from_store, start));
+            return Err(anyhow!(
+                "Realm root mismatch: expected_realm_root {} != local_realm_root_from_store {}, checkpoint_id: {}",
+                expected_realm_root,
+                local_realm_root_from_store,
+                start
+            ));
         }
 
         for block in sync_infos {
@@ -458,10 +494,13 @@ impl RealmProcessor {
             let remote_realm_root = block.realm_root;
             info!("Checkpoint received checkpoint_id: {},latest_checkpoint_id: {} ,local_checkpoint_id: {}, local_realm_root: {}, remote_realm_root: {}",
                 sync_checkpoint_id, latest_checkpoint_id, local_checkpoint_id, local_realm_root_from_store, remote_realm_root);
-            self.handle_sync_info(&self.context().await?, block).await.map_err(|e| anyhow!("Handle sync info attempt failed: {:?}", e))?;
+            self.handle_sync_info(&self.context().await?, block)
+                .await
+                .map_err(|e| anyhow!("Handle sync info attempt failed: {:?}", e))?;
             // confirm pending checkpoint
             if local_realm_root_from_store != remote_realm_root && self.is_candidate(remote_realm_root.clone())? {
-                self.confirm_checkpoint(remote_realm_root.clone(), sync_checkpoint_id, latest_checkpoint_id).await?;
+                self.confirm_checkpoint(remote_realm_root.clone(), sync_checkpoint_id, latest_checkpoint_id)
+                    .await?;
                 local_realm_root_from_store = remote_realm_root;
             }
             local_checkpoint_id = sync_checkpoint_id;
@@ -475,7 +514,9 @@ impl RealmProcessor {
     }
 
     async fn fetch_remote_sync_infos(&self, start: u64, end: u64) -> anyhow::Result<Vec<CheckpointSyncInfo<F>>> {
-        self.client.get_latest_block_updates_from_coordinator(self.realm_config.realm_id as u64, start, end).await
+        self.client
+            .get_latest_block_updates_from_coordinator(self.realm_config.realm_id as u64, start, end)
+            .await
     }
 
     pub async fn build_block(
@@ -490,7 +531,11 @@ impl RealmProcessor {
     fn validate_slot(&self) -> anyhow::Result<()> {
         let slot = self.slot_timer.get_current_slot();
         if !self.is_current_slot() {
-            bail!("Not in current slot, slot: {}, remote latest slot: {}", slot, self.remote_latest_slot.load(Ordering::Relaxed))
+            bail!(
+                "Not in current slot, slot: {}, remote latest slot: {}",
+                slot,
+                self.remote_latest_slot.load(Ordering::Relaxed)
+            )
         }
         Ok(())
     }
@@ -507,7 +552,11 @@ impl RealmProcessor {
         Ok(state.checkpoint_id)
     }
 
-    pub async fn initialize_store(store: Arc<dyn KVQBinaryStore>, genesis_config: Option<GenesisConfig<GoldilocksField>>, realm_id: u32) -> anyhow::Result<()> {
+    pub async fn initialize_store(
+        store: Arc<dyn KVQBinaryStore>,
+        genesis_config: Option<GenesisConfig<GoldilocksField>>,
+        realm_id: u32,
+    ) -> anyhow::Result<()> {
         if let Some(genesis_config) = genesis_config {
             info!("Processing genesis state for realm {}", realm_id);
 

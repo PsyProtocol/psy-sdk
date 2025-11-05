@@ -1,6 +1,6 @@
 use kvq::traits::KVQBinaryStore;
-use psy_config::network_constants::{GLOBAL_CONTRACT_TREE_HEIGHT, GLOBAL_USER_TREE_HEIGHT};
 use psy_common::data::qhashout::QHashOut;
+use psy_config::network_constants::{GLOBAL_CONTRACT_TREE_HEIGHT, GLOBAL_USER_TREE_HEIGHT};
 use psy_crypto::hash::merkle::{
     core::{DeltaMerkleProofCore, MerkleProofCore},
     spiderman::SpidermanUpdateProof,

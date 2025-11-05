@@ -1,8 +1,4 @@
-use std::{
-    collections::{HashMap, HashSet},
-    fmt::Debug,
-    hash::Hash,
-};
+use std::{collections::HashMap, fmt::Debug, hash::Hash};
 
 use indexmap::IndexSet;
 use serde::{Deserialize, Serialize};

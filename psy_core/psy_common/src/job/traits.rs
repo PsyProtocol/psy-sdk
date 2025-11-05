@@ -1,17 +1,14 @@
 use async_trait::async_trait;
 use kvq::traits::KVQPair;
-use plonky2::{
-    hash::hash_types::RichField,
-    plonk::{
-        circuit_data::{CommonCircuitData, VerifierOnlyCircuitData},
-        config::GenericConfig,
-        proof::ProofWithPublicInputs,
-    },
+use plonky2::plonk::{
+    circuit_data::{CommonCircuitData, VerifierOnlyCircuitData},
+    config::GenericConfig,
+    proof::ProofWithPublicInputs,
 };
 use serde::{de::DeserializeOwned, Serialize};
 
 use super::id::{ProvingJobCircuitType, QProvingJobDataID};
-use crate::{data::qhashout::QHashOut, job::id::QProvingTask};
+use crate::data::qhashout::QHashOut;
 
 pub trait QProofStoreReaderSync {
     fn get_proof_by_id<C: GenericConfig<D>, const D: usize>(&self, id: QProvingJobDataID) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>>;

@@ -7,6 +7,13 @@ use plonky2::{
         proof::ProofWithPublicInputs,
     },
 };
+use psy_common::{
+    data::qhashout::QHashOut,
+    job::{
+        id::{ProvingJobCircuitType, QProvingJobDataID},
+        traits::QProofStoreReaderAsync,
+    },
+};
 use psy_common_circuit::{
     builder::verify,
     circuits::{
@@ -15,13 +22,6 @@ use psy_common_circuit::{
     },
 };
 use psy_config::network_constants::{CHECKPOINT_TREE_HEIGHT, GLOBAL_USER_TREE_HEIGHT, GUTA_CIRCUIT_WHITELIST_TREE_HEIGHT, REALM_USER_TREE_HEIGHT};
-use psy_common::{
-    data::qhashout::QHashOut,
-    job::{
-        id::{ProvingJobCircuitType, QProvingJobDataID},
-        traits::QProofStoreReaderAsync,
-    },
-};
 use psy_crypto::{
     common::{
         circuit_library::{CircuitInfoLibrary, CircuitInfoLibraryBuilder},
@@ -484,8 +484,8 @@ where
 #[cfg(test)]
 mod tests {
     use plonky2::plonk::config::PoseidonGoldilocksConfig;
-    use psy_common_circuit::circuits::lookalikes::custom::get_lookalike_custom;
     use psy_common::{data::qhashout::QHashOut, job::id::QCircuitCommonGatesType};
+    use psy_common_circuit::circuits::lookalikes::custom::get_lookalike_custom;
 
     use super::PsyGUTACircuitManager;
 

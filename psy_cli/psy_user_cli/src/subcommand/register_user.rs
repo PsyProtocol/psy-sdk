@@ -6,9 +6,9 @@ use plonky2::{
     hash::poseidon::{PoseidonHash, PoseidonPermutation},
     plonk::config::PoseidonGoldilocksConfig,
 };
+use psy_common::data::qhashout::QHashOut;
 use psy_common_circuit::circuits::traits::qstandard::QStandardCircuit;
 use psy_config::network_constants::{MAX_CONTRACT_STATE_TREE_HEIGHT, UPS_SESSION_PROOF_TREE_HEIGHT};
-use psy_common::data::qhashout::QHashOut;
 use psy_crypto::{
     hash::traits::qhashable::QFieldHashable,
     signature::{

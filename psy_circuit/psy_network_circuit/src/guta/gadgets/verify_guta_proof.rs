@@ -9,9 +9,9 @@ use plonky2::{
         proof::{ProofWithPublicInputs, ProofWithPublicInputsTarget},
     },
 };
+use psy_common::data::qhashout::QHashOut;
 use psy_common_circuit::{builder::verify::CircuitBuilderVerifyProofHelpers, hash::merkle::gadgets::merkle_proof::MerkleProofGadget};
 use psy_config::network_constants::GUTA_CIRCUIT_WHITELIST_TREE_HEIGHT;
-use psy_common::data::qhashout::QHashOut;
 use psy_crypto::hash::{merkle::core::MerkleProofCore, traits::hasher::MerkleZeroHasher};
 use psy_data::guta::header::GlobalUserTreeAggregatorHeader;
 

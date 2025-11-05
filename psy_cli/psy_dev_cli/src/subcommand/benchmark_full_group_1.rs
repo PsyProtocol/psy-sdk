@@ -6,17 +6,17 @@ use plonky2::{
     field::{goldilocks_field::GoldilocksField, types::Field},
     plonk::config::PoseidonGoldilocksConfig,
 };
-use psy_common_circuit::{
-    circuits::{traits::qstandard::QStandardCircuit, zk_signature3::manager::SimplePsyZKSignatureManager},
-    treeprover::qrecursion::standard::manager::portable::circuits::PortableQTreeRecursionCircuitsProveTrait,
-};
-use psy_config::{network_constants::UPS_SESSION_PROOF_TREE_HEIGHT, PSY_NETWORK_MAGIC};
 use psy_common::{
     data::qhashout::QHashOut,
     job::traits::{QProofStoreAsyncImm, QProofStoreReaderAsync},
     ups::circuits::LocalCircuitType,
     utils::debug_timer::DebugTimer,
 };
+use psy_common_circuit::{
+    circuits::{traits::qstandard::QStandardCircuit, zk_signature3::manager::SimplePsyZKSignatureManager},
+    treeprover::qrecursion::standard::manager::portable::circuits::PortableQTreeRecursionCircuitsProveTrait,
+};
+use psy_config::{network_constants::UPS_SESSION_PROOF_TREE_HEIGHT, PSY_NETWORK_MAGIC};
 use psy_crypto::{
     common::simple_circuit_library::SimpleCircuitLibrary,
     hash::traits::qhashable::QFieldHashable,

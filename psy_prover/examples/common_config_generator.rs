@@ -1,12 +1,12 @@
 use std::{fs::File, io::Write};
 
 use plonky2::{field::goldilocks_field::GoldilocksField, plonk::config::PoseidonGoldilocksConfig};
+use psy_common::{data::qhashout::QHashOut, job::id::ProvingJobCircuitType};
 use psy_common_circuit::circuits::{
     lookalikes::{get_agg_state_transition_type_d_common_data, get_end_cap_type_e_common_data, get_guta_type_c_common_data},
     traits::qstandard::QStandardCircuit,
 };
 use psy_config::PSY_NETWORK_MAGIC;
-use psy_common::{data::qhashout::QHashOut, job::id::ProvingJobCircuitType};
 use psy_crypto::common::generic_circuit_verifier::GenericCircuitVerifier;
 use psy_data::config::store_config::PsyFelt;
 use psy_network_circuit::{coordinator::coordinator_helper::PsyCoordinatorCircuitManager, guta::guta_helper::PsyGUTACircuitManager};

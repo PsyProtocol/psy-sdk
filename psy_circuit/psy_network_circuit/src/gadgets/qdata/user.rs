@@ -4,11 +4,11 @@ use plonky2::{
     iop::{target::Target, witness::Witness},
     plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher},
 };
+use psy_common::data::qhashout::QHashOut;
 use psy_common_circuit::{
     builder::hash::core::CircuitBuilderHashCore,
     traits::{AlgebraicHashableTarget, CreatableTarget, FromTargets, ToTargets, WitnessValueFor},
 };
-use psy_common::data::qhashout::QHashOut;
 use psy_data::qdata::user::PsyUserLeaf;
 
 #[derive(Clone, Debug, PartialEq, Eq, Copy)]

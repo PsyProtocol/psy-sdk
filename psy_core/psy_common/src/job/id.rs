@@ -1,9 +1,6 @@
-use std::{
-    collections::HashMap,
-    fmt,
-};
+use std::{collections::HashMap, fmt};
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 use hex::FromHexError;
 use kvq::traits::KVQSerializable;
 use plonky2::{
@@ -11,13 +8,8 @@ use plonky2::{
         goldilocks_field::GoldilocksField,
         types::{Field, PrimeField64},
     },
-    hash::{
-        hash_types::{HashOut, RichField},
-        poseidon::PoseidonHash,
-    },
-    plonk::{
-        config::{GenericConfig, Hasher, PoseidonGoldilocksConfig},
-    },
+    hash::{hash_types::HashOut, poseidon::PoseidonHash},
+    plonk::config::{Hasher, PoseidonGoldilocksConfig},
 };
 use serde::{Deserialize, Serialize};
 use serde_repr::{Deserialize_repr, Serialize_repr};
@@ -54,10 +46,7 @@ const REALM_PROCESSOR_TO_EDGE_CHANNEL: u64 = 0x524C4D50524F4F46;
 
 use crate::{
     data::qhashout::QHashOut,
-    job::{
-        drain_queue::{DrainQueueMetadataTagged},
-        history_queue::{HistoryQueueMetadata, HistoryQueueMetadataTagged},
-    },
+    job::history_queue::{HistoryQueueMetadata, HistoryQueueMetadataTagged},
     utils::graph::BidirectionalGraph,
 };
 
@@ -527,9 +516,9 @@ impl QProvingJobGraph {
     pub async fn generate_variable_height_reward_proof<P: QJobRewardDataProvider>(
         &self,
         job_id: QProvingJobDataID,
-        node_id: u32,
+        _node_id: u32,
         provider: &P,
-    ) -> anyhow::Result<(VariableHeightRewardMerkleProof, QProvingJobDataID)> {
+    ) -> Result<(VariableHeightRewardMerkleProof, QProvingJobDataID)> {
         use plonky2::{field::goldilocks_field::GoldilocksField as F, hash::hash_types::HashOut};
 
         let graph = self.get_graph_for_job(&job_id)?;
@@ -659,7 +648,7 @@ impl QProvingJobGraph {
     fn add_graph_to_dot(&self, output: &mut String, graph: &BidirectionalGraph<QProvingJobDataID>, prefix: &str) {
         let levels = graph.ts_order();
 
-        for (level_idx, level) in levels.iter().enumerate() {
+        for (_level_idx, level) in levels.iter().enumerate() {
             for job_id in level {
                 let job_id_hex = job_id.to_hex_string();
                 let node_name = format!("{}_{}", prefix, job_id_hex);

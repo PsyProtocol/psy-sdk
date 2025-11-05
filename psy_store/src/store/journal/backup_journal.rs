@@ -19,7 +19,8 @@ pub trait BackupHandler: Send + Sync {
     async fn handle_backup(&self, request: BackupRequest) -> anyhow::Result<()>;
 }
 
-/// BackupJournalStore wraps a Journal store and automatically triggers backup on commit
+/// BackupJournalStore wraps a Journal store and automatically triggers backup
+/// on commit
 #[derive(Clone)]
 pub struct BackupJournalStore<J: Journal> {
     inner: J,
@@ -28,16 +29,10 @@ pub struct BackupJournalStore<J: Journal> {
 
 impl<J: Journal> BackupJournalStore<J> {
     pub fn new(inner: J) -> Self {
-        Self {
-            inner,
-            backup_tx: None,
-        }
+        Self { inner, backup_tx: None }
     }
 
-    pub fn new_with_backup(
-        inner: J,
-        backup_tx: mpsc::UnboundedSender<BackupRequest>,
-    ) -> Self {
+    pub fn new_with_backup(inner: J, backup_tx: mpsc::UnboundedSender<BackupRequest>) -> Self {
         Self {
             inner,
             backup_tx: Some(backup_tx),
@@ -54,16 +49,14 @@ impl<J: Journal> BackupJournalStore<J> {
 
     fn send_backup_request(&self, checkpoint_id: u64, pair_to_set: Vec<KVQPair<Vec<u8>, Vec<u8>>>, removed_keys: Vec<Vec<u8>>) {
         if let Some(ref backup_tx) = self.backup_tx {
-            let pair_to_set = pair_to_set.into_iter()
-                .map(|pair| (pair.key, pair.value))
-                .collect();
-            
+            let pair_to_set = pair_to_set.into_iter().map(|pair| (pair.key, pair.value)).collect();
+
             let request = BackupRequest {
                 checkpoint_id,
                 pair_to_set,
                 removed_keys,
             };
-            
+
             if let Err(e) = backup_tx.send(request) {
                 error!("❌ Failed to send backup request for checkpoint {}: {}", checkpoint_id, e);
             }
@@ -136,12 +129,12 @@ impl<J: Journal> KVQBinaryStore for BackupJournalStore<J> {
 impl<J: Journal> Journal for BackupJournalStore<J> {
     fn commit(&self, checkpoint_id: Option<u64>) -> anyhow::Result<(Vec<KVQPair<Vec<u8>, Vec<u8>>>, Vec<Vec<u8>>)> {
         let result = self.inner.commit(checkpoint_id)?;
-        
+
         // Send backup request after successful commit
         if let Some(checkpoint_id) = checkpoint_id {
             self.send_backup_request(checkpoint_id, result.0.clone(), result.1.clone());
         }
-        
+
         Ok(result)
     }
 
@@ -174,16 +167,10 @@ pub struct BackupJournalStoreAsync<J: JournalAsync> {
 
 impl<J: JournalAsync> BackupJournalStoreAsync<J> {
     pub fn new(inner: J) -> Self {
-        Self {
-            inner,
-            backup_tx: None,
-        }
+        Self { inner, backup_tx: None }
     }
 
-    pub fn new_with_backup(
-        inner: J,
-        backup_tx: mpsc::UnboundedSender<BackupRequest>,
-    ) -> Self {
+    pub fn new_with_backup(inner: J, backup_tx: mpsc::UnboundedSender<BackupRequest>) -> Self {
         Self {
             inner,
             backup_tx: Some(backup_tx),
@@ -200,16 +187,14 @@ impl<J: JournalAsync> BackupJournalStoreAsync<J> {
 
     fn send_backup_request(&self, checkpoint_id: u64, pair_to_set: Vec<KVQPair<Vec<u8>, Vec<u8>>>, removed_keys: Vec<Vec<u8>>) {
         if let Some(ref backup_tx) = self.backup_tx {
-            let pair_to_set = pair_to_set.into_iter()
-                .map(|pair| (pair.key, pair.value))
-                .collect();
-            
+            let pair_to_set = pair_to_set.into_iter().map(|pair| (pair.key, pair.value)).collect();
+
             let request = BackupRequest {
                 checkpoint_id,
                 pair_to_set,
                 removed_keys,
             };
-            
+
             if let Err(e) = backup_tx.send(request) {
                 error!("❌ Failed to send backup request for checkpoint {}: {}", checkpoint_id, e);
             }
@@ -284,12 +269,12 @@ impl<J: JournalAsync + Send + Sync> KVQBinaryStoreAsync for BackupJournalStoreAs
 impl<J: JournalAsync + Send + Sync> JournalAsync for BackupJournalStoreAsync<J> {
     async fn commit(&self, checkpoint_id: Option<u64>) -> anyhow::Result<(Vec<KVQPair<Vec<u8>, Vec<u8>>>, Vec<Vec<u8>>)> {
         let result = self.inner.commit(checkpoint_id).await?;
-        
+
         // Send backup request after successful commit
         if let Some(checkpoint_id) = checkpoint_id {
             self.send_backup_request(checkpoint_id, result.0.clone(), result.1.clone());
         }
-        
+
         Ok(result)
     }
 
@@ -313,4 +298,3 @@ impl<J: JournalAsync + Send + Sync> JournalAsync for BackupJournalStoreAsync<J> 
         self.inner.get_base_store().await
     }
 }
-

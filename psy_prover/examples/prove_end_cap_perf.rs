@@ -8,11 +8,11 @@ use plonky2::{
         proof::ProofWithPublicInputs,
     },
 };
-use psy_config::PSY_NETWORK_MAGIC;
 use psy_common::{
     data::{alt::AltVerifierOnlyCircuitData, qhashout::QHashOut},
     utils::debug_timer::DebugTimer,
 };
+use psy_config::PSY_NETWORK_MAGIC;
 use psy_crypto::{
     common::witnesses::qrecursion::header::QRecursionAggStandardHeader,
     hash::{merkle::core::MerkleProofCore, traits::hasher::MerkleZeroHasher},

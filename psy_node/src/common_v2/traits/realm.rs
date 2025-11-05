@@ -3,13 +3,13 @@ use std::{marker::PhantomData, time::Duration};
 use async_trait::async_trait;
 use kvq::traits::{KVQBinaryStore, KVQSerializable};
 use plonky2::{field::goldilocks_field::GoldilocksField, hash::hash_types::RichField};
-use psy_common_circuit::hash::merkle::gadgets::delta_merkle_proof;
-use psy_config::network_constants::{COORDINATOR_USER_TREE_HEIGHT, GLOBAL_USER_TREE_HEIGHT};
 use psy_common::{
     data::qhashout::QHashOut,
     job::id::{ProvingJobCircuitType, ProvingJobDataType, QJobTopic, QProvingJobDataID, QProvingJobGraph, QProvingTask},
     utils::graph::BidirectionalGraph,
 };
+use psy_common_circuit::hash::merkle::gadgets::delta_merkle_proof;
+use psy_config::network_constants::{COORDINATOR_USER_TREE_HEIGHT, GLOBAL_USER_TREE_HEIGHT};
 use psy_crypto::hash::{
     merkle::{
         core::{compute_root_merkle_proof_generic, DeltaMerkleProofCore, MerkleProofCore},
