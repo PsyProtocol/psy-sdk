@@ -10,13 +10,14 @@ use psy_crypto::signature::{
     },
     zk::data::ZKPublicKeyInfo,
 };
+use psy_data::config::store_config::{PsyProof, PsyPlonky2Config};
 use psy_provider::provider::RpcProvider;
 use psy_vm::ups::circuit_manager::UPSCircuitManager;
 
 use crate::{
     signature::{
         context::SignContext,
-        traits::{SignatureCircuitInfo, SignatureConfig, SignatureProof, SignatureUser, SIGNATURE_D},
+        traits::{SignatureCircuitInfo, SignatureUser},
     },
     wallet::memory_wallet::PsyMemoryWallet,
 };
@@ -44,7 +45,7 @@ impl SignatureUser for SECP256K1User {
     async fn public_key_info(
         &self,
         _wallet: &PsyMemoryWallet,
-        circuit_manager: &(dyn UPSCircuitManager<SignatureConfig, SIGNATURE_D> + Send + Sync),
+        circuit_manager: &(dyn UPSCircuitManager<PsyPlonky2Config, 2> + Send + Sync),
     ) -> Result<ZKPublicKeyInfo<GoldilocksField>> {
         let public_key = get_secp_public_key(self.private_key)?;
         let public_key_param = hash_no_pad_compressed_public_key::<GoldilocksField, PoseidonPermutation<GoldilocksField>>(public_key);
@@ -58,10 +59,10 @@ impl SignatureUser for SECP256K1User {
     async fn sign(
         &self,
         _wallet: &PsyMemoryWallet,
-        circuit_manager: &(dyn UPSCircuitManager<SignatureConfig, SIGNATURE_D> + Send + Sync),
+        circuit_manager: &(dyn UPSCircuitManager<PsyPlonky2Config, 2> + Send + Sync),
         _context: &SignContext,
         sighash: QHashOut<GoldilocksField>,
-    ) -> Result<SignatureProof> {
+    ) -> Result<PsyProof> {
         let ecc_signature = self.raw_signature(sighash)?;
         circuit_manager.prove_secp_sign(ecc_signature).await
     }
@@ -69,7 +70,7 @@ impl SignatureUser for SECP256K1User {
     async fn circuit_info(
         &self,
         _wallet: &PsyMemoryWallet,
-        circuit_manager: &(dyn UPSCircuitManager<SignatureConfig, SIGNATURE_D> + Send + Sync),
+        circuit_manager: &(dyn UPSCircuitManager<PsyPlonky2Config, 2> + Send + Sync),
         _context: &SignContext,
     ) -> Result<SignatureCircuitInfo> {
         Ok(SignatureCircuitInfo {

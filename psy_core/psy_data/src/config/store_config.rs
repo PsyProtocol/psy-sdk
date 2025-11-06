@@ -10,6 +10,7 @@ use psy_config::network_constants::{
     GLOBAL_WITHDRAWAL_TREE_HEIGHT,
 };
 use psy_crypto::hash::merkle::core::{DeltaMerkleProofCore, MerkleProofCore};
+use plonky2::plonk::circuit_data::VerifierOnlyCircuitData;
 
 use crate::{
     models::{
@@ -109,6 +110,7 @@ pub type QCheckpointSyncInfoCompact = PsyCheckpointSyncInfoCompact<PsyFelt>;
 pub type QUserPublicKeyRecord = PsyUserPublicKeyRecord<PsyFelt>;
 pub type PsyPlonky2Config = PoseidonGoldilocksConfig;
 pub type PsyProof = ProofWithPublicInputs<PsyFelt, PsyPlonky2Config, 2>;
+pub type PsyVerifierData = VerifierOnlyCircuitData<PsyPlonky2Config, 2>;
 
 pub type UserLeafTableStore<S, IDKVA = KVQStandardAdapter<S, CheckpointTableIdKey<USER_LEAF_TABLE_TYPE>, PsyUserLeaf<PsyFelt>>> =
     UserLeafModel<USER_LEAF_TABLE_TYPE, S, IDKVA>;

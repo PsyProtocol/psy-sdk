@@ -96,14 +96,13 @@ where
         sig_hash: QHashOut<C::F>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>>;
 
-    // TODO: This method is temporarily commented out due to StateReader
-    // serialization issues async fn prove_plonky2_software_defined_sign(
-    //     &self,
-    //     fingerprint: QHashOut<C::F>,
-    //     private_key: QHashOut<C::F>,
-    //     input: Plonky2SoftwareDefinedSignatureInput<Self::Store>,
-    //     sig_hash: QHashOut<C::F>,
-    // ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>>;
+    async fn prove_plonky2_software_defined_sign(
+        &self,
+        fingerprint: QHashOut<C::F>,
+        private_key: QHashOut<C::F>,
+        input: Plonky2SoftwareDefinedSignatureInput,
+        sig_hash: QHashOut<C::F>,
+    ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>>;
 
     async fn prove_ups_end_cap(
         &self,
@@ -236,16 +235,15 @@ where
         (**self).prove_dpn_software_defined_sign(fingerprint, private_key, input, sig_hash).await
     }
 
-    // TODO: This method is temporarily commented out due to StateReader
-    // serialization issues async fn prove_plonky2_software_defined_sign(
-    //     &self,
-    //     fingerprint: QHashOut<C::F>,
-    //     private_key: QHashOut<C::F>,
-    //     input: Plonky2SoftwareDefinedSignatureInput<Self::Store>,
-    //     sig_hash: QHashOut<C::F>,
-    // ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
-    //     (**self).prove_plonky2_software_defined_sign(fingerprint, private_key,
-    // input, sig_hash).await }
+    async fn prove_plonky2_software_defined_sign(
+        &self,
+        fingerprint: QHashOut<C::F>,
+        private_key: QHashOut<C::F>,
+        input: Plonky2SoftwareDefinedSignatureInput,
+        sig_hash: QHashOut<C::F>,
+    ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
+        (**self).prove_plonky2_software_defined_sign(fingerprint, private_key, input, sig_hash).await
+    }
 
     async fn prove_ups_end_cap(
         &self,
@@ -405,6 +403,16 @@ where
         sig_hash: QHashOut<C::F>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         (**self).prove_dpn_software_defined_sign(fingerprint, private_key, input, sig_hash).await
+    }
+
+    async fn prove_plonky2_software_defined_sign(
+        &self,
+        fingerprint: QHashOut<C::F>,
+        private_key: QHashOut<C::F>,
+        input: Plonky2SoftwareDefinedSignatureInput,
+        sig_hash: QHashOut<C::F>,
+    ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
+        (**self).prove_plonky2_software_defined_sign(fingerprint, private_key, input, sig_hash).await
     }
 
     async fn prove_ups_end_cap(

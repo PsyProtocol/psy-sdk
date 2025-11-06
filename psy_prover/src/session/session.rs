@@ -669,15 +669,15 @@ impl WalletSession {
             F::from_canonical_u64(user_session_mgr.current_checkpoint_id),
         );
 
-        let state_reader = StateReader::new(
+        let state_reader: StateReader<F, 2, RpcProvider> = StateReader::new(
             user_contract_state,
             user_session_mgr.mgr.lps.cmd_store.clone(),
             user_session_mgr.mgr.lps.state_tree_store.clone(),
         )
         .await;
 
-        let plonky2_input = Plonky2SoftwareDefinedSignatureInput::<RpcProvider> {
-            state_reader,
+        let plonky2_input = Plonky2SoftwareDefinedSignatureInput {
+            state_reader_results: state_reader.to_results(),
             circuit_inputs,
         };
 

@@ -16,8 +16,8 @@ pub struct DPNSoftwareDefinedSignatureInput {
     pub cfc_input: DapenContractFunctionCircuitInput<GF>,
 }
 
-#[derive(Debug)]
-pub struct Plonky2SoftwareDefinedSignatureInput<R: PsyReadCommandProcessorSync<GF> + Send + Sync> {
-    pub state_reader: StateReader<GF, D, R>,
-    pub circuit_inputs: Vec<GF>,
+#[derive(Debug, Clone)]
+pub struct Plonky2SoftwareDefinedSignatureInput {
+    pub state_reader_results: crate::ups::state_reader::StateReaderResults<GoldilocksField>,
+    pub circuit_inputs: Vec<GoldilocksField>,
 }

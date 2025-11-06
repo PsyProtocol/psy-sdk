@@ -78,29 +78,26 @@ impl<F: RichField + Extendable<D>, const D: usize> StateReaderGadget<F, D> {
             // current_state_cmd_index: 0,
         }
     }
-    pub fn set_witness<R: PsyReadCommandProcessorSync<F> + Send + Sync>(
+    pub fn set_witness(
         &self,
         pw: &mut PartialWitness<F>,
-        state_reader: &StateReader<F, D, R>,
+        results: &psy_vm::ups::state_reader::StateReaderResults<F>,
     ) -> anyhow::Result<()> {
-        assert_eq!(self.state_cmds.len(), self.merkel_proofs.len());
-        assert_eq!(state_reader.state_cmds.len(), state_reader.merkel_proofs.len());
-        assert_eq!(self.merkel_proofs.len(), state_reader.merkel_proofs.len());
-
-        self.state.set_witness(pw, &state_reader.state)?;
+        self.state.set_witness(pw, &results.state)?;
 
         self.state_cmds
             .iter()
-            .zip(state_reader.state_cmds.iter())
+            .zip(results.state_cmds.iter())
             .for_each(|(state_cmd, state_cmd_reader)| {
                 assert_eq!(state_cmd, state_cmd_reader);
             });
 
         self.merkel_proofs
             .iter()
-            .zip(state_reader.merkel_proofs.iter())
-            .try_for_each(|(merkle_proof_gadget, merkle_proof)| merkle_proof_gadget.set_witness_core_proof_q_generic(pw, &merkle_proof))?;
-
+            .zip(results.merkel_proofs.iter())
+            .try_for_each(|(merkle_proof_gadget, merkle_proof)| {
+                merkle_proof_gadget.set_witness_core_proof_q_generic(pw, merkle_proof)
+            })?;
         Ok(())
     }
     pub fn get_self_user_current_contract_state_slot_hash(

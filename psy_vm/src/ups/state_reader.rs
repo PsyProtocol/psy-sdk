@@ -5,12 +5,14 @@ use maybe_async::maybe_async;
 use plonky2::{
     field::{
         extension::Extendable,
+        goldilocks_field::GoldilocksField,
         types::{Field, PrimeField64},
     },
     hash::hash_types::RichField,
 };
 use psy_common::data::qhashout::QHashOut;
 use psy_crypto::hash::merkle::core::MerkleProofCore;
+use serde::{Deserialize, Serialize};
 use psy_data::{
     models::user::contract_state_tree::UserContractStateTreeId,
     qdata::user_contract_state::UserContractState,
@@ -25,6 +27,13 @@ use crate::dpn::ops::state_cmd::data::{
     DPNStateCmd, DPNStateCmdGetOtherUserContractStateSlotHash, DPNStateCmdGetSelfUserCurrentContractStateSlotHash,
     DPNStateCmdGetSelfUserExternalContractStateSlotHash,
 };
+
+#[derive(Debug, Clone)]
+pub struct StateReaderResults<F: RichField> {
+    pub state: UserContractState<F>,
+    pub state_cmds: Vec<DPNStateCmd<F>>,
+    pub merkel_proofs: Vec<MerkleProofCore<QHashOut<F>>>,
+}
 
 #[derive(Debug)]
 pub struct StateReader<F: RichField + Extendable<D>, const D: usize, R: PsyReadCommandProcessorSync<F> + Send + Sync> {
@@ -45,6 +54,14 @@ impl<F: RichField + Extendable<D>, const D: usize, R: PsyReadCommandProcessorSyn
             state_tree_store,
             merkel_proofs: Vec::new(),
             state_cmds: Vec::new(),
+        }
+    }
+
+    pub fn to_results(&self) -> StateReaderResults<F> {
+        StateReaderResults {
+            state: self.state.clone(),
+            state_cmds: self.state_cmds.clone(),
+            merkel_proofs: self.merkel_proofs.clone(),
         }
     }
 

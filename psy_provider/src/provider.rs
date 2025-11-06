@@ -1097,20 +1097,18 @@ where
         }
     }
 
-    // TODO: This method is temporarily commented out due to StateReader
-    // serialization issues async fn prove_plonky2_software_defined_sign(
-    //     &self,
-    //     fingerprint: QHashOut<C::F>,
-    //     private_key: QHashOut<C::F>,
-    //     input:
-    // psy_vm::ups::signature::Plonky2SoftwareDefinedSignatureInput<Self::Store>,
-    //     sig_hash: QHashOut<C::F>,
-    // ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
-    //     tracing::info!("prove_plonky2_software_defined_sign:");
-    //     // For now, this method needs an RPC request implementation
-    //     // The input type contains StateReader which needs to be serialized
-    // differently     Err(anyhow::format_err!("plonky2 software defined sign
-    // not yet implemented over RPC")) }
+    async fn prove_plonky2_software_defined_sign(
+        &self,
+        fingerprint: QHashOut<C::F>,
+        private_key: QHashOut<C::F>,
+        input: psy_vm::ups::signature::Plonky2SoftwareDefinedSignatureInput,
+        sig_hash: QHashOut<C::F>,
+    ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
+        tracing::info!("prove_plonky2_software_defined_sign:");
+        // Now that we have StateReaderResults which can be serialized, this can be implemented
+        // For now, return an error until the RPC request is implemented
+        Err(anyhow::format_err!("plonky2 software defined sign not yet implemented over RPC"))
+    }
 
     async fn prove_ups_end_cap(
         &self,

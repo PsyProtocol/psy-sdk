@@ -332,17 +332,15 @@ where
         unimplemented!("prove_dpn_software_defined_sign");
     }
 
-    // TODO: This method is temporarily commented out due to StateReader
-    // serialization issues async fn prove_plonky2_software_defined_sign(
-    //     &self,
-    //     fingerprint: QHashOut<C::F>,
-    //     private_key: QHashOut<C::F>,
-    //     input:
-    // psy_vm::ups::signature::Plonky2SoftwareDefinedSignatureInput<Self::Store>,
-    //     sig_hash: QHashOut<C::F>,
-    // ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
-    //     unimplemented!("prove_plonky2_software_defined_sign");
-    // }
+    async fn prove_plonky2_software_defined_sign(
+        &self,
+        _fingerprint: QHashOut<C::F>,
+        _private_key: QHashOut<C::F>,
+        _input: psy_vm::ups::signature::Plonky2SoftwareDefinedSignatureInput,
+        _sig_hash: QHashOut<C::F>,
+    ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
+        unimplemented!("prove_plonky2_software_defined_sign");
+    }
 
     async fn prove_ups_end_cap(
         &self,

@@ -35,7 +35,6 @@ use psy_data::{
     },
 };
 use psy_dpn_circuit::circuits::cfc::DapenContractFunctionCircuit;
-// use crate::local::provider::LocalCommonCircuitsData;
 use psy_provider::provider::{NetworkConfig, QCommonCircuitData, RpcProvider};
 use psy_provider::request::{
     DPNSoftwareDefinedSignatureInput, QRegisterDPNSoftwareDefinedCircuitRPCRequest, QRegisterPlonky2SoftwareDefinedCircuitRPCRequest,

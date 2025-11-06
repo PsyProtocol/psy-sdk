@@ -3,22 +3,13 @@ use psy_common::data::qhashout::QHashOut;
 use psy_provider::{provider::RpcProvider, request::DPNSoftwareDefinedSignatureInput};
 use psy_vm::ups::signature::Plonky2SoftwareDefinedSignatureInput;
 
-/// Signing context passed to `SignatureUser` implementations.
 #[derive(Debug)]
 pub struct SignContext {
-    /// Signer fingerprint / identifier.
     pub fingerprint: QHashOut<GoldilocksField>,
-    /// Optional contract identifier tied to the signature.
     pub contract_id: Option<u64>,
-    /// ABI-level signing inputs provided by the caller.
     pub sign_inputs: Vec<u64>,
-
-    /// PSY/DPN software-defined signature witness input
     pub psy_witness_input: Option<DPNSoftwareDefinedSignatureInput>,
-    /// PLONKY2 software-defined signature input  
-    pub plonky2_signature_input: Option<Plonky2SoftwareDefinedSignatureInput<RpcProvider>>,
-
-    /// Shared fields for software-defined signatures
+    pub plonky2_signature_input: Option<Plonky2SoftwareDefinedSignatureInput>,
     pub checkpoint_id: Option<u64>,
     pub user_id: Option<u64>,
     pub contract_state_tree_root: Option<QHashOut<GoldilocksField>>,
@@ -68,7 +59,7 @@ impl SignContext {
 
     pub fn with_plonky2_signature_input(
         mut self,
-        signature_input: Plonky2SoftwareDefinedSignatureInput<RpcProvider>,
+        signature_input: Plonky2SoftwareDefinedSignatureInput,
         checkpoint_id: u64,
         user_id: u64,
         contract_state_tree_root: QHashOut<GoldilocksField>,

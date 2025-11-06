@@ -3,13 +3,14 @@ use async_trait::async_trait;
 use plonky2::{field::goldilocks_field::GoldilocksField, hash::poseidon::PoseidonHash};
 use psy_common::data::qhashout::QHashOut;
 use psy_crypto::signature::zk::{data::ZKPublicKeyInfo, wallet::SimplePsyPrivateKey};
+use psy_data::config::store_config::{PsyProof, PsyPlonky2Config};
 use psy_provider::provider::RpcProvider;
 use psy_vm::ups::circuit_manager::UPSCircuitManager;
 
 use crate::{
     signature::{
         context::SignContext,
-        traits::{SignatureCircuitInfo, SignatureConfig, SignatureProof, SignatureUser, SIGNATURE_D},
+        traits::{SignatureCircuitInfo, SignatureUser},
     },
     wallet::memory_wallet::PsyMemoryWallet,
 };
@@ -31,7 +32,7 @@ impl SignatureUser for ZKUser {
     async fn public_key_info(
         &self,
         _wallet: &PsyMemoryWallet,
-        circuit_manager: &(dyn UPSCircuitManager<SignatureConfig, SIGNATURE_D> + Send + Sync),
+        circuit_manager: &(dyn UPSCircuitManager<PsyPlonky2Config, 2> + Send + Sync),
     ) -> Result<ZKPublicKeyInfo<GoldilocksField>> {
         let fingerprint = circuit_manager.zk_circuit_fingerprint().await?;
         let public_key_param = self.private_key.get_public_key_param::<PoseidonHash>();
@@ -44,17 +45,17 @@ impl SignatureUser for ZKUser {
     async fn sign(
         &self,
         _wallet: &PsyMemoryWallet,
-        circuit_manager: &(dyn UPSCircuitManager<SignatureConfig, SIGNATURE_D> + Send + Sync),
+        circuit_manager: &(dyn UPSCircuitManager<PsyPlonky2Config, 2> + Send + Sync),
         _context: &SignContext,
         sighash: QHashOut<GoldilocksField>,
-    ) -> Result<SignatureProof> {
+    ) -> Result<PsyProof> {
         circuit_manager.prove_zk_sign(self.private_key.private_key, sighash).await
     }
 
     async fn circuit_info(
         &self,
         _wallet: &PsyMemoryWallet,
-        circuit_manager: &(dyn UPSCircuitManager<SignatureConfig, SIGNATURE_D> + Send + Sync),
+        circuit_manager: &(dyn UPSCircuitManager<PsyPlonky2Config, 2> + Send + Sync),
         _context: &SignContext,
     ) -> Result<SignatureCircuitInfo> {
         Ok(SignatureCircuitInfo {

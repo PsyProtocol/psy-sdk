@@ -226,10 +226,10 @@ impl Plonky2SoftwareDefinedSignatureGadget {
         Ok(())
     }
 
-    pub async fn prove<R: PsyReadCommandProcessorSync<GF> + Send + Sync>(
+    pub async fn prove(
         &mut self,
         private_key: QHashOut<GF>,
-        input: &Plonky2SoftwareDefinedSignatureInput<R>,
+        input: &Plonky2SoftwareDefinedSignatureInput,
         sig_hash: QHashOut<GF>,
     ) -> anyhow::Result<ProofWithPublicInputs<GF, C, D>> {
         let circuit_data = self.circuit_data.as_ref().ok_or_else(|| anyhow::anyhow!("Circuit not built"))?;
@@ -243,7 +243,7 @@ impl Plonky2SoftwareDefinedSignatureGadget {
         pw.set_hash_target(self.sig_hash, sig_hash.0)?;
         pw.set_target_arr(&self.circuit_inputs, &input.circuit_inputs)?;
 
-        self.state_reader_gadget.set_witness(&mut pw, &input.state_reader)?;
+        self.state_reader_gadget.set_witness(&mut pw, &input.state_reader_results)?;
 
         let inner_proof = circuit_data.prove(pw)?;
         let minified_proof = minifier_chain.prove(&inner_proof)?;
