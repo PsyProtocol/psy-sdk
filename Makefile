@@ -277,7 +277,7 @@ run-realm-edge1:
 	  --queue-biz-key realm1
 
 run-realm-processor2:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_rollup_cli realm-processor \
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_node_cli realm-processor \
       --redis-uri=redis://127.0.0.1:6379 \
       --database lmdbx \
       --lmdbx-path ${PWD}/db/realm2 \
@@ -286,7 +286,7 @@ run-realm-processor2:
 	  --queue-biz-key realm2
 
 run-realm-edge2:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_rollup_cli realm-edge \
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_node_cli realm-edge \
       --listen-addr=0.0.0.0:8548 \
       --redis-uri=redis://127.0.0.1:6379 \
       --database lmdbx \
@@ -296,7 +296,7 @@ run-realm-edge2:
 	  --queue-biz-key realm2
 
 run-realm-processor3:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_rollup_cli realm-processor \
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_node_cli realm-processor \
       --redis-uri=redis://127.0.0.1:6379 \
       --database lmdbx \
       --lmdbx-path ${PWD}/db/realm3 \
@@ -305,7 +305,7 @@ run-realm-processor3:
 	  --queue-biz-key realm3
 
 run-realm-edge3:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_rollup_cli realm-edge \
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_node_cli realm-edge \
       --listen-addr=0.0.0.0:8549 \
       --redis-uri=redis://127.0.0.1:6379 \
       --database lmdbx \
@@ -315,7 +315,7 @@ run-realm-edge3:
 	  --queue-biz-key realm3
 
 run-realm-processor4:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_rollup_cli realm-processor \
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_node_cli realm-processor \
       --redis-uri=redis://127.0.0.1:6379 \
       --database lmdbx \
       --lmdbx-path ${PWD}/db/realm4 \
@@ -324,7 +324,7 @@ run-realm-processor4:
 	  --queue-biz-key realm4
 
 run-realm-edge4:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_rollup_cli realm-edge \
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_node_cli realm-edge \
       --listen-addr=0.0.0.0:8550 \
       --redis-uri=redis://127.0.0.1:6379 \
       --database lmdbx \
@@ -334,7 +334,7 @@ run-realm-edge4:
 	  --queue-biz-key realm4
 
 run-realm-processor5:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_rollup_cli realm-processor \
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_node_cli realm-processor \
       --redis-uri=redis://127.0.0.1:6379 \
       --database lmdbx \
       --lmdbx-path ${PWD}/db/realm5 \
@@ -343,7 +343,7 @@ run-realm-processor5:
 	  --queue-biz-key realm5
 
 run-realm-edge5:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_rollup_cli realm-edge \
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_node_cli realm-edge \
       --listen-addr=0.0.0.0:8551 \
       --redis-uri=redis://127.0.0.1:6379 \
       --database lmdbx \
@@ -353,7 +353,7 @@ run-realm-edge5:
 	  --queue-biz-key realm5
 
 run-realm-processor6:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_rollup_cli realm-processor \
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_node_cli realm-processor \
       --redis-uri=redis://127.0.0.1:6379 \
       --database lmdbx \
       --lmdbx-path ${PWD}/db/realm6 \
@@ -362,7 +362,7 @@ run-realm-processor6:
 	  --queue-biz-key realm6
 
 run-realm-edge6:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_rollup_cli realm-edge \
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_node_cli realm-edge \
       --listen-addr=0.0.0.0:8552 \
       --redis-uri=redis://127.0.0.1:6379 \
       --database lmdbx \
@@ -372,7 +372,7 @@ run-realm-edge6:
 	  --queue-biz-key realm6
 
 run-realm-processor7:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_rollup_cli realm-processor \
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_node_cli realm-processor \
       --redis-uri=redis://127.0.0.1:6379 \
       --database lmdbx \
       --lmdbx-path ${PWD}/db/realm3 \
@@ -381,7 +381,7 @@ run-realm-processor7:
 	  --queue-biz-key realm7
 
 run-realm-edge7:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_rollup_cli realm-edge \
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_node_cli realm-edge \
       --listen-addr=0.0.0.0:8553 \
       --redis-uri=redis://127.0.0.1:6379 \
       --database lmdbx \
@@ -473,32 +473,32 @@ run-worker2:
       --private-key=${USER2_PRIVATE_KEY}
 
 run-worker3:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_rollup_cli worker \
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_node_cli worker \
       --config=./config.json \
       --private-key=474cc8e224f11ae4e8fd954ba1ed452ddd6be1f0e7004dc9d8a3cde7904876ff
 
 run-worker4:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_rollup_cli worker \
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_node_cli worker \
       --config=./config.json \
       --private-key=75e3573a6f5c4e5b5c03c9a030a945c4ab6ff275f7a575fdad9f09b910ab7244
 
 run-worker5:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_rollup_cli worker \
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_node_cli worker \
       --config=./config.json \
       --private-key=691e70254fba261f3a095904daa35a85e7d341fa188fa66adb7f4a8688af51a0
 
 run-worker6:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_rollup_cli worker \
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_node_cli worker \
       --config=./config.json \
       --private-key=48001860a5289eb83e4c5e4a7a080250703ee797716edc95038c64b9927ce01c
 
 run-worker7:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_rollup_cli worker \
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_node_cli worker \
       --config=./config.json \
       --private-key=53d13861c42eca37a573c9e50fae74c297369347d237f44cec5b2faa6c2e4f77
 
 run-worker8:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_rollup_cli worker \
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_node_cli worker \
       --config=./config.json \
       --private-key=9283264949e3248ccd661dca69441e5fa60ab4073177380bd97717cda56739ec
 
@@ -567,7 +567,7 @@ run-realm-edge1-tikv:
 		--queue-biz-key realm1
 
 run-realm-processor2-tikv:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_rollup_cli realm-processor \
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_node_cli realm-processor \
 		--redis-uri=redis://127.0.0.1:6379 \
 		--database tikv \
 		--tikv-pd-endpoints ${TIKV_PD_ENDPOINTS} \
@@ -576,7 +576,7 @@ run-realm-processor2-tikv:
 		--queue-biz-key realm2
 
 run-realm-edge2-tikv:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_rollup_cli realm-edge \
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_node_cli realm-edge \
 		--listen-addr=0.0.0.0:8548 \
         --redis-uri=redis://127.0.0.1:6379 \
         --database tikv \
@@ -587,7 +587,7 @@ run-realm-edge2-tikv:
 		--queue-biz-key realm2
 
 run-realm-processor3-tikv:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_rollup_cli realm-processor \
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_node_cli realm-processor \
 		--redis-uri=redis://127.0.0.1:6379 \
 		--database tikv \
 		--tikv-pd-endpoints ${TIKV_PD_ENDPOINTS} \
@@ -596,7 +596,7 @@ run-realm-processor3-tikv:
 		--queue-biz-key realm3
 
 run-realm-edge3-tikv:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_rollup_cli realm-edge \
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_node_cli realm-edge \
 		--listen-addr=0.0.0.0:8549 \
         --redis-uri=redis://127.0.0.1:6379 \
         --database tikv \
@@ -607,7 +607,7 @@ run-realm-edge3-tikv:
 		--queue-biz-key realm3
 
 run-realm-processor4-tikv:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_rollup_cli realm-processor \
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_node_cli realm-processor \
 		--redis-uri=redis://127.0.0.1:6379 \
 		--database tikv \
 		--tikv-pd-endpoints ${TIKV_PD_ENDPOINTS} \
@@ -616,7 +616,7 @@ run-realm-processor4-tikv:
 		--queue-biz-key realm4
 
 run-realm-edge4-tikv:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_rollup_cli realm-edge \
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_node_cli realm-edge \
 		--listen-addr=0.0.0.0:8550 \
 		--redis-uri=redis://127.0.0.1:6379 \
 		--database tikv \
@@ -626,7 +626,7 @@ run-realm-edge4-tikv:
 		--queue-biz-key realm4
 
 run-realm-processor5-tikv:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_rollup_cli realm-processor \
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_node_cli realm-processor \
 		--redis-uri=redis://127.0.0.1:6379 \
 		--database tikv \
 		--tikv-pd-endpoints ${TIKV_PD_ENDPOINTS} \
@@ -635,7 +635,7 @@ run-realm-processor5-tikv:
 		--queue-biz-key realm5
 
 run-realm-edge5-tikv:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_rollup_cli realm-edge \
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_node_cli realm-edge \
 		--listen-addr=0.0.0.0:8551 \
 		--redis-uri=redis://127.0.0.1:6379 \
 		--database tikv \
@@ -646,7 +646,7 @@ run-realm-edge5-tikv:
 
 
 run-realm-processor6-tikv:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_rollup_cli realm-processor \
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_node_cli realm-processor \
 		--redis-uri=redis://127.0.0.1:6379 \
 		--database tikv \
 		--tikv-pd-endpoints ${TIKV_PD_ENDPOINTS} \
@@ -655,7 +655,7 @@ run-realm-processor6-tikv:
 		--queue-biz-key realm6
 
 run-realm-edge6-tikv:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_rollup_cli realm-edge \
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_node_cli realm-edge \
 		--listen-addr=0.0.0.0:8552 \
 		--redis-uri=redis://127.0.0.1:6379 \
 		--database tikv \
@@ -666,7 +666,7 @@ run-realm-edge6-tikv:
 
 
 run-realm-processor7-tikv:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_rollup_cli realm-processor \
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_node_cli realm-processor \
 		--redis-uri=redis://127.0.0.1:6379 \
 		--database tikv \
 		--tikv-pd-endpoints ${TIKV_PD_ENDPOINTS} \
@@ -675,7 +675,7 @@ run-realm-processor7-tikv:
 		--queue-biz-key realm7
 
 run-realm-edge7-tikv:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_rollup_cli realm-edge \
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_node_cli realm-edge \
 		--listen-addr=0.0.0.0:8553 \
 		--redis-uri=redis://127.0.0.1:6379 \
 		--database tikv \

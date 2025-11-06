@@ -4,7 +4,7 @@ FROM archlinux:latest
 WORKDIR /psy-rollup
 
 # Copy built binaries
-COPY ./target/release/psy_rollup_cli /usr/local/bin/
+COPY ./target/release/psy_node_cli /usr/local/bin/
 
 # Copy configuration files
 COPY config.json ./
@@ -16,4 +16,4 @@ ENV TIKV_PD_ENDPOINTS="127.0.0.1:2379,127.0.0.1:2381,127.0.0.1:2383"
 ENV DATABASE_URL="postgres://postgres:password@127.0.0.1:5432/postgres"
 
 # Default command
-CMD ["psy_rollup_cli", "--help"]
+CMD ["psy_node_cli", "--help"]
