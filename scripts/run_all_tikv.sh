@@ -152,14 +152,14 @@ run_service "make run-realm-processor2-tikv" "realm-processor2-tikv" "$REALM_PRO
 PIDS+=($!)
 run_service "make run-realm-processor3-tikv" "realm-processor3-tikv" "$REALM_PROCESSOR3_LOG" &
 PIDS+=($!)
-run_service "make run-realm-processor4-tikv" "realm-processor4-tikv" "$REALM_PROCESSOR4_LOG" &
-PIDS+=($!)
-run_service "make run-realm-processor5-tikv" "realm-processor5-tikv" "$REALM_PROCESSOR5_LOG" &
-PIDS+=($!)
-run_service "make run-realm-processor6-tikv" "realm-processor6-tikv" "$REALM_PROCESSOR6_LOG" &
-PIDS+=($!)
-run_service "make run-realm-processor7-tikv" "realm-processor7-tikv" "$REALM_PROCESSOR7_LOG" &
-PIDS+=($!)
+#run_service "make run-realm-processor4-tikv" "realm-processor4-tikv" "$REALM_PROCESSOR4_LOG" &
+#PIDS+=($!)
+#run_service "make run-realm-processor5-tikv" "realm-processor5-tikv" "$REALM_PROCESSOR5_LOG" &
+#PIDS+=($!)
+#run_service "make run-realm-processor6-tikv" "realm-processor6-tikv" "$REALM_PROCESSOR6_LOG" &
+#PIDS+=($!)
+#run_service "make run-realm-processor7-tikv" "realm-processor7-tikv" "$REALM_PROCESSOR7_LOG" &
+#PIDS+=($!)
 
 
 # Group 2: Start edge services (depend on processors)
@@ -174,14 +174,14 @@ run_service "make run-realm-edge2-tikv" "realm-edge2-tikv" "$REALM_EDGE2_LOG" &
 PIDS+=($!)
 run_service "make run-realm-edge3-tikv" "realm-edge3-tikv" "$REALM_EDGE3_LOG" &
 PIDS+=($!)
-run_service "make run-realm-edge4-tikv" "realm-edge4-tikv" "$REALM_EDGE4_LOG" &
-PIDS+=($!)
-run_service "make run-realm-edge5-tikv" "realm-edge5-tikv" "$REALM_EDGE5_LOG" &
-PIDS+=($!)
-run_service "make run-realm-edge6-tikv" "realm-edge6-tikv" "$REALM_EDGE6_LOG" &
-PIDS+=($!)
-run_service "make run-realm-edge7-tikv" "realm-edge7-tikv" "$REALM_EDGE7_LOG" &
-PIDS+=($!)
+#run_service "make run-realm-edge4-tikv" "realm-edge4-tikv" "$REALM_EDGE4_LOG" &
+#PIDS+=($!)
+#run_service "make run-realm-edge5-tikv" "realm-edge5-tikv" "$REALM_EDGE5_LOG" &
+#PIDS+=($!)
+#run_service "make run-realm-edge6-tikv" "realm-edge6-tikv" "$REALM_EDGE6_LOG" &
+#PIDS+=($!)
+#run_service "make run-realm-edge7-tikv" "realm-edge7-tikv" "$REALM_EDGE7_LOG" &
+#PIDS+=($!)
 
 # Group 3: Start worker services (depend on edges)
 sleep 2

@@ -5,7 +5,7 @@
       "users_per_realm": 1048576,
       "global_user_tree_height": 24,
       "realm_user_tree_height": 20,
-      "group_realm_height": 3,
+      "group_realm_height": 2,
       "realm_configs": [
         {
           "id": 0,
@@ -22,22 +22,6 @@
         {
           "id": 3,
           "rpc_url": ["http://127.0.0.1:8549"]
-        },
-        {
-          "id": 4,
-          "rpc_url": ["http://127.0.0.1:8550"]
-        },
-        {
-          "id": 5,
-          "rpc_url": ["http://127.0.0.1:8551"]
-        },
-        {
-          "id": 6,
-          "rpc_url": ["http://127.0.0.1:8552"]
-        },
-        {
-          "id": 7,
-          "rpc_url": ["http://127.0.0.1:8553"]
         }
       ],
       "coordinator_configs": [
