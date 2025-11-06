@@ -201,7 +201,7 @@ impl WasmConstants {
 
     #[wasm_bindgen(getter)]
     pub fn config_path() -> String {
-        psy_config::network_constants::CONFIG_PATH.to_string()
+        "config.json".to_string() // Default config path
     }
 
     #[wasm_bindgen(getter)]
@@ -265,7 +265,7 @@ pub struct WasmRpcServer {
 impl WasmRpcServer {
     #[wasm_bindgen(constructor)]
     pub async fn new(rpc_config_json: &str) -> Result<WasmRpcServer, JsError> {
-        let rpc_config: RpcConfig = serde_json::from_str(rpc_config_json)
+        let rpc_config: RpcConfig<F> = serde_json::from_str(rpc_config_json)
             .map_err(|e| JsError::new(&format!("Parse RPC config error: {}", e)))?;
 
         let wallet_session = WalletSession::new(&rpc_config)
@@ -421,70 +421,30 @@ impl WasmRpcServer {
 
     // User operations
     #[wasm_bindgen]
-    pub async fn register_user(&mut self, private_key_str: &str) -> Result<String, JsError> {
+    pub async fn register_user(&mut self, private_key_str: &str, fingerprint_str: &str) -> Result<String, JsError> {
         let private_key = QHashOut::<F>::from_str(private_key_str)
             .map_err(|e| JsError::new(&format!("Parse private key error: {}", e)))?;
-        let pk_hash = self.wallet_session.register_user(private_key)
+        let fingerprint = QHashOut::<F>::from_str(fingerprint_str)
+            .map_err(|e| JsError::new(&format!("Parse fingerprint error: {}", e)))?;
+        let pk_hash = self.wallet_session.register_user(private_key, fingerprint)
             .await
             .map_err(|e| JsError::new(&format!("Register user error: {}", e)))?;
         Ok(pk_hash.to_string())
     }
 
-    #[wasm_bindgen]
-    pub async fn register_user_with_type(
-        &mut self,
-        private_key: &str,
-        sign_type: &str,
-        fingerprint: Option<String>,
-    ) -> Result<String, JsError> {
-        let private_key = QHashOut::<F>::from_str(private_key)
-            .map_err(|e| JsError::new(&format!("Parse private key error: {}", e)))?;
-        let sign_type = SignType::from_str(sign_type, true)
-            .map_err(|e| JsError::new(&format!("Parse sign type error: {}", e)))?;
-
-        let fingerprint = fingerprint
-            .map(|f| QHashOut::<F>::from_str(&f).map_err(|e| JsError::new(&format!("Parse fingerprint error: {}", e))))
-            .transpose()?;
-
-        let pk_hash = self.wallet_session.register_user_with_type(private_key, sign_type, fingerprint)
-            .await
-            .map_err(|e| JsError::new(&format!("Register user with type error: {}", e)))?;
-        Ok(pk_hash.to_string())
-    }
 
     #[wasm_bindgen]
-    pub async fn add_user(&mut self, private_key_str: &str) -> Result<String, JsError> {
+    pub async fn add_user(&mut self, private_key_str: &str, fingerprint_str: &str) -> Result<String, JsError> {
         let private_key = QHashOut::<F>::from_str(private_key_str)
             .map_err(|e| JsError::new(&format!("Parse private key error: {}", e)))?;
-        let pk_hash = self.wallet_session.add_user(private_key)
+        let fingerprint = QHashOut::<F>::from_str(fingerprint_str)
+            .map_err(|e| JsError::new(&format!("Parse fingerprint error: {}", e)))?;
+        let pk_hash = self.wallet_session.add_user(private_key, fingerprint)
             .await
             .map_err(|e| JsError::new(&format!("Add user error: {}", e)))?;
         Ok(pk_hash.to_string())
     }
 
-    #[wasm_bindgen]
-    pub async fn add_user_with_type(
-        &mut self,
-        private_key_str: &str,
-        sign_type: &str,
-        fingerprint: Option<String>,
-    ) -> Result<String, JsError> {
-        let private_key = QHashOut::<F>::from_str(private_key_str)
-            .map_err(|e| JsError::new(&format!("Parse private key error: {}", e)))?;
-                
-        let sign_type = SignType::from_str(sign_type, true)
-            .map_err(|e| JsError::new(&format!("Parse sign type error: {}", e)))?;
-
-        let fingerprint = fingerprint
-            .map(|f| QHashOut::<F>::from_str(&f).map_err(|e| JsError::new(&format!("Parse fingerprint error: {}", e))))
-            .transpose()?;
-
-        let pk_hash = self.wallet_session.add_user_with_type(private_key, sign_type, fingerprint)
-            .await
-            .map_err(|e| JsError::new(&format!("Add user with sign type error: {}", e)))?;
-
-        Ok(pk_hash.to_string())
-    }
 
     #[wasm_bindgen]
     pub async fn get_zk_public_key_json(&self, private_key_str: &str) -> Result<String, JsError> {
