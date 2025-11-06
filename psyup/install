@@ -4,20 +4,20 @@ set -eo pipefail
 echo "Installing psyup..."
 
 BASE_DIR="${XDG_CONFIG_HOME:-$HOME}"
-QED_DIR="${QED_DIR:-"$BASE_DIR/.qed"}"
-QED_BIN_DIR="$QED_DIR/bin"
-QED_MAN_DIR="$QED_DIR/share/man/man1"
+Psy_DIR="${Psy_DIR:-"$BASE_DIR/.psy"}"
+Psy_BIN_DIR="$Psy_DIR/bin"
+Psy_MAN_DIR="$Psy_DIR/share/man/man1"
 
-BIN_URL="https://raw.githubusercontent.com/QEDProtocol/qedlang-rust/master/psyup/psyup"
-BIN_PATH="$QED_BIN_DIR/psyup"
+BIN_URL="https://raw.githubusercontent.com/PsyProtocol/psy-v1/master/psyup/psyup"
+BIN_PATH="$Psy_BIN_DIR/psyup"
 
-# Create the .qed bin directory and psyup binary if it doesn't exist.
-mkdir -p "$QED_BIN_DIR"
+# Create the .psy bin directory and psyup binary if it doesn't exist.
+mkdir -p "$Psy_BIN_DIR"
 curl -sSf -L "$BIN_URL" -o "$BIN_PATH"
 chmod +x "$BIN_PATH"
 
 # Create the man directory for future man files if it doesn't exist.
-mkdir -p "$QED_MAN_DIR"
+mkdir -p "$Psy_MAN_DIR"
 
 # Store the correct profile file (i.e. .profile for bash or .zshenv for ZSH).
 case $SHELL in
@@ -38,18 +38,18 @@ case $SHELL in
     PREF_SHELL=ash
     ;;
 *)
-    echo "psyup: could not detect shell, manually add ${QED_BIN_DIR} to your PATH."
+    echo "psyup: could not detect shell, manually add ${Psy_BIN_DIR} to your PATH."
     exit 1
 esac
 
 # Only add psyup if it isn't already in PATH.
-if [[ ":$PATH:" != *":${QED_BIN_DIR}:"* ]]; then
+if [[ ":$PATH:" != *":${Psy_BIN_DIR}:"* ]]; then
     # Add the psyup directory to the path and ensure the old PATH variables remain.
     # If the shell is fish, echo fish_add_path instead of export.
     if [[ "$PREF_SHELL" == "fish" ]]; then
-        echo >> "$PROFILE" && echo "fish_add_path -a $QED_BIN_DIR" >> "$PROFILE"
+        echo >> "$PROFILE" && echo "fish_add_path -a $Psy_BIN_DIR" >> "$PROFILE"
     else
-        echo >> "$PROFILE" && echo "export PATH=\"\$PATH:$QED_BIN_DIR\"" >> "$PROFILE"
+        echo >> "$PROFILE" && echo "export PATH=\"\$PATH:$Psy_BIN_DIR\"" >> "$PROFILE"
     fi
 fi
 
@@ -61,4 +61,4 @@ fi
 echo
 echo "Detected your preferred shell is $PREF_SHELL and added psyup to PATH."
 echo "Run 'source $PROFILE' or start a new terminal session to use psyup."
-echo "Then, simply run 'psyup' to install QED."
+echo "Then, simply run 'psyup' to install Psy."

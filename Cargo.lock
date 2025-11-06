@@ -257,7 +257,7 @@ dependencies = [
  "proptest",
  "rand 0.9.2",
  "ruint",
- "rustc-hash 2.1.1",
+ "rustc-hash",
  "serde",
  "sha3",
  "tiny-keccak",
@@ -1507,25 +1507,22 @@ dependencies = [
 
 [[package]]
 name = "bindgen"
-version = "0.69.5"
+version = "0.71.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "271383c67ccabffb7381723dea0672a673f292304fcb45c01cc648c7a8d58088"
+checksum = "5f58bf3d7db68cfbac37cfc485a8d711e87e064c3d0fe0435b92f7a407f9d6b3"
 dependencies = [
  "bitflags 2.9.4",
  "cexpr",
  "clang-sys",
- "itertools 0.12.1",
- "lazy_static",
- "lazycell",
+ "itertools 0.13.0",
  "log",
  "prettyplease",
  "proc-macro2",
  "quote",
  "regex",
- "rustc-hash 1.1.0",
+ "rustc-hash",
  "shlex",
  "syn 2.0.106",
- "which",
 ]
 
 [[package]]
@@ -1543,7 +1540,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "regex",
- "rustc-hash 2.1.1",
+ "rustc-hash",
  "shlex",
  "syn 2.0.106",
 ]
@@ -2001,10 +1998,11 @@ checksum = "b05b61dc5112cbb17e4b6cd61790d9845d13888356391624cbe7e41efeac1e75"
 
 [[package]]
 name = "colored"
-version = "3.0.0"
+version = "2.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fde0e0ec90c9dfb3b4b1a0891a7dcd0e2bffde2f7efed5fe7c9bb00e5bfb915e"
+checksum = "117725a109d387c937a1533ce01b450cbde6b88abceea8473c4d7a85853cda3c"
 dependencies = [
+ "lazy_static",
  "windows-sys 0.59.0",
 ]
 
@@ -2435,20 +2433,19 @@ dependencies = [
  "num-bigint",
  "num-traits",
  "plonky2",
- "qed-abi",
- "qed-ast",
- "qed-common",
- "qed-interpreter",
- "qed-sema",
- "qed_common_circuit",
- "qed_core",
- "qed_crypto",
- "qed_data",
- "qed_exec",
- "qed_package",
- "qed_prover",
- "qed_store",
- "qedlang_core",
+ "psy-abi",
+ "psy-ast",
+ "psy-interpreter",
+ "psy-package",
+ "psy-sema",
+ "psy_common",
+ "psy_common_circuit",
+ "psy_config",
+ "psy_crypto",
+ "psy_data",
+ "psy_prover",
+ "psy_store",
+ "psy_vm",
  "serde",
  "serde_json",
  "thiserror 2.0.17",
@@ -2889,6 +2886,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "186e05a59d4c50738528153b83b0b0194d3a29507dfec16eccd4b342903397d0"
 dependencies = [
  "log",
+ "regex",
 ]
 
 [[package]]
@@ -2897,7 +2895,10 @@ version = "0.11.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "13c863f0904021b108aa8b2f55046443e6b1ebde8fd4a15c399893aae4fa069f"
 dependencies = [
+ "anstream",
+ "anstyle",
  "env_filter",
+ "jiff",
  "log",
 ]
 
@@ -4220,6 +4221,30 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4a5f13b858c8d314ee3e8f639011f7ccefe71f97f96e50151fb991f267928e2c"
 
 [[package]]
+name = "jiff"
+version = "0.2.15"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "be1f93b8b1eb69c77f24bbb0afdf66f54b632ee39af40ca21c4365a1d7347e49"
+dependencies = [
+ "jiff-static",
+ "log",
+ "portable-atomic",
+ "portable-atomic-util",
+ "serde",
+]
+
+[[package]]
+name = "jiff-static"
+version = "0.2.15"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "03343451ff899767262ec32146f6d559dd759fdadf42ff0e227c7c48f72594b4"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.106",
+]
+
+[[package]]
 name = "jni"
 version = "0.21.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4321,7 +4346,7 @@ dependencies = [
  "parking_lot",
  "pin-project",
  "rand 0.9.2",
- "rustc-hash 2.1.1",
+ "rustc-hash",
  "serde",
  "serde_json",
  "thiserror 2.0.17",
@@ -4513,6 +4538,8 @@ name = "kvq_store_lmdbx"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "async-trait",
+ "auto_impl",
  "kvq",
  "reth-libmdbx",
 ]
@@ -4557,12 +4584,6 @@ checksum = "bbd2bcb4c963f2ddae06a2efc7e9f3591312473c50c6685e1f298068316e66fe"
 dependencies = [
  "spin",
 ]
-
-[[package]]
-name = "lazycell"
-version = "1.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "830d08ce1d1d941e6b30645f1a0eb5643013d835ce3779a5fc208261dbe10f55"
 
 [[package]]
 name = "libc"
@@ -5390,7 +5411,7 @@ checksum = "7edddbd0b52d732b21ad9a5fab5c704c14cd949e5e9a1ec5929a24fded1b904c"
 [[package]]
 name = "plonky2"
 version = "1.0.2"
-source = "git+https://github.com/clint-long/plonky2-hwa?rev=5bf6940a3ea2d27e854931787e93bb46be27ffa3#5bf6940a3ea2d27e854931787e93bb46be27ffa3"
+source = "git+https://github.com/PsyProtocol/plonky2-hwa?rev=5bf6940a3ea2d27e854931787e93bb46be27ffa3#5bf6940a3ea2d27e854931787e93bb46be27ffa3"
 dependencies = [
  "ahash",
  "anyhow",
@@ -5415,7 +5436,7 @@ dependencies = [
 [[package]]
 name = "plonky2_field"
 version = "1.0.0"
-source = "git+https://github.com/clint-long/plonky2-hwa?rev=5bf6940a3ea2d27e854931787e93bb46be27ffa3#5bf6940a3ea2d27e854931787e93bb46be27ffa3"
+source = "git+https://github.com/PsyProtocol/plonky2-hwa?rev=5bf6940a3ea2d27e854931787e93bb46be27ffa3#5bf6940a3ea2d27e854931787e93bb46be27ffa3"
 dependencies = [
  "anyhow",
  "itertools 0.11.0",
@@ -5431,7 +5452,7 @@ dependencies = [
 [[package]]
 name = "plonky2_maybe_rayon"
 version = "1.0.0"
-source = "git+https://github.com/clint-long/plonky2-hwa?rev=5bf6940a3ea2d27e854931787e93bb46be27ffa3#5bf6940a3ea2d27e854931787e93bb46be27ffa3"
+source = "git+https://github.com/PsyProtocol/plonky2-hwa?rev=5bf6940a3ea2d27e854931787e93bb46be27ffa3#5bf6940a3ea2d27e854931787e93bb46be27ffa3"
 dependencies = [
  "rayon",
 ]
@@ -5439,7 +5460,7 @@ dependencies = [
 [[package]]
 name = "plonky2_util"
 version = "1.0.0"
-source = "git+https://github.com/clint-long/plonky2-hwa?rev=5bf6940a3ea2d27e854931787e93bb46be27ffa3#5bf6940a3ea2d27e854931787e93bb46be27ffa3"
+source = "git+https://github.com/PsyProtocol/plonky2-hwa?rev=5bf6940a3ea2d27e854931787e93bb46be27ffa3#5bf6940a3ea2d27e854931787e93bb46be27ffa3"
 
 [[package]]
 name = "plotters"
@@ -5467,6 +5488,21 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "51bae2ac328883f7acdfea3d66a7c35751187f870bc81f94563733a154d7a670"
 dependencies = [
  "plotters-backend",
+]
+
+[[package]]
+name = "portable-atomic"
+version = "1.11.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f84267b20a16ea918e43c6a88433c2d54fa145c92a811b5b047ccbe153674483"
+
+[[package]]
+name = "portable-atomic-util"
+version = "0.2.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d8a2f0d8d040d7848a709caf78912debcc3f33ee4b3cac47d73d1e1069e83507"
+dependencies = [
+ "portable-atomic",
 ]
 
 [[package]]
@@ -5693,49 +5729,38 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "106dd99e98437432fed6519dedecfade6a06a73bb7b2a1e019fdd2bee5778d94"
 
 [[package]]
-name = "qed-abi"
+name = "psy-abi"
 version = "0.1.0"
 dependencies = [
  "pretty_assertions",
- "qed-ast",
- "qed-common",
+ "psy-ast",
+ "psy_common",
  "serde",
  "serde_json",
 ]
 
 [[package]]
-name = "qed-ast"
+name = "psy-ast"
 version = "0.1.0"
 dependencies = [
  "ariadne",
  "enum-as-inner",
  "indexmap 2.11.3",
- "qed-common",
+ "psy_common",
  "smol_str",
 ]
 
 [[package]]
-name = "qed-common"
+name = "psy-fmt"
 version = "0.1.0"
 dependencies = [
- "anyhow",
- "clap",
- "indexmap 2.11.3",
- "thiserror 2.0.17",
- "tracing-subscriber",
+ "psy-ast",
+ "psy_common",
+ "psy_vm",
 ]
 
 [[package]]
-name = "qed-fmt"
-version = "0.1.0"
-dependencies = [
- "qed-ast",
- "qed-common",
- "qedlang_core",
-]
-
-[[package]]
-name = "qed-interpreter"
+name = "psy-interpreter"
 version = "0.1.0"
 dependencies = [
  "anyhow",
@@ -5744,19 +5769,18 @@ dependencies = [
  "indexmap 2.11.3",
  "insta",
  "plonky2",
- "qed-ast",
- "qed-common",
- "qed-fmt",
- "qed-parser",
- "qed-sema",
- "qed_common_circuit",
- "qed_core",
- "qed_crypto",
- "qed_data",
- "qed_exec",
- "qed_prover",
- "qed_store",
- "qedlang_core",
+ "psy-ast",
+ "psy-fmt",
+ "psy-parser",
+ "psy-sema",
+ "psy_common",
+ "psy_common_circuit",
+ "psy_config",
+ "psy_crypto",
+ "psy_data",
+ "psy_prover",
+ "psy_store",
+ "psy_vm",
  "serial_test",
  "thiserror 2.0.17",
  "tokio",
@@ -5764,7 +5788,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "qed-lexer"
+name = "psy-lexer"
 version = "0.1.0"
 dependencies = [
  "logos",
@@ -5772,17 +5796,17 @@ dependencies = [
 ]
 
 [[package]]
-name = "qed-lsp-server"
+name = "psy-lsp-server"
 version = "0.1.0"
 dependencies = [
  "dargo",
  "lsp-types 0.97.0",
- "qed-ast",
- "qed-common",
- "qed-interpreter",
- "qed-sema",
- "qed_package",
- "qedlang_core",
+ "psy-ast",
+ "psy-interpreter",
+ "psy-package",
+ "psy-sema",
+ "psy_common",
+ "psy_vm",
  "thiserror 2.0.17",
  "tokio",
  "tower-lsp",
@@ -5790,22 +5814,52 @@ dependencies = [
 ]
 
 [[package]]
-name = "qed-parser"
+name = "psy-package"
+version = "0.1.0"
+dependencies = [
+ "dirs",
+ "md5",
+ "semver 1.0.27",
+ "serde",
+ "smol_str",
+ "tempfile",
+ "thiserror 2.0.17",
+ "toml",
+ "url",
+]
+
+[[package]]
+name = "psy-parser"
 version = "0.1.0"
 dependencies = [
  "indexmap 2.11.3",
  "insta",
  "lalrpop",
  "lalrpop-util",
- "qed-ast",
- "qed-common",
- "qed-lexer",
- "qedlang_core",
+ "psy-ast",
+ "psy-lexer",
+ "psy_common",
+ "psy_vm",
  "thiserror 2.0.17",
 ]
 
 [[package]]
-name = "qed-sema"
+name = "psy-precompiles"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "dargo",
+ "minijinja",
+ "psy-interpreter",
+ "psy-package",
+ "psy_config",
+ "psy_data",
+ "psy_vm",
+ "serde_json",
+]
+
+[[package]]
+name = "psy-sema"
 version = "0.1.0"
 dependencies = [
  "anyhow",
@@ -5815,47 +5869,46 @@ dependencies = [
  "itertools 0.14.0",
  "once_cell",
  "petgraph",
- "qed-ast",
- "qed-common",
- "qed-fmt",
- "qedlang_core",
+ "psy-ast",
+ "psy-fmt",
+ "psy_common",
+ "psy_vm",
  "rangemap",
  "thiserror 2.0.17",
  "tracing",
 ]
 
 [[package]]
-name = "qed_api_services"
+name = "psy_common"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "axum 0.8.6",
+ "async-trait",
+ "bincode",
  "chrono",
  "clap",
- "colored",
- "crossterm",
- "dotenv",
- "env_logger",
- "futures",
- "futures-util",
+ "hex",
+ "indexmap 2.11.3",
  "jsonwebtoken",
- "qed_core",
- "ratatui",
- "reqwest",
+ "k256",
+ "kvq",
+ "plonky2",
+ "rand 0.8.5",
  "serde",
  "serde_json",
- "sqlx",
- "strum 0.27.2",
+ "serde_repr",
+ "serde_with",
+ "strum_macros 0.27.2",
+ "thiserror 2.0.17",
  "tokio",
- "tokio-tungstenite",
- "tower-http",
  "tracing",
  "tracing-subscriber",
+ "ts-rs",
  "uuid 1.18.1",
 ]
 
 [[package]]
-name = "qed_common_circuit"
+name = "psy_common_circuit"
 version = "0.1.0"
 dependencies = [
  "anyhow",
@@ -5873,9 +5926,10 @@ dependencies = [
  "num",
  "plonky2",
  "plonky2_maybe_rayon",
- "qed_core",
- "qed_crypto",
- "qed_data",
+ "psy_common",
+ "psy_config",
+ "psy_crypto",
+ "psy_data",
  "rand 0.8.5",
  "rand_chacha 0.3.1",
  "serde",
@@ -5885,31 +5939,20 @@ dependencies = [
 ]
 
 [[package]]
-name = "qed_core"
+name = "psy_config"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "async-trait",
- "bincode",
- "hex",
  "indexmap 2.11.3",
- "k256",
- "kvq",
  "plonky2",
- "rand 0.8.5",
+ "psy_common",
  "serde",
  "serde_json",
- "serde_repr",
- "serde_with",
- "strum_macros 0.27.2",
- "tokio",
- "tracing",
- "ts-rs",
- "uuid 1.18.1",
+ "thiserror 2.0.17",
 ]
 
 [[package]]
-name = "qed_crypto"
+name = "psy_crypto"
 version = "0.1.0"
 dependencies = [
  "anyhow",
@@ -5926,7 +5969,8 @@ dependencies = [
  "num",
  "plonky2",
  "plonky2_maybe_rayon",
- "qed_core",
+ "psy_common",
+ "psy_config",
  "rand 0.8.5",
  "ripemd",
  "serde",
@@ -5940,7 +5984,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "qed_data"
+name = "psy_data"
 version = "0.1.0"
 dependencies = [
  "anyhow",
@@ -5952,8 +5996,9 @@ dependencies = [
  "kvq",
  "maybe-async",
  "plonky2",
- "qed_core",
- "qed_crypto",
+ "psy_common",
+ "psy_config",
+ "psy_crypto",
  "serde",
  "serde_json",
  "serde_repr",
@@ -5963,7 +6008,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "qed_dev_cli"
+name = "psy_dev_cli"
 version = "0.1.0"
 dependencies = [
  "anyhow",
@@ -5979,18 +6024,20 @@ dependencies = [
  "num_cpus",
  "parking_lot",
  "plonky2",
- "qed-common",
- "qed_common_circuit",
- "qed_core",
- "qed_crypto",
- "qed_data",
- "qed_node",
- "qed_prover",
- "qed_rollup_circuit",
- "qed_rollup_utils",
- "qed_store",
- "qedlang_core",
- "qedlang_macros",
+ "psy_common",
+ "psy_common_circuit",
+ "psy_config",
+ "psy_crypto",
+ "psy_data",
+ "psy_dpn_circuit",
+ "psy_network_circuit",
+ "psy_node",
+ "psy_prover",
+ "psy_rust_sdk",
+ "psy_store",
+ "psy_ups_circuit",
+ "psy_vm",
+ "psylang_macros",
  "scheduled-thread-pool",
  "serde",
  "serde_json",
@@ -6001,30 +6048,77 @@ dependencies = [
 ]
 
 [[package]]
-name = "qed_exec"
+name = "psy_dpn_circuit"
 version = "0.1.0"
 dependencies = [
+ "alloy-primitives",
+ "alloy-signer",
+ "alloy-signer-local",
  "anyhow",
  "async-trait",
  "bincode",
+ "clap",
+ "dashmap 6.1.0",
+ "dirs",
+ "futures",
+ "getrandom 0.2.16",
+ "hex",
+ "http 1.3.1",
+ "hyper 1.7.0",
+ "jsonrpsee",
+ "k256",
  "kvq",
  "maybe-async",
+ "parking_lot",
  "plonky2",
- "qed_core",
- "qed_crypto",
- "qed_data",
- "qed_store",
- "qedlang_core",
- "qedlang_macros",
+ "psy_common",
+ "psy_common_circuit",
+ "psy_config",
+ "psy_crypto",
+ "psy_data",
+ "psy_network_circuit",
+ "psy_store",
+ "psy_vm",
+ "psylang_macros",
+ "rand 0.8.5",
+ "rayon",
+ "reqwest",
+ "rpassword",
+ "secp256k1 0.31.1",
  "serde",
+ "serde_cbor",
  "serde_json",
+ "serde_repr",
+ "serde_with",
+ "sodalite",
+ "tempfile",
+ "thiserror 2.0.17",
  "tokio",
+ "tower 0.5.2",
+ "tower-http",
  "tracing",
  "ts-rs",
 ]
 
 [[package]]
-name = "qed_node"
+name = "psy_network_circuit"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "bincode",
+ "plonky2",
+ "psy_common",
+ "psy_common_circuit",
+ "psy_config",
+ "psy_crypto",
+ "psy_data",
+ "serde_json",
+ "tracing",
+]
+
+[[package]]
+name = "psy_node"
 version = "0.1.0"
 dependencies = [
  "alloy-primitives",
@@ -6053,19 +6147,19 @@ dependencies = [
  "jsonwebtoken",
  "k256",
  "kvq",
- "log",
  "once_cell",
  "plonky2",
- "qed_api_services",
- "qed_common_circuit",
- "qed_core",
- "qed_crypto",
- "qed_data",
- "qed_prover",
- "qed_rollup_circuit",
- "qed_rollup_utils",
- "qed_store",
- "qedlang_core",
+ "psy_common",
+ "psy_common_circuit",
+ "psy_config",
+ "psy_crypto",
+ "psy_data",
+ "psy_network_circuit",
+ "psy_prover",
+ "psy_provider",
+ "psy_services",
+ "psy_store",
+ "psy_vm",
  "rand 0.8.5",
  "redis 0.30.0",
  "reqwest",
@@ -6089,36 +6183,33 @@ dependencies = [
 ]
 
 [[package]]
-name = "qed_package"
-version = "0.1.0"
-dependencies = [
- "dirs",
- "md5",
- "semver 1.0.27",
- "serde",
- "smol_str",
- "tempfile",
- "thiserror 2.0.17",
- "toml",
- "url",
-]
-
-[[package]]
-name = "qed_precompiles"
+name = "psy_node_cli"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "dargo",
- "minijinja",
- "qed-interpreter",
- "qed_data",
- "qed_package",
- "qedlang_core",
+ "clap",
+ "dotenv",
+ "kvq",
+ "plonky2",
+ "psy_common",
+ "psy_config",
+ "psy_crypto",
+ "psy_data",
+ "psy_dpn_circuit",
+ "psy_network_circuit",
+ "psy_node",
+ "psy_prover",
+ "psy_rust_sdk",
+ "psy_services",
+ "psy_store",
+ "psy_ups_circuit",
  "serde_json",
+ "tokio",
+ "tracing",
 ]
 
 [[package]]
-name = "qed_prover"
+name = "psy_prover"
 version = "0.1.0"
 dependencies = [
  "alloy-primitives",
@@ -6127,9 +6218,7 @@ dependencies = [
  "anyhow",
  "async-trait",
  "bincode",
- "cfg-if",
  "clap",
- "console_error_panic_hook",
  "dashmap 6.1.0",
  "dirs",
  "futures",
@@ -6137,31 +6226,30 @@ dependencies = [
  "hex",
  "http 1.3.1",
  "hyper 1.7.0",
- "js-sys",
  "jsonrpsee",
  "k256",
  "kvq",
  "maybe-async",
  "parking_lot",
  "plonky2",
- "qed-common",
- "qed_common_circuit",
- "qed_core",
- "qed_crypto",
- "qed_data",
- "qed_exec",
- "qed_rollup_circuit",
- "qed_rollup_utils",
- "qed_store",
- "qedlang_core",
- "qedlang_macros",
+ "psy_common",
+ "psy_common_circuit",
+ "psy_config",
+ "psy_crypto",
+ "psy_data",
+ "psy_dpn_circuit",
+ "psy_network_circuit",
+ "psy_provider",
+ "psy_store",
+ "psy_ups_circuit",
+ "psy_vm",
+ "psylang_macros",
  "rand 0.8.5",
  "rayon",
  "reqwest",
  "rpassword",
  "secp256k1 0.31.1",
  "serde",
- "serde-wasm-bindgen",
  "serde_cbor",
  "serde_json",
  "serde_repr",
@@ -6174,6 +6262,99 @@ dependencies = [
  "tower-http",
  "tracing",
  "ts-rs",
+]
+
+[[package]]
+name = "psy_provider"
+version = "0.1.0"
+dependencies = [
+ "alloy-primitives",
+ "alloy-signer",
+ "alloy-signer-local",
+ "anyhow",
+ "async-trait",
+ "bincode",
+ "clap",
+ "dashmap 6.1.0",
+ "dirs",
+ "futures",
+ "getrandom 0.2.16",
+ "hex",
+ "http 1.3.1",
+ "hyper 1.7.0",
+ "jsonrpsee",
+ "k256",
+ "kvq",
+ "maybe-async",
+ "parking_lot",
+ "plonky2",
+ "psy_common",
+ "psy_common_circuit",
+ "psy_config",
+ "psy_crypto",
+ "psy_data",
+ "psy_network_circuit",
+ "psy_store",
+ "psy_vm",
+ "psylang_macros",
+ "rand 0.8.5",
+ "rayon",
+ "reqwest",
+ "rpassword",
+ "secp256k1 0.31.1",
+ "serde",
+ "serde_cbor",
+ "serde_json",
+ "serde_repr",
+ "serde_with",
+ "sodalite",
+ "tempfile",
+ "thiserror 2.0.17",
+ "tokio",
+ "tower 0.5.2",
+ "tower-http",
+ "tracing",
+ "ts-rs",
+]
+
+[[package]]
+name = "psy_rust_sdk"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "cfg-if",
+ "clap",
+ "console_error_panic_hook",
+ "dashmap 6.1.0",
+ "getrandom 0.2.16",
+ "hex",
+ "js-sys",
+ "k256",
+ "kvq",
+ "maybe-async",
+ "plonky2",
+ "psy_common",
+ "psy_common_circuit",
+ "psy_config",
+ "psy_crypto",
+ "psy_data",
+ "psy_network_circuit",
+ "psy_prover",
+ "psy_provider",
+ "psy_store",
+ "psy_vm",
+ "psylang_macros",
+ "rand 0.8.5",
+ "reqwest",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_cbor",
+ "serde_json",
+ "serde_repr",
+ "serde_with",
+ "tracing",
+ "ts-rs",
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "wasm-logger",
@@ -6182,60 +6363,37 @@ dependencies = [
 ]
 
 [[package]]
-name = "qed_rollup_circuit"
+name = "psy_services"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "async-trait",
- "bincode",
- "plonky2",
- "qed_common_circuit",
- "qed_core",
- "qed_crypto",
- "qed_data",
- "serde_json",
- "tracing",
-]
-
-[[package]]
-name = "qed_rollup_cli"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "clap",
- "dotenv",
- "kvq",
- "plonky2",
- "qed-common",
- "qed_api_services",
- "qed_core",
- "qed_crypto",
- "qed_data",
- "qed_node",
- "qed_prover",
- "qed_rollup_circuit",
- "qed_rollup_utils",
- "qed_store",
- "serde_json",
- "tokio",
- "tracing",
-]
-
-[[package]]
-name = "qed_rollup_utils"
-version = "0.1.0"
-dependencies = [
- "anyhow",
+ "axum 0.8.6",
  "chrono",
+ "clap",
+ "colored",
+ "crossterm",
+ "dotenv",
+ "env_logger",
+ "futures",
+ "futures-util",
  "jsonwebtoken",
+ "psy_common",
+ "ratatui",
+ "reqwest",
  "serde",
  "serde_json",
+ "sqlx",
+ "strum 0.27.2",
+ "tokio",
+ "tokio-tungstenite",
+ "tower-http",
  "tracing",
  "tracing-subscriber",
+ "uuid 1.18.1",
 ]
 
 [[package]]
-name = "qed_store"
+name = "psy_store"
 version = "0.1.0"
 dependencies = [
  "ambassador",
@@ -6256,11 +6414,11 @@ dependencies = [
  "kvq_store_lmdbx",
  "maybe-async",
  "plonky2",
- "qed_core",
- "qed_crypto",
- "qed_data",
- "qed_rollup_utils",
- "qedlang_core",
+ "psy_common",
+ "psy_config",
+ "psy_crypto",
+ "psy_data",
+ "psy_vm",
  "rand 0.8.5",
  "redis 0.30.0",
  "rsmq_async",
@@ -6280,7 +6438,62 @@ dependencies = [
 ]
 
 [[package]]
-name = "qed_user_cli"
+name = "psy_ups_circuit"
+version = "0.1.0"
+dependencies = [
+ "alloy-primitives",
+ "alloy-signer",
+ "alloy-signer-local",
+ "anyhow",
+ "async-trait",
+ "bincode",
+ "clap",
+ "dashmap 6.1.0",
+ "dirs",
+ "futures",
+ "getrandom 0.2.16",
+ "hex",
+ "http 1.3.1",
+ "hyper 1.7.0",
+ "jsonrpsee",
+ "k256",
+ "kvq",
+ "maybe-async",
+ "parking_lot",
+ "plonky2",
+ "psy_common",
+ "psy_common_circuit",
+ "psy_config",
+ "psy_crypto",
+ "psy_data",
+ "psy_dpn_circuit",
+ "psy_network_circuit",
+ "psy_provider",
+ "psy_store",
+ "psy_vm",
+ "psylang_macros",
+ "rand 0.8.5",
+ "rayon",
+ "reqwest",
+ "rpassword",
+ "secp256k1 0.31.1",
+ "serde",
+ "serde_cbor",
+ "serde_json",
+ "serde_repr",
+ "serde_with",
+ "sodalite",
+ "tempfile",
+ "thiserror 2.0.17",
+ "tokio",
+ "tower 0.5.2",
+ "tower-http",
+ "tracing",
+ "ts-rs",
+]
+
+[[package]]
+name = "psy_user_cli"
 version = "0.1.0"
 dependencies = [
  "anyhow",
@@ -6296,17 +6509,19 @@ dependencies = [
  "js-sys",
  "kvq",
  "plonky2",
- "qed-common",
- "qed_api_services",
- "qed_common_circuit",
- "qed_core",
- "qed_crypto",
- "qed_data",
- "qed_node",
- "qed_prover",
- "qed_rollup_utils",
- "qed_store",
- "qedlang_core",
+ "psy_common",
+ "psy_common_circuit",
+ "psy_config",
+ "psy_crypto",
+ "psy_data",
+ "psy_dpn_circuit",
+ "psy_node",
+ "psy_prover",
+ "psy_rust_sdk",
+ "psy_services",
+ "psy_store",
+ "psy_ups_circuit",
+ "psy_vm",
  "rand 0.8.5",
  "reqwest",
  "rpassword",
@@ -6327,40 +6542,47 @@ dependencies = [
 ]
 
 [[package]]
-name = "qedlang_core"
+name = "psy_vm"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "async-trait",
  "bincode",
  "hashbrown 0.14.5",
  "k256",
+ "kvq",
+ "maybe-async",
  "plonky2",
- "qed_core",
- "qed_crypto",
- "qed_data",
+ "psy_common",
+ "psy_config",
+ "psy_crypto",
+ "psy_data",
  "serde",
  "serde_cbor",
+ "serde_json",
  "serde_repr",
+ "tokio",
+ "tracing",
  "ts-rs",
  "twox-hash 1.6.3",
 ]
 
 [[package]]
-name = "qedlang_ex"
+name = "psylang_ex"
 version = "0.1.0"
 dependencies = [
  "plonky2",
- "qedlang_core",
- "qedlang_macros",
+ "psy_vm",
+ "psylang_macros",
  "serde",
 ]
 
 [[package]]
-name = "qedlang_macros"
+name = "psylang_macros"
 version = "0.1.0"
 dependencies = [
  "proc-macro2",
- "qedlang_core",
+ "psy_vm",
  "quote",
  "syn 2.0.106",
 ]
@@ -6790,7 +7012,7 @@ dependencies = [
 name = "reth-mdbx-sys"
 version = "0.1.0"
 dependencies = [
- "bindgen 0.69.5",
+ "bindgen 0.71.1",
  "cc",
 ]
 
@@ -6957,12 +7179,6 @@ name = "rustc-demangle"
 version = "0.1.26"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "56f7d92ca342cea22a06f2121d944b4fd82af56988c270852495420f961d4ace"
-
-[[package]]
-name = "rustc-hash"
-version = "1.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "08d43f7aa6b08d49f382cde6a7982047c3426db949b1424bc4b7ec9ae12c6ce2"
 
 [[package]]
 name = "rustc-hash"
@@ -8413,7 +8629,7 @@ dependencies = [
 [[package]]
 name = "tikv-client"
 version = "0.3.0"
-source = "git+https://github.com/clint-long/client-rust?branch=qed_node#3fe2b9d8482657a3442473084b365c9b9d9cf5eb"
+source = "git+https://github.com/PsyProtocol/client-rust?rev=3fe2b9d8482657a3442473084b365c9b9d9cf5eb#3fe2b9d8482657a3442473084b365c9b9d9cf5eb"
 dependencies = [
  "async-recursion 0.3.2",
  "async-trait",
@@ -9438,18 +9654,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32b130c0d2d49f8b6889abc456e795e82525204f27c42cf767cf0d7734e089b8"
 dependencies = [
  "rustls-pki-types",
-]
-
-[[package]]
-name = "which"
-version = "4.4.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "87ba24419a2078cd2b0f2ede2691b6c66d8e47836da3b6db8265ebad47afbfc7"
-dependencies = [
- "either",
- "home",
- "once_cell",
- "rustix 0.38.44",
 ]
 
 [[package]]

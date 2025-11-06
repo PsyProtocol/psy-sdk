@@ -1,0 +1,8 @@
+// input: 2,3
+// output: 5
+// team: psy
+fn main(a: Felt, b: Felt) -> Felt {
+    assert(a < b, "a != b");
+    assert_eq(b - a, 1, "b - a != 1");
+    return a + b;
+}

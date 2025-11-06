@@ -2,21 +2,21 @@
 set -eo pipefail
 
 # NOTE: if you make modifications to this script, please increment the version number.
-# Major / minor: incremented for each stable release of QED.
+# Major / minor: incremented for each stable release of Psy.
 # Patch: incremented for each change between stable releases.
 PSYUP_INSTALLER_VERSION="1.0.0"
 
 BASE_DIR=${XDG_CONFIG_HOME:-$HOME}
-QED_DIR=${QED_DIR:-"$BASE_DIR/.qed"}
-QED_VERSIONS_DIR="$QED_DIR/versions"
-QED_BIN_DIR="$QED_DIR/bin"
-QED_MAN_DIR="$QED_DIR/share/man/man1"
-QED_BIN_URL="https://raw.githubusercontent.com/QEDProtocol/qedlang-rust/master/psyup/psyup"
-QED_BIN_PATH="$QED_BIN_DIR/psyup"
+Psy_DIR=${Psy_DIR:-"$BASE_DIR/.psy"}
+Psy_VERSIONS_DIR="$Psy_DIR/versions"
+Psy_BIN_DIR="$Psy_DIR/bin"
+Psy_MAN_DIR="$Psy_DIR/share/man/man1"
+Psy_BIN_URL="https://raw.githubusercontent.com/PsyProtocol/psy-v1/master/psyup/psyup"
+Psy_BIN_PATH="$Psy_BIN_DIR/psyup"
 
 PSYUP_JOBS=""
 
-BINS=(qed_user_cli qed_rollup_cli qed_dev_cli dargo qed-lsp-server)
+BINS=(psy_user_cli psy_node_cli psy_dev_cli dargo psy-lsp-server)
 
 export RUSTFLAGS="${RUSTFLAGS:--C target-cpu=native}"
 
@@ -71,7 +71,7 @@ main() {
 
   check_bins_in_use
 
-  # Installs QED from a local repository if --path parameter is provided
+  # Installs Psy from a local repository if --path parameter is provided
   if [[ -n "$PSYUP_LOCAL_REPO" ]]; then
     need_cmd cargo
 
@@ -85,26 +85,26 @@ main() {
     cd "$PSYUP_LOCAL_REPO"
     
     # Set DARGO_STD_PATH for compilation
-    export DARGO_STD_PATH="$PWD/qed_compiler/qed-std/std.qed"
+    export DARGO_STD_PATH="$PWD/psy_compiler/psy-std/std.psy"
     export SQLX_OFFLINE=true
     
-    ensure cargo build --bins "${CARGO_BUILD_ARGS[@]}" --bin qed_user_cli --bin qed_rollup_cli --bin qed_dev_cli --bin dargo --bin qed-lsp-server
+    ensure cargo build --bins "${CARGO_BUILD_ARGS[@]}" --bin psy_user_cli --bin psy_node_cli --bin psy_dev_cli --bin dargo --bin psy-lsp-server
 
     for bin in "${BINS[@]}"; do
       # Remove prior installations if they exist
-      rm -f "$QED_BIN_DIR/$bin"
+      rm -f "$Psy_BIN_DIR/$bin"
       # Symlink from local repo binaries to bin dir
-      ensure ln -s "$PWD/target/release/$bin" "$QED_BIN_DIR/$bin"
+      ensure ln -s "$PWD/target/release/$bin" "$Psy_BIN_DIR/$bin"
     done
 
     say "done"
     exit 0
   fi
 
-  PSYUP_REPO=${PSYUP_REPO:-QEDProtocol/qedlang-rust}
+  PSYUP_REPO=${PSYUP_REPO:-PsyProtocol/psy-v1}
 
   # Install by downloading binaries
-  if [[ "$PSYUP_REPO" == "QEDProtocol/qedlang-rust" && -z "$PSYUP_BRANCH" && -z "$PSYUP_COMMIT" ]]; then
+  if [[ "$PSYUP_REPO" == "PsyProtocol/psy-v1" && -z "$PSYUP_BRANCH" && -z "$PSYUP_COMMIT" ]]; then
     PSYUP_VERSION=${PSYUP_VERSION:-stable}
     PSYUP_TAG=$PSYUP_VERSION
 
@@ -117,7 +117,7 @@ main() {
       PSYUP_TAG="${PSYUP_VERSION}"
     fi
 
-    say "installing qed (version ${PSYUP_VERSION}, tag ${PSYUP_TAG})"
+    say "installing psy (version ${PSYUP_VERSION}, tag ${PSYUP_TAG})"
 
     uname_s=$(uname -s)
     PLATFORM=$(tolower "${PSYUP_PLATFORM:-$uname_s}")
@@ -151,34 +151,34 @@ main() {
       ARCHITECTURE="amd64" # Amd.
     fi
 
-    # Compute the URL of the release tarball in the QED repository.
+    # Compute the URL of the release tarball in the Psy repository.
     RELEASE_URL="https://github.com/${PSYUP_REPO}/releases/download/${PSYUP_TAG}/"
-    BIN_ARCHIVE_URL="${RELEASE_URL}qed_${PSYUP_VERSION}_${PLATFORM}_${ARCHITECTURE}.$EXT"
-    MAN_TARBALL_URL="${RELEASE_URL}qed_man_${PSYUP_VERSION}.tar.gz"
+    BIN_ARCHIVE_URL="${RELEASE_URL}psy_${PSYUP_VERSION}_${PLATFORM}_${ARCHITECTURE}.$EXT"
+    MAN_TARBALL_URL="${RELEASE_URL}psy_man_${PSYUP_VERSION}.tar.gz"
 
-    ensure mkdir -p "$QED_VERSIONS_DIR"
+    ensure mkdir -p "$Psy_VERSIONS_DIR"
     # Download and extract the binaries archive
-    say "downloading qed_user_cli, qed_rollup_cli, qed_dev_cli, dargo, and qed-lsp-server for $PSYUP_TAG version"
+    say "downloading psy_user_cli, psy_node_cli, psy_dev_cli, dargo, and psy-lsp-server for $PSYUP_TAG version"
     if [ "$PLATFORM" = "win32" ]; then
-      tmp="$(mktemp -d 2>/dev/null || echo ".")/qed.zip"
+      tmp="$(mktemp -d 2>/dev/null || echo ".")/psy.zip"
       ensure download "$BIN_ARCHIVE_URL" "$tmp"
-      ensure unzip "$tmp" -d "$QED_VERSIONS_DIR/$PSYUP_TAG"
+      ensure unzip "$tmp" -d "$Psy_VERSIONS_DIR/$PSYUP_TAG"
       rm -f "$tmp"
     else
-      tmp="$(mktemp -d 2>/dev/null || echo ".")/qed.tar.gz"
+      tmp="$(mktemp -d 2>/dev/null || echo ".")/psy.tar.gz"
       ensure download "$BIN_ARCHIVE_URL" "$tmp"
       # Make sure it's a valid tar archive.
       ensure tar tf $tmp 1> /dev/null
-      ensure mkdir -p "$QED_VERSIONS_DIR/$PSYUP_TAG"
-      ensure tar -C "$QED_VERSIONS_DIR/$PSYUP_TAG" -xvf $tmp
+      ensure mkdir -p "$Psy_VERSIONS_DIR/$PSYUP_TAG"
+      ensure tar -C "$Psy_VERSIONS_DIR/$PSYUP_TAG" -xvf $tmp
       rm -f "$tmp"
     fi
 
     # Optionally download the manuals
     if check_cmd tar; then
       say "downloading manpages"
-      mkdir -p "$QED_MAN_DIR"
-      download "$MAN_TARBALL_URL" | tar -xzC "$QED_MAN_DIR" 2>/dev/null || say "manpage download failed, continuing..."
+      mkdir -p "$Psy_MAN_DIR"
+      download "$MAN_TARBALL_URL" | tar -xzC "$Psy_MAN_DIR" 2>/dev/null || say "manpage download failed, continuing..."
     else
       say 'skipping manpage download: missing "tar"'
     fi
@@ -193,13 +193,13 @@ main() {
   else
     need_cmd cargo
     PSYUP_BRANCH=${PSYUP_BRANCH:-main}
-    REPO_PATH="$QED_DIR/$PSYUP_REPO"
+    REPO_PATH="$Psy_DIR/$PSYUP_REPO"
     AUTHOR="$(echo "$PSYUP_REPO" | cut -d'/' -f1 -)"
 
-    # If repo path does not exist, grab the author from the repo, make a directory in .qed, cd to it and clone.
+    # If repo path does not exist, grab the author from the repo, make a directory in .psy, cd to it and clone.
     if [ ! -d "$REPO_PATH" ]; then
-      ensure mkdir -p "$QED_DIR/$AUTHOR"
-      cd "$QED_DIR/$AUTHOR"
+      ensure mkdir -p "$Psy_DIR/$AUTHOR"
+      cd "$Psy_DIR/$AUTHOR"
       ensure git clone "https://github.com/$PSYUP_REPO"
     fi
 
@@ -209,9 +209,9 @@ main() {
     ensure git checkout "origin/${PSYUP_BRANCH}"
 
     # Create custom version based on the install method, e.g.:
-    # - QEDProtocol-commit-c22c4cc96b0535cd989ee94b79da1b19d236b8db
-    # - QEDProtocol-pr-1
-    # - QEDProtocol-branch-chore-bump-forge-std
+    # - PsyProtocol-commit-c22c4cc96b0535cd989ee94b79da1b19d236b8db
+    # - PsyProtocol-pr-1
+    # - PsyProtocol-branch-chore-bump-forge-std
     if [ -n "$PSYUP_COMMIT" ]; then
       # If set, checkout specific commit from branch
       ensure git checkout "$PSYUP_COMMIT"
@@ -226,18 +226,18 @@ main() {
     fi
     say "installing version $PSYUP_VERSION"
 
-    # Set required environment variables for QED build
-    export DARGO_STD_PATH="$PWD/qed_compiler/qed-std/std.qed"
+    # Set required environment variables for Psy build
+    export DARGO_STD_PATH="$PWD/psy_compiler/psy-std/std.psy"
     export SQLX_OFFLINE=true
 
     # Build the repo.
-    ensure cargo build --bins "${CARGO_BUILD_ARGS[@]}" --bin qed_user_cli --bin qed_rollup_cli --bin qed_dev_cli --bin dargo --bin qed-lsp-server
-    # Create QED custom version directory.
-    ensure mkdir -p "$QED_VERSIONS_DIR/$PSYUP_VERSION"
+    ensure cargo build --bins "${CARGO_BUILD_ARGS[@]}" --bin psy_user_cli --bin psy_node_cli --bin psy_dev_cli --bin dargo --bin psy-lsp-server
+    # Create Psy custom version directory.
+    ensure mkdir -p "$Psy_VERSIONS_DIR/$PSYUP_VERSION"
     for bin in "${BINS[@]}"; do
       for try_path in target/release/$bin target/release/$bin.exe; do
         if [ -f "$try_path" ]; then
-          mv -f "$try_path" "$QED_VERSIONS_DIR/$PSYUP_VERSION"
+          mv -f "$try_path" "$Psy_VERSIONS_DIR/$PSYUP_VERSION"
         fi
       done
     done
@@ -245,10 +245,10 @@ main() {
     # Use newly built version.
     use
 
-    # If help2man is installed, use it to add QED man pages.
+    # If help2man is installed, use it to add Psy man pages.
     if check_cmd help2man; then
       for bin in "${BINS[@]}"; do
-        help2man -N "$QED_BIN_DIR/$bin" > "$QED_MAN_DIR/$bin.1" 2>/dev/null || true
+        help2man -N "$Psy_BIN_DIR/$bin" > "$Psy_MAN_DIR/$bin.1" 2>/dev/null || true
       done
     fi
 
@@ -258,9 +258,9 @@ main() {
 
 usage() {
   cat 1>&2 <<EOF
-The installer for QED.
+The installer for Psy.
 
-Update or revert to a specific QED version with ease.
+Update or revert to a specific Psy version with ease.
 
 By default, the latest stable version is installed from built binaries.
 
@@ -279,7 +279,7 @@ OPTIONS:
     -C, --commit    Build and install a specific commit
     -r, --repo      Build and install from a remote GitHub repo (uses default branch if no other options are set)
     -p, --path      Build and install a local repository
-    -j, --jobs      Number of CPUs to use for building QED (default: all CPUs)
+    -j, --jobs      Number of CPUs to use for building Psy (default: all CPUs)
     --arch          Install a specific architecture (supports amd64 and arm64)
     --platform      Install a specific platform (supports win32, linux, darwin and alpine)
 EOF
@@ -295,19 +295,19 @@ update() {
 
   # Download to a temporary file first
   tmp_file="$(mktemp)"
-  ensure download "$QED_BIN_URL" "$tmp_file"
+  ensure download "$Psy_BIN_URL" "$tmp_file"
 
   # Replace the current psyup with the downloaded file
-  ensure mv "$tmp_file" "$QED_BIN_PATH"
-  ensure chmod +x "$QED_BIN_PATH"
+  ensure mv "$tmp_file" "$Psy_BIN_PATH"
+  ensure chmod +x "$Psy_BIN_PATH"
 
   say "successfully updated psyup"
   exit 0
 }
 
 list() {
-  if [ -d "$QED_VERSIONS_DIR" ]; then
-    for VERSION in $QED_VERSIONS_DIR/*; do
+  if [ -d "$Psy_VERSIONS_DIR" ]; then
+    for VERSION in $Psy_VERSIONS_DIR/*; do
       say "${VERSION##*/}"
       for bin in "${BINS[@]}"; do
         bin_path="$VERSION/$bin"
@@ -317,7 +317,7 @@ list() {
     done
   else
     for bin in "${BINS[@]}"; do
-      bin_path="$QED_BIN_DIR/$bin"
+      bin_path="$Psy_BIN_DIR/$bin"
       say "- $("$bin_path" --version 2>/dev/null || echo "$bin (version unavailable)")"
     done
   fi
@@ -326,18 +326,18 @@ list() {
 
 use() {
   [ -z "$PSYUP_VERSION" ] && err "no version provided"
-  QED_VERSION_DIR="$QED_VERSIONS_DIR/$PSYUP_VERSION"
-  if [ -d "$QED_VERSION_DIR" ]; then
+  Psy_VERSION_DIR="$Psy_VERSIONS_DIR/$PSYUP_VERSION"
+  if [ -d "$Psy_VERSION_DIR" ]; then
 
     check_bins_in_use
 
     for bin in "${BINS[@]}"; do
-      bin_path="$QED_BIN_DIR/$bin"
-      cp "$QED_VERSION_DIR/$bin" "$bin_path"
+      bin_path="$Psy_BIN_DIR/$bin"
+      cp "$Psy_VERSION_DIR/$bin" "$bin_path"
       # Print usage msg
       say "use - $("$bin_path" --version 2>/dev/null || echo "$bin (version unavailable)")"
 
-      # Check if the default path of the binary is not in QED_BIN_DIR
+      # Check if the default path of the binary is not in Psy_BIN_DIR
       which_path="$(command -v "$bin" || true)"
       if [ -n "$which_path" ] && [ "$which_path" != "$bin_path" ]; then
         warn ""
@@ -345,7 +345,7 @@ use() {
 There are multiple binaries with the name '$bin' present in your 'PATH'.
 This may be the result of installing '$bin' using another method,
 like Cargo or other package managers.
-You may need to run 'rm $which_path' or move '$QED_BIN_DIR'
+You may need to run 'rm $which_path' or move '$Psy_BIN_DIR'
 in your 'PATH' to allow the newly installed version to take precedence!
 
 EOF
@@ -392,7 +392,7 @@ check_bins_in_use() {
       fi
     done
   else
-    warn "Make sure no QED process is running during the install process!"
+    warn "Make sure no Psy process is running during the install process!"
   fi
 }
 
@@ -421,7 +421,7 @@ download() {
   fi
 }
 
-# Banner Function for QED
+# Banner Function for Psy
 banner() {
   printf '
 
@@ -433,9 +433,9 @@ banner() {
 
 .xOx.xOx.xOx.xOx.xOx.xOx.xOx.xOx.xOx.xOx.xOx.xOx.xOx.xOx.xOx.xOx.xOx.xOx
 
-Repo       : https://github.com/QEDProtocol/qedlang-rust
-Docs       : https://docs.qedprotocol.com/
-Chat       : https://discord.gg/qedprotocol
+Repo       : https://github.com/PsyProtocol/psy-v1
+Docs       : https://docs.psy.xyz/
+Chat       : https://discord.gg/psyprotocol
 
 .xOx.xOx.xOx.xOx.xOx.xOx.xOx.xOx.xOx.xOx.xOx.xOx.xOx.xOx.xOx.xOx.xOx.xOx
 

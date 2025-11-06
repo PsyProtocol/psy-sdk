@@ -1,0 +1,10 @@
+[package]
+name = "std"
+version = "0.1.0"
+type = "lib"
+entry = "std.psy"
+description = "std module"
+author = "PsyProtocol"
+
+[dependencies]
+

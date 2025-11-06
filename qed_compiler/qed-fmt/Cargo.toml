@@ -1,9 +1,0 @@
-[package]
-edition = "2021"
-name    = "qed-fmt"
-version = "0.1.0"
-
-[dependencies]
-qed-ast = { workspace = true }
-qed-common = { workspace = true }
-qedlang_core = { workspace = true }

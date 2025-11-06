@@ -1,30 +1,30 @@
 # Define reusable configurations at the top
 x-common-environment: &common-environment
-  RUST_LOG: qed_rollup_utils=trace,tikv_client=warn,qed_store=trace,qed_user_cli=debug,qed_dev_cli=debug,qed_api_services=info,qed_rollup_cli=debug,qed_node=trace,qed_common_circuit=trace,qed_rollup_circuit=trace,qed_prover=trace,qed_data=trace,plonky2=error
+  RUST_LOG: psy_ups_circuit=trace,psy_dpn_circuit=trace,tikv_client=warn,psy_store=trace,psy_user_cli=debug,psy_dev_cli=debug,psy_services=info,psy_node_cli=debug,psy_node=trace,psy_common_circuit=trace,psy_network_circuit=trace,psy_prover=trace,psy_data=trace,plonky2=error
   TIKV_PD_ENDPOINTS: 127.0.0.1:2379,127.0.0.1:2381,127.0.0.1:2383
   DATABASE_URL: postgres://postgres:password@127.0.0.1:5432/postgres
 
 x-build-config: &build-config
   context: .
-  dockerfile: Dockerfile-qed-rollup
+  dockerfile: Dockerfile-psy-rollup
 
 services:
   # Coordinator Processor
   coordinator-processor:
     build: *build-config
-    image: qed-rollup
+    image: psy-rollup
     container_name: coordinator-processor
     network_mode: host
-    command: qed_rollup_cli coordinator-processor --database tikv --tikv-namespace coordinator --queue-biz-key coordinator
+    command: psy_rollup_cli coordinator-processor --database tikv --tikv-namespace coordinator --queue-biz-key coordinator
     environment: *common-environment
     restart: unless-stopped
 
   # Coordinator Edge
   coordinator-edge:
-    image: qed-rollup
+    image: psy-rollup
     container_name: coordinator-edge
     network_mode: host
-    command: qed_rollup_cli coordinator-edge --database tikv --tikv-namespace coordinator --queue-biz-key coordinator
+    command: psy_rollup_cli coordinator-edge --database tikv --tikv-namespace coordinator --queue-biz-key coordinator
     environment: *common-environment
     restart: unless-stopped
     depends_on:
@@ -32,165 +32,165 @@ services:
 
   # Realm Processor 0
   realm-processor:
-    image: qed-rollup
+    image: psy-rollup
     container_name: realm-processor
     network_mode: host
-    command: qed_rollup_cli realm-processor --database tikv --tikv-namespace realm0 --realm-id=0 --queue-biz-key=rwq0
+    command: psy_rollup_cli realm-processor --database tikv --tikv-namespace realm0 --realm-id=0 --queue-biz-key=rwq0
     environment: *common-environment
     restart: unless-stopped
 
   # Realm Processor 1
   realm-processor1:
-    image: qed-rollup
+    image: psy-rollup
     container_name: realm-processor1
     network_mode: host
-    command: qed_rollup_cli realm-processor --database tikv --tikv-namespace realm1 --realm-id=1 --queue-biz-key=rwq1
+    command: psy_rollup_cli realm-processor --database tikv --tikv-namespace realm1 --realm-id=1 --queue-biz-key=rwq1
     environment: *common-environment
     restart: unless-stopped
 
   # Realm Processor 2
   realm-processor2:
-    image: qed-rollup
+    image: psy-rollup
     container_name: realm-processor2
     network_mode: host
-    command: qed_rollup_cli realm-processor --database tikv --tikv-namespace realm2 --realm-id=2 --queue-biz-key=rwq2
+    command: psy_rollup_cli realm-processor --database tikv --tikv-namespace realm2 --realm-id=2 --queue-biz-key=rwq2
     environment: *common-environment
     restart: unless-stopped
 
   # Realm Processor 3
   realm-processor3:
-    image: qed-rollup
+    image: psy-rollup
     container_name: realm-processor3
     network_mode: host
-    command: qed_rollup_cli realm-processor --database tikv --tikv-namespace realm3 --realm-id=3 --queue-biz-key=rwq3
+    command: psy_rollup_cli realm-processor --database tikv --tikv-namespace realm3 --realm-id=3 --queue-biz-key=rwq3
     environment: *common-environment
     restart: unless-stopped
 
   # Realm Processor 4
   realm-processor4:
-    image: qed-rollup
+    image: psy-rollup
     container_name: realm-processor4
     network_mode: host
-    command: qed_rollup_cli realm-processor --database tikv --tikv-namespace realm4 --realm-id=4 --queue-biz-key=rwq4
+    command: psy_rollup_cli realm-processor --database tikv --tikv-namespace realm4 --realm-id=4 --queue-biz-key=rwq4
     environment: *common-environment  
     restart: unless-stopped
 
   # Realm Processor 5
   realm-processor5:
-    image: qed-rollup
+    image: psy-rollup
     container_name: realm-processor5
     network_mode: host
-    command: qed_rollup_cli realm-processor --database tikv --tikv-namespace realm5 --realm-id=5 --queue-biz-key=rwq5
+    command: psy_rollup_cli realm-processor --database tikv --tikv-namespace realm5 --realm-id=5 --queue-biz-key=rwq5
     environment: *common-environment
     restart: unless-stopped
 
   # Realm Edge 0
   realm-edge:
-    image: qed-rollup
+    image: psy-rollup
     container_name: realm-edge
     network_mode: host
-    command: qed_rollup_cli realm-edge --database tikv --tikv-namespace realm0  --realm-id=0 --queue-biz-key=rwq0
+    command: psy_rollup_cli realm-edge --database tikv --tikv-namespace realm0  --realm-id=0 --queue-biz-key=rwq0
     environment: *common-environment
     restart: unless-stopped
 
   # Realm Edge 1
   realm-edge1:
-    image: qed-rollup
+    image: psy-rollup
     container_name: realm-edge1
     network_mode: host
-    command: qed_rollup_cli realm-edge --listen-addr=0.0.0.0:8547 --database tikv --tikv-namespace realm1  --realm-id=1 --queue-biz-key=rwq1
+    command: psy_rollup_cli realm-edge --listen-addr=0.0.0.0:8547 --database tikv --tikv-namespace realm1  --realm-id=1 --queue-biz-key=rwq1
     environment: *common-environment
     restart: unless-stopped
 
   # Realm Edge 2
   realm-edge2:
-    image: qed-rollup
+    image: psy-rollup
     container_name: realm-edge2 
     network_mode: host
-    command: qed_rollup_cli realm-edge --listen-addr=0.0.0.0:8548 --database tikv --tikv-namespace realm2  --realm-id=2 --queue-biz-key=rwq2
+    command: psy_rollup_cli realm-edge --listen-addr=0.0.0.0:8548 --database tikv --tikv-namespace realm2  --realm-id=2 --queue-biz-key=rwq2
     environment: *common-environment
     restart: unless-stopped
 
   # Realm Edge 3
   realm-edge3:
-    image: qed-rollup
+    image: psy-rollup
     container_name: realm-edge3
     network_mode: host
-    command: qed_rollup_cli realm-edge --listen-addr=0.0.0.0:8549 --database tikv --tikv-namespace realm3  --realm-id=3 --queue-biz-key=rwq3
+    command: psy_rollup_cli realm-edge --listen-addr=0.0.0.0:8549 --database tikv --tikv-namespace realm3  --realm-id=3 --queue-biz-key=rwq3
     environment: *common-environment
     restart: unless-stopped
 
   # Realm Edge 4
   realm-edge4:
-    image: qed-rollup
+    image: psy-rollup
     container_name: realm-edge4
     network_mode: host
-    command: qed_rollup_cli realm-edge --listen-addr=0.0.0.0:8550 --database tikv --tikv-namespace realm4  --realm-id=4 --queue-biz-key=rwq4
+    command: psy_rollup_cli realm-edge --listen-addr=0.0.0.0:8550 --database tikv --tikv-namespace realm4  --realm-id=4 --queue-biz-key=rwq4
     environment: *common-environment
     restart: unless-stopped 
 
   # Realm Edge 5
   realm-edge5:
-    image: qed-rollup
+    image: psy-rollup
     container_name: realm-edge5
     network_mode: host
-    command: qed_rollup_cli realm-edge --listen-addr=0.0.0.0:8551 --database tikv --tikv-namespace realm5  --realm-id=5 --queue-biz-key=rwq5
+    command: psy_rollup_cli realm-edge --listen-addr=0.0.0.0:8551 --database tikv --tikv-namespace realm5  --realm-id=5 --queue-biz-key=rwq5
     environment: *common-environment
     restart: unless-stopped
 
   # Workers
   worker0:
-    image: qed-rollup
+    image: psy-rollup
     container_name: worker0
     network_mode: host
-    command: qed_rollup_cli worker --config=./config.json --private-key=17c975c2668ebe0ca7c87f67c6414ebb7fd664f46370a0af2a3b204c8824ac5a
+    command: psy_rollup_cli worker --config=./config.json --private-key=17c975c2668ebe0ca7c87f67c6414ebb7fd664f46370a0af2a3b204c8824ac5a
     environment: *common-environment
     restart: unless-stopped
 
   worker1:
-    image: qed-rollup
+    image: psy-rollup
     container_name: worker1
     network_mode: host
-    command: qed_rollup_cli worker --config=./config.json --private-key=f07f91a0bdc0df4ec763285ba0eb578cb6e7a0811c3150494ab54e56f761fc1d
+    command: psy_rollup_cli worker --config=./config.json --private-key=f07f91a0bdc0df4ec763285ba0eb578cb6e7a0811c3150494ab54e56f761fc1d
     environment: *common-environment
     restart: unless-stopped
 
   worker2:
-    image: qed-rollup
+    image: psy-rollup
     container_name: worker2
     network_mode: host
-    command: qed_rollup_cli worker --config=./config.json --private-key=73ae514d6f69510ad778a05128d980951d9d8c097beb022471b2f50f19c41268
+    command: psy_rollup_cli worker --config=./config.json --private-key=73ae514d6f69510ad778a05128d980951d9d8c097beb022471b2f50f19c41268
     environment: *common-environment
     restart: unless-stopped
 
   worker3:
-    image: qed-rollup
+    image: psy-rollup
     container_name: worker3
     network_mode: host
-    command: qed_rollup_cli worker --config=./config.json --private-key=474cc8e224f11ae4e8fd954ba1ed452ddd6be1f0e7004dc9d8a3cde7904876ff
+    command: psy_rollup_cli worker --config=./config.json --private-key=474cc8e224f11ae4e8fd954ba1ed452ddd6be1f0e7004dc9d8a3cde7904876ff
     environment: *common-environment
     restart: unless-stopped
 
   worker4:
-    image: qed-rollup
+    image: psy-rollup
     container_name: worker4
     network_mode: host
-    command: qed_rollup_cli worker --config=./config.json --private-key=75e3573a6f5c4e5b5c03c9a030a945c4ab6ff275f7a575fdad9f09b910ab7244
+    command: psy_rollup_cli worker --config=./config.json --private-key=75e3573a6f5c4e5b5c03c9a030a945c4ab6ff275f7a575fdad9f09b910ab7244
     environment: *common-environment
     restart: unless-stopped
 
   worker5:
-    image: qed-rollup
+    image: psy-rollup
     container_name: worker5
     network_mode: host
-    command: qed_rollup_cli worker --config=./config.json --private-key=691e70254fba261f3a095904daa35a85e7d341fa188fa66adb7f4a8688af51a0
+    command: psy_rollup_cli worker --config=./config.json --private-key=691e70254fba261f3a095904daa35a85e7d341fa188fa66adb7f4a8688af51a0
     environment: *common-environment
     restart: unless-stopped
 
   worker6:
-    image: qed-rollup
+    image: psy-rollup
     container_name: worker6
     network_mode: host
-    command: qed_rollup_cli worker --config=./config.json --private-key=48001860a5289eb83e4c5e4a7a080250703ee797716edc95038c64b9927ce01c
+    command: psy_rollup_cli worker --config=./config.json --private-key=48001860a5289eb83e4c5e4a7a080250703ee797716edc95038c64b9927ce01c
     environment: *common-environment
     restart: unless-stopped
