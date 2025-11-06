@@ -55,7 +55,8 @@ pub async fn run(args: ClaimRewardsArgs) -> Result<()> {
 
     let provider = RpcProvider::new_with_config(&rpc_config)?;
     let mut wallet_session = WalletSession::new(&rpc_config).await?;
-    let fingerprint = args.fingerprint
+    let fingerprint = args
+        .fingerprint
         .as_ref()
         .map(|fp_str| QHashOut::<F>::from_str(fp_str))
         .transpose()

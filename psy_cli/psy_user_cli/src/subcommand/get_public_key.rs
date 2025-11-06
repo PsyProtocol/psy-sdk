@@ -16,7 +16,7 @@ use psy_crypto::{
     },
 };
 use psy_data::config::store_config::PsyHasher;
-use psy_prover::wallet::memory_wallet::{PsyMemoryWallet, get_secp256k1_fingerprint, get_zk_fingerprint};
+use psy_prover::wallet::memory_wallet::{get_secp256k1_fingerprint, get_zk_fingerprint, PsyMemoryWallet};
 use psy_rust_sdk::wallet::secp_wallet::Wallet;
 use psy_ups_circuit::circuit_manager::core::PsyUPSStepCircuitManager;
 use psy_vm::ups::circuit_manager::UPSCircuitManager;

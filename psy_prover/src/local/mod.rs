@@ -1,5 +1,5 @@
-pub mod store;
 pub mod common;
+pub mod store;
 pub use store::UserProverWorkerStore;
 
 // #[cfg(feature = "is_sync")]

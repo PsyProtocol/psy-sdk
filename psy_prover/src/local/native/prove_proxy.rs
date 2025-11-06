@@ -1,7 +1,11 @@
 use std::sync::{Arc, Mutex, RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 use dashmap::DashMap;
-use jsonrpsee::{core::async_trait, proc_macros::rpc, types::{ErrorObject, ErrorObjectOwned}};
+use jsonrpsee::{
+    core::async_trait,
+    proc_macros::rpc,
+    types::{ErrorObject, ErrorObjectOwned},
+};
 use k256::ecdsa::signature::hazmat::PrehashSigner;
 use plonky2::plonk::{
     config::{GenericConfig, PoseidonGoldilocksConfig},
@@ -35,9 +39,9 @@ use psy_data::{
     },
 };
 use psy_dpn_circuit::circuits::cfc::DapenContractFunctionCircuit;
-use psy_provider::provider::{NetworkConfig, QCommonCircuitData, RpcProvider};
-use psy_provider::request::{
-    DPNSoftwareDefinedSignatureInput, QRegisterDPNSoftwareDefinedCircuitRPCRequest, QRegisterPlonky2SoftwareDefinedCircuitRPCRequest,
+use psy_provider::{
+    provider::{NetworkConfig, QCommonCircuitData, RpcProvider},
+    request::{DPNSoftwareDefinedSignatureInput, QRegisterDPNSoftwareDefinedCircuitRPCRequest, QRegisterPlonky2SoftwareDefinedCircuitRPCRequest},
 };
 use psy_ups_circuit::{
     circuit_manager::core::PsyUPSStepCircuitManager,

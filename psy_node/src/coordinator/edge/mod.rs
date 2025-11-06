@@ -8,6 +8,7 @@ use std::{env, net::SocketAddr};
 
 use hyper::Method;
 use jsonrpsee::server::Server;
+use psy_common::health::HealthLayer;
 use psy_store::{queue::ProofStoreRedis, store::PsyStore};
 use tower_http::cors::{AllowHeaders, Any, CorsLayer};
 use tracing::info;
@@ -18,7 +19,6 @@ use self::{
 };
 use super::args::CoordinatorEdgeArgs;
 use crate::common::jobs::JobSchedulerRpcServer;
-use psy_common::health::HealthLayer;
 
 pub type StoreReader = PsyStore;
 pub type DrainQueue = ProofStoreRedis;

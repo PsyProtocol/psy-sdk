@@ -12,7 +12,6 @@ use plonky2::{
 };
 use psy_common::data::qhashout::QHashOut;
 use psy_crypto::hash::merkle::core::MerkleProofCore;
-use serde::{Deserialize, Serialize};
 use psy_data::{
     models::user::contract_state_tree::UserContractStateTreeId,
     qdata::user_contract_state::UserContractState,
@@ -22,6 +21,7 @@ use psy_data::{
         cmd_processor::{PsyReadCommandProcessorSync, PsyReadCommandProcessorSyncMut},
     },
 };
+use serde::{Deserialize, Serialize};
 
 use crate::dpn::ops::state_cmd::data::{
     DPNStateCmd, DPNStateCmdGetOtherUserContractStateSlotHash, DPNStateCmdGetSelfUserCurrentContractStateSlotHash,

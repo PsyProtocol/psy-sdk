@@ -8,7 +8,7 @@ use plonky2::{
 };
 use psy_common::data::qhashout::QHashOut;
 use psy_crypto::{hash::traits::qhashable::QFieldHashable, signature::zk::data::ZKPublicKeyInfo};
-use psy_data::config::store_config::{PsyHasher, PsyProof, PsyPlonky2Config};
+use psy_data::config::store_config::{PsyHasher, PsyPlonky2Config, PsyProof};
 use psy_provider::provider::RpcProvider;
 use psy_vm::ups::circuit_manager::UPSCircuitManager;
 

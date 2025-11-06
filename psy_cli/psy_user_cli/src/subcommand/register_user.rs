@@ -17,7 +17,7 @@ use psy_crypto::{
     },
 };
 use psy_data::{config::store_config::PsyHasher, traits::qdatastore::qmetadata::QMetaDataStoreReaderSync};
-use psy_prover::wallet::memory_wallet::{PsyMemoryWallet, get_secp256k1_fingerprint, get_zk_fingerprint};
+use psy_prover::wallet::memory_wallet::{get_secp256k1_fingerprint, get_zk_fingerprint, PsyMemoryWallet};
 use psy_rust_sdk::{
     provider::{QUserRpcProvider, RpcProvider},
     request::QRegisterUserRPCRequest,

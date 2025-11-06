@@ -8,6 +8,7 @@ use anyhow::Result;
 pub use edge_v2::run_realm_edge_v2;
 use hyper::Method;
 use jsonrpsee::server::ServerBuilder;
+use psy_common::health::HealthLayer;
 use psy_store::{
     queue::{new_redis_async_pool, task_queue::QProvingTaskStoreImpl, ProofStoreRedis},
     store,
@@ -15,7 +16,6 @@ use psy_store::{
 };
 use tower_http::cors::{Any, CorsLayer};
 use tracing::{debug, info};
-use psy_common::health::HealthLayer;
 
 use super::{config::RealmEdgeConfig, rpc::RealmEdgeRpcServer, C, D, F};
 use crate::{

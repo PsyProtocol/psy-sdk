@@ -1105,8 +1105,9 @@ where
         sig_hash: QHashOut<C::F>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         tracing::info!("prove_plonky2_software_defined_sign:");
-        // Now that we have StateReaderResults which can be serialized, this can be implemented
-        // For now, return an error until the RPC request is implemented
+        // Now that we have StateReaderResults which can be serialized, this can be
+        // implemented For now, return an error until the RPC request is
+        // implemented
         Err(anyhow::format_err!("plonky2 software defined sign not yet implemented over RPC"))
     }
 

@@ -78,11 +78,7 @@ impl<F: RichField + Extendable<D>, const D: usize> StateReaderGadget<F, D> {
             // current_state_cmd_index: 0,
         }
     }
-    pub fn set_witness(
-        &self,
-        pw: &mut PartialWitness<F>,
-        results: &psy_vm::ups::state_reader::StateReaderResults<F>,
-    ) -> anyhow::Result<()> {
+    pub fn set_witness(&self, pw: &mut PartialWitness<F>, results: &psy_vm::ups::state_reader::StateReaderResults<F>) -> anyhow::Result<()> {
         self.state.set_witness(pw, &results.state)?;
 
         self.state_cmds
@@ -95,9 +91,7 @@ impl<F: RichField + Extendable<D>, const D: usize> StateReaderGadget<F, D> {
         self.merkel_proofs
             .iter()
             .zip(results.merkel_proofs.iter())
-            .try_for_each(|(merkle_proof_gadget, merkle_proof)| {
-                merkle_proof_gadget.set_witness_core_proof_q_generic(pw, merkle_proof)
-            })?;
+            .try_for_each(|(merkle_proof_gadget, merkle_proof)| merkle_proof_gadget.set_witness_core_proof_q_generic(pw, merkle_proof))?;
         Ok(())
     }
     pub fn get_self_user_current_contract_state_slot_hash(

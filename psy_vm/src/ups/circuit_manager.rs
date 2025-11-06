@@ -242,7 +242,9 @@ where
         input: Plonky2SoftwareDefinedSignatureInput,
         sig_hash: QHashOut<C::F>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
-        (**self).prove_plonky2_software_defined_sign(fingerprint, private_key, input, sig_hash).await
+        (**self)
+            .prove_plonky2_software_defined_sign(fingerprint, private_key, input, sig_hash)
+            .await
     }
 
     async fn prove_ups_end_cap(
@@ -412,7 +414,9 @@ where
         input: Plonky2SoftwareDefinedSignatureInput,
         sig_hash: QHashOut<C::F>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
-        (**self).prove_plonky2_software_defined_sign(fingerprint, private_key, input, sig_hash).await
+        (**self)
+            .prove_plonky2_software_defined_sign(fingerprint, private_key, input, sig_hash)
+            .await
     }
 
     async fn prove_ups_end_cap(

@@ -2,7 +2,7 @@ use kvq::adapters::standard::KVQStandardAdapter;
 use plonky2::{
     field::goldilocks_field::GoldilocksField,
     hash::poseidon::PoseidonHash,
-    plonk::{config::PoseidonGoldilocksConfig, proof::ProofWithPublicInputs},
+    plonk::{circuit_data::VerifierOnlyCircuitData, config::PoseidonGoldilocksConfig, proof::ProofWithPublicInputs},
 };
 use psy_common::data::qhashout::QHashOut;
 use psy_config::network_constants::{
@@ -10,7 +10,6 @@ use psy_config::network_constants::{
     GLOBAL_WITHDRAWAL_TREE_HEIGHT,
 };
 use psy_crypto::hash::merkle::core::{DeltaMerkleProofCore, MerkleProofCore};
-use plonky2::plonk::circuit_data::VerifierOnlyCircuitData;
 
 use crate::{
     models::{
