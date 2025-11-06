@@ -13,9 +13,11 @@ use psy_crypto::{
     },
 };
 use psy_data::config::store_config::PsyHasher;
-use psy_prover::{local::args::SignType, wallet::memory_wallet::PsyMemoryWallet};
+use psy_prover::wallet::memory_wallet::PsyMemoryWallet;
+use psy_common::args::SignType;
 use psy_rust_sdk::wallet::secp_wallet::Wallet;
-use psy_ups_circuit::circuit_manager::core::{PsyUPSStepCircuitManager, QCircuitManager};
+use psy_ups_circuit::circuit_manager::core::PsyUPSStepCircuitManager;
+use psy_vm::ups::circuit_manager::UPSCircuitManagerTrait;
 
 use super::args::GetPublicKeyArgs;
 
@@ -40,11 +42,11 @@ pub async fn run(args: GetPublicKeyArgs) -> anyhow::Result<()> {
         SignType::SECP256K1Sign => {
             let wallet = Wallet::from_hex(&args.private_key)?;
 
-            let main_circuits = QCircuitManager::Local(PsyUPSStepCircuitManager::<C, D>::new_with_config(
+            let main_circuits: Box<dyn UPSCircuitManagerTrait<C, D>> = Box::new(PsyUPSStepCircuitManager::<C, D>::new_with_config(
                 psy_config::network_constants::PSY_NETWORK_MAGIC,
             ));
 
-            let mut memory_wallet = PsyMemoryWallet::new(vec![Box::new(main_circuits)]);
+            let mut memory_wallet = PsyMemoryWallet::new(vec![main_circuits]);
             let private_key = QHashOut::from(Hash256::from_bytes(&wallet.private_key())?);
             let secp_pk_info = memory_wallet.add_secp_private_key(private_key).await?;
             let public_key = secp_pk_info.qfhash::<PsyHasher>();
@@ -56,8 +58,11 @@ pub async fn run(args: GetPublicKeyArgs) -> anyhow::Result<()> {
             println!("  fingerprint: {}", secp_pk_info.fingerprint.to_string());
             println!("  public_key: {}", public_key);
         }
-        SignType::SoftwareDefinedSign => {
-            println!("Software Defined signature type not supported for public key display");
+        SignType::SoftwareDefinedDPNSign => {
+            println!("Software Defined DPN signature type not supported for public key display");
+        }
+        SignType::SoftwareDefinedPlonky2Sign => {
+            println!("Software Defined PLONKY2 signature type not supported for public key display");
         }
     }
 

@@ -23,10 +23,8 @@ use psy_data::{
     traits::qdatastore::{qmetadata::QMetaDataStoreReaderSync, qtreedata::QTreeDataStoreReaderSync},
 };
 use psy_node::worker::job_tracker::WorkerJobTracker;
-use psy_prover::{
-    local::args::{ContractCallArgs, SignData, SignType},
-    session::WalletSession,
-};
+use psy_common::args::{ContractCallArgs, SignData, SignType};
+use psy_prover::session::WalletSession;
 use psy_rust_sdk::provider::{NetworkConfig, RpcProvider};
 use psy_services::models::{WorkerEvent, WorkerEventSource};
 use serde::{Deserialize, Serialize};

@@ -2,13 +2,14 @@ use std::str::FromStr;
 
 use anyhow::Result;
 use plonky2::{
-    field::goldilocks_field::GoldilocksField,
+    field::{goldilocks_field::GoldilocksField, types::Field},
     hash::poseidon::{PoseidonHash, PoseidonPermutation},
     plonk::config::PoseidonGoldilocksConfig,
 };
+use psy_common_circuit::builder::comparison::CircuitBuilderComparison;
+use psy_common::{args::SignType, data::qhashout::QHashOut};
 use psy_common_circuit::circuits::traits::qstandard::QStandardCircuit;
 use psy_config::network_constants::{MAX_CONTRACT_STATE_TREE_HEIGHT, UPS_SESSION_PROOF_TREE_HEIGHT};
-use psy_common::data::qhashout::QHashOut;
 use psy_crypto::{
     hash::traits::qhashable::QFieldHashable,
     signature::{
@@ -17,20 +18,13 @@ use psy_crypto::{
     },
 };
 use psy_data::{config::store_config::PsyHasher, traits::qdatastore::qmetadata::QMetaDataStoreReaderSync};
-use psy_prover::{
-    local::args::SignType,
-    wallet::{
-        memory_wallet::{SECP256K1_FINGERPRINT, ZK_FINGERPRINT},
-        simple_sign::SoftwareDefinedSignGadget,
-        software_defined_circuit::{
-            get_sdc_public_key_param, PSoftwareDefinedSignatureInput, SoftwareDefinedSignatureCircuit, SoftwareDefinedSignatureGadget,
-            SoftwareDefinedSignatureInput,
-        },
-    },
+use psy_prover::wallet::memory_wallet::{SECP256K1_FINGERPRINT, ZK_FINGERPRINT};
+use psy_ups_circuit::signature::software_defined::{
+    get_sdc_public_key_param, Plonky2SoftwareDefinedSignatureGadget
 };
 use psy_rust_sdk::{
     provider::{QUserRpcProvider, RpcProvider},
-    request::{QRegisterUserRPCRequest, QSoftwareDefinedSignatureInput},
+    request::QRegisterUserRPCRequest,
 };
 use psy_vm::dpn::vm::def::DPNFunctionCircuitDefinition;
 
@@ -69,7 +63,8 @@ pub async fn run(args: RegisterUserArgs) -> Result<()> {
             tracing::info!("compressed public key {:?}", compressed_public_key);
             hash_no_pad_compressed_public_key::<GoldilocksField, PoseidonPermutation<GoldilocksField>>(compressed_public_key)
         }
-        SignType::SoftwareDefinedSign => get_sdc_public_key_param(&private_key_base),
+        SignType::SoftwareDefinedDPNSign => get_sdc_public_key_param(&private_key_base),
+        SignType::SoftwareDefinedPlonky2Sign => get_sdc_public_key_param(&private_key_base),
     };
 
     let fingerprint = match SignType::from(args.sign_type.clone()) {
@@ -86,24 +81,28 @@ pub async fn run(args: RegisterUserArgs) -> Result<()> {
             }
             QHashOut::<GoldilocksField>::from_str(&SECP256K1_FINGERPRINT)?
         }
-        SignType::SoftwareDefinedSign => {
-            // let sdc_input =
-            // SoftwareDefinedSignatureInput::Psy(QSoftwareDefinedSignatureInput {
-            //     fn_def: user_sdc,
-            //     contract_id: 0,
-            //     contract_state_tree_height: contract_state_tree_height,
-            //     session_proof_tree_height: UPS_SESSION_PROOF_TREE_HEIGHT,
-            //     force_four_align: false,
-            // });
-            let sign_circuit = Box::new(SoftwareDefinedSignGadget {});
-            let sdc_input = SoftwareDefinedSignatureInput::PLONKY2(PSoftwareDefinedSignatureInput {
-                contract_state_tree_height,
-                input_len: 0,
-                sign_circuit,
+        SignType::SoftwareDefinedDPNSign => {
+            QHashOut::<GoldilocksField>::from_str(
+                &args.fingerprint
+                    .ok_or_else(|| anyhow::format_err!("software defined dpn sign need fingerprint"))?
+            )?
+        }
+        SignType::SoftwareDefinedPlonky2Sign => {
+            let config = plonky2::plonk::circuit_data::CircuitConfig::standard_recursion_config();
+            let mut builder = plonky2::plonk::circuit_builder::CircuitBuilder::<GoldilocksField, 2>::new(config);
+
+            let mut gadget = Plonky2SoftwareDefinedSignatureGadget::add_virtual_to(&mut builder, contract_state_tree_height, 0);
+
+            // Add custom constraints: ensure slot0 is less than 1000
+            gadget.add_custom_constraints(&mut builder, |builder, state_reader, _circuit_inputs| {
+                if let Ok(slot0) = state_reader.get_self_user_current_contract_state_slot_single(builder, GoldilocksField::from_canonical_u64(0)) {
+                    let one_thousand = builder.constant(GoldilocksField::from_canonical_u64(1000));
+                    builder.ensure_is_less_than(32, slot0, one_thousand);
+                }
             });
 
-            let sdc = SoftwareDefinedSignatureCircuit::<C, D, SoftwareDefinedSignatureGadget>::new(&sdc_input).await;
-            sdc.get_fingerprint()
+            gadget.build_circuit(builder).unwrap();
+            gadget.get_fingerprint()
         }
     };
 

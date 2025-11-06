@@ -9,10 +9,8 @@ use psy_config::network_constants::MAX_CONTRACT_STATE_TREE_HEIGHT;
 use psy_common::data::qhashout::QHashOut;
 use psy_crypto::{hash::traits::qhashable::QFieldHashable, signature::zk::wallet::SimplePsyPrivateKey};
 use psy_data::config::store_config::{PsyHasher, C, D};
-use psy_prover::{
-    local::args::ContractCallArgs,
-    session::{gen_contract_deploy_and_circuits_for_functions, WalletSession},
-};
+use psy_common::args::ContractCallArgs;
+use psy_prover::session::{gen_contract_deploy_and_circuits_for_functions, WalletSession};
 use psy_rust_sdk::{
     provider::{QUserRpcProvider, RpcProvider},
     request::QDeployContractRPCRequest,

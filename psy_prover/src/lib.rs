@@ -1,5 +1,6 @@
 pub mod local;
 pub mod session;
+pub mod signature;
 pub mod wallet;
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -13,7 +14,7 @@ use psy_config::PSY_NETWORK_MAGIC;
 
 use crate::local::native::prove_proxy::ProveProxyServerProvider;
 
-pub async fn run_server(args: crate::local::args::ProverArgs) -> anyhow::Result<()> {
+pub async fn run_server(args: psy_common::args::ProverArgs) -> anyhow::Result<()> {
     use std::{net::SocketAddr, sync::Arc};
 
     use hyper::Method;
@@ -58,7 +59,7 @@ pub async fn run_server(args: crate::local::args::ProverArgs) -> anyhow::Result<
     Ok(())
 }
 
-pub async fn run_prove_proxy_server(args: crate::local::args::ProveProxyArgs) -> anyhow::Result<()> {
+pub async fn run_prove_proxy_server(args: psy_common::args::ProveProxyArgs) -> anyhow::Result<()> {
     use std::net::SocketAddr;
 
     use hyper::Method;

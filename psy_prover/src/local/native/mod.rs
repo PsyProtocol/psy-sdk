@@ -16,8 +16,9 @@ use psy_provider::provider::RpcProvider;
 use psy_vm::dpn::vm::def::DPNFunctionCircuitDefinition;
 use tokio::time::timeout;
 
+use psy_common::args::ContractCallArgs;
 use crate::{
-    local::{args::ContractCallArgs, store::UserProverWorkerStore},
+    local::store::UserProverWorkerStore,
     session::{WalletKeyPair, WalletSession},
 };
 

@@ -38,7 +38,8 @@ use psy_node::{
     },
     worker::{simple_async_coord::SimpleAsyncCoordinatorWorker, simple_async_realm::SimpleAsyncRealmWorker},
 };
-use psy_rust_sdk::common::UPSCircuitManagerTrait;
+use psy_vm::ups::circuit_manager::UPSCircuitManagerTrait;
+use psy_ups_circuit::circuit_manager::core::QCircuitManager;
 use psy_store::{
     node::coordinator::{PsyCoordinatorStoreReaderAsync, PsyCoordinatorStoreWriterAsyncImm},
     queue::{
@@ -48,7 +49,7 @@ use psy_store::{
     store::journal::JournalStore,
 };
 use psy_ups_circuit::{
-    circuit_manager::core::{PsyUPSStepCircuitManager, QCircuitManager},
+    circuit_manager::core::PsyUPSStepCircuitManager,
     session::UserProvingSessionManager,
 };
 
@@ -174,7 +175,8 @@ async fn run_test3() -> anyhow::Result<()> {
     // await?; println!("[mainfnc] current_state_roots:
     // {}",serde_json::to_string_pretty(&stroots).unwrap());
     timer.lap("start: init PsyUPSStepCircuitManager");
-    let main_circuits = QCircuitManager::Local(PsyUPSStepCircuitManager::<C, D>::new_with_config(PSY_NETWORK_MAGIC));
+    let main_circuits = PsyUPSStepCircuitManager::<C, D>::new_with_config(PSY_NETWORK_MAGIC);
+    let boxed_main_circuits: QCircuitManager<C, D> = Box::new(PsyUPSStepCircuitManager::<C, D>::new_with_config(PSY_NETWORK_MAGIC));
     //main_circuits.print_common_config();
     timer.lap("end: init PsyUPSStepCircuitManager");
     let user_0_pub_key = st.get_user_registration_tree_leaf_hash(latest_block_state.checkpoint_id, 0).await?;

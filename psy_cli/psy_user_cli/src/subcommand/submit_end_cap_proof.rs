@@ -1,18 +1,14 @@
 use std::str::FromStr;
 
-use plonky2::field::goldilocks_field::GoldilocksField;
+use plonky2::field::{goldilocks_field::GoldilocksField, types::Field};
+use psy_common_circuit::builder::comparison::CircuitBuilderComparison;
 use psy_config::network_constants::{MAX_CONTRACT_STATE_TREE_HEIGHT, UPS_SESSION_PROOF_TREE_HEIGHT};
 use psy_common::data::qhashout::QHashOut;
 use psy_data::traits::qdatastore::qmetadata::QMetaDataStoreReaderSync;
-use psy_prover::{
-    local::args::{ContractCallArgs, SignData, SignType, WalletSessionArgs},
-    session::WalletSession,
-    wallet::{
-        simple_sign::SoftwareDefinedSignGadget,
-        software_defined_circuit::{PSoftwareDefinedSignatureInput, SoftwareDefinedSignatureInput},
-    },
-};
-use psy_rust_sdk::{provider::NetworkConfig, request::QSoftwareDefinedSignatureInput};
+use psy_common::args::{ContractCallArgs, SignData, SignType, WalletSessionArgs};
+use psy_prover::session::WalletSession;
+use psy_ups_circuit::signature::software_defined::Plonky2SoftwareDefinedSignatureGadget;
+use psy_rust_sdk::provider::NetworkConfig;
 use psy_vm::dpn::vm::def::DPNFunctionCircuitDefinition;
 use serde::{Deserialize, Serialize};
 
@@ -76,7 +72,7 @@ pub async fn run_multi(args: WalletSessionArgs) -> anyhow::Result<()> {
 
 pub async fn run_inner(args: ExecContractCallArgs) -> anyhow::Result<()> {
     let mut wallet_session = WalletSession::new(&args.rpc_config).await?;
-    let fingerprint = if args.sign_type == SignType::SoftwareDefinedSign {
+    let fingerprint = if args.sign_type == SignType::SoftwareDefinedPlonky2Sign {
         let user_sdc: DPNFunctionCircuitDefinition = serde_json::from_str(&std::fs::read_to_string("sdc.json")?)?;
 
         let contract_state_tree_height = wallet_session
@@ -86,23 +82,24 @@ pub async fn run_inner(args: ExecContractCallArgs) -> anyhow::Result<()> {
             .map(|cfc| cfc.state_tree_height as u8)
             .unwrap_or(MAX_CONTRACT_STATE_TREE_HEIGHT);
 
-        // let sdc_input =
-        // SoftwareDefinedSignatureInput::Psy(QSoftwareDefinedSignatureInput {
-        //     fn_def: user_sdc,
-        //     contract_id: args.contract_id,
-        //     contract_state_tree_height: contract_state_tree_height,
-        //     session_proof_tree_height: UPS_SESSION_PROOF_TREE_HEIGHT,
-        //     force_four_align: false,
-        // });
+        let config = plonky2::plonk::circuit_data::CircuitConfig::standard_recursion_config();
+        let mut builder = plonky2::plonk::circuit_builder::CircuitBuilder::<GoldilocksField, 2>::new(config);
 
-        let sign_circuit = Box::new(SoftwareDefinedSignGadget {});
-        let sdc_input = SoftwareDefinedSignatureInput::PLONKY2(PSoftwareDefinedSignatureInput {
-            contract_state_tree_height,
-            input_len: 0,
-            sign_circuit,
+        let mut gadget = Plonky2SoftwareDefinedSignatureGadget::add_virtual_to(&mut builder, contract_state_tree_height, 0);
+
+        // Add custom constraints: ensure slot0 is less than 1000
+        gadget.add_custom_constraints(&mut builder, |builder, state_reader, _circuit_inputs| {
+            if let Ok(slot0) = state_reader.get_self_user_current_contract_state_slot_single(builder, GoldilocksField::from_canonical_u64(0)) {
+                let one_thousand = builder.constant(GoldilocksField::from_canonical_u64(1000));
+                builder.ensure_is_less_than(32, slot0, one_thousand);
+            }
         });
 
-        Some(wallet_session.wallet.register_software_defined_circuit(sdc_input).await?)
+        gadget.build_circuit(builder).unwrap();
+        let fingerprint = gadget.get_fingerprint();
+
+        wallet_session.wallet.software_defined_plonky2_circuits.insert(fingerprint, gadget);
+        Some(fingerprint)
     } else {
         None
     };

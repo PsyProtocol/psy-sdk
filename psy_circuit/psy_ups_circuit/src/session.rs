@@ -66,15 +66,14 @@ use psy_data::{
     },
 };
 use psy_dpn_circuit::circuits::cfc::DapenContractFunctionCircuit;
-use psy_provider::common::UPSCircuitManagerTrait;
+use psy_vm::ups::circuit_manager::UPSCircuitManagerTrait;
 use psy_vm::{
     dpn::{contract::cfc_code_definition_to_dapen_fc, vm::def::DPNFunctionCircuitDefinition},
     vm::{cfc_input::DapenContractFunctionCircuitInput, exec::PsyEvalSessionResult},
 };
 use serde::Serialize;
 
-use super::circuit_manager::core::PsyUPSStepCircuitManager;
-use crate::circuit_manager::core::QCircuitManager;
+use crate::circuit_manager::core::PsyUPSStepCircuitManager;
 
 const UPS_STEP_LEAF_TYPE: u64 = 1;
 const CFC_LEAF_TYPE: u64 = 2;
@@ -83,7 +82,7 @@ const ZK_SIG_LEAF_TYPE: u64 = 3;
 pub struct UserProvingSessionManager<
     F: RichField + Extendable<D>,
     H: MerkleZeroHasher<QHashOut<F>> + MerkleZeroHasher<HashOut<F>> + AlgebraicHasher<F>,
-    R: PsyReadCommandProcessorSync<F> + Send + Sync,
+    R: PsyReadCommandProcessorSync<F> + psy_data::traits::qdatastore::qtreedata::PsyComboDataStoreReaderSync<F> + Send + Sync,
     C: GenericConfig<D, F = F, Hasher = H>,
     const D: usize,
 > {
@@ -106,7 +105,7 @@ const D: usize = 2;
 #[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
 impl<
         H: MerkleZeroHasher<QHashOut<F>> + MerkleZeroHasher<HashOut<F>> + AlgebraicHasher<F> + FieldQHasher<F>,
-        R: PsyReadCommandProcessorSync<F> + Send + Sync,
+        R: PsyReadCommandProcessorSync<F> + psy_data::traits::qdatastore::qtreedata::PsyComboDataStoreReaderSync<F> + Send + Sync,
         C: GenericConfig<D, F = F, Hasher = H> + Serialize,
     > UserProvingSessionManager<F, H, R, C, D>
 {
@@ -591,7 +590,7 @@ impl<
         Ok(())
     }
 
-    pub async fn prove_end_cap<CM: UPSCircuitManagerTrait<C, D> + ?Sized>(
+    pub async fn prove_end_cap<CM: UPSCircuitManagerTrait<C, D> + psy_common_circuit::treeprover::qrecursion::standard::manager::portable::circuits::PortableQTreeRecursionCircuitsTrait<C, D> + ?Sized>(
         &mut self,
         circuit_mgr: &CM,
         network_magic: u64,

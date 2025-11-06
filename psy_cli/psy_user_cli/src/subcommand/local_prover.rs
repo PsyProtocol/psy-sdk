@@ -1,4 +1,4 @@
-use psy_prover::local::args::ProverArgs;
+use psy_common::args::ProverArgs;
 
 pub async fn run(args: ProverArgs) -> anyhow::Result<()> {
     let ctrl_c = tokio::signal::ctrl_c();

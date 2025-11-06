@@ -16,10 +16,8 @@ use psy_data::{
     qdata::{contract::ContractCodeDefinition, contract_uuid::ContractUUID},
 };
 use psy_dpn_circuit::circuits::cfc::DapenContractFunctionCircuit;
-use psy_prover::{
-    local::args::SignType,
-    session::{gen_contract_deploy_and_circuits_for_functions, WalletSession},
-};
+use psy_common::args::SignType;
+use psy_prover::session::{gen_contract_deploy_and_circuits_for_functions, WalletSession};
 use psy_rust_sdk::{
     provider::{QUserRpcProvider, RpcProvider},
     request::QDeployContractRPCRequest,
@@ -68,7 +66,8 @@ pub async fn run(args: DeployContractArgs) -> anyhow::Result<()> {
     let sign_proof = match args.sign_type.clone() {
         SignType::ZKSign => wallet_session.wallet.zk_sign_for_public_key(deployer, sig_hash).await?,
         SignType::SECP256K1Sign => wallet_session.wallet.zk_sign_secp256k1(deployer, sig_hash).await?,
-        SignType::SoftwareDefinedSign => unimplemented!("software defined sign not supported"),
+        SignType::SoftwareDefinedDPNSign => unimplemented!("software defined dpn sign not supported"),
+        SignType::SoftwareDefinedPlonky2Sign => unimplemented!("software defined plonky2 sign not supported"),
     };
 
     match args.output_path {

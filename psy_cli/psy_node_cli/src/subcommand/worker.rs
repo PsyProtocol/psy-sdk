@@ -30,6 +30,7 @@ use psy_node::{
 };
 use psy_rust_sdk::wallet::secp_wallet::Wallet;
 use psy_ups_circuit::circuit_manager::core::PsyUPSStepCircuitManager;
+use psy_vm::ups::circuit_manager::UPSCircuitManagerTrait;
 use tokio::{sync::Mutex, time::sleep};
 use tracing::{error, info, log::warn};
 
@@ -73,11 +74,11 @@ pub async fn run(
 
     let wallet = Arc::new(wallet);
 
-    let main_circuits = psy_ups_circuit::circuit_manager::core::QCircuitManager::Local(PsyUPSStepCircuitManager::<C, D>::new_with_config(
+    let main_circuits: Box<dyn UPSCircuitManagerTrait<C, D>> = Box::new(PsyUPSStepCircuitManager::<C, D>::new_with_config(
         psy_config::network_constants::PSY_NETWORK_MAGIC,
     ));
 
-    let mut memory_wallet = psy_prover::wallet::memory_wallet::PsyMemoryWallet::new(vec![Box::new(main_circuits)]);
+    let mut memory_wallet = psy_prover::wallet::memory_wallet::PsyMemoryWallet::new(vec![main_circuits]);
 
     let private_key = QHashOut::from(Hash256::from_bytes(&wallet.private_key())?);
     let public_key_info = memory_wallet.add_secp_private_key(private_key).await?;

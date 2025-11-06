@@ -258,7 +258,7 @@ use psy_common::data::u8bytes::U8Bytes;
 use psy_crypto::signature::zk::data::ZKPublicKeyInfo;
 use psy_data::{args::JobInfo, guta::end_cap_input::SubmitUserEndCapNonProofInput, qblock::cmds::deploy_contract::QBCDeployContract};
 #[cfg(not(target_arch = "wasm32"))]
-use psy_prover::local::args::{ContractCallArgs, JobInfo};
+use psy_common::args::{ContractCallArgs, JobInfo};
 // Conditional imports - only available in native
 #[cfg(not(target_arch = "wasm32"))]
 use psy_prover::local::store::UserProverWorkerStore;

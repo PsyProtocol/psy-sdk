@@ -1,5 +1,5 @@
 use clap::{command, Parser, Subcommand};
-use psy_prover::local::args::{ProveProxyArgs, ProverArgs, WalletSessionArgs};
+use psy_common::args::{ProveProxyArgs, ProverArgs, WalletSessionArgs};
 
 pub mod args;
 pub mod deploy_contract;

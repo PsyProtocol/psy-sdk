@@ -35,7 +35,7 @@ use psy_data::{
 use psy_dpn_circuit::circuits::cfc::DapenContractFunctionCircuit;
 use psy_network_circuit::guta::guta_helper::PsyGUTACircuitManager;
 use psy_prover::local::simple::SimpleAPI;
-use psy_provider::common::UPSCircuitManagerTrait;
+use psy_vm::ups::circuit_manager::UPSCircuitManagerTrait;
 use psy_store::{node::coordinator::PsyCoordinatorStoreWriterAsyncImm, prepare_environment_with_real_contract};
 use psy_ups_circuit::{
     circuit_manager::core::{PsyUPSStepCircuitManager, QCircuitManager},
@@ -233,7 +233,7 @@ async fn demo_user_proving_session() -> anyhow::Result<()> {
 
     timer.lap("start: init PsyUPSStepCircuitManager");
 
-    let main_circuits = QCircuitManager::Local(PsyUPSStepCircuitManager::<C, D>::new_with_config(PSY_NETWORK_MAGIC));
+    let main_circuits = PsyUPSStepCircuitManager::<C, D>::new_with_config(PSY_NETWORK_MAGIC);
     //main_circuits.print_common_config();
 
     timer.lap("end: init PsyUPSStepCircuitManager");
@@ -285,10 +285,8 @@ async fn demo_user_proving_session() -> anyhow::Result<()> {
 
     timer.lap("start build guta circuits");
 
-    let end_cap_proof_common_data = match &main_circuits {
-        QCircuitManager::Local(manager) => manager.ups_end_cap.get_common_circuit_data_ref(),
-        QCircuitManager::Rpc(provider) => unimplemented!(),
-    };
+    // Now QCircuitManager is just PsyUPSStepCircuitManager, so access directly
+    let end_cap_proof_common_data = main_circuits.ups_end_cap.get_common_circuit_data_ref();
     use psy_config::get_default_worker_public_key;
 
     let guta_circuits = PsyGUTACircuitManager::<C, D>::new_with_config(

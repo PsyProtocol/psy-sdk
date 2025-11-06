@@ -1,4 +1,5 @@
-use anyhow::Ok;
+use anyhow::bail;
+use std::sync::Arc;
 use dashmap::DashMap;
 use k256::ecdsa::signature::hazmat::PrehashSigner;
 use plonky2::{
@@ -12,11 +13,11 @@ use plonky2::{
         proof::ProofWithPublicInputs,
     },
 };
+use psy_common::data::{base_types::hash256::Hash256, qhashout::QHashOut, secp256k1::CompressedPublicKey};
 use psy_common_circuit::circuits::{
     secp256k1_signature::Secp256K1SignatureCircuit, traits::qstandard::QStandardCircuit, zk_signature3::core::PsyBasicZKSignatureCircuit,
 };
 use psy_config::network_constants::{MAX_CONTRACT_STATE_TREE_HEIGHT, UPS_SESSION_PROOF_TREE_HEIGHT};
-use psy_common::data::{base_types::hash256::Hash256, qhashout::QHashOut, secp256k1::CompressedPublicKey};
 use psy_crypto::{
     hash::traits::{hasher::MerkleZeroHasher, qhashable::QFieldHashable},
     signature::{
@@ -25,19 +26,22 @@ use psy_crypto::{
     },
 };
 use psy_data::{config::store_config::PsyHasher, qstore::imm::cmd_processor::PsyReadCommandProcessorSync};
-use psy_provider::common::UPSCircuitManagerTrait;
-use psy_ups_circuit::{circuit_manager, circuit_manager::core::QCircuitManager};
-use psy_vm::{dpn::vm::def::DPNFunctionCircuitDefinition, vm::cfc_input::DapenContractFunctionCircuitInput};
+use psy_provider::provider::RpcProvider;
+use psy_vm::ups::circuit_manager::UPSCircuitManagerTrait;
+use psy_ups_circuit::circuit_manager;
+use psy_vm::{dpn::vm::def::DPNFunctionCircuitDefinition, vm::cfc_input::DapenContractFunctionCircuitInput, ups::state_reader::StateReader};
 
-use crate::{
-    local::args::SignType,
-    wallet::{
-        simple_sign::StateReader,
-        software_defined_circuit::{
-            get_sdc_public_key_param, QSoftwareDefinedSignatureGadget, SoftwareDefinedSignature, SoftwareDefinedSignatureCircuit,
-            SoftwareDefinedSignatureGadget, SoftwareDefinedSignatureInput,
-        },
+use psy_ups_circuit::signature::{
+    // simple_sign::StateReader,
+    software_defined::{
+        DPNSoftwareDefinedSignatureGadget, Plonky2SoftwareDefinedSignatureGadget
     },
+};
+
+use crate::signature::{
+    context::SignContext,
+    traits::{SignatureResult, SignatureUser},
+    users::{SECP256K1User, SoftwareDefinedDpnUser, SoftwareDefinedPlonky2User, ZKUser},
 };
 
 type C = PoseidonGoldilocksConfig;
@@ -47,16 +51,13 @@ type F = GoldilocksField;
 pub const ZK_FINGERPRINT: &str = "d2f572f1402fa8a92c9af0a2226e05ef8f5f4f34d764c6515b90d2b391fc48c1";
 pub const SECP256K1_FINGERPRINT: &str = "993bbdad2ba78319a70ab7d9ecd84b36eca0affc9f8ec4f9006b39a8fe29672c";
 
-// #[derive(Clone)]
 pub struct PsyMemoryWallet {
-    // pub zk_circuit: Option<PsyBasicZKSignatureCircuit<C, D>>,
-    // pub secp_circuit: Option<Secp256K1SignatureCircuit<C, D>>,
-    // figerprint, circuit
-    pub software_defined_circuits: DashMap<QHashOut<F>, SoftwareDefinedSignatureCircuit<C, D, SoftwareDefinedSignatureGadget>>,
+    signature_users: DashMap<QHashOut<F>, Arc<dyn SignatureUser>>,
+    /// Storage for PSY/DPN-based software defined circuits
+    pub software_defined_psy_circuits: DashMap<QHashOut<F>, DPNSoftwareDefinedSignatureGadget>,
+    /// Storage for PLONKY2-based software defined circuits  
+    pub software_defined_plonky2_circuits: DashMap<QHashOut<F>, Plonky2SoftwareDefinedSignatureGadget>,
     pub circuit_manager: Vec<Box<dyn UPSCircuitManagerTrait<C, D> + Send + Sync>>,
-    pub zk_public_key_to_private_key_store: DashMap<QHashOut<F>, QHashOut<F>>,
-    pub secp_public_key_to_private_key_store: DashMap<QHashOut<F>, QHashOut<F>>,
-    pub software_defined_public_key_to_private_key_store: DashMap<QHashOut<F>, QHashOut<F>>,
 }
 
 #[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
@@ -64,11 +65,10 @@ pub struct PsyMemoryWallet {
 impl PsyMemoryWallet {
     pub fn new(circuit_manager: Vec<Box<dyn UPSCircuitManagerTrait<C, D> + Send + Sync>>) -> Self {
         Self {
-            zk_public_key_to_private_key_store: DashMap::new(),
-            secp_public_key_to_private_key_store: DashMap::new(),
-            software_defined_public_key_to_private_key_store: DashMap::new(),
+            signature_users: DashMap::new(),
+            software_defined_psy_circuits: DashMap::new(),
+            software_defined_plonky2_circuits: DashMap::new(),
             circuit_manager,
-            software_defined_circuits: DashMap::new(),
         }
     }
 
@@ -78,101 +78,154 @@ impl PsyMemoryWallet {
     }
 
     pub async fn add_zk_private_key(&mut self, private_key: QHashOut<F>) -> anyhow::Result<ZKPublicKeyInfo<F>> {
-        let pk_info = self.get_zk_pk_info(private_key).await?;
-        self.zk_public_key_to_private_key_store.insert(pk_info.qfhash::<PsyHasher>(), private_key);
+        let simple_key = SimplePsyPrivateKey { private_key };
+        let user: Arc<dyn SignatureUser> = Arc::new(ZKUser::new(simple_key));
+        let manager = self.random_circuit_manager();
+        let manager_ref = manager.as_ref();
+        let pk_info = user.public_key_info(self, manager_ref).await?;
+        let pk_hash = pk_info.qfhash::<PsyHasher>();
+        self.signature_users.insert(pk_hash, user);
+        Ok(pk_info)
+    }
+
+    pub async fn add_secp_private_key(&mut self, private_key: QHashOut<F>) -> anyhow::Result<ZKPublicKeyInfo<F>> {
+        let user: Arc<dyn SignatureUser> = Arc::new(SECP256K1User::new(private_key));
+        let manager = self.random_circuit_manager();
+        let manager_ref = manager.as_ref();
+        let pk_info = user.public_key_info(self, manager_ref).await?;
+        let pk_hash = pk_info.qfhash::<PsyHasher>();
+        self.signature_users.insert(pk_hash, user);
         Ok(pk_info)
     }
 
     pub async fn get_zk_pk_info(&self, private_key: QHashOut<F>) -> anyhow::Result<ZKPublicKeyInfo<F>> {
-        let private_key = SimplePsyPrivateKey { private_key };
-        let public_key_param = private_key.get_public_key_param::<PoseidonHash>();
+        let simple_key = SimplePsyPrivateKey { private_key };
+        let public_key_param = simple_key.get_public_key_param::<PoseidonHash>();
         let fingerprint = self.random_circuit_manager().zk_circuit_fingerprint().await?;
-
         Ok(ZKPublicKeyInfo {
             fingerprint,
             public_key_param,
         })
     }
 
-    pub async fn get_sign_type(&self, pk_hash: QHashOut<F>) -> anyhow::Result<SignType> {
-        if self.zk_public_key_to_private_key_store.contains_key(&pk_hash) {
-            Ok(SignType::ZKSign)
-        } else if self.secp_public_key_to_private_key_store.contains_key(&pk_hash) {
-            Ok(SignType::SECP256K1Sign)
-        } else if self.software_defined_public_key_to_private_key_store.contains_key(&pk_hash) {
-            Ok(SignType::SoftwareDefinedSign)
-        } else {
-            Err(anyhow::format_err!("pk_hash `{}` not found", pk_hash))
-        }
+    pub async fn get_secp_pk_info(&self, private_key: QHashOut<F>) -> anyhow::Result<ZKPublicKeyInfo<F>> {
+        let pub_compressed = psy_crypto::signature::secp256k1::wallet::get_secp_public_key(private_key)?;
+        let public_key_param =
+            psy_crypto::signature::secp256k1::wallet::hash_no_pad_compressed_public_key::<F, PoseidonPermutation<F>>(pub_compressed);
+        let fingerprint = self.random_circuit_manager().secp_circuit_fingerprint().await?;
+        Ok(ZKPublicKeyInfo {
+            fingerprint,
+            public_key_param,
+        })
     }
 
-    pub async fn add_secp_private_key(&mut self, private_key: QHashOut<F>) -> anyhow::Result<ZKPublicKeyInfo<F>> {
-        let pk_info = self.get_secp_pk_info(private_key).await?;
-        tracing::info!("add secp user {}", serde_json::to_string_pretty(&pk_info)?);
-
-        self.secp_public_key_to_private_key_store
-            .insert(pk_info.qfhash::<PsyHasher>(), private_key);
-        Ok(pk_info)
+    pub async fn get_public_key_info(&self, public_key: &QHashOut<F>) -> anyhow::Result<ZKPublicKeyInfo<F>> {
+        let user_guard = self
+            .signature_users
+            .get(public_key)
+            .ok_or_else(|| anyhow::anyhow!("public key `{}` not found in wallet", public_key))?;
+        let user = user_guard.value().clone();
+        drop(user_guard);
+        let manager = self.random_circuit_manager();
+        user.public_key_info(self, manager.as_ref()).await
     }
 
-    pub async fn add_software_defined_private_key(
+    pub async fn sign_with_public_key(
+        &self,
+        public_key: &QHashOut<F>,
+        context: &SignContext,
+        sighash: QHashOut<F>,
+    ) -> anyhow::Result<SignatureResult> {
+        let user_guard = self
+            .signature_users
+            .get(public_key)
+            .ok_or_else(|| anyhow::anyhow!("signature user for `{}` not found", public_key))?;
+        let user = user_guard.value().clone();
+        drop(user_guard);
+
+        let circuit_manager = self.random_circuit_manager();
+        let manager_ref = circuit_manager.as_ref();
+
+        let proof = user.sign(self, manager_ref, context, sighash).await?;
+        let circuit_info = user.circuit_info(self, manager_ref, context).await?;
+
+        Ok(SignatureResult { proof, circuit_info })
+    }
+
+    /// Get signature user by public key info (must already be registered)
+    pub async fn get_user_by_info(
+        &self,
+        pk_info: &ZKPublicKeyInfo<F>,
+    ) -> anyhow::Result<Arc<dyn SignatureUser>> {
+        let pk_hash = pk_info.qfhash::<PsyHasher>();
+        self.signature_users
+            .get(&pk_hash)
+            .map(|entry| entry.value().clone())
+            .ok_or_else(|| anyhow::anyhow!("User with public key hash {} not found", pk_hash))
+    }
+
+    /// Get signature user by public key hash
+    pub fn get_user_by_public_key_hash(
+        &self,
+        pk_hash: &QHashOut<F>,
+    ) -> anyhow::Result<Arc<dyn SignatureUser>> {
+        self.signature_users
+            .get(pk_hash)
+            .map(|entry| entry.value().clone())
+            .ok_or_else(|| anyhow::anyhow!("User with public key hash {} not found", pk_hash))
+    }
+
+    pub async fn add_software_defined_dpn_private_key(
         &mut self,
         private_key: QHashOut<F>,
         fingerprint: QHashOut<F>,
     ) -> anyhow::Result<ZKPublicKeyInfo<F>> {
-        let public_key_param = get_sdc_public_key_param(&private_key);
-        let pk_info = ZKPublicKeyInfo {
-            fingerprint: fingerprint,
-            public_key_param,
-        };
-        tracing::info!("add software defined user {}", serde_json::to_string_pretty(&pk_info)?);
-
-        self.software_defined_public_key_to_private_key_store
-            .insert(pk_info.qfhash::<PsyHasher>(), private_key);
+        let user: Arc<dyn SignatureUser> = Arc::new(SoftwareDefinedDpnUser::new(private_key, fingerprint));
+        let manager = self.random_circuit_manager();
+        let manager_ref = manager.as_ref();
+        let pk_info = user.public_key_info(self, manager_ref).await?;
+        let pk_hash = pk_info.qfhash::<PsyHasher>();
+        self.signature_users.insert(pk_hash, user);
         Ok(pk_info)
     }
 
-    pub fn get_secp_public_key(&self, private_key: QHashOut<F>) -> anyhow::Result<CompressedPublicKey> {
-        psy_crypto::signature::secp256k1::wallet::get_secp_public_key(private_key)
-    }
-
-    pub async fn get_secp_pk_info(&self, private_key: QHashOut<F>) -> anyhow::Result<ZKPublicKeyInfo<F>> {
-        let pub_compressed = self.get_secp_public_key(private_key)?;
-        tracing::info!("get secp public key {:?}", pub_compressed);
-
-        let public_key_params =
-            psy_crypto::signature::secp256k1::wallet::hash_no_pad_compressed_public_key::<F, PoseidonPermutation<F>>(pub_compressed);
-
-        Ok(ZKPublicKeyInfo {
-            fingerprint: self.random_circuit_manager().secp_circuit_fingerprint().await?,
-            public_key_param: public_key_params,
-        })
+    pub async fn add_software_defined_plonky2_private_key(
+        &mut self,
+        private_key: QHashOut<F>,
+        fingerprint: QHashOut<F>,
+    ) -> anyhow::Result<ZKPublicKeyInfo<F>> {
+        let user: Arc<dyn SignatureUser> = Arc::new(SoftwareDefinedPlonky2User::new(private_key, fingerprint));
+        let manager = self.random_circuit_manager();
+        let manager_ref = manager.as_ref();
+        let pk_info = user.public_key_info(self, manager_ref).await?;
+        let pk_hash = pk_info.qfhash::<PsyHasher>();
+        self.signature_users.insert(pk_hash, user);
+        Ok(pk_info)
     }
 
     pub async fn zk_sign_for_public_key(&self, public_key: QHashOut<F>, sig_hash: QHashOut<F>) -> anyhow::Result<ProofWithPublicInputs<F, C, D>> {
-        let private_key = self.zk_public_key_to_private_key_store.get(&public_key).ok_or(anyhow::format_err!(
-            "tried to sign with a public key ({}) which does not match any private keys in the store",
-            public_key.to_string()
-        ))?;
-        self.random_circuit_manager().prove_zk_sign(*private_key, sig_hash).await
+        let pk_info = self.get_public_key_info(&public_key).await?;
+        let context = SignContext::new(pk_info.fingerprint);
+        let result = self.sign_with_public_key(&public_key, &context, sig_hash).await?;
+        Ok(result.proof)
     }
 
     pub async fn zk_sign_with_private_key(&self, private_key: QHashOut<F>, sig_hash: QHashOut<F>) -> anyhow::Result<ProofWithPublicInputs<F, C, D>> {
         self.random_circuit_manager().prove_zk_sign(private_key, sig_hash).await
     }
 
-    pub fn sdc_sign_for_public_key<R: PsyReadCommandProcessorSync<F> + Send + Sync>(
+    pub fn sdc_sign_for_public_key<S: PsyReadCommandProcessorSync<F> + Send + Sync>(
         &self,
-        state_reader: &mut StateReader<F, D, R>,
+        state_reader: &mut StateReader<F, D, S>,
         public_key: QHashOut<F>,
         sig_hash: QHashOut<F>,
     ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>> {
         unimplemented!()
     }
 
-    pub fn sdc_sign_with_private_key<R: PsyReadCommandProcessorSync<F> + Send + Sync>(
+    pub fn sdc_sign_with_private_key<S: PsyReadCommandProcessorSync<F> + Send + Sync>(
         &self,
-        state_reader: &mut StateReader<F, D, R>,
+        state_reader: &mut StateReader<F, D, S>,
         private_key: QHashOut<F>,
         sig_hash: QHashOut<F>,
     ) -> anyhow::Result<ProofWithPublicInputs<F, C, D>> {
@@ -180,28 +233,7 @@ impl PsyMemoryWallet {
     }
 
     pub fn secp256k1_sign(&self, private_key: QHashOut<F>, sig_hash: QHashOut<F>) -> anyhow::Result<PsyCompressedSecp256K1Signature> {
-        let signing_key = k256::ecdsa::SigningKey::from_slice(&Hash256::from(private_key).0)?;
-        let result: k256::ecdsa::Signature = signing_key.sign_prehash(&Hash256::from(sig_hash).0)?;
-        let mut rs_bytes = [0u8; 64];
-
-        let r_bytes = result.r().to_bytes();
-        let s_bytes = result.s().to_bytes();
-        rs_bytes[0..32].copy_from_slice(&r_bytes);
-        rs_bytes[32..64].copy_from_slice(&s_bytes);
-
-        Ok(PsyCompressedSecp256K1Signature {
-            public_key: self.get_secp_public_key(private_key)?.0,
-            signature: rs_bytes,
-            message: Hash256::from(sig_hash),
-        })
-    }
-
-    pub fn secp256k1_sign_with_public_key(&self, public_key: QHashOut<F>, sig_hash: QHashOut<F>) -> anyhow::Result<PsyCompressedSecp256K1Signature> {
-        let private_key = self.secp_public_key_to_private_key_store.get(&public_key).ok_or(anyhow::format_err!(
-            "public key ({}) does not match any private keys",
-            public_key.to_string()
-        ))?;
-        self.secp256k1_sign(*private_key, sig_hash)
+        psy_crypto::signature::secp256k1::wallet::secp256k1_sign(k256::ecdsa::SigningKey::from_slice(&Hash256::from(private_key).0)?, sig_hash)
     }
 
     pub async fn zk_secp256k1_from_signature(&self, signature: &PsyCompressedSecp256K1Signature) -> anyhow::Result<ProofWithPublicInputs<F, C, D>> {
@@ -209,41 +241,79 @@ impl PsyMemoryWallet {
     }
 
     pub async fn zk_sign_secp256k1(&self, public_key: QHashOut<F>, sig_hash: QHashOut<F>) -> anyhow::Result<ProofWithPublicInputs<F, C, D>> {
-        let ecc_sig = self.secp256k1_sign_with_public_key(public_key, sig_hash)?;
-        self.random_circuit_manager().prove_secp_sign(ecc_sig).await
+        let pk_info = self.get_public_key_info(&public_key).await?;
+        let context = SignContext::new(pk_info.fingerprint);
+        let result = self.sign_with_public_key(&public_key, &context, sig_hash).await?;
+        Ok(result.proof)
     }
 }
 
-/// software defined circuit
-#[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
-#[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
 impl PsyMemoryWallet {
-    pub async fn register_software_defined_circuit(&mut self, input: SoftwareDefinedSignatureInput) -> anyhow::Result<QHashOut<F>> {
-        // Convert prover's enum to SDK's enum
-        let sdk_input = match input {
-            SoftwareDefinedSignatureInput::Psy(psy_input) => psy_provider::common::SoftwareDefinedSignatureInput::Psy(psy_input),
-            SoftwareDefinedSignatureInput::PLONKY2(_) => {
-                anyhow::bail!("PLONKY2 variant not supported for SDK integration")
-            }
-        };
-        self.random_circuit_manager().register_software_defined_circuit(sdk_input).await
-        // if let QCircuitManager::Rpc(rpc_provider) =
-        // self.random_circuit_manager() {     return
-        // rpc_provider.register_software_defined_circuit(input).await;
-        // };
-        // let sdc = SoftwareDefinedSignatureCircuit::new(&input).await;
-        // let fingerprint = sdc.get_fingerprint();
-        // tracing::info!(
-        //     "register software defined circuit: {}",
-        //     fingerprint.to_string()
-        // );
-        // if let Some(_) = self.software_defined_circuits.insert(fingerprint,
-        // sdc) {     tracing::warn!(
-        //         "software defined circuit `{}` is already registered",
-        //         fingerprint.to_string()
-        //     );
-        // };
-        // Ok(fingerprint)
+    /// Register a PSY/DPN-based software defined circuit gadget
+    pub async fn register_psy_software_defined_circuit(
+        &mut self, 
+        fn_def: psy_vm::dpn::vm::def::DPNFunctionCircuitDefinition,
+        contract_id: u64,
+        contract_state_tree_height: u8,
+        session_proof_tree_height: u8,
+        force_four_align: bool,
+    ) -> anyhow::Result<QHashOut<F>> {
+        let config = plonky2::plonk::circuit_data::CircuitConfig::standard_recursion_config();
+        let mut builder = plonky2::plonk::circuit_builder::CircuitBuilder::<F, D>::new(config);
+        
+        let mut gadget = DPNSoftwareDefinedSignatureGadget::add_virtual_to(&mut builder, &fn_def, contract_id, contract_state_tree_height, session_proof_tree_height, force_four_align);
+        gadget.build_circuit(builder)?;
+        let fingerprint = gadget.get_fingerprint();
+        
+        tracing::info!("register PSY software defined circuit: {}", fingerprint.to_string());
+        
+        if let Some(_) = self.software_defined_psy_circuits.insert(fingerprint, gadget) {
+            tracing::warn!("PSY software defined circuit `{}` is already registered", fingerprint.to_string());
+        }
+        
+        Ok(fingerprint)
+    }
+
+    /// Register a PLONKY2-based software defined circuit gadget
+    pub async fn register_plonky2_software_defined_circuit(
+        &mut self,
+        contract_state_tree_height: u8,
+        input_len: usize
+    ) -> anyhow::Result<QHashOut<F>> {
+        let config = plonky2::plonk::circuit_data::CircuitConfig::standard_recursion_config();
+        let mut builder = plonky2::plonk::circuit_builder::CircuitBuilder::<F, D>::new(config);
+        
+        let mut gadget = Plonky2SoftwareDefinedSignatureGadget::add_virtual_to(&mut builder, contract_state_tree_height, input_len);
+        gadget.build_circuit(builder)?;
+        let fingerprint = gadget.get_fingerprint();
+        
+        tracing::info!("register PLONKY2 software defined circuit: {}", fingerprint.to_string());
+        
+        if let Some(_) = self.software_defined_plonky2_circuits.insert(fingerprint, gadget) {
+            tracing::warn!("PLONKY2 software defined circuit `{}` is already registered", fingerprint.to_string());
+        }
+        
+        Ok(fingerprint)
+    }
+
+    /// Get PSY software defined circuit gadget by fingerprint
+    pub fn get_psy_software_defined_circuit(&self, fingerprint: &QHashOut<F>) -> Option<dashmap::mapref::one::Ref<QHashOut<F>, DPNSoftwareDefinedSignatureGadget>> {
+        self.software_defined_psy_circuits.get(fingerprint)
+    }
+
+    /// Get mutable PSY software defined circuit gadget by fingerprint
+    pub fn get_psy_software_defined_circuit_mut(&self, fingerprint: &QHashOut<F>) -> Option<dashmap::mapref::one::RefMut<QHashOut<F>, DPNSoftwareDefinedSignatureGadget>> {
+        self.software_defined_psy_circuits.get_mut(fingerprint)
+    }
+
+    /// Get PLONKY2 software defined circuit gadget by fingerprint
+    pub fn get_plonky2_software_defined_circuit(&self, fingerprint: &QHashOut<F>) -> Option<dashmap::mapref::one::Ref<QHashOut<F>, Plonky2SoftwareDefinedSignatureGadget>> {
+        self.software_defined_plonky2_circuits.get(fingerprint)
+    }
+
+    /// Get mutable PLONKY2 software defined circuit gadget by fingerprint
+    pub fn get_plonky2_software_defined_circuit_mut(&self, fingerprint: &QHashOut<F>) -> Option<dashmap::mapref::one::RefMut<QHashOut<F>, Plonky2SoftwareDefinedSignatureGadget>> {
+        self.software_defined_plonky2_circuits.get_mut(fingerprint)
     }
 }
 
@@ -253,8 +323,8 @@ mod tests {
 
     use anyhow::Result;
     use plonky2::{field::goldilocks_field::GoldilocksField, plonk::config::PoseidonGoldilocksConfig};
-    use psy_common_circuit::circuits::{secp256k1_signature::Secp256K1SignatureCircuit, traits::qstandard::QStandardCircuit};
     use psy_common::data::qhashout::QHashOut;
+    use psy_common_circuit::circuits::{secp256k1_signature::Secp256K1SignatureCircuit, traits::qstandard::QStandardCircuit};
 
     use super::*;
 
@@ -359,9 +429,7 @@ mod tests {
         let sig_hash = QHashOut::<F>::from_str("83955402ec7f375d1d6e8f3bf59753fe0af1e7c62bb4b662716a2524d3e2d186")?;
 
         // Create a mock memory wallet for testing
-        let circuit_manager = psy_ups_circuit::circuit_manager::core::QCircuitManager::Local(
-            psy_ups_circuit::circuit_manager::core::PsyUPSStepCircuitManager::new_with_config(0x1337),
-        );
+        let circuit_manager = psy_ups_circuit::circuit_manager::core::PsyUPSStepCircuitManager::new_with_config(0x1337);
         let wallet = PsyMemoryWallet::new(vec![Box::new(circuit_manager)]);
 
         println!("Created memory wallet");
