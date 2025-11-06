@@ -11,6 +11,7 @@ use plonky2::{
     plonk::config::PoseidonGoldilocksConfig,
 };
 use psy_common::{
+    args::{ContractCallArgs, WorkerJobTracker},
     data::{
         qhashout::QHashOut,
         secp256k1::{bytes_to_u32_vec_le, CompressedPublicKey},
@@ -22,8 +23,6 @@ use psy_config::MINING_REWARDS_CONTRACT_ID;
 use psy_crypto::signature::secp256k1::core::PsyCompressedSecp256K1Signature;
 use psy_provider::provider::RpcProvider;
 use serde::{Deserialize, Serialize};
-
-use psy_common::args::{ContractCallArgs, WorkerJobTracker};
 
 type C = PoseidonGoldilocksConfig;
 const D: usize = 2;

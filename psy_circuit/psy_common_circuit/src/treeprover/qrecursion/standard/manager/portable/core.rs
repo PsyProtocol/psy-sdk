@@ -15,11 +15,9 @@ use psy_crypto::{
         traits::hasher::MerkleZeroHasher,
     },
 };
+use psy_vm::ups::circuit_manager::{PortableQTreeRecursion, PortableQTreeRecursionCircuitsProve};
 
 use super::circuits::PortableQTreeRecursionCircuits;
-use psy_vm::ups::circuit_manager::{
-    PortableQTreeRecursionCircuitsProve, PortableQTreeRecursion,
-};
 #[derive(Clone, Debug)]
 pub struct PortableQTreeRecursionManager<C: GenericConfig<D>, const D: usize> {
     pub proof_tree: SimpleMerkleTree<C::Hasher, QHashOut<C::F>>,
@@ -250,10 +248,7 @@ where
         Ok(record)
     }
 
-    pub async fn prove_one_step_simple_serial<T: PortableQTreeRecursion<C, D> + ?Sized>(
-        &mut self,
-        circuit_mgr: &T,
-    ) -> anyhow::Result<bool> {
+    pub async fn prove_one_step_simple_serial<T: PortableQTreeRecursion<C, D> + ?Sized>(&mut self, circuit_mgr: &T) -> anyhow::Result<bool> {
         let leaf_proofs_len = self.leaf_proofs.len();
         let agg_proofs_len = self.agg_proofs.len();
 

@@ -20,15 +20,13 @@ use psy_crypto::{
         traits::hasher::MerkleZeroHasher,
     },
 };
+use psy_vm::ups::circuit_manager::{PortableQTreeRecursion, PortableQTreeRecursionCircuitsData, PortableQTreeRecursionCircuitsProve};
 
 use crate::{
     circuits::traits::qstandard::QStandardCircuit,
     treeprover::qrecursion::standard::{
         config::QRECURSION_CIRCUIT_WHITELIST_HEIGHT, manager::leaf_circuit_set::QStandardBinaryRecursionTreeCircuitSet,
     },
-};
-use psy_vm::ups::circuit_manager::{
-    PortableQTreeRecursionCircuitsData, PortableQTreeRecursionCircuitsProve, PortableQTreeRecursion,
 };
 #[derive(Debug)]
 pub struct PortableQTreeRecursionCircuits<C: GenericConfig<D>, const D: usize>
@@ -106,7 +104,6 @@ where
     }
 }
 
-
 #[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
 #[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
 impl<C: GenericConfig<D>, const D: usize> PortableQTreeRecursionCircuitsData<C, D> for PortableQTreeRecursionCircuits<C, D>
@@ -144,8 +141,6 @@ where
         self.circuit_set.left_agg_right_leaf_circuit.get_verifier_config_ref().clone().into()
     }
 }
-
-
 
 #[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
 #[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]

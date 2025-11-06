@@ -1,10 +1,7 @@
 use anyhow::Result;
 use async_trait::async_trait;
 use k256::ecdsa::SigningKey;
-use plonky2::{
-    field::goldilocks_field::GoldilocksField,
-    hash::poseidon::PoseidonPermutation,
-};
+use plonky2::{field::goldilocks_field::GoldilocksField, hash::poseidon::PoseidonPermutation};
 use psy_common::data::{base_types::hash256::Hash256, qhashout::QHashOut};
 use psy_crypto::signature::{
     secp256k1::{
@@ -16,11 +13,13 @@ use psy_crypto::signature::{
 use psy_provider::provider::RpcProvider;
 use psy_vm::ups::circuit_manager::UPSCircuitManager;
 
-use crate::signature::{
-    context::SignContext,
-    traits::{SignatureCircuitInfo, SignatureConfig, SignatureProof, SignatureUser, SIGNATURE_D},
+use crate::{
+    signature::{
+        context::SignContext,
+        traits::{SignatureCircuitInfo, SignatureConfig, SignatureProof, SignatureUser, SIGNATURE_D},
+    },
+    wallet::memory_wallet::PsyMemoryWallet,
 };
-use crate::wallet::memory_wallet::PsyMemoryWallet;
 
 #[derive(Debug, Clone)]
 pub struct SECP256K1User {
@@ -47,8 +46,7 @@ impl SignatureUser for SECP256K1User {
         circuit_manager: &(dyn UPSCircuitManager<SignatureConfig, SIGNATURE_D> + Send + Sync),
     ) -> Result<ZKPublicKeyInfo<GoldilocksField>> {
         let public_key = get_secp_public_key(self.private_key)?;
-        let public_key_param =
-            hash_no_pad_compressed_public_key::<GoldilocksField, PoseidonPermutation<GoldilocksField>>(public_key);
+        let public_key_param = hash_no_pad_compressed_public_key::<GoldilocksField, PoseidonPermutation<GoldilocksField>>(public_key);
         let fingerprint = circuit_manager.secp_circuit_fingerprint().await?;
         Ok(ZKPublicKeyInfo {
             fingerprint,

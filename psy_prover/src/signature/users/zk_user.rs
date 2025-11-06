@@ -1,19 +1,18 @@
 use anyhow::Result;
 use async_trait::async_trait;
-use plonky2::{
-    field::goldilocks_field::GoldilocksField,
-    hash::poseidon::PoseidonHash,
-};
+use plonky2::{field::goldilocks_field::GoldilocksField, hash::poseidon::PoseidonHash};
 use psy_common::data::qhashout::QHashOut;
 use psy_crypto::signature::zk::{data::ZKPublicKeyInfo, wallet::SimplePsyPrivateKey};
 use psy_provider::provider::RpcProvider;
 use psy_vm::ups::circuit_manager::UPSCircuitManager;
 
-use crate::signature::{
-    context::SignContext,
-    traits::{SignatureCircuitInfo, SignatureConfig, SignatureProof, SignatureUser, SIGNATURE_D},
+use crate::{
+    signature::{
+        context::SignContext,
+        traits::{SignatureCircuitInfo, SignatureConfig, SignatureProof, SignatureUser, SIGNATURE_D},
+    },
+    wallet::memory_wallet::PsyMemoryWallet,
 };
-use crate::wallet::memory_wallet::PsyMemoryWallet;
 
 #[derive(Debug, Clone)]
 pub struct ZKUser {

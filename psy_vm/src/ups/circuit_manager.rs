@@ -22,8 +22,7 @@ use psy_crypto::{
 };
 use psy_data::{
     qdata::contract::ContractCodeDefinition,
-    qstore::controllers::session_info::SessionCircuitInfoStore,
-    qstore::imm::cmd_processor::PsyReadCommandProcessorSync,
+    qstore::{controllers::session_info::SessionCircuitInfoStore, imm::cmd_processor::PsyReadCommandProcessorSync},
     traits::qdatastore::qtreedata::PsyComboDataStoreReaderSync,
     ups::{
         start_step::UPSStartStepInput,
@@ -31,21 +30,21 @@ use psy_data::{
         ups_end_cap::UPSEndCapFromProofTreeGadgetInput,
     },
 };
+
 use crate::{
-    vm::cfc_input::DapenContractFunctionCircuitInput,
-    ups::signature::{DPNSoftwareDefinedSignatureInput, Plonky2SoftwareDefinedSignatureInput},
     dpn::vm::def::DPNFunctionCircuitDefinition,
+    ups::signature::{DPNSoftwareDefinedSignatureInput, Plonky2SoftwareDefinedSignatureInput},
+    vm::cfc_input::DapenContractFunctionCircuitInput,
 };
 
-// Generic trait for UPS circuit managers - will be implemented by different providers
+// Generic trait for UPS circuit managers - will be implemented by different
+// providers
 #[cfg_attr(not(target_arch = "wasm32"), maybe_async)]
 #[cfg_attr(target_arch = "wasm32", maybe_async(?Send))]
-pub trait UPSCircuitManager<C: GenericConfig<D>, const D: usize>: 
-    Send + Sync + PortableQTreeRecursion<C, D>
+pub trait UPSCircuitManager<C: GenericConfig<D>, const D: usize>: Send + Sync + PortableQTreeRecursion<C, D>
 where
     C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasher<QHashOut<C::F>>,
 {
-
     async fn register_info(&self, info_store: &mut SessionCircuitInfoStore<C::F>);
     async fn prove_ups_start(&self, input: &UPSStartStepInput<C::F>) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>>;
 
@@ -89,11 +88,7 @@ where
         force_four_align: bool,
     ) -> anyhow::Result<QHashOut<C::F>>;
 
-    async fn register_plonky2_software_defined_circuit(
-        &self,
-        contract_state_tree_height: u8,
-        input_len: usize,
-    ) -> anyhow::Result<QHashOut<C::F>>;
+    async fn register_plonky2_software_defined_circuit(&self, contract_state_tree_height: u8, input_len: usize) -> anyhow::Result<QHashOut<C::F>>;
 
     async fn prove_dpn_software_defined_sign(
         &self,
@@ -103,8 +98,8 @@ where
         sig_hash: QHashOut<C::F>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>>;
 
-    // TODO: This method is temporarily commented out due to StateReader serialization issues
-    // async fn prove_plonky2_software_defined_sign(
+    // TODO: This method is temporarily commented out due to StateReader
+    // serialization issues async fn prove_plonky2_software_defined_sign(
     //     &self,
     //     fingerprint: QHashOut<C::F>,
     //     private_key: QHashOut<C::F>,
@@ -153,7 +148,6 @@ where
     T: UPSCircuitManager<C, D> + Sync,
     C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasher<QHashOut<C::F>>,
 {
-
     async fn register_info(&self, info_store: &mut SessionCircuitInfoStore<C::F>) {
         (**self).register_info(info_store).await
     }
@@ -217,15 +211,21 @@ where
         session_proof_tree_height: u8,
         force_four_align: bool,
     ) -> anyhow::Result<QHashOut<C::F>> {
-        (**self).register_dpn_software_defined_circuit(fn_def, contract_id, contract_state_tree_height, session_proof_tree_height, force_four_align).await
+        (**self)
+            .register_dpn_software_defined_circuit(
+                fn_def,
+                contract_id,
+                contract_state_tree_height,
+                session_proof_tree_height,
+                force_four_align,
+            )
+            .await
     }
 
-    async fn register_plonky2_software_defined_circuit(
-        &self,
-        contract_state_tree_height: u8,
-        input_len: usize,
-    ) -> anyhow::Result<QHashOut<C::F>> {
-        (**self).register_plonky2_software_defined_circuit(contract_state_tree_height, input_len).await
+    async fn register_plonky2_software_defined_circuit(&self, contract_state_tree_height: u8, input_len: usize) -> anyhow::Result<QHashOut<C::F>> {
+        (**self)
+            .register_plonky2_software_defined_circuit(contract_state_tree_height, input_len)
+            .await
     }
 
     async fn prove_dpn_software_defined_sign(
@@ -238,16 +238,16 @@ where
         (**self).prove_dpn_software_defined_sign(fingerprint, private_key, input, sig_hash).await
     }
 
-    // TODO: This method is temporarily commented out due to StateReader serialization issues
-    // async fn prove_plonky2_software_defined_sign(
+    // TODO: This method is temporarily commented out due to StateReader
+    // serialization issues async fn prove_plonky2_software_defined_sign(
     //     &self,
     //     fingerprint: QHashOut<C::F>,
     //     private_key: QHashOut<C::F>,
     //     input: Plonky2SoftwareDefinedSignatureInput<Self::Store>,
     //     sig_hash: QHashOut<C::F>,
     // ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
-    //     (**self).prove_plonky2_software_defined_sign(fingerprint, private_key, input, sig_hash).await
-    // }
+    //     (**self).prove_plonky2_software_defined_sign(fingerprint, private_key,
+    // input, sig_hash).await }
 
     async fn prove_ups_end_cap(
         &self,
@@ -382,15 +382,21 @@ where
         session_proof_tree_height: u8,
         force_four_align: bool,
     ) -> anyhow::Result<QHashOut<C::F>> {
-        (**self).register_dpn_software_defined_circuit(fn_def, contract_id, contract_state_tree_height, session_proof_tree_height, force_four_align).await
+        (**self)
+            .register_dpn_software_defined_circuit(
+                fn_def,
+                contract_id,
+                contract_state_tree_height,
+                session_proof_tree_height,
+                force_four_align,
+            )
+            .await
     }
 
-    async fn register_plonky2_software_defined_circuit(
-        &self,
-        contract_state_tree_height: u8,
-        input_len: usize,
-    ) -> anyhow::Result<QHashOut<C::F>> {
-        (**self).register_plonky2_software_defined_circuit(contract_state_tree_height, input_len).await
+    async fn register_plonky2_software_defined_circuit(&self, contract_state_tree_height: u8, input_len: usize) -> anyhow::Result<QHashOut<C::F>> {
+        (**self)
+            .register_plonky2_software_defined_circuit(contract_state_tree_height, input_len)
+            .await
     }
 
     async fn prove_dpn_software_defined_sign(
@@ -609,7 +615,9 @@ where
         single_proof: &ProofWithPublicInputs<C::F, C, D>,
         single_verifier_data: &VerifierOnlyCircuitData<C, D>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
-        (**self).prove_single_leaf_circuit(agg_circuit_whitelist_root, single_insert_leaf_proof, single_proof, single_verifier_data).await
+        (**self)
+            .prove_single_leaf_circuit(agg_circuit_whitelist_root, single_insert_leaf_proof, single_proof, single_verifier_data)
+            .await
     }
     async fn prove_two_leaf_circuit(
         &self,
@@ -621,7 +629,17 @@ where
         right_proof: &ProofWithPublicInputs<C::F, C, D>,
         right_verifier_data: &VerifierOnlyCircuitData<C, D>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
-        (**self).prove_two_leaf_circuit(agg_circuit_whitelist_root, left_insert_leaf_proof, left_proof, left_verifier_data, right_insert_leaf_proof, right_proof, right_verifier_data).await
+        (**self)
+            .prove_two_leaf_circuit(
+                agg_circuit_whitelist_root,
+                left_insert_leaf_proof,
+                left_proof,
+                left_verifier_data,
+                right_insert_leaf_proof,
+                right_proof,
+                right_verifier_data,
+            )
+            .await
     }
     async fn prove_two_agg_circuit(
         &self,
@@ -634,7 +652,18 @@ where
         right_proof: &ProofWithPublicInputs<C::F, C, D>,
         right_verifier_data: &VerifierOnlyCircuitData<C, D>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
-        (**self).prove_two_agg_circuit(left_agg_whitelist_merkle_proof, left_agg_proof_header, left_proof, left_verifier_data, right_agg_whitelist_merkle_proof, right_agg_proof_header, right_proof, right_verifier_data).await
+        (**self)
+            .prove_two_agg_circuit(
+                left_agg_whitelist_merkle_proof,
+                left_agg_proof_header,
+                left_proof,
+                left_verifier_data,
+                right_agg_whitelist_merkle_proof,
+                right_agg_proof_header,
+                right_proof,
+                right_verifier_data,
+            )
+            .await
     }
     async fn prove_left_leaf_right_agg_circuit(
         &self,
@@ -646,7 +675,17 @@ where
         right_proof: &ProofWithPublicInputs<C::F, C, D>,
         right_verifier_data: &VerifierOnlyCircuitData<C, D>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
-        (**self).prove_left_leaf_right_agg_circuit(left_insert_leaf_proof, left_proof, left_verifier_data, right_agg_whitelist_merkle_proof, right_agg_proof_header, right_proof, right_verifier_data).await
+        (**self)
+            .prove_left_leaf_right_agg_circuit(
+                left_insert_leaf_proof,
+                left_proof,
+                left_verifier_data,
+                right_agg_whitelist_merkle_proof,
+                right_agg_proof_header,
+                right_proof,
+                right_verifier_data,
+            )
+            .await
     }
     async fn prove_left_agg_right_leaf_circuit(
         &self,
@@ -658,7 +697,17 @@ where
         right_proof: &ProofWithPublicInputs<C::F, C, D>,
         right_verifier_data: &VerifierOnlyCircuitData<C, D>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
-        (**self).prove_left_agg_right_leaf_circuit(left_agg_whitelist_merkle_proof, left_agg_proof_header, left_proof, left_verifier_data, right_insert_leaf_proof, right_proof, right_verifier_data).await
+        (**self)
+            .prove_left_agg_right_leaf_circuit(
+                left_agg_whitelist_merkle_proof,
+                left_agg_proof_header,
+                left_proof,
+                left_verifier_data,
+                right_insert_leaf_proof,
+                right_proof,
+                right_verifier_data,
+            )
+            .await
     }
 }
 
@@ -740,7 +789,9 @@ where
         single_proof: &ProofWithPublicInputs<C::F, C, D>,
         single_verifier_data: &VerifierOnlyCircuitData<C, D>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
-        (**self).prove_single_leaf_circuit(agg_circuit_whitelist_root, single_insert_leaf_proof, single_proof, single_verifier_data).await
+        (**self)
+            .prove_single_leaf_circuit(agg_circuit_whitelist_root, single_insert_leaf_proof, single_proof, single_verifier_data)
+            .await
     }
     async fn prove_two_leaf_circuit(
         &self,
@@ -752,7 +803,17 @@ where
         right_proof: &ProofWithPublicInputs<C::F, C, D>,
         right_verifier_data: &VerifierOnlyCircuitData<C, D>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
-        (**self).prove_two_leaf_circuit(agg_circuit_whitelist_root, left_insert_leaf_proof, left_proof, left_verifier_data, right_insert_leaf_proof, right_proof, right_verifier_data).await
+        (**self)
+            .prove_two_leaf_circuit(
+                agg_circuit_whitelist_root,
+                left_insert_leaf_proof,
+                left_proof,
+                left_verifier_data,
+                right_insert_leaf_proof,
+                right_proof,
+                right_verifier_data,
+            )
+            .await
     }
     async fn prove_two_agg_circuit(
         &self,
@@ -765,7 +826,18 @@ where
         right_proof: &ProofWithPublicInputs<C::F, C, D>,
         right_verifier_data: &VerifierOnlyCircuitData<C, D>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
-        (**self).prove_two_agg_circuit(left_agg_whitelist_merkle_proof, left_agg_proof_header, left_proof, left_verifier_data, right_agg_whitelist_merkle_proof, right_agg_proof_header, right_proof, right_verifier_data).await
+        (**self)
+            .prove_two_agg_circuit(
+                left_agg_whitelist_merkle_proof,
+                left_agg_proof_header,
+                left_proof,
+                left_verifier_data,
+                right_agg_whitelist_merkle_proof,
+                right_agg_proof_header,
+                right_proof,
+                right_verifier_data,
+            )
+            .await
     }
     async fn prove_left_leaf_right_agg_circuit(
         &self,
@@ -777,7 +849,17 @@ where
         right_proof: &ProofWithPublicInputs<C::F, C, D>,
         right_verifier_data: &VerifierOnlyCircuitData<C, D>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
-        (**self).prove_left_leaf_right_agg_circuit(left_insert_leaf_proof, left_proof, left_verifier_data, right_agg_whitelist_merkle_proof, right_agg_proof_header, right_proof, right_verifier_data).await
+        (**self)
+            .prove_left_leaf_right_agg_circuit(
+                left_insert_leaf_proof,
+                left_proof,
+                left_verifier_data,
+                right_agg_whitelist_merkle_proof,
+                right_agg_proof_header,
+                right_proof,
+                right_verifier_data,
+            )
+            .await
     }
     async fn prove_left_agg_right_leaf_circuit(
         &self,
@@ -789,6 +871,16 @@ where
         right_proof: &ProofWithPublicInputs<C::F, C, D>,
         right_verifier_data: &VerifierOnlyCircuitData<C, D>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
-        (**self).prove_left_agg_right_leaf_circuit(left_agg_whitelist_merkle_proof, left_agg_proof_header, left_proof, left_verifier_data, right_insert_leaf_proof, right_proof, right_verifier_data).await
+        (**self)
+            .prove_left_agg_right_leaf_circuit(
+                left_agg_whitelist_merkle_proof,
+                left_agg_proof_header,
+                left_proof,
+                left_verifier_data,
+                right_insert_leaf_proof,
+                right_proof,
+                right_verifier_data,
+            )
+            .await
     }
 }

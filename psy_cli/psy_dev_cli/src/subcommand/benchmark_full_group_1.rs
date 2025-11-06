@@ -6,7 +6,6 @@ use plonky2::{
     field::{goldilocks_field::GoldilocksField, types::Field},
     plonk::config::PoseidonGoldilocksConfig,
 };
-use psy_config::{network_constants::UPS_SESSION_PROOF_TREE_HEIGHT, PSY_NETWORK_MAGIC};
 use psy_common::{
     data::qhashout::QHashOut,
     job::traits::{QProofStoreAsyncImm, QProofStoreReaderAsync},
@@ -17,7 +16,7 @@ use psy_common_circuit::{
     circuits::{traits::qstandard::QStandardCircuit, zk_signature3::manager::SimplePsyZKSignatureManager},
     treeprover::qrecursion::standard::manager::portable::core::PortableQTreeRecursionManager,
 };
-use psy_vm::ups::circuit_manager::PortableQTreeRecursionCircuitsProve;
+use psy_config::{network_constants::UPS_SESSION_PROOF_TREE_HEIGHT, PSY_NETWORK_MAGIC};
 use psy_crypto::{
     common::simple_circuit_library::SimpleCircuitLibrary,
     hash::traits::qhashable::QFieldHashable,
@@ -42,8 +41,6 @@ use psy_node::{
     },
     worker::{simple_async_coord::SimpleAsyncCoordinatorWorker, simple_async_realm::SimpleAsyncRealmWorker},
 };
-use psy_vm::ups::circuit_manager::UPSCircuitManager;
-use psy_ups_circuit::circuit_manager::core::QCircuitManager;
 use psy_store::{
     node::coordinator::{PsyCoordinatorStoreReaderAsync, PsyCoordinatorStoreWriterAsyncImm},
     queue::{
@@ -53,9 +50,10 @@ use psy_store::{
     store::journal::JournalStore,
 };
 use psy_ups_circuit::{
-    circuit_manager::core::PsyUPSStepCircuitManager,
+    circuit_manager::core::{PsyUPSStepCircuitManager, QCircuitManager},
     session::UserProvingSessionManager,
 };
+use psy_vm::ups::circuit_manager::{PortableQTreeRecursionCircuitsProve, UPSCircuitManager};
 
 use super::super::test_helpers::{contract::gen_test_contract, ups::ExampleDemoUserInfoStore};
 

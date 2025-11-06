@@ -447,5 +447,3 @@ impl<F: RichField + Extendable<D>, const D: usize> StateReaderGadget<F, D> {
         }
     }
 }
-
-

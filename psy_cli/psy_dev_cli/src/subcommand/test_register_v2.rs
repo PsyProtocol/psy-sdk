@@ -38,8 +38,6 @@ use psy_node::{
     },
     worker::{simple_async_coord::SimpleAsyncCoordinatorWorker, simple_async_realm::SimpleAsyncRealmWorker},
 };
-use psy_vm::ups::circuit_manager::UPSCircuitManager;
-use psy_ups_circuit::circuit_manager::core::QCircuitManager;
 use psy_store::{
     node::coordinator::{PsyCoordinatorStoreReaderAsync, PsyCoordinatorStoreWriterAsyncImm},
     queue::{
@@ -49,9 +47,10 @@ use psy_store::{
     store::journal::JournalStore,
 };
 use psy_ups_circuit::{
-    circuit_manager::core::PsyUPSStepCircuitManager,
+    circuit_manager::core::{PsyUPSStepCircuitManager, QCircuitManager},
     session::UserProvingSessionManager,
 };
+use psy_vm::ups::circuit_manager::UPSCircuitManager;
 
 use super::super::test_helpers::contract::gen_test_contract;
 
@@ -284,7 +283,8 @@ async fn run_test3() -> anyhow::Result<()> {
 
     let signature_proof = wallet.zk_sign_for_private_key_value(priv_key_user_0, sighash)?;
     timer.lap("generated zk signature for UPS transaction batch");
-    // Now that QCircuitManager is just PsyUPSStepCircuitManager, we can access proof_tree_agg_circuits directly
+    // Now that QCircuitManager is just PsyUPSStepCircuitManager, we can access
+    // proof_tree_agg_circuits directly
     mgr.proof_tree_state.finalize_tree(&main_circuits.proof_tree_agg_circuits).await?;
     timer.lap("aggregated all UPS proofs into a single proof");
     let public_key_param = SimplePsyPrivateKey::new(priv_key_user_0).get_public_key_param::<PsyHasher>();

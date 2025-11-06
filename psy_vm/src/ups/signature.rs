@@ -2,11 +2,11 @@ use plonky2::{
     field::{extension::Extendable, goldilocks_field::GoldilocksField},
     hash::hash_types::RichField,
 };
+use psy_data::qstore::imm::cmd_processor::PsyReadCommandProcessorSync;
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
-use crate::vm::cfc_input::DapenContractFunctionCircuitInput;
-use crate::ups::state_reader::StateReader;
-use psy_data::qstore::imm::cmd_processor::PsyReadCommandProcessorSync;
+
+use crate::{ups::state_reader::StateReader, vm::cfc_input::DapenContractFunctionCircuitInput};
 
 type GF = GoldilocksField;
 const D: usize = 2;

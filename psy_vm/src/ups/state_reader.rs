@@ -20,6 +20,7 @@ use psy_data::{
         cmd_processor::{PsyReadCommandProcessorSync, PsyReadCommandProcessorSyncMut},
     },
 };
+
 use crate::dpn::ops::state_cmd::data::{
     DPNStateCmd, DPNStateCmdGetOtherUserContractStateSlotHash, DPNStateCmdGetSelfUserCurrentContractStateSlotHash,
     DPNStateCmdGetSelfUserExternalContractStateSlotHash,
@@ -78,7 +79,8 @@ impl<F: RichField + Extendable<D>, const D: usize, R: PsyReadCommandProcessorSyn
                 },
             ))
             .await?;
-        let base_mp_gf = serde_json::from_str::<MerkleProofCore<QHashOut<plonky2::field::goldilocks_field::GoldilocksField>>>(&serde_json::to_string(&base_mp)?)?;
+        let base_mp_gf =
+            serde_json::from_str::<MerkleProofCore<QHashOut<plonky2::field::goldilocks_field::GoldilocksField>>>(&serde_json::to_string(&base_mp)?)?;
         id.injest_merkle_proof_ucs(&mut self.state_tree_store, checkpoint_id, &base_mp_gf)?;
         let merkel_proof = id.get_leaf_ucs(&self.state_tree_store, checkpoint_id, slot_index)?;
         let merkel_proof_f = serde_json::from_str::<MerkleProofCore<QHashOut<F>>>(&serde_json::to_string(&merkel_proof)?)?;

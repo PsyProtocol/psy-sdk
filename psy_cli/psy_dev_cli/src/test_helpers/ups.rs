@@ -71,7 +71,13 @@ impl ExampleDemoUserInfoStore {
         Ok(user_ids)
     }
 
-    pub async fn run_tx_for_current_user<R: PsyReadCommandProcessorSync<F> + psy_data::traits::qdatastore::qtreedata::PsyComboDataStoreReaderSync<F> + kvq::traits::KVQBinaryStore + Send + Sync>(
+    pub async fn run_tx_for_current_user<
+        R: PsyReadCommandProcessorSync<F>
+            + psy_data::traits::qdatastore::qtreedata::PsyComboDataStoreReaderSync<F>
+            + kvq::traits::KVQBinaryStore
+            + Send
+            + Sync,
+    >(
         &self,
         mgr: &mut UserProvingSessionManager<F, PoseidonHash, R, C, D>,
         contract: &SimpleTestContract<C, D>,
@@ -82,7 +88,13 @@ impl ExampleDemoUserInfoStore {
     ) -> anyhow::Result<()> {
         contract.prove_func(circuit_mgr, mgr, contract_id, fn_name, inputs).await
     }
-    pub async fn run_txs_for_current_user<R: PsyReadCommandProcessorSync<F> + psy_data::traits::qdatastore::qtreedata::PsyComboDataStoreReaderSync<F> + kvq::traits::KVQBinaryStore + Send + Sync>(
+    pub async fn run_txs_for_current_user<
+        R: PsyReadCommandProcessorSync<F>
+            + psy_data::traits::qdatastore::qtreedata::PsyComboDataStoreReaderSync<F>
+            + kvq::traits::KVQBinaryStore
+            + Send
+            + Sync,
+    >(
         &mut self,
         mgr: &mut UserProvingSessionManager<F, PoseidonHash, R, C, D>,
         contract: &SimpleTestContract<C, D>,
@@ -96,7 +108,13 @@ impl ExampleDemoUserInfoStore {
         Ok(())
     }
 
-    pub async fn new_run_txs_for_user<R: PsyReadCommandProcessorSync<F> + psy_data::traits::qdatastore::qtreedata::PsyComboDataStoreReaderSync<F> + kvq::traits::KVQBinaryStore + Send + Sync>(
+    pub async fn new_run_txs_for_user<
+        R: PsyReadCommandProcessorSync<F>
+            + psy_data::traits::qdatastore::qtreedata::PsyComboDataStoreReaderSync<F>
+            + kvq::traits::KVQBinaryStore
+            + Send
+            + Sync,
+    >(
         &mut self,
         mut mgr: UserProvingSessionManager<F, PoseidonHash, R, C, D>,
 
@@ -161,7 +179,13 @@ impl ExampleDemoUserInfoStore {
         let api_input = mgr.get_api_input().await?;
         Ok((mgr, api_input, end_cap_proof))
     }
-    pub async fn run_txs_for_users<R: PsyReadCommandProcessorSync<F> + psy_data::traits::qdatastore::qtreedata::PsyComboDataStoreReaderSync<F> + kvq::traits::KVQBinaryStore + Send + Sync>(
+    pub async fn run_txs_for_users<
+        R: PsyReadCommandProcessorSync<F>
+            + psy_data::traits::qdatastore::qtreedata::PsyComboDataStoreReaderSync<F>
+            + kvq::traits::KVQBinaryStore
+            + Send
+            + Sync,
+    >(
         &mut self,
         mut mgr: UserProvingSessionManager<F, PoseidonHash, R, C, D>,
 
@@ -231,7 +255,13 @@ impl ExampleDemoUserInfoStore {
         }
         Ok((mgr, results))
     }
-    pub async fn run_txs_for_users_prep<R: PsyReadCommandProcessorSync<F> + psy_data::traits::qdatastore::qtreedata::PsyComboDataStoreReaderSync<F> + kvq::traits::KVQBinaryStore + Send + Sync>(
+    pub async fn run_txs_for_users_prep<
+        R: PsyReadCommandProcessorSync<F>
+            + psy_data::traits::qdatastore::qtreedata::PsyComboDataStoreReaderSync<F>
+            + kvq::traits::KVQBinaryStore
+            + Send
+            + Sync,
+    >(
         &mut self,
         mgr: UserProvingSessionManager<F, PoseidonHash, R, C, D>,
 

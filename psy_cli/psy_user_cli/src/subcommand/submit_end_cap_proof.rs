@@ -1,14 +1,16 @@
 use std::str::FromStr;
 
 use plonky2::field::{goldilocks_field::GoldilocksField, types::Field};
+use psy_common::{
+    args::{ContractCallArgs, SignData, SignType, WalletSessionArgs},
+    data::qhashout::QHashOut,
+};
 use psy_common_circuit::builder::comparison::CircuitBuilderComparison;
-use psy_common::data::qhashout::QHashOut;
 use psy_config::network_constants::{MAX_CONTRACT_STATE_TREE_HEIGHT, UPS_SESSION_PROOF_TREE_HEIGHT};
 use psy_data::traits::qdatastore::qmetadata::QMetaDataStoreReaderSync;
-use psy_common::args::{ContractCallArgs, SignData, SignType, WalletSessionArgs};
 use psy_prover::session::WalletSession;
-use psy_ups_circuit::signature::software_defined::Plonky2SoftwareDefinedSignatureGadget;
 use psy_rust_sdk::provider::NetworkConfig;
+use psy_ups_circuit::signature::software_defined::Plonky2SoftwareDefinedSignatureGadget;
 use psy_vm::dpn::vm::def::DPNFunctionCircuitDefinition;
 use serde::{Deserialize, Serialize};
 
@@ -103,9 +105,7 @@ pub async fn run_inner(args: ExecContractCallArgs) -> anyhow::Result<()> {
     } else {
         None
     };
-    let user_pk_hash = wallet_session
-        .add_user(args.private_key, fingerprint)
-        .await?;
+    let user_pk_hash = wallet_session.add_user(args.private_key, fingerprint).await?;
 
     let sign_data = fingerprint.map(|fp| SignData {
         fingerprint: fp,

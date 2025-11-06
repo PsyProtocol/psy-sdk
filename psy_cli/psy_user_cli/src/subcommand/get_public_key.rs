@@ -2,7 +2,10 @@ use std::str::FromStr;
 
 use kvq::traits::KVQSerializable;
 use plonky2::{field::goldilocks_field::GoldilocksField, hash::poseidon::PoseidonHash, plonk::config::PoseidonGoldilocksConfig};
-use psy_common::data::{base_types::hash256::Hash256, qhashout::QHashOut};
+use psy_common::{
+    args::SignType,
+    data::{base_types::hash256::Hash256, qhashout::QHashOut},
+};
 use psy_common_circuit::circuits::zk_signature3::manager::SimplePsyZKSignatureManager;
 use psy_config::PSY_NETWORK_MAGIC;
 use psy_crypto::{
@@ -14,7 +17,6 @@ use psy_crypto::{
 };
 use psy_data::config::store_config::PsyHasher;
 use psy_prover::wallet::memory_wallet::{PsyMemoryWallet, SECP256K1_FINGERPRINT, ZK_FINGERPRINT};
-use psy_common::args::SignType;
 use psy_rust_sdk::wallet::secp_wallet::Wallet;
 use psy_ups_circuit::circuit_manager::core::PsyUPSStepCircuitManager;
 use psy_vm::ups::circuit_manager::UPSCircuitManager;
@@ -26,13 +28,13 @@ type C = PoseidonGoldilocksConfig;
 
 pub async fn run(args: GetPublicKeyArgs) -> anyhow::Result<()> {
     let private_key_base = QHashOut::<GoldilocksField>::from_str(&args.private_key)?;
-    
+
     // Create wallet and circuit manager
     let main_circuits: Box<dyn UPSCircuitManager<C, D>> = Box::new(PsyUPSStepCircuitManager::<C, D>::new_with_config(
         psy_config::network_constants::PSY_NETWORK_MAGIC,
     ));
     let mut wallet = PsyMemoryWallet::new(vec![main_circuits]);
-    
+
     // Get fingerprint based on sign type
     let fingerprint = match args.sign_type {
         SignType::ZKSign => QHashOut::<GoldilocksField>::from_str(&ZK_FINGERPRINT)?,
@@ -40,9 +42,7 @@ pub async fn run(args: GetPublicKeyArgs) -> anyhow::Result<()> {
         SignType::SoftwareDefinedDPNSign => {
             anyhow::bail!("Software Defined DPN requires fingerprint parameter");
         }
-        SignType::SoftwareDefinedPlonky2Sign => {
-            wallet.register_plonky2_software_defined_circuit(32, 0).await?
-        }
+        SignType::SoftwareDefinedPlonky2Sign => wallet.register_plonky2_software_defined_circuit(32, 0).await?,
     };
 
     // Use simplified interface

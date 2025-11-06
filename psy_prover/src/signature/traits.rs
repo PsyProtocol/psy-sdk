@@ -4,24 +4,16 @@ use anyhow::Result;
 use async_trait::async_trait;
 use plonky2::{
     field::goldilocks_field::GoldilocksField,
-    plonk::{
-        circuit_data::VerifierOnlyCircuitData,
-        config::PoseidonGoldilocksConfig,
-        proof::ProofWithPublicInputs,
-    },
+    plonk::{circuit_data::VerifierOnlyCircuitData, config::PoseidonGoldilocksConfig, proof::ProofWithPublicInputs},
 };
 use psy_common::data::qhashout::QHashOut;
-use psy_crypto::{
-    hash::traits::qhashable::QFieldHashable,
-    signature::zk::data::ZKPublicKeyInfo,
-};
+use psy_crypto::{hash::traits::qhashable::QFieldHashable, signature::zk::data::ZKPublicKeyInfo};
 use psy_data::config::store_config::PsyHasher;
 use psy_provider::provider::RpcProvider;
 use psy_vm::ups::circuit_manager::UPSCircuitManager;
 
-use crate::wallet::memory_wallet::PsyMemoryWallet;
-
 use super::context::SignContext;
+use crate::wallet::memory_wallet::PsyMemoryWallet;
 
 pub const SIGNATURE_D: usize = 2;
 pub type SignatureConfig = PoseidonGoldilocksConfig;

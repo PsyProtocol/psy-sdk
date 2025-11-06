@@ -48,8 +48,6 @@ use psy_node::{
     },
     worker::{simple_async_coord::SimpleAsyncCoordinatorWorker, simple_async_realm::SimpleAsyncRealmWorker},
 };
-use psy_vm::ups::circuit_manager::UPSCircuitManager;
-use psy_ups_circuit::circuit_manager::core::QCircuitManager;
 use psy_store::{
     node::{
         coordinator::{PsyCoordinatorStoreReaderAsync, PsyCoordinatorStoreWriterAsyncImm},
@@ -63,9 +61,10 @@ use psy_store::{
     store::journal::{Journal, JournalStore},
 };
 use psy_ups_circuit::{
-    circuit_manager::core::PsyUPSStepCircuitManager,
+    circuit_manager::core::{PsyUPSStepCircuitManager, QCircuitManager},
     session::UserProvingSessionManager,
 };
+use psy_vm::ups::circuit_manager::UPSCircuitManager;
 
 use super::super::test_helpers::{
     contract::{gen_test_contract, SimpleTestContract},

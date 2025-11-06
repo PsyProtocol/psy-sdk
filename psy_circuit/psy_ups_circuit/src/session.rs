@@ -66,9 +66,9 @@ use psy_data::{
     },
 };
 use psy_dpn_circuit::circuits::cfc::DapenContractFunctionCircuit;
-use psy_vm::ups::circuit_manager::UPSCircuitManager;
 use psy_vm::{
     dpn::{contract::cfc_code_definition_to_dapen_fc, vm::def::DPNFunctionCircuitDefinition},
+    ups::circuit_manager::UPSCircuitManager,
     vm::{cfc_input::DapenContractFunctionCircuitInput, exec::PsyEvalSessionResult},
 };
 use serde::Serialize;

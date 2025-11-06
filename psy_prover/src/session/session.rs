@@ -37,22 +37,31 @@ use psy_data::{
             cmd_processor::{PsyReadCommandProcessorSync, PsyReadCommandProcessorSyncMut},
         },
     },
-    traits::qdatastore::{qmetadata::QMetaDataStoreReaderSync, qtreedata::{PsyComboDataStoreReaderSync, QTreeDataStoreReaderSync}},
+    traits::qdatastore::{
+        qmetadata::QMetaDataStoreReaderSync,
+        qtreedata::{PsyComboDataStoreReaderSync, QTreeDataStoreReaderSync},
+    },
 };
 use psy_dpn_circuit::circuits::cfc::DapenContractFunctionCircuit;
 use psy_provider::{
     provider::{NetworkConfig, ProveProxyRpcProvider, QUserRpcProvider, RpcProvider},
-    request::DPNSoftwareDefinedSignatureInput,
-    request::{QDeployContractRPCRequest, QRegisterUserRPCRequest, QSubmitEndCapRPCRequest},
+    request::{DPNSoftwareDefinedSignatureInput, QDeployContractRPCRequest, QRegisterUserRPCRequest, QSubmitEndCapRPCRequest},
 };
 use psy_ups_circuit::{
     circuit_manager::core::PsyUPSStepCircuitManager,
     session::UserProvingSessionManager,
+    signature::software_defined::{DPNSoftwareDefinedSignatureGadget, Plonky2SoftwareDefinedSignatureGadget},
 };
-use psy_vm::ups::circuit_manager::{UPSCircuitManager, PortableQTreeRecursion};
-use psy_vm::dpn::{
-    contract::{cfc_code_definition_to_dapen_fc, dapen_fc_to_cfc_code_definition, hash_dpn_function},
-    vm::def::DPNFunctionCircuitDefinition,
+use psy_vm::{
+    dpn::{
+        contract::{cfc_code_definition_to_dapen_fc, dapen_fc_to_cfc_code_definition, hash_dpn_function},
+        vm::def::DPNFunctionCircuitDefinition,
+    },
+    ups::{
+        circuit_manager::{PortableQTreeRecursion, UPSCircuitManager},
+        signature::Plonky2SoftwareDefinedSignatureInput,
+        state_reader::StateReader,
+    },
 };
 use serde::{Deserialize, Serialize};
 use tracing::warn;
@@ -66,29 +75,19 @@ use crate::{
     wallet::memory_wallet::PsyMemoryWallet,
 };
 
-use psy_ups_circuit::signature::{
-    software_defined::{
-        DPNSoftwareDefinedSignatureGadget, Plonky2SoftwareDefinedSignatureGadget
-    },
-};
-use psy_vm::ups::{
-    state_reader::StateReader,
-    signature::Plonky2SoftwareDefinedSignatureInput,
-};
-
 // Combined trait for UPS circuit managers that also support tree recursion
-trait UPSWithTreeRecursionTrait<C: GenericConfig<D>, const D: usize>: 
-    UPSCircuitManager<C, D> + PortableQTreeRecursion<C, D> + Send + Sync 
+trait UPSWithTreeRecursionTrait<C: GenericConfig<D>, const D: usize>: UPSCircuitManager<C, D> + PortableQTreeRecursion<C, D> + Send + Sync
 where
     C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasher<QHashOut<C::F>>,
-{}
+{
+}
 
 impl<T, C: GenericConfig<D>, const D: usize> UPSWithTreeRecursionTrait<C, D> for T
 where
     T: UPSCircuitManager<C, D> + PortableQTreeRecursion<C, D> + Send + Sync,
     C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasher<QHashOut<C::F>>,
-{}
-
+{
+}
 
 pub fn gen_contract_deploy_and_circuits_for_functions<C: GenericConfig<D>, const D: usize>(
     deployer: QHashOut<C::F>,
@@ -133,10 +132,7 @@ type F = GoldilocksField;
 
 #[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
 #[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
-pub async fn prove_func<
-    R,
-    CM: UPSCircuitManager<C, D> + ?Sized,
->(
+pub async fn prove_func<R, CM: UPSCircuitManager<C, D> + ?Sized>(
     st: &R,
     circuit_mgr: &CM,
     mgr: &mut UserProvingSessionManager<F, PoseidonHash, R, C, D>,
@@ -625,30 +621,23 @@ impl WalletSession {
             .get(&sign_data.fingerprint)
             .ok_or_else(|| anyhow::format_err!("PSY software defined circuit `{}` not found", sign_data.fingerprint))?;
 
-        let cfc_call_inputs = sign_data
-            .sign_inputs
-            .iter()
-            .map(|x| F::from_noncanonical_u64(*x))
-            .collect::<Vec<_>>();
+        let cfc_call_inputs = sign_data.sign_inputs.iter().map(|x| F::from_noncanonical_u64(*x)).collect::<Vec<_>>();
 
         let cfc_proof_input = user_session_mgr
             .mgr
-            .exec_contract_call(
-                F::from_noncanonical_u64(sign_data.sign_contract_id),
-                &sdc.fn_def,
-                cfc_call_inputs,
-            )
+            .exec_contract_call(F::from_noncanonical_u64(sign_data.sign_contract_id), &sdc.fn_def, cfc_call_inputs)
             .await?;
 
-        let witness_input = DPNSoftwareDefinedSignatureInput { 
-            cfc_input: cfc_proof_input 
-        };
+        let witness_input = DPNSoftwareDefinedSignatureInput { cfc_input: cfc_proof_input };
 
         Ok(sign_context.with_psy_witness_input(
             witness_input,
             user_session_mgr.current_checkpoint_id,
             user_session_mgr.user_id,
-            user_session_mgr.mgr.lps.transaction_records
+            user_session_mgr
+                .mgr
+                .lps
+                .transaction_records
                 .last()
                 .unwrap()
                 .start_contract_state_tree_root,
@@ -679,11 +668,7 @@ impl WalletSession {
             .last()
             .ok_or_else(|| anyhow::format_err!("you must exec at least one contract call before sign"))?;
 
-        let circuit_inputs = sign_data
-            .sign_inputs
-            .iter()
-            .map(|x| F::from_noncanonical_u64(*x))
-            .collect::<Vec<_>>();
+        let circuit_inputs = sign_data.sign_inputs.iter().map(|x| F::from_noncanonical_u64(*x)).collect::<Vec<_>>();
 
         let user_contract_state = UserContractState::new(
             checkpoint_tree_root,
@@ -697,7 +682,8 @@ impl WalletSession {
             user_contract_state,
             user_session_mgr.mgr.lps.cmd_store.clone(),
             user_session_mgr.mgr.lps.state_tree_store.clone(),
-        ).await;
+        )
+        .await;
 
         let plonky2_input = Plonky2SoftwareDefinedSignatureInput::<RpcProvider> {
             state_reader,
@@ -716,11 +702,7 @@ impl WalletSession {
             ))
     }
 
-    pub async fn sign_and_submit_with_sign_data(
-        &self,
-        public_key: QHashOut<F>,
-        sign_data: Option<SignData<F>>,
-    ) -> anyhow::Result<QHashOut<F>> {
+    pub async fn sign_and_submit_with_sign_data(&self, public_key: QHashOut<F>, sign_data: Option<SignData<F>>) -> anyhow::Result<QHashOut<F>> {
         let mut user_session_mgr = self
             .user_session_mgrs
             .get_mut(&public_key)
@@ -755,11 +737,11 @@ impl WalletSession {
         let sighash = user_session_mgr.mgr.get_sighash(PSY_NETWORK_MAGIC, user_session_mgr.nonce);
 
         tracing::info!("zk sign for signhash: {}", sighash.to_string());
-        let signature_result = self
-            .wallet
-            .sign_with_public_key(&public_key, &sign_context, sighash)
-            .await?;
-        let SignatureResult { proof: signature_proof, circuit_info } = signature_result;
+        let signature_result = self.wallet.sign_with_public_key(&public_key, &sign_context, sighash).await?;
+        let SignatureResult {
+            proof: signature_proof,
+            circuit_info,
+        } = signature_result;
 
         user_session_mgr
             .mgr
@@ -769,7 +751,10 @@ impl WalletSession {
 
         let public_key_param = pk_info.public_key_param;
 
-        let SignatureCircuitInfo { circuit_fingerprint, verifier_config: circuit_verifier_config } = circuit_info;
+        let SignatureCircuitInfo {
+            circuit_fingerprint,
+            verifier_config: circuit_verifier_config,
+        } = circuit_info;
 
         tracing::info!(
             "prove end cap with network magic {:x}, nonce {}, fingerprint {}, public key param {}, signature proof {:?}",
@@ -810,7 +795,6 @@ impl WalletSession {
         };
 
         user_session_mgr.rpc_provider.submit_end_cap_proof::<F>(req).await?;
-
 
         Ok(end_user_leaf_hash)
     }

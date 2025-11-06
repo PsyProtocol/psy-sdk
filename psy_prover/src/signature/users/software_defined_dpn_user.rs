@@ -5,14 +5,16 @@ use psy_common::data::qhashout::QHashOut;
 use psy_common_circuit::circuits::traits::qstandard::QStandardCircuit;
 use psy_crypto::signature::zk::data::ZKPublicKeyInfo;
 use psy_provider::provider::RpcProvider;
-use psy_vm::ups::circuit_manager::UPSCircuitManager;
 use psy_ups_circuit::signature::software_defined::get_sdc_public_key_param;
+use psy_vm::ups::circuit_manager::UPSCircuitManager;
 
-use crate::signature::{
-    context::SignContext,
-    traits::{SignatureCircuitInfo, SignatureConfig, SignatureProof, SignatureUser, SIGNATURE_D},
+use crate::{
+    signature::{
+        context::SignContext,
+        traits::{SignatureCircuitInfo, SignatureConfig, SignatureProof, SignatureUser, SIGNATURE_D},
+    },
+    wallet::memory_wallet::PsyMemoryWallet,
 };
-use crate::wallet::memory_wallet::PsyMemoryWallet;
 
 /// Software-Defined DPN (Data Processing Network) signature user.
 /// Handles signatures for Psy/DPN-based software-defined circuits.
@@ -24,10 +26,7 @@ pub struct SoftwareDefinedDpnUser {
 
 impl SoftwareDefinedDpnUser {
     pub fn new(private_key: QHashOut<GoldilocksField>, fingerprint: QHashOut<GoldilocksField>) -> Self {
-        Self {
-            private_key,
-            fingerprint,
-        }
+        Self { private_key, fingerprint }
     }
 }
 
@@ -52,7 +51,9 @@ impl SignatureUser for SoftwareDefinedDpnUser {
         context: &SignContext,
         sighash: QHashOut<GoldilocksField>,
     ) -> Result<SignatureProof> {
-        let psy_witness_input = context.psy_witness_input.as_ref()
+        let psy_witness_input = context
+            .psy_witness_input
+            .as_ref()
             .ok_or_else(|| anyhow!("PSY witness input missing for DPN user"))?;
 
         if context.plonky2_signature_input.is_some() {
@@ -86,8 +87,9 @@ impl SignatureUser for SoftwareDefinedDpnUser {
 
         Ok(SignatureCircuitInfo {
             circuit_fingerprint: circuit.get_fingerprint(),
-            verifier_config: circuit.get_verifier_config_ref()
-                .ok_or_else(|| anyhow!("Verifier config not available"))? 
+            verifier_config: circuit
+                .get_verifier_config_ref()
+                .ok_or_else(|| anyhow!("Verifier config not available"))?
                 .clone(),
         })
     }

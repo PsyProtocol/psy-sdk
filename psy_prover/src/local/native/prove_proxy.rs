@@ -35,19 +35,19 @@ use psy_data::{
     },
 };
 use psy_dpn_circuit::circuits::cfc::DapenContractFunctionCircuit;
-use psy_provider::request::{QRegisterDPNSoftwareDefinedCircuitRPCRequest, QRegisterPlonky2SoftwareDefinedCircuitRPCRequest, DPNSoftwareDefinedSignatureInput};
 // use crate::local::provider::LocalCommonCircuitsData;
-use psy_provider::{
-    provider::{NetworkConfig, QCommonCircuitData, RpcProvider},
+use psy_provider::provider::{NetworkConfig, QCommonCircuitData, RpcProvider};
+use psy_provider::request::{
+    DPNSoftwareDefinedSignatureInput, QRegisterDPNSoftwareDefinedCircuitRPCRequest, QRegisterPlonky2SoftwareDefinedCircuitRPCRequest,
 };
-use psy_vm::ups::circuit_manager::UPSCircuitManager;
-use psy_ups_circuit::circuit_manager::core::PsyUPSStepCircuitManager;
-use psy_vm::{dpn::contract::cfc_code_definition_to_dapen_fc, vm::cfc_input::DapenContractFunctionCircuitInput};
+use psy_ups_circuit::{
+    circuit_manager::core::PsyUPSStepCircuitManager,
+    signature::software_defined::{DPNSoftwareDefinedSignatureGadget, Plonky2SoftwareDefinedSignatureGadget},
+};
+use psy_vm::{
+    dpn::contract::cfc_code_definition_to_dapen_fc, ups::circuit_manager::UPSCircuitManager, vm::cfc_input::DapenContractFunctionCircuitInput,
+};
 use serde::{Deserialize, Deserializer, Serialize};
-
-use psy_ups_circuit::signature::software_defined::{
-    DPNSoftwareDefinedSignatureGadget, Plonky2SoftwareDefinedSignatureGadget
-};
 
 type C = PoseidonGoldilocksConfig;
 type F = <C as GenericConfig<D>>::F;
@@ -104,10 +104,16 @@ pub trait ProveProxyRpc {
     async fn prove_secp_sign(&self, signature: PsyCompressedSecp256K1Signature) -> Result<ProofWithPublicInputs<F, C, D>, ErrorObjectOwned>;
 
     #[method(name = "register_dpn_software_defined_circuit")]
-    async fn register_dpn_software_defined_circuit(&self, request: QRegisterDPNSoftwareDefinedCircuitRPCRequest) -> Result<QHashOut<F>, ErrorObjectOwned>;
-    
+    async fn register_dpn_software_defined_circuit(
+        &self,
+        request: QRegisterDPNSoftwareDefinedCircuitRPCRequest,
+    ) -> Result<QHashOut<F>, ErrorObjectOwned>;
+
     #[method(name = "register_plonky2_software_defined_circuit")]
-    async fn register_plonky2_software_defined_circuit(&self, request: QRegisterPlonky2SoftwareDefinedCircuitRPCRequest) -> Result<QHashOut<F>, ErrorObjectOwned>;
+    async fn register_plonky2_software_defined_circuit(
+        &self,
+        request: QRegisterPlonky2SoftwareDefinedCircuitRPCRequest,
+    ) -> Result<QHashOut<F>, ErrorObjectOwned>;
 
     #[method(name = "prove_software_defined_sign")]
     async fn prove_software_defined_sign(
@@ -695,11 +701,17 @@ impl ProveProxyRpcServer for ProveProxyServerProvider {
         })
     }
 
-    async fn register_dpn_software_defined_circuit(&self, request: QRegisterDPNSoftwareDefinedCircuitRPCRequest) -> Result<QHashOut<F>, ErrorObjectOwned> {
+    async fn register_dpn_software_defined_circuit(
+        &self,
+        request: QRegisterDPNSoftwareDefinedCircuitRPCRequest,
+    ) -> Result<QHashOut<F>, ErrorObjectOwned> {
         todo!("register_dpn_software_defined_circuit");
     }
-    
-    async fn register_plonky2_software_defined_circuit(&self, request: QRegisterPlonky2SoftwareDefinedCircuitRPCRequest) -> Result<QHashOut<F>, ErrorObjectOwned> {
+
+    async fn register_plonky2_software_defined_circuit(
+        &self,
+        request: QRegisterPlonky2SoftwareDefinedCircuitRPCRequest,
+    ) -> Result<QHashOut<F>, ErrorObjectOwned> {
         todo!("register_plonky2_software_defined_circuit");
         // let input = SoftwareDefinedSignatureInput::Psy(input);
         // let sdc = SoftwareDefinedSignatureCircuit::new(&input).await;

@@ -17,9 +17,6 @@ use psy_common::{
     JobInfo, JobLocation,
 };
 use psy_common_circuit::circuits::zk_signature3::core::PsyBasicZKSignatureInnerCircuit;
-use psy_vm::ups::circuit_manager::{
-    PortableQTreeRecursionCircuitsData, PortableQTreeRecursionCircuitsProve, PortableQTreeRecursion,
-};
 use psy_config::network_constants::REALM_USER_TREE_HEIGHT;
 use psy_crypto::{
     common::witnesses::qrecursion::{
@@ -43,7 +40,10 @@ use psy_data::{
         ups_end_cap::UPSEndCapFromProofTreeGadgetInput,
     },
 };
-use psy_vm::vm::cfc_input::DapenContractFunctionCircuitInput;
+use psy_vm::{
+    ups::circuit_manager::{PortableQTreeRecursion, PortableQTreeRecursionCircuitsData, PortableQTreeRecursionCircuitsProve, UPSCircuitManager},
+    vm::cfc_input::DapenContractFunctionCircuitInput,
+};
 // #[cfg(not(target_arch = "wasm32"))]
 use rand::Rng;
 // #[cfg(not(target_arch = "wasm32"))]
@@ -58,15 +58,14 @@ use super::request::{
     Id, QAddWithdrawalRPCRequest, QClaimDepositRPCRequest, QDeployContractRPCRequest, QGetUserIdRPCRequest, QRegisterUserRPCRequest,
     QSubmitEndCapRPCRequest, QSubmitGutaRPCRequest, QTokenTransferRPCRequest, RequestParams, ResponseResult, RpcRequest, RpcResponse, Version,
 };
-use psy_vm::ups::circuit_manager::UPSCircuitManager;
 use crate::{
     request::{
-        QBlockStateRPCRequest, QGetContractMethodCommonDataRPCRequest, QGetMethodIdRPCRequest, QGetTxStatusRPCRequest, QLatestBlockStateRPCRequest,
-        QLeftAggRightLeafRpcRequestV2, QLeftLeafRightAggRpcRequestV2, QProveContractCallRPCRequest, QProveUpsStartRPCRequest,
-        QRegisterCircuitsRPCRequest, QRegisterDPNSoftwareDefinedCircuitRPCRequest, QRegisterPlonky2SoftwareDefinedCircuitRPCRequest, QSecpSignatureProofRPCRequest, QSignatureMinifierProofRPCRequest,
-        QSignatureProofRPCRequest, QSingleLeafRpcRequestV2, DPNSoftwareDefinedSignatureProofRPCRequest,
-        DPNSoftwareDefinedSignatureInput, QTwoAggRpcRequsetV2, QTwoLeafRpcRequestV2, QUpsCfcDeferredTxRPCRequest, QUpsCfcStandardTxRPCRequest,
-        QUpsEndCapRPCRequestV2, QUserSubTreeMerkleProofRPCRequest, RequestParamsV2,
+        DPNSoftwareDefinedSignatureInput, DPNSoftwareDefinedSignatureProofRPCRequest, QBlockStateRPCRequest, QGetContractMethodCommonDataRPCRequest,
+        QGetMethodIdRPCRequest, QGetTxStatusRPCRequest, QLatestBlockStateRPCRequest, QLeftAggRightLeafRpcRequestV2, QLeftLeafRightAggRpcRequestV2,
+        QProveContractCallRPCRequest, QProveUpsStartRPCRequest, QRegisterCircuitsRPCRequest, QRegisterDPNSoftwareDefinedCircuitRPCRequest,
+        QRegisterPlonky2SoftwareDefinedCircuitRPCRequest, QSecpSignatureProofRPCRequest, QSignatureMinifierProofRPCRequest,
+        QSignatureProofRPCRequest, QSingleLeafRpcRequestV2, QTwoAggRpcRequsetV2, QTwoLeafRpcRequestV2, QUpsCfcDeferredTxRPCRequest,
+        QUpsCfcStandardTxRPCRequest, QUpsEndCapRPCRequestV2, QUserSubTreeMerkleProofRPCRequest, RequestParamsV2,
     },
     session::TxStatus,
 };
@@ -625,7 +624,6 @@ pub type Config = psy_config::PsyConfigGoldilocks;
 // const D: usize = 2;
 // type F = <C as GenericConfig<D>>::F;
 
-
 #[derive(Clone, Debug)]
 pub struct ProveProxyRpcProvider<C: GenericConfig<D> + 'static, const D: usize>
 where
@@ -731,7 +729,6 @@ impl<C: GenericConfig<D> + 'static, const D: usize> UPSCircuitManager<C, D> for 
 where
     C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasher<QHashOut<C::F>>,
 {
-
     async fn register_info(&self, info_store: &mut SessionCircuitInfoStore<C::F>) {
         info_store.register_circuit(
             LocalCircuitType::UPSStart.into(),
@@ -1051,11 +1048,7 @@ where
         }
     }
 
-    async fn register_plonky2_software_defined_circuit(
-        &self,
-        contract_state_tree_height: u8,
-        input_len: usize,
-    ) -> anyhow::Result<QHashOut<C::F>> {
+    async fn register_plonky2_software_defined_circuit(&self, contract_state_tree_height: u8, input_len: usize) -> anyhow::Result<QHashOut<C::F>> {
         tracing::info!("register_plonky2_software_defined_circuit: ");
         let request = QRegisterPlonky2SoftwareDefinedCircuitRPCRequest {
             contract_state_tree_height,
@@ -1104,19 +1097,20 @@ where
         }
     }
 
-    // TODO: This method is temporarily commented out due to StateReader serialization issues
-    // async fn prove_plonky2_software_defined_sign(
+    // TODO: This method is temporarily commented out due to StateReader
+    // serialization issues async fn prove_plonky2_software_defined_sign(
     //     &self,
     //     fingerprint: QHashOut<C::F>,
     //     private_key: QHashOut<C::F>,
-    //     input: psy_vm::ups::signature::Plonky2SoftwareDefinedSignatureInput<Self::Store>,
+    //     input:
+    // psy_vm::ups::signature::Plonky2SoftwareDefinedSignatureInput<Self::Store>,
     //     sig_hash: QHashOut<C::F>,
     // ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
     //     tracing::info!("prove_plonky2_software_defined_sign:");
     //     // For now, this method needs an RPC request implementation
-    //     // The input type contains StateReader which needs to be serialized differently
-    //     Err(anyhow::format_err!("plonky2 software defined sign not yet implemented over RPC"))
-    // }
+    //     // The input type contains StateReader which needs to be serialized
+    // differently     Err(anyhow::format_err!("plonky2 software defined sign
+    // not yet implemented over RPC")) }
 
     async fn prove_ups_end_cap(
         &self,

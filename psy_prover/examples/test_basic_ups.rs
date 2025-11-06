@@ -31,15 +31,17 @@ use psy_data::{
     traits::qdatastore::{qmetadata::QMetaDataStoreReaderSync, qtreedata::PsyComboDataStoreReaderWriterSync},
 };
 use psy_dpn_circuit::circuits::cfc::DapenContractFunctionCircuit;
-use psy_vm::ups::circuit_manager::UPSCircuitManager;
 use psy_store::{node::coordinator::PsyCoordinatorStoreWriterAsyncImm, prepare_environment_with_real_contract};
 use psy_ups_circuit::{
     circuit_manager::core::{PsyUPSStepCircuitManager, QCircuitManager},
     session::UserProvingSessionManager,
 };
-use psy_vm::dpn::{
-    ops::{context_trait::DPNContext, exec_context::QExecContext, sym_felt::SymFeltRef},
-    vm::{compile::PsyCompileResult, def::DPNFunctionCircuitDefinition},
+use psy_vm::{
+    dpn::{
+        ops::{context_trait::DPNContext, exec_context::QExecContext, sym_felt::SymFeltRef},
+        vm::{compile::PsyCompileResult, def::DPNFunctionCircuitDefinition},
+    },
+    ups::circuit_manager::UPSCircuitManager,
 };
 use psylang_macros::qcontract;
 
@@ -358,7 +360,8 @@ async fn test_prove_simple() -> anyhow::Result<()> {
     timer.lap("Proved End Cap for UPS Session 🎉");
 
     // the end cap proof the proof that we send off to the network 🎉
-    // Now that QCircuitManager is just PsyUPSStepCircuitManager, access ups_end_cap directly
+    // Now that QCircuitManager is just PsyUPSStepCircuitManager, access ups_end_cap
+    // directly
     main_circuits.ups_end_cap.verify_proof(end_cap_proof)?;
     timer.lap("✅ Verified End Cap Proof");
 

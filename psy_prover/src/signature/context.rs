@@ -1,8 +1,7 @@
 use plonky2::field::goldilocks_field::GoldilocksField;
 use psy_common::data::qhashout::QHashOut;
-use psy_provider::request::DPNSoftwareDefinedSignatureInput;
+use psy_provider::{provider::RpcProvider, request::DPNSoftwareDefinedSignatureInput};
 use psy_vm::ups::signature::Plonky2SoftwareDefinedSignatureInput;
-use psy_provider::provider::RpcProvider;
 
 /// Signing context passed to `SignatureUser` implementations.
 #[derive(Debug)]
@@ -13,12 +12,12 @@ pub struct SignContext {
     pub contract_id: Option<u64>,
     /// ABI-level signing inputs provided by the caller.
     pub sign_inputs: Vec<u64>,
-    
+
     /// PSY/DPN software-defined signature witness input
     pub psy_witness_input: Option<DPNSoftwareDefinedSignatureInput>,
     /// PLONKY2 software-defined signature input  
     pub plonky2_signature_input: Option<Plonky2SoftwareDefinedSignatureInput<RpcProvider>>,
-    
+
     /// Shared fields for software-defined signatures
     pub checkpoint_id: Option<u64>,
     pub user_id: Option<u64>,
@@ -52,7 +51,7 @@ impl SignContext {
     }
 
     pub fn with_psy_witness_input(
-        mut self, 
+        mut self,
         witness_input: DPNSoftwareDefinedSignatureInput,
         checkpoint_id: u64,
         user_id: u64,
@@ -68,7 +67,7 @@ impl SignContext {
     }
 
     pub fn with_plonky2_signature_input(
-        mut self, 
+        mut self,
         signature_input: Plonky2SoftwareDefinedSignatureInput<RpcProvider>,
         checkpoint_id: u64,
         user_id: u64,

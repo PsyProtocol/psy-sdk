@@ -17,18 +17,16 @@ use psy_crypto::{
     },
 };
 use psy_data::{config::store_config::PsyHasher, traits::qdatastore::qmetadata::QMetaDataStoreReaderSync};
-use psy_prover::wallet::memory_wallet::{SECP256K1_FINGERPRINT, ZK_FINGERPRINT};
-use psy_ups_circuit::signature::software_defined::{
-    get_sdc_public_key_param, Plonky2SoftwareDefinedSignatureGadget
-};
-use psy_prover::wallet::memory_wallet::PsyMemoryWallet;
-use psy_ups_circuit::circuit_manager::core::PsyUPSStepCircuitManager;
-use psy_vm::ups::circuit_manager::UPSCircuitManager;
+use psy_prover::wallet::memory_wallet::{PsyMemoryWallet, SECP256K1_FINGERPRINT, ZK_FINGERPRINT};
 use psy_rust_sdk::{
     provider::{QUserRpcProvider, RpcProvider},
     request::QRegisterUserRPCRequest,
 };
-use psy_vm::dpn::vm::def::DPNFunctionCircuitDefinition;
+use psy_ups_circuit::{
+    circuit_manager::core::PsyUPSStepCircuitManager,
+    signature::software_defined::{get_sdc_public_key_param, Plonky2SoftwareDefinedSignatureGadget},
+};
+use psy_vm::{dpn::vm::def::DPNFunctionCircuitDefinition, ups::circuit_manager::UPSCircuitManager};
 
 use crate::subcommand::args::RegisterUserArgs;
 
@@ -55,7 +53,7 @@ pub async fn run(args: RegisterUserArgs) -> Result<()> {
         psy_config::network_constants::PSY_NETWORK_MAGIC,
     ));
     let mut wallet = PsyMemoryWallet::new(vec![main_circuits]);
-    
+
     // Get fingerprint based on sign type
     let fingerprint = match SignType::from(args.sign_type.clone()) {
         SignType::ZKSign => {
@@ -70,15 +68,12 @@ pub async fn run(args: RegisterUserArgs) -> Result<()> {
             }
             QHashOut::<GoldilocksField>::from_str(&SECP256K1_FINGERPRINT)?
         }
-        SignType::SoftwareDefinedDPNSign => {
-            QHashOut::<GoldilocksField>::from_str(
-                &args.fingerprint
-                    .ok_or_else(|| anyhow::format_err!("software defined dpn sign need fingerprint"))?
-            )?
-        }
-        SignType::SoftwareDefinedPlonky2Sign => {
-            wallet.register_plonky2_software_defined_circuit(contract_state_tree_height, 0).await?
-        }
+        SignType::SoftwareDefinedDPNSign => QHashOut::<GoldilocksField>::from_str(
+            &args
+                .fingerprint
+                .ok_or_else(|| anyhow::format_err!("software defined dpn sign need fingerprint"))?,
+        )?,
+        SignType::SoftwareDefinedPlonky2Sign => wallet.register_plonky2_software_defined_circuit(contract_state_tree_height, 0).await?,
     };
 
     // Use simplified interface

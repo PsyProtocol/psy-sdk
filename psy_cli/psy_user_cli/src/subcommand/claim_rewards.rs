@@ -11,6 +11,7 @@ use plonky2::{
     plonk::config::PoseidonGoldilocksConfig,
 };
 use psy_common::{
+    args::{ContractCallArgs, SignData, SignType},
     data::{base_types::hash256::Hash256, qhashout::QHashOut},
     job::id::{ProvingJobCircuitType, QProvingJobDataID, VariableHeightRewardMerkleProof, GUTA_REWARDS_TREE_MAX_HEIGHT},
     JobInfo, JobLocation,
@@ -26,7 +27,6 @@ use psy_data::{
     traits::qdatastore::{qmetadata::QMetaDataStoreReaderSync, qtreedata::QTreeDataStoreReaderSync},
 };
 use psy_node::worker::job_tracker::WorkerJobTracker;
-use psy_common::args::{ContractCallArgs, SignData, SignType};
 use psy_prover::session::WalletSession;
 use psy_rust_sdk::provider::{NetworkConfig, RpcProvider};
 use psy_services::models::{WorkerEvent, WorkerEventSource};
@@ -64,9 +64,7 @@ pub async fn run(args: ClaimRewardsArgs) -> Result<()> {
         None
     };
 
-    let user_pk_hash = wallet_session
-        .add_user(private_key, fingerprint)
-        .await?;
+    let user_pk_hash = wallet_session.add_user(private_key, fingerprint).await?;
     let user_id = provider.get_user_id(user_pk_hash).await?;
 
     let latest_block_state = provider.get_latest_block_state().await?;

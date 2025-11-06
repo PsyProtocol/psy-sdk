@@ -35,15 +35,17 @@ use psy_data::{
 use psy_dpn_circuit::circuits::cfc::DapenContractFunctionCircuit;
 use psy_network_circuit::guta::guta_helper::PsyGUTACircuitManager;
 use psy_prover::local::simple::SimpleAPI;
-use psy_vm::ups::circuit_manager::UPSCircuitManager;
 use psy_store::{node::coordinator::PsyCoordinatorStoreWriterAsyncImm, prepare_environment_with_real_contract};
 use psy_ups_circuit::{
     circuit_manager::core::{PsyUPSStepCircuitManager, QCircuitManager},
     session::UserProvingSessionManager,
 };
-use psy_vm::dpn::{
-    ops::{context_trait::DPNContext, exec_context::QExecContext, sym_felt::SymFeltRef},
-    vm::{compile::PsyCompileResult, def::DPNFunctionCircuitDefinition},
+use psy_vm::{
+    dpn::{
+        ops::{context_trait::DPNContext, exec_context::QExecContext, sym_felt::SymFeltRef},
+        vm::{compile::PsyCompileResult, def::DPNFunctionCircuitDefinition},
+    },
+    ups::circuit_manager::UPSCircuitManager,
 };
 use psylang_macros::qcontract;
 

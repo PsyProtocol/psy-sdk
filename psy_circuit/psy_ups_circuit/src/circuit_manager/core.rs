@@ -18,18 +18,23 @@ use psy_common_circuit::{
         secp256k1_signature::Secp256K1SignatureCircuit, traits::qstandard::QStandardCircuit, zk_signature3::core::PsyBasicZKSignatureCircuit,
     },
     treeprover::qrecursion::standard::manager::{
-        leaf_circuit_set::QStandardBinaryRecursionTreeCircuitSet,
-        portable::circuits::PortableQTreeRecursionCircuits,
+        leaf_circuit_set::QStandardBinaryRecursionTreeCircuitSet, portable::circuits::PortableQTreeRecursionCircuits,
     },
 };
 use psy_config::network_constants::{UPS_CIRCUIT_WHITELIST_TREE_HEIGHT, UPS_SESSION_PROOF_TREE_HEIGHT};
 use psy_crypto::{
     common::{
         circuit_library::CircuitInfoLibraryBuilder,
-        witnesses::qrecursion::proof_data::{AggProofRecord, SimpleQTreeRecursionManagerInclusionProofs},
+        witnesses::qrecursion::{
+            header::QRecursionAggStandardHeader,
+            proof_data::{AggProofRecord, QStandardBinaryTreeCircuitType, SimpleQTreeRecursionManagerInclusionProofs},
+        },
     },
     hash::{
-        merkle::{core::MerkleProofCore, utils::simple_merkle_tree::SimpleMerkleTree},
+        merkle::{
+            core::{DeltaMerkleProofCore, MerkleProofCore},
+            utils::simple_merkle_tree::SimpleMerkleTree,
+        },
         traits::hasher::MerkleZeroHasher,
     },
     signature::secp256k1::core::PsyCompressedSecp256K1Signature,
@@ -49,16 +54,9 @@ use psy_network_circuit::ups::circuits::{
     ups_start::UPSStartSessionCircuit,
 };
 use psy_vm::{
-    dpn::contract::cfc_code_definition_to_dapen_fc, 
-    vm::cfc_input::DapenContractFunctionCircuitInput, 
-    ups::circuit_manager::{UPSCircuitManager, PortableQTreeRecursionCircuitsData, PortableQTreeRecursionCircuitsProve, PortableQTreeRecursion},
-};
-use psy_crypto::{
-    common::witnesses::qrecursion::{
-        header::QRecursionAggStandardHeader,
-        proof_data::QStandardBinaryTreeCircuitType,
-    },
-    hash::merkle::core::DeltaMerkleProofCore,
+    dpn::contract::cfc_code_definition_to_dapen_fc,
+    ups::circuit_manager::{PortableQTreeRecursion, PortableQTreeRecursionCircuitsData, PortableQTreeRecursionCircuitsProve, UPSCircuitManager},
+    vm::cfc_input::DapenContractFunctionCircuitInput,
 };
 use serde::Serialize;
 
@@ -184,7 +182,6 @@ impl<C: GenericConfig<D> + 'static + Serialize, const D: usize> UPSCircuitManage
 where
     C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasher<QHashOut<C::F>>,
 {
-
     async fn register_info(&self, info_store: &mut SessionCircuitInfoStore<C::F>) {
         info_store.register_circuit(
             LocalCircuitType::UPSStart.into(),
@@ -321,11 +318,7 @@ where
         unimplemented!("register_dpn_software_defined_circuit");
     }
 
-    async fn register_plonky2_software_defined_circuit(
-        &self,
-        contract_state_tree_height: u8,
-        input_len: usize,
-    ) -> anyhow::Result<QHashOut<C::F>> {
+    async fn register_plonky2_software_defined_circuit(&self, contract_state_tree_height: u8, input_len: usize) -> anyhow::Result<QHashOut<C::F>> {
         unimplemented!("register_plonky2_software_defined_circuit");
     }
 
@@ -339,12 +332,13 @@ where
         unimplemented!("prove_dpn_software_defined_sign");
     }
 
-    // TODO: This method is temporarily commented out due to StateReader serialization issues
-    // async fn prove_plonky2_software_defined_sign(
+    // TODO: This method is temporarily commented out due to StateReader
+    // serialization issues async fn prove_plonky2_software_defined_sign(
     //     &self,
     //     fingerprint: QHashOut<C::F>,
     //     private_key: QHashOut<C::F>,
-    //     input: psy_vm::ups::signature::Plonky2SoftwareDefinedSignatureInput<Self::Store>,
+    //     input:
+    // psy_vm::ups::signature::Plonky2SoftwareDefinedSignatureInput<Self::Store>,
     //     sig_hash: QHashOut<C::F>,
     // ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
     //     unimplemented!("prove_plonky2_software_defined_sign");
@@ -662,6 +656,5 @@ where
         &self.proof_tree_agg_circuits.circuit_inclusion_proofs
     }
 }
-
 
 pub type QCircuitManager<C, const D: usize> = Box<dyn UPSCircuitManager<C, D>>;

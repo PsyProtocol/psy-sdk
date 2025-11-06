@@ -1,8 +1,5 @@
 use std::fmt::Debug;
 
-use psy_vm::ups::signature::{Plonky2SoftwareDefinedSignatureInput, DPNSoftwareDefinedSignatureInput};
-use psy_data::qstore::imm::cmd_processor::PsyReadCommandProcessorSync;
-
 use plonky2::{
     field::{goldilocks_field::GoldilocksField, types::Field},
     gates::gate::GateRef,
@@ -21,6 +18,7 @@ use plonky2::{
         proof::ProofWithPublicInputs,
     },
 };
+use psy_common::data::qhashout::QHashOut;
 use psy_common_circuit::{
     builder::{
         hash::core::CircuitBuilderHashCore,
@@ -30,15 +28,21 @@ use psy_common_circuit::{
     proof_minifier::pm_chain::PsyProofMinifierChain,
     u32::gates::comparison::ComparisonGate,
 };
-use psy_common::data::qhashout::QHashOut;
 use psy_crypto::{hash::traits::hasher::MerkleZeroHasher, signature::zk::wallet::PRIVATE_KEY_CONSTANTS};
+use psy_data::qstore::imm::cmd_processor::PsyReadCommandProcessorSync;
 use psy_dpn_circuit::vm::compile::PsyContractFunctionBuilderGadget;
-use psy_vm::{dpn::vm::def::DPNFunctionCircuitDefinition, vm::cfc_input::DapenContractFunctionCircuitInput};
+use psy_vm::{
+    dpn::vm::def::DPNFunctionCircuitDefinition,
+    ups::{
+        signature::{DPNSoftwareDefinedSignatureInput, Plonky2SoftwareDefinedSignatureInput},
+        state_reader::StateReader,
+    },
+    vm::cfc_input::DapenContractFunctionCircuitInput,
+};
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
 use crate::signature::state_reader::StateReaderGadget;
-use psy_vm::ups::state_reader::StateReader;
 
 type C = PoseidonGoldilocksConfig;
 type GF = GoldilocksField;
@@ -111,12 +115,8 @@ impl DPNSoftwareDefinedSignatureGadget {
 
         let circuit_data = builder.build::<C>();
         let added_gates_for_minifier = [GateRef::new(ComparisonGate::new(32, 16))];
-        let minifier_chain = PsyProofMinifierChain::<D, GF, C>::new_add_gates(
-            &circuit_data.verifier_only,
-            &circuit_data.common,
-            2,
-            Some(&added_gates_for_minifier),
-        );
+        let minifier_chain =
+            PsyProofMinifierChain::<D, GF, C>::new_add_gates(&circuit_data.verifier_only, &circuit_data.common, 2, Some(&added_gates_for_minifier));
 
         self.circuit_data = Some(circuit_data);
         self.minifier_chain = Some(minifier_chain);
@@ -131,7 +131,10 @@ impl DPNSoftwareDefinedSignatureGadget {
         sig_hash: QHashOut<GF>,
     ) -> anyhow::Result<ProofWithPublicInputs<GF, C, D>> {
         let circuit_data = self.circuit_data.as_ref().ok_or_else(|| anyhow::anyhow!("Circuit not built"))?;
-        let minifier_chain = self.minifier_chain.as_ref().ok_or_else(|| anyhow::anyhow!("Minifier chain not initialized"))?;
+        let minifier_chain = self
+            .minifier_chain
+            .as_ref()
+            .ok_or_else(|| anyhow::anyhow!("Minifier chain not initialized"))?;
 
         let mut pw = PartialWitness::<GF>::new();
         pw.set_hash_target(self.private_key, private_key.0)?;
@@ -155,14 +158,16 @@ impl DPNSoftwareDefinedSignatureGadget {
     }
 
     pub fn get_fingerprint(&self) -> QHashOut<GF> {
-        self.minifier_chain.as_ref().map(|chain| QHashOut(chain.get_fingerprint())).unwrap_or_default()
+        self.minifier_chain
+            .as_ref()
+            .map(|chain| QHashOut(chain.get_fingerprint()))
+            .unwrap_or_default()
     }
 
     pub fn get_verifier_config_ref(&self) -> Option<&VerifierOnlyCircuitData<C, D>> {
         self.minifier_chain.as_ref().map(|chain| chain.get_verifier_data())
     }
 }
-
 
 #[derive(Debug)]
 pub struct Plonky2SoftwareDefinedSignatureGadget {
@@ -177,11 +182,7 @@ pub struct Plonky2SoftwareDefinedSignatureGadget {
 }
 
 impl Plonky2SoftwareDefinedSignatureGadget {
-    pub fn add_virtual_to(
-        builder: &mut CircuitBuilder<GF, D>,
-        contract_state_tree_height: u8,
-        input_len: usize
-    ) -> Self {
+    pub fn add_virtual_to(builder: &mut CircuitBuilder<GF, D>, contract_state_tree_height: u8, input_len: usize) -> Self {
         let private_key = builder.add_virtual_hash();
         let sig_hash = builder.add_virtual_hash();
         let circuit_inputs = builder.add_virtual_targets(input_len);
@@ -205,7 +206,7 @@ impl Plonky2SoftwareDefinedSignatureGadget {
 
     pub fn add_custom_constraints<F>(&mut self, builder: &mut CircuitBuilder<GF, D>, constraints_fn: F)
     where
-        F: FnOnce(&mut CircuitBuilder<GF, D>, &mut StateReaderGadget<GF, D>, &[Target])
+        F: FnOnce(&mut CircuitBuilder<GF, D>, &mut StateReaderGadget<GF, D>, &[Target]),
     {
         constraints_fn(builder, &mut self.state_reader_gadget, &self.circuit_inputs);
     }
@@ -217,12 +218,8 @@ impl Plonky2SoftwareDefinedSignatureGadget {
 
         let circuit_data = builder.build::<C>();
         let added_gates_for_minifier = [GateRef::new(ComparisonGate::new(32, 16))];
-        let minifier_chain = PsyProofMinifierChain::<D, GF, C>::new_add_gates(
-            &circuit_data.verifier_only,
-            &circuit_data.common,
-            2,
-            Some(&added_gates_for_minifier),
-        );
+        let minifier_chain =
+            PsyProofMinifierChain::<D, GF, C>::new_add_gates(&circuit_data.verifier_only, &circuit_data.common, 2, Some(&added_gates_for_minifier));
 
         self.circuit_data = Some(circuit_data);
         self.minifier_chain = Some(minifier_chain);
@@ -236,7 +233,10 @@ impl Plonky2SoftwareDefinedSignatureGadget {
         sig_hash: QHashOut<GF>,
     ) -> anyhow::Result<ProofWithPublicInputs<GF, C, D>> {
         let circuit_data = self.circuit_data.as_ref().ok_or_else(|| anyhow::anyhow!("Circuit not built"))?;
-        let minifier_chain = self.minifier_chain.as_ref().ok_or_else(|| anyhow::anyhow!("Minifier chain not initialized"))?;
+        let minifier_chain = self
+            .minifier_chain
+            .as_ref()
+            .ok_or_else(|| anyhow::anyhow!("Minifier chain not initialized"))?;
 
         let mut pw = PartialWitness::<GF>::new();
         pw.set_hash_target(self.private_key, private_key.0)?;
@@ -251,14 +251,16 @@ impl Plonky2SoftwareDefinedSignatureGadget {
     }
 
     pub fn get_fingerprint(&self) -> QHashOut<GF> {
-        self.minifier_chain.as_ref().map(|chain| QHashOut(chain.get_fingerprint())).unwrap_or_default()
+        self.minifier_chain
+            .as_ref()
+            .map(|chain| QHashOut(chain.get_fingerprint()))
+            .unwrap_or_default()
     }
 
     pub fn get_verifier_config_ref(&self) -> Option<&VerifierOnlyCircuitData<C, D>> {
         self.minifier_chain.as_ref().map(|chain| chain.get_verifier_data())
     }
 }
-
 
 pub fn get_zk_public_key_param<C: GenericConfig<D>, const D: usize>(
     builder: &mut CircuitBuilder<C::F, D>,

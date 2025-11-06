@@ -5,17 +5,20 @@ use psy_common::data::qhashout::QHashOut;
 use psy_common_circuit::circuits::traits::qstandard::QStandardCircuit;
 use psy_crypto::signature::zk::data::ZKPublicKeyInfo;
 use psy_provider::provider::RpcProvider;
-use psy_vm::ups::circuit_manager::UPSCircuitManager;
 use psy_ups_circuit::signature::software_defined::get_sdc_public_key_param;
+use psy_vm::ups::circuit_manager::UPSCircuitManager;
 
-use crate::signature::{
-    context::SignContext,
-    traits::{SignatureCircuitInfo, SignatureConfig, SignatureProof, SignatureUser, SIGNATURE_D},
+use crate::{
+    signature::{
+        context::SignContext,
+        traits::{SignatureCircuitInfo, SignatureConfig, SignatureProof, SignatureUser, SIGNATURE_D},
+    },
+    wallet::memory_wallet::PsyMemoryWallet,
 };
-use crate::wallet::memory_wallet::PsyMemoryWallet;
 
 /// Software-Defined PLONKY2 signature user.
-/// Handles signatures for custom PLONKY2-based software-defined circuits with user-defined custom_sign logic.
+/// Handles signatures for custom PLONKY2-based software-defined circuits with
+/// user-defined custom_sign logic.
 #[derive(Debug, Clone)]
 pub struct SoftwareDefinedPlonky2User {
     private_key: QHashOut<GoldilocksField>,
@@ -24,10 +27,7 @@ pub struct SoftwareDefinedPlonky2User {
 
 impl SoftwareDefinedPlonky2User {
     pub fn new(private_key: QHashOut<GoldilocksField>, fingerprint: QHashOut<GoldilocksField>) -> Self {
-        Self {
-            private_key,
-            fingerprint,
-        }
+        Self { private_key, fingerprint }
     }
 }
 
@@ -52,7 +52,9 @@ impl SignatureUser for SoftwareDefinedPlonky2User {
         context: &SignContext,
         sighash: QHashOut<GoldilocksField>,
     ) -> Result<SignatureProof> {
-        let plonky2_input = context.plonky2_signature_input.as_ref()
+        let plonky2_input = context
+            .plonky2_signature_input
+            .as_ref()
             .ok_or_else(|| anyhow!("PLONKY2 signature input missing for PLONKY2 user"))?;
 
         if context.psy_witness_input.is_some() {
@@ -86,8 +88,9 @@ impl SignatureUser for SoftwareDefinedPlonky2User {
 
         Ok(SignatureCircuitInfo {
             circuit_fingerprint: circuit.get_fingerprint(),
-            verifier_config: circuit.get_verifier_config_ref()
-                .ok_or_else(|| anyhow!("Verifier config not available"))? 
+            verifier_config: circuit
+                .get_verifier_config_ref()
+                .ok_or_else(|| anyhow!("Verifier config not available"))?
                 .clone(),
         })
     }
