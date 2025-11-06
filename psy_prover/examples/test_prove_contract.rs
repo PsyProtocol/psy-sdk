@@ -5,8 +5,8 @@ use plonky2::{
     field::{goldilocks_field::GoldilocksField, types::Field},
     plonk::config::PoseidonGoldilocksConfig,
 };
-use psy_common_circuit::circuits::traits::qstandard::QStandardCircuit;
 use psy_common::{data::qhashout::QHashOut, utils::debug_timer::DebugTimer};
+use psy_common_circuit::circuits::traits::qstandard::QStandardCircuit;
 use psy_crypto::hash::utils::gen_dapen_contract_function_method_id;
 use psy_data::{
     config::store_config::PsyHasher,

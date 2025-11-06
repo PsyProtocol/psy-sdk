@@ -4,12 +4,12 @@ use plonky2::{
     iop::{target::Target, witness::Witness},
     plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher},
 };
+use psy_common::data::qhashout::QHashOut;
 use psy_common_circuit::{
     builder::{comparison::CircuitBuilderComparison, core::CircuitBuilderHelpersCore},
     hash::merkle::gadgets::variable_height_delta_merkle_proof_opt::VariableHeightDeltaMerkleProofOptGadget,
     treeprover::subtree::gadgets::subtree_core::SubTreeNodeStateTransitionGadget,
 };
-use psy_common::data::qhashout::QHashOut;
 use psy_crypto::hash::merkle::core::DeltaMerkleProofCore;
 
 use crate::gadgets::qdata::user::PsyUserLeafGadget;

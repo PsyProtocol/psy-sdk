@@ -1,9 +1,8 @@
 use std::result::Result::Ok;
 
 use plonky2::field::goldilocks_field::GoldilocksField;
-use psy_config::network_constants::{COORDINATOR_USER_TREE_HEIGHT, GLOBAL_USER_TREE_HEIGHT, REALM_USER_TREE_HEIGHT};
 use psy_common::data::qhashout::QHashOut;
-use kvq::traits::{KVQBinaryStore, KVQPair};
+use psy_config::network_constants::{COORDINATOR_USER_TREE_HEIGHT, GLOBAL_USER_TREE_HEIGHT, REALM_USER_TREE_HEIGHT};
 use psy_crypto::hash::merkle::core::MerkleProofCore;
 use psy_data::{
     config::store_config::PsyHasher,

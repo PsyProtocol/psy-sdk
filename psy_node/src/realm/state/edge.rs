@@ -8,7 +8,6 @@ use plonky2::{
     },
     plonk::proof::ProofWithPublicInputs,
 };
-use psy_config::network_constants::GLOBAL_USER_TREE_HEIGHT;
 use psy_common::{
     data::qhashout::QHashOut,
     job::{
@@ -18,6 +17,7 @@ use psy_common::{
         traits::QProofStoreAsyncImm,
     },
 };
+use psy_config::network_constants::GLOBAL_USER_TREE_HEIGHT;
 use psy_crypto::{
     common::generic_circuit_verifier::GenericCircuitVerifier,
     hash::{

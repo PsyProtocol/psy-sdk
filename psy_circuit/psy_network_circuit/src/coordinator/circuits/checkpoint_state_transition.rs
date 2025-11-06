@@ -9,16 +9,16 @@ use plonky2::{
         proof::ProofWithPublicInputs,
     },
 };
+use psy_common::{
+    data::qhashout::QHashOut,
+    job::{id::QProvingJobDataID, traits::QProofStoreReaderAsync},
+};
 use psy_common_circuit::{
     builder::{hash::core::CircuitBuilderHashCore, pad_circuit::CircuitBuilderPsyCommonGates},
     circuits::traits::qstandard::{QStandardCircuit, QStandardCircuitProvableWithProofStoreAndRefLibraryAsync},
     proof_minifier::pm_core::get_circuit_fingerprint_generic,
 };
 use psy_config::network_constants::CHECKPOINT_TREE_HEIGHT;
-use psy_common::{
-    data::qhashout::QHashOut,
-    job::{id::QProvingJobDataID, traits::QProofStoreReaderAsync},
-};
 use psy_crypto::{
     common::circuit_library::CircuitInfoLibrary,
     hash::{merkle::treeprover::data::CircuitInputWithDependencies, traits::hasher::MerkleZeroHasher},

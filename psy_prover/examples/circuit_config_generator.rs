@@ -1,7 +1,7 @@
 use plonky2::plonk::config::PoseidonGoldilocksConfig;
+use psy_common::job::id::ProvingJobCircuitType;
 use psy_common_circuit::circuits::traits::qstandard::QStandardCircuit;
 use psy_config::PSY_NETWORK_MAGIC;
-use psy_common::job::id::ProvingJobCircuitType;
 use psy_crypto::common::{circuit_library::CircuitInfoLibraryBuilder, simple_circuit_library::SimpleCircuitLibrary};
 use psy_data::config::store_config::PsyFelt;
 use psy_network_circuit::{coordinator::coordinator_helper::PsyCoordinatorCircuitManager, guta::guta_helper::PsyGUTACircuitManager};

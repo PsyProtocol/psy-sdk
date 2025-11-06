@@ -10,6 +10,7 @@ pub mod hash_key_with_id;
 pub mod pm_jobs_completed_stats;
 pub mod pm_reward_commitment;
 pub mod realm_id_key;
+pub mod realm_snapshot_key;
 pub mod realm_status;
 pub mod staging_checkpoint_info;
 pub mod staging_checkpoint_key;

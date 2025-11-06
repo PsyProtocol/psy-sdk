@@ -3,13 +3,13 @@ use std::{marker::PhantomData, time::Duration};
 use async_trait::async_trait;
 use kvq::traits::{KVQBinaryStore, KVQSerializable};
 use plonky2::{field::goldilocks_field::GoldilocksField, hash::hash_types::RichField};
-use psy_common_circuit::hash::merkle::gadgets::delta_merkle_proof;
-use psy_config::network_constants::{COORDINATOR_USER_TREE_HEIGHT, GLOBAL_USER_TREE_HEIGHT};
 use psy_common::{
     data::qhashout::QHashOut,
     job::id::{ProvingJobCircuitType, ProvingJobDataType, QJobTopic, QProvingJobDataID, QProvingJobGraph, QProvingTask},
     utils::graph::BidirectionalGraph,
 };
+use psy_common_circuit::hash::merkle::gadgets::delta_merkle_proof;
+use psy_config::network_constants::{COORDINATOR_USER_TREE_HEIGHT, GLOBAL_USER_TREE_HEIGHT};
 use psy_crypto::hash::{
     merkle::{
         core::{compute_root_merkle_proof_generic, DeltaMerkleProofCore, MerkleProofCore},
@@ -567,6 +567,8 @@ pub trait CoordinatorClient<F: RichField> {
     async fn get_checkpoint_sync_info(&self, realm_id: u32, checkpoint_id: u64) -> anyhow::Result<CheckpointSyncInfo<F>>;
 
     async fn submit_guta_v1(&self, input: &SubmitGUTARealmResultAPINoProofInput<F>, proof: &[u8], realm_id: u64) -> anyhow::Result<()>;
+    async fn has_pending_guta(&self, realm_id: u32) -> anyhow::Result<bool>;
+    async fn get_latest_checkpoint_sync_info(&self, realm_id: u32) -> anyhow::Result<CheckpointSyncInfo<F>>;
 }
 
 pub trait RealmProcessorStateClient<F: RichField>: GlobalUserTreeMerkleReader<F> {

@@ -13,7 +13,6 @@ use plonky2::{
         proof::ProofWithPublicInputs,
     },
 };
-use psy_config::get_default_worker_public_key;
 use psy_common::{
     data::qhashout::QHashOut,
     job::{
@@ -21,6 +20,7 @@ use psy_common::{
         traits::{QProofStoreReaderAsync, QProofStoreReaderSync},
     },
 };
+use psy_config::get_default_worker_public_key;
 use psy_crypto::{common::circuit_library::CircuitInfoLibrary, hash::merkle::treeprover::DummyAggStateTransition};
 
 use crate::{

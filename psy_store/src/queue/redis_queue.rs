@@ -321,6 +321,9 @@ impl CheckpointDrainQueueConsumerAsyncImm for ProofStoreRedis {
 
 #[async_trait]
 pub trait CheckpointDrainQueueConsumerAsyncImmWithPosition: CheckpointDrainQueueConsumerAsyncImm {
+    async fn peek_all<T: DQSerializable>(&self, channel_id: u64) -> anyhow::Result<Vec<T>> {
+        Ok(vec![])
+    }
     async fn peek_with_position<T: DQSerializable>(
         &self,
         count: Option<isize>,
@@ -618,7 +621,7 @@ impl QPendingUserStoreAsyncImm for ProofStoreRedis {
         self.redis.set(state_key, state_data).await?;
 
         tracing::debug!(
-            "Consumed {} users from positions {}-{} for checkpoint {}",
+            "peek {} users from positions {}-{} for checkpoint {}",
             users.len(),
             start_position,
             end_position,
@@ -664,6 +667,15 @@ impl QPendingUserStoreAsyncImm for ProofStoreRedis {
 
 #[async_trait]
 impl CheckpointDrainQueueConsumerAsyncImmWithPosition for ProofStoreRedis {
+    async fn peek_all<T: DQSerializable>(&self, channel_id: u64) -> anyhow::Result<Vec<T>> {
+        let checkpoint_queue_prefix = format!("{}-{}", self.worker_queue_key(), PS_DRAIN_QUEUE_KEY_PREFIX);
+        let key = format!("{}-{}", checkpoint_queue_prefix, channel_id);
+        let members: Vec<Vec<u8>> = self.redis.lrange(key, 0, -1).await?;
+
+        let items: Vec<T> = members.into_iter().map(|x| T::from_bytes(&x)).collect::<anyhow::Result<Vec<T>>>()?;
+        Ok(items)
+    }
+
     async fn peek_with_position<T: DQSerializable>(
         &self,
         count: Option<isize>,
@@ -691,12 +703,13 @@ impl CheckpointDrainQueueConsumerAsyncImmWithPosition for ProofStoreRedis {
             consumed_count: items.len(),
         };
 
-        let state_key = format!("{}-{}-{}", self.worker_queue_key(), "DRAIN_CONSUMPTION_STATE", channel_id);
-        let state_data = bincode::serialize(&state).map_err(|e| anyhow::anyhow!("Failed to serialize state: {}", e))?;
-        self.redis.set(state_key, state_data).await?;
+        // let state_key = format!("{}-{}-{}", self.worker_queue_key(),
+        // "DRAIN_CONSUMPTION_STATE", channel_id); let state_data =
+        // bincode::serialize(&state).map_err(|e| anyhow::anyhow!("Failed to serialize
+        // state: {}", e))?; self.redis.set(state_key, state_data).await?;
 
         tracing::debug!(
-            "Consumed redis {} items from drain queue {} for checkpoint {}",
+            "peek redis {} items from drain queue {} for checkpoint {}",
             items.len(),
             channel_id,
             checkpoint_id

@@ -9,12 +9,12 @@ use plonky2::{
         proof::ProofWithPublicInputs,
     },
 };
+use psy_common::data::qhashout::QHashOut;
 use psy_common_circuit::{
     builder::hash::core::CircuitBuilderHashCore,
     traits::CreatableTarget,
     treeprover::aggregation::gadgets::{verify_state_transition::VerifyStateTransitionProofGadget, AggStateTransitionGadget},
 };
-use psy_common::data::qhashout::QHashOut;
 use psy_crypto::hash::merkle::{
     core::MerkleProofCore,
     treeprover::{AggStateTransition, TPAltCircuitFingerprintConfig},

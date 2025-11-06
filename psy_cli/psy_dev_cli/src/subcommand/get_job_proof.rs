@@ -132,7 +132,11 @@ pub async fn run(args: GetJobProofArgs) -> Result<()> {
     Ok(())
 }
 
-async fn get_job_proof(provider: &RpcProvider, job_info: &JobInfo, checkpoint_id: u64) -> Result<psy_common::job::id::VariableHeightRewardMerkleProof> {
+async fn get_job_proof(
+    provider: &RpcProvider,
+    job_info: &JobInfo,
+    checkpoint_id: u64,
+) -> Result<psy_common::job::id::VariableHeightRewardMerkleProof> {
     let results = provider.get_job_proofs(vec![job_info.clone()]).await?;
 
     if results.is_empty() {

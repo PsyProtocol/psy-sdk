@@ -15,7 +15,6 @@ use plonky2::{
     },
     plonk::{config::PoseidonGoldilocksConfig, proof::ProofWithPublicInputs},
 };
-use psy_config::network_constants::{GLOBAL_CONTRACT_TREE_HEIGHT, GLOBAL_USER_TREE_HEIGHT};
 use psy_common::{
     data::qhashout::QHashOut,
     job::{
@@ -26,6 +25,7 @@ use psy_common::{
         worker_queue::WorkerEventReceiverAsyncImm,
     },
 };
+use psy_config::network_constants::{GLOBAL_CONTRACT_TREE_HEIGHT, GLOBAL_USER_TREE_HEIGHT};
 use psy_crypto::hash::{
     merkle::core::{compute_historical_and_current_merkle_roots_core_gt, DeltaMerkleProofCore, MerkleProofCore},
     traits::{
@@ -60,6 +60,7 @@ use super::{error::RpcError, rpc::RealmEdgeRpcServer};
 use crate::{
     common::{
         jobs::{JobSchedulerRpcServer, MESSAGE_CLAIM_JOB},
+        utils::current_datetime,
         whitelist::{WhiteList, WhiteListCache},
     },
     common_v2::traits::realm::{
@@ -72,8 +73,9 @@ use crate::{
         C, D, F, H,
     },
     watcher::{
-        events::{JobCompletedEvent, JobStartedEvent, WatcherMessage},
+        events::{JobCompletedEvent, JobStartedEvent, UserEndcapSubmissionEvent, UserEndcapSubmissionMetadata, WatcherMessage},
         watcher_client::WatcherClient,
+        WatcherSourceNodeType,
     },
 };
 
@@ -170,10 +172,9 @@ where
         // );
         let endcap_checkpoint_id = user_ec_input.core.checkpoint_id.to_canonical_u64();
         if endcap_checkpoint_id != checkpoint_id {
-            tracing::warn!(
+            warn!(
                 "user cap checkpoint is behind current checkpoint: {} != {}",
-                endcap_checkpoint_id,
-                checkpoint_id
+                endcap_checkpoint_id, checkpoint_id
             );
         }
 
@@ -236,10 +237,9 @@ where
         ensure!(historical_root == user_ec_input.core.state_transition.checkpoint_tree_root_hash);
 
         if checkpoint_proof.root != user_ec_input.core.state_transition.checkpoint_tree_root_hash {
-            tracing::warn!(
+            warn!(
                 "ensure checkpoint_proof: {} == user_ec_input.core.state_transition.checkpoint_tree_root_hash {}",
-                checkpoint_proof.root,
-                user_ec_input.core.state_transition.checkpoint_tree_root_hash,
+                checkpoint_proof.root, user_ec_input.core.state_transition.checkpoint_tree_root_hash,
             );
             // anyhow::bail!("invalid checkpoint_root_hash");
         }
@@ -389,12 +389,36 @@ where
     }
 
     async fn submit_user_end_cap(&self, user_ec_input: SubmitUserEndCapNonProofInput<F>, proof: ProofWithPublicInputs<F, C, D>) -> RpcResult<String> {
-        Ok(self
+        let checkpoint_id = self
             .ctx
+            .store_reader
+            .get_latest_block_state()
+            .await
+            .map_err(RpcError::Anyhow)?
+            .checkpoint_id;
+        let endcap_event = UserEndcapSubmissionEvent {
+            realm_id: self.ctx.realm_config.realm_id as u64,
+            user_id: user_ec_input.core.state_transition.user_id.to_canonical_u64(),
+            metadata: UserEndcapSubmissionMetadata {
+                checkpoint_id,
+                state_transition: user_ec_input.core.state_transition,
+                new_user_leaf: user_ec_input.core.new_user_leaf,
+                endcap_proof_public_inputs: proof.public_inputs.clone(),
+                node_id: self.watcher_client.node_id.clone().unwrap_or_default(),
+                node_type: WatcherSourceNodeType::Realm.to_string(),
+            },
+            timestamp: current_datetime(),
+        };
+        self.ctx
             .handle_recv_end_cap_from_user(user_ec_input, &proof)
             .await
-            .map(|_| "ok".to_string())
-            .map_err(RpcError::Anyhow)?)
+            .map_err(RpcError::Anyhow)?;
+
+        if let Err(e) = self.watcher_client.send_event(WatcherMessage::EndcapSubmission(endcap_event)).await {
+            warn!("⚠️ Failed to report endcap submission event to watcher: {}", e);
+        }
+
+        Ok("ok".to_string())
     }
 
     async fn get_tx_status(&self, user_id: u64, nonce: u64) -> RpcResult<TxStatus> {
@@ -733,7 +757,7 @@ where
                     };
 
                     if computed_root != expected_root {
-                        tracing::warn!(
+                        warn!(
                             "Root mismatch for job({}): expected {}, got {}",
                             job_id.to_hex_string(),
                             expected_root,

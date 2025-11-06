@@ -12,6 +12,7 @@ use plonky2::{
         proof::ProofWithPublicInputs,
     },
 };
+use psy_common::{data::qhashout::QHashOut, job::traits::QProofStoreReaderSync};
 use psy_common_circuit::{
     builder::{
         hash::core::CircuitBuilderHashCore,
@@ -21,7 +22,6 @@ use psy_common_circuit::{
     proof_minifier::{pm_chain::PsyProofMinifierChain, pm_core::get_circuit_fingerprint_generic},
     u32::gates::comparison::ComparisonGate,
 };
-use psy_common::{data::qhashout::QHashOut, job::traits::QProofStoreReaderSync};
 use psy_crypto::{hash::traits::hasher::MerkleZeroHasher, signature::zk::wallet::PRIVATE_KEY_CONSTANTS};
 use psy_vm::{dpn::vm::def::DPNFunctionCircuitDefinition, vm::cfc_input::DapenContractFunctionCircuitInput};
 

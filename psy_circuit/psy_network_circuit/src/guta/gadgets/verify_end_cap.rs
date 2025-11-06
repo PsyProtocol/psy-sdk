@@ -9,13 +9,13 @@ use plonky2::{
         proof::{ProofWithPublicInputs, ProofWithPublicInputsTarget},
     },
 };
+use psy_common::data::qhashout::QHashOut;
 use psy_common_circuit::{
     builder::{core::CircuitBuilderHelpersCore, hash::core::CircuitBuilderHashCore, verify::CircuitBuilderVerifyProofHelpers},
     hash::merkle::gadgets::historical_root_merkle_proof::HistoricalRootMerkleProofGadget,
     treeprover::subtree::gadgets::subtree_core::SubTreeNodeStateTransitionGadget,
 };
 use psy_config::network_constants::{CHECKPOINT_TREE_HEIGHT, GLOBAL_USER_TREE_HEIGHT};
-use psy_common::data::qhashout::QHashOut;
 use psy_crypto::hash::{merkle::core::MerkleProofCore, traits::hasher::MerkleZeroHasher};
 use psy_data::{guta::stats::GUTAStats, qdata::ups_end_cap_result::UPSEndCapResultCompact};
 

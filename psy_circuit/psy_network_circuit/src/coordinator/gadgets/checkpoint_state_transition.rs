@@ -4,11 +4,11 @@ use plonky2::{
     iop::witness::Witness,
     plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher},
 };
+use psy_common::data::qhashout::QHashOut;
 use psy_common_circuit::{
     builder::hash::core::CircuitBuilderHashCore,
     hash::merkle::gadgets::{delta_merkle_proof::DeltaMerkleProofGadget, merkle_proof::MerkleProofGadget},
 };
-use psy_common::data::qhashout::QHashOut;
 use psy_crypto::hash::{
     merkle::core::{DeltaMerkleProofCore, MerkleProofCore},
     traits::hasher::MerkleZeroHasher,

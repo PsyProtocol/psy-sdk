@@ -4,12 +4,12 @@ use plonky2::{
     iop::{target::Target, witness::Witness},
     plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher},
 };
+use psy_common::data::qhashout::QHashOut;
 use psy_common_circuit::{
     builder::hash::core::CircuitBuilderHashCore,
     traits::{AlgebraicHashableTarget, CreatableTarget, FromTargets, ToTargets, WitnessValueFor},
 };
 use psy_config::network_constants::DA_CHALLENGE_WINDOW;
-use psy_common::data::qhashout::QHashOut;
 use psy_data::qdata::checkpoint::{PsyCheckpointLeaf, PsyCheckpointLeafCompact};
 
 use super::{checkpoint_stats::PsyCheckpointLeafStatsGadget, pm_reward_commitment::PM_REWARD_COMMITMENT_TARGET_SIZE};

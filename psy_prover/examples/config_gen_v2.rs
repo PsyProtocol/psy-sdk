@@ -1,6 +1,7 @@
 use std::{fs::File, io::prelude::*, path::PathBuf};
 
 use plonky2::{field::goldilocks_field::GoldilocksField, plonk::config::PoseidonGoldilocksConfig};
+use psy_common::job::id::ProvingJobCircuitType;
 use psy_common_circuit::circuits::{
     lookalikes::{
         get_agg_state_transition_type_d_common_data, get_agg_user_registration_deploy_guta_type_f_common_data, get_end_cap_type_e_common_data,
@@ -9,7 +10,6 @@ use psy_common_circuit::circuits::{
     traits::qstandard::QStandardCircuit,
 };
 use psy_config::PSY_NETWORK_MAGIC;
-use psy_common::job::id::ProvingJobCircuitType;
 use psy_crypto::common::generic_circuit_verifier::GenericCircuitVerifier;
 use psy_network_circuit::{coordinator::coordinator_helper::PsyCoordinatorCircuitManager, guta::guta_helper::PsyGUTACircuitManager};
 use psy_ups_circuit::circuit_manager::core::PsyUPSStepCircuitManager;

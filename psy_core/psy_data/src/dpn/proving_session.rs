@@ -1,7 +1,7 @@
 use kvq::traits::KVQSerializable;
 use plonky2::{field::goldilocks_field::GoldilocksField, hash::hash_types::RichField};
-use psy_config::network_constants::{DEFAULT_CALLER_CONTRACT_ID_U64, DEFERRED_CALL_MAGIC, SIGN_SIMPLE_TRANSACTION_MAGIC};
 use psy_common::{data::qhashout::QHashOut, traits::to_qfelts::ToQFelts};
+use psy_config::network_constants::{DEFAULT_CALLER_CONTRACT_ID_U64, DEFERRED_CALL_MAGIC, SIGN_SIMPLE_TRANSACTION_MAGIC};
 use psy_crypto::hash::{
     merkle::core::DeltaMerkleProofCore,
     traits::{hasher::FieldQHasher, qhashable::QFieldHashable},

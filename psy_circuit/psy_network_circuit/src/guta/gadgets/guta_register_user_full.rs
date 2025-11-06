@@ -7,11 +7,11 @@ use plonky2::{
     },
     plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher},
 };
+use psy_common::data::qhashout::QHashOut;
 use psy_common_circuit::{
     builder::comparison::CircuitBuilderComparison, hash::merkle::gadgets::merkle_proof::MerkleProofGadget,
     treeprover::subtree::gadgets::subtree_core::SubTreeNodeStateTransitionGadget,
 };
-use psy_common::data::qhashout::QHashOut;
 use psy_crypto::{
     common::user_id::circuit_user_registration_tree_index_bits_to_user_id,
     hash::merkle::core::{DeltaMerkleProofCore, MerkleProofCore},

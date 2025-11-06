@@ -9,11 +9,6 @@ use plonky2::{
     hash::{hash_types::HashOut, poseidon::PoseidonHash},
     plonk::config::{AlgebraicHasher, GenericConfig, PoseidonGoldilocksConfig},
 };
-use psy_common_circuit::circuits::traits::qstandard::QStandardCircuit;
-use psy_config::{
-    network_constants::{MAX_CONTRACT_STATE_TREE_HEIGHT, TOKEN_CONTRACT_ID, UPS_SESSION_PROOF_TREE_HEIGHT},
-    PSY_NETWORK_MAGIC, MINING_REWARDS_CONTRACT_ID,
-};
 use psy_common::{
     args::{ContractCallArgs, SignData, SignType, WalletSessionArgs},
     data::qhashout::QHashOut,
@@ -21,6 +16,11 @@ use psy_common::{
     traits::to_qfelts::ToQFelts,
     ups::circuits::LocalCircuitType,
     JobInfo, JobLocation,
+};
+use psy_common_circuit::circuits::traits::qstandard::QStandardCircuit;
+use psy_config::{
+    network_constants::{MAX_CONTRACT_STATE_TREE_HEIGHT, TOKEN_CONTRACT_ID, UPS_SESSION_PROOF_TREE_HEIGHT},
+    MINING_REWARDS_CONTRACT_ID, PSY_NETWORK_MAGIC,
 };
 use psy_crypto::{
     hash::traits::{hasher::MerkleZeroHasher, qhashable::QFieldHashable},

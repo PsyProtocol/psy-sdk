@@ -4,6 +4,7 @@ use plonky2::{
     iop::witness::Witness,
     plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher},
 };
+use psy_common::data::qhashout::QHashOut;
 use psy_common_circuit::{
     builder::hash::core::CircuitBuilderHashCore,
     hash::merkle::gadgets::merkle_proof::MerkleProofGadget,
@@ -12,7 +13,6 @@ use psy_common_circuit::{
 use psy_config::network_constants::{
     CHECKPOINT_TREE_HEIGHT, DEFERRED_TRANSACTION_TREE_HEIGHT, GLOBAL_USER_TREE_HEIGHT, INLINE_TRANSACTION_TREE_HEIGHT,
 };
-use psy_common::data::qhashout::QHashOut;
 use psy_crypto::hash::traits::hasher::iterate_merkle_hasher_alg;
 use psy_data::ups::start_step::UPSStartStepInput;
 

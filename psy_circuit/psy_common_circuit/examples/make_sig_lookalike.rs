@@ -8,6 +8,7 @@ use plonky2::{
         proof::ProofWithPublicInputs,
     },
 };
+use psy_common::{data::qhashout::QHashOut, utils::debug_timer::DebugTimer};
 use psy_common_circuit::{
     builder::{
         hash::core::CircuitBuilderHashCore,
@@ -16,7 +17,6 @@ use psy_common_circuit::{
     circuits::{traits::qstandard::QStandardCircuit, zk_signature3::manager::SimplePsyZKSignatureManager},
     proof_minifier::pm_core::get_circuit_fingerprint_generic,
 };
-use psy_common::{data::qhashout::QHashOut, utils::debug_timer::DebugTimer};
 
 pub struct SimplerSigLookalikeCircuit<C: GenericConfig<D> + 'static, const D: usize>
 where

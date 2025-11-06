@@ -10,6 +10,13 @@ use plonky2::{
         proof::ProofWithPublicInputs,
     },
 };
+use psy_common::{
+    data::qhashout::QHashOut,
+    job::{
+        id::QProvingJobDataID,
+        traits::{QProofStoreReaderAsync, QProofStoreReaderSync},
+    },
+};
 use psy_common_circuit::{
     builder::{comparison::CircuitBuilderComparison, hash::core::CircuitBuilderHashCore, pad_circuit::CircuitBuilderPsyCommonGates},
     circuits::traits::qstandard::{
@@ -20,13 +27,6 @@ use psy_common_circuit::{
     traits::{ToTargets, WitnessValueFor},
 };
 use psy_config::get_default_worker_public_key;
-use psy_common::{
-    data::qhashout::QHashOut,
-    job::{
-        id::QProvingJobDataID,
-        traits::{QProofStoreReaderAsync, QProofStoreReaderSync},
-    },
-};
 use psy_crypto::{
     common::circuit_library::CircuitInfoLibrary,
     hash::{merkle::spiderman::SpidermanUpdateProof, traits::hasher::MerkleZeroHasher},

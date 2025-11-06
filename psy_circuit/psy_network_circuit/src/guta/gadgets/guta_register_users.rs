@@ -4,6 +4,7 @@ use plonky2::{
     iop::{target::Target, witness::Witness},
     plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher},
 };
+use psy_common::data::qhashout::QHashOut;
 use psy_common_circuit::{
     builder::{
         comparison::CircuitBuilderComparison, connect::CircuitBuilderConnectHelpers, core::CircuitBuilderHelpersCore,
@@ -11,7 +12,6 @@ use psy_common_circuit::{
     },
     treeprover::subtree::gadgets::subtree_core::SubTreeNodeStateTransitionGadget,
 };
-use psy_common::data::qhashout::QHashOut;
 use psy_data::guta::proof_input::GUTARegisterUserFullInput;
 
 use super::guta_register_user_full::GUTARegisterUserFullGadget;

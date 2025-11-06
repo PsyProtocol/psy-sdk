@@ -10,6 +10,10 @@ use plonky2::{
         proof::ProofWithPublicInputs,
     },
 };
+use psy_common::{
+    data::qhashout::QHashOut,
+    job::{id::QProvingJobDataID, traits::QProofStoreReaderAsync},
+};
 use psy_common_circuit::{
     builder::{comparison::CircuitBuilderComparison, hash::core::CircuitBuilderHashCore, pad_circuit::pad_circuit_degree},
     circuits::traits::qstandard::{QStandardCircuit, QStandardCircuitProvableWithProofStoreAndRefLibraryAsync},
@@ -18,10 +22,6 @@ use psy_common_circuit::{
     traits::ToTargets,
 };
 use psy_config::network_constants::{CHECKPOINT_TREE_HEIGHT, GLOBAL_USER_TREE_HEIGHT};
-use psy_common::{
-    data::qhashout::QHashOut,
-    job::{id::QProvingJobDataID, traits::QProofStoreReaderAsync},
-};
 use psy_crypto::{
     common::circuit_library::CircuitInfoLibrary,
     hash::{

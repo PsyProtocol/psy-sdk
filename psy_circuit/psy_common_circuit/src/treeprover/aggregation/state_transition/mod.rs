@@ -16,11 +16,11 @@ use plonky2::{
         proof::{ProofWithPublicInputs, ProofWithPublicInputsTarget},
     },
 };
-use psy_config::get_default_worker_public_key;
 use psy_common::{
     data::qhashout::QHashOut,
     job::{id::QProvingJobDataID, traits::QProofStoreReaderAsync},
 };
+use psy_config::get_default_worker_public_key;
 use psy_crypto::{
     common::circuit_library::CircuitInfoLibrary,
     hash::merkle::treeprover::{data::CircuitInputWithDependencies, AggStateTransitionInput},

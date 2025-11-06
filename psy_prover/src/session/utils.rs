@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 
 use k256::ecdsa::{signature::hazmat::PrehashSigner, SigningKey};
-use psy_config::MINING_REWARDS_CONTRACT_ID;
 use maybe_async::maybe_async;
 use plonky2::{
     field::goldilocks_field::GoldilocksField,
@@ -19,6 +18,7 @@ use psy_common::{
     job::id::{ProvingJobCircuitType, QProvingJobDataID, VariableHeightRewardMerkleProof, GUTA_REWARDS_TREE_MAX_HEIGHT},
     JobInfo, JobLocation,
 };
+use psy_config::MINING_REWARDS_CONTRACT_ID;
 use psy_crypto::signature::secp256k1::core::PsyCompressedSecp256K1Signature;
 use psy_provider::provider::RpcProvider;
 use serde::{Deserialize, Serialize};

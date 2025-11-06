@@ -8,15 +8,15 @@ use plonky2::{
     },
     plonk::config::PoseidonGoldilocksConfig,
 };
-use psy_common_circuit::circuits::{traits::qstandard::QStandardCircuit, zk_signature3::manager::SimplePsyZKSignatureManager};
-use psy_config::{
-    network_constants::{GLOBAL_USER_TREE_HEIGHT, UPS_SESSION_PROOF_TREE_HEIGHT},
-    PSY_NETWORK_MAGIC,
-};
 use psy_common::{
     data::qhashout::QHashOut,
     ups::circuits::{LocalCircuitId, LocalCircuitType},
     utils::debug_timer::DebugTimer,
+};
+use psy_common_circuit::circuits::{traits::qstandard::QStandardCircuit, zk_signature3::manager::SimplePsyZKSignatureManager};
+use psy_config::{
+    network_constants::{GLOBAL_USER_TREE_HEIGHT, UPS_SESSION_PROOF_TREE_HEIGHT},
+    PSY_NETWORK_MAGIC,
 };
 use psy_crypto::{hash::utils::gen_dapen_contract_function_method_id, signature::zk::wallet::SimplePsyPrivateKey};
 use psy_data::{

@@ -7,13 +7,6 @@ use plonky2::{
     hash::hash_types::RichField,
     plonk::config::PoseidonGoldilocksConfig,
 };
-use psy_config::{
-    get_default_user_state_tree_root, get_default_worker_public_key,
-    network_constants::{
-        BATCH_USER_REGISTRAITION_SUB_TREE_HEIGHT, COORDINATOR_EDGE_TO_PROCESSOR_CHANNEL, COORDINATOR_USER_TREE_HEIGHT, GLOBAL_CONTRACT_TREE_HEIGHT,
-        GLOBAL_USER_TREE_HEIGHT, MAX_CONTRACT_STATE_TREE_HEIGHT, REALM_USER_TREE_HEIGHT, USERS_PER_REALM,
-    },
-};
 use psy_common::{
     data::qhashout::QHashOut,
     job::{
@@ -21,6 +14,13 @@ use psy_common::{
         history_queue::{CheckpointHistoryQueueConsumerAsyncImm, CheckpointHistoryQueueEmitterAsyncImm},
         traits::{QProofStoreAsyncImm, QProofStoreReaderAsync, QProofStoreWriterAsyncImm},
         worker_queue::{WorkerEventReceiverAsyncImm, WorkerEventTransmitterAsyncImm},
+    },
+};
+use psy_config::{
+    get_default_user_state_tree_root, get_default_worker_public_key,
+    network_constants::{
+        BATCH_USER_REGISTRAITION_SUB_TREE_HEIGHT, COORDINATOR_EDGE_TO_PROCESSOR_CHANNEL, COORDINATOR_USER_TREE_HEIGHT, GLOBAL_CONTRACT_TREE_HEIGHT,
+        GLOBAL_USER_TREE_HEIGHT, MAX_CONTRACT_STATE_TREE_HEIGHT, REALM_USER_TREE_HEIGHT, USERS_PER_REALM,
     },
 };
 use psy_crypto::{
@@ -332,11 +332,12 @@ impl
     pub async fn build_block(&self, next_checkpoint_id: u64, slot: u64) -> anyhow::Result<u64> {
         let ctx = self.ctx.clone();
         let now = Instant::now();
-        if let Err(e) = ctx.build_block(slot).await {
+        let ret = ctx.build_block(slot).await;
+        if let Err(e) = ret {
             ctx.rollback(next_checkpoint_id).await?;
             bail!("Rollback: Failed to build and prove block: {}", e);
         }
-        let (pair_to_set, remove_keys) = match self.ctx.commit(next_checkpoint_id).await {
+        let (pair_to_set, remove_keys) = match self.ctx.commit(next_checkpoint_id, ret.unwrap()).await {
             Ok((pair_to_set, remove_keys)) => (pair_to_set, remove_keys),
             Err(e) => {
                 ctx.rollback(next_checkpoint_id).await?;

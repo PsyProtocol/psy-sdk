@@ -1,5 +1,6 @@
-use crate::job::id::QProvingJobDataID;
 use serde::{Deserialize, Serialize};
+
+use crate::job::id::QProvingJobDataID;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct JobInfo {

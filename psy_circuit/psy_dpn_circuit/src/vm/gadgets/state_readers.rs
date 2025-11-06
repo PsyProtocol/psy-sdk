@@ -6,6 +6,7 @@ use plonky2::{
     iop::{target::Target, witness::Witness},
     plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher},
 };
+use psy_common::data::{base_types::hash256::Hash256, qhashout::QHashOut};
 use psy_common_circuit::{
     builder::{
         connect::CircuitBuilderConnectHelpers, hash::core::CircuitBuilderHashCore, math::core::CircuitBuilderCoreMathHelpers,
@@ -18,7 +19,6 @@ use psy_common_circuit::{
     traits::{CreatableTarget, ToTargets},
 };
 use psy_config::network_constants::{CHECKPOINT_TREE_HEIGHT, DEFERRED_TRANSACTION_TREE_HEIGHT, GLOBAL_CONTRACT_TREE_HEIGHT, GLOBAL_USER_TREE_HEIGHT};
-use psy_common::data::{base_types::hash256::Hash256, qhashout::QHashOut};
 use psy_crypto::hash::core::sha256;
 use psy_network_circuit::gadgets::qdata::{
     checkpoint_state_roots::PsyCheckpointGlobalStateRootsGadget, checkpoint_stats::PsyCheckpointLeafStatsGadget, contract::PsyContractLeafGadget,
@@ -1233,8 +1233,7 @@ impl StateReaderGadget {
                 } else {
                     let contract_id_target = dpn.resolve_target(c.contract_id);
 
-                    let (is_new, index) =
-                        self.resolve_or_insert_contract_leaf_gadget::<H, F, D>(builder, ck.clone());
+                    let (is_new, index) = self.resolve_or_insert_contract_leaf_gadget::<H, F, D>(builder, ck.clone());
 
                     if is_new {
                         {

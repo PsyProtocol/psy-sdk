@@ -77,7 +77,7 @@ impl RealmRecoveryManager {
         } else {
             None
         };
-        RealmProcessor::initialize_store(&self.psy_store, genesis_config, self.realm_id).await?;
+        RealmProcessor::initialize_store(self.psy_store.clone(), genesis_config, self.realm_id).await?;
 
         info!("⚡ Recovering realm {} from checkpoint 0 to {}", self.realm_id, target);
 
