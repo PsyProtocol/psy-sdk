@@ -169,9 +169,6 @@ REALM_USER_TREE_HEIGHT   := $(shell jq -r '.networks.localhost.realm_user_tree_h
 REALM_TREE_LEAF_LEVEL    := $(shell echo $$(($(GLOBAL_USER_TREE_HEIGHT) - $(REALM_USER_TREE_HEIGHT))))
 USER1_ID                 := $(shell ./target/${PROFILE}/psy_dev_cli get-user-id-from-registration-id ${REGISTRATION_ID} --strategy ${STRATEGY} | awk '{for(i=1;i<=NF;i++) if($$i=="ID:") print $$(i+1)}' | tail -1)
 
-user1-id:
-    @echo "USER1_ID: $(USER1_ID)"
-
 init:
 	# Create main project directory
 	@mkdir -p ${PROJECT_DIR}

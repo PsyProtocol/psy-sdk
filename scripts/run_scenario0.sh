@@ -14,7 +14,7 @@ mkdir -p "$LOG_DIR"
 SCENARIO_LOG="$LOG_DIR/scenario0.log"
 
 GET_USER0_BALANCE="make CHECKPOINT_ID=100 USER_ID=0 get-slot-value"
-GET_USER1_BALANCE="make CHECKPOINT_ID=100 USER_ID=4194304 REALM_RPC_URL=http://127.0.0.1:8547 get-slot-value"
+GET_USER1_BALANCE="make CHECKPOINT_ID=100 USER_ID=2097152 REALM_RPC_URL=http://127.0.0.1:8547 get-slot-value"
 
 # Clear log file at startup
 echo "Clearing log file..."
@@ -47,7 +47,7 @@ cleanup() {
 # Function to get user token info
 get_user_token_info() {
     run_make_command "$GET_USER0_BALANCE" "get user 0 token info"
-    run_make_command "$GET_USER1_BALANCE" "get user 4194304 token info"
+    run_make_command "$GET_USER1_BALANCE" "get user 2097152 token info"
 }
 
 # Trap SIGINT (Ctrl+C) and SIGTERM to call cleanup
