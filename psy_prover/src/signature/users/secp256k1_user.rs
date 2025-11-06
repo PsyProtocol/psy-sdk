@@ -14,7 +14,7 @@ use psy_crypto::signature::{
     zk::data::ZKPublicKeyInfo,
 };
 use psy_provider::provider::RpcProvider;
-use psy_vm::ups::circuit_manager::UPSCircuitManagerTrait;
+use psy_vm::ups::circuit_manager::UPSCircuitManager;
 
 use crate::signature::{
     context::SignContext,
@@ -44,7 +44,7 @@ impl SignatureUser for SECP256K1User {
     async fn public_key_info(
         &self,
         _wallet: &PsyMemoryWallet,
-        circuit_manager: &(dyn UPSCircuitManagerTrait<SignatureConfig, SIGNATURE_D> + Send + Sync),
+        circuit_manager: &(dyn UPSCircuitManager<SignatureConfig, SIGNATURE_D> + Send + Sync),
     ) -> Result<ZKPublicKeyInfo<GoldilocksField>> {
         let public_key = get_secp_public_key(self.private_key)?;
         let public_key_param =
@@ -59,7 +59,7 @@ impl SignatureUser for SECP256K1User {
     async fn sign(
         &self,
         _wallet: &PsyMemoryWallet,
-        circuit_manager: &(dyn UPSCircuitManagerTrait<SignatureConfig, SIGNATURE_D> + Send + Sync),
+        circuit_manager: &(dyn UPSCircuitManager<SignatureConfig, SIGNATURE_D> + Send + Sync),
         _context: &SignContext,
         sighash: QHashOut<GoldilocksField>,
     ) -> Result<SignatureProof> {
@@ -70,7 +70,7 @@ impl SignatureUser for SECP256K1User {
     async fn circuit_info(
         &self,
         _wallet: &PsyMemoryWallet,
-        circuit_manager: &(dyn UPSCircuitManagerTrait<SignatureConfig, SIGNATURE_D> + Send + Sync),
+        circuit_manager: &(dyn UPSCircuitManager<SignatureConfig, SIGNATURE_D> + Send + Sync),
         _context: &SignContext,
     ) -> Result<SignatureCircuitInfo> {
         Ok(SignatureCircuitInfo {

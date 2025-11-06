@@ -22,6 +22,9 @@ use psy_prover::wallet::memory_wallet::{SECP256K1_FINGERPRINT, ZK_FINGERPRINT};
 use psy_ups_circuit::signature::software_defined::{
     get_sdc_public_key_param, Plonky2SoftwareDefinedSignatureGadget
 };
+use psy_prover::wallet::memory_wallet::PsyMemoryWallet;
+use psy_ups_circuit::circuit_manager::core::PsyUPSStepCircuitManager;
+use psy_vm::ups::circuit_manager::UPSCircuitManager;
 use psy_rust_sdk::{
     provider::{QUserRpcProvider, RpcProvider},
     request::QRegisterUserRPCRequest,
@@ -37,11 +40,7 @@ pub async fn run(args: RegisterUserArgs) -> Result<()> {
 
     let user_sdc: DPNFunctionCircuitDefinition = serde_json::from_str(&std::fs::read_to_string("sdc.json")?)?;
 
-    let contract_state_tree_height = provider
-        .get_contract_code_definition(0)
-        .await
-        .map(|cfc| cfc.state_tree_height as u8)
-        .unwrap_or(MAX_CONTRACT_STATE_TREE_HEIGHT);
+    let contract_state_tree_height = MAX_CONTRACT_STATE_TREE_HEIGHT;
 
     // Parse private key
     let private_key_base = match &args.private_key {
@@ -52,27 +51,18 @@ pub async fn run(args: RegisterUserArgs) -> Result<()> {
             private_key
         }
     };
-    // Get public key info
-    let public_key_param = match SignType::from(args.sign_type.clone()) {
-        SignType::ZKSign => SimplePsyPrivateKey {
-            private_key: private_key_base,
-        }
-        .get_public_key_param::<PsyHasher>(),
-        SignType::SECP256K1Sign => {
-            let compressed_public_key = get_secp_public_key(private_key_base)?;
-            tracing::info!("compressed public key {:?}", compressed_public_key);
-            hash_no_pad_compressed_public_key::<GoldilocksField, PoseidonPermutation<GoldilocksField>>(compressed_public_key)
-        }
-        SignType::SoftwareDefinedDPNSign => get_sdc_public_key_param(&private_key_base),
-        SignType::SoftwareDefinedPlonky2Sign => get_sdc_public_key_param(&private_key_base),
-    };
-
+    // Create wallet and circuit manager
+    let main_circuits: Box<dyn UPSCircuitManager<C, D>> = Box::new(PsyUPSStepCircuitManager::<C, D>::new_with_config(
+        psy_config::network_constants::PSY_NETWORK_MAGIC,
+    ));
+    let mut wallet = PsyMemoryWallet::new(vec![main_circuits]);
+    
+    // Get fingerprint based on sign type
     let fingerprint = match SignType::from(args.sign_type.clone()) {
         SignType::ZKSign => {
             if let Some(fingerprint) = args.fingerprint {
                 assert_eq!(fingerprint, ZK_FINGERPRINT, "ZK key fingerprint mismatch");
             }
-
             QHashOut::<GoldilocksField>::from_str(&ZK_FINGERPRINT)?
         }
         SignType::SECP256K1Sign => {
@@ -88,28 +78,12 @@ pub async fn run(args: RegisterUserArgs) -> Result<()> {
             )?
         }
         SignType::SoftwareDefinedPlonky2Sign => {
-            let config = plonky2::plonk::circuit_data::CircuitConfig::standard_recursion_config();
-            let mut builder = plonky2::plonk::circuit_builder::CircuitBuilder::<GoldilocksField, 2>::new(config);
-
-            let mut gadget = Plonky2SoftwareDefinedSignatureGadget::add_virtual_to(&mut builder, contract_state_tree_height, 0);
-
-            // Add custom constraints: ensure slot0 is less than 1000
-            gadget.add_custom_constraints(&mut builder, |builder, state_reader, _circuit_inputs| {
-                if let Ok(slot0) = state_reader.get_self_user_current_contract_state_slot_single(builder, GoldilocksField::from_canonical_u64(0)) {
-                    let one_thousand = builder.constant(GoldilocksField::from_canonical_u64(1000));
-                    builder.ensure_is_less_than(32, slot0, one_thousand);
-                }
-            });
-
-            gadget.build_circuit(builder).unwrap();
-            gadget.get_fingerprint()
+            wallet.register_plonky2_software_defined_circuit(contract_state_tree_height, 0).await?
         }
     };
 
-    let public_key_info = ZKPublicKeyInfo {
-        fingerprint,
-        public_key_param,
-    };
+    // Use simplified interface
+    let public_key_info = wallet.get_or_create_user(private_key_base, fingerprint).await?;
 
     // Register user
     provider.register_user(QRegisterUserRPCRequest { public_key: public_key_info }).await?;

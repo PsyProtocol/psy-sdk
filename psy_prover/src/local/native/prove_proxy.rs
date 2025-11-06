@@ -40,7 +40,7 @@ use psy_provider::request::{QRegisterDPNSoftwareDefinedCircuitRPCRequest, QRegis
 use psy_provider::{
     provider::{NetworkConfig, QCommonCircuitData, RpcProvider},
 };
-use psy_vm::ups::circuit_manager::UPSCircuitManagerTrait;
+use psy_vm::ups::circuit_manager::UPSCircuitManager;
 use psy_ups_circuit::circuit_manager::core::PsyUPSStepCircuitManager;
 use psy_vm::{dpn::contract::cfc_code_definition_to_dapen_fc, vm::cfc_input::DapenContractFunctionCircuitInput};
 use serde::{Deserialize, Deserializer, Serialize};

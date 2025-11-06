@@ -13,11 +13,11 @@ use psy_crypto::{
     },
 };
 use psy_data::config::store_config::PsyHasher;
-use psy_prover::wallet::memory_wallet::PsyMemoryWallet;
+use psy_prover::wallet::memory_wallet::{PsyMemoryWallet, SECP256K1_FINGERPRINT, ZK_FINGERPRINT};
 use psy_common::args::SignType;
 use psy_rust_sdk::wallet::secp_wallet::Wallet;
 use psy_ups_circuit::circuit_manager::core::PsyUPSStepCircuitManager;
-use psy_vm::ups::circuit_manager::UPSCircuitManagerTrait;
+use psy_vm::ups::circuit_manager::UPSCircuitManager;
 
 use super::args::GetPublicKeyArgs;
 
@@ -25,46 +25,34 @@ const D: usize = 2;
 type C = PoseidonGoldilocksConfig;
 
 pub async fn run(args: GetPublicKeyArgs) -> anyhow::Result<()> {
-    match args.sign_type {
-        SignType::ZKSign => {
-            let private_key_base = QHashOut::<GoldilocksField>::from_str(&args.private_key).map_err(|e| anyhow::format_err!("{}", e.to_string()))?;
-
-            let mut wallet = SimplePsyZKSignatureManager::<C, D>::new();
-            let public_key = wallet.add_private_key_get_info(SimplePsyPrivateKey {
-                private_key: private_key_base,
-            });
-
-            println!("ZK Signature Public Key:");
-            println!("  public_key_param: {}", public_key.public_key_param.to_string());
-            println!("  fingerprint: {}", public_key.fingerprint.to_string());
-            println!("  public_key: {}", public_key.qfhash::<PsyHasher>());
-        }
-        SignType::SECP256K1Sign => {
-            let wallet = Wallet::from_hex(&args.private_key)?;
-
-            let main_circuits: Box<dyn UPSCircuitManagerTrait<C, D>> = Box::new(PsyUPSStepCircuitManager::<C, D>::new_with_config(
-                psy_config::network_constants::PSY_NETWORK_MAGIC,
-            ));
-
-            let mut memory_wallet = PsyMemoryWallet::new(vec![main_circuits]);
-            let private_key = QHashOut::from(Hash256::from_bytes(&wallet.private_key())?);
-            let secp_pk_info = memory_wallet.add_secp_private_key(private_key).await?;
-            let public_key = secp_pk_info.qfhash::<PsyHasher>();
-
-            println!("Secp256k1 Signature Public Key:");
-            println!("  ETH Address: {}", wallet.address());
-            println!("  Secp256k1 Public Key: {}", hex::encode(wallet.public_key()));
-            println!("  public_key_hash: {}", secp_pk_info.public_key_param.to_string());
-            println!("  fingerprint: {}", secp_pk_info.fingerprint.to_string());
-            println!("  public_key: {}", public_key);
-        }
+    let private_key_base = QHashOut::<GoldilocksField>::from_str(&args.private_key)?;
+    
+    // Create wallet and circuit manager
+    let main_circuits: Box<dyn UPSCircuitManager<C, D>> = Box::new(PsyUPSStepCircuitManager::<C, D>::new_with_config(
+        psy_config::network_constants::PSY_NETWORK_MAGIC,
+    ));
+    let mut wallet = PsyMemoryWallet::new(vec![main_circuits]);
+    
+    // Get fingerprint based on sign type
+    let fingerprint = match args.sign_type {
+        SignType::ZKSign => QHashOut::<GoldilocksField>::from_str(&ZK_FINGERPRINT)?,
+        SignType::SECP256K1Sign => QHashOut::<GoldilocksField>::from_str(&SECP256K1_FINGERPRINT)?,
         SignType::SoftwareDefinedDPNSign => {
-            println!("Software Defined DPN signature type not supported for public key display");
+            anyhow::bail!("Software Defined DPN requires fingerprint parameter");
         }
         SignType::SoftwareDefinedPlonky2Sign => {
-            println!("Software Defined PLONKY2 signature type not supported for public key display");
+            wallet.register_plonky2_software_defined_circuit(32, 0).await?
         }
-    }
+    };
+
+    // Use simplified interface
+    let public_key_info = wallet.get_or_create_user(private_key_base, fingerprint).await?;
+    let public_key = public_key_info.qfhash::<PsyHasher>();
+
+    println!("Public Key Info:");
+    println!("  public_key_param: {}", public_key_info.public_key_param);
+    println!("  fingerprint: {}", public_key_info.fingerprint);
+    println!("  public_key_hash: {}", public_key);
 
     Ok(())
 }

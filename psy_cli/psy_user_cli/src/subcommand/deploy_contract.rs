@@ -43,7 +43,7 @@ pub async fn run(args: DeployContractArgs) -> anyhow::Result<()> {
         .transpose()?;
 
     let deployer = wallet_session
-        .add_user_with_type(private_key, SignType::from(args.sign_type.clone()), fingerprint)
+        .add_user(private_key, fingerprint)
         .await?;
 
     let defs_array: Vec<DPNFunctionCircuitDefinition> = serde_json::from_str(&fs::read_to_string(args.contract_path)?)?;

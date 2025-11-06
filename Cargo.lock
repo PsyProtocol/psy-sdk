@@ -5930,6 +5930,7 @@ dependencies = [
  "psy_config",
  "psy_crypto",
  "psy_data",
+ "psy_vm",
  "rand 0.8.5",
  "rand_chacha 0.3.1",
  "serde",

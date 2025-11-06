@@ -38,7 +38,7 @@ use psy_node::{
     },
     worker::{simple_async_coord::SimpleAsyncCoordinatorWorker, simple_async_realm::SimpleAsyncRealmWorker},
 };
-use psy_vm::ups::circuit_manager::UPSCircuitManagerTrait;
+use psy_vm::ups::circuit_manager::UPSCircuitManager;
 use psy_ups_circuit::circuit_manager::core::QCircuitManager;
 use psy_store::{
     node::coordinator::{PsyCoordinatorStoreReaderAsync, PsyCoordinatorStoreWriterAsyncImm},

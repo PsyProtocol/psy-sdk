@@ -9,11 +9,9 @@ use plonky2::{
         proof::ProofWithPublicInputs,
     },
 };
-use psy_common_circuit::{
-    circuits::zk_signature3::core::PsyBasicZKSignatureInnerCircuit,
-    treeprover::qrecursion::standard::manager::portable::circuits::{
-        PortableQTreeRecursionCircuitsDataTrait, PortableQTreeRecursionCircuitsProveTrait, PortableQTreeRecursionCircuitsTrait,
-    },
+use psy_common_circuit::circuits::zk_signature3::core::PsyBasicZKSignatureInnerCircuit;
+use psy_vm::ups::circuit_manager::{
+    PortableQTreeRecursionCircuitsData, PortableQTreeRecursionCircuitsProve, PortableQTreeRecursion,
 };
 use psy_config::network_constants::REALM_USER_TREE_HEIGHT;
 use psy_common::{
@@ -60,7 +58,7 @@ use super::request::{
     Id, QAddWithdrawalRPCRequest, QClaimDepositRPCRequest, QDeployContractRPCRequest, QGetUserIdRPCRequest, QRegisterUserRPCRequest,
     QSubmitEndCapRPCRequest, QSubmitGutaRPCRequest, QTokenTransferRPCRequest, RequestParams, ResponseResult, RpcRequest, RpcResponse, Version,
 };
-use psy_vm::ups::circuit_manager::UPSCircuitManagerTrait;
+use psy_vm::ups::circuit_manager::UPSCircuitManager;
 use crate::{
     request::{
         QBlockStateRPCRequest, QGetContractMethodCommonDataRPCRequest, QGetMethodIdRPCRequest, QGetTxStatusRPCRequest, QLatestBlockStateRPCRequest,
@@ -729,7 +727,7 @@ where
 
 #[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
 #[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
-impl<C: GenericConfig<D> + 'static, const D: usize> UPSCircuitManagerTrait<C, D> for ProveProxyRpcProvider<C, D>
+impl<C: GenericConfig<D> + 'static, const D: usize> UPSCircuitManager<C, D> for ProveProxyRpcProvider<C, D>
 where
     C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasher<QHashOut<C::F>>,
 {
@@ -1208,7 +1206,7 @@ where
 
 #[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
 #[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
-impl<C: GenericConfig<D>, const D: usize> PortableQTreeRecursionCircuitsDataTrait<C, D> for ProveProxyRpcProvider<C, D>
+impl<C: GenericConfig<D>, const D: usize> PortableQTreeRecursionCircuitsData<C, D> for ProveProxyRpcProvider<C, D>
 where
     C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasher<QHashOut<C::F>>,
 {
@@ -1254,7 +1252,7 @@ where
 
 #[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
 #[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
-impl<C: GenericConfig<D> + 'static, const D: usize> PortableQTreeRecursionCircuitsProveTrait<C, D> for ProveProxyRpcProvider<C, D>
+impl<C: GenericConfig<D> + 'static, const D: usize> PortableQTreeRecursionCircuitsProve<C, D> for ProveProxyRpcProvider<C, D>
 where
     C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasher<QHashOut<C::F>>,
 {
@@ -1452,7 +1450,7 @@ where
 
 #[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
 #[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
-impl<C: GenericConfig<D> + 'static, const D: usize> PortableQTreeRecursionCircuitsTrait<C, D> for ProveProxyRpcProvider<C, D>
+impl<C: GenericConfig<D> + 'static, const D: usize> PortableQTreeRecursion<C, D> for ProveProxyRpcProvider<C, D>
 where
     C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasher<QHashOut<C::F>>,
 {

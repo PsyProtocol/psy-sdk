@@ -27,12 +27,11 @@ use psy_crypto::{
 };
 use psy_data::{config::store_config::PsyHasher, qstore::imm::cmd_processor::PsyReadCommandProcessorSync};
 use psy_provider::provider::RpcProvider;
-use psy_vm::ups::circuit_manager::UPSCircuitManagerTrait;
+use psy_vm::ups::circuit_manager::UPSCircuitManager;
 use psy_ups_circuit::circuit_manager;
 use psy_vm::{dpn::vm::def::DPNFunctionCircuitDefinition, vm::cfc_input::DapenContractFunctionCircuitInput, ups::state_reader::StateReader};
 
 use psy_ups_circuit::signature::{
-    // simple_sign::StateReader,
     software_defined::{
         DPNSoftwareDefinedSignatureGadget, Plonky2SoftwareDefinedSignatureGadget
     },
@@ -55,15 +54,15 @@ pub struct PsyMemoryWallet {
     signature_users: DashMap<QHashOut<F>, Arc<dyn SignatureUser>>,
     /// Storage for PSY/DPN-based software defined circuits
     pub software_defined_psy_circuits: DashMap<QHashOut<F>, DPNSoftwareDefinedSignatureGadget>,
-    /// Storage for PLONKY2-based software defined circuits  
+    /// Storage for PLONKY2-based software defined circuits
     pub software_defined_plonky2_circuits: DashMap<QHashOut<F>, Plonky2SoftwareDefinedSignatureGadget>,
-    pub circuit_manager: Vec<Box<dyn UPSCircuitManagerTrait<C, D> + Send + Sync>>,
+    pub circuit_manager: Vec<Box<dyn UPSCircuitManager<C, D> + Send + Sync>>,
 }
 
 #[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
 #[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
 impl PsyMemoryWallet {
-    pub fn new(circuit_manager: Vec<Box<dyn UPSCircuitManagerTrait<C, D> + Send + Sync>>) -> Self {
+    pub fn new(circuit_manager: Vec<Box<dyn UPSCircuitManager<C, D> + Send + Sync>>) -> Self {
         Self {
             signature_users: DashMap::new(),
             software_defined_psy_circuits: DashMap::new(),
@@ -72,10 +71,11 @@ impl PsyMemoryWallet {
         }
     }
 
-    pub fn random_circuit_manager(&self) -> &Box<dyn UPSCircuitManagerTrait<C, D> + Send + Sync> {
+    pub fn random_circuit_manager(&self) -> &Box<dyn UPSCircuitManager<C, D> + Send + Sync> {
         let index = rand::random::<usize>() % self.circuit_manager.len();
         &self.circuit_manager[index]
     }
+
 
     pub async fn add_zk_private_key(&mut self, private_key: QHashOut<F>) -> anyhow::Result<ZKPublicKeyInfo<F>> {
         let simple_key = SimplePsyPrivateKey { private_key };
@@ -203,6 +203,30 @@ impl PsyMemoryWallet {
         Ok(pk_info)
     }
 
+    pub async fn get_or_create_user(
+        &mut self,
+        private_key: QHashOut<F>,
+        fingerprint: QHashOut<F>,
+    ) -> anyhow::Result<ZKPublicKeyInfo<F>> {
+            let manager = self.random_circuit_manager();
+            let zk_fingerprint = manager.zk_circuit_fingerprint().await?;
+            let secp_fingerprint = manager.secp_circuit_fingerprint().await?;
+
+            if fingerprint == zk_fingerprint {
+                self.add_zk_private_key(private_key).await
+            } else if fingerprint == secp_fingerprint {
+                self.add_secp_private_key(private_key).await
+            } else {
+                if self.software_defined_psy_circuits.contains_key(&fingerprint) {
+                    self.add_software_defined_dpn_private_key(private_key, fingerprint).await
+                } else if self.software_defined_plonky2_circuits.contains_key(&fingerprint) {
+                    self.add_software_defined_plonky2_private_key(private_key, fingerprint).await
+                } else {
+                    bail!("Software defined circuit with fingerprint {} is not registered. Please register the circuit first.", fingerprint);
+                }
+            }
+    }
+
     pub async fn zk_sign_for_public_key(&self, public_key: QHashOut<F>, sig_hash: QHashOut<F>) -> anyhow::Result<ProofWithPublicInputs<F, C, D>> {
         let pk_info = self.get_public_key_info(&public_key).await?;
         let context = SignContext::new(pk_info.fingerprint);
@@ -251,7 +275,7 @@ impl PsyMemoryWallet {
 impl PsyMemoryWallet {
     /// Register a PSY/DPN-based software defined circuit gadget
     pub async fn register_psy_software_defined_circuit(
-        &mut self, 
+        &mut self,
         fn_def: psy_vm::dpn::vm::def::DPNFunctionCircuitDefinition,
         contract_id: u64,
         contract_state_tree_height: u8,
@@ -260,17 +284,17 @@ impl PsyMemoryWallet {
     ) -> anyhow::Result<QHashOut<F>> {
         let config = plonky2::plonk::circuit_data::CircuitConfig::standard_recursion_config();
         let mut builder = plonky2::plonk::circuit_builder::CircuitBuilder::<F, D>::new(config);
-        
+
         let mut gadget = DPNSoftwareDefinedSignatureGadget::add_virtual_to(&mut builder, &fn_def, contract_id, contract_state_tree_height, session_proof_tree_height, force_four_align);
         gadget.build_circuit(builder)?;
         let fingerprint = gadget.get_fingerprint();
-        
+
         tracing::info!("register PSY software defined circuit: {}", fingerprint.to_string());
-        
+
         if let Some(_) = self.software_defined_psy_circuits.insert(fingerprint, gadget) {
             tracing::warn!("PSY software defined circuit `{}` is already registered", fingerprint.to_string());
         }
-        
+
         Ok(fingerprint)
     }
 
@@ -282,17 +306,17 @@ impl PsyMemoryWallet {
     ) -> anyhow::Result<QHashOut<F>> {
         let config = plonky2::plonk::circuit_data::CircuitConfig::standard_recursion_config();
         let mut builder = plonky2::plonk::circuit_builder::CircuitBuilder::<F, D>::new(config);
-        
+
         let mut gadget = Plonky2SoftwareDefinedSignatureGadget::add_virtual_to(&mut builder, contract_state_tree_height, input_len);
         gadget.build_circuit(builder)?;
         let fingerprint = gadget.get_fingerprint();
-        
+
         tracing::info!("register PLONKY2 software defined circuit: {}", fingerprint.to_string());
-        
+
         if let Some(_) = self.software_defined_plonky2_circuits.insert(fingerprint, gadget) {
             tracing::warn!("PLONKY2 software defined circuit `{}` is already registered", fingerprint.to_string());
         }
-        
+
         Ok(fingerprint)
     }
 

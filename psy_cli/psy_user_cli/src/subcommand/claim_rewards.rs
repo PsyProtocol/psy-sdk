@@ -62,7 +62,7 @@ pub async fn run(args: ClaimRewardsArgs) -> Result<()> {
     };
 
     let user_pk_hash = wallet_session
-        .add_user_with_type(private_key, args.sign_type.clone(), fingerprint)
+        .add_user(private_key, fingerprint)
         .await?;
     let user_id = provider.get_user_id(user_pk_hash).await?;
 

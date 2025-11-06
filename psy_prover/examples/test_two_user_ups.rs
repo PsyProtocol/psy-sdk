@@ -35,7 +35,7 @@ use psy_data::{
 use psy_dpn_circuit::circuits::cfc::DapenContractFunctionCircuit;
 use psy_network_circuit::guta::guta_helper::PsyGUTACircuitManager;
 use psy_prover::local::simple::SimpleAPI;
-use psy_vm::ups::circuit_manager::UPSCircuitManagerTrait;
+use psy_vm::ups::circuit_manager::UPSCircuitManager;
 use psy_store::{node::coordinator::PsyCoordinatorStoreWriterAsyncImm, prepare_environment_with_real_contract};
 use psy_ups_circuit::{
     circuit_manager::core::{PsyUPSStepCircuitManager, QCircuitManager},
@@ -291,11 +291,11 @@ async fn demo_user_proving_session() -> anyhow::Result<()> {
 
     let guta_circuits = PsyGUTACircuitManager::<C, D>::new_with_config(
         end_cap_proof_common_data,
-        UPSCircuitManagerTrait::ups_end_cap_circuit_verifier_config(&main_circuits)
+        UPSCircuitManager::ups_end_cap_circuit_verifier_config(&main_circuits)
             .await?
             .constants_sigmas_cap
             .height(),
-        UPSCircuitManagerTrait::ups_end_cap_circuit_fingerprint(&main_circuits).await?,
+        UPSCircuitManager::ups_end_cap_circuit_fingerprint(&main_circuits).await?,
         get_default_worker_public_key::<GoldilocksField>(),
     );
     timer.lap("built guta circuits");
@@ -313,7 +313,7 @@ async fn demo_user_proving_session() -> anyhow::Result<()> {
         wallet.circuit.get_verifier_config_ref().into(),
     );
 
-    UPSCircuitManagerTrait::register_info(&main_circuits, &mut circuit_info).await;
+    UPSCircuitManager::register_info(&main_circuits, &mut circuit_info).await;
     circuit_info.register_circuit(
         LocalCircuitId::new_cfc(contract_id.to_canonical_u64() as u32, simple_mint_debug_def.method_id),
         simple_mint_debug_circuit.get_fingerprint(),
@@ -333,7 +333,7 @@ async fn demo_user_proving_session() -> anyhow::Result<()> {
     let mut mgr = UserProvingSessionManager::<GoldilocksField, PsyHasher, _, C, D>::new(
         lps,
         circuit_info,
-        UPSCircuitManagerTrait::ups_circuit_whitelist_root(&main_circuits).await?,
+        UPSCircuitManager::ups_circuit_whitelist_root(&main_circuits).await?,
     )
     .await?;
 
@@ -458,7 +458,7 @@ async fn demo_user_proving_session() -> anyhow::Result<()> {
     let (pairs, left_over) = api.get_start_witnesses().await?;
     timer.lap("finished generating start witnesses");
     for p in pairs.into_iter() {
-        let verifier = UPSCircuitManagerTrait::ups_end_cap_circuit_verifier_config(&main_circuits).await?;
+        let verifier = UPSCircuitManager::ups_end_cap_circuit_verifier_config(&main_circuits).await?;
         let _proof = api.proof_start_dbg(p, &verifier)?;
         timer.lap("Proved Recursive Global User Tree Aggregation");
     }

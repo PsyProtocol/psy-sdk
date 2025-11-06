@@ -17,7 +17,7 @@ use psy_crypto::{
 };
 use psy_data::config::store_config::PsyHasher;
 use psy_provider::provider::RpcProvider;
-use psy_vm::ups::circuit_manager::UPSCircuitManagerTrait;
+use psy_vm::ups::circuit_manager::UPSCircuitManager;
 
 use crate::wallet::memory_wallet::PsyMemoryWallet;
 
@@ -60,13 +60,13 @@ pub trait SignatureUser: fmt::Debug + Send + Sync {
     async fn public_key_info(
         &self,
         wallet: &PsyMemoryWallet,
-        circuit_manager: &(dyn UPSCircuitManagerTrait<SignatureConfig, SIGNATURE_D> + Send + Sync),
+        circuit_manager: &(dyn UPSCircuitManager<SignatureConfig, SIGNATURE_D> + Send + Sync),
     ) -> Result<ZKPublicKeyInfo<GoldilocksField>>;
 
     async fn sign(
         &self,
         wallet: &PsyMemoryWallet,
-        circuit_manager: &(dyn UPSCircuitManagerTrait<SignatureConfig, SIGNATURE_D> + Send + Sync),
+        circuit_manager: &(dyn UPSCircuitManager<SignatureConfig, SIGNATURE_D> + Send + Sync),
         context: &SignContext,
         sighash: QHashOut<GoldilocksField>,
     ) -> Result<SignatureProof>;
@@ -74,14 +74,14 @@ pub trait SignatureUser: fmt::Debug + Send + Sync {
     async fn circuit_info(
         &self,
         _wallet: &PsyMemoryWallet,
-        circuit_manager: &(dyn UPSCircuitManagerTrait<SignatureConfig, SIGNATURE_D> + Send + Sync),
+        circuit_manager: &(dyn UPSCircuitManager<SignatureConfig, SIGNATURE_D> + Send + Sync),
         _context: &SignContext,
     ) -> Result<SignatureCircuitInfo>;
 
     async fn public_key_hash(
         &self,
         wallet: &PsyMemoryWallet,
-        circuit_manager: &(dyn UPSCircuitManagerTrait<SignatureConfig, SIGNATURE_D> + Send + Sync),
+        circuit_manager: &(dyn UPSCircuitManager<SignatureConfig, SIGNATURE_D> + Send + Sync),
     ) -> Result<QHashOut<GoldilocksField>> {
         let info = self.public_key_info(wallet, circuit_manager).await?;
         Ok(info.qfhash::<PsyHasher>())

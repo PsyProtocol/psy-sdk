@@ -104,7 +104,7 @@ pub async fn run_inner(args: ExecContractCallArgs) -> anyhow::Result<()> {
         None
     };
     let user_pk_hash = wallet_session
-        .add_user_with_type(args.private_key, args.sign_type.clone(), fingerprint)
+        .add_user(args.private_key, fingerprint)
         .await?;
 
     let sign_data = fingerprint.map(|fp| SignData {

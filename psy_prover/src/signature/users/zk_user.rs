@@ -7,7 +7,7 @@ use plonky2::{
 use psy_common::data::qhashout::QHashOut;
 use psy_crypto::signature::zk::{data::ZKPublicKeyInfo, wallet::SimplePsyPrivateKey};
 use psy_provider::provider::RpcProvider;
-use psy_vm::ups::circuit_manager::UPSCircuitManagerTrait;
+use psy_vm::ups::circuit_manager::UPSCircuitManager;
 
 use crate::signature::{
     context::SignContext,
@@ -31,7 +31,7 @@ impl SignatureUser for ZKUser {
     async fn public_key_info(
         &self,
         _wallet: &PsyMemoryWallet,
-        circuit_manager: &(dyn UPSCircuitManagerTrait<SignatureConfig, SIGNATURE_D> + Send + Sync),
+        circuit_manager: &(dyn UPSCircuitManager<SignatureConfig, SIGNATURE_D> + Send + Sync),
     ) -> Result<ZKPublicKeyInfo<GoldilocksField>> {
         let fingerprint = circuit_manager.zk_circuit_fingerprint().await?;
         let public_key_param = self.private_key.get_public_key_param::<PoseidonHash>();
@@ -44,7 +44,7 @@ impl SignatureUser for ZKUser {
     async fn sign(
         &self,
         _wallet: &PsyMemoryWallet,
-        circuit_manager: &(dyn UPSCircuitManagerTrait<SignatureConfig, SIGNATURE_D> + Send + Sync),
+        circuit_manager: &(dyn UPSCircuitManager<SignatureConfig, SIGNATURE_D> + Send + Sync),
         _context: &SignContext,
         sighash: QHashOut<GoldilocksField>,
     ) -> Result<SignatureProof> {
@@ -54,7 +54,7 @@ impl SignatureUser for ZKUser {
     async fn circuit_info(
         &self,
         _wallet: &PsyMemoryWallet,
-        circuit_manager: &(dyn UPSCircuitManagerTrait<SignatureConfig, SIGNATURE_D> + Send + Sync),
+        circuit_manager: &(dyn UPSCircuitManager<SignatureConfig, SIGNATURE_D> + Send + Sync),
         _context: &SignContext,
     ) -> Result<SignatureCircuitInfo> {
         Ok(SignatureCircuitInfo {

@@ -335,9 +335,9 @@ async fn execute_transfer_multi_transaction_sync(wallet_session: &mut WalletSess
 
     info!("🔑 Task {} - Registering user_from and user_to", task_id);
     let start = Instant::now();
-    let pk_hash_from = wallet_session.register_user(private_key_from).await?;
-    let pk_hash_to1 = wallet_session.register_user(private_key_to1).await?;
-    let pk_hash_to2 = wallet_session.register_user(private_key_to2).await?;
+    let pk_hash_from = wallet_session.register_user(private_key_from, None).await?;
+    let pk_hash_to1 = wallet_session.register_user(private_key_to1, None).await?;
+    let pk_hash_to2 = wallet_session.register_user(private_key_to2, None).await?;
     // let pk_hash_to3 = wallet_session.register_user(private_key_to3)?;
     let duration = start.elapsed().as_millis() as u64;
     info!("🔑 Task {} - Register user duration: {} ms", task_id, duration);
@@ -353,9 +353,9 @@ async fn execute_transfer_multi_transaction_sync(wallet_session: &mut WalletSess
     info!("🔑 Task {} - Registered user_from and user_to", task_id);
 
     // wallet_session.add_user(private_key_from)?;
-    wallet_session.add_user_with_type(private_key_from, SignType::ZKSign, None).await?;
-    wallet_session.add_user(private_key_to1).await?;
-    wallet_session.add_user(private_key_to2).await?;
+    wallet_session.add_user(private_key_from, None).await?;
+    wallet_session.add_user(private_key_to1, None).await?;
+    wallet_session.add_user(private_key_to2, None).await?;
     // wallet_session.add_user(private_key_to3)?;
 
     // let user_id_to = wallet_session.st_provider.get_user_id(private_key_to)?;

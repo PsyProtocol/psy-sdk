@@ -8,8 +8,9 @@ use plonky2::{
 };
 use psy_common_circuit::{
     circuits::{traits::qstandard::QStandardCircuit, zk_signature3::manager::SimplePsyZKSignatureManager},
-    treeprover::qrecursion::standard::manager::portable::circuits::PortableQTreeRecursionCircuitsProveTrait,
+    treeprover::qrecursion::standard::manager::portable::core::PortableQTreeRecursionManager,
 };
+use psy_vm::ups::circuit_manager::PortableQTreeRecursionCircuitsProve;
 use psy_config::{network_constants::UPS_SESSION_PROOF_TREE_HEIGHT, PSY_NETWORK_MAGIC};
 use psy_common::{
     data::qhashout::QHashOut,
@@ -41,7 +42,7 @@ use psy_node::{
     },
     worker::{simple_async_coord::SimpleAsyncCoordinatorWorker, simple_async_realm::SimpleAsyncRealmWorker},
 };
-use psy_vm::ups::circuit_manager::UPSCircuitManagerTrait;
+use psy_vm::ups::circuit_manager::UPSCircuitManager;
 use psy_ups_circuit::circuit_manager::core::QCircuitManager;
 use psy_store::{
     node::coordinator::{PsyCoordinatorStoreReaderAsync, PsyCoordinatorStoreWriterAsyncImm},

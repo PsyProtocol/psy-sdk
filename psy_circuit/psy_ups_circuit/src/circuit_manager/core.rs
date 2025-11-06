@@ -15,10 +15,7 @@ use psy_common_circuit::{
     },
     treeprover::qrecursion::standard::manager::{
         leaf_circuit_set::QStandardBinaryRecursionTreeCircuitSet,
-        portable::circuits::{
-            PortableQTreeRecursionCircuits, PortableQTreeRecursionCircuitsDataTrait, PortableQTreeRecursionCircuitsProveTrait,
-            PortableQTreeRecursionCircuitsTrait,
-        },
+        portable::circuits::PortableQTreeRecursionCircuits,
     },
 };
 use psy_config::network_constants::{UPS_CIRCUIT_WHITELIST_TREE_HEIGHT, UPS_SESSION_PROOF_TREE_HEIGHT};
@@ -51,7 +48,18 @@ use psy_network_circuit::ups::circuits::{
     end_cap::UPSStandardEndCapCircuit, ups_cfc_deferred_tx::UPSCFCDeferredTransactionCircuit, ups_cfc_standard::UPSCFCStandardTransactionCircuit,
     ups_start::UPSStartSessionCircuit,
 };
-use psy_vm::{dpn::contract::cfc_code_definition_to_dapen_fc, vm::cfc_input::DapenContractFunctionCircuitInput, ups::circuit_manager::UPSCircuitManagerTrait};
+use psy_vm::{
+    dpn::contract::cfc_code_definition_to_dapen_fc, 
+    vm::cfc_input::DapenContractFunctionCircuitInput, 
+    ups::circuit_manager::{UPSCircuitManager, PortableQTreeRecursionCircuitsData, PortableQTreeRecursionCircuitsProve, PortableQTreeRecursion},
+};
+use psy_crypto::{
+    common::witnesses::qrecursion::{
+        header::QRecursionAggStandardHeader,
+        proof_data::QStandardBinaryTreeCircuitType,
+    },
+    hash::merkle::core::DeltaMerkleProofCore,
+};
 use serde::Serialize;
 
 #[derive(Debug)]
@@ -172,7 +180,7 @@ where
 
 #[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
 #[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
-impl<C: GenericConfig<D> + 'static + Serialize, const D: usize> UPSCircuitManagerTrait<C, D> for PsyUPSStepCircuitManager<C, D>
+impl<C: GenericConfig<D> + 'static + Serialize, const D: usize> UPSCircuitManager<C, D> for PsyUPSStepCircuitManager<C, D>
 where
     C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasher<QHashOut<C::F>>,
 {
@@ -479,7 +487,7 @@ pub fn register_qtree_recursion_circuits_whitelist_proofs<F: RichField>(
 
 #[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
 #[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
-impl<C: GenericConfig<D>, const D: usize> PortableQTreeRecursionCircuitsDataTrait<C, D> for PsyUPSStepCircuitManager<C, D>
+impl<C: GenericConfig<D>, const D: usize> PortableQTreeRecursionCircuitsData<C, D> for PsyUPSStepCircuitManager<C, D>
 where
     C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasher<QHashOut<C::F>>,
 {
@@ -526,7 +534,7 @@ where
 
 #[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
 #[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
-impl<C: GenericConfig<D>, const D: usize> PortableQTreeRecursionCircuitsProveTrait<C, D> for PsyUPSStepCircuitManager<C, D>
+impl<C: GenericConfig<D>, const D: usize> PortableQTreeRecursionCircuitsProve<C, D> for PsyUPSStepCircuitManager<C, D>
 where
     C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasher<QHashOut<C::F>>,
 {
@@ -646,7 +654,7 @@ where
 
 #[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
 #[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
-impl<C: GenericConfig<D>, const D: usize> PortableQTreeRecursionCircuitsTrait<C, D> for PsyUPSStepCircuitManager<C, D>
+impl<C: GenericConfig<D>, const D: usize> PortableQTreeRecursion<C, D> for PsyUPSStepCircuitManager<C, D>
 where
     C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasher<QHashOut<C::F>>,
 {
@@ -655,4 +663,5 @@ where
     }
 }
 
-pub type QCircuitManager<C, const D: usize> = Box<dyn UPSCircuitManagerTrait<C, D>>;
+
+pub type QCircuitManager<C, const D: usize> = Box<dyn UPSCircuitManager<C, D>>;

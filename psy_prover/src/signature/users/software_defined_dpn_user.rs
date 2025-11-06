@@ -5,7 +5,7 @@ use psy_common::data::qhashout::QHashOut;
 use psy_common_circuit::circuits::traits::qstandard::QStandardCircuit;
 use psy_crypto::signature::zk::data::ZKPublicKeyInfo;
 use psy_provider::provider::RpcProvider;
-use psy_vm::ups::circuit_manager::UPSCircuitManagerTrait;
+use psy_vm::ups::circuit_manager::UPSCircuitManager;
 use psy_ups_circuit::signature::software_defined::get_sdc_public_key_param;
 
 use crate::signature::{
@@ -36,7 +36,7 @@ impl SignatureUser for SoftwareDefinedDpnUser {
     async fn public_key_info(
         &self,
         _wallet: &PsyMemoryWallet,
-        _circuit_manager: &(dyn UPSCircuitManagerTrait<SignatureConfig, SIGNATURE_D> + Send + Sync),
+        _circuit_manager: &(dyn UPSCircuitManager<SignatureConfig, SIGNATURE_D> + Send + Sync),
     ) -> Result<ZKPublicKeyInfo<GoldilocksField>> {
         let public_key_param = get_sdc_public_key_param(&self.private_key);
         Ok(ZKPublicKeyInfo {
@@ -48,7 +48,7 @@ impl SignatureUser for SoftwareDefinedDpnUser {
     async fn sign(
         &self,
         wallet: &PsyMemoryWallet,
-        _circuit_manager: &(dyn UPSCircuitManagerTrait<SignatureConfig, SIGNATURE_D> + Send + Sync),
+        _circuit_manager: &(dyn UPSCircuitManager<SignatureConfig, SIGNATURE_D> + Send + Sync),
         context: &SignContext,
         sighash: QHashOut<GoldilocksField>,
     ) -> Result<SignatureProof> {
@@ -69,7 +69,7 @@ impl SignatureUser for SoftwareDefinedDpnUser {
     async fn circuit_info(
         &self,
         wallet: &PsyMemoryWallet,
-        _circuit_manager: &(dyn UPSCircuitManagerTrait<SignatureConfig, SIGNATURE_D> + Send + Sync),
+        _circuit_manager: &(dyn UPSCircuitManager<SignatureConfig, SIGNATURE_D> + Send + Sync),
         context: &SignContext,
     ) -> Result<SignatureCircuitInfo> {
         if context.psy_witness_input.is_none() {

@@ -49,7 +49,7 @@ use psy_ups_circuit::{
     circuit_manager::core::PsyUPSStepCircuitManager,
     session::UserProvingSessionManager,
 };
-use psy_vm::ups::circuit_manager::UPSCircuitManagerTrait;
+use psy_vm::ups::circuit_manager::{UPSCircuitManager, PortableQTreeRecursion};
 use psy_vm::dpn::{
     contract::{cfc_code_definition_to_dapen_fc, dapen_fc_to_cfc_code_definition, hash_dpn_function},
     vm::def::DPNFunctionCircuitDefinition,
@@ -75,18 +75,17 @@ use psy_vm::ups::{
     state_reader::StateReader,
     signature::Plonky2SoftwareDefinedSignatureInput,
 };
-use psy_common_circuit::treeprover::qrecursion::standard::manager::portable::circuits::PortableQTreeRecursionCircuitsTrait;
 
 // Combined trait for UPS circuit managers that also support tree recursion
 trait UPSWithTreeRecursionTrait<C: GenericConfig<D>, const D: usize>: 
-    UPSCircuitManagerTrait<C, D> + PortableQTreeRecursionCircuitsTrait<C, D> + Send + Sync 
+    UPSCircuitManager<C, D> + PortableQTreeRecursion<C, D> + Send + Sync 
 where
     C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasher<QHashOut<C::F>>,
 {}
 
 impl<T, C: GenericConfig<D>, const D: usize> UPSWithTreeRecursionTrait<C, D> for T
 where
-    T: UPSCircuitManagerTrait<C, D> + PortableQTreeRecursionCircuitsTrait<C, D> + Send + Sync,
+    T: UPSCircuitManager<C, D> + PortableQTreeRecursion<C, D> + Send + Sync,
     C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasher<QHashOut<C::F>>,
 {}
 
@@ -136,7 +135,7 @@ type F = GoldilocksField;
 #[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
 pub async fn prove_func<
     R,
-    CM: UPSCircuitManagerTrait<C, D> + ?Sized,
+    CM: UPSCircuitManager<C, D> + ?Sized,
 >(
     st: &R,
     circuit_mgr: &CM,
@@ -178,7 +177,7 @@ pub struct UserSessionStateManager {
 #[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
 #[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
 impl UserSessionStateManager {
-    pub async fn new<CM: UPSCircuitManagerTrait<C, D> + ?Sized>(
+    pub async fn new<CM: UPSCircuitManager<C, D> + ?Sized>(
         user_id: u64,
         nonce: F,
         checkpoint_id: u64,
@@ -283,7 +282,7 @@ impl WalletSession {
 
         tracing::info!("init wallet");
         tracing::info!("init ups step circuit manager");
-        let mut main_circuits: Vec<Box<dyn UPSCircuitManagerTrait<C, D> + Send + Sync>> = Vec::new();
+        let mut main_circuits: Vec<Box<dyn UPSCircuitManager<C, D> + Send + Sync>> = Vec::new();
 
         for proxy_url in rpc_config.prove_proxy_url.iter() {
             if let Ok(main_circuit) = ProveProxyRpcProvider::new_with_config(proxy_url.to_string()).await {
@@ -327,36 +326,13 @@ impl WalletSession {
         })
     }
 
-    pub async fn register_user(&mut self, private_key: QHashOut<F>) -> anyhow::Result<QHashOut<F>> {
-        self.register_user_with_type(private_key, SignType::ZKSign, None).await
-    }
-
-    pub async fn register_user_with_type(
-        &mut self,
-        private_key: QHashOut<F>,
-        sign_type: SignType,
-        fingerprint: Option<QHashOut<F>>,
-    ) -> anyhow::Result<QHashOut<F>> {
-        let pk_info = match sign_type {
-            SignType::ZKSign => self.wallet.add_zk_private_key(private_key).await?,
-            SignType::SECP256K1Sign => self.wallet.add_secp_private_key(private_key).await?,
-            SignType::SoftwareDefinedDPNSign => {
-                self.wallet
-                    .add_software_defined_dpn_private_key(
-                        private_key,
-                        fingerprint.ok_or(anyhow::format_err!("software defined dpn sign need fingerprint"))?,
-                    )
-                    .await?
-            }
-            SignType::SoftwareDefinedPlonky2Sign => {
-                self.wallet
-                    .add_software_defined_plonky2_private_key(
-                        private_key,
-                        fingerprint.ok_or(anyhow::format_err!("software defined plonky2 sign need fingerprint"))?,
-                    )
-                    .await?
-            }
+    pub async fn register_user(&mut self, private_key: QHashOut<F>, fingerprint: Option<QHashOut<F>>) -> anyhow::Result<QHashOut<F>> {
+        let fp = if let Some(fp) = fingerprint {
+            fp
+        } else {
+            self.wallet.random_circuit_manager().zk_circuit_fingerprint().await?
         };
+        let pk_info = self.wallet.get_or_create_user(private_key, fp).await?;
         let public_key = pk_info.qfhash::<PsyHasher>();
 
         if let Ok(user_id) = self.st_provider.get_user_id(public_key).await {
@@ -371,42 +347,19 @@ impl WalletSession {
         Ok(public_key)
     }
 
-    pub async fn add_user(&mut self, private_key: QHashOut<F>) -> anyhow::Result<QHashOut<F>> {
-        self.add_user_with_type(private_key, SignType::ZKSign, None).await
-    }
-
-    pub async fn add_user_with_type(
-        &mut self,
-        private_key: QHashOut<F>,
-        sign_type: SignType,
-        fingerprint: Option<QHashOut<F>>,
-    ) -> anyhow::Result<QHashOut<F>> {
-        let pk_info = match sign_type {
-            SignType::ZKSign => self.wallet.add_zk_private_key(private_key).await?,
-            SignType::SECP256K1Sign => self.wallet.add_secp_private_key(private_key).await?,
-            SignType::SoftwareDefinedDPNSign => {
-                self.wallet
-                    .add_software_defined_dpn_private_key(
-                        private_key,
-                        fingerprint.ok_or(anyhow::format_err!("software defined dpn sign need fingerprint"))?,
-                    )
-                    .await?
-            }
-            SignType::SoftwareDefinedPlonky2Sign => {
-                self.wallet
-                    .add_software_defined_plonky2_private_key(
-                        private_key,
-                        fingerprint.ok_or(anyhow::format_err!("software defined plonky2 sign need fingerprint"))?,
-                    )
-                    .await?
-            }
+    pub async fn add_user(&mut self, private_key: QHashOut<F>, fingerprint: Option<QHashOut<F>>) -> anyhow::Result<QHashOut<F>> {
+        let fp = if let Some(fp) = fingerprint {
+            fp
+        } else {
+            self.wallet.random_circuit_manager().zk_circuit_fingerprint().await?
         };
+        let pk_info = self.wallet.get_or_create_user(private_key, fp).await?;
         let public_key = pk_info.qfhash::<PsyHasher>();
         let checkpoint_id = self.st_provider.get_latest_block_state().await?.checkpoint_id;
         tracing::info!(
-            "add user {} with type {:?}, on checkpoint_id {}",
+            "add user {} with fingerprint {}, on checkpoint_id {}",
             public_key.to_string(),
-            sign_type,
+            fp,
             checkpoint_id
         );
 
@@ -808,12 +761,11 @@ impl WalletSession {
             .await?;
         let SignatureResult { proof: signature_proof, circuit_info } = signature_result;
 
-        // TODO: Fix PortableQTreeRecursionCircuitsTrait trait bound issue
-        // user_session_mgr
-        //     .mgr
-        //     .proof_tree_state
-        //     .finalize_tree(self.wallet.random_circuit_manager().as_ref())
-        //     .await?;
+        user_session_mgr
+            .mgr
+            .proof_tree_state
+            .finalize_tree(self.wallet.random_circuit_manager().as_ref())
+            .await?;
 
         let public_key_param = pk_info.public_key_param;
 
@@ -828,22 +780,18 @@ impl WalletSession {
             signature_proof.public_inputs
         );
         let nonce = user_session_mgr.nonce.clone();
-        // TODO: Fix PortableQTreeRecursionCircuitsTrait trait bound issue
-        // let end_cap_proof = user_session_mgr
-        //     .mgr
-        //     .prove_end_cap(
-        //         self.wallet.random_circuit_manager().as_ref(),
-        //         PSY_NETWORK_MAGIC,
-        //         nonce,
-        //         circuit_fingerprint,
-        //         public_key_param,
-        //         signature_proof,
-        //         circuit_verifier_config,
-        //     )
-        //     .await?;
-        
-        // Temporary placeholder - in real implementation this should come from prove_end_cap
-        let end_cap_proof = signature_proof.clone();
+        let end_cap_proof = user_session_mgr
+            .mgr
+            .prove_end_cap(
+                self.wallet.random_circuit_manager().as_ref(),
+                PSY_NETWORK_MAGIC,
+                nonce,
+                circuit_fingerprint,
+                public_key_param,
+                signature_proof,
+                circuit_verifier_config,
+            )
+            .await?;
 
         let user_ec_input = user_session_mgr.mgr.get_api_input().await?;
         tracing::info!("get user ec input: {}", serde_json::to_string_pretty(&user_ec_input)?);
@@ -1052,7 +1000,7 @@ pub async fn run(args: WalletSessionArgs) -> anyhow::Result<()> {
     let contract_call_args: Vec<ContractCallArgs> = serde_json::from_str(&std::fs::read_to_string(args.contract_calls)?)?;
 
     let mut wallet_session = WalletSession::new(&rpc_config).await?;
-    let public_key = wallet_session.add_user(private_key).await?;
+    let public_key = wallet_session.add_user(private_key, None).await?;
 
     let tx_hash = wallet_session.exec_contract_call(public_key, contract_call_args).await?;
 

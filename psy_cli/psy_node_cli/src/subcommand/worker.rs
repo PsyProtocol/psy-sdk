@@ -30,7 +30,7 @@ use psy_node::{
 };
 use psy_rust_sdk::wallet::secp_wallet::Wallet;
 use psy_ups_circuit::circuit_manager::core::PsyUPSStepCircuitManager;
-use psy_vm::ups::circuit_manager::UPSCircuitManagerTrait;
+use psy_vm::ups::circuit_manager::UPSCircuitManager;
 use tokio::{sync::Mutex, time::sleep};
 use tracing::{error, info, log::warn};
 
@@ -74,7 +74,7 @@ pub async fn run(
 
     let wallet = Arc::new(wallet);
 
-    let main_circuits: Box<dyn UPSCircuitManagerTrait<C, D>> = Box::new(PsyUPSStepCircuitManager::<C, D>::new_with_config(
+    let main_circuits: Box<dyn UPSCircuitManager<C, D>> = Box::new(PsyUPSStepCircuitManager::<C, D>::new_with_config(
         psy_config::network_constants::PSY_NETWORK_MAGIC,
     ));
 
