@@ -39,9 +39,9 @@ pub trait Rpc {
     #[method(name = "sign_and_submit")]
     async fn sign_and_submit(&self, public_key: QHashOut<F>) -> Result<String, ErrorObjectOwned>;
     #[method(name = "register_user")]
-    async fn register_user(&self, private_key: QHashOut<F>) -> Result<QHashOut<F>, ErrorObjectOwned>;
+    async fn register_user(&self, private_key: QHashOut<F>, fingerprint: QHashOut<F>) -> Result<QHashOut<F>, ErrorObjectOwned>;
     #[method(name = "add_user")]
-    async fn add_user(&self, private_key: QHashOut<F>) -> Result<QHashOut<F>, ErrorObjectOwned>;
+    async fn add_user(&self, private_key: QHashOut<F>, fingerprint: QHashOut<F>) -> Result<QHashOut<F>, ErrorObjectOwned>;
     #[method(name = "get_zk_public_key")]
     async fn get_zk_public_key(&self, private_key: QHashOut<F>) -> Result<ZKPublicKeyInfo<F>, ErrorObjectOwned>;
     #[method(name = "get_random_keypair")]
@@ -154,11 +154,11 @@ impl RpcServer for RpcServerImpl {
         Ok(hash.to_string())
     }
 
-    async fn register_user(&self, private_key: QHashOut<F>) -> Result<QHashOut<F>, ErrorObjectOwned> {
+    async fn register_user(&self, private_key: QHashOut<F>, fingerprint: QHashOut<F>) -> Result<QHashOut<F>, ErrorObjectOwned> {
         let wallet_session = self.wallet_session.clone();
         tokio::task::spawn_blocking(move || {
             tokio::runtime::Handle::current().block_on(async move {
-                wallet_session.write().register_user(private_key, None).await
+                wallet_session.write().register_user(private_key, fingerprint).await
             })
         })
         .await
@@ -166,11 +166,11 @@ impl RpcServer for RpcServerImpl {
         .map_err(|e| ErrorObject::owned(1, e.to_string(), None::<()>))
     }
 
-    async fn add_user(&self, private_key: QHashOut<F>) -> Result<QHashOut<F>, ErrorObjectOwned> {
+    async fn add_user(&self, private_key: QHashOut<F>, fingerprint: QHashOut<F>) -> Result<QHashOut<F>, ErrorObjectOwned> {
         let wallet_session = self.wallet_session.clone();
         tokio::task::spawn_blocking(move || {
             tokio::runtime::Handle::current().block_on(async move {
-                wallet_session.write().add_user(private_key, None).await
+                wallet_session.write().add_user(private_key, fingerprint).await
             })
         })
         .await

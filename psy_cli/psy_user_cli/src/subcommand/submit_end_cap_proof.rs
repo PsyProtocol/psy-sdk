@@ -105,10 +105,11 @@ pub async fn run_inner(args: ExecContractCallArgs) -> anyhow::Result<()> {
     } else {
         None
     };
+    let fingerprint = fingerprint.unwrap_or_else(|| psy_prover::wallet::memory_wallet::get_zk_fingerprint());
     let user_pk_hash = wallet_session.add_user(args.private_key, fingerprint).await?;
 
-    let sign_data = fingerprint.map(|fp| SignData {
-        fingerprint: fp,
+    let sign_data = Some(SignData {
+        fingerprint: fingerprint,
         sign_contract_id: args.contract_id,
         sign_inputs: args.sign_inputs,
     });

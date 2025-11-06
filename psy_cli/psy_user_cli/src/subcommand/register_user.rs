@@ -17,7 +17,7 @@ use psy_crypto::{
     },
 };
 use psy_data::{config::store_config::PsyHasher, traits::qdatastore::qmetadata::QMetaDataStoreReaderSync};
-use psy_prover::wallet::memory_wallet::{PsyMemoryWallet, SECP256K1_FINGERPRINT, ZK_FINGERPRINT};
+use psy_prover::wallet::memory_wallet::{PsyMemoryWallet, get_secp256k1_fingerprint, get_zk_fingerprint};
 use psy_rust_sdk::{
     provider::{QUserRpcProvider, RpcProvider},
     request::QRegisterUserRPCRequest,
@@ -57,16 +57,20 @@ pub async fn run(args: RegisterUserArgs) -> Result<()> {
     // Get fingerprint based on sign type
     let fingerprint = match SignType::from(args.sign_type.clone()) {
         SignType::ZKSign => {
-            if let Some(fingerprint) = args.fingerprint {
-                assert_eq!(fingerprint, ZK_FINGERPRINT, "ZK key fingerprint mismatch");
+            if let Some(fingerprint_str) = args.fingerprint {
+                let expected = get_zk_fingerprint::<GoldilocksField>();
+                let provided = QHashOut::<GoldilocksField>::from_str(&fingerprint_str)?;
+                assert_eq!(provided, expected, "ZK key fingerprint mismatch");
             }
-            QHashOut::<GoldilocksField>::from_str(&ZK_FINGERPRINT)?
+            get_zk_fingerprint()
         }
         SignType::SECP256K1Sign => {
-            if let Some(fingerprint) = args.fingerprint {
-                assert_eq!(fingerprint, SECP256K1_FINGERPRINT, "SECP key fingerprint mismatch");
+            if let Some(fingerprint_str) = args.fingerprint {
+                let expected = get_secp256k1_fingerprint::<GoldilocksField>();
+                let provided = QHashOut::<GoldilocksField>::from_str(&fingerprint_str)?;
+                assert_eq!(provided, expected, "SECP key fingerprint mismatch");
             }
-            QHashOut::<GoldilocksField>::from_str(&SECP256K1_FINGERPRINT)?
+            get_secp256k1_fingerprint()
         }
         SignType::SoftwareDefinedDPNSign => QHashOut::<GoldilocksField>::from_str(
             &args

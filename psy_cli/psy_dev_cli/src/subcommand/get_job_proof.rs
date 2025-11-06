@@ -35,7 +35,7 @@ pub async fn run(args: GetJobProofArgs) -> Result<()> {
     let provider = RpcProvider::new_with_config(&rpc_config)?;
 
     let mut wallet_session = WalletSession::new(&rpc_config).await?;
-    let user_pk_hash = wallet_session.add_user(private_key, None).await?;
+    let user_pk_hash = wallet_session.add_user(private_key, psy_prover::wallet::memory_wallet::get_zk_fingerprint()).await?;
 
     let job_infos = if let Some(job_id_hex) = &args.job_id {
         let job_id = parse_job_id_from_hex(job_id_hex)?;

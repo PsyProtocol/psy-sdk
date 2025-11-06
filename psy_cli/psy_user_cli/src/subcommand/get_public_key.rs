@@ -16,7 +16,7 @@ use psy_crypto::{
     },
 };
 use psy_data::config::store_config::PsyHasher;
-use psy_prover::wallet::memory_wallet::{PsyMemoryWallet, SECP256K1_FINGERPRINT, ZK_FINGERPRINT};
+use psy_prover::wallet::memory_wallet::{PsyMemoryWallet, get_secp256k1_fingerprint, get_zk_fingerprint};
 use psy_rust_sdk::wallet::secp_wallet::Wallet;
 use psy_ups_circuit::circuit_manager::core::PsyUPSStepCircuitManager;
 use psy_vm::ups::circuit_manager::UPSCircuitManager;
@@ -37,8 +37,8 @@ pub async fn run(args: GetPublicKeyArgs) -> anyhow::Result<()> {
 
     // Get fingerprint based on sign type
     let fingerprint = match args.sign_type {
-        SignType::ZKSign => QHashOut::<GoldilocksField>::from_str(&ZK_FINGERPRINT)?,
-        SignType::SECP256K1Sign => QHashOut::<GoldilocksField>::from_str(&SECP256K1_FINGERPRINT)?,
+        SignType::ZKSign => get_zk_fingerprint(),
+        SignType::SECP256K1Sign => get_secp256k1_fingerprint(),
         SignType::SoftwareDefinedDPNSign => {
             anyhow::bail!("Software Defined DPN requires fingerprint parameter");
         }

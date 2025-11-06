@@ -6,7 +6,7 @@ use k256::ecdsa::signature::hazmat::PrehashSigner;
 use plonky2::{
     field::goldilocks_field::GoldilocksField,
     hash::{
-        hash_types::HashOut,
+        hash_types::{HashOut, RichField},
         poseidon::{PoseidonHash, PoseidonPermutation},
     },
     plonk::{
@@ -48,8 +48,30 @@ type C = PoseidonGoldilocksConfig;
 const D: usize = 2;
 type F = GoldilocksField;
 
-pub const ZK_FINGERPRINT: &str = "d2f572f1402fa8a92c9af0a2226e05ef8f5f4f34d764c6515b90d2b391fc48c1";
-pub const SECP256K1_FINGERPRINT: &str = "993bbdad2ba78319a70ab7d9ecd84b36eca0affc9f8ec4f9006b39a8fe29672c";
+pub const ZK_FINGERPRINT_U64: [u64; 4] = [6598005122787985601, 10331063158581806673, 3214145863235274223, 15201182497748527273];
+pub const SECP256K1_FINGERPRINT_U64: [u64; 4] = [30181220489455404, 17050821688768251129, 12036635100710456118, 11041627462888293145];
+
+pub fn get_zk_fingerprint<F: RichField>() -> QHashOut<F> {
+    QHashOut(HashOut {
+        elements: [
+            F::from_canonical_u64(ZK_FINGERPRINT_U64[0]),
+            F::from_canonical_u64(ZK_FINGERPRINT_U64[1]),
+            F::from_canonical_u64(ZK_FINGERPRINT_U64[2]),
+            F::from_canonical_u64(ZK_FINGERPRINT_U64[3]),
+        ],
+    })
+}
+
+pub fn get_secp256k1_fingerprint<F: RichField>() -> QHashOut<F> {
+    QHashOut(HashOut {
+        elements: [
+            F::from_canonical_u64(SECP256K1_FINGERPRINT_U64[0]),
+            F::from_canonical_u64(SECP256K1_FINGERPRINT_U64[1]),
+            F::from_canonical_u64(SECP256K1_FINGERPRINT_U64[2]),
+            F::from_canonical_u64(SECP256K1_FINGERPRINT_U64[3]),
+        ],
+    })
+}
 
 pub struct PsyMemoryWallet {
     signature_users: DashMap<QHashOut<F>, Arc<dyn SignatureUser>>,

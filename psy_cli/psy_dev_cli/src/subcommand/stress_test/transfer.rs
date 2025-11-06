@@ -331,8 +331,9 @@ async fn execute_transfer_transaction_sync(wallet_session: &mut WalletSession, t
     let private_key_to = QHashOut::<GoldilocksField>::rand();
 
     info!("🔑 Task {} - Registering user_from and user_to", task_id);
-    let pk_hash_from = wallet_session.register_user(private_key_from, None).await?;
-    let pk_hash_to = wallet_session.register_user(private_key_to, None).await?;
+    let fingerprint = psy_prover::wallet::memory_wallet::get_zk_fingerprint();
+    let pk_hash_from = wallet_session.register_user(private_key_from, fingerprint).await?;
+    let pk_hash_to = wallet_session.register_user(private_key_to, fingerprint).await?;
     println!("pk_hash_from: {}", pk_hash_from);
     println!("pk_hash_to: {}", pk_hash_to);
 
@@ -341,8 +342,8 @@ async fn execute_transfer_transaction_sync(wallet_session: &mut WalletSession, t
     }
     info!("🔑 Task {} - Registered user_from and user_to", task_id);
 
-    wallet_session.add_user(private_key_from, None).await?;
-    wallet_session.add_user(private_key_to, None).await?;
+    wallet_session.add_user(private_key_from, fingerprint).await?;
+    wallet_session.add_user(private_key_to, fingerprint).await?;
 
     // let user_id_to = wallet_session.st_provider.get_user_id(private_key_to)?;
     let pk_info_from = wallet_session.wallet.get_secp_pk_info(private_key_from).await?;

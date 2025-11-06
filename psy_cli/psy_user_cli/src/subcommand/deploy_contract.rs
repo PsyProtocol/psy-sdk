@@ -7,6 +7,7 @@ use plonky2::{
     plonk::config::PoseidonGoldilocksConfig,
 };
 use psy_common::{args::SignType, data::qhashout::QHashOut};
+use psy_prover::wallet::memory_wallet::get_zk_fingerprint;
 use psy_common_circuit::circuits::{traits::qstandard::QStandardCircuit, zk_signature3::manager::SimplePsyZKSignatureManager};
 use psy_config::network_constants::{GLOBAL_USER_TREE_HEIGHT, MAX_CONTRACT_STATE_TREE_HEIGHT, UPS_SESSION_PROOF_TREE_HEIGHT};
 use psy_crypto::{hash::traits::qhashable::QFieldHashable, signature::zk::wallet::SimplePsyPrivateKey};
@@ -41,6 +42,7 @@ pub async fn run(args: DeployContractArgs) -> anyhow::Result<()> {
         .map(|f| -> anyhow::Result<_> { QHashOut::<F>::from_str(f).map_err(|e| anyhow::anyhow!("parse fingerprint error: {}", e)) })
         .transpose()?;
 
+    let fingerprint = fingerprint.unwrap_or_else(|| get_zk_fingerprint());
     let deployer = wallet_session.add_user(private_key, fingerprint).await?;
 
     let defs_array: Vec<DPNFunctionCircuitDefinition> = serde_json::from_str(&fs::read_to_string(args.contract_path)?)?;

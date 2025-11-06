@@ -321,12 +321,8 @@ impl WalletSession {
         })
     }
 
-    pub async fn register_user(&mut self, private_key: QHashOut<F>, fingerprint: Option<QHashOut<F>>) -> anyhow::Result<QHashOut<F>> {
-        let fp = if let Some(fp) = fingerprint {
-            fp
-        } else {
-            self.wallet.random_circuit_manager().zk_circuit_fingerprint().await?
-        };
+    pub async fn register_user(&mut self, private_key: QHashOut<F>, fingerprint: QHashOut<F>) -> anyhow::Result<QHashOut<F>> {
+        let fp = fingerprint;
         let pk_info = self.wallet.get_or_create_user(private_key, fp).await?;
         let public_key = pk_info.qfhash::<PsyHasher>();
 
@@ -342,12 +338,8 @@ impl WalletSession {
         Ok(public_key)
     }
 
-    pub async fn add_user(&mut self, private_key: QHashOut<F>, fingerprint: Option<QHashOut<F>>) -> anyhow::Result<QHashOut<F>> {
-        let fp = if let Some(fp) = fingerprint {
-            fp
-        } else {
-            self.wallet.random_circuit_manager().zk_circuit_fingerprint().await?
-        };
+    pub async fn add_user(&mut self, private_key: QHashOut<F>, fingerprint: QHashOut<F>) -> anyhow::Result<QHashOut<F>> {
+        let fp = fingerprint;
         let pk_info = self.wallet.get_or_create_user(private_key, fp).await?;
         let public_key = pk_info.qfhash::<PsyHasher>();
         let checkpoint_id = self.st_provider.get_latest_block_state().await?.checkpoint_id;
@@ -960,6 +952,7 @@ impl WalletSession {
         self.wallet.get_secp_pk_info(private_key).await
     }
 
+
     pub async fn get_random_keypair(&self) -> anyhow::Result<WalletKeyPair> {
         let private_key = QHashOut::<F>::rand();
         let pk_info = self.get_zk_public_key(private_key).await?;
@@ -983,7 +976,8 @@ pub async fn run(args: WalletSessionArgs) -> anyhow::Result<()> {
     let contract_call_args: Vec<ContractCallArgs> = serde_json::from_str(&std::fs::read_to_string(args.contract_calls)?)?;
 
     let mut wallet_session = WalletSession::new(&rpc_config).await?;
-    let public_key = wallet_session.add_user(private_key, None).await?;
+    let fingerprint = crate::wallet::memory_wallet::get_zk_fingerprint();
+    let public_key = wallet_session.add_user(private_key, fingerprint).await?;
 
     let tx_hash = wallet_session.exec_contract_call(public_key, contract_call_args).await?;
 

@@ -27,9 +27,12 @@ use psy_data::{
     traits::qdatastore::{qmetadata::QMetaDataStoreReaderSync, qtreedata::QTreeDataStoreReaderSync},
 };
 use psy_node::worker::job_tracker::WorkerJobTracker;
-use psy_prover::session::{
-    utils::{build_claim_calls_for_multi_checkpoints, serialize_proof_to_inputs, ProofWithCheckpoint, LAST_CLAIMED_CHECKPOINT_SLOT},
-    WalletSession,
+use psy_prover::{
+    session::{
+        utils::{build_claim_calls_for_multi_checkpoints, serialize_proof_to_inputs, ProofWithCheckpoint, LAST_CLAIMED_CHECKPOINT_SLOT},
+        WalletSession,
+    },
+    wallet::memory_wallet::get_zk_fingerprint,
 };
 use psy_rust_sdk::provider::{NetworkConfig, RpcProvider};
 use psy_services::models::{WorkerEvent, WorkerEventSource};
@@ -52,12 +55,12 @@ pub async fn run(args: ClaimRewardsArgs) -> Result<()> {
 
     let provider = RpcProvider::new_with_config(&rpc_config)?;
     let mut wallet_session = WalletSession::new(&rpc_config).await?;
-    let fingerprint = if args.fingerprint.is_some() {
-        Some(QHashOut::<F>::from_str(&args.fingerprint.as_ref().unwrap()).map_err(|e| anyhow::format_err!("Failed to parse fingerprint: {}", e))?)
-    } else {
-        None
-    };
-
+    let fingerprint = args.fingerprint
+        .as_ref()
+        .map(|fp_str| QHashOut::<F>::from_str(fp_str))
+        .transpose()
+        .map_err(|e| anyhow::format_err!("Failed to parse fingerprint: {}", e))?
+        .unwrap_or_else(|| get_zk_fingerprint());
     let user_pk_hash = wallet_session.add_user(private_key, fingerprint).await?;
     let user_id = provider.get_user_id(user_pk_hash).await?;
 
@@ -246,8 +249,8 @@ pub async fn run(args: ClaimRewardsArgs) -> Result<()> {
 
     let all_job_infos: Vec<JobInfo> = all_job_infos.values().flatten().cloned().collect();
 
-    let sign_data = fingerprint.map(|fp| SignData {
-        fingerprint: fp,
+    let sign_data = Some(SignData {
+        fingerprint: fingerprint,
         sign_contract_id: MINING_REWARDS_CONTRACT_ID as u64,
         sign_inputs: vec![],
     });
