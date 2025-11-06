@@ -17,7 +17,8 @@ use self::{
     rpc::CoordinatorEdgeRpcServer,
 };
 use super::args::CoordinatorEdgeArgs;
-use crate::common::{health::HealthLayer, jobs::JobSchedulerRpcServer};
+use crate::common::jobs::JobSchedulerRpcServer;
+use psy_common::health::HealthLayer;
 
 pub type StoreReader = PsyStore;
 pub type DrainQueue = ProofStoreRedis;

@@ -75,7 +75,6 @@ use crate::{
     wallet::memory_wallet::PsyMemoryWallet,
 };
 
-// Combined trait for UPS circuit managers that also support tree recursion
 trait UPSWithTreeRecursionTrait<C: GenericConfig<D>, const D: usize>: UPSCircuitManager<C, D> + PortableQTreeRecursion<C, D> + Send + Sync
 where
     C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasher<QHashOut<C::F>>,

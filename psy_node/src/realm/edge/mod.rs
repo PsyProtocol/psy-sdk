@@ -15,10 +15,11 @@ use psy_store::{
 };
 use tower_http::cors::{Any, CorsLayer};
 use tracing::{debug, info};
+use psy_common::health::HealthLayer;
 
 use super::{config::RealmEdgeConfig, rpc::RealmEdgeRpcServer, C, D, F};
 use crate::{
-    common::{health::HealthLayer, jobs::JobSchedulerRpcServer, verifier::get_cached_generic_verifier, whitelist::WhiteListCache},
+    common::{jobs::JobSchedulerRpcServer, verifier::get_cached_generic_verifier, whitelist::WhiteListCache},
     realm::{
         handler::RealmEdgeHandler,
         state::{edge::RealmEdgeContext, edge_queue_helper::RealmEdgeQueueHelper, processor::RealmConfig, queue_factory::QueueFactory},

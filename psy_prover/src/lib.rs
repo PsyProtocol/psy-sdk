@@ -3,8 +3,6 @@ pub mod session;
 pub mod signature;
 pub mod wallet;
 
-#[cfg(not(target_arch = "wasm32"))]
-pub mod health;
 
 // WASM exports
 #[cfg(target_arch = "wasm32")]
@@ -23,9 +21,9 @@ pub async fn run_server(args: psy_common::args::ProverArgs) -> anyhow::Result<()
     use psy_common::data::base_types::hash256::Hash256;
     use psy_provider::provider::NetworkConfig;
     use tower_http::cors::{Any, CorsLayer};
+    use psy_common::health::HealthLayer;
 
     use crate::{
-        health::HealthLayer,
         local::{
             common::enc::SimpleZeroPadEncryptionHelper,
             native::{RpcServer, RpcServerImpl},
@@ -67,7 +65,8 @@ pub async fn run_prove_proxy_server(args: psy_common::args::ProveProxyArgs) -> a
     use psy_provider::provider::NetworkConfig;
     use tower_http::cors::{Any, CorsLayer};
 
-    use crate::{health::HealthLayer, local::native::prove_proxy::ProveProxyRpcServer};
+    use crate::local::native::prove_proxy::ProveProxyRpcServer;
+    use psy_common::health::HealthLayer;
 
     let psy_config = psy_config::PsyConfigGoldilocks::from_file(&args.rpc_config)?;
     let rpc_config = psy_config.get_current_network()?;

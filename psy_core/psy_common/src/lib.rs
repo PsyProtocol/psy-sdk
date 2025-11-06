@@ -5,6 +5,7 @@ pub mod data;
 pub mod error;
 pub mod file_resolver;
 pub mod graph;
+pub mod health;
 pub mod job;
 pub mod json_diff;
 pub mod jwt;

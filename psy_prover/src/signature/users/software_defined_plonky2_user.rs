@@ -16,9 +16,6 @@ use crate::{
     wallet::memory_wallet::PsyMemoryWallet,
 };
 
-/// Software-Defined PLONKY2 signature user.
-/// Handles signatures for custom PLONKY2-based software-defined circuits with
-/// user-defined custom_sign logic.
 #[derive(Debug, Clone)]
 pub struct SoftwareDefinedPlonky2User {
     private_key: QHashOut<GoldilocksField>,
