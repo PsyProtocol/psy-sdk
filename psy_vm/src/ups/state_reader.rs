@@ -28,7 +28,8 @@ use crate::dpn::ops::state_cmd::data::{
     DPNStateCmdGetSelfUserExternalContractStateSlotHash,
 };
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(bound = "F: Serialize + serde::de::DeserializeOwned")]
 pub struct StateReaderResults<F: RichField> {
     pub state: UserContractState<F>,
     pub state_cmds: Vec<DPNStateCmd<F>>,

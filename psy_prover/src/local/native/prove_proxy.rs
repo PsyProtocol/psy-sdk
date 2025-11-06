@@ -1,7 +1,7 @@
 use std::sync::{Arc, Mutex, RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 use dashmap::DashMap;
-use jsonrpsee::{core::async_trait, proc_macros::rpc, types::ErrorObjectOwned};
+use jsonrpsee::{core::async_trait, proc_macros::rpc, types::{ErrorObject, ErrorObjectOwned}};
 use k256::ecdsa::signature::hazmat::PrehashSigner;
 use plonky2::plonk::{
     config::{GenericConfig, PoseidonGoldilocksConfig},
@@ -44,7 +44,9 @@ use psy_ups_circuit::{
     signature::software_defined::{DPNSoftwareDefinedSignatureGadget, Plonky2SoftwareDefinedSignatureGadget},
 };
 use psy_vm::{
-    dpn::contract::cfc_code_definition_to_dapen_fc, ups::circuit_manager::UPSCircuitManager, vm::cfc_input::DapenContractFunctionCircuitInput,
+    dpn::contract::cfc_code_definition_to_dapen_fc,
+    ups::{circuit_manager::UPSCircuitManager, signature::Plonky2SoftwareDefinedSignatureInput},
+    vm::cfc_input::DapenContractFunctionCircuitInput,
 };
 use serde::{Deserialize, Deserializer, Serialize};
 
@@ -114,12 +116,21 @@ pub trait ProveProxyRpc {
         request: QRegisterPlonky2SoftwareDefinedCircuitRPCRequest,
     ) -> Result<QHashOut<F>, ErrorObjectOwned>;
 
-    #[method(name = "prove_software_defined_sign")]
-    async fn prove_software_defined_sign(
+    #[method(name = "prove_dpn_software_defined_sign")]
+    async fn prove_dpn_software_defined_sign(
         &self,
         fingerprint: QHashOut<F>,
         private_key: QHashOut<F>,
         input: DPNSoftwareDefinedSignatureInput,
+        sig_hash: QHashOut<F>,
+    ) -> Result<ProofWithPublicInputs<F, C, D>, ErrorObjectOwned>;
+
+    #[method(name = "prove_plonky2_software_defined_sign")]
+    async fn prove_plonky2_software_defined_sign(
+        &self,
+        fingerprint: QHashOut<F>,
+        private_key: QHashOut<F>,
+        input: Plonky2SoftwareDefinedSignatureInput,
         sig_hash: QHashOut<F>,
     ) -> Result<ProofWithPublicInputs<F, C, D>, ErrorObjectOwned>;
 
@@ -724,28 +735,32 @@ impl ProveProxyRpcServer for ProveProxyServerProvider {
         // Ok(fingerprint)
     }
 
-    async fn prove_software_defined_sign(
+    async fn prove_dpn_software_defined_sign(
         &self,
         fingerprint: QHashOut<F>,
         private_key: QHashOut<F>,
         input: DPNSoftwareDefinedSignatureInput,
         sig_hash: QHashOut<F>,
     ) -> Result<ProofWithPublicInputs<F, C, D>, ErrorObjectOwned> {
-        tracing::info!("🔔 prove_software_defined_sign");
-        todo!("prove_software_defined_sign");
-        // let input = SoftwareDefinedSignatureWitnessInput::Psy(input);
+        tracing::info!("🔔 prove_dpn_software_defined_sign");
+        self.circuit_manager
+            .prove_dpn_software_defined_sign(fingerprint, private_key, input, sig_hash)
+            .await
+            .map_err(|e| ErrorObject::owned(1, e.to_string(), None::<()>))
+    }
 
-        // if let Some(mut sdc) =
-        // self.software_defined_circuits.get_mut(&fingerprint) {
-        //     sdc.prove(private_key, &input, sig_hash).await
-        //         .map_err(|err| ErrorObjectOwned::owned(1, "software defined
-        // signature proving error", Some(err.to_string()))) } else {
-        //     Err(ErrorObjectOwned::owned(
-        //         1,
-        //         format!("software defined circuit {} is not found",
-        // fingerprint.to_string()),         Some(format!("fingerprint:
-        // {}", fingerprint.to_string())),     ))
-        // }
+    async fn prove_plonky2_software_defined_sign(
+        &self,
+        fingerprint: QHashOut<F>,
+        private_key: QHashOut<F>,
+        input: Plonky2SoftwareDefinedSignatureInput,
+        sig_hash: QHashOut<F>,
+    ) -> Result<ProofWithPublicInputs<F, C, D>, ErrorObjectOwned> {
+        tracing::info!("🔔 prove_plonky2_software_defined_sign");
+        self.circuit_manager
+            .prove_plonky2_software_defined_sign(fingerprint, private_key, input, sig_hash)
+            .await
+            .map_err(|e| ErrorObject::owned(1, e.to_string(), None::<()>))
     }
 
     async fn prove_ups_end_cap(
