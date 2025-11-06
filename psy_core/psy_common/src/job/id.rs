@@ -419,20 +419,6 @@ impl std::fmt::Display for TaskId {
 }
 
 #[derive(Serialize, Deserialize, Clone, Copy, Debug)]
-pub struct JobProofSibling {
-    #[serde(rename = "sibling_hash")]
-    pub hash: QHashOut<F>,
-    pub is_left: bool,
-}
-
-#[derive(Clone, Serialize, Deserialize, Debug)]
-pub struct JobProof {
-    pub value: QHashOut<F>,
-    pub siblings: Vec<JobProofSibling>,
-    pub root: QHashOut<F>,
-}
-
-#[derive(Serialize, Deserialize, Clone, Copy, Debug)]
 pub struct VariableHeightProofSibling {
     pub sibling_branch: QHashOut<F>,
     pub sibling_reward_leaf: QHashOut<F>,

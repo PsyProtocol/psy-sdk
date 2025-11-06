@@ -37,8 +37,6 @@ use crate::{
     vm::cfc_input::DapenContractFunctionCircuitInput,
 };
 
-// Generic trait for UPS circuit managers - will be implemented by different
-// providers
 #[cfg_attr(not(target_arch = "wasm32"), maybe_async)]
 #[cfg_attr(target_arch = "wasm32", maybe_async(?Send))]
 pub trait UPSCircuitManager<C: GenericConfig<D>, const D: usize>: Send + Sync + PortableQTreeRecursion<C, D>

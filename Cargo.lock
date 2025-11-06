@@ -6223,6 +6223,7 @@ dependencies = [
  "async-trait",
  "bincode",
  "clap",
+ "console_error_panic_hook",
  "dashmap 6.1.0",
  "dirs",
  "futures",
@@ -6230,6 +6231,7 @@ dependencies = [
  "hex",
  "http 1.3.1",
  "hyper 1.7.0",
+ "js-sys",
  "jsonrpsee",
  "k256",
  "kvq",
@@ -6254,10 +6256,7 @@ dependencies = [
  "rpassword",
  "secp256k1 0.31.1",
  "serde",
- "serde_cbor",
  "serde_json",
- "serde_repr",
- "serde_with",
  "sodalite",
  "tempfile",
  "thiserror 2.0.17",
@@ -6266,6 +6265,11 @@ dependencies = [
  "tower-http",
  "tracing",
  "ts-rs",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "wasm-logger",
+ "wasm-tracing",
+ "web-sys",
 ]
 
 [[package]]

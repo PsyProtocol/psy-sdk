@@ -27,7 +27,10 @@ use psy_data::{
     traits::qdatastore::{qmetadata::QMetaDataStoreReaderSync, qtreedata::QTreeDataStoreReaderSync},
 };
 use psy_node::worker::job_tracker::WorkerJobTracker;
-use psy_prover::session::WalletSession;
+use psy_prover::session::{
+    utils::{build_claim_calls_for_multi_checkpoints, serialize_proof_to_inputs, ProofWithCheckpoint, LAST_CLAIMED_CHECKPOINT_SLOT},
+    WalletSession,
+};
 use psy_rust_sdk::provider::{NetworkConfig, RpcProvider};
 use psy_services::models::{WorkerEvent, WorkerEventSource};
 use serde::{Deserialize, Serialize};
@@ -38,18 +41,9 @@ use super::args::ClaimRewardsArgs;
 
 type ApiResponse = Vec<WorkerEvent>;
 
-#[derive(Clone)]
-struct ProofWithCheckpoint {
-    checkpoint_id: u64,
-    proof: VariableHeightRewardMerkleProof,
-    proposed_reward: u64,
-}
-
 type F = GoldilocksField;
 type C = PoseidonGoldilocksConfig;
 const D: usize = 2;
-
-const LAST_CLAIMED_CHECKPOINT_SLOT: u64 = 0;
 
 pub async fn run(args: ClaimRewardsArgs) -> Result<()> {
     let psy_config = psy_config::PsyConfigGoldilocks::from_file(&args.rpc_config)?;
@@ -228,7 +222,7 @@ pub async fn run(args: ClaimRewardsArgs) -> Result<()> {
         info!("No checkpoints with valid rewards to claim");
         return Ok(());
     }
-    let mut all_contract_calls = build_claim_calls_for_multi_checkpoints(&all_proofs_with_checkpoints);
+    let mut all_contract_calls = build_claim_calls_for_multi_checkpoints(&all_proofs_with_checkpoints).await;
     if all_contract_calls.is_empty() {
         info!("No checkpoints with valid rewards to claim");
         return Ok(());
@@ -249,15 +243,19 @@ pub async fn run(args: ClaimRewardsArgs) -> Result<()> {
         return Ok(());
     }
     info!("Executing {} contract calls in single transaction", all_contract_calls.len());
+
+    let all_job_infos: Vec<JobInfo> = all_job_infos.values().flatten().cloned().collect();
+
     let sign_data = fingerprint.map(|fp| SignData {
         fingerprint: fp,
         sign_contract_id: MINING_REWARDS_CONTRACT_ID as u64,
         sign_inputs: vec![],
     });
-    let tx_hash = wallet_session
-        .exec_contract_call_with_sign_data(user_pk_hash, all_contract_calls, sign_data)
+
+    wallet_session
+        .claim_rewards_with_sign_type(user_pk_hash, all_job_infos, sign_data)
         .await?;
-    info!("Successfully claimed rewards with tx hash: {}", tx_hash);
+    info!("Successfully claimed rewards");
     Ok(())
 }
 
@@ -273,122 +271,6 @@ async fn get_last_claimed_checkpoint_id(provider: &RpcProvider, user_id: u64, la
         .await?;
 
     Ok(proof.value.0.elements[1].0)
-}
-
-fn build_claim_calls_for_multi_checkpoints(all_proofs: &[ProofWithCheckpoint]) -> Vec<ContractCallArgs> {
-    let mut contract_call_args = Vec::new();
-
-    let total_proofs = all_proofs.len();
-    let mut proof_index = 0;
-
-    let count_5s = total_proofs / 5;
-    let mut remaining = total_proofs % 5;
-
-    for _ in 0..count_5s {
-        let chunk = &all_proofs[proof_index..proof_index + 5];
-        let mut batch_inputs = Vec::new();
-
-        for proof_with_checkpoint in chunk {
-            batch_inputs.push(proof_with_checkpoint.checkpoint_id);
-        }
-
-        for proof_with_checkpoint in chunk {
-            serialize_proof_to_inputs(&proof_with_checkpoint.proof, &mut batch_inputs);
-        }
-
-        for proof_with_checkpoint in chunk {
-            batch_inputs.push(proof_with_checkpoint.proposed_reward);
-        }
-
-        contract_call_args.push(ContractCallArgs {
-            contract_id: MINING_REWARDS_CONTRACT_ID as u64,
-            method_name: "claim_guta_rewards_5".to_string(),
-            inputs: batch_inputs,
-        });
-
-        proof_index += 5;
-    }
-
-    let count_2s = remaining / 2;
-    for _ in 0..count_2s {
-        let chunk = &all_proofs[proof_index..proof_index + 2];
-        let mut batch_inputs = Vec::new();
-
-        for proof_with_checkpoint in chunk {
-            batch_inputs.push(proof_with_checkpoint.checkpoint_id);
-        }
-
-        for proof_with_checkpoint in chunk {
-            serialize_proof_to_inputs(&proof_with_checkpoint.proof, &mut batch_inputs);
-        }
-
-        for proof_with_checkpoint in chunk {
-            batch_inputs.push(proof_with_checkpoint.proposed_reward);
-        }
-
-        contract_call_args.push(ContractCallArgs {
-            contract_id: MINING_REWARDS_CONTRACT_ID as u64,
-            method_name: "claim_guta_rewards_2".to_string(),
-            inputs: batch_inputs,
-        });
-
-        proof_index += 2;
-    }
-    remaining = remaining % 2;
-
-    if remaining > 0 {
-        let proof_with_checkpoint = &all_proofs[proof_index];
-        let mut proof_inputs = Vec::new();
-
-        serialize_proof_to_inputs(&proof_with_checkpoint.proof, &mut proof_inputs);
-
-        let mut batch_inputs = vec![proof_with_checkpoint.checkpoint_id];
-        batch_inputs.extend(proof_inputs);
-        batch_inputs.push(proof_with_checkpoint.proposed_reward);
-
-        contract_call_args.push(ContractCallArgs {
-            contract_id: MINING_REWARDS_CONTRACT_ID as u64,
-            method_name: "claim_guta_rewards_1".to_string(),
-            inputs: batch_inputs,
-        });
-    }
-
-    contract_call_args
-}
-
-fn serialize_proof_to_inputs(proof: &VariableHeightRewardMerkleProof, inputs: &mut Vec<u64>) {
-    tracing::debug!("🔍 Serializing proof: {}", serde_json::to_string_pretty(proof).unwrap());
-
-    for j in 0..GUTA_REWARDS_TREE_MAX_HEIGHT {
-        if j < proof.top_siblings.len() {
-            let sibling = &proof.top_siblings[j];
-            inputs.extend(vec![
-                sibling.sibling_branch.0.elements[0].0,
-                sibling.sibling_branch.0.elements[1].0,
-                sibling.sibling_branch.0.elements[2].0,
-                sibling.sibling_branch.0.elements[3].0,
-                sibling.sibling_reward_leaf.0.elements[0].0,
-                sibling.sibling_reward_leaf.0.elements[1].0,
-                sibling.sibling_reward_leaf.0.elements[2].0,
-                sibling.sibling_reward_leaf.0.elements[3].0,
-            ]);
-        } else {
-            inputs.extend(vec![0u64; 8]);
-        }
-    }
-    inputs.extend(vec![
-        proof.sibling_branch.0.elements[0].0,
-        proof.sibling_branch.0.elements[1].0,
-        proof.sibling_branch.0.elements[2].0,
-        proof.sibling_branch.0.elements[3].0,
-    ]);
-    inputs.extend(vec![
-        proof.reward_leaf.0.elements[0].0,
-        proof.reward_leaf.0.elements[1].0,
-        proof.reward_leaf.0.elements[2].0,
-        proof.reward_leaf.0.elements[3].0,
-    ]);
-    inputs.extend(vec![proof.proof_height.0, proof.index.0]);
 }
 
 fn parse_job_specs(specs: &[String]) -> Result<Vec<JobInfo>> {
