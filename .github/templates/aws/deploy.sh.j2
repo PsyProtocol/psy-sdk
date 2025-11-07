@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-# AWS Deployment Script for QED Protocol
+# AWS Deployment Script for Psy Protocol
 # Generated from config.json
 
 # Change to script directory
@@ -14,7 +14,7 @@ ENVIRONMENT="${ENVIRONMENT:-dev}"
 CLUSTER_NAME="${PROJECT_NAME}-${ENVIRONMENT}-main-ecs"  # Use consistent naming
 
 # Config file settings
-LOCAL_CONFIG_FILE="${LOCAL_CONFIG_FILE:-../config-deploy.json}"  # Local source file
+LOCAL_CONFIG_FILE="${LOCAL_CONFIG_FILE:-../deploy.json}"  # Local source file
 S3_CONFIG_KEY="config.json"  # Always upload as config.json to S3
 CONFIG_BUCKET_NAME="${PROJECT_NAME}-${ENVIRONMENT}-config-$(aws sts get-caller-identity --query Account --output text)-${REGION}"
 
@@ -54,7 +54,7 @@ show_help() {
 Usage: $0 [COMMAND] [OPTIONS]
 
 Commands:
-    deploy              Deploy the full QED Protocol infrastructure
+    deploy              Deploy the full Psy Protocol infrastructure
     update              Update infrastructure and force instance refresh
     update-instances    Force refresh EC2 instances only
     destroy             Destroy all infrastructure
@@ -87,7 +87,7 @@ Examples:
     $0 validate-template cloudformation/ecs-services.yaml
 
 Environment Variables:
-    LOCAL_CONFIG_FILE   Path to local config file (default: ../config-deploy.json)
+    LOCAL_CONFIG_FILE   Path to local config file (default: ../deploy.json)
     ENVIRONMENT         Deployment environment (default: dev)
 
 EOF
@@ -1349,12 +1349,12 @@ show_service_endpoints() {
     
     # Show Service Discovery endpoints
     log_info "Service Discovery (Internal):"
-    log_info "  Coordinator Edge: coordinator-edge.qed.local:8545"
+    log_info "  Coordinator Edge: coordinator-edge.psy.local:8545"
     {% for realm in config.nodes.realms %}
-    log_info "  Realm {{ realm.id }} Edge: realm-{{ realm.id }}-edge.qed.local:{{ 8546 + realm.id }}"
+    log_info "  Realm {{ realm.id }} Edge: realm-{{ realm.id }}-edge.psy.local:{{ 8546 + realm.id }}"
     {% endfor %}
     {% if config.global_services and config.global_services.api_service and config.global_services.api_service.enabled %}
-    log_info "  API Service: api-service.qed.local:3000"
+    log_info "  API Service: api-service.psy.local:3000"
     {% endif %}
 }
 # Show deployment status
@@ -1529,7 +1529,7 @@ manage_config() {
 
 # Main deployment function
 deploy() {
-    log_info "Starting QED Protocol deployment..."
+    log_info "Starting Psy Protocol deployment..."
     
     # ========================================
     # Phase 1: Build and Push Docker Image
@@ -1795,7 +1795,7 @@ setup_config_management() {
         '.network.coordinator_configs[0].rpc_url = [$coord_url] | 
          .network.realm_configs[0].rpc_url = [$realm0_url] | 
          .network.realm_configs[1].rpc_url = [$realm1_url]' \
-        "$LOCAL_CONFIG_FILE" > /tmp/config-deploy.json
+        "$LOCAL_CONFIG_FILE" > /tmp/deploy.json
    
     # Check if jq succeeded
     if [ $? -ne 0 ]; then
@@ -1804,28 +1804,28 @@ setup_config_management() {
     fi
    
     # Verify the file was created and is valid JSON
-    if [ ! -s /tmp/config-deploy.json ]; then
+    if [ ! -s /tmp/deploy.json ]; then
         log_error "Generated config file is empty"
         return 1
     fi
 
-    if ! jq empty /tmp/config-deploy.json 2>/dev/null; then
+    if ! jq empty /tmp/deploy.json 2>/dev/null; then
         log_error "Generated config is not valid JSON"
-        cat /tmp/config-deploy.json
+        cat /tmp/deploy.json
         return 1
     fi
 
     # Extract and verify URLs
     log_info "Verifying generated URLs..."
-    local verify_coord=$(jq -r '.network.coordinator_configs[0].rpc_url[0] // empty' /tmp/config-deploy.json)
-    local verify_realm0=$(jq -r '.network.realm_configs[0].rpc_url[0] // empty' /tmp/config-deploy.json)
-    local verify_realm1=$(jq -r '.network.realm_configs[1].rpc_url[0] // empty' /tmp/config-deploy.json)
+    local verify_coord=$(jq -r '.network.coordinator_configs[0].rpc_url[0] // empty' /tmp/deploy.json)
+    local verify_realm0=$(jq -r '.network.realm_configs[0].rpc_url[0] // empty' /tmp/deploy.json)
+    local verify_realm1=$(jq -r '.network.realm_configs[1].rpc_url[0] // empty' /tmp/deploy.json)
     
     # Check if extraction succeeded
     if [ -z "$verify_coord" ] || [ -z "$verify_realm0" ] || [ -z "$verify_realm1" ]; then
         log_error "Failed to extract URLs from generated config"
         echo "Config structure:"
-        jq '.network' /tmp/config-deploy.json
+        jq '.network' /tmp/deploy.json
         return 1
     fi
     
@@ -1847,7 +1847,7 @@ setup_config_management() {
 
     # Upload as config.json to S3 (single source of truth)
     log_info "Uploading config to S3 as ${S3_CONFIG_KEY}..."
-    if ! aws s3 cp /tmp/config-deploy.json \
+    if ! aws s3 cp /tmp/deploy.json \
         "s3://${CONFIG_BUCKET_NAME}/${S3_CONFIG_KEY}" \
         --content-type "application/json" \
         --metadata "source=${LOCAL_CONFIG_FILE},timestamp=$(date -u +%Y%m%d%H%M%S)" \
@@ -1866,7 +1866,7 @@ setup_config_management() {
     fi
 
     # Clean up temp file
-    rm -f /tmp/config-deploy.json
+    rm -f /tmp/deploy.json
     
     return 0
 }
@@ -2181,7 +2181,7 @@ print_deployment_info() {
     echo "# Then access the instance:"
     echo "aws ssm start-session --target <instance-id> --region ${REGION}"
     echo "# Inside the instance, access ScyllaDB containers:"
-    echo "docker exec -it qed-scylla-coordinator-1 cqlsh"
+    echo "docker exec -it psy-scylla-coordinator-1 cqlsh"
     {% endif %}
     
     echo ""

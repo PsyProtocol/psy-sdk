@@ -1,6 +1,6 @@
 ## Example command for installing prove-proxy
 ```shell
-sudo ./install_prove_proxy.sh /qed_user_cli \
+sudo ./install_prove_proxy.sh /psy_user_cli \
 --user psy \
 --group psy \
 --create-user \

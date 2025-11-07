@@ -2,7 +2,7 @@
 title: Release workflow failed
 labels: ["bug", "release"]
 assignees:
-  - QEDProtocol/core-team
+  - PsyProtocol/core-team
 ---
 
 ## Release Workflow Failure

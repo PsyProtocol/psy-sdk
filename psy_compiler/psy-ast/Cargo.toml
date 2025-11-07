@@ -1,0 +1,11 @@
+[package]
+edition = "2021"
+name    = "psy-ast"
+version = "0.1.0"
+
+[dependencies]
+smol_str = { workspace =true }
+enum-as-inner = { workspace = true }
+indexmap = { workspace = true }
+ariadne = { workspace = true }
+psy_common = { workspace = true }

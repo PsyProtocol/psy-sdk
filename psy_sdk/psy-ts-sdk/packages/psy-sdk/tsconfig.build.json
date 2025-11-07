@@ -1,0 +1,32 @@
+{
+  "compilerOptions": {
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "target": "ES2020",
+    "module": "ESNext",
+    "sourceMap": true,
+    "declaration": true,
+    "declarationMap": true,
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "noEmitOnError": true,
+    "allowJs": true,
+    "types": [
+      "node",
+      "jest"
+    ],
+    "moduleResolution": "node",
+    "baseUrl": ".",
+    "paths": {
+      "@psy/*": ["packages/*/src"]
+    }
+  },
+  "include": [
+    "src/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist"
+  ]
+}

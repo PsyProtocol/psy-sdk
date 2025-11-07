@@ -72,7 +72,7 @@ services:
   {% if config.nodes.coordinator.redis -%}
   redis-coordinator:
     image: redis:7-alpine
-    container_name: qed-redis-coordinator
+    container_name: psy-redis-coordinator
     ports:
       - "{{ config.nodes.coordinator.redis.uri | split(':') | last }}:6379"
     networks:
@@ -84,7 +84,7 @@ services:
   {% if realm.redis -%}
   redis-realm{{ realm.id }}:
     image: redis:7-alpine
-    container_name: qed-redis-realm{{ realm.id }}
+    container_name: psy-redis-realm{{ realm.id }}
     ports:
       - "{{ realm.redis.uri | split(':') | last }}:6379"
     networks:
@@ -120,7 +120,7 @@ services:
   {% for i in range(1, coordinator_cluster_size + 1) -%}
   scylla-coordinator-{{ i }}:
     image: scylladb/scylla:2025.1
-    container_name: qed-scylla-coordinator-{{ i }}
+    container_name: psy-scylla-coordinator-{{ i }}
     ports:
       - "{{ 9041 + i }}:9042"
       - "{{ 9179 + i }}:9180"
@@ -162,7 +162,7 @@ services:
   {% for i in range(1, realm_cluster_size + 1) -%}
   scylla-realm{{ realm.id }}-{{ i }}:
     image: scylladb/scylla:2025.1
-    container_name: qed-scylla-realm{{ realm.id }}-{{ i }}
+    container_name: psy-scylla-realm{{ realm.id }}-{{ i }}
     ports:
       {% if realm.id == 0 -%}
       - "{{ 9051 + i }}:9042"
@@ -207,7 +207,7 @@ services:
       dockerfile: Dockerfile
       args:
         PROFILE: release
-    container_name: qed-coordinator-processor
+    container_name: psy-coordinator-processor
     command: >
       coordinator-processor
       {% if config.nodes.coordinator.backend -%}
@@ -222,7 +222,7 @@ services:
       --database scylla
       {% set coord_cluster_size = coord_backend.scylla.aws.ec2.desired_instances | default(1) -%}
       --scylla-uri scylla-coordinator-1:9042
-      --scylla-keyspace qed_coordinator
+      --scylla-keyspace psy_coordinator
       {% endif -%}
       --redis-uri redis://redis-coordinator:6379
       {% for key, value in config.nodes.coordinator.processor.args | items -%}
@@ -268,7 +268,7 @@ services:
       dockerfile: Dockerfile
       args:
         PROFILE: release
-    container_name: qed-coordinator-edge
+    container_name: psy-coordinator-edge
     ports:
       - "{{ (config.nodes.coordinator.edge.args.listen_addr | default('0.0.0.0:8545')) | split(':') | last }}:8545"
     command: >
@@ -285,7 +285,7 @@ services:
       --database scylla
       {% set coord_cluster_size = coord_backend.scylla.aws.ec2.desired_instances | default(1) -%}
       --scylla-uri scylla-coordinator-1:9042
-      --scylla-keyspace qed_coordinator
+      --scylla-keyspace psy_coordinator
       {% endif -%}
       --redis-uri redis://redis-coordinator:6379
       {% for key, value in config.nodes.coordinator.edge.args | items -%}
@@ -335,7 +335,7 @@ services:
       dockerfile: Dockerfile
       args:
         PROFILE: release
-    container_name: qed-coordinator-worker-{{ i }}
+    container_name: psy-coordinator-worker-{{ i }}
     command: >
       coordinator-worker
       --redis-uri redis://redis-coordinator:6379
@@ -377,7 +377,7 @@ services:
       dockerfile: Dockerfile
       args:
         PROFILE: release
-    container_name: qed-realm{{ realm.id }}-processor
+    container_name: psy-realm{{ realm.id }}-processor
     command: >
       realm-processor
       {% if realm.backend -%}
@@ -392,7 +392,7 @@ services:
       --database scylla
       {% set realm_cluster_size = realm_backend.scylla.aws.ec2.desired_instances | default(1) -%}
       --scylla-uri scylla-realm{{ realm.id }}-1:9042
-      --scylla-keyspace qed_realm_{{ realm.id }}
+      --scylla-keyspace psy_realm_{{ realm.id }}
       {% endif -%}
       --redis-uri redis://redis-realm{{ realm.id }}:6379
       --realm-id {{ realm.id }}
@@ -439,7 +439,7 @@ services:
       dockerfile: Dockerfile
       args:
         PROFILE: release
-    container_name: qed-realm{{ realm.id }}-edge
+    container_name: psy-realm{{ realm.id }}-edge
     ports:
       - "{{ (realm.edge.args['listen-addr'] | default('0.0.0.0:' ~ (8546 + realm.id))) | split(':') | last }}:{{ 8546 + realm.id }}"
     command: >
@@ -456,7 +456,7 @@ services:
       --database scylla
       {% set realm_cluster_size = realm_backend.scylla.aws.ec2.desired_instances | default(1) -%}
       --scylla-uri scylla-realm{{ realm.id }}-1:9042
-      --scylla-keyspace qed_realm_{{ realm.id }}
+      --scylla-keyspace psy_realm_{{ realm.id }}
       {% endif -%}
       --redis-uri redis://redis-realm{{ realm.id }}:6379
       --realm-id {{ realm.id }}
@@ -508,7 +508,7 @@ services:
       dockerfile: Dockerfile
       args:
         PROFILE: release
-    container_name: qed-realm{{ realm.id }}-worker-{{ i }}
+    container_name: psy-realm{{ realm.id }}-worker-{{ i }}
     command: >
       realm-worker
       --redis-uri redis://redis-realm{{ realm.id }}:6379
@@ -540,8 +540,8 @@ services:
       dockerfile: Dockerfile
       args:
         PROFILE: release
-    container_name: qed-prover
-    entrypoint: ["/qed-rollup/qed_user_cli"]
+    container_name: psy-prover
+    entrypoint: ["/psy-node/psy_user_cli"]
     ports:
       - "{{ (config.nodes.prover.args.listen_addr | default('0.0.0.0:8888')) | split(':') | last }}:{{ (config.nodes.prover.args.listen_addr | default('0.0.0.0:8888')) | split(':') | last }}"
     command: >
@@ -554,7 +554,7 @@ services:
       {{ key }}: "{{ value }}"
       {% endfor %}
     volumes:
-      - ./config.json:/qed-rollup/config.json:ro
+      - ./config.json:/psy-node/config.json:ro
     networks:
       - {{ config.nodes.deployment.docker.network_name }}
     restart: unless-stopped

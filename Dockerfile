@@ -15,23 +15,23 @@ RUN apt update -y \
 
 COPY --from=builder /usr/local/cargo/bin/sqlx /usr/local/bin/
 
-WORKDIR /qed-rollup
+WORKDIR /psy-node
 
-COPY ./target/${PROFILE}/qed_rollup_cli /qed-rollup
-COPY ./target/${PROFILE}/qed_user_cli /qed-rollup
-COPY ./target/${PROFILE}/qed_dev_cli /qed-rollup
-COPY ./target/${PROFILE}/qed_api_services /qed-rollup
-COPY ./qed_api_services/migrations /qed-rollup/migrations
-COPY .env /qed-rollup/.env
+COPY ./target/${PROFILE}/psy_node_cli /psy-node
+COPY ./target/${PROFILE}/psy_user_cli /psy-node
+COPY ./target/${PROFILE}/psy_dev_cli /psy-node
+COPY ./target/${PROFILE}/psy_services /psy-node
+COPY ./psy_services/migrations /psy-node/migrations
+COPY .env /psy-node/.env
 
 # Copy precompiles
-COPY ./qed_precompiles/token           /qed-rollup/qed_precompiles/token
-COPY ./qed_precompiles/rewards         /qed-rollup/qed_precompiles/rewards
-COPY ./qed_precompiles/mining_rewards  /qed-rollup/qed_precompiles/mining_rewards
+COPY ./psy-precompiles/token           /psy-node/psy-precompiles/token
+COPY ./psy-precompiles/rewards         /psy-node/psy-precompiles/rewards
+COPY ./psy-precompiles/mining_rewards  /psy-node/psy-precompiles/mining_rewards
 
 
-RUN echo '#!/bin/bash\n/qed-rollup/qed_rollup_cli $@' > /qed-rollup/.entrypoint.sh
-RUN chmod u+x /qed-rollup/.entrypoint.sh
+RUN echo '#!/bin/bash\n/psy-node/psy_node_cli $@' > /psy-node/.entrypoint.sh
+RUN chmod u+x /psy-node/.entrypoint.sh
 
-ENTRYPOINT ["/qed-rollup/.entrypoint.sh"]
+ENTRYPOINT ["/psy-node/.entrypoint.sh"]
 

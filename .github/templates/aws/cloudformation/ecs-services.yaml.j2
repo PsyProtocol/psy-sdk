@@ -1,6 +1,6 @@
 ---
 AWSTemplateFormatVersion: '2010-09-09'
-Description: 'QED Protocol ECS Services - Edge, Worker, Watcher, and API Services'
+Description: 'Psy Protocol ECS Services - Edge, Worker, Watcher, and API Services'
 
 Parameters:
   ProjectName:
@@ -96,7 +96,7 @@ Resources:
             SourcePath: /data/coordinator
         - Name: config-volume
           Host:
-            SourcePath: /qed-rollup/config.json
+            SourcePath: /psy-node/config.json
       ContainerDefinitions:
         - Name: coordinator-edge
           Image: !Sub '${ECRRepositoryURI}:latest'
@@ -126,7 +126,7 @@ Resources:
             - SourceVolume: coordinator-data
               ContainerPath: /data
             - SourceVolume: config-volume
-              ContainerPath: /qed-rollup/config.json
+              ContainerPath: /psy-node/config.json
               ReadOnly: true
           PortMappings:
             - ContainerPort: 8545
@@ -196,7 +196,7 @@ Resources:
               fi
 
               # Start coordinator-edge
-              exec /qed-rollup/qed_rollup_cli coordinator-edge \
+              exec /psy-node/psy_node_cli coordinator-edge \
                 --database tikv \
                 --tikv-pd-endpoints "$PD_ENDPOINTS" \
                 --tikv-namespace "{{ config.nodes.coordinator.backend.tikv.namespace }}-coordinator" \
@@ -289,7 +289,7 @@ Resources:
             SourcePath: /data/realm{{ realm.id }}-processor
         - Name: config-volume
           Host:
-            SourcePath: /qed-rollup/config.json
+            SourcePath: /psy-node/config.json
       ContainerDefinitions:
         - Name: realm-{{ realm.id }}-processor
           Image: !Sub '${ECRRepositoryURI}:latest'
@@ -319,12 +319,12 @@ Resources:
             - SourceVolume: realm{{ realm.id }}-processor-data
               ContainerPath: /data
             - SourceVolume: config-volume
-              ContainerPath: /qed-rollup/config.json
+              ContainerPath: /psy-node/config.json
               ReadOnly: true
           HealthCheck:
             Command:
               - CMD-SHELL
-              - 'pgrep -f "qed_rollup_cli.*realm-processor" || exit 1'
+              - 'pgrep -f "psy_node_cli.*realm-processor" || exit 1'
             Interval: 30
             Timeout: 5
             Retries: 3
@@ -381,7 +381,7 @@ Resources:
               echo "==========================================================="
 
               # Start realm processor
-              exec /qed-rollup/qed_rollup_cli realm-processor \
+              exec /psy-node/psy_node_cli realm-processor \
                 --realm-id {{ realm.id }} \
                 --database tikv \
                 --tikv-pd-endpoints "$PD_ENDPOINTS" \
@@ -434,7 +434,7 @@ Resources:
             SourcePath: /data/realm{{ realm.id }}-edge
         - Name: config-volume
           Host:
-            SourcePath: /qed-rollup/config.json
+            SourcePath: /psy-node/config.json
       ContainerDefinitions:
         - Name: realm-{{ realm.id }}-edge
           Image: !Sub '${ECRRepositoryURI}:latest'
@@ -468,7 +468,7 @@ Resources:
             - SourceVolume: realm{{ realm.id }}-edge-data
               ContainerPath: /data
             - SourceVolume: config-volume
-              ContainerPath: /qed-rollup/config.json
+              ContainerPath: /psy-node/config.json
               ReadOnly: true
           PortMappings:
             - ContainerPort: {{ 8546 + realm.id }}
@@ -510,7 +510,7 @@ Resources:
 
               {% set listen_addr = (realm.edge.args['listen_addr'] if realm.edge.args is defined and 'listen_addr' in realm.edge.args else '0.0.0.0:' ~ (8546 + realm.id)) -%}
               # Start realm edge
-              exec /qed-rollup/qed_rollup_cli realm-edge \
+              exec /psy-node/psy_node_cli realm-edge \
                 --database tikv \
                 --tikv-pd-endpoints "$PD_ENDPOINTS" \
                 --tikv-namespace "{{ realm.backend.tikv.namespace }}" \
@@ -604,7 +604,7 @@ Resources:
       Volumes:
         - Name: config-volume
           Host:
-            SourcePath: /qed-rollup/config.json
+            SourcePath: /psy-node/config.json
       ContainerDefinitions:
         - Name: worker
           Image: !Sub '${ECRRepositoryURI}:latest'
@@ -627,7 +627,7 @@ Resources:
             InitProcessEnabled: true
           MountPoints:
             - SourceVolume: config-volume
-              ContainerPath: /qed-rollup/config.json
+              ContainerPath: /psy-node/config.json
               ReadOnly: true
           LogConfiguration:
             LogDriver: awslogs
@@ -643,8 +643,8 @@ Resources:
               # Enable verbose debugging
               set -x
               # Config is now mounted, no need to download
-              if [ ! -f /qed-rollup/config.json ]; then
-                  echo "ERROR: config.json not found at /qed-rollup/config.json"
+              if [ ! -f /psy-node/config.json ]; then
+                  echo "ERROR: config.json not found at /psy-node/config.json"
                   exit 1
               fi
               echo "Using mounted config.json from host"
@@ -654,17 +654,17 @@ Resources:
                 echo "============================================"
                 echo "WORKER CONFIGURATION SECTION"
                 echo "============================================"
-                jq '.nodes.workers' /qed-rollup/config.json
+                jq '.nodes.workers' /psy-node/config.json
                 
                 echo "============================================"
                 echo "NETWORK CONFIGURATION"
                 echo "============================================"
-                jq '.network' /qed-rollup/config.json
+                jq '.network' /psy-node/config.json
               fi
 
               # Start worker with mounted config
-              exec /qed-rollup/qed_rollup_cli worker \
-                --config /qed-rollup/config.json \
+              exec /psy-node/psy_node_cli worker \
+                --config /psy-node/config.json \
                 {%- for key, value in (config.nodes.workers.args | default({}) | dictsort) %}
                 {%- if key != 'config' %}
                 --{{ key | replace('_', '-') }} '{{ value }}'{% if not loop.last %} \{% endif %}
@@ -733,7 +733,7 @@ Resources:
             - /bin/bash
             - -c
           Command:
-            - /qed-rollup/qed_user_cli prove-proxy
+            - /psy-node/psy_user_cli prove-proxy
           Environment:
             - Name: RUST_LOG
               Value: '{{ config.nodes.prover.env.RUST_LOG | default("info") }}'
@@ -854,7 +854,7 @@ Resources:
       Volumes:
         - Name: config-volume
           Host:
-            SourcePath: /qed-rollup/config.json
+            SourcePath: /psy-node/config.json
       ContainerDefinitions:
         - Name: coordinator-watcher
           Image: !Sub '${ECRRepositoryURI}:latest'
@@ -882,7 +882,7 @@ Resources:
             InitProcessEnabled: true
           MountPoints:
             - SourceVolume: config-volume
-              ContainerPath: /qed-rollup/config.json
+              ContainerPath: /psy-node/config.json
               ReadOnly: true
           LogConfiguration:
             LogDriver: awslogs
@@ -894,7 +894,7 @@ Resources:
           HealthCheck:
             Command:
               - CMD-SHELL
-              - 'pgrep -f "qed_rollup_cli.*watcher.*--node-type" || exit 1'
+              - 'pgrep -f "psy_node_cli.*watcher.*--node-type" || exit 1'
             Interval: 30
             Timeout: 5
             Retries: 3
@@ -905,8 +905,8 @@ Resources:
           Command:
             - !Sub |
               # Config is mounted, no need to download
-              if [ ! -f /qed-rollup/config.json ]; then
-                  echo "ERROR: config.json not found at /qed-rollup/config.json"
+              if [ ! -f /psy-node/config.json ]; then
+                  echo "ERROR: config.json not found at /psy-node/config.json"
                   exit 1
               fi
             
@@ -949,7 +949,7 @@ Resources:
               echo "  API: $API_URL"
               
               # Start watcher
-              exec /qed-rollup/qed_rollup_cli watcher \
+              exec /psy-node/psy_node_cli watcher \
                 --node-type coordinator \
                 --node-id 0 \
                 --database tikv \
@@ -985,7 +985,7 @@ Resources:
       Volumes:
         - Name: config-volume
           Host:
-            SourcePath: /qed-rollup/config.json
+            SourcePath: /psy-node/config.json
       ContainerDefinitions:
         - Name: realm-{{ realm.id }}-watcher
           Image: !Sub '${ECRRepositoryURI}:latest'
@@ -1009,7 +1009,7 @@ Resources:
             InitProcessEnabled: true
           MountPoints:
             - SourceVolume: config-volume
-              ContainerPath: /qed-rollup/config.json
+              ContainerPath: /psy-node/config.json
               ReadOnly: true
           LogConfiguration:
             LogDriver: awslogs
@@ -1021,7 +1021,7 @@ Resources:
           HealthCheck:
             Command:
               - CMD-SHELL
-              - 'pgrep -f "qed_rollup_cli.*watcher.*--node-type realm" || exit 1'
+              - 'pgrep -f "psy_node_cli.*watcher.*--node-type realm" || exit 1'
             Interval: 30
             Timeout: 5
             Retries: 3
@@ -1032,8 +1032,8 @@ Resources:
           Command:
             - !Sub |
               # Config is mounted
-              if [ ! -f /qed-rollup/config.json ]; then
-              echo "ERROR: config.json not found at /qed-rollup/config.json"
+              if [ ! -f /psy-node/config.json ]; then
+              echo "ERROR: config.json not found at /psy-node/config.json"
               exit 1
               fi
 
@@ -1075,7 +1075,7 @@ Resources:
               echo "  API: $API_URL"
               
               # Start watcher
-              exec /qed-rollup/qed_rollup_cli watcher \
+              exec /psy-node/psy_node_cli watcher \
                 --node-type realm \
                 --node-id {{ realm.id }} \
                 --database tikv \

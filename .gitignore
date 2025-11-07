@@ -13,7 +13,7 @@ redis-data/
 # *.sh
 perf2
 
-qed_prover/examples/debug_data/
+psy_prover/examples/debug_data/
 target/
 **/node_modules/
 .idea/
@@ -25,6 +25,8 @@ target/
 # SpecStory explanation file
 .specstory/.what-is-this.md
 /.vscode/
+
+book/
 
 *-key
 *-key.pub
