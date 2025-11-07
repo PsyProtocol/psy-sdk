@@ -295,11 +295,8 @@ impl<T: KVQBinaryStore> QTreeDataStoreWriterSync<F> for T {
     // note that each function uses four leaves: verifier fingerprint, metadata,
     // code hash, and a reserved zero slot
     fn set_contract_function_whitelist(&self, checkpoint_id: u64, contract_id: u64, leaves: &[QHashOut<F>]) -> anyhow::Result<QHashOut<F>> {
-        let mut root = QHashOut::from_values(0, 0, 0, 0);
-        for (i, leaf) in leaves.iter().enumerate() {
-            root = ContractFunctionTreeStore::<T>::set_leaf_sfc(self, checkpoint_id, contract_id, i as u64, *leaf)?.new_root;
-        }
-        Ok(root)
+        // Use batch update for better performance
+        ContractFunctionTreeStore::<T>::batch_set_leaves_from_zero_sfc(self, checkpoint_id, contract_id, leaves)
     }
 
     fn set_contract_tree_leaf_hash(
