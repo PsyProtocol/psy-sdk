@@ -375,14 +375,7 @@ impl CoordinatorEdgeHandler {
     }
 
     pub async fn has_pending_guta(&self, realm_id: u32) -> anyhow::Result<bool> {
-        let guta: Vec<SubmitGUTARealmResultAPIQueueItem<GoldilocksField>> =
-            self.history_queue.peek_all(self.ctx.coordinator_config.guta_channel_id).await?;
-        for guta_item in guta.iter() {
-            if guta_item.realm_id == realm_id as u64 {
-                return Ok(true);
-            }
-        }
-        Ok(false)
+        self.history_queue.contains_item(self.ctx.coordinator_config.guta_channel_id, realm_id as u64).await
     }
 
     pub async fn get_checkpoint_sync_info(&self, realm_id: u32, request_checkpoint_id: u64) -> anyhow::Result<CheckpointSyncInfo<F>> {
