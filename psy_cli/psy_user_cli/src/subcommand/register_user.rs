@@ -39,7 +39,6 @@ pub async fn run(args: RegisterUserArgs) -> Result<()> {
 
     let contract_state_tree_height = MAX_CONTRACT_STATE_TREE_HEIGHT;
 
-    // Parse private key
     let private_key_base = match &args.private_key {
         Some(key) => QHashOut::<GoldilocksField>::from_str(&key).map_err(|e| anyhow::format_err!("Failed to parse private key: {}", e))?,
         None => {
@@ -48,13 +47,11 @@ pub async fn run(args: RegisterUserArgs) -> Result<()> {
             private_key
         }
     };
-    // Create wallet and circuit manager
     let main_circuits: Box<dyn UPSCircuitManager<C, D>> = Box::new(PsyUPSStepCircuitManager::<C, D>::new_with_config(
         psy_config::network_constants::PSY_NETWORK_MAGIC,
     ));
     let mut wallet = PsyMemoryWallet::new(vec![main_circuits]);
 
-    // Get fingerprint based on sign type
     let fingerprint = match SignType::from(args.sign_type.clone()) {
         SignType::ZKSign => {
             if let Some(fingerprint_str) = args.fingerprint {
@@ -80,13 +77,10 @@ pub async fn run(args: RegisterUserArgs) -> Result<()> {
         SignType::SoftwareDefinedPlonky2Sign => wallet.register_plonky2_software_defined_circuit(contract_state_tree_height, 0).await?,
     };
 
-    // Use simplified interface
     let public_key_info = wallet.get_or_create_user(private_key_base, fingerprint).await?;
 
-    // Register user
     provider.register_user(QRegisterUserRPCRequest { public_key: public_key_info }).await?;
 
-    // Output the result
     let public_key_hash = public_key_info.qfhash::<PsyHasher>();
     println!("{{");
     if args.private_key.is_none() {

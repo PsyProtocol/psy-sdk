@@ -11,7 +11,7 @@ use plonky2::{
     plonk::config::PoseidonGoldilocksConfig,
 };
 use psy_common::{
-    args::{ContractCallArgs, SignData, SignType},
+    args::{ContractCallArgs, DPNSoftwareDefinedCallData, SignType},
     data::{base_types::hash256::Hash256, qhashout::QHashOut},
     job::id::{ProvingJobCircuitType, QProvingJobDataID, VariableHeightRewardMerkleProof, GUTA_REWARDS_TREE_MAX_HEIGHT},
     JobInfo, JobLocation,
@@ -32,7 +32,7 @@ use psy_prover::{
         utils::{build_claim_calls_for_multi_checkpoints, serialize_proof_to_inputs, ProofWithCheckpoint, LAST_CLAIMED_CHECKPOINT_SLOT},
         WalletSession,
     },
-    wallet::memory_wallet::get_zk_fingerprint,
+    wallet::memory_wallet::{get_zk_fingerprint, get_secp256k1_fingerprint},
 };
 use psy_rust_sdk::provider::{NetworkConfig, RpcProvider};
 use psy_services::models::{WorkerEvent, WorkerEventSource};
@@ -55,13 +55,11 @@ pub async fn run(args: ClaimRewardsArgs) -> Result<()> {
 
     let provider = RpcProvider::new_with_config(&rpc_config)?;
     let mut wallet_session = WalletSession::new(&rpc_config).await?;
-    let fingerprint = args
-        .fingerprint
-        .as_ref()
-        .map(|fp_str| QHashOut::<F>::from_str(fp_str))
-        .transpose()
-        .map_err(|e| anyhow::format_err!("Failed to parse fingerprint: {}", e))?
-        .unwrap_or_else(|| get_zk_fingerprint());
+    let fingerprint = match args.sign_type {
+        SignType::ZKSign => get_zk_fingerprint(),
+        SignType::SECP256K1Sign => get_secp256k1_fingerprint(),
+        _ => anyhow::bail!("Unsupported sign type: {:?}", args.sign_type),
+    };
     let user_pk_hash = wallet_session.add_user(private_key, fingerprint).await?;
     let user_id = provider.get_user_id(user_pk_hash).await?;
 
@@ -250,14 +248,8 @@ pub async fn run(args: ClaimRewardsArgs) -> Result<()> {
 
     let all_job_infos: Vec<JobInfo> = all_job_infos.values().flatten().cloned().collect();
 
-    let sign_data = Some(SignData {
-        fingerprint: fingerprint,
-        sign_contract_id: MINING_REWARDS_CONTRACT_ID as u64,
-        sign_inputs: vec![],
-    });
-
     wallet_session
-        .claim_rewards_with_sign_type(user_pk_hash, all_job_infos, sign_data)
+        .claim_rewards(user_pk_hash, all_job_infos)
         .await?;
     info!("Successfully claimed rewards");
     Ok(())

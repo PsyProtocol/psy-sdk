@@ -10,7 +10,7 @@ use plonky2::{
     plonk::config::{AlgebraicHasher, GenericConfig, PoseidonGoldilocksConfig},
 };
 use psy_common::{
-    args::{ContractCallArgs, SignData, SignType, WalletSessionArgs},
+    args::{ContractCallArgs, ContractCallData, DPNSoftwareDefinedCallData, SignType, WalletSessionArgs},
     data::qhashout::QHashOut,
     job::id::{ProvingJobCircuitType, VariableHeightRewardMerkleProof, GUTA_REWARDS_TREE_MAX_HEIGHT},
     traits::to_qfelts::ToQFelts,
@@ -322,8 +322,7 @@ impl WalletSession {
     }
 
     pub async fn register_user(&mut self, private_key: QHashOut<F>, fingerprint: QHashOut<F>) -> anyhow::Result<QHashOut<F>> {
-        let fp = fingerprint;
-        let pk_info = self.wallet.get_or_create_user(private_key, fp).await?;
+        let pk_info = self.wallet.get_or_create_user(private_key, fingerprint).await?;
         let public_key = pk_info.qfhash::<PsyHasher>();
 
         if let Ok(user_id) = self.st_provider.get_user_id(public_key).await {
@@ -339,14 +338,13 @@ impl WalletSession {
     }
 
     pub async fn add_user(&mut self, private_key: QHashOut<F>, fingerprint: QHashOut<F>) -> anyhow::Result<QHashOut<F>> {
-        let fp = fingerprint;
-        let pk_info = self.wallet.get_or_create_user(private_key, fp).await?;
+        let pk_info = self.wallet.get_or_create_user(private_key, fingerprint).await?;
         let public_key = pk_info.qfhash::<PsyHasher>();
         let checkpoint_id = self.st_provider.get_latest_block_state().await?.checkpoint_id;
         tracing::info!(
             "add user {} with fingerprint {}, on checkpoint_id {}",
             public_key.to_string(),
-            fp,
+            fingerprint,
             checkpoint_id
         );
 
@@ -406,17 +404,8 @@ impl WalletSession {
         Ok(public_key)
     }
 
-    pub async fn exec_contract_call(&self, public_key: QHashOut<F>, contract_call_args: Vec<ContractCallArgs>) -> anyhow::Result<QHashOut<F>> {
-        self.exec_contract_call_with_sign_data(public_key, contract_call_args, None).await
-    }
-
-    pub async fn exec_contract_call_with_sign_data(
-        &self,
-        public_key: QHashOut<F>,
-        contract_call_args: Vec<ContractCallArgs>,
-        sign_data: Option<SignData<F>>,
-    ) -> anyhow::Result<QHashOut<F>> {
-        tracing::info!("exec contract call: {}", serde_json::to_string_pretty(&contract_call_args)?);
+    pub async fn exec_contract_call(&self, public_key: QHashOut<F>, call_data: ContractCallData) -> anyhow::Result<QHashOut<F>> {
+        tracing::info!("exec contract call: {}", serde_json::to_string_pretty(&call_data.contract_calls)?);
         let pk_info = *self
             .wallet_keys_store
             .get(&public_key)
@@ -428,15 +417,15 @@ impl WalletSession {
         tracing::info!(
             "exec contract call for fingerprint {} (sign data provided: {})",
             pk_info.fingerprint,
-            sign_data.is_some()
+            call_data.software_defined_call.is_some()
         );
         let result = self.st_provider.get_latest_block_state().await?;
         tracing::info!("start session on global checkpoint: {}", result.checkpoint_id);
         self.start_session(public_key).await?;
         tracing::info!("prove contract calls");
-        self.prove_contract_calls(public_key, contract_call_args).await?;
+        self.prove_contract_calls(public_key, call_data.contract_calls).await?;
         tracing::info!("sign and submit on global checkpoint: {}", result.checkpoint_id);
-        let end_user_leaf_hash = self.sign_and_submit_with_sign_data(public_key, sign_data).await?;
+        let end_user_leaf_hash = self.sign_and_submit(public_key, call_data.software_defined_call).await?;
         Ok(end_user_leaf_hash)
     }
 
@@ -596,104 +585,11 @@ impl WalletSession {
         Ok(())
     }
 
-    pub async fn sign_and_submit(&self, public_key: QHashOut<F>) -> anyhow::Result<QHashOut<F>> {
-        self.sign_and_submit_with_sign_data(public_key, None).await
-    }
-
-    async fn build_psy_software_defined_context(
+    pub async fn sign_and_submit(
         &self,
-        sign_data: &SignData<F>,
-        user_session_mgr: &mut UserSessionStateManager,
-        mut sign_context: SignContext,
-    ) -> anyhow::Result<SignContext> {
-        let sdc = self
-            .wallet
-            .software_defined_psy_circuits
-            .get(&sign_data.fingerprint)
-            .ok_or_else(|| anyhow::format_err!("PSY software defined circuit `{}` not found", sign_data.fingerprint))?;
-
-        let cfc_call_inputs = sign_data.sign_inputs.iter().map(|x| F::from_noncanonical_u64(*x)).collect::<Vec<_>>();
-
-        let cfc_proof_input = user_session_mgr
-            .mgr
-            .exec_contract_call(F::from_noncanonical_u64(sign_data.sign_contract_id), &sdc.fn_def, cfc_call_inputs)
-            .await?;
-
-        let witness_input = DPNSoftwareDefinedSignatureInput { cfc_input: cfc_proof_input };
-
-        Ok(sign_context.with_psy_witness_input(
-            witness_input,
-            user_session_mgr.current_checkpoint_id,
-            user_session_mgr.user_id,
-            user_session_mgr
-                .mgr
-                .lps
-                .transaction_records
-                .last()
-                .unwrap()
-                .start_contract_state_tree_root,
-            self.st_provider.get_checkpoint_tree_root(user_session_mgr.current_checkpoint_id).await?,
-        ))
-    }
-
-    async fn build_plonky2_software_defined_context(
-        &self,
-        sign_data: &SignData<F>,
-        user_session_mgr: &mut UserSessionStateManager,
-    ) -> anyhow::Result<SignContext> {
-        let user_id = user_session_mgr.user_id;
-        let checkpoint_id = user_session_mgr.current_checkpoint_id;
-        let user_leaf = user_session_mgr
-            .mgr
-            .lps
-            .cmd_store
-            .resolve_get_user_leaf_mut(&QSRCmdGetUserLeafData { checkpoint_id, user_id })
-            .await?;
-
-        let checkpoint_tree_root = self.st_provider.get_checkpoint_tree_root(checkpoint_id).await?;
-
-        let transaction_record = user_session_mgr
-            .mgr
-            .lps
-            .transaction_records
-            .last()
-            .ok_or_else(|| anyhow::format_err!("you must exec at least one contract call before sign"))?;
-
-        let circuit_inputs = sign_data.sign_inputs.iter().map(|x| F::from_noncanonical_u64(*x)).collect::<Vec<_>>();
-
-        let user_contract_state = UserContractState::new(
-            checkpoint_tree_root,
-            user_leaf,
-            transaction_record.end_contract_state_tree_root,
-            F::from_canonical_u64(sign_data.sign_contract_id),
-            F::from_canonical_u64(user_session_mgr.current_checkpoint_id),
-        );
-
-        let state_reader: StateReader<F, 2, RpcProvider> = StateReader::new(
-            user_contract_state,
-            user_session_mgr.mgr.lps.cmd_store.clone(),
-            user_session_mgr.mgr.lps.state_tree_store.clone(),
-        )
-        .await;
-
-        let plonky2_input = Plonky2SoftwareDefinedSignatureInput {
-            state_reader_results: state_reader.to_results(),
-            circuit_inputs,
-        };
-
-        Ok(SignContext::new(sign_data.fingerprint)
-            .with_contract_id(Some(sign_data.sign_contract_id))
-            .with_sign_inputs(sign_data.sign_inputs.clone())
-            .with_plonky2_signature_input(
-                plonky2_input,
-                checkpoint_id,
-                user_id,
-                transaction_record.start_contract_state_tree_root,
-                checkpoint_tree_root,
-            ))
-    }
-
-    pub async fn sign_and_submit_with_sign_data(&self, public_key: QHashOut<F>, sign_data: Option<SignData<F>>) -> anyhow::Result<QHashOut<F>> {
+        public_key: QHashOut<F>,
+        software_defined_call: Option<DPNSoftwareDefinedCallData>,
+    ) -> anyhow::Result<QHashOut<F>> {
         let mut user_session_mgr = self
             .user_session_mgrs
             .get_mut(&public_key)
@@ -709,19 +605,23 @@ impl WalletSession {
             .value();
 
         tracing::info!(
-            "sign and submit for fingerprint {} (sign data provided: {})",
+            "sign and submit for fingerprint {} (software defined call provided: {})",
             pk_info.fingerprint,
-            sign_data.is_some()
+            software_defined_call.is_some()
         );
         let mut sign_context = SignContext::new(pk_info.fingerprint);
 
-        if let Some(ref data) = sign_data {
-            if self.wallet.software_defined_psy_circuits.contains_key(&data.fingerprint) {
-                sign_context = self.build_psy_software_defined_context(data, &mut user_session_mgr, sign_context).await?;
-            } else if self.wallet.software_defined_plonky2_circuits.contains_key(&data.fingerprint) {
-                sign_context = self.build_plonky2_software_defined_context(data, &mut user_session_mgr).await?;
+        if let Some(ref data) = software_defined_call {
+            if self.wallet.has_psy_software_defined_circuit(&pk_info.fingerprint) {
+                sign_context = self
+                    .build_psy_software_defined_context(data, pk_info.fingerprint, &mut user_session_mgr, sign_context)
+                    .await?;
+            } else if self.wallet.has_plonky2_software_defined_circuit(&pk_info.fingerprint) {
+                sign_context = self
+                    .build_plonky2_software_defined_context(data, pk_info.fingerprint, &mut user_session_mgr)
+                    .await?;
             } else {
-                return Err(anyhow::format_err!("Software defined circuit `{}` not found", data.fingerprint));
+                return Err(anyhow::format_err!("Software defined circuit `{}` not found", pk_info.fingerprint));
             };
         }
 
@@ -789,6 +689,101 @@ impl WalletSession {
 
         Ok(end_user_leaf_hash)
     }
+
+    async fn build_psy_software_defined_context(
+        &self,
+        call_data: &DPNSoftwareDefinedCallData,
+        fingerprint: QHashOut<F>,
+        user_session_mgr: &mut UserSessionStateManager,
+        mut sign_context: SignContext,
+    ) -> anyhow::Result<SignContext> {
+        let sdc = self
+            .wallet
+            .get_psy_software_defined_circuit(&fingerprint)
+            .ok_or_else(|| anyhow::format_err!("PSY software defined circuit `{}` not found", fingerprint))?;
+
+        let cfc_call_inputs = call_data.inputs.iter().map(|x| F::from_noncanonical_u64(*x)).collect::<Vec<_>>();
+
+        let cfc_proof_input = user_session_mgr
+            .mgr
+            .exec_contract_call(F::from_noncanonical_u64(call_data.contract_id), &sdc.fn_def, cfc_call_inputs)
+            .await?;
+
+        let signature_input = DPNSoftwareDefinedSignatureInput { cfc_input: cfc_proof_input };
+
+        Ok(sign_context.with_psy_signature_input(
+            signature_input,
+            user_session_mgr.current_checkpoint_id,
+            user_session_mgr.user_id,
+            user_session_mgr
+                .mgr
+                .lps
+                .transaction_records
+                .last()
+                .unwrap()
+                .start_contract_state_tree_root,
+            self.st_provider.get_checkpoint_tree_root(user_session_mgr.current_checkpoint_id).await?,
+        ))
+    }
+
+    async fn build_plonky2_software_defined_context(
+        &self,
+        call_data: &DPNSoftwareDefinedCallData,
+        fingerprint: QHashOut<F>,
+        user_session_mgr: &mut UserSessionStateManager,
+    ) -> anyhow::Result<SignContext> {
+        let user_id = user_session_mgr.user_id;
+        let checkpoint_id = user_session_mgr.current_checkpoint_id;
+        let user_leaf = user_session_mgr
+            .mgr
+            .lps
+            .cmd_store
+            .resolve_get_user_leaf_mut(&QSRCmdGetUserLeafData { checkpoint_id, user_id })
+            .await?;
+
+        let checkpoint_tree_root = self.st_provider.get_checkpoint_tree_root(checkpoint_id).await?;
+
+        let transaction_record = user_session_mgr
+            .mgr
+            .lps
+            .transaction_records
+            .last()
+            .ok_or_else(|| anyhow::format_err!("you must exec at least one contract call before sign"))?;
+
+        let circuit_inputs = call_data.inputs.iter().map(|x| F::from_noncanonical_u64(*x)).collect::<Vec<_>>();
+
+        let user_contract_state = UserContractState::new(
+            checkpoint_tree_root,
+            user_leaf,
+            transaction_record.end_contract_state_tree_root,
+            F::from_canonical_u64(call_data.contract_id),
+            F::from_canonical_u64(user_session_mgr.current_checkpoint_id),
+        );
+
+        let state_reader: StateReader<F, 2, RpcProvider> = StateReader::new(
+            user_contract_state,
+            user_session_mgr.mgr.lps.cmd_store.clone(),
+            user_session_mgr.mgr.lps.state_tree_store.clone(),
+        )
+        .await;
+
+        let plonky2_input = Plonky2SoftwareDefinedSignatureInput {
+            state_reader_results: state_reader.to_results(),
+            circuit_inputs,
+        };
+
+        Ok(SignContext::new(fingerprint)
+            .with_contract_id(Some(call_data.contract_id))
+            .with_sign_inputs(call_data.inputs.clone())
+            .with_plonky2_signature_input(
+                plonky2_input,
+                checkpoint_id,
+                user_id,
+                transaction_record.start_contract_state_tree_root,
+                checkpoint_tree_root,
+            ))
+    }
+
 
     pub fn get_deploy_contract_cmd(
         &self,
@@ -927,20 +922,8 @@ impl WalletSession {
     }
 
     pub async fn claim_rewards(&self, user_pk_hash: QHashOut<F>, job_infos: Vec<JobInfo>) -> anyhow::Result<()> {
-        self.claim_rewards_with_sign_type(user_pk_hash, job_infos, None).await?;
-        Ok(())
-    }
-
-    pub async fn claim_rewards_with_sign_type(
-        &self,
-        user_pk_hash: QHashOut<F>,
-        job_infos: Vec<JobInfo>,
-        sign_data: Option<SignData<F>>,
-    ) -> anyhow::Result<()> {
         let contract_call_args = self.get_claim_rewards_call_args(job_infos).await?;
-
-        self.exec_contract_call_with_sign_data(user_pk_hash, contract_call_args, sign_data)
-            .await?;
+        self.exec_contract_call(user_pk_hash, ContractCallData::new(contract_call_args)).await?;
         Ok(())
     }
 
@@ -972,13 +955,12 @@ pub async fn run(args: WalletSessionArgs) -> anyhow::Result<()> {
     let psy_config = psy_config::PsyConfigGoldilocks::from_file(&args.rpc_config)?;
     let rpc_config = psy_config.get_current_network()?;
     let private_key = QHashOut::<F>::from_str(&args.private_key).map_err(|e| anyhow::format_err!("{}", e.to_string()))?;
-    let contract_call_args: Vec<ContractCallArgs> = serde_json::from_str(&std::fs::read_to_string(args.contract_calls)?)?;
-
     let mut wallet_session = WalletSession::new(&rpc_config).await?;
     let fingerprint = crate::wallet::memory_wallet::get_zk_fingerprint();
     let public_key = wallet_session.add_user(private_key, fingerprint).await?;
 
-    let tx_hash = wallet_session.exec_contract_call(public_key, contract_call_args).await?;
+    let contract_call_data = args.to_contract_call_data()?;
+    let tx_hash = wallet_session.exec_contract_call(public_key, contract_call_data).await?;
 
     tracing::info!("wallet session multi contract call with tx hash: {}", tx_hash);
 

@@ -53,8 +53,8 @@ impl SignatureUser for SoftwareDefinedDpnUser {
         context: &SignContext,
         sighash: QHashOut<GoldilocksField>,
     ) -> Result<PsyProof> {
-        let psy_witness_input = context
-            .psy_witness_input
+        let psy_signature_input = context
+            .psy_signature_input
             .as_ref()
             .ok_or_else(|| anyhow!("PSY witness input missing for DPN user"))?;
 
@@ -66,7 +66,7 @@ impl SignatureUser for SoftwareDefinedDpnUser {
             .get_psy_software_defined_circuit_mut(&self.fingerprint)
             .ok_or_else(|| anyhow!("PSY software defined circuit `{}` not registered", self.fingerprint))?;
 
-        circuit.prove(self.private_key, psy_witness_input, sighash).await
+        circuit.prove(self.private_key, psy_signature_input, sighash).await
     }
 
     async fn circuit_info(
@@ -75,7 +75,7 @@ impl SignatureUser for SoftwareDefinedDpnUser {
         _circuit_manager: &(dyn UPSCircuitManager<PsyPlonky2Config, 2> + Send + Sync),
         context: &SignContext,
     ) -> Result<SignatureCircuitInfo> {
-        if context.psy_witness_input.is_none() {
+        if context.psy_signature_input.is_none() {
             return Err(anyhow!("PSY witness input missing for DPN user"));
         }
 

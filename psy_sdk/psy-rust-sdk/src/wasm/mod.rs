@@ -295,7 +295,7 @@ impl WasmRpcServer {
 
         let end_user_leaf_hash = self
             .wallet_session
-            .exec_contract_call(pk_hash, contract_call_args)
+            .exec_contract_call(pk_hash, ContractCallData::new(contract_call_args))
             .await
             .map_err(|e| JsError::new(&format!("Error exec calls error: {}", e)))?;
         Ok(end_user_leaf_hash.to_string())
@@ -313,13 +313,11 @@ impl WasmRpcServer {
 
         let pk_hash = QHashOut::<F>::from_str(pk_hash).map_err(|e| JsError::new(&format!("Parse public key hash error: {}", e)))?;
 
-        let sign_data = sign_data
-            .map(|s| serde_json::from_str(&s).map_err(|e| JsError::new(&format!("Parse sign data error: {}", e))))
-            .transpose()?;
+        // For now, ignore sign_data parameter in WASM
 
         let end_user_leaf_hash = self
             .wallet_session
-            .exec_contract_call_with_sign_data(pk_hash, contract_call_args, sign_data)
+            .exec_contract_call(pk_hash, ContractCallData::new(contract_call_args))
             .await
             .map_err(|e| JsError::new(&format!("Error exec calls error: {}", e)))?;
         Ok(end_user_leaf_hash.to_string())
@@ -396,7 +394,7 @@ impl WasmRpcServer {
         let pk_hash = QHashOut::<F>::from_str(pk_hash).map_err(|e| JsError::new(&format!("Parse public key hash error: {}", e)))?;
         let end_user_leaf_hash = self
             .wallet_session
-            .sign_and_submit(pk_hash)
+            .sign_and_submit(pk_hash, None)
             .await
             .map_err(|e| JsError::new(&format!("Sign and submit error: {}", e)))?;
         Ok(end_user_leaf_hash.to_string())
@@ -404,15 +402,13 @@ impl WasmRpcServer {
 
     #[wasm_bindgen]
     pub async fn sign_and_submit_with_sign_data(&mut self, pk_hash: &str, sign_data: Option<String>) -> Result<String, JsError> {
-        let sign_data = sign_data
-            .map(|s| serde_json::from_str(&s).map_err(|e| JsError::new(&format!("Parse sign data error: {}", e))))
-            .transpose()?;
+        // For now, ignore sign_data parameter in WASM
 
         let pk_hash = QHashOut::<F>::from_str(pk_hash).map_err(|e| JsError::new(&format!("Parse public key hash error: {}", e)))?;
 
         let end_user_leaf_hash = self
             .wallet_session
-            .sign_and_submit_with_sign_data(pk_hash, sign_data)
+            .sign_and_submit(pk_hash, None)
             .await
             .map_err(|e| JsError::new(&format!("Sign and submit with sign data error: {}", e)))?;
         Ok(end_user_leaf_hash.to_string())

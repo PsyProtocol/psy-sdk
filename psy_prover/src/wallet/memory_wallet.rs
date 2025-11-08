@@ -75,11 +75,9 @@ pub fn get_secp256k1_fingerprint<F: RichField>() -> QHashOut<F> {
 
 pub struct PsyMemoryWallet {
     signature_users: DashMap<QHashOut<F>, Arc<dyn SignatureUser>>,
-    /// Storage for PSY/DPN-based software defined circuits
-    pub software_defined_psy_circuits: DashMap<QHashOut<F>, DPNSoftwareDefinedSignatureGadget>,
-    /// Storage for PLONKY2-based software defined circuits
-    pub software_defined_plonky2_circuits: DashMap<QHashOut<F>, Plonky2SoftwareDefinedSignatureGadget>,
-    pub circuit_manager: Vec<Box<dyn UPSCircuitManager<C, D> + Send + Sync>>,
+    psy_software_defined_circuits: DashMap<QHashOut<F>, DPNSoftwareDefinedSignatureGadget>,
+    plonky2_software_defined_circuits: DashMap<QHashOut<F>, Plonky2SoftwareDefinedSignatureGadget>,
+    circuit_manager: Vec<Box<dyn UPSCircuitManager<C, D> + Send + Sync>>,
 }
 
 #[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
@@ -88,8 +86,8 @@ impl PsyMemoryWallet {
     pub fn new(circuit_manager: Vec<Box<dyn UPSCircuitManager<C, D> + Send + Sync>>) -> Self {
         Self {
             signature_users: DashMap::new(),
-            software_defined_psy_circuits: DashMap::new(),
-            software_defined_plonky2_circuits: DashMap::new(),
+            psy_software_defined_circuits: DashMap::new(),
+            plonky2_software_defined_circuits: DashMap::new(),
             circuit_manager,
         }
     }
@@ -98,6 +96,23 @@ impl PsyMemoryWallet {
         let index = rand::random::<usize>() % self.circuit_manager.len();
         &self.circuit_manager[index]
     }
+
+    pub fn has_psy_software_defined_circuit(&self, fingerprint: &QHashOut<F>) -> bool {
+        self.psy_software_defined_circuits.contains_key(fingerprint)
+    }
+
+    pub fn has_plonky2_software_defined_circuit(&self, fingerprint: &QHashOut<F>) -> bool {
+        self.plonky2_software_defined_circuits.contains_key(fingerprint)
+    }
+
+    pub fn insert_psy_software_defined_circuit(&self, fingerprint: QHashOut<F>, circuit: DPNSoftwareDefinedSignatureGadget) {
+        self.psy_software_defined_circuits.insert(fingerprint, circuit);
+    }
+
+    pub fn insert_plonky2_software_defined_circuit(&self, fingerprint: QHashOut<F>, circuit: Plonky2SoftwareDefinedSignatureGadget) {
+        self.plonky2_software_defined_circuits.insert(fingerprint, circuit);
+    }
+
 
     pub async fn add_zk_private_key(&mut self, private_key: QHashOut<F>) -> anyhow::Result<ZKPublicKeyInfo<F>> {
         let simple_key = SimplePsyPrivateKey { private_key };
@@ -174,7 +189,6 @@ impl PsyMemoryWallet {
         Ok(SignatureResult { proof, circuit_info })
     }
 
-    /// Get signature user by public key info (must already be registered)
     pub async fn get_user_by_info(&self, pk_info: &ZKPublicKeyInfo<F>) -> anyhow::Result<Arc<dyn SignatureUser>> {
         let pk_hash = pk_info.qfhash::<PsyHasher>();
         self.signature_users
@@ -183,7 +197,6 @@ impl PsyMemoryWallet {
             .ok_or_else(|| anyhow::anyhow!("User with public key hash {} not found", pk_hash))
     }
 
-    /// Get signature user by public key hash
     pub fn get_user_by_public_key_hash(&self, pk_hash: &QHashOut<F>) -> anyhow::Result<Arc<dyn SignatureUser>> {
         self.signature_users
             .get(pk_hash)
@@ -229,9 +242,9 @@ impl PsyMemoryWallet {
         } else if fingerprint == secp_fingerprint {
             self.add_secp_private_key(private_key).await
         } else {
-            if self.software_defined_psy_circuits.contains_key(&fingerprint) {
+            if self.psy_software_defined_circuits.contains_key(&fingerprint) {
                 self.add_software_defined_dpn_private_key(private_key, fingerprint).await
-            } else if self.software_defined_plonky2_circuits.contains_key(&fingerprint) {
+            } else if self.plonky2_software_defined_circuits.contains_key(&fingerprint) {
                 self.add_software_defined_plonky2_private_key(private_key, fingerprint).await
             } else {
                 bail!(
@@ -288,7 +301,6 @@ impl PsyMemoryWallet {
 }
 
 impl PsyMemoryWallet {
-    /// Register a PSY/DPN-based software defined circuit gadget
     pub async fn register_psy_software_defined_circuit(
         &mut self,
         fn_def: psy_vm::dpn::vm::def::DPNFunctionCircuitDefinition,
@@ -313,14 +325,13 @@ impl PsyMemoryWallet {
 
         tracing::info!("register PSY software defined circuit: {}", fingerprint.to_string());
 
-        if let Some(_) = self.software_defined_psy_circuits.insert(fingerprint, gadget) {
+        if let Some(_) = self.psy_software_defined_circuits.insert(fingerprint, gadget) {
             tracing::warn!("PSY software defined circuit `{}` is already registered", fingerprint.to_string());
         }
 
         Ok(fingerprint)
     }
 
-    /// Register a PLONKY2-based software defined circuit gadget
     pub async fn register_plonky2_software_defined_circuit(
         &mut self,
         contract_state_tree_height: u8,
@@ -335,43 +346,39 @@ impl PsyMemoryWallet {
 
         tracing::info!("register PLONKY2 software defined circuit: {}", fingerprint.to_string());
 
-        if let Some(_) = self.software_defined_plonky2_circuits.insert(fingerprint, gadget) {
+        if let Some(_) = self.plonky2_software_defined_circuits.insert(fingerprint, gadget) {
             tracing::warn!("PLONKY2 software defined circuit `{}` is already registered", fingerprint.to_string());
         }
 
         Ok(fingerprint)
     }
 
-    /// Get PSY software defined circuit gadget by fingerprint
     pub fn get_psy_software_defined_circuit(
         &self,
         fingerprint: &QHashOut<F>,
     ) -> Option<dashmap::mapref::one::Ref<QHashOut<F>, DPNSoftwareDefinedSignatureGadget>> {
-        self.software_defined_psy_circuits.get(fingerprint)
+        self.psy_software_defined_circuits.get(fingerprint)
     }
 
-    /// Get mutable PSY software defined circuit gadget by fingerprint
     pub fn get_psy_software_defined_circuit_mut(
         &self,
         fingerprint: &QHashOut<F>,
     ) -> Option<dashmap::mapref::one::RefMut<QHashOut<F>, DPNSoftwareDefinedSignatureGadget>> {
-        self.software_defined_psy_circuits.get_mut(fingerprint)
+        self.psy_software_defined_circuits.get_mut(fingerprint)
     }
 
-    /// Get PLONKY2 software defined circuit gadget by fingerprint
     pub fn get_plonky2_software_defined_circuit(
         &self,
         fingerprint: &QHashOut<F>,
     ) -> Option<dashmap::mapref::one::Ref<QHashOut<F>, Plonky2SoftwareDefinedSignatureGadget>> {
-        self.software_defined_plonky2_circuits.get(fingerprint)
+        self.plonky2_software_defined_circuits.get(fingerprint)
     }
 
-    /// Get mutable PLONKY2 software defined circuit gadget by fingerprint
     pub fn get_plonky2_software_defined_circuit_mut(
         &self,
         fingerprint: &QHashOut<F>,
     ) -> Option<dashmap::mapref::one::RefMut<QHashOut<F>, Plonky2SoftwareDefinedSignatureGadget>> {
-        self.software_defined_plonky2_circuits.get_mut(fingerprint)
+        self.plonky2_software_defined_circuits.get_mut(fingerprint)
     }
 }
 

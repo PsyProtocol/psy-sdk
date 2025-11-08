@@ -107,7 +107,6 @@ impl DPNSoftwareDefinedSignatureGadget {
         }
     }
 
-    /// Build the complete circuit and prepare for proving
     pub fn build_circuit(&mut self, builder: CircuitBuilder<GF, D>) -> anyhow::Result<()> {
         let mut builder = builder;
         builder.add_psy_type_b_common_gates();
@@ -123,11 +122,10 @@ impl DPNSoftwareDefinedSignatureGadget {
         Ok(())
     }
 
-    /// Prove with the given inputs
     pub async fn prove(
         &mut self,
         private_key: QHashOut<GF>,
-        witness_input: &DPNSoftwareDefinedSignatureInput,
+        signature_input: &DPNSoftwareDefinedSignatureInput,
         sig_hash: QHashOut<GF>,
     ) -> anyhow::Result<ProofWithPublicInputs<GF, C, D>> {
         let circuit_data = self.circuit_data.as_ref().ok_or_else(|| anyhow::anyhow!("Circuit not built"))?;
@@ -139,18 +137,18 @@ impl DPNSoftwareDefinedSignatureGadget {
         let mut pw = PartialWitness::<GF>::new();
         pw.set_hash_target(self.private_key, private_key.0)?;
         pw.set_hash_target(self.sig_hash, sig_hash.0)?;
-        pw.set_target_arr(&self.circuit_inputs, &witness_input.cfc_input.inputs)?;
+        pw.set_target_arr(&self.circuit_inputs, &signature_input.cfc_input.inputs)?;
 
         pw.set_hash_target(
             self.fn_builder_gadget.session_proof_tree_root,
-            witness_input.cfc_input.session_proof_tree_root.0,
+            signature_input.cfc_input.session_proof_tree_root.0,
         )?;
         self.fn_builder_gadget
             .tx_ctx_header
-            .set_witness(&mut pw, &witness_input.cfc_input.tx_input_ctx)?;
+            .set_witness(&mut pw, &signature_input.cfc_input.tx_input_ctx)?;
         self.fn_builder_gadget
             .state_reader
-            .set_witness(&mut pw, &witness_input.cfc_input, &self.fn_def);
+            .set_witness(&mut pw, &signature_input.cfc_input, &self.fn_def);
 
         let inner_proof = circuit_data.prove(pw)?;
         let minified_proof = minifier_chain.prove(&inner_proof)?;

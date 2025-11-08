@@ -10,7 +10,7 @@ use std::{
 use anyhow::Result;
 use plonky2::field::goldilocks_field::GoldilocksField;
 use psy_common::{
-    args::{ContractCallArgs, SignType},
+    args::{ContractCallArgs, ContractCallData, SignType},
     data::qhashout::QHashOut,
 };
 use psy_crypto::hash::traits::qhashable::QFieldHashable as _;
@@ -407,7 +407,7 @@ async fn execute_transfer_multi_transaction_sync(wallet_session: &mut WalletSess
     info!("Start to execute multi contract call");
     let start = Instant::now();
     wallet_session
-        .exec_contract_call(pk_hash_from, contract_call_args)
+        .exec_contract_call(pk_hash_from, ContractCallData::new(contract_call_args))
         .await
         .map_err(|err| anyhow::format_err!("exec_contract_call: {}", err))?;
     let duration = start.elapsed().as_millis() as u64;
@@ -430,7 +430,7 @@ async fn execute_transfer_multi_transaction_sync(wallet_session: &mut WalletSess
         let start = Instant::now();
         // try to claim
         wallet_session
-            .exec_contract_call(user.clone(), claim_contract_call_args)
+            .exec_contract_call(user.clone(), ContractCallData::new(claim_contract_call_args))
             .await
             .map_err(|err| anyhow::format_err!("exec_contract_call: {}", err))?;
         let duration = start.elapsed().as_millis() as u64;

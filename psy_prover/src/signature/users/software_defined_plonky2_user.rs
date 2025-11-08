@@ -56,7 +56,7 @@ impl SignatureUser for SoftwareDefinedPlonky2User {
             .as_ref()
             .ok_or_else(|| anyhow!("PLONKY2 signature input missing for PLONKY2 user"))?;
 
-        if context.psy_witness_input.is_some() {
+        if context.psy_signature_input.is_some() {
             return Err(anyhow!("SoftwareDefinedPlonky2User cannot handle PSY witness input"));
         }
 
@@ -77,7 +77,7 @@ impl SignatureUser for SoftwareDefinedPlonky2User {
             return Err(anyhow!("PLONKY2 signature input missing for PLONKY2 user"));
         }
 
-        if context.psy_witness_input.is_some() {
+        if context.psy_signature_input.is_some() {
             return Err(anyhow!("SoftwareDefinedPlonky2User cannot handle PSY witness input"));
         }
 

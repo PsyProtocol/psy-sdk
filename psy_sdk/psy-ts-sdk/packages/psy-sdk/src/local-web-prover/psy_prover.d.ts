@@ -143,9 +143,9 @@ export interface InitOutput {
   readonly __wbindgen_export_6: WebAssembly.Table;
   readonly __externref_table_dealloc: (a: number) => void;
   readonly __externref_drop_slice: (a: number, b: number) => void;
+  readonly closure1787_externref_shim: (a: number, b: number, c: any) => void;
   readonly wasm_bindgen__convert__closures_____invoke__hc02aa08cbb372572: (a: number, b: number) => void;
-  readonly closure1788_externref_shim: (a: number, b: number, c: any) => void;
-  readonly closure2030_externref_shim: (a: number, b: number, c: any, d: any) => void;
+  readonly closure2029_externref_shim: (a: number, b: number, c: any, d: any) => void;
   readonly __wbindgen_start: () => void;
 }
 

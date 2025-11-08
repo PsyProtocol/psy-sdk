@@ -1,5 +1,3 @@
-// Common argument types shared across the PSY ecosystem
-
 use std::collections::HashMap;
 
 use anyhow;
@@ -9,9 +7,9 @@ use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 use ts_rs::TS;
 
+pub use crate::job::info::{JobInfo, JobLocation};
 use crate::{data::qhashout::QHashOut, job::id::QProvingJobDataID};
 
-// Contract and signing related arguments
 #[derive(Debug, Clone, Deserialize, Serialize, Parser, TS)]
 #[ts(export)]
 pub struct ContractCallArgs {
@@ -47,13 +45,32 @@ impl SignType {
     }
 }
 
-#[serde_as]
 #[derive(Serialize, Deserialize, PartialEq, Clone, Hash, Eq, Debug)]
-#[serde(bound = "for<'de2> F: Deserialize<'de2>")]
-pub struct SignData<F: RichField> {
-    pub fingerprint: QHashOut<F>,
-    pub sign_contract_id: u64,
-    pub sign_inputs: Vec<u64>,
+pub struct DPNSoftwareDefinedCallData {
+    pub contract_id: u64,
+    pub inputs: Vec<u64>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct ContractCallData {
+    pub contract_calls: Vec<ContractCallArgs>,
+    pub software_defined_call: Option<DPNSoftwareDefinedCallData>,
+}
+
+impl ContractCallData {
+    pub fn new(contract_calls: Vec<ContractCallArgs>) -> Self {
+        Self {
+            contract_calls,
+            software_defined_call: None,
+        }
+    }
+
+    pub fn with_software_defined(contract_calls: Vec<ContractCallArgs>, software_defined_call: DPNSoftwareDefinedCallData) -> Self {
+        Self {
+            contract_calls,
+            software_defined_call: Some(software_defined_call),
+        }
+    }
 }
 
 pub fn parse_contract_call_args(s: &str) -> anyhow::Result<Vec<ContractCallArgs>> {
@@ -66,14 +83,76 @@ pub struct WalletSessionArgs {
     pub rpc_config: String,
     #[arg(long, short, default_value = "17c975c2668ebe0ca7c87f67c6414ebb7fd664f46370a0af2a3b204c8824ac5a", env)]
     pub private_key: String,
-    #[clap(env, long, default_value = "contract_call.json", env)]
-    pub contract_calls: String,
     #[clap(env, long, default_value = "zk", env)]
     pub sign_type: SignType,
-    #[arg(long, default_value = "0", env)]
-    pub contract_id: u64,
+
+    #[clap(long, action = clap::ArgAction::Append)]
+    pub contract_id: Vec<u64>,
+    #[clap(long, action = clap::ArgAction::Append)]
+    pub method_name: Vec<String>,
+    #[clap(long, action = clap::ArgAction::Append)]
+    pub inputs: Vec<String>,
+
+    #[clap(long)]
+    pub sign_contract_id: Option<u64>,
     #[clap(long)]
     pub sign_inputs: Vec<u64>,
+
+    #[clap(long)]
+    pub contract_calls_file: Option<String>,
+}
+
+impl WalletSessionArgs {
+    pub fn to_contract_call_data(&self) -> anyhow::Result<ContractCallData> {
+        let mut contract_calls = Vec::new();
+
+        if let Some(file_path) = &self.contract_calls_file {
+            let file_calls: Vec<ContractCallArgs> = serde_json::from_str(&std::fs::read_to_string(file_path)?)?;
+            contract_calls.extend(file_calls);
+        }
+
+        if !self.contract_id.is_empty() {
+            if self.contract_id.len() != self.method_name.len() ||
+               self.method_name.len() != self.inputs.len() {
+                anyhow::bail!("contract_id, method_name, and inputs must have the same length");
+            }
+
+            for (i, &contract_id) in self.contract_id.iter().enumerate() {
+                let method_name = self.method_name[i].clone();
+                let inputs_str = &self.inputs[i];
+                let inputs: Vec<u64> = serde_json::from_str(inputs_str)
+                    .map_err(|e| anyhow::anyhow!("Invalid inputs JSON '{}': {}", inputs_str, e))?;
+
+                contract_calls.push(ContractCallArgs {
+                    contract_id,
+                    method_name,
+                    inputs,
+                });
+            }
+        }
+
+        if contract_calls.is_empty() {
+            anyhow::bail!("Must specify either --contract-calls-file or --contract-id parameters");
+        }
+
+        let software_defined_call = if let Some(sign_contract_id) = self.sign_contract_id {
+            if !self.sign_inputs.is_empty() {
+                Some(DPNSoftwareDefinedCallData {
+                    contract_id: sign_contract_id,
+                    inputs: self.sign_inputs.clone(),
+                })
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+
+        Ok(ContractCallData {
+            contract_calls,
+            software_defined_call,
+        })
+    }
 }
 
 #[derive(Clone, Debug, Parser)]
@@ -96,7 +175,6 @@ pub struct ProveProxyArgs {
     pub rpc_config: String,
 }
 
-// Command line arguments for various tools
 #[derive(Clone, Debug, Args)]
 pub struct InterpreterArgs {
     #[clap(short, env, long)]
@@ -133,8 +211,6 @@ pub struct TestArgs {
     #[clap(short, env, long)]
     pub file: String,
 }
-
-pub use crate::job::info::{JobInfo, JobLocation};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RealmJobData {

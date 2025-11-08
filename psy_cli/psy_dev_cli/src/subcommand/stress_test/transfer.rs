@@ -9,7 +9,7 @@ use std::{
 
 use anyhow::Result;
 use plonky2::field::goldilocks_field::GoldilocksField;
-use psy_common::{args::ContractCallArgs, data::qhashout::QHashOut};
+use psy_common::{args::{ContractCallArgs, ContractCallData}, data::qhashout::QHashOut};
 use psy_crypto::hash::traits::qhashable::QFieldHashable as _;
 use psy_data::config::store_config::PsyHasher;
 use psy_prover::session::session::WalletSession;
@@ -361,11 +361,11 @@ async fn execute_transfer_transaction_sync(wallet_session: &mut WalletSession, t
     wallet_session
         .exec_contract_call(
             pk_hash_from,
-            vec![ContractCallArgs {
+            ContractCallData::new(vec![ContractCallArgs {
                 contract_id: 0,
                 method_name: "simple_mint".to_string(),
                 inputs: vec![mint_amount],
-            }],
+            }]),
         )
         .await?;
     info!("🪙 Task {} - Waiting for new block after mint", task_id);
@@ -382,11 +382,11 @@ async fn execute_transfer_transaction_sync(wallet_session: &mut WalletSession, t
     wallet_session
         .exec_contract_call(
             pk_hash_from,
-            vec![ContractCallArgs {
+            ContractCallData::new(vec![ContractCallArgs {
                 contract_id: 0,
                 method_name: "simple_transfer".to_string(),
                 inputs: vec![user_id_to, transfer_amount],
-            }],
+            }]),
         )
         .await?;
 
@@ -399,11 +399,11 @@ async fn execute_transfer_transaction_sync(wallet_session: &mut WalletSession, t
     wallet_session
         .exec_contract_call(
             pk_hash_to,
-            vec![ContractCallArgs {
+            ContractCallData::new(vec![ContractCallArgs {
                 contract_id: 0,
                 method_name: "simple_claim".to_string(),
                 inputs: vec![user_id_from],
-            }],
+            }]),
         )
         .await?;
     info!("🎁 Task {} - Waiting for new block after claim", task_id);

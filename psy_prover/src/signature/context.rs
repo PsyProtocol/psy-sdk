@@ -8,7 +8,7 @@ pub struct SignContext {
     pub fingerprint: QHashOut<GoldilocksField>,
     pub contract_id: Option<u64>,
     pub sign_inputs: Vec<u64>,
-    pub psy_witness_input: Option<DPNSoftwareDefinedSignatureInput>,
+    pub psy_signature_input: Option<DPNSoftwareDefinedSignatureInput>,
     pub plonky2_signature_input: Option<Plonky2SoftwareDefinedSignatureInput>,
     pub checkpoint_id: Option<u64>,
     pub user_id: Option<u64>,
@@ -22,7 +22,7 @@ impl SignContext {
             fingerprint,
             contract_id: None,
             sign_inputs: Vec::new(),
-            psy_witness_input: None,
+            psy_signature_input: None,
             plonky2_signature_input: None,
             checkpoint_id: None,
             user_id: None,
@@ -41,15 +41,15 @@ impl SignContext {
         self
     }
 
-    pub fn with_psy_witness_input(
+    pub fn with_psy_signature_input(
         mut self,
-        witness_input: DPNSoftwareDefinedSignatureInput,
+        signature_input: DPNSoftwareDefinedSignatureInput,
         checkpoint_id: u64,
         user_id: u64,
         contract_state_tree_root: QHashOut<GoldilocksField>,
         checkpoint_tree_root: QHashOut<GoldilocksField>,
     ) -> Self {
-        self.psy_witness_input = Some(witness_input);
+        self.psy_signature_input = Some(signature_input);
         self.checkpoint_id = Some(checkpoint_id);
         self.user_id = Some(user_id);
         self.contract_state_tree_root = Some(contract_state_tree_root);
