@@ -1,5 +1,4 @@
 // WASM-specific bindings and exports
-// This is the unified WASM interface for all PSY functionality
 use wasm_bindgen::prelude::*;
 
 // Import the console.log function from the web console
@@ -247,12 +246,11 @@ use plonky2::{
     plonk::{config::PoseidonGoldilocksConfig, proof::ProofWithPublicInputs},
 };
 use psy_common::{
-    args::{ContractCallArgs, JobInfo, SignType},
+    args::{ContractCallArgs, ContractCallData, DPNSoftwareDefinedCallData, JobInfo, SignType},
     data::{base_types::hash256::Hash256, qhashout::QHashOut, u8bytes::U8Bytes},
 };
 use psy_crypto::signature::zk::data::ZKPublicKeyInfo;
 use psy_data::{guta::end_cap_input::SubmitUserEndCapNonProofInput, qblock::cmds::deploy_contract::QBCDeployContract};
-// Now that psy_prover supports WASM, use the real types
 use psy_prover::{
     local::store::UserProverWorkerStore,
     session::{WalletKeyPair, WalletSession},
@@ -287,41 +285,20 @@ impl WasmRpcServer {
     }
 
     #[wasm_bindgen]
-    pub async fn exec_contract_call_json(&mut self, pk_hash: &str, contract_calls_json: &str) -> Result<String, JsError> {
-        let contract_call_args: Vec<ContractCallArgs> =
-            serde_json::from_str(contract_calls_json).map_err(|e| JsError::new(&format!("Parse exec calls JSON error: {}", e)))?;
+    pub async fn exec_contract_call_json(&mut self, pk_hash: &str, call_data_json: &str) -> Result<String, JsError> {
+        let call_data: ContractCallData =
+            serde_json::from_str(call_data_json).map_err(|e| JsError::new(&format!("Parse call data JSON error: {}", e)))?;
 
         let pk_hash = QHashOut::<F>::from_str(pk_hash).map_err(|e| JsError::new(&format!("Parse public key hash error: {}", e)))?;
 
         let end_user_leaf_hash = self
             .wallet_session
-            .exec_contract_call(pk_hash, ContractCallData::new(contract_call_args))
+            .exec_contract_call(pk_hash, call_data)
             .await
             .map_err(|e| JsError::new(&format!("Error exec calls error: {}", e)))?;
         Ok(end_user_leaf_hash.to_string())
     }
 
-    #[wasm_bindgen]
-    pub async fn exec_contract_call_with_sign_data_json(
-        &mut self,
-        pk_hash: &str,
-        contract_calls_json: &str,
-        sign_data: Option<String>,
-    ) -> Result<String, JsError> {
-        let contract_call_args: Vec<ContractCallArgs> =
-            serde_json::from_str(contract_calls_json).map_err(|e| JsError::new(&format!("Parse exec calls JSON error: {}", e)))?;
-
-        let pk_hash = QHashOut::<F>::from_str(pk_hash).map_err(|e| JsError::new(&format!("Parse public key hash error: {}", e)))?;
-
-        // For now, ignore sign_data parameter in WASM
-
-        let end_user_leaf_hash = self
-            .wallet_session
-            .exec_contract_call(pk_hash, ContractCallData::new(contract_call_args))
-            .await
-            .map_err(|e| JsError::new(&format!("Error exec calls error: {}", e)))?;
-        Ok(end_user_leaf_hash.to_string())
-    }
 
     #[wasm_bindgen]
     pub async fn get_claim_rewards_call_args_json(&self, job_infos_json: &str) -> Result<String, JsError> {
@@ -390,35 +367,32 @@ impl WasmRpcServer {
     }
 
     #[wasm_bindgen]
-    pub async fn sign_and_submit(&self, pk_hash: &str) -> Result<String, JsError> {
+    pub async fn sign_and_submit(&self, pk_hash: &str, sign_data: Option<String>) -> Result<String, JsError> {
         let pk_hash = QHashOut::<F>::from_str(pk_hash).map_err(|e| JsError::new(&format!("Parse public key hash error: {}", e)))?;
+
+        let software_defined_call = sign_data.map(|data| {
+            serde_json::from_str::<psy_common::args::DPNSoftwareDefinedCallData>(&data)
+        }).transpose().map_err(|e| JsError::new(&format!("Parse sign data error: {}", e)))?;
+
         let end_user_leaf_hash = self
             .wallet_session
-            .sign_and_submit(pk_hash, None)
+            .sign_and_submit(pk_hash, software_defined_call)
             .await
             .map_err(|e| JsError::new(&format!("Sign and submit error: {}", e)))?;
         Ok(end_user_leaf_hash.to_string())
     }
 
-    #[wasm_bindgen]
-    pub async fn sign_and_submit_with_sign_data(&mut self, pk_hash: &str, sign_data: Option<String>) -> Result<String, JsError> {
-        // For now, ignore sign_data parameter in WASM
-
-        let pk_hash = QHashOut::<F>::from_str(pk_hash).map_err(|e| JsError::new(&format!("Parse public key hash error: {}", e)))?;
-
-        let end_user_leaf_hash = self
-            .wallet_session
-            .sign_and_submit(pk_hash, None)
-            .await
-            .map_err(|e| JsError::new(&format!("Sign and submit with sign data error: {}", e)))?;
-        Ok(end_user_leaf_hash.to_string())
-    }
-
     // User operations
     #[wasm_bindgen]
-    pub async fn register_user(&mut self, private_key_str: &str, fingerprint_str: &str) -> Result<String, JsError> {
+    pub async fn register_user(&mut self, private_key_str: &str, sign_type: &str) -> Result<String, JsError> {
         let private_key = QHashOut::<F>::from_str(private_key_str).map_err(|e| JsError::new(&format!("Parse private key error: {}", e)))?;
-        let fingerprint = QHashOut::<F>::from_str(fingerprint_str).map_err(|e| JsError::new(&format!("Parse fingerprint error: {}", e)))?;
+
+        let fingerprint = match sign_type {
+            "zk" => psy_prover::wallet::memory_wallet::get_zk_fingerprint(),
+            "secp256k1" => psy_prover::wallet::memory_wallet::get_secp256k1_fingerprint(),
+            _ => return Err(JsError::new(&format!("Unsupported sign type: {}", sign_type))),
+        };
+
         let pk_hash = self
             .wallet_session
             .register_user(private_key, fingerprint)
@@ -428,9 +402,15 @@ impl WasmRpcServer {
     }
 
     #[wasm_bindgen]
-    pub async fn add_user(&mut self, private_key_str: &str, fingerprint_str: &str) -> Result<String, JsError> {
+    pub async fn add_user(&mut self, private_key_str: &str, sign_type: &str) -> Result<String, JsError> {
         let private_key = QHashOut::<F>::from_str(private_key_str).map_err(|e| JsError::new(&format!("Parse private key error: {}", e)))?;
-        let fingerprint = QHashOut::<F>::from_str(fingerprint_str).map_err(|e| JsError::new(&format!("Parse fingerprint error: {}", e)))?;
+
+        let fingerprint = match sign_type {
+            "zk" => psy_prover::wallet::memory_wallet::get_zk_fingerprint(),
+            "secp256k1" => psy_prover::wallet::memory_wallet::get_secp256k1_fingerprint(),
+            _ => return Err(JsError::new(&format!("Unsupported sign type: {}", sign_type))),
+        };
+
         let pk_hash = self
             .wallet_session
             .add_user(private_key, fingerprint)
@@ -460,7 +440,6 @@ impl WasmRpcServer {
         serde_json::to_string(&keypair).map_err(|e| JsError::new(&format!("Serialize keypair error: {}", e)))
     }
 
-    // Contract operations
     #[wasm_bindgen]
     pub async fn deploy_contract_json(&self, deployer: &str, circuit_defs_json: &str) -> Result<String, JsError> {
         let deployer = QHashOut::<F>::from_str(deployer).map_err(|e| JsError::new(&format!("Parse deployer error: {}", e)))?;

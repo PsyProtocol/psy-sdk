@@ -60,17 +60,15 @@ export class WasmPsyConfigBuilder {
 export class WasmRpcServer {
   free(): void;
   constructor(rpc_config_json: string);
-  exec_contract_call_json(pk_hash: string, contract_calls_json: string): Promise<string>;
-  exec_contract_call_with_sign_data_json(pk_hash: string, contract_calls_json: string, sign_data?: string | null): Promise<string>;
+  exec_contract_call_json(pk_hash: string, call_data_json: string): Promise<string>;
   get_claim_rewards_call_args_json(job_infos_json: string): Promise<string>;
   claim_rewards_json(pk_hash: string, job_infos_json: string): Promise<string>;
   start_session(pk_hash: string): Promise<string>;
   prove_contract_call_json(pk_hash: string, contract_call_json: string): Promise<string>;
   prove_contract_calls_json(pk_hash: string, contract_calls_json: string): Promise<string>;
-  sign_and_submit(pk_hash: string): Promise<string>;
-  sign_and_submit_with_sign_data(pk_hash: string, sign_data?: string | null): Promise<string>;
-  register_user(private_key_str: string, fingerprint_str: string): Promise<string>;
-  add_user(private_key_str: string, fingerprint_str: string): Promise<string>;
+  sign_and_submit(pk_hash: string, sign_data?: string | null): Promise<string>;
+  register_user(private_key_str: string, sign_type: string): Promise<string>;
+  add_user(private_key_str: string, sign_type: string): Promise<string>;
   get_zk_public_key_json(private_key_str: string): Promise<string>;
   get_random_keypair_json(): Promise<string>;
   deploy_contract_json(deployer: string, circuit_defs_json: string): Promise<string>;
@@ -116,14 +114,12 @@ export interface InitOutput {
   readonly __wbg_wasmrpcserver_free: (a: number, b: number) => void;
   readonly wasmrpcserver_new: (a: number, b: number) => any;
   readonly wasmrpcserver_exec_contract_call_json: (a: number, b: number, c: number, d: number, e: number) => any;
-  readonly wasmrpcserver_exec_contract_call_with_sign_data_json: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => any;
   readonly wasmrpcserver_get_claim_rewards_call_args_json: (a: number, b: number, c: number) => any;
   readonly wasmrpcserver_claim_rewards_json: (a: number, b: number, c: number, d: number, e: number) => any;
   readonly wasmrpcserver_start_session: (a: number, b: number, c: number) => any;
   readonly wasmrpcserver_prove_contract_call_json: (a: number, b: number, c: number, d: number, e: number) => any;
   readonly wasmrpcserver_prove_contract_calls_json: (a: number, b: number, c: number, d: number, e: number) => any;
-  readonly wasmrpcserver_sign_and_submit: (a: number, b: number, c: number) => any;
-  readonly wasmrpcserver_sign_and_submit_with_sign_data: (a: number, b: number, c: number, d: number, e: number) => any;
+  readonly wasmrpcserver_sign_and_submit: (a: number, b: number, c: number, d: number, e: number) => any;
   readonly wasmrpcserver_register_user: (a: number, b: number, c: number, d: number, e: number) => any;
   readonly wasmrpcserver_add_user: (a: number, b: number, c: number, d: number, e: number) => any;
   readonly wasmrpcserver_get_zk_public_key_json: (a: number, b: number, c: number) => any;
@@ -143,9 +139,9 @@ export interface InitOutput {
   readonly __wbindgen_export_6: WebAssembly.Table;
   readonly __externref_table_dealloc: (a: number) => void;
   readonly __externref_drop_slice: (a: number, b: number) => void;
-  readonly closure1787_externref_shim: (a: number, b: number, c: any) => void;
   readonly wasm_bindgen__convert__closures_____invoke__hc02aa08cbb372572: (a: number, b: number) => void;
-  readonly closure2029_externref_shim: (a: number, b: number, c: any, d: any) => void;
+  readonly closure1771_externref_shim: (a: number, b: number, c: any) => void;
+  readonly closure2033_externref_shim: (a: number, b: number, c: any, d: any) => void;
   readonly __wbindgen_start: () => void;
 }
 

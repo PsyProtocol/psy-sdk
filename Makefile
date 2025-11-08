@@ -14,6 +14,7 @@ default: build wallet-build
 
 check:
 	@cargo check --workspace --all-targets --tests --benches --examples --bins
+	@cd psy_sdk/psy-ts-sdk/packages/psy-sdk && pnpm type-check
 
 fix:
 	# @cargo machete --fix
@@ -682,9 +683,9 @@ image:
 
 wasm-build:
 	@cd psy_sdk/psy-rust-sdk && wasm-pack build --target web --out-dir ../psy-ts-sdk/packages/psy-sdk/src/local-web-prover --out-name psy_prover --no-pack --release
-	@cd psy_sdk/psy-rust-sdk && cp ../psy-ts-sdk/.gitignore.template ../psy-ts-sdk/packages/psy-sdk/src/local-web-prover/.gitignore
+	@cp .github/templates/.gitignore.wasm ./psy_sdk/psy-ts-sdk/packages/psy-sdk/src/local-web-prover/.gitignore
 	@cd psy_sdk/psy-rust-sdk && wasm-pack build --target nodejs --out-dir ../psy-ts-sdk/packages/psy-sdk/src/local-prover --out-name psy_prover --no-pack --release
-	@cd psy_sdk/psy-rust-sdk && cp ../psy-ts-sdk/.gitignore.template ../psy-ts-sdk/packages/psy-sdk/src/local-prover/.gitignore
+	@cp .github/templates/.gitignore.wasm ./psy_sdk/psy-ts-sdk/packages/psy-sdk/src/local-prover/.gitignore
 
 help:
 	@grep -E '^[a-zA-Z_-]+:.*?' Makefile | cut -d: -f1 | sort

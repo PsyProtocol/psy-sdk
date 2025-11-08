@@ -123,7 +123,7 @@ export class CoordinatorEdgeRpcProvider extends Provider implements ICoordinator
      * @returns The user ID
      */
     async getUserId(publicKey: QHashOut): Promise<number> {
-        return this.rpc<number>(CoordinatorEdgeRPCCommand.GetUserId, {"public_key" : publicKey});
+        return this.rpc<number>(CoordinatorEdgeRPCCommand.GetUserId, { public_key: publicKey });
     }
 
     /**

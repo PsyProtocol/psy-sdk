@@ -1,5 +1,5 @@
 import { PsyRPCUserProverProvider } from "./client";
-import { ContractCallArgs, WalletKeyPair } from "./types";
+import { ContractCallArgs, SignType, WalletKeyPair } from "./types";
 import { CoordinatorEdgeRpcProvider } from "../coord-edge-rpc";
 import { QHashOut } from "../core";
 import { waitMs } from "../utils";
@@ -52,7 +52,7 @@ describe("Psy User Prover RPC Workflow Integration", () => {
 
                     // Step 3: Register user
                     console.log("Step 3: Registering user...");
-                    const publicKey = await provider.registerUser(keypair.private_key);
+                    const publicKey = await provider.registerUser(keypair.private_key, SignType.ZKSign);
                     expect(publicKey).toBeDefined();
                     console.log("✓ User registered with public key:", publicKey);
 
@@ -61,7 +61,7 @@ describe("Psy User Prover RPC Workflow Integration", () => {
 
                     // Step 3: Add user to session
                     console.log("Step 3: Adding user to session...");
-                    const userHash: QHashOut = await provider.addUser(keypair.private_key);
+                    const userHash: QHashOut = await provider.addUser(keypair.private_key, SignType.ZKSign);
                     expect(userHash).toBeDefined();
                     console.log("✓ User added with hash:", userHash);
 
@@ -106,9 +106,9 @@ describe("Psy User Prover RPC Workflow Integration", () => {
                         console.log(`Creating user ${i + 1}/${userCount}...`);
 
                         const keypair = await provider.getRandomKeypair();
-                        await provider.registerUser(keypair.private_key);
+                        await provider.registerUser(keypair.private_key, SignType.ZKSign);
                         await waitBlock(coordinator);
-                        const userHash = await provider.addUser(keypair.private_key);
+                        const userHash = await provider.addUser(keypair.private_key, SignType.ZKSign);
 
                         users.push({ keypair, hash: userHash });
                         console.log(`✓ User ${i + 1} created with hash:`, userHash);
@@ -148,9 +148,9 @@ describe("Psy User Prover RPC Workflow Integration", () => {
         beforeAll(async () => {
             // Setup common session and user for contract tests
             userKeypair = await provider.getRandomKeypair();
-            await provider.registerUser(userKeypair.private_key);
+            await provider.registerUser(userKeypair.private_key, SignType.ZKSign);
             await waitBlock(coordinator);
-            userHash = await provider.addUser(userKeypair.private_key);
+            userHash = await provider.addUser(userKeypair.private_key, SignType.ZKSign);
             // await provider.switchUser(userHash);
             await provider.startSession(userHash);
             console.log("✓ Setup complete for contract workflow tests");
@@ -292,14 +292,14 @@ describe("Psy User Prover RPC Workflow Integration", () => {
                     // Rapid sequence of operations
                     const keypair1 = await provider.getRandomKeypair();
                     const keypair2 = await provider.getRandomKeypair();
-                    await provider.registerUser(keypair1.private_key);
+                    await provider.registerUser(keypair1.private_key, SignType.ZKSign);
                     await waitBlock(coordinator);
 
-                    await provider.registerUser(keypair2.private_key);
+                    await provider.registerUser(keypair2.private_key, SignType.ZKSign);
                     await waitBlock(coordinator);
 
-                    const userHash1 = await provider.addUser(keypair1.private_key);
-                    const userHash2 = await provider.addUser(keypair2.private_key);
+                    const userHash1 = await provider.addUser(keypair1.private_key, SignType.ZKSign);
+                    const userHash2 = await provider.addUser(keypair2.private_key, SignType.ZKSign);
 
                     // await provider.switchUser(userHash1);
                     const zkKey1 = await provider.getZKPublicKey(keypair1.private_key);
