@@ -451,9 +451,6 @@ run-benchmark:
 run-benchmark-user:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_dev_cli stress-test --only-user --concurrent-tasks 1000
 
-run-benchmark-register:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/examples/register_user
-
 run-benchmark-mint:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_dev_cli stress-test --task-type multicall --only-mint --concurrent-tasks 100
 

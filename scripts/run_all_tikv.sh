@@ -109,6 +109,7 @@ run_service() {
 # Group 1: Start coordinator services (using TiKV)
 run_service "make run-coordinator-processor-tikv" "coordinator-processor-tikv" "$COORDINATOR_PROCESSOR_LOG" &
 PIDS+=($!)
+sleep 5
 run_service "make run-coordinator-edge-tikv" "coordinator-edge-tikv" "$COORDINATOR_EDGE_LOG" &
 PIDS+=($!)
 

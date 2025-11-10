@@ -95,6 +95,7 @@ run_service() {
 # Group 1: Start coordinator services 
 run_service "make run-coordinator-processor" "coordinator-processor" "$COORDINATOR_PROCESSOR_LOG" &
 PIDS+=($!)
+sleep 5
 run_service "make run-coordinator-edge" "coordinator-edge" "$COORDINATOR_EDGE_LOG" &
 PIDS+=($!)
 
