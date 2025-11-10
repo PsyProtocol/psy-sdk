@@ -2,7 +2,7 @@ use kvq::adapters::standard::KVQStandardAdapter;
 use plonky2::{
     field::goldilocks_field::GoldilocksField,
     hash::poseidon::PoseidonHash,
-    plonk::{config::PoseidonGoldilocksConfig, proof::ProofWithPublicInputs},
+    plonk::{circuit_data::VerifierOnlyCircuitData, config::PoseidonGoldilocksConfig, proof::ProofWithPublicInputs},
 };
 use psy_common::data::qhashout::QHashOut;
 use psy_config::network_constants::{
@@ -109,6 +109,7 @@ pub type QCheckpointSyncInfoCompact = PsyCheckpointSyncInfoCompact<PsyFelt>;
 pub type QUserPublicKeyRecord = PsyUserPublicKeyRecord<PsyFelt>;
 pub type PsyPlonky2Config = PoseidonGoldilocksConfig;
 pub type PsyProof = ProofWithPublicInputs<PsyFelt, PsyPlonky2Config, 2>;
+pub type PsyVerifierData = VerifierOnlyCircuitData<PsyPlonky2Config, 2>;
 
 pub type UserLeafTableStore<S, IDKVA = KVQStandardAdapter<S, CheckpointTableIdKey<USER_LEAF_TABLE_TYPE>, PsyUserLeaf<PsyFelt>>> =
     UserLeafModel<USER_LEAF_TABLE_TYPE, S, IDKVA>;

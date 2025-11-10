@@ -1,18 +1,18 @@
 // src/providers/rpc-provider.ts
-import axios, { AxiosInstance } from 'axios';
-import { IContractProvider, GUint } from '../sdk/types';
-import { config, getRpcUrls, getRealmRpcUrl, getCoordinatorRpcUrl, getKeyPairByPublicKey } from '../config';
-import { PsyJSON } from '@psy/psy-sdk';
+import axios, { AxiosInstance } from "axios";
+import { IContractProvider, GUint } from "../sdk/types";
+import { config, getRpcUrls, getRealmRpcUrl, getCoordinatorRpcUrl, getKeyPairByPublicKey } from "../config";
+import { PsyJSON } from "@psy/psy-sdk";
 
 export interface RpcRequest {
-    jsonrpc: '2.0';
+    jsonrpc: "2.0";
     method: string;
     params: any;
     id: number | string;
 }
 
 export interface RpcResponse<T = any> {
-    jsonrpc: '2.0';
+    jsonrpc: "2.0";
     result?: T;
     error?: {
         code: number;
@@ -46,7 +46,7 @@ export class RpcProvider implements IContractProvider {
             baseURL: realmRpcUrl,
             timeout: config.rpc.timeout,
             headers: {
-                'Content-Type': 'application/json',
+                "Content-Type": "application/json",
             },
         });
 
@@ -55,7 +55,7 @@ export class RpcProvider implements IContractProvider {
             baseURL: coordinatorRpcUrl,
             timeout: config.rpc.timeout,
             headers: {
-                'Content-Type': 'application/json',
+                "Content-Type": "application/json",
             },
         });
 
@@ -70,7 +70,7 @@ export class RpcProvider implements IContractProvider {
 
     private initializeKeys() {
         // Initialize with key pairs from config
-        Object.values(config.user.keyPairs).forEach(keyPair => {
+        Object.values(config.user.keyPairs).forEach((keyPair) => {
             this.privateKeys.set(keyPair.publicKey, keyPair.privateKey);
         });
 
@@ -81,15 +81,15 @@ export class RpcProvider implements IContractProvider {
 
     private derivePublicKey(privateKey: string): string {
         // Mock derivation - in production use proper cryptography
-        return '0x' + privateKey.substring(0, 40);
+        return "0x" + privateKey.substring(0, 40);
     }
 
     private setupLogging() {
         // Setup logging for Realm client
-        this.setupClientLogging(this.realmClient, 'Realm');
+        this.setupClientLogging(this.realmClient, "Realm");
 
         // Setup logging for Coordinator client
-        this.setupClientLogging(this.coordinatorClient, 'Coordinator');
+        this.setupClientLogging(this.coordinatorClient, "Coordinator");
     }
 
     private setupClientLogging(client: AxiosInstance, clientType: string) {
@@ -130,7 +130,7 @@ export class RpcProvider implements IContractProvider {
     async getContractState(
         contractId: GUint,
         userId: GUint,
-        offsets: GUint[]  // These should be offsets, not slots
+        offsets: GUint[] // These should be offsets, not slots
     ): Promise<GUint[]> {
         try {
             const checkpointId = await this.getLatestCheckpoint();
@@ -157,26 +157,26 @@ export class RpcProvider implements IContractProvider {
             // Fetch each unique slot
             for (const [slotIndex, offsetInfos] of offsetsBySlot) {
                 const request: RpcRequest = {
-                    jsonrpc: '2.0',
-                    method: 'psy_get_user_contract_state_tree_merkle_proof',
+                    jsonrpc: "2.0",
+                    method: "psy_get_user_contract_state_tree_merkle_proof",
                     params: [
                         Number(checkpointId),
                         Number(userId),
                         Number(contractId),
                         contractStateHeight,
-                        slotIndex  // Send the calculated slot index
+                        slotIndex, // Send the calculated slot index
                     ],
                     id: this.requestId++,
                 };
 
-                const response = await this.realmClient.post<RpcResponse<MerkleProofResponse>>('', request);
+                const response = await this.realmClient.post<RpcResponse<MerkleProofResponse>>("", request);
 
                 if (response.data.error) {
                     throw new Error(`RPC Error: ${response.data.error.message}`);
                 }
 
                 if (!response.data.result) {
-                    throw new Error('No result in RPC response');
+                    throw new Error("No result in RPC response");
                 }
 
                 // Extract the leaf value from the merkle proof response
@@ -194,7 +194,9 @@ export class RpcProvider implements IContractProvider {
                     stateValues[index] = felts[position];
 
                     if (config.logging.enabled) {
-                        console.log(`   Offset ${offsets[index]} → Slot ${slotIndex}, Position ${position}: ${felts[position]} (0x${felts[position].toString(16)})`);
+                        console.log(
+                            `   Offset ${offsets[index]} → Slot ${slotIndex}, Position ${position}: ${felts[position]} (0x${felts[position].toString(16)})`
+                        );
                     }
                 }
             }
@@ -214,13 +216,13 @@ export class RpcProvider implements IContractProvider {
      */
     private parseLeafValue(leafValue: string): GUint[] {
         // Remove '0x' prefix if present
-        const cleanValue = leafValue.startsWith('0x') ? leafValue.slice(2) : leafValue;
+        const cleanValue = leafValue.startsWith("0x") ? leafValue.slice(2) : leafValue;
 
         if (cleanValue.length !== 64) {
             console.warn(`Unexpected leaf value length: ${cleanValue.length}, expected 64`);
         }
 
-        const paddedValue = cleanValue.padStart(64, '0');
+        const paddedValue = cleanValue.padStart(64, "0");
         const felts: GUint[] = [];
 
         // The value "0000000000000000000000000000000000000000000000000000000000000bb8"
@@ -233,10 +235,10 @@ export class RpcProvider implements IContractProvider {
         // Parse from right to left (little-endian within the leaf)
         for (let i = 0; i < 4; i++) {
             // Calculate position from the end
-            const end = 64 - (i * 16);
+            const end = 64 - i * 16;
             const start = end - 16;
             const feltHex = paddedValue.slice(start, end);
-            felts[i] = BigInt('0x' + feltHex);
+            felts[i] = BigInt("0x" + feltHex);
 
             if (config.logging.logSignerOps) {
                 console.log(`   Position ${i}: ${feltHex} = ${felts[i]}`);
@@ -249,41 +251,37 @@ export class RpcProvider implements IContractProvider {
     // Realm-specific state query methods
     async getUserContractTreeRoot(checkpointId: GUint, userId: GUint): Promise<string> {
         const request: RpcRequest = {
-            jsonrpc: '2.0',
-            method: 'psy_get_user_contract_tree_root',
+            jsonrpc: "2.0",
+            method: "psy_get_user_contract_tree_root",
             params: [Number(checkpointId), Number(userId)],
             id: this.requestId++,
         };
 
-        const response = await this.realmClient.post<RpcResponse<string>>('', request);
-        return response.data.result || '';
+        const response = await this.realmClient.post<RpcResponse<string>>("", request);
+        return response.data.result || "";
     }
 
-    async getUserContractStateTreeRoot(
-        checkpointId: GUint,
-        userId: GUint,
-        contractId: GUint
-    ): Promise<string> {
+    async getUserContractStateTreeRoot(checkpointId: GUint, userId: GUint, contractId: GUint): Promise<string> {
         const request: RpcRequest = {
-            jsonrpc: '2.0',
-            method: 'psy_get_user_contract_state_tree_root',
+            jsonrpc: "2.0",
+            method: "psy_get_user_contract_state_tree_root",
             params: [Number(checkpointId), Number(userId), Number(contractId)],
             id: this.requestId++,
         };
 
-        const response = await this.realmClient.post<RpcResponse<string>>('', request);
-        return response.data.result || '';
+        const response = await this.realmClient.post<RpcResponse<string>>("", request);
+        return response.data.result || "";
     }
 
     async checkUserIdInRealm(userId: GUint): Promise<boolean> {
         const request: RpcRequest = {
-            jsonrpc: '2.0',
-            method: 'psy_check_user_id_in_realm',
+            jsonrpc: "2.0",
+            method: "psy_check_user_id_in_realm",
             params: [Number(userId)],
             id: this.requestId++,
         };
 
-        const response = await this.realmClient.post<RpcResponse<boolean>>('', request);
+        const response = await this.realmClient.post<RpcResponse<boolean>>("", request);
         return response.data.result || false;
     }
 
@@ -291,13 +289,13 @@ export class RpcProvider implements IContractProvider {
 
     async getLatestCheckpoint(): Promise<bigint> {
         const request: RpcRequest = {
-            jsonrpc: '2.0',
-            method: 'psy_latest_checkpoint',
+            jsonrpc: "2.0",
+            method: "psy_latest_checkpoint",
             params: [],
             id: this.requestId++,
         };
 
-        const response = await this.coordinatorClient.post<RpcResponse<number>>('', request);
+        const response = await this.coordinatorClient.post<RpcResponse<number>>("", request);
 
         if (response.data.error) {
             throw new Error(`RPC Error: ${response.data.error.message}`);
@@ -309,16 +307,16 @@ export class RpcProvider implements IContractProvider {
 
     async registerUser(fingerprint: string, publicKeyParam: string): Promise<any> {
         const request: RpcRequest = {
-            jsonrpc: '2.0',
-            method: 'psy_register_user',
+            jsonrpc: "2.0",
+            method: "psy_register_user",
             params: {
                 fingerprint: fingerprint,
-                public_key_param: publicKeyParam
+                public_key_param: publicKeyParam,
             },
             id: this.requestId++,
         };
 
-        const response = await this.coordinatorClient.post<RpcResponse>('', request);
+        const response = await this.coordinatorClient.post<RpcResponse>("", request);
 
         if (response.data.error) {
             throw new Error(`RPC Error: ${response.data.error.message}`);
@@ -329,13 +327,13 @@ export class RpcProvider implements IContractProvider {
 
     async deployContract(contractData: any): Promise<any> {
         const request: RpcRequest = {
-            jsonrpc: '2.0',
-            method: 'psy_deploy_contract',
+            jsonrpc: "2.0",
+            method: "psy_deploy_contract",
             params: contractData,
             id: this.requestId++,
         };
 
-        const response = await this.coordinatorClient.post<RpcResponse>('', request);
+        const response = await this.coordinatorClient.post<RpcResponse>("", request);
 
         if (response.data.error) {
             throw new Error(`RPC Error: ${response.data.error.message}`);
@@ -346,75 +344,70 @@ export class RpcProvider implements IContractProvider {
 
     async buildBlock(): Promise<any> {
         const request: RpcRequest = {
-            jsonrpc: '2.0',
-            method: 'psy_build_block',
+            jsonrpc: "2.0",
+            method: "psy_build_block",
             params: [],
             id: this.requestId++,
         };
 
-        const response = await this.coordinatorClient.post<RpcResponse>('', request);
+        const response = await this.coordinatorClient.post<RpcResponse>("", request);
         return response.data.result;
     }
 
     async getLatestBlockState(): Promise<any> {
         const request: RpcRequest = {
-            jsonrpc: '2.0',
-            method: 'psy_get_latest_block_state',
+            jsonrpc: "2.0",
+            method: "psy_get_latest_block_state",
             params: [],
             id: this.requestId++,
         };
 
-        const response = await this.coordinatorClient.post<RpcResponse>('', request);
+        const response = await this.coordinatorClient.post<RpcResponse>("", request);
         return response.data.result;
     }
 
     async getContractLeafData(contractId: GUint): Promise<any> {
         const request: RpcRequest = {
-            jsonrpc: '2.0',
-            method: 'psy_get_contract_leaf_data',
+            jsonrpc: "2.0",
+            method: "psy_get_contract_leaf_data",
             params: [Number(contractId)],
             id: this.requestId++,
         };
 
-        const response = await this.coordinatorClient.post<RpcResponse>('', request);
+        const response = await this.coordinatorClient.post<RpcResponse>("", request);
         return response.data.result;
     }
 
     async getUserLeafData(checkpointId: GUint, userId: GUint): Promise<any> {
         const request: RpcRequest = {
-            jsonrpc: '2.0',
-            method: 'psy_get_user_leaf_data',
+            jsonrpc: "2.0",
+            method: "psy_get_user_leaf_data",
             params: [Number(checkpointId), Number(userId)],
             id: this.requestId++,
         };
 
-        const response = await this.coordinatorClient.post<RpcResponse>('', request);
+        const response = await this.coordinatorClient.post<RpcResponse>("", request);
         return response.data.result;
     }
 
     async getContractCodeDefinition(contractId: GUint): Promise<any> {
         const request: RpcRequest = {
-            jsonrpc: '2.0',
-            method: 'psy_get_contract_code_definition',
+            jsonrpc: "2.0",
+            method: "psy_get_contract_code_definition",
             params: [Number(contractId)],
             id: this.requestId++,
         };
 
-        const response = await this.coordinatorClient.post<RpcResponse>('', request);
+        const response = await this.coordinatorClient.post<RpcResponse>("", request);
         return response.data.result;
     }
 
     // ========== TRANSACTION METHODS ==========
 
-    async sendTransaction(
-        contractId: GUint,
-        functionName: string,
-        args: any[],
-        publicKey?: string
-    ): Promise<any> {
+    async sendTransaction(contractId: GUint, functionName: string, args: any[], publicKey?: string): Promise<any> {
         try {
             if (!publicKey) {
-                throw new Error('Public key required for transaction signing');
+                throw new Error("Public key required for transaction signing");
             }
 
             // Look up private key from public key
@@ -426,7 +419,9 @@ export class RpcProvider implements IContractProvider {
                     this.privateKeys.set(keyPair.publicKey, keyPair.privateKey);
                     privateKey = keyPair.privateKey;
                 } else {
-                    throw new Error(`No private key found for public key: ${publicKey}. Please ensure the key is registered.`);
+                    throw new Error(
+                        `No private key found for public key: ${publicKey}. Please ensure the key is registered.`
+                    );
                 }
             }
 
@@ -441,25 +436,25 @@ export class RpcProvider implements IContractProvider {
 
             // For now, we'll simulate the transaction submission
             const request: RpcRequest = {
-                jsonrpc: '2.0',
-                method: 'psy_submit_transaction', // Replace with actual method
+                jsonrpc: "2.0",
+                method: "psy_submit_transaction", // Replace with actual method
                 params: {
                     contractId: contractId.toString(),
                     methodName: functionName,
-                    inputs: args.map(arg => {
-                        if (typeof arg === 'bigint') {
+                    inputs: args.map((arg) => {
+                        if (typeof arg === "bigint") {
                             return arg.toString();
                         }
                         return arg;
                     }),
                     // In production, include signature here
                     signature: this.mockSign(privateKey, contractId, functionName, args),
-                    publicKey: publicKey
+                    publicKey: publicKey,
                 },
                 id: this.requestId++,
             };
 
-            const response = await this.coordinatorClient.post<RpcResponse>('', request);
+            const response = await this.coordinatorClient.post<RpcResponse>("", request);
 
             if (response.data.error) {
                 throw new Error(`RPC Error: ${response.data.error.message}`);
@@ -492,30 +487,27 @@ export class RpcProvider implements IContractProvider {
     }
 
     // Batch requests support for coordinator
-    async batchRequestCoordinator(requests: Omit<RpcRequest, 'jsonrpc' | 'id'>[]): Promise<any[]> {
+    async batchRequestCoordinator(requests: Omit<RpcRequest, "jsonrpc" | "id">[]): Promise<any[]> {
         return this.batchRequest(this.coordinatorClient, requests);
     }
 
     // Batch requests support for realm
-    async batchRequestRealm(requests: Omit<RpcRequest, 'jsonrpc' | 'id'>[]): Promise<any[]> {
+    async batchRequestRealm(requests: Omit<RpcRequest, "jsonrpc" | "id">[]): Promise<any[]> {
         return this.batchRequest(this.realmClient, requests);
     }
 
-    private async batchRequest(
-        client: AxiosInstance,
-        requests: Omit<RpcRequest, 'jsonrpc' | 'id'>[]
-    ): Promise<any[]> {
+    private async batchRequest(client: AxiosInstance, requests: Omit<RpcRequest, "jsonrpc" | "id">[]): Promise<any[]> {
         const batchRequests: RpcRequest[] = requests.map((req, index) => ({
-            jsonrpc: '2.0',
+            jsonrpc: "2.0",
             ...req,
             id: this.requestId + index,
         }));
 
         this.requestId += requests.length;
 
-        const response = await client.post<RpcResponse[]>('', batchRequests);
+        const response = await client.post<RpcResponse[]>("", batchRequests);
 
-        return response.data.map(res => {
+        return response.data.map((res) => {
             if (res.error) {
                 throw new Error(`Batch request error: ${res.error.message}`);
             }
@@ -525,16 +517,16 @@ export class RpcProvider implements IContractProvider {
 }
 
 // Factory function to create providers for different environments
-export function createProvider(
-    environment: 'local' | 'testnet' | 'mainnet' = 'local',
-    realmId?: number
-): RpcProvider {
+export function createProvider(environment: "local" | "testnet" | "mainnet" = "local", realmId?: number): RpcProvider {
     const rpcUrls = getRpcUrls(environment, realmId);
     return new RpcProvider(rpcUrls.realm, rpcUrls.coordinator);
 }
 
 // Create specialized providers for specific use cases
-export function createRealmProvider(realmId?: number, environment: 'local' | 'testnet' | 'mainnet' = 'local'): RpcProvider {
+export function createRealmProvider(
+    realmId?: number,
+    environment: "local" | "testnet" | "mainnet" = "local"
+): RpcProvider {
     return createProvider(environment, realmId);
 }
 

@@ -1,5 +1,5 @@
 use clap::{command, Parser, Subcommand};
-use psy_prover::local::args::{ProveProxyArgs, ProverArgs, WalletSessionArgs};
+use psy_common::args::{ProveProxyArgs, ProverArgs, WalletSessionArgs};
 
 pub mod args;
 pub mod deploy_contract;
@@ -33,7 +33,7 @@ pub enum Commands {
     RegisterUser(crate::subcommand::args::RegisterUserArgs),
 
     DeployContract(crate::subcommand::args::DeployContractArgs),
-    SubmitEndCaproof(crate::subcommand::args::SubmitEndCapArgs),
+    Call(WalletSessionArgs),
 
     GetUserId(crate::subcommand::args::UserIdArgs),
     GetUserLeaf(crate::subcommand::args::UserLeafArgs),
@@ -84,8 +84,6 @@ pub enum Commands {
     GetLatestBlockState(crate::subcommand::args::LatestBlockStateArgs),
     GetBlockState(crate::subcommand::args::BlockStateArgs),
 
-    // session
-    WalletSession(WalletSessionArgs),
 
     // local proving
     LocalProver(ProverArgs),

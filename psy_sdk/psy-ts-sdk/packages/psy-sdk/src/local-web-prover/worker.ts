@@ -145,13 +145,13 @@ class PsyProverServer {
                 return this.wasmServer.prove_contract_calls_json(params[0], PsyJSON.stringify(params[1]));
             
             case PsyUserProverRPCCommand.SignAndSubmit:
-                return this.wasmServer.sign_and_submit(params[0]);
+                return this.wasmServer.sign_and_submit(params[0], params[1]);
             
             case PsyUserProverRPCCommand.RegisterUser:
-                return this.wasmServer.register_user(params[0]);
+                return this.wasmServer.register_user(params[0], params[1]);
             
             case PsyUserProverRPCCommand.AddUser:
-                return this.wasmServer.add_user(params[0]);
+                return this.wasmServer.add_user(params[0], params[1]);
             
             case PsyUserProverRPCCommand.GetZKPublicKey: {
                 const zkResult = await this.wasmServer.get_zk_public_key_json(params[0]);

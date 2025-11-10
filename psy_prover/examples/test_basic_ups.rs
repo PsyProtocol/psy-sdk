@@ -31,15 +31,17 @@ use psy_data::{
     traits::qdatastore::{qmetadata::QMetaDataStoreReaderSync, qtreedata::PsyComboDataStoreReaderWriterSync},
 };
 use psy_dpn_circuit::circuits::cfc::DapenContractFunctionCircuit;
-use psy_provider::common::UPSCircuitManagerTrait;
 use psy_store::{node::coordinator::PsyCoordinatorStoreWriterAsyncImm, prepare_environment_with_real_contract};
 use psy_ups_circuit::{
     circuit_manager::core::{PsyUPSStepCircuitManager, QCircuitManager},
     session::UserProvingSessionManager,
 };
-use psy_vm::dpn::{
-    ops::{context_trait::DPNContext, exec_context::QExecContext, sym_felt::SymFeltRef},
-    vm::{compile::PsyCompileResult, def::DPNFunctionCircuitDefinition},
+use psy_vm::{
+    dpn::{
+        ops::{context_trait::DPNContext, exec_context::QExecContext, sym_felt::SymFeltRef},
+        vm::{compile::PsyCompileResult, def::DPNFunctionCircuitDefinition},
+    },
+    ups::circuit_manager::UPSCircuitManager,
 };
 use psylang_macros::qcontract;
 
@@ -266,7 +268,7 @@ async fn test_prove_simple() -> anyhow::Result<()> {
 
     timer.lap("start: init PsyUPSStepCircuitManager");
 
-    let main_circuits = QCircuitManager::Local(PsyUPSStepCircuitManager::<C, D>::new_with_config(PSY_NETWORK_MAGIC));
+    let main_circuits = PsyUPSStepCircuitManager::<C, D>::new_with_config(PSY_NETWORK_MAGIC);
     //main_circuits.print_common_config();
 
     timer.lap("end: init PsyUPSStepCircuitManager");
@@ -287,7 +289,7 @@ async fn test_prove_simple() -> anyhow::Result<()> {
         wallet.circuit.get_verifier_config_ref().into(),
     );
 
-    UPSCircuitManagerTrait::register_info(&main_circuits, &mut circuit_info).await;
+    UPSCircuitManager::register_info(&main_circuits, &mut circuit_info).await;
     circuit_info.register_circuit(
         LocalCircuitId::new_cfc(contract_id.to_canonical_u64() as u32, simple_mint_debug_def.method_id),
         simple_mint_debug_circuit.get_fingerprint(),
@@ -307,7 +309,7 @@ async fn test_prove_simple() -> anyhow::Result<()> {
     let mut mgr = UserProvingSessionManager::<GoldilocksField, PsyHasher, _, C, D>::new(
         lps,
         circuit_info,
-        UPSCircuitManagerTrait::ups_circuit_whitelist_root(&main_circuits).await?,
+        UPSCircuitManager::ups_circuit_whitelist_root(&main_circuits).await?,
     )
     .await?;
 
@@ -358,9 +360,9 @@ async fn test_prove_simple() -> anyhow::Result<()> {
     timer.lap("Proved End Cap for UPS Session 🎉");
 
     // the end cap proof the proof that we send off to the network 🎉
-    if let QCircuitManager::Local(ref mgr) = main_circuits {
-        mgr.ups_end_cap.verify_proof(end_cap_proof)?;
-    }
+    // Now that QCircuitManager is just PsyUPSStepCircuitManager, access ups_end_cap
+    // directly
+    main_circuits.ups_end_cap.verify_proof(end_cap_proof)?;
     timer.lap("✅ Verified End Cap Proof");
 
     Ok(())

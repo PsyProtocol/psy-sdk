@@ -9,13 +9,13 @@ use std::{
 
 use anyhow::Result;
 use plonky2::field::goldilocks_field::GoldilocksField;
-use psy_common::data::qhashout::QHashOut;
+use psy_common::{
+    args::{ContractCallArgs, ContractCallData, SignType},
+    data::qhashout::QHashOut,
+};
 use psy_crypto::hash::traits::qhashable::QFieldHashable as _;
 use psy_data::config::store_config::PsyHasher;
-use psy_prover::{
-    local::args::{ContractCallArgs, SignType},
-    session::session::WalletSession,
-};
+use psy_prover::session::session::WalletSession;
 use psy_rust_sdk::provider::NetworkConfig;
 use tracing::{error, info, warn};
 
@@ -337,9 +337,10 @@ async fn execute_transfer_multi_transaction_sync(wallet_session: &mut WalletSess
 
     info!("🔑 Task {} - Registering user_from and user_to", task_id);
     let start = Instant::now();
-    let pk_hash_from = wallet_session.register_user(private_key_from).await?;
-    let pk_hash_to1 = wallet_session.register_user(private_key_to1).await?;
-    let pk_hash_to2 = wallet_session.register_user(private_key_to2).await?;
+    let fingerprint = psy_prover::wallet::memory_wallet::get_zk_fingerprint();
+    let pk_hash_from = wallet_session.register_user(private_key_from, fingerprint).await?;
+    let pk_hash_to1 = wallet_session.register_user(private_key_to1, fingerprint).await?;
+    let pk_hash_to2 = wallet_session.register_user(private_key_to2, fingerprint).await?;
     // let pk_hash_to3 = wallet_session.register_user(private_key_to3)?;
     let duration = start.elapsed().as_millis() as u64;
     info!("🔑 Task {} - Register user duration: {} ms", task_id, duration);
@@ -355,9 +356,9 @@ async fn execute_transfer_multi_transaction_sync(wallet_session: &mut WalletSess
     info!("🔑 Task {} - Registered user_from and user_to", task_id);
 
     // wallet_session.add_user(private_key_from)?;
-    wallet_session.add_user_with_type(private_key_from, SignType::ZKSign, None).await?;
-    wallet_session.add_user(private_key_to1).await?;
-    wallet_session.add_user(private_key_to2).await?;
+    wallet_session.add_user(private_key_from, fingerprint).await?;
+    wallet_session.add_user(private_key_to1, fingerprint).await?;
+    wallet_session.add_user(private_key_to2, fingerprint).await?;
     // wallet_session.add_user(private_key_to3)?;
 
     // let user_id_to = wallet_session.st_provider.get_user_id(private_key_to)?;
@@ -406,7 +407,7 @@ async fn execute_transfer_multi_transaction_sync(wallet_session: &mut WalletSess
     info!("Start to execute multi contract call");
     let start = Instant::now();
     wallet_session
-        .exec_contract_call(pk_hash_from, contract_call_args)
+        .exec_contract_call(pk_hash_from, ContractCallData::new(contract_call_args))
         .await
         .map_err(|err| anyhow::format_err!("exec_contract_call: {}", err))?;
     let duration = start.elapsed().as_millis() as u64;
@@ -429,7 +430,7 @@ async fn execute_transfer_multi_transaction_sync(wallet_session: &mut WalletSess
         let start = Instant::now();
         // try to claim
         wallet_session
-            .exec_contract_call(user.clone(), claim_contract_call_args)
+            .exec_contract_call(user.clone(), ContractCallData::new(claim_contract_call_args))
             .await
             .map_err(|err| anyhow::format_err!("exec_contract_call: {}", err))?;
         let duration = start.elapsed().as_millis() as u64;

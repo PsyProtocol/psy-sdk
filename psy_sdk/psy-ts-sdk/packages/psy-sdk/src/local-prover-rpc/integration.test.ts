@@ -2,7 +2,7 @@ import fs from "fs";
 import path from "path";
 
 import { PsyRPCUserProverProvider } from "./client";
-import { ContractCallArgs, WalletKeyPair, DPNFunctionCircuitDefinition } from "./types";
+import { ContractCallArgs, SignType, WalletKeyPair, DPNFunctionCircuitDefinition } from "./types";
 import { CoordinatorEdgeRpcProvider } from "../coord-edge-rpc";
 import { QHashOut } from "../core";
 import { ZKPublicKeyInfo } from "../types";
@@ -177,7 +177,7 @@ describe("Psy User Prover RPC Integration Tests", () => {
                         testKeypair = await provider.getRandomKeypair();
                     }
 
-                    userHash = await provider.registerUser(testKeypair.private_key);
+                    userHash = await provider.registerUser(testKeypair.private_key, SignType.ZKSign);
 
                     console.log("private_key: ", testKeypair.private_key);
                     console.log("public_key: ", testKeypair.public_key);
@@ -190,7 +190,7 @@ describe("Psy User Prover RPC Integration Tests", () => {
 
                     await waitBlock(coordinator);
 
-                    const pkHash = await provider.addUser(testKeypair.private_key);
+                    const pkHash = await provider.addUser(testKeypair.private_key, SignType.ZKSign);
                     console.log("Added user with hash:", pkHash);
                 } catch (error) {
                     console.error("Failed to register user:", error);
@@ -208,10 +208,10 @@ describe("Psy User Prover RPC Integration Tests", () => {
                         testKeypair = await provider.getRandomKeypair();
                     }
 
-                    await provider.registerUser(testKeypair.private_key);
+                    await provider.registerUser(testKeypair.private_key, SignType.ZKSign);
 
                     await waitBlock(coordinator);
-                    const addedUserHash = await provider.addUser(testKeypair.private_key);
+                    const addedUserHash = await provider.addUser(testKeypair.private_key, SignType.ZKSign);
 
                     expect(addedUserHash).toBeDefined();
                     expect(typeof addedUserHash).toBe("string");
@@ -237,7 +237,7 @@ describe("Psy User Prover RPC Integration Tests", () => {
         //     try {
         //         sessionId = await provider.startSession();
         //         userKeypair = await provider.getRandomKeypair();
-        //         userHash = await provider.addUser(userKeypair.private_key);
+        //         userHash = await provider.addUser(userKeypair.private_key, SignType.ZKSign);
         //         await provider.switchUser(userHash);
         //         console.log("Setup complete for contract operations");
         //     } catch (error) {
@@ -355,10 +355,10 @@ describe("Psy User Prover RPC Integration Tests", () => {
         beforeAll(async () => {
             try {
                 userKeypair = await provider.getRandomKeypair();
-                await provider.registerUser(userKeypair.private_key);
+                await provider.registerUser(userKeypair.private_key, SignType.ZKSign);
                 await waitBlock(coordinator);
 
-                userHash = await provider.addUser(userKeypair.private_key);
+                userHash = await provider.addUser(userKeypair.private_key, SignType.ZKSign);
                 // await provider.switchUser(userHash);
                 await waitBlock(coordinator);
 
@@ -445,10 +445,10 @@ describe("Psy User Prover RPC Integration Tests", () => {
 
         beforeAll(async () => {
             try {
-                await provider.registerUser(privateKey);
+                await provider.registerUser(privateKey, SignType.ZKSign);
                 await waitBlock(coordinator);
 
-                userHash = await provider.addUser(privateKey);
+                userHash = await provider.addUser(privateKey, SignType.ZKSign);
                 deployer = userHash;
                 // await provider.switchUser(userHash);
                 await waitBlock(coordinator);
@@ -494,7 +494,7 @@ describe("Psy User Prover RPC Integration Tests", () => {
         //     try {
         //         sessionId = await provider.startSession();
         //         userKeypair = await provider.getRandomKeypair();
-        //         userHash = await provider.addUser(userKeypair.private_key);
+        //         userHash = await provider.addUser(userKeypair.private_key, SignType.ZKSign);
         //         await provider.switchUser(userHash);
         //         console.log("Setup complete for signing operations");
         //     } catch (error) {

@@ -9,10 +9,10 @@ use std::{
 
 use anyhow::Result;
 use plonky2::field::goldilocks_field::GoldilocksField;
-use psy_common::data::qhashout::QHashOut;
+use psy_common::{args::{ContractCallArgs, ContractCallData}, data::qhashout::QHashOut};
 use psy_crypto::hash::traits::qhashable::QFieldHashable as _;
 use psy_data::config::store_config::PsyHasher;
-use psy_prover::{local::args::ContractCallArgs, session::session::WalletSession};
+use psy_prover::session::session::WalletSession;
 use psy_rust_sdk::provider::NetworkConfig;
 use tracing::{error, info, warn};
 
@@ -331,8 +331,9 @@ async fn execute_transfer_transaction_sync(wallet_session: &mut WalletSession, t
     let private_key_to = QHashOut::<GoldilocksField>::rand();
 
     info!("🔑 Task {} - Registering user_from and user_to", task_id);
-    let pk_hash_from = wallet_session.register_user(private_key_from).await?;
-    let pk_hash_to = wallet_session.register_user(private_key_to).await?;
+    let fingerprint = psy_prover::wallet::memory_wallet::get_zk_fingerprint();
+    let pk_hash_from = wallet_session.register_user(private_key_from, fingerprint).await?;
+    let pk_hash_to = wallet_session.register_user(private_key_to, fingerprint).await?;
     println!("pk_hash_from: {}", pk_hash_from);
     println!("pk_hash_to: {}", pk_hash_to);
 
@@ -341,8 +342,8 @@ async fn execute_transfer_transaction_sync(wallet_session: &mut WalletSession, t
     }
     info!("🔑 Task {} - Registered user_from and user_to", task_id);
 
-    wallet_session.add_user(private_key_from).await?;
-    wallet_session.add_user(private_key_to).await?;
+    wallet_session.add_user(private_key_from, fingerprint).await?;
+    wallet_session.add_user(private_key_to, fingerprint).await?;
 
     // let user_id_to = wallet_session.st_provider.get_user_id(private_key_to)?;
     let pk_info_from = wallet_session.wallet.get_secp_pk_info(private_key_from).await?;
@@ -360,11 +361,11 @@ async fn execute_transfer_transaction_sync(wallet_session: &mut WalletSession, t
     wallet_session
         .exec_contract_call(
             pk_hash_from,
-            vec![ContractCallArgs {
+            ContractCallData::new(vec![ContractCallArgs {
                 contract_id: 0,
                 method_name: "simple_mint".to_string(),
                 inputs: vec![mint_amount],
-            }],
+            }]),
         )
         .await?;
     info!("🪙 Task {} - Waiting for new block after mint", task_id);
@@ -381,11 +382,11 @@ async fn execute_transfer_transaction_sync(wallet_session: &mut WalletSession, t
     wallet_session
         .exec_contract_call(
             pk_hash_from,
-            vec![ContractCallArgs {
+            ContractCallData::new(vec![ContractCallArgs {
                 contract_id: 0,
                 method_name: "simple_transfer".to_string(),
                 inputs: vec![user_id_to, transfer_amount],
-            }],
+            }]),
         )
         .await?;
 
@@ -398,11 +399,11 @@ async fn execute_transfer_transaction_sync(wallet_session: &mut WalletSession, t
     wallet_session
         .exec_contract_call(
             pk_hash_to,
-            vec![ContractCallArgs {
+            ContractCallData::new(vec![ContractCallArgs {
                 contract_id: 0,
                 method_name: "simple_claim".to_string(),
                 inputs: vec![user_id_from],
-            }],
+            }]),
         )
         .await?;
     info!("🎁 Task {} - Waiting for new block after claim", task_id);

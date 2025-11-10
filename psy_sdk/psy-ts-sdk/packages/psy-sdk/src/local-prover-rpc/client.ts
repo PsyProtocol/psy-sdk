@@ -1,17 +1,19 @@
 import {
     ContractCallArgs,
+    ContractCallData,
     DPNFunctionCircuitDefinition,
     IPsyUserProverProvider,
     QBCDeployContract,
     PsyUserProverRPCCommand,
     SignData,
+    SignType,
     WalletKeyPair,
 } from "./types";
 
 import { PrivateKey, PublicKey, QHashOut, U8Bytes } from "../core";
 import { IHTTPClient } from "../http";
 import { BaseProvider } from "../provider";
-import { JobInfo, ZKPublicKeyInfo } from "../types";
+import { ZKPublicKeyInfo } from "../types";
 import { waitMs } from "../utils";
 
 class PsyRPCUserProverProvider extends BaseProvider implements IPsyUserProverProvider {
@@ -33,12 +35,8 @@ class PsyRPCUserProverProvider extends BaseProvider implements IPsyUserProverPro
     }
 
     // Local proving operations
-    async execContractCall(pk_hash: string, contractCallArg: ContractCallArgs[]): Promise<string> {
-        return this.rpc<string>(PsyUserProverRPCCommand.ExecContractCall, [pk_hash, contractCallArg]);
-    }
-
-    async execContractCallWithSignData(pk_hash: string, contractCallArg: ContractCallArgs[], signData: SignData|null|undefined): Promise<QHashOut> {
-        return this.rpc<QHashOut>(PsyUserProverRPCCommand.ExecContractCallWithSignData, [pk_hash, contractCallArg, signData]);
+    async execContractCall(pk_hash: string, callData: ContractCallData): Promise<string> {
+        return this.rpc<string>(PsyUserProverRPCCommand.ExecContractCall, [pk_hash, callData]);
     }
 
     async startSession(pk_hash: string): Promise<string> {
@@ -53,37 +51,25 @@ class PsyRPCUserProverProvider extends BaseProvider implements IPsyUserProverPro
         return this.rpc<string>(PsyUserProverRPCCommand.ProveContractCalls, [pk_hash, contractCallArgs]);
     }
 
-    async signAndSubmit(pk_hash: string): Promise<string> {
-        return this.rpc<string>(PsyUserProverRPCCommand.SignAndSubmit, [pk_hash]);
+    async signAndSubmit(pk_hash: string, signData?: SignData): Promise<string> {
+        return this.rpc<string>(PsyUserProverRPCCommand.SignAndSubmit, [pk_hash, signData]);
     }
 
-    async signAndSubmitWithData(pk_hash: string, signData: SignData|null|undefined): Promise<QHashOut> {
-        return this.rpc<QHashOut>(PsyUserProverRPCCommand.SignAndSubmitWithData, [pk_hash, signData]);
-    }
-
-    async getClaimRewardsCallArgs(jobInfos: string): Promise<ContractCallArgs[]> {
+    async getClaimRewardsCallArgs(_jobInfos: string): Promise<ContractCallArgs[]> {
         throw new Error("Method not implemented.");
     }
 
-    async claimRewards(pkHash: PublicKey, jobInfos: string): Promise<string> {
+    async claimRewards(_pkHash: PublicKey, _jobInfos: string): Promise<string> {
         throw new Error("Method not implemented.");
     }
 
     // User operations
-    async registerUser(privateKey: PrivateKey): Promise<PublicKey> {
-        return this.rpc<QHashOut>(PsyUserProverRPCCommand.RegisterUser, [privateKey]);
+    async registerUser(privateKey: PrivateKey, signType: SignType): Promise<PublicKey> {
+        return this.rpc<PublicKey>(PsyUserProverRPCCommand.RegisterUser, [privateKey, signType]);
     }
 
-    async registerUserWithType(privateKey: PrivateKey, signType: string, fingerprint: string|null|undefined): Promise<PublicKey> {
-        return this.rpc<PublicKey>(PsyUserProverRPCCommand.RegisterUserWithType, [privateKey, signType, fingerprint]);
-    }
-
-    async addUser(privateKey: PrivateKey): Promise<PublicKey> {
-        return this.rpc<PublicKey>(PsyUserProverRPCCommand.AddUser, [privateKey]);
-    }
-
-    async addUserWithType(privateKey: PrivateKey, signType: string, fingerprint: string|null|undefined): Promise<PublicKey> {
-        return this.rpc<PublicKey>(PsyUserProverRPCCommand.AddUserWithType, [privateKey, signType, fingerprint]);
+    async addUser(privateKey: PrivateKey, signType: SignType): Promise<PublicKey> {
+        return this.rpc<PublicKey>(PsyUserProverRPCCommand.AddUser, [privateKey, signType]);
     }
 
     // async switchUser(pkHash: PublicKey): Promise<void> {

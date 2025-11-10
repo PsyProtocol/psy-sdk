@@ -16,12 +16,7 @@ use psy_common::{
     ups::circuits::LocalCircuitType,
     JobInfo, JobLocation,
 };
-use psy_common_circuit::{
-    circuits::zk_signature3::core::PsyBasicZKSignatureInnerCircuit,
-    treeprover::qrecursion::standard::manager::portable::circuits::{
-        PortableQTreeRecursionCircuitsDataTrait, PortableQTreeRecursionCircuitsProveTrait, PortableQTreeRecursionCircuitsTrait,
-    },
-};
+use psy_common_circuit::circuits::zk_signature3::core::PsyBasicZKSignatureInnerCircuit;
 use psy_config::network_constants::REALM_USER_TREE_HEIGHT;
 use psy_crypto::{
     common::witnesses::qrecursion::{
@@ -45,7 +40,10 @@ use psy_data::{
         ups_end_cap::UPSEndCapFromProofTreeGadgetInput,
     },
 };
-use psy_vm::vm::cfc_input::DapenContractFunctionCircuitInput;
+use psy_vm::{
+    ups::circuit_manager::{PortableQTreeRecursion, PortableQTreeRecursionCircuitsData, PortableQTreeRecursionCircuitsProve, UPSCircuitManager},
+    vm::cfc_input::DapenContractFunctionCircuitInput,
+};
 // #[cfg(not(target_arch = "wasm32"))]
 use rand::Rng;
 // #[cfg(not(target_arch = "wasm32"))]
@@ -61,14 +59,13 @@ use super::request::{
     QSubmitEndCapRPCRequest, QSubmitGutaRPCRequest, QTokenTransferRPCRequest, RequestParams, ResponseResult, RpcRequest, RpcResponse, Version,
 };
 use crate::{
-    common::{SoftwareDefinedSignatureInput, SoftwareDefinedSignatureWitnessInput, UPSCircuitManagerTrait},
     request::{
-        QBlockStateRPCRequest, QGetContractMethodCommonDataRPCRequest, QGetMethodIdRPCRequest, QGetTxStatusRPCRequest, QLatestBlockStateRPCRequest,
-        QLeftAggRightLeafRpcRequestV2, QLeftLeafRightAggRpcRequestV2, QProveContractCallRPCRequest, QProveUpsStartRPCRequest,
-        QRegisterCircuitsRPCRequest, QRegisterSoftwareDefinedCircuitRPCRequest, QSecpSignatureProofRPCRequest, QSignatureMinifierProofRPCRequest,
-        QSignatureProofRPCRequest, QSingleLeafRpcRequestV2, QSoftwareDefinedSignatureInput, QSoftwareDefinedSignatureProofRPCRequest,
-        QSoftwareDefinedSignatureWitnessInput, QTwoAggRpcRequsetV2, QTwoLeafRpcRequestV2, QUpsCfcDeferredTxRPCRequest, QUpsCfcStandardTxRPCRequest,
-        QUpsEndCapRPCRequestV2, QUserSubTreeMerkleProofRPCRequest, RequestParamsV2,
+        DPNSoftwareDefinedSignatureInput, DPNSoftwareDefinedSignatureProofRPCRequest, QBlockStateRPCRequest, QGetContractMethodCommonDataRPCRequest,
+        QGetMethodIdRPCRequest, QGetTxStatusRPCRequest, QLatestBlockStateRPCRequest, QLeftAggRightLeafRpcRequestV2, QLeftLeafRightAggRpcRequestV2,
+        QProveContractCallRPCRequest, QProveUpsStartRPCRequest, QRegisterCircuitsRPCRequest, QRegisterDPNSoftwareDefinedCircuitRPCRequest,
+        QRegisterPlonky2SoftwareDefinedCircuitRPCRequest, QSecpSignatureProofRPCRequest, QSignatureMinifierProofRPCRequest,
+        QSignatureProofRPCRequest, QSingleLeafRpcRequestV2, QTwoAggRpcRequsetV2, QTwoLeafRpcRequestV2, QUpsCfcDeferredTxRPCRequest,
+        QUpsCfcStandardTxRPCRequest, QUpsEndCapRPCRequestV2, QUserSubTreeMerkleProofRPCRequest, RequestParamsV2,
     },
     session::TxStatus,
 };
@@ -627,146 +624,6 @@ pub type Config = psy_config::PsyConfigGoldilocks;
 // const D: usize = 2;
 // type F = <C as GenericConfig<D>>::F;
 
-#[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
-#[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
-impl<C: GenericConfig<D>, const D: usize, T> UPSCircuitManagerTrait<C, D> for &T
-where
-    T: UPSCircuitManagerTrait<C, D> + Sync,
-    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasher<QHashOut<C::F>>,
-{
-    async fn register_info(&self, info_store: &mut SessionCircuitInfoStore<C::F>) {
-        (**self).register_info(info_store).await
-    }
-
-    async fn prove_ups_start(&self, input: &UPSStartStepInput<C::F>) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
-        (**self).prove_ups_start(input).await
-    }
-
-    async fn register_contract_circuits(&self, contract_id: u64, contract_code: &ContractCodeDefinition) -> anyhow::Result<()> {
-        (**self).register_contract_circuits(contract_id, contract_code).await
-    }
-
-    async fn get_method_id(&self, contract_id: u64, method_name: String) -> anyhow::Result<u64> {
-        (**self).get_method_id(contract_id, method_name).await
-    }
-
-    async fn get_contract_method_common_data(
-        &self,
-        contract_id: u64,
-        method_id: u32,
-    ) -> anyhow::Result<(QHashOut<C::F>, VerifierOnlyCircuitData<C, D>)> {
-        (**self).get_contract_method_common_data(contract_id, method_id).await
-    }
-
-    async fn prove_contract_call(
-        &self,
-        contract_id: u64,
-        method_id: u32,
-        input: &DapenContractFunctionCircuitInput<C::F>,
-    ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
-        (**self).prove_contract_call(contract_id, method_id, input).await
-    }
-
-    async fn prove_ups_cfc_standard_tx(
-        &self,
-        input: &UPSCFCStandardTransactionCircuitInput<C::F>,
-    ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
-        (**self).prove_ups_cfc_standard_tx(input).await
-    }
-
-    async fn prove_ups_cfc_deferred_tx(
-        &self,
-        input: &UPSCFCDeferredTransactionCircuitInput<C::F>,
-    ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
-        (**self).prove_ups_cfc_deferred_tx(input).await
-    }
-
-    async fn prove_zk_sign(&self, private_key: QHashOut<C::F>, sig_hash: QHashOut<C::F>) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
-        (**self).prove_zk_sign(private_key, sig_hash).await
-    }
-
-    async fn prove_secp_sign(&self, signature: PsyCompressedSecp256K1Signature) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
-        (**self).prove_secp_sign(signature).await
-    }
-
-    async fn register_software_defined_circuit(&self, input: SoftwareDefinedSignatureInput) -> anyhow::Result<QHashOut<C::F>> {
-        (**self).register_software_defined_circuit(input).await
-    }
-
-    async fn prove_software_defined_sign(
-        &self,
-        fingerprint: QHashOut<C::F>,
-        private_key: QHashOut<C::F>,
-        input: SoftwareDefinedSignatureWitnessInput,
-        sig_hash: QHashOut<C::F>,
-    ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
-        (**self).prove_software_defined_sign(fingerprint, private_key, input, sig_hash).await
-    }
-
-    async fn prove_ups_end_cap(
-        &self,
-        circuit_info: &SessionCircuitInfoStore<C::F>,
-        end_cap_from_proof_tree_input: &UPSEndCapFromProofTreeGadgetInput<C::F>,
-        agg_proof_record: &AggProofRecord<C, D>,
-    ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
-        (**self)
-            .prove_ups_end_cap(circuit_info, end_cap_from_proof_tree_input, agg_proof_record)
-            .await
-    }
-
-    async fn ups_start_circuit_fingerprint(&self) -> anyhow::Result<QHashOut<C::F>> {
-        (**self).ups_start_circuit_fingerprint().await
-    }
-
-    async fn ups_start_circuit_verifier_config(&self) -> anyhow::Result<VerifierOnlyCircuitData<C, D>> {
-        (**self).ups_start_circuit_verifier_config().await
-    }
-
-    async fn ups_cfc_standard_tx_circuit_fingerprint(&self) -> anyhow::Result<QHashOut<C::F>> {
-        (**self).ups_cfc_standard_tx_circuit_fingerprint().await
-    }
-
-    async fn ups_cfc_standard_tx_circuit_verifier_config(&self) -> anyhow::Result<VerifierOnlyCircuitData<C, D>> {
-        (**self).ups_cfc_standard_tx_circuit_verifier_config().await
-    }
-
-    async fn ups_cfc_deferred_tx_circuit_fingerprint(&self) -> anyhow::Result<QHashOut<C::F>> {
-        (**self).ups_cfc_deferred_tx_circuit_fingerprint().await
-    }
-
-    async fn ups_cfc_deferred_tx_circuit_verifier_config(&self) -> anyhow::Result<VerifierOnlyCircuitData<C, D>> {
-        (**self).ups_cfc_deferred_tx_circuit_verifier_config().await
-    }
-
-    async fn ups_end_cap_circuit_fingerprint(&self) -> anyhow::Result<QHashOut<C::F>> {
-        (**self).ups_end_cap_circuit_fingerprint().await
-    }
-
-    async fn ups_end_cap_circuit_verifier_config(&self) -> anyhow::Result<VerifierOnlyCircuitData<C, D>> {
-        (**self).ups_end_cap_circuit_verifier_config().await
-    }
-
-    async fn ups_circuit_whitelist_root(&self) -> anyhow::Result<QHashOut<C::F>> {
-        (**self).ups_circuit_whitelist_root().await
-    }
-
-    async fn zk_circuit_fingerprint(&self) -> anyhow::Result<QHashOut<C::F>> {
-        (**self).zk_circuit_fingerprint().await
-    }
-
-    async fn zk_circuit_verifier_config(&self) -> anyhow::Result<VerifierOnlyCircuitData<C, D>> {
-        (**self).zk_circuit_verifier_config().await
-    }
-
-    async fn secp_circuit_fingerprint(&self) -> anyhow::Result<QHashOut<C::F>> {
-        (**self).secp_circuit_fingerprint().await
-    }
-
-    async fn secp_circuit_verifier_config(&self) -> anyhow::Result<VerifierOnlyCircuitData<C, D>> {
-        (**self).secp_circuit_verifier_config().await
-    }
-}
-
 #[derive(Clone, Debug)]
 pub struct ProveProxyRpcProvider<C: GenericConfig<D> + 'static, const D: usize>
 where
@@ -868,7 +725,7 @@ where
 
 #[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
 #[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
-impl<C: GenericConfig<D> + 'static, const D: usize> UPSCircuitManagerTrait<C, D> for ProveProxyRpcProvider<C, D>
+impl<C: GenericConfig<D> + 'static, const D: usize> UPSCircuitManager<C, D> for ProveProxyRpcProvider<C, D>
 where
     C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasher<QHashOut<C::F>>,
 {
@@ -1160,15 +1017,26 @@ where
         }
     }
 
-    async fn register_software_defined_circuit(&self, input: SoftwareDefinedSignatureInput) -> anyhow::Result<QHashOut<C::F>> {
-        tracing::info!("register_software_defined_circuit: ");
-        let input = match input {
-            SoftwareDefinedSignatureInput::Psy(input) => input,
+    async fn register_dpn_software_defined_circuit(
+        &self,
+        fn_def: psy_vm::dpn::vm::def::DPNFunctionCircuitDefinition,
+        contract_id: u64,
+        contract_state_tree_height: u8,
+        session_proof_tree_height: u8,
+        force_four_align: bool,
+    ) -> anyhow::Result<QHashOut<C::F>> {
+        tracing::info!("register_dpn_software_defined_circuit: ");
+        let request = QRegisterDPNSoftwareDefinedCircuitRPCRequest {
+            fn_def,
+            contract_id,
+            contract_state_tree_height,
+            session_proof_tree_height,
+            force_four_align,
         };
         let response = psy_rpc_call_back!(
             self,
             &self.proof_proxy_url,
-            RequestParams::<C::F>::RegisterSoftwareDefinedCircuit(QRegisterSoftwareDefinedCircuitRPCRequest { input }),
+            RequestParams::<C::F>::RegisterDPNSoftwareDefinedCircuit(request),
             QHashOut<C::F>
         );
         match response.result {
@@ -1180,21 +1048,39 @@ where
         }
     }
 
-    async fn prove_software_defined_sign(
-        &self,
-        fingerprint: QHashOut<C::F>,
-        private_key: QHashOut<C::F>,
-        input: SoftwareDefinedSignatureWitnessInput,
-        sig_hash: QHashOut<C::F>,
-    ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
-        tracing::info!("prove_software_defined_sign:");
-        let input = match input {
-            SoftwareDefinedSignatureWitnessInput::Psy(input) => input,
+    async fn register_plonky2_software_defined_circuit(&self, contract_state_tree_height: u8, input_len: usize) -> anyhow::Result<QHashOut<C::F>> {
+        tracing::info!("register_plonky2_software_defined_circuit: ");
+        let request = QRegisterPlonky2SoftwareDefinedCircuitRPCRequest {
+            contract_state_tree_height,
+            input_len,
         };
         let response = psy_rpc_call_back!(
             self,
             &self.proof_proxy_url,
-            RequestParams::<C::F>::SoftwareDefinedSignatureProof(QSoftwareDefinedSignatureProofRPCRequest {
+            RequestParams::<C::F>::RegisterPlonky2SoftwareDefinedCircuit(request),
+            QHashOut<C::F>
+        );
+        match response.result {
+            ResponseResult::Success(fingerprint) => {
+                tracing::info!("get plonky2 sdc fingerprint: {}", fingerprint.to_string());
+                Ok(fingerprint)
+            }
+            ResponseResult::Error(e) => Err(anyhow::format_err!("rpc call failed `{:?}`", e)),
+        }
+    }
+
+    async fn prove_dpn_software_defined_sign(
+        &self,
+        fingerprint: QHashOut<C::F>,
+        private_key: QHashOut<C::F>,
+        input: psy_vm::ups::signature::DPNSoftwareDefinedSignatureInput,
+        sig_hash: QHashOut<C::F>,
+    ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
+        tracing::info!("prove_dpn_software_defined_sign:");
+        let response = psy_rpc_call_back!(
+            self,
+            &self.proof_proxy_url,
+            RequestParams::<C::F>::DPNSoftwareDefinedSignatureProof(DPNSoftwareDefinedSignatureProofRPCRequest {
                 fingerprint,
                 private_key,
                 input,
@@ -1209,6 +1095,20 @@ where
             }
             ResponseResult::Error(e) => Err(anyhow::format_err!("rpc call failed `{:?}`", e)),
         }
+    }
+
+    async fn prove_plonky2_software_defined_sign(
+        &self,
+        fingerprint: QHashOut<C::F>,
+        private_key: QHashOut<C::F>,
+        input: psy_vm::ups::signature::Plonky2SoftwareDefinedSignatureInput,
+        sig_hash: QHashOut<C::F>,
+    ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
+        tracing::info!("prove_plonky2_software_defined_sign:");
+        // Now that we have StateReaderResults which can be serialized, this can be
+        // implemented For now, return an error until the RPC request is
+        // implemented
+        Err(anyhow::format_err!("plonky2 software defined sign not yet implemented over RPC"))
     }
 
     async fn prove_ups_end_cap(
@@ -1299,7 +1199,7 @@ where
 
 #[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
 #[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
-impl<C: GenericConfig<D>, const D: usize> PortableQTreeRecursionCircuitsDataTrait<C, D> for ProveProxyRpcProvider<C, D>
+impl<C: GenericConfig<D>, const D: usize> PortableQTreeRecursionCircuitsData<C, D> for ProveProxyRpcProvider<C, D>
 where
     C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasher<QHashOut<C::F>>,
 {
@@ -1345,7 +1245,7 @@ where
 
 #[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
 #[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
-impl<C: GenericConfig<D> + 'static, const D: usize> PortableQTreeRecursionCircuitsProveTrait<C, D> for ProveProxyRpcProvider<C, D>
+impl<C: GenericConfig<D> + 'static, const D: usize> PortableQTreeRecursionCircuitsProve<C, D> for ProveProxyRpcProvider<C, D>
 where
     C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasher<QHashOut<C::F>>,
 {
@@ -1543,7 +1443,7 @@ where
 
 #[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
 #[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
-impl<C: GenericConfig<D> + 'static, const D: usize> PortableQTreeRecursionCircuitsTrait<C, D> for ProveProxyRpcProvider<C, D>
+impl<C: GenericConfig<D> + 'static, const D: usize> PortableQTreeRecursion<C, D> for ProveProxyRpcProvider<C, D>
 where
     C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasher<QHashOut<C::F>>,
 {

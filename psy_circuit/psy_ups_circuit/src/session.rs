@@ -66,15 +66,14 @@ use psy_data::{
     },
 };
 use psy_dpn_circuit::circuits::cfc::DapenContractFunctionCircuit;
-use psy_provider::common::UPSCircuitManagerTrait;
 use psy_vm::{
     dpn::{contract::cfc_code_definition_to_dapen_fc, vm::def::DPNFunctionCircuitDefinition},
+    ups::circuit_manager::UPSCircuitManager,
     vm::{cfc_input::DapenContractFunctionCircuitInput, exec::PsyEvalSessionResult},
 };
 use serde::Serialize;
 
-use super::circuit_manager::core::PsyUPSStepCircuitManager;
-use crate::circuit_manager::core::QCircuitManager;
+use crate::circuit_manager::core::PsyUPSStepCircuitManager;
 
 const UPS_STEP_LEAF_TYPE: u64 = 1;
 const CFC_LEAF_TYPE: u64 = 2;
@@ -83,7 +82,7 @@ const ZK_SIG_LEAF_TYPE: u64 = 3;
 pub struct UserProvingSessionManager<
     F: RichField + Extendable<D>,
     H: MerkleZeroHasher<QHashOut<F>> + MerkleZeroHasher<HashOut<F>> + AlgebraicHasher<F>,
-    R: PsyReadCommandProcessorSync<F> + Send + Sync,
+    R: PsyReadCommandProcessorSync<F> + psy_data::traits::qdatastore::qtreedata::PsyComboDataStoreReaderSync<F> + Send + Sync,
     C: GenericConfig<D, F = F, Hasher = H>,
     const D: usize,
 > {
@@ -106,7 +105,7 @@ const D: usize = 2;
 #[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
 impl<
         H: MerkleZeroHasher<QHashOut<F>> + MerkleZeroHasher<HashOut<F>> + AlgebraicHasher<F> + FieldQHasher<F>,
-        R: PsyReadCommandProcessorSync<F> + Send + Sync,
+        R: PsyReadCommandProcessorSync<F> + psy_data::traits::qdatastore::qtreedata::PsyComboDataStoreReaderSync<F> + Send + Sync,
         C: GenericConfig<D, F = F, Hasher = H> + Serialize,
     > UserProvingSessionManager<F, H, R, C, D>
 {
@@ -263,7 +262,7 @@ impl<
         new_hash_tip
     }
 
-    pub async fn prove_ups_start<CM: UPSCircuitManagerTrait<C, D> + ?Sized>(&mut self, circuit_mgr: &CM) -> anyhow::Result<()> {
+    pub async fn prove_ups_start<CM: UPSCircuitManager<C, D> + ?Sized>(&mut self, circuit_mgr: &CM) -> anyhow::Result<()> {
         let mut timer = DebugTimer::new("prove_ups_start");
         timer.lap("start");
         tracing::info!("get_ups_start_witness");
@@ -385,7 +384,7 @@ impl<
         Ok((fn_id, fn_circuit_def))
     }
 
-    pub async fn prove_contract_call<CM: UPSCircuitManagerTrait<C, D> + ?Sized>(
+    pub async fn prove_contract_call<CM: UPSCircuitManager<C, D> + ?Sized>(
         &mut self,
         circuit_mgr: &CM,
         contract_id: F,
@@ -398,7 +397,7 @@ impl<
         Ok(())
     }
 
-    pub async fn prove_standard_call<CM: UPSCircuitManagerTrait<C, D> + ?Sized>(
+    pub async fn prove_standard_call<CM: UPSCircuitManager<C, D> + ?Sized>(
         &mut self,
         circuit_mgr: &CM,
         contract_id: F,
@@ -572,7 +571,7 @@ impl<
         sighash
     }
 
-    pub async fn prove_burn_fee<CM: UPSCircuitManagerTrait<C, D> + ?Sized>(&mut self, circuit_mgr: &CM) -> anyhow::Result<()> {
+    pub async fn prove_burn_fee<CM: UPSCircuitManager<C, D> + ?Sized>(&mut self, circuit_mgr: &CM) -> anyhow::Result<()> {
         tracing::info!("Adding burn transaction for GUTA fee: {}", GUTA_FEE);
 
         let (burn_fn_id, burn_fn_circuit_def) = self
@@ -591,7 +590,7 @@ impl<
         Ok(())
     }
 
-    pub async fn prove_end_cap<CM: UPSCircuitManagerTrait<C, D> + ?Sized>(
+    pub async fn prove_end_cap<CM: UPSCircuitManager<C, D> + psy_vm::ups::circuit_manager::PortableQTreeRecursion<C, D> + ?Sized>(
         &mut self,
         circuit_mgr: &CM,
         network_magic: u64,
@@ -707,7 +706,7 @@ impl<
             .await
     }
 
-    async fn repay_deferred_debt<CM: UPSCircuitManagerTrait<C, D> + ?Sized>(
+    async fn repay_deferred_debt<CM: UPSCircuitManager<C, D> + ?Sized>(
         &mut self,
         circuit_mgr: &CM,
         initial_debt_item: &psy_data::dpn::proving_session::DPNTransactionDebtItem<DPNProvingSessionSimpleMethodCall<F>, F>,
@@ -725,7 +724,7 @@ impl<
         Ok(())
     }
 
-    async fn prove_deferred_call<CM: UPSCircuitManagerTrait<C, D> + ?Sized>(
+    async fn prove_deferred_call<CM: UPSCircuitManager<C, D> + ?Sized>(
         &mut self,
         circuit_mgr: &CM,
         debt_item: &DPNTransactionDebtItem<DPNProvingSessionSimpleMethodCall<F>, F>,

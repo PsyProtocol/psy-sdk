@@ -3,15 +3,16 @@ import { ServerRequest, ServerResponse } from "./worker";
 import { PrivateKey, PublicKey, QHashOut, U8Bytes } from "../core";
 import {
     ContractCallArgs,
+    ContractCallData,
     DPNFunctionCircuitDefinition,
     IPsyUserProverProvider,
     PsyUserProverRPCCommand,
     QBCDeployContract,
-    WalletKeyPair,
     SignData,
+    SignType,
+    WalletKeyPair,
 } from "../local-prover-rpc/types";
-import { JobInfo, ZKPublicKeyInfo } from "../types";
-import { PsyJSON } from "../utils";
+import { ZKPublicKeyInfo } from "../types";
 
 // Client-side types
 interface ClientRequest {
@@ -75,7 +76,7 @@ class PsyWorkerManager {
         }
 
         this.worker = new Worker(workerScript, { type: 'module' });
-        
+
         // Only one message listener for the entire manager
         this.worker.onmessage = (event: MessageEvent) => {
             this.handleWorkerMessage(event.data);
@@ -101,7 +102,7 @@ class PsyWorkerManager {
                 if (event.data.type === 'init-response') {
                     clearTimeout(timeout);
                     this.worker!.removeEventListener('message', handleInitResponse);
-                    
+
                     if (event.data.success) {
                         resolve();
                     } else {
@@ -188,7 +189,7 @@ class PsyWorkerManager {
             this.worker.terminate();
             this.worker = null;
         }
-        
+
         this.notifyAllClients('terminated', null);
         this.clients.clear();
         this.isInitialized = false;
@@ -202,7 +203,7 @@ class PsyWorkerManager {
  */
 export class PsyProverClient implements IPsyUserProverProvider {
     private static workerManager = PsyWorkerManager.getInstance();
-    
+
     private clientId: string;
     private pendingRequests: Map<string, ClientRequest> = new Map();
     private requestCounter = 0;
@@ -217,11 +218,11 @@ export class PsyProverClient implements IPsyUserProverProvider {
         try {
             // Ensure Worker is initialized
             await PsyProverClient.workerManager.initializeWorker(workerScript, config);
-            
+
             // Register current client
             PsyProverClient.workerManager.registerClient(this);
             this.isConnected = true;
-            
+
             console.log(`Client ${this.clientId} connected to server`);
         } catch (error) {
             console.error('Failed to initialize client:', error);
@@ -235,7 +236,7 @@ export class PsyProverClient implements IPsyUserProverProvider {
         if (request) {
             clearTimeout(request.timeout);
             this.pendingRequests.delete(data.id);
-            
+
             if (data.error) {
                 request.reject(new Error(data.error));
             } else {
@@ -256,7 +257,7 @@ export class PsyProverClient implements IPsyUserProverProvider {
         }
 
         const requestId = this.generateRequestId();
-        
+
         return new Promise((resolve, reject) => {
             const timeout = setTimeout(() => {
                 this.pendingRequests.delete(requestId);
@@ -301,13 +302,8 @@ export class PsyProverClient implements IPsyUserProverProvider {
     }
 
     // IPsyUserProverProvider implementation
-    async execContractCall(pkHash: string, contractCallArg: ContractCallArgs[]): Promise<string> {
-        return this.callServerMethod(PsyUserProverRPCCommand.ExecContractCall, [pkHash, contractCallArg]);
-    }
-
-    async execContractCallWithSignData(pkHash: string, contractCallArg: ContractCallArgs[], signData: SignData|null|undefined): Promise<QHashOut> {
-        const signDataJson = signData ? PsyJSON.stringify(signData) : null;
-        return this.callServerMethod(PsyUserProverRPCCommand.ExecContractCallWithSignData, [pkHash, contractCallArg, signDataJson]);
+    async execContractCall(pkHash: string, callData: ContractCallData): Promise<string> {
+        return this.callServerMethod(PsyUserProverRPCCommand.ExecContractCall, [pkHash, callData]);
     }
 
     async startSession(pkHash: PublicKey): Promise<string> {
@@ -322,36 +318,23 @@ export class PsyProverClient implements IPsyUserProverProvider {
         return this.callServerMethod(PsyUserProverRPCCommand.ProveContractCalls, [pkHash, contractCallArgs]);
     }
 
-    async signAndSubmit(pkHash: PublicKey): Promise<string> {
-        return this.callServerMethod(PsyUserProverRPCCommand.SignAndSubmit, [pkHash]);
+    async signAndSubmit(pkHash: PublicKey, signData?: SignData): Promise<string> {
+        return this.callServerMethod(PsyUserProverRPCCommand.SignAndSubmit, [pkHash, signData]);
     }
 
-    async signAndSubmitWithData(pkHash: PublicKey, signData: SignData|null|undefined): Promise<string> {
-        const signDataJson = signData ? PsyJSON.stringify(signData) : null;
-        return this.callServerMethod(PsyUserProverRPCCommand.SignAndSubmitWithData, [pkHash, signDataJson]);
+    async registerUser(privateKey: PrivateKey, signType: SignType): Promise<PublicKey> {
+        return this.callServerMethod(PsyUserProverRPCCommand.RegisterUser, [privateKey, signType]);
     }
 
-    async registerUser(privateKey: PrivateKey): Promise<PublicKey> {
-        return this.callServerMethod(PsyUserProverRPCCommand.RegisterUser, [privateKey]);
+    async addUser(privateKey: PrivateKey, signType: SignType): Promise<PublicKey> {
+        return this.callServerMethod(PsyUserProverRPCCommand.AddUser, [privateKey, signType]);
     }
 
-    async registerUserWithType(privateKey: PrivateKey, signType: string, fingerprint: string|null|undefined): Promise<PublicKey> {
-        return this.callServerMethod(PsyUserProverRPCCommand.RegisterUserWithType, [privateKey, signType, fingerprint]);
-    }
-
-    async addUser(privateKey: PrivateKey): Promise<PublicKey> {
-        return this.callServerMethod(PsyUserProverRPCCommand.AddUser, [privateKey]);
-    }
-
-    async addUserWithType(privateKey: PrivateKey, signType: string, fingerprint: string|null|undefined): Promise<PublicKey> {
-        return this.callServerMethod(PsyUserProverRPCCommand.AddUserWithType, [privateKey, signType, fingerprint]);
-    }
-
-    async getClaimRewardsCallArgs(jobInfos: string): Promise<ContractCallArgs[]> {
+    async getClaimRewardsCallArgs(_jobInfos: string): Promise<ContractCallArgs[]> {
         throw new Error("Method not implemented.");
     }
 
-    async claimRewards(pkHash: PublicKey, jobInfos: string): Promise<string> {
+    async claimRewards(_pkHash: PublicKey, _jobInfos: string): Promise<string> {
         throw new Error("Method not implemented.");
     }
 
@@ -398,7 +381,7 @@ export class PsyProverClient implements IPsyUserProverProvider {
     disconnect(): void {
         if (this.isConnected) {
             PsyProverClient.workerManager.unregisterClient(this.clientId);
-            
+
             // Clear pending requests
             for (const request of this.pendingRequests.values()) {
                 clearTimeout(request.timeout);
@@ -412,8 +395,8 @@ export class PsyProverClient implements IPsyUserProverProvider {
     static terminateServer(): void {
         PsyWorkerManager.getInstance().terminate();
     }
-    
+
     static getGlobalStats() {
         return PsyWorkerManager.getInstance().getStats();
     }
-} 
+}
