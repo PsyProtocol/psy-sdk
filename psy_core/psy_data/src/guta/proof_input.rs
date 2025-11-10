@@ -4,8 +4,8 @@ use plonky2::{
         goldilocks_field::GoldilocksField,
         types::{Field, PrimeField64},
     },
-    plonk::config::AlgebraicHasher,
     hash::hash_types::{HashOut, RichField},
+    plonk::config::AlgebraicHasher,
 };
 use psy_common::{data::qhashout::QHashOut, job::id::QProvingJobDataID};
 use psy_config::{network_constants::GLOBAL_USER_TREE_HEIGHT, DEFAULT_USER_STATE_TREE_ROOT_U64};
@@ -285,7 +285,9 @@ impl<F: RichField> VerifyTwoEndCapCircuitInput<F> {
         }
     }
 
-    pub fn get_new_guta_header<H: AlgebraicHasher<F> + MerkleZeroHasherWithMarkedLeaf<HashOut<F>> + MerkleZeroHasherWithMarkedLeaf<QHashOut<F>>>(&self) -> GlobalUserTreeAggregatorHeader<F> {
+    pub fn get_new_guta_header<H: AlgebraicHasher<F> + MerkleZeroHasherWithMarkedLeaf<HashOut<F>> + MerkleZeroHasherWithMarkedLeaf<QHashOut<F>>>(
+        &self,
+    ) -> GlobalUserTreeAggregatorHeader<F> {
         GlobalUserTreeAggregatorHeader {
             guta_circuit_whitelist: self.guta_circuit_whitelist,
             checkpoint_tree_root: self.a_end_cap.checkpoint_historical_merkle_proof.root,

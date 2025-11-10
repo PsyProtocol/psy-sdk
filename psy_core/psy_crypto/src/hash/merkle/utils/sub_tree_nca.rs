@@ -280,7 +280,10 @@ impl<Hash: PartialEq + Copy> PartialUpdateNearestCommonAncestorProof<Hash> {
 }
 
 impl<Hash: PartialEq + Copy> PartialUpdateNearestCommonAncestorProof<Hash> {
-    pub fn from_delta_merkle_proof_pair<H: MerkleZeroHasherWithMarkedLeaf<Hash>>(dmp_a: &DeltaMerkleProofCore<Hash>, dmp_b: &DeltaMerkleProofCore<Hash>) -> Self {
+    pub fn from_delta_merkle_proof_pair<H: MerkleZeroHasherWithMarkedLeaf<Hash>>(
+        dmp_a: &DeltaMerkleProofCore<Hash>,
+        dmp_b: &DeltaMerkleProofCore<Hash>,
+    ) -> Self {
         let height = dmp_a.siblings.len() as u8;
         assert_eq!(
             dmp_a.siblings.len(),
@@ -322,7 +325,10 @@ impl<Hash: PartialEq + Copy + Serialize + DeserializeOwned> KVQSerializable for 
 }
 
 impl<Hash: PartialEq + Copy> PartialUpdateNCAWithAdditionalLink<Hash> {
-    pub fn from_delta_merkle_proof_pair<H: MerkleZeroHasherWithMarkedLeaf<Hash>>(dmp_a: &DeltaMerkleProofCore<Hash>, dmp_b: &DeltaMerkleProofCore<Hash>) -> Self {
+    pub fn from_delta_merkle_proof_pair<H: MerkleZeroHasherWithMarkedLeaf<Hash>>(
+        dmp_a: &DeltaMerkleProofCore<Hash>,
+        dmp_b: &DeltaMerkleProofCore<Hash>,
+    ) -> Self {
         let height = dmp_a.siblings.len() as u8;
         assert_eq!(
             dmp_a.siblings.len(),
@@ -413,7 +419,10 @@ pub struct UpdateNCAWithAdditionalLink<Hash: PartialEq + Copy> {
 }
 
 impl<Hash: PartialEq + Copy> UpdateNCAWithAdditionalLink<Hash> {
-    pub fn from_delta_merkle_proof_pair<H: MerkleZeroHasherWithMarkedLeaf<Hash>>(dmp_a: &DeltaMerkleProofCore<Hash>, dmp_b: &DeltaMerkleProofCore<Hash>) -> Self {
+    pub fn from_delta_merkle_proof_pair<H: MerkleZeroHasherWithMarkedLeaf<Hash>>(
+        dmp_a: &DeltaMerkleProofCore<Hash>,
+        dmp_b: &DeltaMerkleProofCore<Hash>,
+    ) -> Self {
         PartialUpdateNCAWithAdditionalLink::from_delta_merkle_proof_pair::<H>(dmp_a, dmp_b).to_full_proof::<H>()
     }
     pub fn to_partial_proof(&self) -> PartialUpdateNCAWithAdditionalLink<Hash> {

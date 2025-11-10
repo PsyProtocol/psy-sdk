@@ -57,10 +57,7 @@ fn mp_to_dmp<H: PartialEq + Copy>(mp: MerkleProofCore<H>) -> DeltaMerkleProofCor
 
 #[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
 #[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
-pub trait PsyCmdInputWitnessResolver<
-    F: RichField + PrimeField64,
-    H: MerkleZeroHasherWithMarkedLeaf<QHashOut<F>> + FieldQHasher<F> + Send,
-> {
+pub trait PsyCmdInputWitnessResolver<F: RichField + PrimeField64, H: MerkleZeroHasherWithMarkedLeaf<QHashOut<F>> + FieldQHasher<F> + Send> {
     async fn resolve_vec(&mut self, state_cmd: &DPNStateCmd<u64>) -> anyhow::Result<PsyCmdWithInputAndWitness<F>>;
 }
 //(sub_slot_length-2)%4
@@ -224,11 +221,7 @@ impl<
                         .set_contract_state_slot(current_contract_id, slot_index, QHashOut(HashOut { elements: proof_0_elements }))
                         .await?;
                     let delta_proof_1 = self
-                        .set_contract_state_slot(
-                            current_contract_id,
-                            slot_index + F::ONE,
-                            QHashOut(HashOut { elements: proof_1_elements }),
-                        )
+                        .set_contract_state_slot(current_contract_id, slot_index + F::ONE, QHashOut(HashOut { elements: proof_1_elements }))
                         .await?;
                     Ok(PsyCmdWithInputAndWitness {
                         state_cmd: state_cmd.clone(),
@@ -1091,8 +1084,7 @@ impl<
                         }),
                     });
                 } else {
-                    let zero_hash_psy =
-                        <Self as PsyReadLocalProvingSessionStoreMut<F>>::Hasher::get_zero_hash(state_tree_height as usize);
+                    let zero_hash_psy = <Self as PsyReadLocalProvingSessionStoreMut<F>>::Hasher::get_zero_hash(state_tree_height as usize);
 
                     self.notify_clear_entire_tree(current_contract_id.to_canonical_u64()).await?;
 
@@ -1141,12 +1133,7 @@ impl<F: RichField> PsyEvalSessionResult<F> {
 #[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
 #[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
 impl<F: RichField + PrimeField64> PsyEvalSessionResult<F> {
-    pub async fn process_state_cmd<S>(
-        &mut self,
-        executor: &mut SimpleDPNExecutor<F>,
-        sesh: &mut S,
-        cmd: &DPNStateCmd<u64>,
-    ) -> anyhow::Result<()>
+    pub async fn process_state_cmd<S>(&mut self, executor: &mut SimpleDPNExecutor<F>, sesh: &mut S, cmd: &DPNStateCmd<u64>) -> anyhow::Result<()>
     where
         S: PsyReadLocalProvingSessionStore<F>
             + PsyReadLocalProvingSessionStoreMut<F>

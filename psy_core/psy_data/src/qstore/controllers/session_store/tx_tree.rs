@@ -8,9 +8,11 @@ use plonky2::{hash::hash_types::RichField, plonk::config::AlgebraicHasher};
 use psy_common::data::qhashout::QHashOut;
 use psy_crypto::hash::{
     merkle::core::{DeltaMerkleProofCore, MerkleProofCore},
-    traits::{hasher::FieldQHasher, qhashable::QFieldHashable},
+    traits::{
+        hasher::{FieldQHasher, MerkleZeroHasherWithMarkedLeaf},
+        qhashable::QFieldHashable,
+    },
 };
-use psy_crypto::hash::traits::hasher::MerkleZeroHasherWithMarkedLeaf;
 use serde::{Deserialize, Serialize};
 
 use super::config::{LocalProvingSessionTreeStore, LOCAL_PROVING_SESSION_TREE_TABLE_TYPE};
@@ -126,7 +128,8 @@ impl<
         self.next_index += 1;
         let hash = call_data.qfhash::<H>();
 
-        let insertion_proof = LocalProvingSessionTreeStore::<TREE_ID, HEIGHT, S, F, H, IDKVA>::set_leaf_fc(store, self.checkpoint_id, new_index, hash)?;
+        let insertion_proof =
+            LocalProvingSessionTreeStore::<TREE_ID, HEIGHT, S, F, H, IDKVA>::set_leaf_fc(store, self.checkpoint_id, new_index, hash)?;
         let debt_item = DPNTransactionDebtItem {
             call_data,
             tree_index: new_index,
@@ -142,7 +145,8 @@ impl<
         self.next_index += 1;
         let hash = call_data.qfhash::<H>();
 
-        let insertion_proof = LocalProvingSessionTreeStore::<TREE_ID, HEIGHT, S, F, H, IDKVA>::set_leaf_fc(store, self.checkpoint_id, new_index, hash)?;
+        let insertion_proof =
+            LocalProvingSessionTreeStore::<TREE_ID, HEIGHT, S, F, H, IDKVA>::set_leaf_fc(store, self.checkpoint_id, new_index, hash)?;
         let debt_item = DPNTransactionDebtItem {
             call_data,
             tree_index: new_index,

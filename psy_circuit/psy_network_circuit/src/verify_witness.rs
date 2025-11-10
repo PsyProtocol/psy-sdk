@@ -6,7 +6,6 @@ use psy_common::{
         traits::QProofStoreAsyncImm,
     },
 };
-use psy_crypto::hash::traits::hasher::FieldQHasher;
 use psy_config::network_constants::{COORDINATOR_USER_TREE_HEIGHT, REALM_USER_TREE_HEIGHT};
 use psy_crypto::{
     common::{circuit_library::CircuitInfoLibraryCore, generic_circuit_verifier::GenericCircuitVerifier},
@@ -14,7 +13,10 @@ use psy_crypto::{
         merkle::treeprover::{
             data::CircuitInputWithDependencies, subtree::SubTreeNodeStateTransition, AggStateTransitionInput, DummyAggStateTransition,
         },
-        traits::{hasher::{MerkleZeroHasher, MerkleZeroHasherWithMarkedLeaf}, qhashable::QFieldHashable},
+        traits::{
+            hasher::{FieldQHasher, MerkleZeroHasher, MerkleZeroHasherWithMarkedLeaf},
+            qhashable::QFieldHashable,
+        },
     },
 };
 use psy_data::{

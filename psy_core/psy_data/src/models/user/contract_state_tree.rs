@@ -4,8 +4,8 @@ use kvq::{
     adapters::standard::KVQStandardAdapter,
     traits::{KVQBinaryStore, KVQStoreAdapter},
 };
-use psy_common::data::qhashout::QHashOut;
 use plonky2::hash::hash_types::RichField;
+use psy_common::data::qhashout::QHashOut;
 use psy_crypto::hash::{
     merkle::core::{DeltaMerkleProofCore, MerkleProofCore},
     traits::hasher::{MerkleZeroHasher, MerkleZeroHasherWithCache, MerkleZeroHasherWithCacheMarkedLeaf, MerkleZeroHasherWithMarkedLeaf},
@@ -24,7 +24,12 @@ use crate::{
 };
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub struct UserContractStateTreeId<S, F: RichField = PsyFelt, H: MerkleZeroHasherWithMarkedLeaf<QHashOut<F>> = PsyHasher, IDKVA = KVQStandardAdapter<S, KVQMerkleNodeKey<USER_CONTRACT_STATE_TREE_TABLE_TYPE>, QHashOut<F>>> {
+pub struct UserContractStateTreeId<
+    S,
+    F: RichField = PsyFelt,
+    H: MerkleZeroHasherWithMarkedLeaf<QHashOut<F>> = PsyHasher,
+    IDKVA = KVQStandardAdapter<S, KVQMerkleNodeKey<USER_CONTRACT_STATE_TREE_TABLE_TYPE>, QHashOut<F>>,
+> {
     pub user_id: u64,
     pub contract_id: u32,
     pub height: u8,
@@ -32,7 +37,13 @@ pub struct UserContractStateTreeId<S, F: RichField = PsyFelt, H: MerkleZeroHashe
     _adapter: PhantomData<(S, F, H, IDKVA)>,
 }
 
-impl<S, F: RichField, H: MerkleZeroHasherWithMarkedLeaf<QHashOut<F>>, IDKVA: KVQStoreAdapter<S, KVQMerkleNodeKey<USER_CONTRACT_STATE_TREE_TABLE_TYPE>, QHashOut<F>>> UserContractStateTreeId<S, F, H, IDKVA> {
+impl<
+        S,
+        F: RichField,
+        H: MerkleZeroHasherWithMarkedLeaf<QHashOut<F>>,
+        IDKVA: KVQStoreAdapter<S, KVQMerkleNodeKey<USER_CONTRACT_STATE_TREE_TABLE_TYPE>, QHashOut<F>>,
+    > UserContractStateTreeId<S, F, H, IDKVA>
+{
     pub fn new(user_id: u64, contract_id: u32, height: u8) -> Self {
         Self {
             user_id,

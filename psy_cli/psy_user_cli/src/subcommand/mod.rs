@@ -84,7 +84,6 @@ pub enum Commands {
     GetLatestBlockState(crate::subcommand::args::LatestBlockStateArgs),
     GetBlockState(crate::subcommand::args::BlockStateArgs),
 
-
     // local proving
     LocalProver(ProverArgs),
     ProveProxy(ProveProxyArgs),

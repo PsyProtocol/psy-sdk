@@ -72,8 +72,12 @@ pub struct UserLeafModel<const USER_LEAF_TABLE_TYPE: u16, S, F: RichField, IDKVA
     _phantom: std::marker::PhantomData<F>,
 }
 
-impl<const USER_LEAF_TABLE_TYPE: u16, S, F: RichField, IDKVA: KVQStoreAdapterReader<S, CheckpointTableIdKey<USER_LEAF_TABLE_TYPE>, PsyUserLeaf<F>>>
-    UserLeafModelReaderCore<USER_LEAF_TABLE_TYPE, S, F, IDKVA> for UserLeafModel<USER_LEAF_TABLE_TYPE, S, F, IDKVA>
+impl<
+        const USER_LEAF_TABLE_TYPE: u16,
+        S,
+        F: RichField,
+        IDKVA: KVQStoreAdapterReader<S, CheckpointTableIdKey<USER_LEAF_TABLE_TYPE>, PsyUserLeaf<F>>,
+    > UserLeafModelReaderCore<USER_LEAF_TABLE_TYPE, S, F, IDKVA> for UserLeafModel<USER_LEAF_TABLE_TYPE, S, F, IDKVA>
 {
 }
 impl<const USER_LEAF_TABLE_TYPE: u16, S, F: RichField, IDKVA: KVQStoreAdapter<S, CheckpointTableIdKey<USER_LEAF_TABLE_TYPE>, PsyUserLeaf<F>>>

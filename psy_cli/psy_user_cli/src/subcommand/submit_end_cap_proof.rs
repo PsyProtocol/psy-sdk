@@ -21,31 +21,34 @@ pub async fn run(args: WalletSessionArgs) -> anyhow::Result<()> {
 
     let mut wallet_session = WalletSession::new(&rpc_config).await?;
     let fingerprint = match args.sign_type {
-        SignType::ZKSign => {
-            psy_prover::wallet::memory_wallet::get_zk_fingerprint()
-        }
-        SignType::SECP256K1Sign => {
-            psy_prover::wallet::memory_wallet::get_secp256k1_fingerprint()
-        }
+        SignType::ZKSign => psy_prover::wallet::memory_wallet::get_zk_fingerprint(),
+        SignType::SECP256K1Sign => psy_prover::wallet::memory_wallet::get_secp256k1_fingerprint(),
         SignType::SoftwareDefinedPlonky2Sign => {
-            let fingerprint = wallet_session.wallet.register_plonky2_software_defined_circuit(MAX_CONTRACT_STATE_TREE_HEIGHT, 0).await?;
+            let fingerprint = wallet_session
+                .wallet
+                .register_plonky2_software_defined_circuit(MAX_CONTRACT_STATE_TREE_HEIGHT, 0)
+                .await?;
 
             if let Some(mut circuit) = wallet_session.wallet.get_plonky2_software_defined_circuit_mut(&fingerprint) {
                 // add custom constraints here
-                // state_reader must do the same thing while generating witnesses
+                // state_reader must do the same thing while generating
+                // witnesses
             }
 
             fingerprint
         }
         SignType::SoftwareDefinedDPNSign => {
             let user_sdc: DPNFunctionCircuitDefinition = serde_json::from_str(&std::fs::read_to_string("sdc.json")?)?;
-            let fingerprint = wallet_session.wallet.register_psy_software_defined_circuit(
-                user_sdc,
-                args.sign_contract_id.unwrap(),
-                MAX_CONTRACT_STATE_TREE_HEIGHT,
-                UPS_SESSION_PROOF_TREE_HEIGHT,
-                false
-            ).await?;
+            let fingerprint = wallet_session
+                .wallet
+                .register_psy_software_defined_circuit(
+                    user_sdc,
+                    args.sign_contract_id.unwrap(),
+                    MAX_CONTRACT_STATE_TREE_HEIGHT,
+                    UPS_SESSION_PROOF_TREE_HEIGHT,
+                    false,
+                )
+                .await?;
             fingerprint
         }
     };

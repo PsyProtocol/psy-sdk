@@ -5,8 +5,10 @@ use plonky2::{
         poseidon::PoseidonHash,
     },
     iop::target::BoolTarget,
-    plonk::circuit_builder::CircuitBuilder,
-    plonk::config::{AlgebraicHasher, Hasher},
+    plonk::{
+        circuit_builder::CircuitBuilder,
+        config::{AlgebraicHasher, Hasher},
+    },
     util::log2_ceil,
 };
 use psy_common::data::{
@@ -322,7 +324,9 @@ impl<F: QRichField> MerkleHasherWithMarkedLeaf<HashOut<F>> for PoseidonHash {
     }
 }
 
-impl<Hash: PartialEq + Copy, T: MerkleZeroHasherWithCache<Hash> + MerkleZeroHasherWithCacheMarkedLeaf<Hash>> MerkleZeroHasherWithMarkedLeaf<Hash> for T {
+impl<Hash: PartialEq + Copy, T: MerkleZeroHasherWithCache<Hash> + MerkleZeroHasherWithCacheMarkedLeaf<Hash>> MerkleZeroHasherWithMarkedLeaf<Hash>
+    for T
+{
     fn get_zero_hash_marked(reverse_level: usize) -> Hash {
         if reverse_level < ZERO_HASH_CACHE_SIZE {
             T::CACHED_MARKED_LEAF_ZERO_HASHES[reverse_level]

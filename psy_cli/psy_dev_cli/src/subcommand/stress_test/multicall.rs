@@ -4,7 +4,10 @@ use anyhow::Result;
 use num_cpus;
 use parking_lot::RwLock;
 use plonky2::field::goldilocks_field::GoldilocksField;
-use psy_common::{args::{ContractCallArgs, ContractCallData, DPNSoftwareDefinedCallData}, data::qhashout::QHashOut};
+use psy_common::{
+    args::{ContractCallArgs, ContractCallData, DPNSoftwareDefinedCallData},
+    data::qhashout::QHashOut,
+};
 use psy_common_circuit::circuits::zk_signature3::manager::SimplePsyZKSignatureManager;
 use psy_config::network_constants::MAX_CONTRACT_STATE_TREE_HEIGHT;
 use psy_crypto::{hash::traits::qhashable::QFieldHashable, signature::zk::wallet::SimplePsyPrivateKey};
@@ -102,7 +105,10 @@ impl Multicast {
         public_key: QHashOut<GoldilocksField>,
         contract_call_args: Vec<ContractCallArgs>,
     ) -> Result<QHashOut<GoldilocksField>> {
-        self.wallet_session.write().exec_contract_call(public_key, ContractCallData::new(contract_call_args)).await
+        self.wallet_session
+            .write()
+            .exec_contract_call(public_key, ContractCallData::new(contract_call_args))
+            .await
     }
 
     pub async fn register_batch_user(&self, user_count: u64) -> Result<Vec<UserInfo>> {
@@ -363,7 +369,8 @@ impl Multicast {
                 method_name: "simple_mint".to_string(),
                 inputs: vec![mint_amount],
             }],
-        ).await?;
+        )
+        .await?;
         if !wait_for_new_block(&self.wallet_session.read().st_provider, 2).await? {
             return Err(anyhow::format_err!("transfer timeout waiting for checkpoint"));
         }

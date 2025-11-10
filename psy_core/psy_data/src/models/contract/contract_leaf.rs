@@ -68,7 +68,11 @@ impl<
     > ContractLeafModelReaderCore<CONTRACT_LEAF_TABLE_TYPE, S, F, IDKVA> for ContractLeafModel<CONTRACT_LEAF_TABLE_TYPE, S, F, IDKVA>
 {
 }
-impl<const CONTRACT_LEAF_TABLE_TYPE: u16, S, F: RichField, IDKVA: KVQStoreAdapter<S, CheckpointTableIdKey<CONTRACT_LEAF_TABLE_TYPE>, PsyContractLeaf<F>>>
-    ContractLeafModelCore<CONTRACT_LEAF_TABLE_TYPE, S, F, IDKVA> for ContractLeafModel<CONTRACT_LEAF_TABLE_TYPE, S, F, IDKVA>
+impl<
+        const CONTRACT_LEAF_TABLE_TYPE: u16,
+        S,
+        F: RichField,
+        IDKVA: KVQStoreAdapter<S, CheckpointTableIdKey<CONTRACT_LEAF_TABLE_TYPE>, PsyContractLeaf<F>>,
+    > ContractLeafModelCore<CONTRACT_LEAF_TABLE_TYPE, S, F, IDKVA> for ContractLeafModel<CONTRACT_LEAF_TABLE_TYPE, S, F, IDKVA>
 {
 }

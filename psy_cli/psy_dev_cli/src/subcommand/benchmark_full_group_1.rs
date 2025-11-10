@@ -256,8 +256,7 @@ async fn run_test3() -> anyhow::Result<()> {
     main_circuits.register_info(&mut circuit_info).await;
 
     let mut mgr =
-        UserProvingSessionManager::<GoldilocksField, _, _, C, D>::new(lps, circuit_info, main_circuits.ups_circuit_whitelist_root().await?)
-            .await?;
+        UserProvingSessionManager::<GoldilocksField, _, _, C, D>::new(lps, circuit_info, main_circuits.ups_circuit_whitelist_root().await?).await?;
 
     timer.lap("setup mgr");
 

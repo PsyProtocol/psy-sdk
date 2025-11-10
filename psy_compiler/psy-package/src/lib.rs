@@ -146,10 +146,10 @@ fn resolve_std_path() -> Result<PathBuf, ManifestError> {
     // 3. Try to find std.psy relative to CARGO_MANIFEST_DIR
     if let Ok(cargo_dir) = std::env::var("CARGO_MANIFEST_DIR") {
         let candidates = [
-            "../psy-std/std.psy",              // from psy-package -> psy_compiler/psy-std
-            "../../psy-std/std.psy",           // fallback
-            "../../../psy-std/std.psy",        // fallback
-            "../psy_compiler/psy-std/std.psy", // from workspace root
+            "../psy-std/std.psy",                 // from psy-package -> psy_compiler/psy-std
+            "../../psy-std/std.psy",              // fallback
+            "../../../psy-std/std.psy",           // fallback
+            "../psy_compiler/psy-std/std.psy",    // from workspace root
             "../../psy_compiler/psy-std/std.psy", // from nested dirs
         ];
 

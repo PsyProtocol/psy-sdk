@@ -6,7 +6,8 @@ use std::{path::PathBuf, time::Duration};
 use fred::prelude::*;
 use plonky2::{
     field::{goldilocks_field::GoldilocksField, types::Field},
-    hash::poseidon::PoseidonHash, plonk::config::PoseidonGoldilocksConfig,
+    hash::poseidon::PoseidonHash,
+    plonk::config::PoseidonGoldilocksConfig,
 };
 use psy_common::{
     data::qhashout::QHashOut,
@@ -216,9 +217,12 @@ async fn run_test3() -> anyhow::Result<()> {
     );
     main_circuits.register_info(&mut circuit_info);
     contract_helper.register_funcs(0, &mut circuit_info);
-    let mut mgr =
-        UserProvingSessionManager::<GoldilocksField, PoseidonHash, _, C, D>::new(lps, circuit_info, main_circuits.ups_circuit_whitelist_root().await?)
-            .await?;
+    let mut mgr = UserProvingSessionManager::<GoldilocksField, PoseidonHash, _, C, D>::new(
+        lps,
+        circuit_info,
+        main_circuits.ups_circuit_whitelist_root().await?,
+    )
+    .await?;
     timer.lap("setup mgr");
     timer.lap("started up");
     timer.lap("START USER PROVING SESSION");

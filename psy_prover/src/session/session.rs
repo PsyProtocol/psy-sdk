@@ -23,15 +23,21 @@ use psy_config::{
     MINING_REWARDS_CONTRACT_ID, PSY_NETWORK_MAGIC,
 };
 use psy_crypto::{
-    hash::traits::{hasher::{MerkleZeroHasher, MerkleZeroHasherWithMarkedLeaf}, qhashable::QFieldHashable},
+    hash::traits::{
+        hasher::{MerkleZeroHasher, MerkleZeroHasherWithMarkedLeaf},
+        qhashable::QFieldHashable,
+    },
     signature::zk::data::ZKPublicKeyInfo,
 };
 use psy_data::{
-    config::store_config::{PsyHasher, PsyHash},
+    config::store_config::{PsyHash, PsyHasher},
     qblock::cmds::deploy_contract::QBCDeployContract,
     qdata::{checkpoint::PsyBlockState, contract::ContractCodeDefinition, user_contract_state::UserContractState},
     qstore::{
-        controllers::{proving_session::{PsyLocalProvingSessionStore, PsyReadLocalProvingSessionStore}, session_info::SessionCircuitInfoStore},
+        controllers::{
+            proving_session::{PsyLocalProvingSessionStore, PsyReadLocalProvingSessionStore},
+            session_info::SessionCircuitInfoStore,
+        },
         imm::{
             cmd::{QSRCmdGetContractCodeDefinition, QSRCmdGetUserLeafData, QSRHashCmd, QSRHashCmdGetUserContractStateTreeRoot},
             cmd_processor::{PsyReadCommandProcessorSync, PsyReadCommandProcessorSyncMut},
@@ -197,8 +203,7 @@ impl UserSessionStateManager {
             nonce,
             checkpoint_id
         );
-        let mgr =
-            UserProvingSessionManager::<F, _, _, C, D>::new(lps, circuit_info, main_circuits.ups_circuit_whitelist_root().await?).await?;
+        let mgr = UserProvingSessionManager::<F, _, _, C, D>::new(lps, circuit_info, main_circuits.ups_circuit_whitelist_root().await?).await?;
 
         Ok(UserSessionStateManager {
             user_state: UserState::Active,
@@ -715,11 +720,7 @@ impl WalletSession {
             signature_input,
             user_session_mgr.current_checkpoint_id,
             user_session_mgr.user_id,
-            user_session_mgr
-                .mgr
-                .lps
-                .last_transaction_record()
-                .start_contract_state_tree_root,
+            user_session_mgr.mgr.lps.last_transaction_record().start_contract_state_tree_root,
             self.st_provider.get_checkpoint_tree_root(user_session_mgr.current_checkpoint_id).await?,
         ))
     }
@@ -740,10 +741,7 @@ impl WalletSession {
 
         let checkpoint_tree_root = self.st_provider.get_checkpoint_tree_root(checkpoint_id).await?;
 
-        let transaction_record = user_session_mgr
-            .mgr
-            .lps
-            .last_transaction_record();
+        let transaction_record = user_session_mgr.mgr.lps.last_transaction_record();
 
         let circuit_inputs = call_data.inputs.iter().map(|x| F::from_noncanonical_u64(*x)).collect::<Vec<_>>();
 
@@ -778,7 +776,6 @@ impl WalletSession {
                 checkpoint_tree_root,
             ))
     }
-
 
     pub fn get_deploy_contract_cmd(
         &self,

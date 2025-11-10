@@ -4,7 +4,10 @@ use fred::prelude::*;
 use kvq::{memory::simple::KVQSimpleMemoryBackingStore, traits::KVQBinaryStore};
 use plonky2::{
     field::{extension::Extendable, goldilocks_field::GoldilocksField, types::Field},
-    hash::{hash_types::{HashOut, RichField}, poseidon::PoseidonHash},
+    hash::{
+        hash_types::{HashOut, RichField},
+        poseidon::PoseidonHash,
+    },
     plonk::config::{AlgebraicHasher, GenericConfig, PoseidonGoldilocksConfig},
 };
 use psy_common::{
@@ -314,9 +317,12 @@ async fn run_test3() -> anyhow::Result<()> {
     );
     main_circuits.register_info(&mut circuit_info);
     contract_helper.register_funcs(0, &mut circuit_info);
-    let mut mgr =
-        UserProvingSessionManager::<GoldilocksField, PoseidonHash, _, C, D>::new(lps, circuit_info, main_circuits.ups_circuit_whitelist_root().await?)
-            .await?;
+    let mut mgr = UserProvingSessionManager::<GoldilocksField, PoseidonHash, _, C, D>::new(
+        lps,
+        circuit_info,
+        main_circuits.ups_circuit_whitelist_root().await?,
+    )
+    .await?;
     timer.lap("setup mgr");
     timer.lap("started up");
     timer.lap("START USER PROVING SESSION");

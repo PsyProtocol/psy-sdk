@@ -9,7 +9,10 @@ use jsonrpsee::{
 };
 use parking_lot::{Mutex, RwLock};
 use plonky2::{field::goldilocks_field::GoldilocksField, plonk::config::PoseidonGoldilocksConfig};
-use psy_common::{args::{ContractCallArgs, ContractCallData}, data::qhashout::QHashOut};
+use psy_common::{
+    args::{ContractCallArgs, ContractCallData},
+    data::qhashout::QHashOut,
+};
 use psy_crypto::signature::zk::data::ZKPublicKeyInfo;
 use psy_data::qblock::cmds::deploy_contract::QBCDeployContract;
 use psy_provider::provider::RpcProvider;
@@ -79,7 +82,10 @@ impl RpcServer for RpcServerImpl {
         let wallet_session = self.wallet_session.clone();
         tokio::task::spawn_blocking(move || {
             tokio::runtime::Handle::current().block_on(async move {
-                wallet_session.read().exec_contract_call(public_key, ContractCallData::new(contract_call_args)).await
+                wallet_session
+                    .read()
+                    .exec_contract_call(public_key, ContractCallData::new(contract_call_args))
+                    .await
             })
         })
         .await

@@ -12,8 +12,10 @@ use psy_crypto::hash::{
         core::{DeltaMerkleProofCore, MerkleProofCore},
         utils::simple_merkle_tree::SimpleMerkleTree,
     },
-    traits::hasher::FieldQHasher,
-    traits::{hasher::{MerkleZeroHasher, MerkleZeroHasherWithCache, MerkleZeroHasherWithMarkedLeaf}, qhashable::QFieldHashable},
+    traits::{
+        hasher::{FieldQHasher, MerkleZeroHasher, MerkleZeroHasherWithCache, MerkleZeroHasherWithMarkedLeaf},
+        qhashable::QFieldHashable,
+    },
     utils::safe_hash_fixed_length,
 };
 
@@ -44,16 +46,19 @@ use crate::{
     qstore::imm::{
         cache::PsyCmdStoreWithCache,
         cmd::{
-            QSRCmdGetBlockState, QSRCmdGetCheckpointLeafData, QSRCmdGetContractCodeDefinition, QSRCmdGetContractLeafData, QSRCmdGetUserLeafData, QSRHashCmd, QSRHashCmdGetCheckpointTreeRoot,
-            QSRHashCmdGetContractTreeRoot, QSRHashCmdGetDepositTreeRoot, QSRHashCmdGetUserRegistrationTreeRoot, QSRHashCmdGetUserTreeRoot,
-            QSRHashCmdGetWithdrawalTreeRoot, QSRMerkleCmd, QSRMerkleCmdGetContractFunctionTreeMerkleProof, QSRMerkleCmdGetContractTreeMerkleProof,
-            QSRMerkleCmdGetUserContractStateTreeMerkleProof, QSRMerkleCmdGetUserContractTreeMerkleProof, QSRMerkleCmdGetUserTreeMerkleProof,
+            QSRCmdGetBlockState, QSRCmdGetCheckpointLeafData, QSRCmdGetContractCodeDefinition, QSRCmdGetContractLeafData, QSRCmdGetUserLeafData,
+            QSRHashCmd, QSRHashCmdGetCheckpointTreeRoot, QSRHashCmdGetContractTreeRoot, QSRHashCmdGetDepositTreeRoot,
+            QSRHashCmdGetUserRegistrationTreeRoot, QSRHashCmdGetUserTreeRoot, QSRHashCmdGetWithdrawalTreeRoot, QSRMerkleCmd,
+            QSRMerkleCmdGetContractFunctionTreeMerkleProof, QSRMerkleCmdGetContractTreeMerkleProof, QSRMerkleCmdGetUserContractStateTreeMerkleProof,
+            QSRMerkleCmdGetUserContractTreeMerkleProof, QSRMerkleCmdGetUserTreeMerkleProof,
         },
-        cmd_processor::{DPNReadOtherUserLeafMerkleProof, PsyReadCommandBatchInput, PsyReadCommandBatchOutput, PsyReadCommandProcessorSync, PsyReadCommandProcessorSyncMut},
+        cmd_processor::{
+            DPNReadOtherUserLeafMerkleProof, PsyReadCommandBatchInput, PsyReadCommandBatchOutput, PsyReadCommandProcessorSync,
+            PsyReadCommandProcessorSyncMut,
+        },
     },
     ups::{ups_context_input::UserProvingSessionStartContext, ups_standard_cfc_input::UPSCFCStandardStateDeltaInput},
 };
-
 
 pub trait PsyReadLocalProvingSessionStore<F: RichField> {
     fn get_current_contract_id(&self) -> F;
@@ -81,18 +86,18 @@ pub trait PsyReadLocalProvingSessionStoreMut<F: RichField + PrimeField64>: PsyRe
 
     async fn init_transaction(&mut self, call_data: DPNProvingSessionSimpleMethodCall<F>) -> anyhow::Result<()>;
     async fn get_fresh_start_ctx_for_user(&mut self, user: F) -> anyhow::Result<DapenCFCProvingSessionStartContext<F>>;
-    async fn get_call_start_data(
-        &mut self,
-        contract_id: F,
-        method_id: F,
-        inputs: &[F],
-    ) -> anyhow::Result<DapenCFCUserTransactionCallStartContext<F>>;
+    async fn get_call_start_data(&mut self, contract_id: F, method_id: F, inputs: &[F])
+        -> anyhow::Result<DapenCFCUserTransactionCallStartContext<F>>;
     async fn get_contract_state_slot(&mut self, contract: F, slot: F) -> anyhow::Result<MerkleProofCore<QHashOut<F>>>;
     fn get_latest_deferred_tx_leaf(&self) -> anyhow::Result<MerkleProofCore<QHashOut<F>>>;
     async fn finalize_transaction(&mut self) -> anyhow::Result<()>;
 }
 
-pub struct PsyLocalProvingSessionStore<F: RichField + PrimeField64, R: PsyReadCommandProcessorSync<F> + Send + Sync, H: MerkleZeroHasherWithMarkedLeaf<QHashOut<F>> + Send = PsyHasher> {
+pub struct PsyLocalProvingSessionStore<
+    F: RichField + PrimeField64,
+    R: PsyReadCommandProcessorSync<F> + Send + Sync,
+    H: MerkleZeroHasherWithMarkedLeaf<QHashOut<F>> + Send = PsyHasher,
+> {
     cmd_store: PsyCmdStoreWithCache<F, R>,
     state_tree_store: KVQSimpleMemoryBackingStore,
     active_tx_session_data_store: KVQSimpleMemoryBackingStore,
@@ -104,7 +109,7 @@ pub struct PsyLocalProvingSessionStore<F: RichField + PrimeField64, R: PsyReadCo
         KVQSimpleMemoryBackingStore,
         DPNProvingSessionSimpleMethodCall<F>,
         F,
-        H
+        H,
     >,
 
     local_state_tracker: PsyLocalStateTracker<F>,
@@ -124,7 +129,9 @@ pub struct PsyLocalProvingSessionStore<F: RichField + PrimeField64, R: PsyReadCo
 
 #[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
 #[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
-impl<F: RichField, H: MerkleZeroHasherWithMarkedLeaf<QHashOut<F>> + Send, R: PsyReadCommandProcessorSync<F> + Send + Sync> PsyReadLocalProvingSessionStore<F> for PsyLocalProvingSessionStore<F, R, H> {
+impl<F: RichField, H: MerkleZeroHasherWithMarkedLeaf<QHashOut<F>> + Send, R: PsyReadCommandProcessorSync<F> + Send + Sync>
+    PsyReadLocalProvingSessionStore<F> for PsyLocalProvingSessionStore<F, R, H>
+{
     fn get_current_contract_id(&self) -> F {
         self.last_transaction_record().call_data.call_data.contract_id
     }
@@ -200,7 +207,9 @@ impl<F: RichField, H: MerkleZeroHasherWithMarkedLeaf<QHashOut<F>> + Send, R: Psy
 
 #[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
 #[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
-impl<F: RichField, H: MerkleZeroHasherWithMarkedLeaf<QHashOut<F>> + Send, R: PsyReadCommandProcessorSync<F> + Send + Sync> PsyReadCommandProcessorSyncMut<F> for PsyLocalProvingSessionStore<F, R, H> {
+impl<F: RichField, H: MerkleZeroHasherWithMarkedLeaf<QHashOut<F>> + Send, R: PsyReadCommandProcessorSync<F> + Send + Sync>
+    PsyReadCommandProcessorSyncMut<F> for PsyLocalProvingSessionStore<F, R, H>
+{
     async fn resolve_batch_mut(&mut self, input: &PsyReadCommandBatchInput) -> anyhow::Result<PsyReadCommandBatchOutput<F>> {
         self.cmd_store.resolve_batch_mut(input).await
     }
@@ -280,7 +289,9 @@ impl<
 
 #[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
 #[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
-impl<F: RichField, H: MerkleZeroHasherWithMarkedLeaf<QHashOut<F>> + Send, R: PsyReadCommandProcessorSync<F> + Send + Sync> PsyLocalProvingSessionStore<F, R, H> {
+impl<F: RichField, H: MerkleZeroHasherWithMarkedLeaf<QHashOut<F>> + Send, R: PsyReadCommandProcessorSync<F> + Send + Sync>
+    PsyLocalProvingSessionStore<F, R, H>
+{
     pub fn new_at(read_store: R, start_checkpoint: F, user_id: F, nonce: F, q_recursion_tree_height: usize) -> Self {
         let cmd_store = PsyCmdStoreWithCache::new(start_checkpoint.to_canonical_u64(), read_store);
 
@@ -359,7 +370,7 @@ impl<F: RichField, H: MerkleZeroHasherWithMarkedLeaf<QHashOut<F>> + Send, R: Psy
 
     pub fn clone_cmd_store(&self) -> PsyCmdStoreWithCache<F, R>
     where
-        R: Clone
+        R: Clone,
     {
         self.cmd_store.clone()
     }
@@ -374,7 +385,7 @@ impl<F: RichField, H: MerkleZeroHasherWithMarkedLeaf<QHashOut<F>> + Send, R: Psy
 
     pub fn clone_read_store(&self) -> R
     where
-        R: Clone
+        R: Clone,
     {
         self.cmd_store.read_store.clone()
     }
@@ -390,7 +401,9 @@ impl<F: RichField, H: MerkleZeroHasherWithMarkedLeaf<QHashOut<F>> + Send, R: Psy
 
 #[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
 #[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
-impl<F: RichField, H: MerkleZeroHasherWithMarkedLeaf<QHashOut<F>> + FieldQHasher<F> + Send, R: PsyReadCommandProcessorSync<F> + Send + Sync> PsyLocalProvingSessionStore<F, R, H> {
+impl<F: RichField, H: MerkleZeroHasherWithMarkedLeaf<QHashOut<F>> + FieldQHasher<F> + Send, R: PsyReadCommandProcessorSync<F> + Send + Sync>
+    PsyLocalProvingSessionStore<F, R, H>
+{
     pub fn get_deferred_tx_debt_latest_index(&self) -> u64 {
         self.deferred_tx_debt_store.get_latest_index()
     }
@@ -568,12 +581,7 @@ impl<F: RichField, H: MerkleZeroHasherWithMarkedLeaf<QHashOut<F>> + FieldQHasher
 
         Ok(res)
     }
-    async fn set_contract_state_slot_inner(
-        &mut self,
-        contract: F,
-        slot: F,
-        value: QHashOut<F>,
-    ) -> anyhow::Result<DeltaMerkleProofCore<QHashOut<F>>> {
+    async fn set_contract_state_slot_inner(&mut self, contract: F, slot: F, value: QHashOut<F>) -> anyhow::Result<DeltaMerkleProofCore<QHashOut<F>>> {
         let state_tree_height = self
             .cmd_store
             .resolve_get_contract_leaf_mut(&QSRCmdGetContractLeafData {
@@ -582,7 +590,11 @@ impl<F: RichField, H: MerkleZeroHasherWithMarkedLeaf<QHashOut<F>> + FieldQHasher
             .await?
             .state_tree_height
             .to_canonical_u64() as u8;
-        let id = UserContractStateTreeId::<KVQSimpleMemoryBackingStore, F, H>::new(self.user_id_u64, contract.to_canonical_u64() as u32, state_tree_height);
+        let id = UserContractStateTreeId::<KVQSimpleMemoryBackingStore, F, H>::new(
+            self.user_id_u64,
+            contract.to_canonical_u64() as u32,
+            state_tree_height,
+        );
         let base_mp = self
             .cmd_store
             .resolve_get_merkle_proof_mut(&QSRMerkleCmd::GetUserContractStateTreeMerkleProof(
@@ -600,12 +612,7 @@ impl<F: RichField, H: MerkleZeroHasherWithMarkedLeaf<QHashOut<F>> + FieldQHasher
 
         Ok(dmp)
     }
-    pub async fn set_contract_state_slot(
-        &mut self,
-        contract: F,
-        slot: F,
-        value: QHashOut<F>,
-    ) -> anyhow::Result<DeltaMerkleProofCore<QHashOut<F>>> {
+    pub async fn set_contract_state_slot(&mut self, contract: F, slot: F, value: QHashOut<F>) -> anyhow::Result<DeltaMerkleProofCore<QHashOut<F>>> {
         tracing::debug!("Proving session - slot: {}, value: {}", slot, value);
         let result = self.set_contract_state_slot_inner(contract, slot, value).await?;
         self.local_state_tracker.notify_update_slot_dmp(contract.to_canonical_u64(), &result);
@@ -620,7 +627,11 @@ impl<F: RichField, H: MerkleZeroHasherWithMarkedLeaf<QHashOut<F>> + FieldQHasher
             .await?
             .state_tree_height
             .to_canonical_u64() as u8;
-        let id = UserContractStateTreeId::<KVQSimpleMemoryBackingStore, F, H>::new(self.user_id_u64, contract.to_canonical_u64() as u32, state_tree_height);
+        let id = UserContractStateTreeId::<KVQSimpleMemoryBackingStore, F, H>::new(
+            self.user_id_u64,
+            contract.to_canonical_u64() as u32,
+            state_tree_height,
+        );
         let base_mp = self
             .cmd_store
             .resolve_get_merkle_proof_mut(&QSRMerkleCmd::GetUserContractStateTreeMerkleProof(
