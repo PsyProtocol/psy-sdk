@@ -113,7 +113,6 @@ impl PsyMemoryWallet {
         self.plonky2_software_defined_circuits.insert(fingerprint, circuit);
     }
 
-
     pub async fn add_zk_private_key(&mut self, private_key: QHashOut<F>) -> anyhow::Result<ZKPublicKeyInfo<F>> {
         let simple_key = SimplePsyPrivateKey { private_key };
         let user: Arc<dyn SignatureUser> = Arc::new(ZKUser::new(simple_key));

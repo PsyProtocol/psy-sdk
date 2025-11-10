@@ -299,7 +299,6 @@ impl WasmRpcServer {
         Ok(end_user_leaf_hash.to_string())
     }
 
-
     #[wasm_bindgen]
     pub async fn get_claim_rewards_call_args_json(&self, job_infos_json: &str) -> Result<String, JsError> {
         let job_infos: Vec<JobInfo> =
@@ -370,9 +369,10 @@ impl WasmRpcServer {
     pub async fn sign_and_submit(&self, pk_hash: &str, sign_data: Option<String>) -> Result<String, JsError> {
         let pk_hash = QHashOut::<F>::from_str(pk_hash).map_err(|e| JsError::new(&format!("Parse public key hash error: {}", e)))?;
 
-        let software_defined_call = sign_data.map(|data| {
-            serde_json::from_str::<psy_common::args::DPNSoftwareDefinedCallData>(&data)
-        }).transpose().map_err(|e| JsError::new(&format!("Parse sign data error: {}", e)))?;
+        let software_defined_call = sign_data
+            .map(|data| serde_json::from_str::<psy_common::args::DPNSoftwareDefinedCallData>(&data))
+            .transpose()
+            .map_err(|e| JsError::new(&format!("Parse sign data error: {}", e)))?;
 
         let end_user_leaf_hash = self
             .wallet_session

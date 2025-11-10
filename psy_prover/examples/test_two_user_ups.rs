@@ -6,6 +6,7 @@ use plonky2::{
         goldilocks_field::GoldilocksField,
         types::{Field, PrimeField64},
     },
+    hash::poseidon::PoseidonHash,
     plonk::config::PoseidonGoldilocksConfig,
 };
 use psy_common::{
@@ -20,7 +21,6 @@ use psy_config::{
 };
 use psy_crypto::{hash::utils::gen_dapen_contract_function_method_id, signature::zk::wallet::SimplePsyPrivateKey};
 use psy_data::{
-    config::store_config::PsyHasher,
     guta::api::SubmitUserEndCapProofAPIInput,
     proof_store::simple::SimpleProofStoreMemory,
     protocol::circuit_fingerprints::PsyWorkerToolboxCoreCircuitFingerprints,
@@ -303,7 +303,7 @@ async fn demo_user_proving_session() -> anyhow::Result<()> {
     timer.lap("built guta circuits");
     let proof_store = SimpleProofStoreMemory::new();
 
-    let mut api = SimpleAPI::<_, _, GoldilocksField, C, D>::new(proof_store, lps.cmd_store.read_store.clone(), guta_circuits).await?;
+    let mut api = SimpleAPI::<_, _, GoldilocksField, C, D>::new(proof_store, lps.clone_read_store(), guta_circuits).await?;
     //main_circuits.print_common_config();
     api.guta_circuits.print_common_config();
 
@@ -332,7 +332,7 @@ async fn demo_user_proving_session() -> anyhow::Result<()> {
         simple_claim_circuit.get_verifier_config_ref().into(),
     );
 
-    let mut mgr = UserProvingSessionManager::<GoldilocksField, PsyHasher, _, C, D>::new(
+    let mut mgr = UserProvingSessionManager::<GoldilocksField, _, _, C, D>::new(
         lps,
         circuit_info,
         UPSCircuitManager::ups_circuit_whitelist_root(&main_circuits).await?,
@@ -371,7 +371,7 @@ async fn demo_user_proving_session() -> anyhow::Result<()> {
     timer.lap("generated zk signature for UPS transaction batch");
     mgr.proof_tree_state.finalize_tree(&main_circuits).await?;
     timer.lap("aggregated all UPS proofs into a single proof");
-    let public_key_param = SimplePsyPrivateKey::new(priv_key_0).get_public_key_param::<PsyHasher>();
+    let public_key_param = SimplePsyPrivateKey::new(priv_key_0).get_public_key_param::<PoseidonHash>();
     let end_cap_proof = mgr
         .prove_end_cap(
             &main_circuits,
@@ -429,7 +429,7 @@ async fn demo_user_proving_session() -> anyhow::Result<()> {
     timer.lap("generated zk signature for UPS transaction batch");
     mgr.proof_tree_state.finalize_tree(&main_circuits).await?;
     timer.lap("aggregated all UPS proofs into a single proof");
-    let public_key_param = SimplePsyPrivateKey::new(priv_key_1).get_public_key_param::<PsyHasher>();
+    let public_key_param = SimplePsyPrivateKey::new(priv_key_1).get_public_key_param::<PoseidonHash>();
     let end_cap_proof = mgr
         .prove_end_cap(
             &main_circuits,

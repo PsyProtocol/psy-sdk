@@ -11,10 +11,14 @@ use psy_crypto::hash::{
     traits::qhashable::QFieldHashable,
 };
 use psy_data::{
-    config::store_config::{CheckpointSyncInfoTableStore, PsyHasher, UserTreeStore},
+    config::store_config::{
+        CheckpointSyncInfoTableStore, ContractMetaDataTableStore, PsyHasher, RealmStatusTableStore, UserPublicKeyTableStore, UserTreeStore,
+    },
     models::{
-        checkpoint::sync_info::PsyCheckpointSyncInfoModelCore, contract_metadata::ContractMetaDataModelCore,
-        kvq_merkle::model::KVQFixedConfigMerkleTreeModelCore, realm_status::RealmStatusModelCore,
+        checkpoint::{sync_info::PsyCheckpointSyncInfoModelCore, user_public_keys::PsyUserPublicKeyHelperModelCore},
+        contract_metadata::ContractMetaDataModelCore,
+        kvq_merkle::model::KVQFixedConfigMerkleTreeModelCore,
+        realm_status::RealmStatusModelCore,
     },
     qdata::{
         checkpoint::{PsyBlockState, PsyCheckpointLeaf, PsyCheckpointLeafStats},
@@ -31,6 +35,7 @@ use super::InitializeParams;
 use crate::node::coordinator::{PsyCoordinatorStoreReaderAsync, PsyCoordinatorStoreWriterAsyncImm};
 
 type F = GoldilocksField;
+
 #[async_trait]
 impl<T: KVQBinaryStore + PsyCoordinatorStoreReaderAsync<F>> PsyCoordinatorStoreWriterAsyncImm<F> for T {
     async fn batch_append_contract_tree_imm(
@@ -186,18 +191,14 @@ impl<T: KVQBinaryStore + PsyCoordinatorStoreReaderAsync<F>> PsyCoordinatorStoreW
     }
 
     async fn set_user_public_key_records(&self, records: &[psy_data::qdata::user_public_key::PsyUserPublicKeyRecord<F>]) -> anyhow::Result<()> {
-        use psy_data::{config::store_config::UserPublicKeyTableStore, models::checkpoint::user_public_keys::PsyUserPublicKeyHelperModelCore};
-
         UserPublicKeyTableStore::<Self>::set_user_public_key_records(self, records)
     }
 
     async fn set_realm_statuses(&self, realm_ids: &[u64], realm_statuses: &[BasicRealmStatus<F>]) -> anyhow::Result<()> {
-        use psy_data::config::store_config::RealmStatusTableStore;
-        RealmStatusTableStore::<F, Self>::set_realm_statuses(self, realm_ids, realm_statuses)
+        RealmStatusTableStore::<Self>::set_realm_statuses(self, realm_ids, realm_statuses)
     }
 
     async fn set_contract_metadatas(&self, contract_uuids: &[ContractUUID], contract_metadatas: &[ContractMetaData<F>]) -> anyhow::Result<()> {
-        use psy_data::config::store_config::ContractMetaDataTableStore;
-        ContractMetaDataTableStore::<F, Self>::set_contract_metadatas(self, contract_uuids, contract_metadatas)
+        ContractMetaDataTableStore::<Self>::set_contract_metadatas(self, contract_uuids, contract_metadatas)
     }
 }

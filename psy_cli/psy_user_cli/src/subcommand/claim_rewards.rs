@@ -32,7 +32,7 @@ use psy_prover::{
         utils::{build_claim_calls_for_multi_checkpoints, serialize_proof_to_inputs, ProofWithCheckpoint, LAST_CLAIMED_CHECKPOINT_SLOT},
         WalletSession,
     },
-    wallet::memory_wallet::{get_zk_fingerprint, get_secp256k1_fingerprint},
+    wallet::memory_wallet::{get_secp256k1_fingerprint, get_zk_fingerprint},
 };
 use psy_rust_sdk::provider::{NetworkConfig, RpcProvider};
 use psy_services::models::{WorkerEvent, WorkerEventSource};
@@ -248,9 +248,7 @@ pub async fn run(args: ClaimRewardsArgs) -> Result<()> {
 
     let all_job_infos: Vec<JobInfo> = all_job_infos.values().flatten().cloned().collect();
 
-    wallet_session
-        .claim_rewards(user_pk_hash, all_job_infos)
-        .await?;
+    wallet_session.claim_rewards(user_pk_hash, all_job_infos).await?;
     info!("Successfully claimed rewards");
     Ok(())
 }

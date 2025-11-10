@@ -12,7 +12,7 @@ use psy_config::network_constants::GLOBAL_USER_TREE_HEIGHT;
 #[cfg(not(target_arch = "wasm32"))]
 use psy_data::qblock::process::simple::SimpleBlockProcessor;
 use psy_data::{
-    config::store_config::PsyFelt,
+    config::store_config::{PsyFelt, PsyHasher},
     qblock::cmds::{deploy_contract::QBCDeployContract, register_user::QBCRegisterUser},
     traits::qdatastore::qmetadata::{QMetaDataStoreReaderSync, QMetaDataStoreWriterSync},
 };
@@ -24,7 +24,7 @@ pub async fn prepare_environment_with_real_contract(
     user_id: Option<u64>,
     nonce: Option<PsyFelt>,
     session_proof_tree_height: Option<usize>,
-) -> Result<psy_data::qstore::controllers::proving_session::PsyLocalProvingSessionStore<PsyFelt, KVQSimpleMemoryBackingStore>> {
+) -> Result<psy_data::qstore::controllers::proving_session::PsyLocalProvingSessionStore<PsyFelt, KVQSimpleMemoryBackingStore, PsyHasher>> {
     use crate::node::coordinator::PsyCoordinatorStoreWriterAsyncImm;
 
     let store = KVQSimpleMemoryBackingStore::new();

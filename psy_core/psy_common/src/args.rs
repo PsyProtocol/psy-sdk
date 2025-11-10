@@ -112,16 +112,15 @@ impl WalletSessionArgs {
         }
 
         if !self.contract_id.is_empty() {
-            if self.contract_id.len() != self.method_name.len() ||
-               self.method_name.len() != self.inputs.len() {
+            if self.contract_id.len() != self.method_name.len() || self.method_name.len() != self.inputs.len() {
                 anyhow::bail!("contract_id, method_name, and inputs must have the same length");
             }
 
             for (i, &contract_id) in self.contract_id.iter().enumerate() {
                 let method_name = self.method_name[i].clone();
                 let inputs_str = &self.inputs[i];
-                let inputs: Vec<u64> = serde_json::from_str(inputs_str)
-                    .map_err(|e| anyhow::anyhow!("Invalid inputs JSON '{}': {}", inputs_str, e))?;
+                let inputs: Vec<u64> =
+                    serde_json::from_str(inputs_str).map_err(|e| anyhow::anyhow!("Invalid inputs JSON '{}': {}", inputs_str, e))?;
 
                 contract_calls.push(ContractCallArgs {
                     contract_id,
