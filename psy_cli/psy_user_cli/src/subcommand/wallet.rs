@@ -32,8 +32,8 @@ pub fn run(args: WalletArgs) -> Result<()> {
             }
 
             println!("ETH Address: {}", wallet.address());
-            println!("Public Key Hash: {}", wallet.public_key_hash());
-            println!("Private Key: {}", wallet.private_key_hex());
+            println!("Public Key: {}", wallet.public_key_hash());
+            // println!("Private Key: {}", wallet.private_key_hex());
 
             Ok(())
         }
@@ -46,7 +46,7 @@ pub fn run(args: WalletArgs) -> Result<()> {
 
             println!("✅ Wallet loaded:");
             println!("ETH Address: {}", wallet.address());
-            println!("Public Key Hash: {}", wallet.public_key_hash());
+            println!("Public Key: {}", wallet.public_key_hash());
 
             Ok(())
         }

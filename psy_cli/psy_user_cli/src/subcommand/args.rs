@@ -1,12 +1,14 @@
 use clap::{Args, Parser, Subcommand, ValueEnum};
 use plonky2::field::goldilocks_field::GoldilocksField;
-use psy_common::data::qhashout::QHashOut;
-use psy_prover::local::args::SignType;
+use psy_common::{args::SignType, data::qhashout::QHashOut};
 use psy_rust_sdk::provider::NetworkConfig;
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 #[derive(Clone, Args)]
-pub struct RandomWalletArgs {}
+pub struct RandomWalletArgs {
+    #[clap(long, default_value = "zk")]
+    pub sign_type: SignType,
+}
 
 #[derive(Clone, Args)]
 pub struct WalletArgs {
@@ -478,10 +480,6 @@ pub struct ClaimRewardsArgs {
     #[clap(long, short, default_value = "secp256k1")]
     pub sign_type: SignType,
 
-    /// Optional fingerprint (defaults to standard circuit fingerprint)
-    #[clap(long)]
-    pub fingerprint: Option<String>,
-
     /// Maximum number of checkpoints to process in one batch (optional, limits
     /// processing load)
     #[clap(long, default_value = "5")]
@@ -491,11 +489,6 @@ pub struct ClaimRewardsArgs {
     /// claimed + 1)
     #[clap(long)]
     pub start_checkpoint_id: Option<u64>,
-
-    /// API service URL for fetching worker events (if empty, uses file-based
-    /// loading)
-    #[clap(long, default_value = "http://127.0.0.1:3000")]
-    pub api_service_url: String,
 }
 
 #[derive(Clone, Args, Serialize, Deserialize)]

@@ -141,8 +141,6 @@ pub fn get_secp_public_key<F: RichField>(private_key: QHashOut<F>) -> anyhow::Re
 pub fn secp256k1_sign<F: RichField>(private_key: k256::ecdsa::SigningKey, sighash: QHashOut<F>) -> anyhow::Result<PsyCompressedSecp256K1Signature> {
     tracing::info!("🔔 prove_secp256k1_signature");
 
-    // let private_key: Hash256 = private_key.into();
-    // let private_key = k256::ecdsa::SigningKey::from_slice(&private_key.0)?;
     let public_key = private_key.verifying_key().to_encoded_point(true).to_bytes();
     let mut compressed = [0u8; 33];
     if public_key.len() == 33 {
@@ -151,7 +149,7 @@ pub fn secp256k1_sign<F: RichField>(private_key: k256::ecdsa::SigningKey, sighas
         return Err(anyhow::format_err!("pub key length is not 33"));
     }
     let pub_compressed = CompressedPublicKey(compressed);
-    let result: k256::ecdsa::Signature = private_key.sign_prehash(&sighash.to_le_bytes())?;
+    let result: k256::ecdsa::Signature = private_key.sign_prehash(&Hash256::from(sighash).0)?;
     let mut rs_bytes = [0u8; 64];
 
     let r_bytes = result.r().to_bytes();

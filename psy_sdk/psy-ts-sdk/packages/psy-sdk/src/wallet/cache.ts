@@ -1,4 +1,3 @@
-import { ICoordinatorEdgeRpcProvider } from "../coord-edge-rpc";
 import { SCNumberLike } from "../core";
 import { IRealmEdgeRpcProvider } from "../realm-edge-rpc";
 import { PsyUserLeaf } from "../types";

@@ -29,7 +29,7 @@ async fn main() -> anyhow::Result<()> {
         Commands::Wallet(args) => wallet::run(args)?,
         Commands::RegisterUser(args) => register_user::run(args).await?,
         Commands::DeployContract(args) => deploy_contract::run(args).await?,
-        Commands::SubmitEndCaproof(args) => submit_end_cap_proof::run(args).await?,
+        Commands::Call(args) => submit_end_cap_proof::run(args).await?,
         Commands::ClaimRewards(args) => claim_rewards::run(args).await?,
         Commands::GetClaimAmount(args) => claim_amount::run(args).await?,
         Commands::CheckTx(args) => check_tx::run(args).await?,
@@ -342,7 +342,6 @@ async fn main() -> anyhow::Result<()> {
         }
 
         // wallet session
-        Commands::WalletSession(wallet_session_args) => submit_end_cap_proof::run_multi(wallet_session_args).await?,
         Commands::LocalProver(prover_args) => psy_prover::run_server(prover_args).await?,
         Commands::ProveProxy(prove_proxy_args) => crate::subcommand::prove_proxy::run(prove_proxy_args).await?,
     }

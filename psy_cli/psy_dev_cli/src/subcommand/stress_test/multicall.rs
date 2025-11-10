@@ -4,15 +4,15 @@ use anyhow::Result;
 use num_cpus;
 use parking_lot::RwLock;
 use plonky2::field::goldilocks_field::GoldilocksField;
-use psy_common::data::qhashout::QHashOut;
+use psy_common::{
+    args::{ContractCallArgs, ContractCallData, DPNSoftwareDefinedCallData},
+    data::qhashout::QHashOut,
+};
 use psy_common_circuit::circuits::zk_signature3::manager::SimplePsyZKSignatureManager;
 use psy_config::network_constants::MAX_CONTRACT_STATE_TREE_HEIGHT;
 use psy_crypto::{hash::traits::qhashable::QFieldHashable, signature::zk::wallet::SimplePsyPrivateKey};
 use psy_data::config::store_config::{PsyHasher, C, D};
-use psy_prover::{
-    local::args::ContractCallArgs,
-    session::{gen_contract_deploy_and_circuits_for_functions, WalletSession},
-};
+use psy_prover::session::{gen_contract_deploy_and_circuits_for_functions, WalletSession};
 use psy_rust_sdk::{
     provider::{QUserRpcProvider, RpcProvider},
     request::QDeployContractRPCRequest,
@@ -105,14 +105,18 @@ impl Multicast {
         public_key: QHashOut<GoldilocksField>,
         contract_call_args: Vec<ContractCallArgs>,
     ) -> Result<QHashOut<GoldilocksField>> {
-        self.wallet_session.write().exec_contract_call(public_key, contract_call_args).await
+        self.wallet_session
+            .write()
+            .exec_contract_call(public_key, ContractCallData::new(contract_call_args))
+            .await
     }
 
     pub async fn register_batch_user(&self, user_count: u64) -> Result<Vec<UserInfo>> {
         let user_pk = (0..user_count).map(|_| QHashOut::<GoldilocksField>::rand()).collect::<Vec<_>>();
         let start = Instant::now();
+        let fingerprint = psy_prover::wallet::memory_wallet::get_zk_fingerprint();
         for pk in &user_pk {
-            self.wallet_session.write().register_user(pk.clone()).await?;
+            self.wallet_session.write().register_user(pk.clone(), fingerprint).await?;
         }
         let duration = start.elapsed().as_millis() as u64;
         info!("register_batch_user: Register batch user duration: {} ms", duration);
@@ -176,7 +180,8 @@ impl Multicast {
                 inputs: vec![to_user_id, transfer_amount],
             });
             {
-                self.wallet_session.write().add_user(user_info[i].pk.clone()).await?;
+                let fingerprint = psy_prover::wallet::memory_wallet::get_zk_fingerprint();
+                self.wallet_session.write().add_user(user_info[i].pk.clone(), fingerprint).await?;
             }
         }
 
@@ -249,7 +254,8 @@ impl Multicast {
                 });
             }
             {
-                self.wallet_session.write().add_user(user_info[i].pk.clone()).await?;
+                let fingerprint = psy_prover::wallet::memory_wallet::get_zk_fingerprint();
+                self.wallet_session.write().add_user(user_info[i].pk.clone(), fingerprint).await?;
             }
         }
         let start = Instant::now();
@@ -300,7 +306,8 @@ impl Multicast {
         let mint_amount = 250000000000u64;
         for i in 0..user_info.len() {
             {
-                self.wallet_session.write().add_user(user_info[i].pk.clone()).await?;
+                let fingerprint = psy_prover::wallet::memory_wallet::get_zk_fingerprint();
+                self.wallet_session.write().add_user(user_info[i].pk.clone(), fingerprint).await?;
             }
             let public_key = user_info[i].pub_key.clone();
             match self
@@ -351,7 +358,8 @@ impl Multicast {
         let public_key0 = QHashOut::from_string_or_panic(USER0_SECP_ZK_PUBLIC_KEY);
         let from_user_id = { self.wallet_session.read().st_provider.get_user_id(public_key0).await? };
         {
-            self.wallet_session.write().add_user(pk0).await?;
+            let fingerprint = psy_prover::wallet::memory_wallet::get_zk_fingerprint();
+            self.wallet_session.write().add_user(pk0, fingerprint).await?;
         }
         info!("Start to execute mint contract call");
         self.exec_contract_call(
@@ -361,7 +369,8 @@ impl Multicast {
                 method_name: "simple_mint".to_string(),
                 inputs: vec![mint_amount],
             }],
-        );
+        )
+        .await?;
         if !wait_for_new_block(&self.wallet_session.read().st_provider, 2).await? {
             return Err(anyhow::format_err!("transfer timeout waiting for checkpoint"));
         }
@@ -383,7 +392,8 @@ impl Multicast {
                 inputs: vec![user_info[i].user_id, transfer_amount],
             });
             {
-                self.wallet_session.write().add_user(user_info[i].pk.clone()).await?;
+                let fingerprint = psy_prover::wallet::memory_wallet::get_zk_fingerprint();
+                self.wallet_session.write().add_user(user_info[i].pk.clone(), fingerprint).await?;
             }
         }
         info!("Start to execute transfer contract call");

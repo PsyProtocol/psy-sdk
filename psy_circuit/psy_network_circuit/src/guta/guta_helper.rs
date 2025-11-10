@@ -29,7 +29,7 @@ use psy_crypto::{
     },
     hash::{
         merkle::{core::MerkleProofCore, utils::simple_merkle_tree::SimpleMerkleTree},
-        traits::hasher::{FieldQHasher, MerkleZeroHasher},
+        traits::hasher::{FieldQHasher, MerkleZeroHasherWithMarkedLeaf},
     },
 };
 
@@ -48,7 +48,7 @@ use crate::guta::circuits::{
 #[derive(Debug)]
 pub struct PsyGUTACircuitManager<C: GenericConfig<D> + 'static, const D: usize>
 where
-    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasher<QHashOut<C::F>>,
+    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasherWithMarkedLeaf<HashOut<C::F>> + MerkleZeroHasherWithMarkedLeaf<QHashOut<C::F>>,
 {
     pub end_cap_fingerprint: QHashOut<C::F>,
 
@@ -83,7 +83,7 @@ where
 
 impl<C: GenericConfig<D> + 'static, const D: usize> PsyGUTACircuitManager<C, D>
 where
-    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasher<QHashOut<C::F>>,
+    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasherWithMarkedLeaf<HashOut<C::F>> + MerkleZeroHasherWithMarkedLeaf<QHashOut<C::F>>,
 {
     pub fn new_with_library<T: CircuitInfoLibrary<C, D>>(library: &T, public_key: QHashOut<C::F>) -> Self {
         let end_cap_common = get_end_cap_type_e_common_data::<C, D>();
@@ -399,7 +399,7 @@ where
 
 impl<C: GenericConfig<D> + 'static, const D: usize> QNextGenWorkerGenericInfo for PsyGUTACircuitManager<C, D>
 where
-    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasher<QHashOut<C::F>>,
+    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasherWithMarkedLeaf<HashOut<C::F>> + MerkleZeroHasherWithMarkedLeaf<QHashOut<C::F>>,
 {
     fn can_process_job(&self, job_id: QProvingJobDataID) -> bool {
         match job_id.circuit_type {
@@ -422,7 +422,7 @@ where
 impl<S: QProofStoreReaderAsync + Send + Sync, L: CircuitInfoLibrary<C, D> + Send + Sync, C: GenericConfig<D> + 'static, const D: usize>
     QNextGenWorkerGenericProverAsyncMut<S, L, C, D> for PsyGUTACircuitManager<C, D>
 where
-    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasher<QHashOut<C::F>>,
+    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasherWithMarkedLeaf<HashOut<C::F>> + MerkleZeroHasherWithMarkedLeaf<QHashOut<C::F>>,
 {
     async fn worker_prove_mut_async(&self, store: &S, library: &L, job_id: QProvingJobDataID) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         match job_id.circuit_type {

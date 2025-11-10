@@ -4,25 +4,26 @@ import { wasmBinary } from "./wasm-binary";
 import { PrivateKey, PublicKey, QHashOut, U8Bytes } from "../core";
 import {
     ContractCallArgs,
+    ContractCallData,
     DPNFunctionCircuitDefinition,
     IPsyUserProverProvider,
     QBCDeployContract,
     SignData,
+    SignType,
     WalletKeyPair,
 } from "../local-prover-rpc/types";
-import { ZKPublicKeyInfo, JobInfo } from "../types";
+import { ZKPublicKeyInfo } from "../types";
 import { PsyJSON } from "../utils";
-
 
 // Synchronous WASM initialization function
 export function initWasmSync(): void {
     try {
         // Initialize synchronously with pre-compiled binary data
         initSync(wasmBinary);
-        
-        console.log('WASM initialized synchronously from binary data');
+
+        console.log("WASM initialized synchronously from binary data");
     } catch (error) {
-        console.error('Failed to initialize WASM:', error);
+        console.error("Failed to initialize WASM:", error);
         throw error;
     }
 }
@@ -48,30 +49,14 @@ export class PsyWasmWebProverProvider implements IPsyUserProverProvider {
     //     return result;
     // }
 
-    async execContractCall(pkHash: string, contractCallArg: ContractCallArgs[]): Promise<string> {
+    async execContractCall(pkHash: string, callData: ContractCallData): Promise<string> {
         const now = new Date().getTime();
-        
-        // await this.startSession(pkHash);
-        // const result = await this.proveContractCalls(pkHash, contractCallArg);
-        // await this.signAndSubmit(pkHash);
-
-        const json = PsyJSON.stringify(contractCallArg);
+        const json = PsyJSON.stringify(callData);
         const result = await PsyWasmWebProverProvider.wasmServer.exec_contract_call_json(pkHash, json);
-
         console.log(`execContractCall in ${(new Date().getTime() - now) / 1000} seconds`);
         return result;
     }
 
-    async execContractCallWithSignData(pkHash: string, contractCallArg: ContractCallArgs[], signData: SignData|null|undefined): Promise<QHashOut> {
-        const now = new Date().getTime();
-
-        const json = PsyJSON.stringify(contractCallArg);
-        const signDataJson = signData ? PsyJSON.stringify(signData) : null;
-        const result = await PsyWasmWebProverProvider.wasmServer.exec_contract_call_with_sign_data_json(pkHash, json, signDataJson);
-
-        console.log(`execContractCallWithSignData in ${(new Date().getTime() - now) / 1000} seconds`);
-        return result;
-    }
 
     async getClaimRewardsCallArgs(jobInfos: string): Promise<ContractCallArgs[]> {
         const now = new Date().getTime();
@@ -111,42 +96,22 @@ export class PsyWasmWebProverProvider implements IPsyUserProverProvider {
         return result;
     }
 
-    async signAndSubmit(pkHash: PublicKey): Promise<string> {
+    async signAndSubmit(pkHash: PublicKey, signData?: SignData): Promise<string> {
         const now = new Date().getTime();
-        const result = await PsyWasmWebProverProvider.wasmServer.sign_and_submit(pkHash);
+        const signDataJson = signData ? PsyJSON.stringify(signData) : null;
+        const result = await PsyWasmWebProverProvider.wasmServer.sign_and_submit(pkHash, signDataJson);
         console.log(`signAndSubmit in ${(new Date().getTime() - now) / 1000} seconds`);
         return result;
     }
 
-    async signAndSubmitWithData(pkHash: PublicKey, signData: SignData|null|undefined): Promise<QHashOut> {
-        const now = new Date().getTime();
-        const signDataJson = signData ? PsyJSON.stringify(signData) : null;
-        const result = await PsyWasmWebProverProvider.wasmServer.sign_and_submit_with_sign_data(pkHash, signDataJson);
-        console.log(`signAndSubmitWithData in ${(new Date().getTime() - now) / 1000} seconds`);
-        return result;
-    }
 
     // User operations
-    async registerUser(privateKey: PrivateKey): Promise<PublicKey> {
-        const now = new Date().getTime();
-        const result = await PsyWasmWebProverProvider.wasmServer.register_user(privateKey.toString());
-        console.log(`registerUser in ${(new Date().getTime() - now) / 1000} seconds`);
-        return result;
+    async registerUser(privateKey: PrivateKey, signType: SignType): Promise<PublicKey> {
+        return PsyWasmWebProverProvider.wasmServer.register_user(privateKey.toString(), signType);
     }
 
-    async registerUserWithType(privateKey: PrivateKey, signType: string, fingerprint: string|null|undefined): Promise<PublicKey> {
-        const now = new Date().getTime();
-        const result = await PsyWasmWebProverProvider.wasmServer.register_user_with_type(privateKey.toString(), signType, fingerprint);
-        console.log(`registerUserWithType in ${(new Date().getTime() - now) / 1000} seconds`);
-        return result;
-    }
-
-    async addUser(privateKey: PrivateKey): Promise<PublicKey> {
-        return PsyWasmWebProverProvider.wasmServer.add_user(privateKey.toString());
-    }
-
-    async addUserWithType(privateKey: PrivateKey, signType: string, fingerprint: string|null|undefined): Promise<PublicKey> {
-        return PsyWasmWebProverProvider.wasmServer.add_user_with_type(privateKey.toString(), signType, fingerprint);
+    async addUser(privateKey: PrivateKey, signType: SignType): Promise<PublicKey> {
+        return PsyWasmWebProverProvider.wasmServer.add_user(privateKey.toString(), signType);
     }
 
     async getZKPublicKey(privateKey: PrivateKey): Promise<ZKPublicKeyInfo> {

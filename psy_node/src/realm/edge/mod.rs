@@ -8,6 +8,7 @@ use anyhow::Result;
 pub use edge_v2::run_realm_edge_v2;
 use hyper::Method;
 use jsonrpsee::server::ServerBuilder;
+use psy_common::health::HealthLayer;
 use psy_store::{
     queue::{new_redis_async_pool, task_queue::QProvingTaskStoreImpl, ProofStoreRedis},
     store,
@@ -18,7 +19,7 @@ use tracing::{debug, info};
 
 use super::{config::RealmEdgeConfig, rpc::RealmEdgeRpcServer, C, D, F};
 use crate::{
-    common::{health::HealthLayer, jobs::JobSchedulerRpcServer, verifier::get_cached_generic_verifier, whitelist::WhiteListCache},
+    common::{jobs::JobSchedulerRpcServer, verifier::get_cached_generic_verifier, whitelist::WhiteListCache},
     realm::{
         handler::RealmEdgeHandler,
         state::{edge::RealmEdgeContext, edge_queue_helper::RealmEdgeQueueHelper, processor::RealmConfig, queue_factory::QueueFactory},

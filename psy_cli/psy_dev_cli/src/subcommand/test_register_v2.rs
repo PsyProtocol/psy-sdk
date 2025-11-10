@@ -4,6 +4,7 @@ use fred::prelude::*;
 use kvq::memory::simple::KVQSimpleMemoryBackingStore;
 use plonky2::{
     field::{goldilocks_field::GoldilocksField, types::Field},
+    hash::poseidon::PoseidonHash,
     plonk::config::PoseidonGoldilocksConfig,
 };
 use psy_common::{
@@ -38,7 +39,6 @@ use psy_node::{
     },
     worker::{simple_async_coord::SimpleAsyncCoordinatorWorker, simple_async_realm::SimpleAsyncRealmWorker},
 };
-use psy_rust_sdk::common::UPSCircuitManagerTrait;
 use psy_store::{
     node::coordinator::{PsyCoordinatorStoreReaderAsync, PsyCoordinatorStoreWriterAsyncImm},
     queue::{
@@ -51,6 +51,7 @@ use psy_ups_circuit::{
     circuit_manager::core::{PsyUPSStepCircuitManager, QCircuitManager},
     session::UserProvingSessionManager,
 };
+use psy_vm::ups::circuit_manager::UPSCircuitManager;
 
 use super::super::test_helpers::contract::gen_test_contract;
 
@@ -209,7 +210,8 @@ async fn run_test3() -> anyhow::Result<()> {
 
     timer.lap("start: init PsyUPSStepCircuitManager");
 
-    let main_circuits = QCircuitManager::Local(PsyUPSStepCircuitManager::<C, D>::new_with_config(PSY_NETWORK_MAGIC));
+    let main_circuits = PsyUPSStepCircuitManager::<C, D>::new_with_config(PSY_NETWORK_MAGIC);
+    let boxed_main_circuits: QCircuitManager<C, D> = Box::new(PsyUPSStepCircuitManager::<C, D>::new_with_config(PSY_NETWORK_MAGIC));
     //main_circuits.print_common_config();
 
     timer.lap("end: init PsyUPSStepCircuitManager");
@@ -242,9 +244,12 @@ async fn run_test3() -> anyhow::Result<()> {
     main_circuits.register_info(&mut circuit_info);
     contract_helper.register_funcs(0, &mut circuit_info);
 
-    let mut mgr =
-        UserProvingSessionManager::<GoldilocksField, PsyHasher, _, C, D>::new(lps, circuit_info, main_circuits.ups_circuit_whitelist_root().await?)
-            .await?;
+    let mut mgr = UserProvingSessionManager::<GoldilocksField, PoseidonHash, _, C, D>::new(
+        lps,
+        circuit_info,
+        main_circuits.ups_circuit_whitelist_root().await?,
+    )
+    .await?;
 
     timer.lap("setup mgr");
 
@@ -282,10 +287,9 @@ async fn run_test3() -> anyhow::Result<()> {
 
     let signature_proof = wallet.zk_sign_for_private_key_value(priv_key_user_0, sighash)?;
     timer.lap("generated zk signature for UPS transaction batch");
-    match &main_circuits {
-        QCircuitManager::Local(manager) => mgr.proof_tree_state.finalize_tree(&manager.proof_tree_agg_circuits).await?,
-        QCircuitManager::Rpc(provider) => mgr.proof_tree_state.finalize_tree(provider).await?,
-    };
+    // Now that QCircuitManager is just PsyUPSStepCircuitManager, we can access
+    // proof_tree_agg_circuits directly
+    mgr.proof_tree_state.finalize_tree(&main_circuits.proof_tree_agg_circuits).await?;
     timer.lap("aggregated all UPS proofs into a single proof");
     let public_key_param = SimplePsyPrivateKey::new(priv_key_user_0).get_public_key_param::<PsyHasher>();
     let end_cap_proof = mgr

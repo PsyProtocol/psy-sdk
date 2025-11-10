@@ -265,7 +265,7 @@ pub struct GetJobProofArgs {
     pub job_id: Option<String>,
 
     #[arg(long, help = "Sign type", default_value = "zk")]
-    pub sign_type: psy_prover::local::args::SignType,
+    pub sign_type: psy_common::args::SignType,
 
     #[arg(long, help = "Enable verbose output showing all sibling details")]
     pub verbose: bool,

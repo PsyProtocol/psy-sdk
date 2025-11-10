@@ -10,8 +10,8 @@ use crate::qdata::{
 
 pub trait ContractMetaDataModelReaderCore<
     const TABLE_TYPE: u16,
-    F: RichField,
     S,
+    F: RichField,
     IDKVA: KVQStoreAdapterReader<S, ContractTableIdKey<TABLE_TYPE>, ContractMetaData<F>>,
 >
 {
@@ -33,10 +33,10 @@ pub trait ContractMetaDataModelReaderCore<
 
 pub trait ContractMetaDataModelCore<
     const TABLE_TYPE: u16,
-    F: RichField,
     S,
+    F: RichField,
     IDKVA: KVQStoreAdapter<S, ContractTableIdKey<TABLE_TYPE>, ContractMetaData<F>>,
->: ContractMetaDataModelReaderCore<TABLE_TYPE, F, S, IDKVA>
+>: ContractMetaDataModelReaderCore<TABLE_TYPE, S, F, IDKVA>
 {
     fn set_contract_metadata(store: &S, contract_uuid: ContractUUID, contract_metadata: ContractMetaData<F>) -> anyhow::Result<()> {
         let key_id = ContractTableIdKey::new(contract_uuid);
@@ -50,17 +50,17 @@ pub trait ContractMetaDataModelCore<
     }
 }
 
-pub struct ContractMetaDataModel<const TABLE_TYPE: u16, F: RichField, S, IDKVA> {
+pub struct ContractMetaDataModel<const TABLE_TYPE: u16, S, F: RichField, IDKVA> {
     _idkva: IDKVA,
     _store: S,
     _phantom_data: PhantomData<F>,
 }
 
 impl<const TABLE_TYPE: u16, F: RichField, S, IDKVA: KVQStoreAdapterReader<S, ContractTableIdKey<TABLE_TYPE>, ContractMetaData<F>>>
-    ContractMetaDataModelReaderCore<TABLE_TYPE, F, S, IDKVA> for ContractMetaDataModel<TABLE_TYPE, F, S, IDKVA>
+    ContractMetaDataModelReaderCore<TABLE_TYPE, S, F, IDKVA> for ContractMetaDataModel<TABLE_TYPE, S, F, IDKVA>
 {
 }
 impl<const TABLE_TYPE: u16, F: RichField, S, IDKVA: KVQStoreAdapter<S, ContractTableIdKey<TABLE_TYPE>, ContractMetaData<F>>>
-    ContractMetaDataModelCore<TABLE_TYPE, F, S, IDKVA> for ContractMetaDataModel<TABLE_TYPE, F, S, IDKVA>
+    ContractMetaDataModelCore<TABLE_TYPE, S, F, IDKVA> for ContractMetaDataModel<TABLE_TYPE, S, F, IDKVA>
 {
 }

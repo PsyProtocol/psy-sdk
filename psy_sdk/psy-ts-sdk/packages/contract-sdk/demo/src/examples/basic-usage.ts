@@ -1,19 +1,19 @@
 // src/examples/basic-usage.ts
-import { Contract, Signer } from '../../../generated';
-import { createProvider } from '../providers';
-import { config } from '../config';
+import { Contract, Signer } from "../../../generated";
+import { createProvider } from "../providers";
+import { config } from "../config";
 
 async function basicUsageExample() {
-    console.log('🚀 Basic SDK Usage Example');
-    console.log('=========================\n');
+    console.log("🚀 Basic SDK Usage Example");
+    console.log("=========================\n");
 
     // Step 1: Create provider
-    console.log('1️⃣ Creating RPC Provider...');
-    const provider = createProvider('local');
+    console.log("1️⃣ Creating RPC Provider...");
+    const provider = createProvider("local");
     console.log(`   Connected to: ${config.rpc.url}\n`);
 
     // Step 2: Create signer (required for state-changing operations)
-    console.log('2️⃣ Creating Signer...');
+    console.log("2️⃣ Creating Signer...");
     // Use the currentKeyPair from config which handles the derivation
     const currentKeyPair = config.user.currentKeyPair;
     const signer = Signer.fromPublicKey(currentKeyPair.publicKey, provider);
@@ -22,17 +22,17 @@ async function basicUsageExample() {
     console.log(`   Realm ID: ${currentKeyPair.realmId}\n`);
 
     // Step 3: Create contract instance with signer
-    console.log('3️⃣ Creating Contract Instance...');
+    console.log("3️⃣ Creating Contract Instance...");
     const contract = new Contract(
         config.contract.userId,
         config.contract.id,
-        signer  // Pass signer instead of provider for full functionality
+        signer // Pass signer instead of provider for full functionality
     );
     console.log(`   User ID: ${config.contract.userId}`);
     console.log(`   Contract ID: ${config.contract.id}\n`);
 
     // Step 4: Read simple state variable (no signer needed for reads)
-    console.log('4️⃣ Reading Balance...');
+    console.log("4️⃣ Reading Balance...");
     try {
         const balance = await contract.balance;
         console.log(`   ✅ Balance: ${balance} tokens\n`);
@@ -41,7 +41,7 @@ async function basicUsageExample() {
     }
 
     // Step 5: Access nested array data (no signer needed for reads)
-    console.log('5️⃣ Accessing Array Data...');
+    console.log("5️⃣ Accessing Array Data...");
     try {
         // Access user data at index 1048576
         // The array calculation works as follows:
@@ -68,7 +68,7 @@ async function basicUsageExample() {
     }
 
     // Step 6: Execute a function (signer required)
-    console.log('6️⃣ Executing Contract Function...');
+    console.log("6️⃣ Executing Contract Function...");
     try {
         await contract.simple_mint(1000n);
         console.log(`   ✅ Successfully minted 1000 tokens\n`);
@@ -77,12 +77,12 @@ async function basicUsageExample() {
     }
 
     // Step 7: Demonstrate read-only contract (optional)
-    console.log('7️⃣ Read-Only Contract Example...');
-    console.log('   Creating read-only contract (no signer)...');
+    console.log("7️⃣ Read-Only Contract Example...");
+    console.log("   Creating read-only contract (no signer)...");
     const readOnlyContract = new Contract(
         config.contract.userId,
         config.contract.id,
-        provider  // Pass provider directly for read-only access
+        provider // Pass provider directly for read-only access
     );
 
     try {
@@ -94,14 +94,16 @@ async function basicUsageExample() {
         try {
             await readOnlyContract.simple_mint(100n);
         } catch (error) {
-            console.log(`   ✅ Expected error for write operation without signer:`,
-                error instanceof Error ? error.message : String(error));
+            console.log(
+                `   ✅ Expected error for write operation without signer:`,
+                error instanceof Error ? error.message : String(error)
+            );
         }
     } catch (error) {
         console.error(`   ❌ Unexpected error:`, error instanceof Error ? error.message : String(error));
     }
 
-    console.log('\n✨ Basic example complete!\n');
+    console.log("\n✨ Basic example complete!\n");
 }
 
 // Run the example
@@ -109,7 +111,7 @@ if (require.main === module) {
     basicUsageExample()
         .then(() => process.exit(0))
         .catch((error) => {
-            console.error('Fatal error:', error);
+            console.error("Fatal error:", error);
             process.exit(1);
         });
 }

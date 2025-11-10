@@ -31,7 +31,7 @@ use psy_crypto::{
     },
     hash::{
         merkle::treeprover::TPAltCircuitFingerprintConfig,
-        traits::hasher::{FieldQHasher, MerkleHasher, MerkleZeroHasher},
+        traits::hasher::{FieldQHasher, MerkleHasher, MerkleZeroHasherWithMarkedLeaf},
     },
 };
 
@@ -45,7 +45,7 @@ use crate::guta::guta_helper::PsyGUTACircuitManager;
 #[derive(Debug)]
 pub struct PsyCoordinatorCircuitManager<C: GenericConfig<D> + 'static, const D: usize>
 where
-    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasher<QHashOut<C::F>>,
+    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasherWithMarkedLeaf<HashOut<C::F>> + MerkleZeroHasherWithMarkedLeaf<QHashOut<C::F>>,
 {
     pub append_user_registration_tree: BatchAppendUserRegistrationTreeCircuit<C, D>,
     pub append_register_users_circuit_whitelist: QHashOut<C::F>,
@@ -62,7 +62,7 @@ where
 
 impl<C: GenericConfig<D> + 'static, const D: usize> PsyCoordinatorCircuitManager<C, D>
 where
-    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasher<QHashOut<C::F>>,
+    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasherWithMarkedLeaf<HashOut<C::F>> + MerkleZeroHasherWithMarkedLeaf<QHashOut<C::F>>,
 {
     pub fn new_with_library<T: CircuitInfoLibrary<C, D>>(library: &T, public_key: QHashOut<C::F>) -> Self {
         let guta_circuits = PsyGUTACircuitManager::<C, D>::new_with_library(library, public_key);
@@ -212,7 +212,7 @@ where
 
 impl<C: GenericConfig<D> + 'static, const D: usize> QNextGenWorkerGenericInfo for PsyCoordinatorCircuitManager<C, D>
 where
-    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasher<QHashOut<C::F>>,
+    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasherWithMarkedLeaf<HashOut<C::F>> + MerkleZeroHasherWithMarkedLeaf<QHashOut<C::F>>,
 {
     fn can_process_job(&self, job_id: QProvingJobDataID) -> bool {
         match job_id.circuit_type {
@@ -232,7 +232,7 @@ where
 impl<S: QProofStoreReaderAsync + Send + Sync, L: CircuitInfoLibrary<C, D> + Send + Sync, C: GenericConfig<D> + 'static, const D: usize>
     QNextGenWorkerGenericProverAsyncMut<S, L, C, D> for PsyCoordinatorCircuitManager<C, D>
 where
-    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasher<QHashOut<C::F>>,
+    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasherWithMarkedLeaf<HashOut<C::F>> + MerkleZeroHasherWithMarkedLeaf<QHashOut<C::F>>,
 {
     async fn worker_prove_mut_async(&self, store: &S, library: &L, job_id: QProvingJobDataID) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         match job_id.circuit_type {
