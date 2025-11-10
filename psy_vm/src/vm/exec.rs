@@ -1,26 +1,26 @@
 use anyhow::Ok;
 use plonky2::{
-    field::{
-        goldilocks_field::GoldilocksField,
-        types::{Field, PrimeField64},
-    },
+    field::types::{Field, PrimeField64},
     hash::hash_types::{HashOut, RichField},
 };
 use psy_common::{data::qhashout::QHashOut, traits::to_qfelts::ToQFelts};
 use psy_config::network_constants::DEFAULT_CALLER_CONTRACT_ID_U64;
 use psy_crypto::hash::{
     merkle::core::{DeltaMerkleProofCore, MerkleProofCore},
-    traits::{hasher::MerkleZeroHasher, qhashable::QFieldHashable},
+    traits::{
+        hasher::{FieldQHasher, MerkleZeroHasherWithMarkedLeaf},
+        qhashable::QFieldHashable,
+    },
     utils::safe_hash_fixed_length,
 };
 use psy_data::{
-    config::store_config::PsyHasher,
+    config::store_config::{PsyFelt, PsyHasher},
     dpn::{
         cfc_context_input::{DapenCFCUserTransactionEndContext, DapenCFCUserTransactionInputContext},
         proving_session::DPNProvingSessionSimpleMethodCall,
     },
     qstore::{
-        controllers::proving_session::PsyLocalProvingSessionStore,
+        controllers::proving_session::{PsyLocalProvingSessionStore, PsyReadLocalProvingSessionStore, PsyReadLocalProvingSessionStoreMut},
         imm::{
             cmd::{
                 QSRCmdGetCheckpointLeafData, QSRCmdGetContractLeafData, QSRMerkleCmd, QSRMerkleCmdGetCheckpointTreeMerkleProof,
@@ -57,7 +57,10 @@ fn mp_to_dmp<H: PartialEq + Copy>(mp: MerkleProofCore<H>) -> DeltaMerkleProofCor
 
 #[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
 #[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
-pub trait PsyCmdInputWitnessResolver<F: RichField> {
+pub trait PsyCmdInputWitnessResolver<
+    F: RichField + PrimeField64,
+    H: MerkleZeroHasherWithMarkedLeaf<QHashOut<F>> + FieldQHasher<F> + Send,
+> {
     async fn resolve_vec(&mut self, state_cmd: &DPNStateCmd<u64>) -> anyhow::Result<PsyCmdWithInputAndWitness<F>>;
 }
 //(sub_slot_length-2)%4
@@ -84,15 +87,20 @@ fn get_slot_mask(length: u64, sub_slot_index: u64) -> [u8; 4] {
 
 #[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
 #[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
-impl<R: PsyReadCommandProcessorSync<GF> + Send + Sync> PsyCmdInputWitnessResolver<GF> for PsyLocalProvingSessionStore<GF, R> {
-    async fn resolve_vec(&mut self, state_cmd: &DPNStateCmd<u64>) -> anyhow::Result<PsyCmdWithInputAndWitness<GF>> {
+impl<
+        F: RichField + PrimeField64,
+        H: MerkleZeroHasherWithMarkedLeaf<QHashOut<F>> + FieldQHasher<F> + Send,
+        R: PsyReadCommandProcessorSync<F> + Send + Sync,
+    > PsyCmdInputWitnessResolver<F, H> for PsyLocalProvingSessionStore<F, R, H>
+{
+    async fn resolve_vec(&mut self, state_cmd: &DPNStateCmd<u64>) -> anyhow::Result<PsyCmdWithInputAndWitness<F>> {
         tracing::debug!("Resolving state command: {:#?}", state_cmd);
         let current_contract_id = self.get_current_contract_id();
         match state_cmd {
             DPNStateCmd::SetContractStateSlotHash(c) => {
                 if c.condition == 0 {
                     let mp = self
-                        .get_contract_state_slot(current_contract_id, GoldilocksField::from_noncanonical_u64(c.slot_index))
+                        .get_contract_state_slot(current_contract_id, F::from_noncanonical_u64(c.slot_index))
                         .await?;
                     let dmp = mp_to_dmp(mp);
                     let result = dmp.new_value.0.elements.to_vec();
@@ -107,7 +115,7 @@ impl<R: PsyReadCommandProcessorSync<GF> + Send + Sync> PsyCmdInputWitnessResolve
                     let dmp = self
                         .set_contract_state_slot(
                             current_contract_id,
-                            GF::from_canonical_u64(c.slot_index),
+                            F::from_canonical_u64(c.slot_index),
                             QHashOut::from_values(c.value[0], c.value[1], c.value[2], c.value[3]),
                         )
                         .await?;
@@ -121,7 +129,7 @@ impl<R: PsyReadCommandProcessorSync<GF> + Send + Sync> PsyCmdInputWitnessResolve
                 }
             }
             DPNStateCmd::SetContractStateSlotSingle(c) => {
-                let slot_index = GF::from_canonical_u64(c.sub_slot_index / 4u64);
+                let slot_index = F::from_canonical_u64(c.sub_slot_index / 4u64);
                 let n = (c.sub_slot_index & 0b11) as usize;
                 let mp = self.get_contract_state_slot(current_contract_id, slot_index).await?;
 
@@ -129,7 +137,7 @@ impl<R: PsyReadCommandProcessorSync<GF> + Send + Sync> PsyCmdInputWitnessResolve
                 if c.condition == 0 {
                     let dmp = mp_to_dmp(mp);
 
-                    let result = vec![GF::from_canonical_u64(c.value)];
+                    let result = vec![F::from_canonical_u64(c.value)];
                     let witness = DPNStateCmdWitness::DeltaMerkleProof(dmp);
                     Ok(PsyCmdWithInputAndWitness {
                         state_cmd: state_cmd.clone(),
@@ -138,12 +146,12 @@ impl<R: PsyReadCommandProcessorSync<GF> + Send + Sync> PsyCmdInputWitnessResolve
                     })
                 } else {
                     let mut new_elements = cur.clone();
-                    new_elements[n] = GF::from_canonical_u64(c.value);
+                    new_elements[n] = F::from_canonical_u64(c.value);
 
                     let dmp = self
                         .set_contract_state_slot(current_contract_id, slot_index, QHashOut(HashOut { elements: new_elements }))
                         .await?;
-                    let result = vec![GF::from_canonical_u64(c.value)];
+                    let result = vec![F::from_canonical_u64(c.value)];
                     let witness = DPNStateCmdWitness::DeltaMerkleProof(dmp);
                     Ok(PsyCmdWithInputAndWitness {
                         state_cmd: state_cmd.clone(),
@@ -163,7 +171,7 @@ impl<R: PsyReadCommandProcessorSync<GF> + Send + Sync> PsyCmdInputWitnessResolve
                     match r.witness {
                         DPNStateCmdWitness::MerkleProofArray(vec) => {
                             let dmp = vec.iter().map(|x| mp_to_dmp(x.clone())).collect::<Vec<_>>();
-                            let result = c.value.iter().map(|x| GF::from_canonical_u64(*x)).collect::<Vec<GF>>();
+                            let result = c.value.iter().map(|x| F::from_canonical_u64(*x)).collect::<Vec<F>>();
                             let witness = DPNStateCmdWitness::DeltaMerkleProofArray(dmp);
                             return Ok(PsyCmdWithInputAndWitness {
                                 state_cmd: state_cmd.clone(),
@@ -176,16 +184,16 @@ impl<R: PsyReadCommandProcessorSync<GF> + Send + Sync> PsyCmdInputWitnessResolve
                 }
                 let value_len = c.value.len();
                 if value_len == 1 {
-                    let slot_index = GF::from_canonical_u64(c.sub_slot_index / 4u64);
+                    let slot_index = F::from_canonical_u64(c.sub_slot_index / 4u64);
                     let n = (c.sub_slot_index & 0b11) as usize;
                     let cur = self.get_contract_state_slot(current_contract_id, slot_index).await?.value.0.elements;
                     let mut new_elements = cur.clone();
-                    new_elements[n] = GF::from_canonical_u64(c.value[0]);
+                    new_elements[n] = F::from_canonical_u64(c.value[0]);
 
                     let dmp = self
                         .set_contract_state_slot(current_contract_id, slot_index, QHashOut(HashOut { elements: new_elements }))
                         .await?;
-                    let result = vec![GF::from_canonical_u64(c.value[0])];
+                    let result = vec![F::from_canonical_u64(c.value[0])];
                     let witness = DPNStateCmdWitness::DeltaMerkleProofArray(vec![dmp]);
                     Ok(PsyCmdWithInputAndWitness {
                         state_cmd: state_cmd.clone(),
@@ -195,11 +203,11 @@ impl<R: PsyReadCommandProcessorSync<GF> + Send + Sync> PsyCmdInputWitnessResolve
                 } else if value_len < 6 {
                     // two merkle proofs
 
-                    let slot_index = GF::from_canonical_u64(c.sub_slot_index / 4u64);
+                    let slot_index = F::from_canonical_u64(c.sub_slot_index / 4u64);
                     let n = (c.sub_slot_index & 0b11) as usize;
                     let mut proof_0_elements = self.get_contract_state_slot(current_contract_id, slot_index).await?.value.0.elements;
                     let mut proof_1_elements = self
-                        .get_contract_state_slot(current_contract_id, slot_index + GF::ONE)
+                        .get_contract_state_slot(current_contract_id, slot_index + F::ONE)
                         .await?
                         .value
                         .0
@@ -207,9 +215,9 @@ impl<R: PsyReadCommandProcessorSync<GF> + Send + Sync> PsyCmdInputWitnessResolve
                     for (i, v) in c.value.iter().enumerate() {
                         let r_ind = n + i;
                         if r_ind < 4 {
-                            proof_0_elements[r_ind] = GF::from_canonical_u64(*v);
+                            proof_0_elements[r_ind] = F::from_canonical_u64(*v);
                         } else {
-                            proof_1_elements[r_ind - 4] = GF::from_canonical_u64(*v);
+                            proof_1_elements[r_ind - 4] = F::from_canonical_u64(*v);
                         }
                     }
                     let delta_proof_0 = self
@@ -218,23 +226,23 @@ impl<R: PsyReadCommandProcessorSync<GF> + Send + Sync> PsyCmdInputWitnessResolve
                     let delta_proof_1 = self
                         .set_contract_state_slot(
                             current_contract_id,
-                            slot_index + GF::ONE,
+                            slot_index + F::ONE,
                             QHashOut(HashOut { elements: proof_1_elements }),
                         )
                         .await?;
                     Ok(PsyCmdWithInputAndWitness {
                         state_cmd: state_cmd.clone(),
                         witness: DPNStateCmdWitness::DeltaMerkleProofArray(vec![delta_proof_0, delta_proof_1]),
-                        result: c.value.iter().map(|x| GF::from_noncanonical_u64(*x)).collect(),
+                        result: c.value.iter().map(|x| F::from_noncanonical_u64(*x)).collect(),
                     })
                 } else {
-                    let start_slot_index = GF::from_canonical_u64(c.sub_slot_index / 4u64);
+                    let start_slot_index = F::from_canonical_u64(c.sub_slot_index / 4u64);
                     let n_proofs = ((value_len + 6) / 4) as u64;
                     let sub_slot_index_mod_4 = c.sub_slot_index % 4;
                     let len_minus_2_mod_4 = (value_len - 2) % 4;
                     //let start_slot = c.sub_slot_index / 4;
                     let mut dmps = Vec::with_capacity(n_proofs as usize);
-                    let result = c.value.iter().map(|i| GF::from_noncanonical_u64(*i)).collect::<Vec<_>>();
+                    let result = c.value.iter().map(|i| F::from_noncanonical_u64(*i)).collect::<Vec<_>>();
 
                     let slot_mask_type = sub_slot_index_mod_4 as usize + len_minus_2_mod_4;
 
@@ -288,7 +296,7 @@ impl<R: PsyReadCommandProcessorSync<GF> + Send + Sync> PsyCmdInputWitnessResolve
                         });
 
                         let dmp = self
-                            .set_contract_state_slot(current_contract_id, start_slot_index + GF::from_canonical_u64(i), set_value)
+                            .set_contract_state_slot(current_contract_id, start_slot_index + F::from_canonical_u64(i), set_value)
                             .await?;
                         dmps.push(dmp);
                     }
@@ -309,7 +317,7 @@ impl<R: PsyReadCommandProcessorSync<GF> + Send + Sync> PsyCmdInputWitnessResolve
                     */
 
                     let last_proof_value_index = main_body_proofs_index_offset + (n_proofs as usize - 2) * 4;
-                    let last_proof_slot_index = start_slot_index + GF::from_canonical_u64(n_proofs - 1);
+                    let last_proof_slot_index = start_slot_index + F::from_canonical_u64(n_proofs - 1);
                     if slot_mask_type == 6 {
                         // if mask type is 6, we don't need to check the old value
                         // type 6 => [1, 1, 1, 1],
@@ -389,7 +397,7 @@ impl<R: PsyReadCommandProcessorSync<GF> + Send + Sync> PsyCmdInputWitnessResolve
                     let left_values = self
                         .get_contract_state_slot(
                             current_contract_id,
-                            GF::from_canonical_u64(slot_index),
+                            F::from_canonical_u64(slot_index),
                         )?
                         .value
                         .0
@@ -397,7 +405,7 @@ impl<R: PsyReadCommandProcessorSync<GF> + Send + Sync> PsyCmdInputWitnessResolve
                     let right_values = self
                         .get_contract_state_slot(
                             current_contract_id,
-                            GF::from_canonical_u64(end_slot_index),
+                            F::from_canonical_u64(end_slot_index),
                         )?
                         .value
                         .0
@@ -407,8 +415,8 @@ impl<R: PsyReadCommandProcessorSync<GF> + Send + Sync> PsyCmdInputWitnessResolve
                         c.value
                             .to_vec()
                             .iter()
-                            .map(|x| GF::from_noncanonical_u64(*x))
-                            .collect::<Vec<GF>>(),
+                            .map(|x| F::from_noncanonical_u64(*x))
+                            .collect::<Vec<F>>(),
                         right_values[post_pad_right..].to_vec(),
                     ]
                     .concat();
@@ -418,7 +426,7 @@ impl<R: PsyReadCommandProcessorSync<GF> + Send + Sync> PsyCmdInputWitnessResolve
                         .map(|(i, x)| {
                             self.set_contract_state_slot(
                                 current_contract_id,
-                                GF::from_canonical_u64((i as u64) + slot_index),
+                                F::from_canonical_u64((i as u64) + slot_index),
                                 QHashOut(HashOut {
                                     elements: [x[0], x[1], x[2], x[3]],
                                 }),
@@ -433,15 +441,15 @@ impl<R: PsyReadCommandProcessorSync<GF> + Send + Sync> PsyCmdInputWitnessResolve
                         result: c
                             .value
                             .iter()
-                            .map(|x| GF::from_noncanonical_u64(*x))
-                            .collect::<Vec<GF>>(),
+                            .map(|x| F::from_noncanonical_u64(*x))
+                            .collect::<Vec<F>>(),
                     })*/
                 }
             }
             DPNStateCmd::InvokeExternalContractFunctionSync(_c) => todo!(),
             DPNStateCmd::GetSelfUserCurrentContractStateSlotHash(c) => {
                 let witness = self
-                    .get_contract_state_slot(current_contract_id, GF::from_canonical_u64(c.slot_index))
+                    .get_contract_state_slot(current_contract_id, F::from_canonical_u64(c.slot_index))
                     .await?;
                 Ok(PsyCmdWithInputAndWitness {
                     state_cmd: state_cmd.clone(),
@@ -450,7 +458,7 @@ impl<R: PsyReadCommandProcessorSync<GF> + Send + Sync> PsyCmdInputWitnessResolve
                 })
             }
             DPNStateCmd::GetSelfUserCurrentContractStateSlotSingle(c) => {
-                let slot_index = GF::from_canonical_u64(c.sub_slot_index / 4u64);
+                let slot_index = F::from_canonical_u64(c.sub_slot_index / 4u64);
                 let slot_offset = c.sub_slot_index % 4u64;
                 let witness = self.get_contract_state_slot(current_contract_id, slot_index).await?;
                 Ok(PsyCmdWithInputAndWitness {
@@ -462,7 +470,7 @@ impl<R: PsyReadCommandProcessorSync<GF> + Send + Sync> PsyCmdInputWitnessResolve
             DPNStateCmd::GetSelfUserCurrentContractStateSlotRange(c) => {
                 if c.length == 1 {
                     // one merkle proof
-                    let slot_index = GF::from_canonical_u64(c.sub_slot_index / 4u64);
+                    let slot_index = F::from_canonical_u64(c.sub_slot_index / 4u64);
                     let n = (c.sub_slot_index & 0b11) as usize;
                     let cur = self.get_contract_state_slot(current_contract_id, slot_index).await?;
                     let el = cur.value.0.elements[n];
@@ -474,10 +482,10 @@ impl<R: PsyReadCommandProcessorSync<GF> + Send + Sync> PsyCmdInputWitnessResolve
                 } else if c.length < 6 {
                     // two merkle proofs
 
-                    let slot_index = GF::from_canonical_u64(c.sub_slot_index / 4u64);
+                    let slot_index = F::from_canonical_u64(c.sub_slot_index / 4u64);
                     let n = (c.sub_slot_index & 0b11) as usize;
                     let proof_0 = self.get_contract_state_slot(current_contract_id, slot_index).await?;
-                    let proof_1 = self.get_contract_state_slot(current_contract_id, slot_index + GF::ONE).await?;
+                    let proof_1 = self.get_contract_state_slot(current_contract_id, slot_index + F::ONE).await?;
 
                     let elements = [proof_0.value.0.elements, proof_1.value.0.elements].concat();
 
@@ -534,13 +542,13 @@ impl<R: PsyReadCommandProcessorSync<GF> + Send + Sync> PsyCmdInputWitnessResolve
                     let sub_slot_index_mod_4 = c.sub_slot_index % 4;
                     let start_slot = c.sub_slot_index / 4;
                     let mut mps = Vec::with_capacity(n_proofs as usize);
-                    let mut result = Vec::<GF>::with_capacity(c.length as usize);
+                    let mut result = Vec::<F>::with_capacity(c.length as usize);
 
                     let len_minus_2_mod_4 = (c.length - 2) % 4;
 
                     for i in 0..n_proofs {
                         let mp = self
-                            .get_contract_state_slot(current_contract_id, GF::from_canonical_u64(start_slot + i))
+                            .get_contract_state_slot(current_contract_id, F::from_canonical_u64(start_slot + i))
                             .await?;
                         if i == 0 {
                             if sub_slot_index_mod_4 == 0 {
@@ -604,12 +612,12 @@ impl<R: PsyReadCommandProcessorSync<GF> + Send + Sync> PsyCmdInputWitnessResolve
                     //let pre_pad_left = base_offset as usize;
                     //let post_pad_right = 4-(end_offset as usize);
                     let end_slot_index = end_sub_index / 4u64;
-                    let mut mps = Vec::<MerkleProofCore<QHashOut<GF>>>::new();
-                    let mut result = Vec::<GF>::with_capacity(c.length as usize);
+                    let mut mps = Vec::<MerkleProofCore<QHashOut<F>>>::new();
+                    let mut result = Vec::<F>::with_capacity(c.length as usize);
                     for i in slot_index..end_slot_index {
                         let mp = self.get_contract_state_slot(
                             current_contract_id,
-                            GF::from_canonical_u64(i),
+                            F::from_canonical_u64(i),
                         )?;
                         if base_offset != 0 && i == slot_index {
                             result
@@ -620,7 +628,7 @@ impl<R: PsyReadCommandProcessorSync<GF> + Send + Sync> PsyCmdInputWitnessResolve
                     if end_offset != 0 {
                         let mp = self.get_contract_state_slot(
                             current_contract_id,
-                            GF::from_canonical_u64(end_slot_index),
+                            F::from_canonical_u64(end_slot_index),
                         )?;
                         result.extend_from_slice(&mp.value.0.elements[..(end_offset as usize)]);
                         mps.push(mp);
@@ -634,11 +642,11 @@ impl<R: PsyReadCommandProcessorSync<GF> + Send + Sync> PsyCmdInputWitnessResolve
                 }
             }
             DPNStateCmd::GetSelfUserExternalContractStateSlotHash(c) => {
-                let contract_id = GF::from_noncanonical_u64(c.contract_id);
+                let contract_id = F::from_noncanonical_u64(c.contract_id);
 
                 let uct_witness_upper = self.get_self_user_contract_tree_leaf(contract_id).await?;
 
-                let state_slot_witness_lower = self.get_contract_state_slot(contract_id, GF::from_canonical_u64(c.slot_index)).await?;
+                let state_slot_witness_lower = self.get_contract_state_slot(contract_id, F::from_canonical_u64(c.slot_index)).await?;
                 Ok(PsyCmdWithInputAndWitness {
                     state_cmd: state_cmd.clone(),
                     result: state_slot_witness_lower.value.0.elements.to_vec(),
@@ -646,9 +654,9 @@ impl<R: PsyReadCommandProcessorSync<GF> + Send + Sync> PsyCmdInputWitnessResolve
                 })
             }
             DPNStateCmd::GetSelfUserExternalContractStateSlotSingle(c) => {
-                let slot_index = GF::from_canonical_u64(c.sub_slot_index / 4u64);
+                let slot_index = F::from_canonical_u64(c.sub_slot_index / 4u64);
                 let slot_offset = c.sub_slot_index % 4u64;
-                let contract_id = GF::from_noncanonical_u64(c.contract_id);
+                let contract_id = F::from_noncanonical_u64(c.contract_id);
 
                 let uct_witness_upper = self.get_self_user_contract_tree_leaf(contract_id).await?;
                 let state_slot_witness_lower = self.get_contract_state_slot(contract_id, slot_index).await?;
@@ -660,12 +668,12 @@ impl<R: PsyReadCommandProcessorSync<GF> + Send + Sync> PsyCmdInputWitnessResolve
                 })
             }
             DPNStateCmd::GetSelfUserExternalContractStateSlotRange(c) => {
-                let contract_id = GF::from_noncanonical_u64(c.contract_id);
+                let contract_id = F::from_noncanonical_u64(c.contract_id);
 
                 let uct_witness_upper = self.get_self_user_contract_tree_leaf(contract_id).await?;
 
                 if c.length == 1 {
-                    let slot_index = GF::from_canonical_u64(c.sub_slot_index / 4u64);
+                    let slot_index = F::from_canonical_u64(c.sub_slot_index / 4u64);
                     let n = (c.sub_slot_index & 0b11) as usize;
                     let cur = self.get_contract_state_slot(contract_id, slot_index).await?;
                     let el = cur.value.0.elements[n];
@@ -677,10 +685,10 @@ impl<R: PsyReadCommandProcessorSync<GF> + Send + Sync> PsyCmdInputWitnessResolve
                 } else if c.length < 6 {
                     // two merkle proofs
 
-                    let slot_index = GF::from_canonical_u64(c.sub_slot_index / 4u64);
+                    let slot_index = F::from_canonical_u64(c.sub_slot_index / 4u64);
                     let n = (c.sub_slot_index & 0b11) as usize;
                     let proof_0 = self.get_contract_state_slot(contract_id, slot_index).await?;
-                    let proof_1 = self.get_contract_state_slot(contract_id, slot_index + GF::ONE).await?;
+                    let proof_1 = self.get_contract_state_slot(contract_id, slot_index + F::ONE).await?;
 
                     let elements = [proof_0.value.0.elements, proof_1.value.0.elements].concat();
 
@@ -695,13 +703,13 @@ impl<R: PsyReadCommandProcessorSync<GF> + Send + Sync> PsyCmdInputWitnessResolve
                     let sub_slot_index_mod_4 = c.sub_slot_index % 4;
                     let start_slot = c.sub_slot_index / 4;
                     let mut mps = Vec::with_capacity(n_proofs as usize + 1);
-                    let mut result = Vec::<GF>::with_capacity(c.length as usize);
+                    let mut result = Vec::<F>::with_capacity(c.length as usize);
                     mps.push(uct_witness_upper);
 
                     let len_minus_2_mod_4 = (c.length - 2) % 4;
 
                     for i in 0..n_proofs {
-                        let mp = self.get_contract_state_slot(contract_id, GF::from_canonical_u64(start_slot + i)).await?;
+                        let mp = self.get_contract_state_slot(contract_id, F::from_canonical_u64(start_slot + i)).await?;
                         if i == 0 {
                             if sub_slot_index_mod_4 == 0 {
                                 result.push(mp.value.0.elements[0]);
@@ -746,11 +754,10 @@ impl<R: PsyReadCommandProcessorSync<GF> + Send + Sync> PsyCmdInputWitnessResolve
                 }
             }
             DPNStateCmd::GetOtherUserContractStateSlotHash(c) => {
-                let user_id = GF::from_noncanonical_u64(c.user_id);
+                let user_id = F::from_noncanonical_u64(c.user_id);
 
                 let user_leaf_witness = self.get_external_user_leaf_proof(user_id).await?;
                 let contract_state_proof = self
-                    .cmd_store
                     .resolve_get_merkle_proof_mut(&QSRMerkleCmd::GetUserContractTreeMerkleProof(
                         QSRMerkleCmdGetUserContractTreeMerkleProof {
                             checkpoint_id: self.get_current_start_checkpoint_id_u64(),
@@ -761,7 +768,6 @@ impl<R: PsyReadCommandProcessorSync<GF> + Send + Sync> PsyCmdInputWitnessResolve
                     .await?;
 
                 let state_slot_proof = self
-                    .cmd_store
                     .resolve_get_merkle_proof_mut(&QSRMerkleCmd::GetUserContractStateTreeMerkleProof(
                         QSRMerkleCmdGetUserContractStateTreeMerkleProof {
                             checkpoint_id: self.get_current_start_checkpoint_id_u64(),
@@ -783,13 +789,12 @@ impl<R: PsyReadCommandProcessorSync<GF> + Send + Sync> PsyCmdInputWitnessResolve
                 })
             }
             DPNStateCmd::GetOtherUserContractStateSlotSingle(c) => {
-                let slot_index = GF::from_canonical_u64(c.sub_slot_index / 4u64);
+                let slot_index = F::from_canonical_u64(c.sub_slot_index / 4u64);
                 let slot_offset = c.sub_slot_index % 4u64;
-                let user_id = GF::from_noncanonical_u64(c.user_id);
+                let user_id = F::from_noncanonical_u64(c.user_id);
 
                 let user_leaf_witness = self.get_external_user_leaf_proof(user_id).await?;
                 let contract_state_proof = self
-                    .cmd_store
                     .resolve_get_merkle_proof_mut(&QSRMerkleCmd::GetUserContractTreeMerkleProof(
                         QSRMerkleCmdGetUserContractTreeMerkleProof {
                             checkpoint_id: self.get_current_start_checkpoint_id_u64(),
@@ -800,7 +805,6 @@ impl<R: PsyReadCommandProcessorSync<GF> + Send + Sync> PsyCmdInputWitnessResolve
                     .await?;
 
                 let state_slot_proof = self
-                    .cmd_store
                     .resolve_get_merkle_proof_mut(&QSRMerkleCmd::GetUserContractStateTreeMerkleProof(
                         QSRMerkleCmdGetUserContractStateTreeMerkleProof {
                             checkpoint_id: self.get_current_start_checkpoint_id_u64(),
@@ -822,11 +826,10 @@ impl<R: PsyReadCommandProcessorSync<GF> + Send + Sync> PsyCmdInputWitnessResolve
                 })
             }
             DPNStateCmd::GetOtherUserContractStateSlotRange(c) => {
-                let user_id = GF::from_noncanonical_u64(c.user_id);
+                let user_id = F::from_noncanonical_u64(c.user_id);
 
                 let user_leaf_witness = self.get_external_user_leaf_proof(user_id).await?;
                 let contract_state_proof = self
-                    .cmd_store
                     .resolve_get_merkle_proof_mut(&QSRMerkleCmd::GetUserContractTreeMerkleProof(
                         QSRMerkleCmdGetUserContractTreeMerkleProof {
                             checkpoint_id: self.get_current_start_checkpoint_id_u64(),
@@ -837,11 +840,10 @@ impl<R: PsyReadCommandProcessorSync<GF> + Send + Sync> PsyCmdInputWitnessResolve
                     .await?;
 
                 if c.length == 1 {
-                    //let slot_index = GF::from_canonical_u64(c.sub_slot_index / 4u64);
+                    //let slot_index = F::from_canonical_u64(c.sub_slot_index / 4u64);
                     //let n = (c.sub_slot_index & 0b11) as usize;
 
                     let state_slot_proof = self
-                        .cmd_store
                         .resolve_get_merkle_proof_mut(&QSRMerkleCmd::GetUserContractStateTreeMerkleProof(
                             QSRMerkleCmdGetUserContractStateTreeMerkleProof {
                                 checkpoint_id: self.get_current_start_checkpoint_id_u64(),
@@ -867,7 +869,6 @@ impl<R: PsyReadCommandProcessorSync<GF> + Send + Sync> PsyCmdInputWitnessResolve
                     let slot_index = c.sub_slot_index / 4u64;
                     let n = (c.sub_slot_index & 0b11) as usize;
                     let proof_0 = self
-                        .cmd_store
                         .resolve_get_merkle_proof_mut(&QSRMerkleCmd::GetUserContractStateTreeMerkleProof(
                             QSRMerkleCmdGetUserContractStateTreeMerkleProof {
                                 checkpoint_id: self.get_current_start_checkpoint_id_u64(),
@@ -879,7 +880,6 @@ impl<R: PsyReadCommandProcessorSync<GF> + Send + Sync> PsyCmdInputWitnessResolve
                         ))
                         .await?;
                     let proof_1 = self
-                        .cmd_store
                         .resolve_get_merkle_proof_mut(&QSRMerkleCmd::GetUserContractStateTreeMerkleProof(
                             QSRMerkleCmdGetUserContractStateTreeMerkleProof {
                                 checkpoint_id: self.get_current_start_checkpoint_id_u64(),
@@ -909,13 +909,12 @@ impl<R: PsyReadCommandProcessorSync<GF> + Send + Sync> PsyCmdInputWitnessResolve
                     let sub_slot_index_mod_4 = c.sub_slot_index % 4;
                     let start_slot = c.sub_slot_index / 4;
                     let mut mps = Vec::with_capacity(n_proofs as usize + 1);
-                    let mut result = Vec::<GF>::with_capacity(c.length as usize);
+                    let mut result = Vec::<F>::with_capacity(c.length as usize);
 
                     let len_minus_2_mod_4 = (c.length - 2) % 4;
 
                     for i in 0..n_proofs {
                         let mp = self
-                            .cmd_store
                             .resolve_get_merkle_proof_mut(&QSRMerkleCmd::GetUserContractStateTreeMerkleProof(
                                 QSRMerkleCmdGetUserContractStateTreeMerkleProof {
                                     checkpoint_id: self.get_current_start_checkpoint_id_u64(),
@@ -976,15 +975,19 @@ impl<R: PsyReadCommandProcessorSync<GF> + Send + Sync> PsyCmdInputWitnessResolve
             DPNStateCmd::InvokeExternalContractFunctionDeferred(c) => {
                 let call_data = DPNProvingSessionSimpleMethodCall {
                     caller_contract_id: current_contract_id,
-                    contract_id: GF::from_canonical_u64(c.contract_id),
-                    method_id: GF::from_canonical_u64(c.method_id),
-                    inputs: c.input_args.iter().map(|x| GF::from_canonical_u64(*x)).collect::<Vec<GF>>(),
+                    contract_id: F::from_canonical_u64(c.contract_id),
+                    method_id: F::from_canonical_u64(c.method_id),
+                    inputs: c.input_args.iter().map(|x| F::from_canonical_u64(*x)).collect::<Vec<F>>(),
                 };
                 if c.condition == 0 {
                     let insertion_proof_placeholder = mp_to_dmp(self.get_latest_deferred_tx_leaf()?);
                     Ok(PsyCmdWithInputAndWitness {
                         state_cmd: state_cmd.clone(),
-                        result: call_data.qfhash::<PsyHasher>().0.elements.to_vec(),
+                        result: call_data
+                            .qfhash::<<Self as PsyReadLocalProvingSessionStoreMut<F>>::Hasher>()
+                            .0
+                            .elements
+                            .to_vec(),
                         witness: DPNStateCmdWitness::InvokeExternalContractFunctionDeferred(DPNInvokeDeferredMethodCallWitness {
                             call_data,
                             insertion_proof: insertion_proof_placeholder,
@@ -995,7 +998,11 @@ impl<R: PsyReadCommandProcessorSync<GF> + Send + Sync> PsyCmdInputWitnessResolve
 
                     Ok(PsyCmdWithInputAndWitness {
                         state_cmd: state_cmd.clone(),
-                        result: call_data.qfhash::<PsyHasher>().0.elements.to_vec(),
+                        result: call_data
+                            .qfhash::<<Self as PsyReadLocalProvingSessionStoreMut<F>>::Hasher>()
+                            .0
+                            .elements
+                            .to_vec(),
                         witness: DPNStateCmdWitness::InvokeExternalContractFunctionDeferred(DPNInvokeDeferredMethodCallWitness {
                             call_data,
                             insertion_proof,
@@ -1005,12 +1012,10 @@ impl<R: PsyReadCommandProcessorSync<GF> + Send + Sync> PsyCmdInputWitnessResolve
             }
             DPNStateCmd::GetContractLeaf(c) => {
                 let contract_leaf = self
-                    .cmd_store
                     .resolve_get_contract_leaf_mut(&QSRCmdGetContractLeafData { contract_id: c.contract_id })
                     .await?;
 
                 let contract_tree_proof = self
-                    .cmd_store
                     .resolve_get_merkle_proof_mut(&QSRMerkleCmd::GetContractTreeMerkleProof(QSRMerkleCmdGetContractTreeMerkleProof {
                         checkpoint_id: self.get_current_start_checkpoint_id_u64(),
                         contract_id: c.contract_id as u32,
@@ -1033,13 +1038,12 @@ impl<R: PsyReadCommandProcessorSync<GF> + Send + Sync> PsyCmdInputWitnessResolve
                 let checkpoint_leaf_cmd = QSRCmdGetCheckpointLeafData {
                     checkpoint_id: requested_checkpoint_id,
                 };
-                let checkpoint_leaf = self.cmd_store.resolve_get_checkpoint_leaf_mut(&checkpoint_leaf_cmd).await?;
+                let checkpoint_leaf = self.resolve_get_checkpoint_leaf_mut(&checkpoint_leaf_cmd).await?;
 
                 let state_roots = self.get_checkpoint_state_roots(requested_checkpoint_id).await?;
 
                 let current_checkpoint_id = self.get_current_start_checkpoint_id_u64();
                 let historical_proof = self
-                    .cmd_store
                     .resolve_get_merkle_proof_mut(&QSRMerkleCmd::GetCheckpointTreeMerkleProof(QSRMerkleCmdGetCheckpointTreeMerkleProof {
                         checkpoint_id: current_checkpoint_id,
                         leaf_checkpoint_id: requested_checkpoint_id,
@@ -1063,7 +1067,6 @@ impl<R: PsyReadCommandProcessorSync<GF> + Send + Sync> PsyCmdInputWitnessResolve
                 let current_contract_id = self.get_current_contract_id();
 
                 let contract_leaf = self
-                    .cmd_store
                     .resolve_get_contract_leaf_mut(&QSRCmdGetContractLeafData {
                         contract_id: current_contract_id.to_canonical_u64(),
                     })
@@ -1072,7 +1075,7 @@ impl<R: PsyReadCommandProcessorSync<GF> + Send + Sync> PsyCmdInputWitnessResolve
                 let state_tree_height = contract_leaf.state_tree_height.to_canonical_u64();
 
                 if c.condition == 0 {
-                    let current_state_root = self.get_contract_state_slot(current_contract_id, GoldilocksField::ZERO).await?.root;
+                    let current_state_root = self.get_contract_state_slot(current_contract_id, F::ZERO).await?.root;
 
                     return Ok(PsyCmdWithInputAndWitness {
                         state_cmd: state_cmd.clone(),
@@ -1080,7 +1083,7 @@ impl<R: PsyReadCommandProcessorSync<GF> + Send + Sync> PsyCmdInputWitnessResolve
                             .0
                             .elements
                             .iter()
-                            .map(|x| GoldilocksField::from_noncanonical_u64(x.to_canonical_u64()))
+                            .map(|x| F::from_noncanonical_u64(x.to_canonical_u64()))
                             .collect(),
                         witness: DPNStateCmdWitness::ClearEntireTree(DPNClearEntireTreeWitness {
                             state_tree_height,
@@ -1088,18 +1091,18 @@ impl<R: PsyReadCommandProcessorSync<GF> + Send + Sync> PsyCmdInputWitnessResolve
                         }),
                     });
                 } else {
-                    let zero_hash: QHashOut<GoldilocksField> = PsyHasher::get_zero_hash(state_tree_height as usize);
+                    let zero_hash_psy =
+                        <Self as PsyReadLocalProvingSessionStoreMut<F>>::Hasher::get_zero_hash(state_tree_height as usize);
 
                     self.notify_clear_entire_tree(current_contract_id.to_canonical_u64()).await?;
 
-                    let zero_hash_felts: Vec<GoldilocksField> = zero_hash
+                    let zero_hash_felts: Vec<F> = zero_hash_psy
                         .0
                         .elements
                         .iter()
-                        .map(|x| GoldilocksField::from_noncanonical_u64(x.to_canonical_u64()))
+                        .map(|x| F::from_noncanonical_u64(x.to_canonical_u64()))
                         .collect();
-                    let mut witness_data = zero_hash_felts.clone();
-                    witness_data.push(GoldilocksField::from_noncanonical_u64(state_tree_height as u64));
+                    let zero_hash = QHashOut::from_felt_slice(&zero_hash_felts);
 
                     Ok(PsyCmdWithInputAndWitness {
                         state_cmd: state_cmd.clone(),
@@ -1116,7 +1119,7 @@ impl<R: PsyReadCommandProcessorSync<GF> + Send + Sync> PsyCmdInputWitnessResolve
 }
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, TS)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
-#[ts(export, concrete(F = GoldilocksField))]
+#[ts(export, concrete(F = PsyFelt))]
 pub struct PsyCmdWithInputAndWitness<F: RichField> {
     pub state_cmd: DPNStateCmd<u64>,
     pub witness: DPNStateCmdWitness<F>,
@@ -1126,7 +1129,6 @@ pub struct PsyCmdWithInputAndWitness<F: RichField> {
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
 pub struct PsyEvalSessionResult<F: RichField> {
-    //output: Vec<F>,
     pub cmd_witnesses: Vec<PsyCmdWithInputAndWitness<F>>,
 }
 
@@ -1135,17 +1137,21 @@ impl<F: RichField> PsyEvalSessionResult<F> {
         Self { cmd_witnesses: Vec::new() }
     }
 }
-type GF = GoldilocksField;
 
 #[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
 #[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
-impl PsyEvalSessionResult<GF> {
-    pub async fn process_state_cmd<R: PsyReadCommandProcessorSync<GF> + Send + Sync>(
+impl<F: RichField + PrimeField64> PsyEvalSessionResult<F> {
+    pub async fn process_state_cmd<S>(
         &mut self,
-        executor: &mut SimpleDPNExecutor<GF>,
-        sesh: &mut PsyLocalProvingSessionStore<GF, R>,
+        executor: &mut SimpleDPNExecutor<F>,
+        sesh: &mut S,
         cmd: &DPNStateCmd<u64>,
-    ) -> anyhow::Result<()> {
+    ) -> anyhow::Result<()>
+    where
+        S: PsyReadLocalProvingSessionStore<F>
+            + PsyReadLocalProvingSessionStoreMut<F>
+            + PsyCmdInputWitnessResolver<F, <S as PsyReadLocalProvingSessionStoreMut<F>>::Hasher>,
+    {
         let real_inputs = cmd
             .get_inputs()
             .iter()
@@ -1158,48 +1164,63 @@ impl PsyEvalSessionResult<GF> {
         Ok(())
     }
 
-    pub async fn exec_deferred_contract_call<R: PsyReadCommandProcessorSync<GF> + Send + Sync>(
+    pub async fn exec_deferred_contract_call<S>(
         self,
-        sesh: &mut PsyLocalProvingSessionStore<GF, R>,
-        contract_id: GF,
-        caller_contract_id: GF,
+        sesh: &mut S,
+        contract_id: F,
+        caller_contract_id: F,
         fn_def: &DPNFunctionCircuitDefinition,
-        inputs: Vec<GF>,
-    ) -> anyhow::Result<DapenContractFunctionCircuitInput<GF>> {
+        inputs: Vec<F>,
+    ) -> anyhow::Result<DapenContractFunctionCircuitInput<F>>
+    where
+        S: PsyReadLocalProvingSessionStore<F>
+            + PsyReadLocalProvingSessionStoreMut<F>
+            + PsyCmdInputWitnessResolver<F, <S as PsyReadLocalProvingSessionStoreMut<F>>::Hasher>,
+    {
         sesh.init_transaction(DPNProvingSessionSimpleMethodCall {
             caller_contract_id,
             contract_id,
-            method_id: GF::from_canonical_u32(fn_def.method_id),
+            method_id: F::from_canonical_u32(fn_def.method_id),
             inputs: inputs.clone(),
         })
         .await?;
         self.eval_session(fn_def, sesh, inputs).await
     }
 
-    pub async fn exec_contract_call<R: PsyReadCommandProcessorSync<GF> + Send + Sync>(
+    pub async fn exec_contract_call<S>(
         self,
-        sesh: &mut PsyLocalProvingSessionStore<GF, R>,
-        contract_id: GF,
+        sesh: &mut S,
+        contract_id: F,
         fn_def: &DPNFunctionCircuitDefinition,
-        inputs: Vec<GF>,
-    ) -> anyhow::Result<DapenContractFunctionCircuitInput<GF>> {
-        self.exec_deferred_contract_call(sesh, contract_id, GF::from_canonical_u64(DEFAULT_CALLER_CONTRACT_ID_U64), fn_def, inputs)
+        inputs: Vec<F>,
+    ) -> anyhow::Result<DapenContractFunctionCircuitInput<F>>
+    where
+        S: PsyReadLocalProvingSessionStore<F>
+            + PsyReadLocalProvingSessionStoreMut<F>
+            + PsyCmdInputWitnessResolver<F, <S as PsyReadLocalProvingSessionStoreMut<F>>::Hasher>,
+    {
+        self.exec_deferred_contract_call(sesh, contract_id, F::from_canonical_u64(DEFAULT_CALLER_CONTRACT_ID_U64), fn_def, inputs)
             .await
     }
 
-    async fn eval_session<R: PsyReadCommandProcessorSync<GF> + Send + Sync>(
+    async fn eval_session<S>(
         mut self,
         fn_def: &DPNFunctionCircuitDefinition,
-        sesh: &mut PsyLocalProvingSessionStore<GF, R>,
-        inputs: Vec<GF>,
-    ) -> anyhow::Result<DapenContractFunctionCircuitInput<GF>> {
+        sesh: &mut S,
+        inputs: Vec<F>,
+    ) -> anyhow::Result<DapenContractFunctionCircuitInput<F>>
+    where
+        S: PsyReadLocalProvingSessionStore<F>
+            + PsyReadLocalProvingSessionStoreMut<F>
+            + PsyCmdInputWitnessResolver<F, <S as PsyReadLocalProvingSessionStoreMut<F>>::Hasher>,
+    {
         let start_session_ctx = sesh.get_fresh_start_ctx_for_user(sesh.get_current_user_id()).await?;
         let call_data_ctx = sesh
-            .get_call_start_data(sesh.get_current_contract_id(), GF::from_canonical_u32(fn_def.method_id), &inputs)
+            .get_call_start_data(sesh.get_current_contract_id(), F::from_canonical_u32(fn_def.method_id), &inputs)
             .await?;
 
         let inputs_clone = inputs.clone();
-        let mut executor = SimpleDPNExecutor::<GF>::new_with_contract_ctx(
+        let mut executor = SimpleDPNExecutor::<F>::new_with_contract_ctx(
             inputs,
             sesh.get_current_user_id(),
             sesh.get_current_contract_id(),
@@ -1251,14 +1272,14 @@ impl PsyEvalSessionResult<GF> {
                 anyhow::bail!("assertion failed: {} (left: {}, right: {})", assertion.message, left, right);
             }
         }
-        let outputs = fn_def.circuit_outputs.iter().map(|x| executor.resolve_target(*x)).collect::<Vec<GF>>();
+        let outputs = fn_def.circuit_outputs.iter().map(|x| executor.resolve_target(*x)).collect::<Vec<F>>();
         let end_ctx = DapenCFCUserTransactionEndContext {
-            end_contract_state_tree_root: sesh.get_contract_state_slot(sesh.get_current_contract_id(), GF::ZERO).await?.root,
+            end_contract_state_tree_root: sesh.get_contract_state_slot(sesh.get_current_contract_id(), F::ZERO).await?.root,
             end_deferred_tx_debt_tree_root: sesh.get_latest_deferred_tx_leaf()?.root,
-            outputs_hash: safe_hash_fixed_length::<PsyHasher, GF>(&outputs),
-            outputs_length: GF::from_noncanonical_u64(outputs.len() as u64),
-            total_events_emitted: GF::from_noncanonical_u64(0),
-            total_balance_spent: GF::from_noncanonical_u64(0),
+            outputs_hash: safe_hash_fixed_length::<<S as PsyReadLocalProvingSessionStoreMut<F>>::Hasher, F>(&outputs),
+            outputs_length: F::from_noncanonical_u64(outputs.len() as u64),
+            total_events_emitted: F::from_noncanonical_u64(0),
+            total_balance_spent: F::from_noncanonical_u64(0),
         };
         let input_ctx = DapenCFCUserTransactionInputContext {
             proving_session_start_ctx: start_session_ctx,

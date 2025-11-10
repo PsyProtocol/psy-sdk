@@ -23,15 +23,15 @@ use psy_config::{
     MINING_REWARDS_CONTRACT_ID, PSY_NETWORK_MAGIC,
 };
 use psy_crypto::{
-    hash::traits::{hasher::MerkleZeroHasher, qhashable::QFieldHashable},
+    hash::traits::{hasher::{MerkleZeroHasher, MerkleZeroHasherWithMarkedLeaf}, qhashable::QFieldHashable},
     signature::zk::data::ZKPublicKeyInfo,
 };
 use psy_data::{
-    config::store_config::PsyHasher,
+    config::store_config::{PsyHasher, PsyHash},
     qblock::cmds::deploy_contract::QBCDeployContract,
     qdata::{checkpoint::PsyBlockState, contract::ContractCodeDefinition, user_contract_state::UserContractState},
     qstore::{
-        controllers::{proving_session::PsyLocalProvingSessionStore, session_info::SessionCircuitInfoStore},
+        controllers::{proving_session::{PsyLocalProvingSessionStore, PsyReadLocalProvingSessionStore}, session_info::SessionCircuitInfoStore},
         imm::{
             cmd::{QSRCmdGetContractCodeDefinition, QSRCmdGetUserLeafData, QSRHashCmd, QSRHashCmdGetUserContractStateTreeRoot},
             cmd_processor::{PsyReadCommandProcessorSync, PsyReadCommandProcessorSyncMut},
@@ -77,14 +77,14 @@ use crate::{
 
 trait UPSWithTreeRecursionTrait<C: GenericConfig<D>, const D: usize>: UPSCircuitManager<C, D> + PortableQTreeRecursion<C, D> + Send + Sync
 where
-    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasher<QHashOut<C::F>>,
+    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasherWithMarkedLeaf<HashOut<C::F>> + MerkleZeroHasherWithMarkedLeaf<QHashOut<C::F>>,
 {
 }
 
 impl<T, C: GenericConfig<D>, const D: usize> UPSWithTreeRecursionTrait<C, D> for T
 where
     T: UPSCircuitManager<C, D> + PortableQTreeRecursion<C, D> + Send + Sync,
-    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasher<QHashOut<C::F>>,
+    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasherWithMarkedLeaf<HashOut<C::F>> + MerkleZeroHasherWithMarkedLeaf<QHashOut<C::F>>,
 {
 }
 
@@ -198,7 +198,7 @@ impl UserSessionStateManager {
             checkpoint_id
         );
         let mgr =
-            UserProvingSessionManager::<F, PsyHasher, _, C, D>::new(lps, circuit_info, main_circuits.ups_circuit_whitelist_root().await?).await?;
+            UserProvingSessionManager::<F, _, _, C, D>::new(lps, circuit_info, main_circuits.ups_circuit_whitelist_root().await?).await?;
 
         Ok(UserSessionStateManager {
             user_state: UserState::Active,
@@ -225,7 +225,7 @@ impl UserSessionStateManager {
         );
 
         tracing::info!("create ups manager");
-        let mgr = UserProvingSessionManager::<F, PsyHasher, _, C, D>::new_dummy(lps, circuit_info).await?;
+        let mgr = UserProvingSessionManager::<F, _, _, C, D>::new_dummy(lps, circuit_info).await?;
 
         Ok(UserSessionStateManager {
             user_state,
@@ -718,9 +718,7 @@ impl WalletSession {
             user_session_mgr
                 .mgr
                 .lps
-                .transaction_records
-                .last()
-                .unwrap()
+                .last_transaction_record()
                 .start_contract_state_tree_root,
             self.st_provider.get_checkpoint_tree_root(user_session_mgr.current_checkpoint_id).await?,
         ))
@@ -737,7 +735,6 @@ impl WalletSession {
         let user_leaf = user_session_mgr
             .mgr
             .lps
-            .cmd_store
             .resolve_get_user_leaf_mut(&QSRCmdGetUserLeafData { checkpoint_id, user_id })
             .await?;
 
@@ -746,9 +743,7 @@ impl WalletSession {
         let transaction_record = user_session_mgr
             .mgr
             .lps
-            .transaction_records
-            .last()
-            .ok_or_else(|| anyhow::format_err!("you must exec at least one contract call before sign"))?;
+            .last_transaction_record();
 
         let circuit_inputs = call_data.inputs.iter().map(|x| F::from_noncanonical_u64(*x)).collect::<Vec<_>>();
 
@@ -762,8 +757,8 @@ impl WalletSession {
 
         let state_reader: StateReader<F, 2, RpcProvider> = StateReader::new(
             user_contract_state,
-            user_session_mgr.mgr.lps.cmd_store.clone(),
-            user_session_mgr.mgr.lps.state_tree_store.clone(),
+            user_session_mgr.mgr.lps.clone_cmd_store(),
+            user_session_mgr.mgr.lps.clone_state_tree_store(),
         )
         .await;
 

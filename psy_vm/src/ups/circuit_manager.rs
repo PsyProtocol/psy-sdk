@@ -16,7 +16,7 @@ use psy_crypto::{
     },
     hash::{
         merkle::core::{DeltaMerkleProofCore, MerkleProofCore},
-        traits::{hasher::MerkleZeroHasher, qhashable::QFieldHashable},
+        traits::{hasher::MerkleZeroHasherWithMarkedLeaf, qhashable::QFieldHashable},
     },
     signature::secp256k1::core::PsyCompressedSecp256K1Signature,
 };
@@ -41,7 +41,7 @@ use crate::{
 #[cfg_attr(target_arch = "wasm32", maybe_async(?Send))]
 pub trait UPSCircuitManager<C: GenericConfig<D>, const D: usize>: Send + Sync + PortableQTreeRecursion<C, D>
 where
-    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasher<QHashOut<C::F>>,
+    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasherWithMarkedLeaf<HashOut<C::F>> + MerkleZeroHasherWithMarkedLeaf<QHashOut<C::F>>,
 {
     async fn register_info(&self, info_store: &mut SessionCircuitInfoStore<C::F>);
     async fn prove_ups_start(&self, input: &UPSStartStepInput<C::F>) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>>;
@@ -143,7 +143,7 @@ where
 impl<C: GenericConfig<D>, const D: usize, T> UPSCircuitManager<C, D> for &T
 where
     T: UPSCircuitManager<C, D> + Sync,
-    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasher<QHashOut<C::F>>,
+    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasherWithMarkedLeaf<HashOut<C::F>> + MerkleZeroHasherWithMarkedLeaf<QHashOut<C::F>>,
 {
     async fn register_info(&self, info_store: &mut SessionCircuitInfoStore<C::F>) {
         (**self).register_info(info_store).await
@@ -315,7 +315,7 @@ where
 #[cfg_attr(target_arch = "wasm32", maybe_async(?Send))]
 impl<C: GenericConfig<D>, const D: usize> UPSCircuitManager<C, D> for Box<dyn UPSCircuitManager<C, D>>
 where
-    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasher<QHashOut<C::F>>,
+    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasherWithMarkedLeaf<HashOut<C::F>> + MerkleZeroHasherWithMarkedLeaf<QHashOut<C::F>>,
 {
     async fn register_info(&self, info_store: &mut SessionCircuitInfoStore<C::F>) {
         (**self).register_info(info_store).await
@@ -488,7 +488,7 @@ where
 pub trait PortableQTreeRecursion<C: GenericConfig<D>, const D: usize>:
     PortableQTreeRecursionCircuitsData<C, D> + PortableQTreeRecursionCircuitsProve<C, D>
 where
-    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasher<QHashOut<C::F>>,
+    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasherWithMarkedLeaf<HashOut<C::F>> + MerkleZeroHasherWithMarkedLeaf<QHashOut<C::F>>,
 {
     async fn circuit_inclusion_proofs(&self) -> &SimpleQTreeRecursionManagerInclusionProofs<C::F>;
 }
@@ -497,7 +497,7 @@ where
 #[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
 pub trait PortableQTreeRecursionCircuitsData<C: GenericConfig<D>, const D: usize>
 where
-    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasher<QHashOut<C::F>>,
+    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasherWithMarkedLeaf<HashOut<C::F>> + MerkleZeroHasherWithMarkedLeaf<QHashOut<C::F>>,
 {
     async fn single_leaf_circuit_fingerprint(&self) -> QHashOut<C::F>;
     async fn two_leaf_circuit_fingerprint(&self) -> QHashOut<C::F>;
@@ -515,7 +515,7 @@ where
 #[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
 pub trait PortableQTreeRecursionCircuitsProve<C: GenericConfig<D>, const D: usize>
 where
-    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasher<QHashOut<C::F>>,
+    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasherWithMarkedLeaf<HashOut<C::F>> + MerkleZeroHasherWithMarkedLeaf<QHashOut<C::F>>,
 {
     async fn get_verifier_data_by_type(&self, circuit_type: QStandardBinaryTreeCircuitType) -> VerifierOnlyCircuitData<C, D>;
     async fn prove_single_leaf_circuit(
@@ -574,7 +574,7 @@ where
 impl<T, C: GenericConfig<D>, const D: usize> PortableQTreeRecursionCircuitsData<C, D> for &T
 where
     T: PortableQTreeRecursionCircuitsData<C, D> + Sync,
-    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasher<QHashOut<C::F>>,
+    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasherWithMarkedLeaf<HashOut<C::F>> + MerkleZeroHasherWithMarkedLeaf<QHashOut<C::F>>,
 {
     async fn single_leaf_circuit_fingerprint(&self) -> QHashOut<C::F> {
         (**self).single_leaf_circuit_fingerprint().await
@@ -613,7 +613,7 @@ where
 impl<T, C: GenericConfig<D>, const D: usize> PortableQTreeRecursionCircuitsProve<C, D> for &T
 where
     T: PortableQTreeRecursionCircuitsProve<C, D> + Sync,
-    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasher<QHashOut<C::F>>,
+    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasherWithMarkedLeaf<HashOut<C::F>> + MerkleZeroHasherWithMarkedLeaf<QHashOut<C::F>>,
 {
     async fn get_verifier_data_by_type(&self, circuit_type: QStandardBinaryTreeCircuitType) -> VerifierOnlyCircuitData<C, D> {
         (**self).get_verifier_data_by_type(circuit_type).await
@@ -726,7 +726,7 @@ where
 impl<T, C: GenericConfig<D>, const D: usize> PortableQTreeRecursion<C, D> for &T
 where
     T: PortableQTreeRecursion<C, D> + Sync,
-    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasher<QHashOut<C::F>>,
+    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasherWithMarkedLeaf<HashOut<C::F>> + MerkleZeroHasherWithMarkedLeaf<QHashOut<C::F>>,
 {
     async fn circuit_inclusion_proofs(&self) -> &SimpleQTreeRecursionManagerInclusionProofs<C::F> {
         (**self).circuit_inclusion_proofs().await
@@ -738,7 +738,7 @@ where
 #[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
 impl<C: GenericConfig<D>, const D: usize> PortableQTreeRecursion<C, D> for Box<dyn UPSCircuitManager<C, D>>
 where
-    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasher<QHashOut<C::F>>,
+    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasherWithMarkedLeaf<HashOut<C::F>> + MerkleZeroHasherWithMarkedLeaf<QHashOut<C::F>>,
 {
     async fn circuit_inclusion_proofs(&self) -> &SimpleQTreeRecursionManagerInclusionProofs<C::F> {
         (**self).circuit_inclusion_proofs().await
@@ -749,7 +749,7 @@ where
 #[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
 impl<C: GenericConfig<D>, const D: usize> PortableQTreeRecursionCircuitsData<C, D> for Box<dyn UPSCircuitManager<C, D>>
 where
-    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasher<QHashOut<C::F>>,
+    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasherWithMarkedLeaf<HashOut<C::F>> + MerkleZeroHasherWithMarkedLeaf<QHashOut<C::F>>,
 {
     async fn single_leaf_circuit_fingerprint(&self) -> QHashOut<C::F> {
         (**self).single_leaf_circuit_fingerprint().await
@@ -787,7 +787,7 @@ where
 #[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
 impl<C: GenericConfig<D>, const D: usize> PortableQTreeRecursionCircuitsProve<C, D> for Box<dyn UPSCircuitManager<C, D>>
 where
-    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasher<QHashOut<C::F>>,
+    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasherWithMarkedLeaf<HashOut<C::F>> + MerkleZeroHasherWithMarkedLeaf<QHashOut<C::F>>,
 {
     async fn get_verifier_data_by_type(&self, circuit_type: QStandardBinaryTreeCircuitType) -> VerifierOnlyCircuitData<C, D> {
         (**self).get_verifier_data_by_type(circuit_type).await

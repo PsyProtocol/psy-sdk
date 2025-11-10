@@ -4,17 +4,17 @@ use kvq::{
     adapters::standard::KVQStandardAdapter,
     traits::{KVQSerializable, KVQStoreAdapter},
 };
-use plonky2::hash::hash_types::RichField;
+use plonky2::{hash::hash_types::RichField, plonk::config::AlgebraicHasher};
 use psy_common::data::qhashout::QHashOut;
 use psy_crypto::hash::{
     merkle::core::{DeltaMerkleProofCore, MerkleProofCore},
-    traits::qhashable::QFieldHashable,
+    traits::{hasher::FieldQHasher, qhashable::QFieldHashable},
 };
+use psy_crypto::hash::traits::hasher::MerkleZeroHasherWithMarkedLeaf;
 use serde::{Deserialize, Serialize};
 
 use super::config::{LocalProvingSessionTreeStore, LOCAL_PROVING_SESSION_TREE_TABLE_TYPE};
 use crate::{
-    config::store_config::{PsyFelt, PsyHash, PsyHasher},
     dpn::proving_session::DPNTransactionDebtItem,
     models::kvq_merkle::{
         key::KVQMerkleNodeKey,
@@ -22,20 +22,20 @@ use crate::{
     },
 };
 
-type GF = PsyFelt;
-type QHasher = PsyHasher;
 #[derive(Serialize)]
 #[serde(bound = "for<'de2> TX: Deserialize<'de2>")]
 pub struct TransactionDebtTreeRef<
+    const HEIGHT: u8,
+    const TREE_ID: u8,
     S,
     TX: QFieldHashable<F> + Serialize,
     F: RichField,
-    const HEIGHT: u8,
-    const TREE_ID: u8,
-    IDKVA = KVQStandardAdapter<S, KVQMerkleNodeKey<{ LOCAL_PROVING_SESSION_TREE_TABLE_TYPE }>, PsyHash>,
+    H: MerkleZeroHasherWithMarkedLeaf<QHashOut<F>>,
+    IDKVA = KVQStandardAdapter<S, KVQMerkleNodeKey<{ LOCAL_PROVING_SESSION_TREE_TABLE_TYPE }>, QHashOut<F>>,
 > {
     _tx: PhantomData<TX>,
     _f: PhantomData<F>,
+    _h: PhantomData<H>,
     #[serde(skip)]
     _adapter: PhantomData<(S, IDKVA)>,
     next_index: u64,
@@ -44,18 +44,20 @@ pub struct TransactionDebtTreeRef<
 }
 
 impl<
+        const HEIGHT: u8,
+        const TREE_ID: u8,
         S,
         TX: KVQSerializable + QFieldHashable<F> + Serialize,
         F: RichField,
-        const HEIGHT: u8,
-        const TREE_ID: u8,
-        IDKVA: KVQStoreAdapter<S, KVQMerkleNodeKey<{ LOCAL_PROVING_SESSION_TREE_TABLE_TYPE }>, PsyHash>,
-    > TransactionDebtTreeRef<S, TX, F, HEIGHT, TREE_ID, IDKVA>
+        H: MerkleZeroHasherWithMarkedLeaf<QHashOut<F>>,
+        IDKVA: KVQStoreAdapter<S, KVQMerkleNodeKey<{ LOCAL_PROVING_SESSION_TREE_TABLE_TYPE }>, QHashOut<F>>,
+    > TransactionDebtTreeRef<HEIGHT, TREE_ID, S, TX, F, H, IDKVA>
 {
     pub fn new(checkpoint_id: u64) -> Self {
         Self {
             _tx: PhantomData::default(),
             _f: PhantomData::default(),
+            _h: PhantomData::default(),
             _adapter: PhantomData::default(),
             next_index: 0,
             checkpoint_id,
@@ -104,25 +106,27 @@ impl<
 }
 
 impl<
-        S,
-        TX: KVQSerializable + QFieldHashable<GF> + Serialize,
         const HEIGHT: u8,
         const TREE_ID: u8,
-        IDKVA: KVQStoreAdapter<S, KVQMerkleNodeKey<{ LOCAL_PROVING_SESSION_TREE_TABLE_TYPE }>, PsyHash>,
-    > TransactionDebtTreeRef<S, TX, GF, HEIGHT, TREE_ID, IDKVA>
+        S,
+        TX: KVQSerializable + QFieldHashable<F> + Serialize,
+        F: RichField,
+        H: MerkleZeroHasherWithMarkedLeaf<QHashOut<F>> + FieldQHasher<F>,
+        IDKVA: KVQStoreAdapter<S, KVQMerkleNodeKey<{ LOCAL_PROVING_SESSION_TREE_TABLE_TYPE }>, QHashOut<F>>,
+    > TransactionDebtTreeRef<HEIGHT, TREE_ID, S, TX, F, H, IDKVA>
 {
-    pub fn get_latest_tx_debt_leaf(&self, store: &S) -> anyhow::Result<MerkleProofCore<QHashOut<GF>>> {
+    pub fn get_latest_tx_debt_leaf(&self, store: &S) -> anyhow::Result<MerkleProofCore<QHashOut<F>>> {
         self.get_tx_debt_leaf(store, self.get_latest_index())
     }
-    pub fn get_tx_debt_leaf(&self, store: &S, leaf_index: u64) -> anyhow::Result<MerkleProofCore<QHashOut<GF>>> {
-        LocalProvingSessionTreeStore::<S, TREE_ID, HEIGHT, IDKVA>::get_leaf_fc(store, self.checkpoint_id, leaf_index)
+    pub fn get_tx_debt_leaf(&self, store: &S, leaf_index: u64) -> anyhow::Result<MerkleProofCore<QHashOut<F>>> {
+        LocalProvingSessionTreeStore::<TREE_ID, HEIGHT, S, F, H, IDKVA>::get_leaf_fc(store, self.checkpoint_id, leaf_index)
     }
-    pub fn add_tx_debt(&mut self, store: &S, call_data: TX) -> anyhow::Result<DeltaMerkleProofCore<QHashOut<GF>>> {
+    pub fn add_tx_debt(&mut self, store: &S, call_data: TX) -> anyhow::Result<DeltaMerkleProofCore<QHashOut<F>>> {
         let new_index = self.next_index as u64;
         self.next_index += 1;
-        let hash = call_data.qfhash::<QHasher>();
+        let hash = call_data.qfhash::<H>();
 
-        let insertion_proof = LocalProvingSessionTreeStore::<S, TREE_ID, HEIGHT, IDKVA>::set_leaf_fc(store, self.checkpoint_id, new_index, hash)?;
+        let insertion_proof = LocalProvingSessionTreeStore::<TREE_ID, HEIGHT, S, F, H, IDKVA>::set_leaf_fc(store, self.checkpoint_id, new_index, hash)?;
         let debt_item = DPNTransactionDebtItem {
             call_data,
             tree_index: new_index,
@@ -133,12 +137,12 @@ impl<
         Ok(insertion_proof)
     }
 
-    pub fn add_tx_debt_imm(&mut self, store: &S, call_data: TX) -> anyhow::Result<DeltaMerkleProofCore<QHashOut<GF>>> {
+    pub fn add_tx_debt_imm(&mut self, store: &S, call_data: TX) -> anyhow::Result<DeltaMerkleProofCore<QHashOut<F>>> {
         let new_index = self.next_index as u64;
         self.next_index += 1;
-        let hash = call_data.qfhash::<QHasher>();
+        let hash = call_data.qfhash::<H>();
 
-        let insertion_proof = LocalProvingSessionTreeStore::<S, TREE_ID, HEIGHT, IDKVA>::set_leaf_fc(store, self.checkpoint_id, new_index, hash)?;
+        let insertion_proof = LocalProvingSessionTreeStore::<TREE_ID, HEIGHT, S, F, H, IDKVA>::set_leaf_fc(store, self.checkpoint_id, new_index, hash)?;
         let debt_item = DPNTransactionDebtItem {
             call_data,
             tree_index: new_index,
@@ -152,11 +156,11 @@ impl<
         &mut self,
         store: &S,
         tree_leaf_index: u64,
-    ) -> anyhow::Result<(DPNTransactionDebtItem<TX, GF>, DeltaMerkleProofCore<QHashOut<GF>>)> {
+    ) -> anyhow::Result<(DPNTransactionDebtItem<TX, F>, DeltaMerkleProofCore<QHashOut<F>>)> {
         let removed = self.remove_proof_debt_item_by_tree_index_u64(tree_leaf_index);
         match removed {
             Some(item) => {
-                let removal_proof = LocalProvingSessionTreeStore::<S, TREE_ID, HEIGHT, IDKVA>::set_leaf_fc(
+                let removal_proof = LocalProvingSessionTreeStore::<TREE_ID, HEIGHT, S, F, H, IDKVA>::set_leaf_fc(
                     store,
                     self.checkpoint_id,
                     tree_leaf_index,
@@ -181,11 +185,11 @@ impl<
         &mut self,
         store: &S,
         tree_leaf_index: u64,
-    ) -> anyhow::Result<(DPNTransactionDebtItem<TX, GF>, DeltaMerkleProofCore<QHashOut<GF>>)> {
+    ) -> anyhow::Result<(DPNTransactionDebtItem<TX, F>, DeltaMerkleProofCore<QHashOut<F>>)> {
         let removed = self.remove_proof_debt_item_by_tree_index_u64(tree_leaf_index);
         match removed {
             Some(item) => {
-                let removal_proof = LocalProvingSessionTreeStore::<S, TREE_ID, HEIGHT, IDKVA>::set_leaf_fc(
+                let removal_proof = LocalProvingSessionTreeStore::<TREE_ID, HEIGHT, S, F, H, IDKVA>::set_leaf_fc(
                     store,
                     self.checkpoint_id,
                     tree_leaf_index,

@@ -4,6 +4,7 @@ use fred::prelude::*;
 use kvq::memory::simple::KVQSimpleMemoryBackingStore;
 use plonky2::{
     field::{goldilocks_field::GoldilocksField, types::Field},
+    hash::poseidon::PoseidonHash,
     plonk::config::PoseidonGoldilocksConfig,
 };
 use psy_common::{
@@ -243,7 +244,7 @@ async fn run_test3() -> anyhow::Result<()> {
     contract_helper.register_funcs(0, &mut circuit_info);
 
     let mut mgr =
-        UserProvingSessionManager::<GoldilocksField, PsyHasher, _, C, D>::new(lps, circuit_info, main_circuits.ups_circuit_whitelist_root().await?)
+        UserProvingSessionManager::<GoldilocksField, PoseidonHash, _, C, D>::new(lps, circuit_info, main_circuits.ups_circuit_whitelist_root().await?)
             .await?;
 
     timer.lap("setup mgr");

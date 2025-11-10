@@ -471,7 +471,7 @@ impl<F: RichField> VariableHeightDeltaMerkleProofOpt<F> {
 #[cfg(test)]
 mod tests {
     use plonky2::{
-        field::types::{Field, PrimeField64},
+        field::{types::{Field, PrimeField64}, goldilocks_field::GoldilocksField},
         hash::poseidon::PoseidonHash,
         iop::{
             target::Target,
@@ -499,7 +499,7 @@ mod tests {
 
     const D: usize = 2;
     type C = PoseidonGoldilocksConfig;
-    type F = <C as GenericConfig<D>>::F;
+    type F = GoldilocksField;
 
     struct TestVariableHeightDeltaMerkleProofCircuit {
         pub variable_delta_merkle_proof_gadget: VariableHeightDeltaMerkleProofOptGadget,
@@ -977,7 +977,7 @@ mod tests {
 
     #[test]
     fn test_variable_height_delta_merkle_proof_opt() -> anyhow::Result<()> {
-        use psy_data::config::store_config::PsyHasher;
+        use psy_data::config::store_config::{PsyHasher, PsyFelt};
 
         use super::{VariableHeightDeltaMerkleProofOpt, VariableHeightDeltaMerkleProofOptGadget};
         let max_height = 4;
@@ -997,7 +997,7 @@ mod tests {
         let mut builder = CircuitBuilder::<F, D>::new(config);
 
         let variable_height_delta_merkle_proof_opt_gadget =
-            VariableHeightDeltaMerkleProofOptGadget::add_virtual_to_full_with_subtree_root_index::<PsyHasher, F, D>(&mut builder, max_height, None);
+            VariableHeightDeltaMerkleProofOptGadget::add_virtual_to_full_with_subtree_root_index::<PsyHasher, GoldilocksField, D>(&mut builder, max_height, None);
 
         let old_root_target = builder.constant_hash(expected_old_root.0.clone());
         let new_root_target = builder.constant_hash(expected_new_root.0.clone());

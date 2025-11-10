@@ -35,7 +35,7 @@ use psy_crypto::{
             core::{DeltaMerkleProofCore, MerkleProofCore},
             utils::simple_merkle_tree::SimpleMerkleTree,
         },
-        traits::hasher::MerkleZeroHasher,
+        traits::hasher::MerkleZeroHasherWithMarkedLeaf,
     },
     signature::secp256k1::core::PsyCompressedSecp256K1Signature,
 };
@@ -63,7 +63,7 @@ use serde::Serialize;
 #[derive(Debug)]
 pub struct PsyUPSStepCircuitManager<C: GenericConfig<D> + 'static, const D: usize>
 where
-    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasher<QHashOut<C::F>>,
+    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasherWithMarkedLeaf<HashOut<C::F>> + MerkleZeroHasherWithMarkedLeaf<QHashOut<C::F>>,
 {
     pub ups_start: UPSStartSessionCircuit<C, D>,
     pub proof_tree_agg_circuits: PortableQTreeRecursionCircuits<C, D>,
@@ -85,7 +85,7 @@ where
 
 impl<C: GenericConfig<D> + 'static, const D: usize> PsyUPSStepCircuitManager<C, D>
 where
-    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasher<QHashOut<C::F>>,
+    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasherWithMarkedLeaf<HashOut<C::F>> + MerkleZeroHasherWithMarkedLeaf<QHashOut<C::F>>,
 {
     pub fn new_with_config(
         //coset_gate: &GateRef<C::F, D>,
@@ -180,7 +180,7 @@ where
 #[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
 impl<C: GenericConfig<D> + 'static + Serialize, const D: usize> UPSCircuitManager<C, D> for PsyUPSStepCircuitManager<C, D>
 where
-    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasher<QHashOut<C::F>>,
+    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasherWithMarkedLeaf<HashOut<C::F>> + MerkleZeroHasherWithMarkedLeaf<QHashOut<C::F>>,
 {
     async fn register_info(&self, info_store: &mut SessionCircuitInfoStore<C::F>) {
         info_store.register_circuit(
@@ -423,7 +423,7 @@ pub fn register_qtree_recursion_circuits<C: GenericConfig<D>, const D: usize>(
     circuit_set: &QStandardBinaryRecursionTreeCircuitSet<C, D>,
     info_store: &mut SessionCircuitInfoStore<C::F>,
 ) where
-    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>>,
+    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasherWithMarkedLeaf<HashOut<C::F>>,
 {
     info_store.register_circuit(
         LocalCircuitType::PTAggSingle.into(),
@@ -481,7 +481,7 @@ pub fn register_qtree_recursion_circuits_whitelist_proofs<F: RichField>(
 #[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
 impl<C: GenericConfig<D>, const D: usize> PortableQTreeRecursionCircuitsData<C, D> for PsyUPSStepCircuitManager<C, D>
 where
-    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasher<QHashOut<C::F>>,
+    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasherWithMarkedLeaf<HashOut<C::F>> + MerkleZeroHasherWithMarkedLeaf<QHashOut<C::F>>,
 {
     async fn single_leaf_circuit_fingerprint(&self) -> QHashOut<C::F> {
         self.proof_tree_agg_circuits.single_leaf_circuit_fingerprint().await
@@ -528,7 +528,7 @@ where
 #[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
 impl<C: GenericConfig<D>, const D: usize> PortableQTreeRecursionCircuitsProve<C, D> for PsyUPSStepCircuitManager<C, D>
 where
-    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasher<QHashOut<C::F>>,
+    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasherWithMarkedLeaf<HashOut<C::F>> + MerkleZeroHasherWithMarkedLeaf<QHashOut<C::F>>,
 {
     async fn get_verifier_data_by_type(
         &self,
@@ -648,7 +648,7 @@ where
 #[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
 impl<C: GenericConfig<D>, const D: usize> PortableQTreeRecursion<C, D> for PsyUPSStepCircuitManager<C, D>
 where
-    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasher<QHashOut<C::F>>,
+    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasherWithMarkedLeaf<HashOut<C::F>> + MerkleZeroHasherWithMarkedLeaf<QHashOut<C::F>>,
 {
     async fn circuit_inclusion_proofs(&self) -> &SimpleQTreeRecursionManagerInclusionProofs<C::F> {
         &self.proof_tree_agg_circuits.circuit_inclusion_proofs

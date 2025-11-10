@@ -7,8 +7,8 @@ use crate::qdata::{realm_id_key::RealmTableIdKey, realm_status::BasicRealmStatus
 
 pub trait RealmStatusModelReaderCore<
     const TABLE_TYPE: u16,
-    F: RichField,
     S,
+    F: RichField,
     IDKVA: KVQStoreAdapterReader<S, RealmTableIdKey<TABLE_TYPE>, BasicRealmStatus<F>>,
 >
 {
@@ -22,8 +22,8 @@ pub trait RealmStatusModelReaderCore<
     }
 }
 
-pub trait RealmStatusModelCore<const TABLE_TYPE: u16, F: RichField, S, IDKVA: KVQStoreAdapter<S, RealmTableIdKey<TABLE_TYPE>, BasicRealmStatus<F>>>:
-    RealmStatusModelReaderCore<TABLE_TYPE, F, S, IDKVA>
+pub trait RealmStatusModelCore<const TABLE_TYPE: u16, S, F: RichField, IDKVA: KVQStoreAdapter<S, RealmTableIdKey<TABLE_TYPE>, BasicRealmStatus<F>>>:
+    RealmStatusModelReaderCore<TABLE_TYPE, S, F, IDKVA>
 {
     fn set_realm_status(store: &S, realm_id: u64, realm_status: BasicRealmStatus<F>) -> anyhow::Result<()> {
         let key_id = RealmTableIdKey::new(realm_id);
@@ -37,17 +37,17 @@ pub trait RealmStatusModelCore<const TABLE_TYPE: u16, F: RichField, S, IDKVA: KV
     }
 }
 
-pub struct RealmStatusModel<const TABLE_TYPE: u16, F: RichField, S, IDKVA> {
+pub struct RealmStatusModel<const TABLE_TYPE: u16, S, F: RichField, IDKVA> {
     _idkva: IDKVA,
     _store: S,
     _phantom_data: PhantomData<F>,
 }
 
-impl<const TABLE_TYPE: u16, F: RichField, S, IDKVA: KVQStoreAdapterReader<S, RealmTableIdKey<TABLE_TYPE>, BasicRealmStatus<F>>>
-    RealmStatusModelReaderCore<TABLE_TYPE, F, S, IDKVA> for RealmStatusModel<TABLE_TYPE, F, S, IDKVA>
+impl<const TABLE_TYPE: u16, S, F: RichField, IDKVA: KVQStoreAdapterReader<S, RealmTableIdKey<TABLE_TYPE>, BasicRealmStatus<F>>>
+    RealmStatusModelReaderCore<TABLE_TYPE, S, F, IDKVA> for RealmStatusModel<TABLE_TYPE, S, F, IDKVA>
 {
 }
-impl<const TABLE_TYPE: u16, F: RichField, S, IDKVA: KVQStoreAdapter<S, RealmTableIdKey<TABLE_TYPE>, BasicRealmStatus<F>>>
-    RealmStatusModelCore<TABLE_TYPE, F, S, IDKVA> for RealmStatusModel<TABLE_TYPE, F, S, IDKVA>
+impl<const TABLE_TYPE: u16, S, F: RichField, IDKVA: KVQStoreAdapter<S, RealmTableIdKey<TABLE_TYPE>, BasicRealmStatus<F>>>
+    RealmStatusModelCore<TABLE_TYPE, S, F, IDKVA> for RealmStatusModel<TABLE_TYPE, S, F, IDKVA>
 {
 }

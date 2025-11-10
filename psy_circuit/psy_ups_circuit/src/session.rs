@@ -26,7 +26,7 @@ use psy_crypto::{
         proof_data::{InputLeafProof, TreeAwareTreeProofRecord},
     },
     hash::traits::{
-        hasher::{FieldQHasher, MerkleZeroHasher},
+        hasher::{FieldQHasher, MerkleZeroHasher, MerkleZeroHasherWithMarkedLeaf},
         qhashable::QFieldHashable,
     },
 };
@@ -45,7 +45,9 @@ use psy_data::{
     },
     qstore::{
         controllers::{
-            proving_session::PsyLocalProvingSessionStore, session_info::SessionCircuitInfoStore, state_tracker::PsyUserSessionUpdateHistory,
+            proving_session::{PsyLocalProvingSessionStore, PsyReadLocalProvingSessionStore},
+            session_info::SessionCircuitInfoStore,
+            state_tracker::PsyUserSessionUpdateHistory,
         },
         imm::{
             cache::PsyCmdStoreWithCache,
@@ -56,6 +58,7 @@ use psy_data::{
             cmd_processor::{PsyReadCommandProcessorSync, PsyReadCommandProcessorSyncMut},
         },
     },
+    traits::qdatastore::qtreedata::PsyComboDataStoreReaderSync,
     ups::{
         start_step::UPSStartStepInput,
         ups_cfc_standard_step::{UPSCFCDeferredTransactionCircuitInput, UPSCFCStandardTransactionCircuitInput},
@@ -81,12 +84,12 @@ const ZK_SIG_LEAF_TYPE: u64 = 3;
 
 pub struct UserProvingSessionManager<
     F: RichField + Extendable<D>,
-    H: MerkleZeroHasher<QHashOut<F>> + MerkleZeroHasher<HashOut<F>> + AlgebraicHasher<F>,
-    R: PsyReadCommandProcessorSync<F> + psy_data::traits::qdatastore::qtreedata::PsyComboDataStoreReaderSync<F> + Send + Sync,
+    H: MerkleZeroHasherWithMarkedLeaf<HashOut<F>> + MerkleZeroHasherWithMarkedLeaf<QHashOut<F>> + AlgebraicHasher<F> + Send,
+    R: PsyReadCommandProcessorSync<F> + PsyComboDataStoreReaderSync<F> + Send + Sync,
     C: GenericConfig<D, F = F, Hasher = H>,
     const D: usize,
 > {
-    pub lps: PsyLocalProvingSessionStore<F, R>,
+    pub lps: PsyLocalProvingSessionStore<F, R, H>,
     circuit_info: SessionCircuitInfoStore<F>,
     pub proof_tree_state: PortableQTreeRecursionManager<C, D>,
     pub current_ups_header: UserProvingSessionHeader<F>,
@@ -104,8 +107,8 @@ const D: usize = 2;
 #[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
 #[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
 impl<
-        H: MerkleZeroHasher<QHashOut<F>> + MerkleZeroHasher<HashOut<F>> + AlgebraicHasher<F> + FieldQHasher<F>,
-        R: PsyReadCommandProcessorSync<F> + psy_data::traits::qdatastore::qtreedata::PsyComboDataStoreReaderSync<F> + Send + Sync,
+        H: MerkleZeroHasherWithMarkedLeaf<HashOut<F>> + MerkleZeroHasherWithMarkedLeaf<QHashOut<F>> + AlgebraicHasher<F> + FieldQHasher<F> + Send,
+        R: PsyReadCommandProcessorSync<F> + PsyComboDataStoreReaderSync<F> + Send + Sync,
         C: GenericConfig<D, F = F, Hasher = H> + Serialize,
     > UserProvingSessionManager<F, H, R, C, D>
 {
@@ -132,7 +135,7 @@ impl<
     }
 
     pub async fn new(
-        mut lps: PsyLocalProvingSessionStore<F, R>,
+        mut lps: PsyLocalProvingSessionStore<F, R, H>,
         circuit_info: SessionCircuitInfoStore<F>,
         ups_step_circuit_whitelist_root: QHashOut<F>,
     ) -> anyhow::Result<Self> {
@@ -156,7 +159,6 @@ impl<
         tracing::debug!("ups_start_checkpoint_id: {}", latest_checkpoint_id_u64);
 
         let current_checkpoint_leaf = lps
-            .cmd_store
             .resolve_get_checkpoint_leaf_mut(&QSRCmdGetCheckpointLeafData {
                 checkpoint_id: latest_checkpoint_id_u64,
             })
@@ -196,7 +198,7 @@ impl<
         })
     }
 
-    pub async fn new_dummy(lps: PsyLocalProvingSessionStore<F, R>, circuit_info: SessionCircuitInfoStore<F>) -> anyhow::Result<Self> {
+    pub async fn new_dummy(lps: PsyLocalProvingSessionStore<F, R, H>, circuit_info: SessionCircuitInfoStore<F>) -> anyhow::Result<Self> {
         let proof_tree_state = PortableQTreeRecursionManager::<C, D>::new(UPS_SESSION_PROOF_TREE_HEIGHT as usize).await;
 
         Ok(Self {
@@ -221,7 +223,6 @@ impl<
         );
         let checkpoint_tree_proof = self
             .lps
-            .cmd_store
             .resolve_get_merkle_proof_mut(&QSRMerkleCmd::GetCheckpointTreeMerkleProof(QSRMerkleCmdGetCheckpointTreeMerkleProof {
                 checkpoint_id: start_checkpoint_id,
                 leaf_checkpoint_id: start_checkpoint_id,
@@ -236,7 +237,6 @@ impl<
         );
         let user_tree_proof = self
             .lps
-            .cmd_store
             .resolve_get_merkle_proof_mut(&QSRMerkleCmd::GetUserTreeMerkleProof(QSRMerkleCmdGetUserTreeMerkleProof {
                 checkpoint_id: start_checkpoint_id,
                 user_id: self.lps.get_current_user_id_64(),
@@ -369,7 +369,6 @@ impl<
     async fn resolve_contract_function(&mut self, contract_id: u64, method_id: u32) -> anyhow::Result<(usize, DPNFunctionCircuitDefinition)> {
         let contract_def = self
             .lps
-            .cmd_store
             .resolve_get_contract_code_mut(&QSRCmdGetContractCodeDefinition { contract_id })
             .await?;
 
@@ -441,7 +440,7 @@ impl<
             None => anyhow::bail!("error finding historical root proof in proof_tree_state"),
         };
         let checkpoint_state = self.get_checkpoint_state();
-        let last_tx_rec: &PsyLocalTransactionRecord<GoldilocksField> = self.lps.transaction_records.last().unwrap();
+        let last_tx_rec: &PsyLocalTransactionRecord<GoldilocksField> = self.lps.last_transaction_record();
         let user_contract_tree_update_proof = last_tx_rec.user_contract_tree_update_proof.clone();
         let deferred_tx_debt_pivot_proof = self.lps.get_deferred_tx_tree_leaf(deferred_tx_pivot_index)?;
         let inline_tx_debt_pivot_proof = self.lps.get_inline_tx_tree_leaf(inline_tx_pivot_index)?;
@@ -537,7 +536,7 @@ impl<
         self.current_ups_header = new_ups_header;
         self.tx_log.push(tx_log_item);
 
-        let deferred_debt_items = self.lps.transaction_records.last().unwrap().added_deferred_tx_items.clone();
+        let deferred_debt_items = self.lps.last_transaction_record().added_deferred_tx_items.clone();
 
         for debt_item in &deferred_debt_items {
             self.repay_deferred_debt(circuit_mgr, debt_item).await?;
@@ -716,7 +715,7 @@ impl<
         while let Some(debt_item) = debt_queue.pop() {
             self.prove_deferred_call(circuit_mgr, &debt_item).await?;
 
-            let new_debt_items = self.lps.transaction_records.last().unwrap().added_deferred_tx_items.clone();
+            let new_debt_items = self.lps.last_transaction_record().added_deferred_tx_items.clone();
 
             debt_queue.extend(new_debt_items);
         }
@@ -767,7 +766,7 @@ impl<
             None => anyhow::bail!("error finding historical root proof in proof_tree_state"),
         };
         let checkpoint_state = self.get_checkpoint_state();
-        let last_tx_rec = self.lps.transaction_records.last().unwrap();
+        let last_tx_rec = self.lps.last_transaction_record();
         let user_contract_tree_update_proof = last_tx_rec.user_contract_tree_update_proof.clone();
         let deferred_tx_pivot_index = debt_item.tree_index;
         let inline_tx_pivot_index = self.lps.get_inline_tx_debt_latest_index();

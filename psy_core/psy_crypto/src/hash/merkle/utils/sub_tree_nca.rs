@@ -3,7 +3,7 @@ use kvq::traits::KVQSerializable;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
 use super::common::SimpleMerkleNodeKey;
-use crate::hash::{merkle::core::DeltaMerkleProofCore, traits::hasher::MerkleHasher};
+use crate::hash::{merkle::core::DeltaMerkleProofCore, traits::hasher::MerkleZeroHasherWithMarkedLeaf};
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct UpdateNearestCommonAncestorProof<Hash: PartialEq + Copy> {
@@ -75,7 +75,7 @@ impl<Hash: PartialEq + Copy> UpdateNearestCommonAncestorProof<Hash> {
     pub fn is_solo_filler(&self) -> bool {
         self.child_a.new_root == self.child_b.new_root && self.child_a.eq(&self.child_b)
     }
-    pub fn verify<H: MerkleHasher<Hash>>(&self) -> bool {
+    pub fn verify<H: MerkleZeroHasherWithMarkedLeaf<Hash>>(&self) -> bool {
         let solo_mask = !self.is_solo_filler() as u8;
         if self.level_a == (self.nearest_common_ancestor_level + (self.child_a.siblings.len() as u8) + solo_mask)
             && self.level_b == (self.nearest_common_ancestor_level + (self.child_b.siblings.len() as u8) + solo_mask)
@@ -109,7 +109,7 @@ impl<Hash: PartialEq + Copy> UpdateNearestCommonAncestorProof<Hash> {
 
         false
     }
-    pub fn validate<H: MerkleHasher<Hash>>(&self) {
+    pub fn validate<H: MerkleZeroHasherWithMarkedLeaf<Hash>>(&self) {
         assert_eq!(
             self.level_a,
             self.nearest_common_ancestor_level + (self.child_a.siblings.len() as u8) + 1,
@@ -226,7 +226,7 @@ impl<Hash: PartialEq + Copy> PartialUpdateNearestCommonAncestorProof<Hash> {
             index: self.child_b.index,
         }
     }
-    pub fn compute_old_nca_value<H: MerkleHasher<Hash>>(&self) -> Hash {
+    pub fn compute_old_nca_value<H: MerkleZeroHasherWithMarkedLeaf<Hash>>(&self) -> Hash {
         let is_a_right = self.get_a_node_key().is_on_the_right_of(&self.get_b_node_key());
 
         if is_a_right {
@@ -235,7 +235,7 @@ impl<Hash: PartialEq + Copy> PartialUpdateNearestCommonAncestorProof<Hash> {
             H::two_to_one(&self.child_a.old_root, &self.child_b.old_root)
         }
     }
-    pub fn compute_new_nca_value<H: MerkleHasher<Hash>>(&self) -> Hash {
+    pub fn compute_new_nca_value<H: MerkleZeroHasherWithMarkedLeaf<Hash>>(&self) -> Hash {
         let is_a_right = self.get_a_node_key().is_on_the_right_of(&self.get_b_node_key());
 
         if is_a_right {
@@ -249,7 +249,7 @@ impl<Hash: PartialEq + Copy> PartialUpdateNearestCommonAncestorProof<Hash> {
         //let level_diff_b = self.get_level_b() - self.nearest_common_ancestor_level;
         self.child_a.index >> (level_diff_a as u64)
     }
-    pub fn into_full_proof<H: MerkleHasher<Hash>>(self) -> UpdateNearestCommonAncestorProof<Hash> {
+    pub fn into_full_proof<H: MerkleZeroHasherWithMarkedLeaf<Hash>>(self) -> UpdateNearestCommonAncestorProof<Hash> {
         let old_nearest_common_ancestor_value = self.compute_old_nca_value::<H>();
         let new_nearest_common_ancestor_value = self.compute_new_nca_value::<H>();
         UpdateNearestCommonAncestorProof {
@@ -263,7 +263,7 @@ impl<Hash: PartialEq + Copy> PartialUpdateNearestCommonAncestorProof<Hash> {
             child_b: self.child_b,
         }
     }
-    pub fn to_full_proof<H: MerkleHasher<Hash>>(&self) -> UpdateNearestCommonAncestorProof<Hash> {
+    pub fn to_full_proof<H: MerkleZeroHasherWithMarkedLeaf<Hash>>(&self) -> UpdateNearestCommonAncestorProof<Hash> {
         let old_nearest_common_ancestor_value = self.compute_old_nca_value::<H>();
         let new_nearest_common_ancestor_value = self.compute_new_nca_value::<H>();
         UpdateNearestCommonAncestorProof {
@@ -280,7 +280,7 @@ impl<Hash: PartialEq + Copy> PartialUpdateNearestCommonAncestorProof<Hash> {
 }
 
 impl<Hash: PartialEq + Copy> PartialUpdateNearestCommonAncestorProof<Hash> {
-    pub fn from_delta_merkle_proof_pair<H: MerkleHasher<Hash>>(dmp_a: &DeltaMerkleProofCore<Hash>, dmp_b: &DeltaMerkleProofCore<Hash>) -> Self {
+    pub fn from_delta_merkle_proof_pair<H: MerkleZeroHasherWithMarkedLeaf<Hash>>(dmp_a: &DeltaMerkleProofCore<Hash>, dmp_b: &DeltaMerkleProofCore<Hash>) -> Self {
         let height = dmp_a.siblings.len() as u8;
         assert_eq!(
             dmp_a.siblings.len(),
@@ -322,7 +322,7 @@ impl<Hash: PartialEq + Copy + Serialize + DeserializeOwned> KVQSerializable for 
 }
 
 impl<Hash: PartialEq + Copy> PartialUpdateNCAWithAdditionalLink<Hash> {
-    pub fn from_delta_merkle_proof_pair<H: MerkleHasher<Hash>>(dmp_a: &DeltaMerkleProofCore<Hash>, dmp_b: &DeltaMerkleProofCore<Hash>) -> Self {
+    pub fn from_delta_merkle_proof_pair<H: MerkleZeroHasherWithMarkedLeaf<Hash>>(dmp_a: &DeltaMerkleProofCore<Hash>, dmp_b: &DeltaMerkleProofCore<Hash>) -> Self {
         let height = dmp_a.siblings.len() as u8;
         assert_eq!(
             dmp_a.siblings.len(),
@@ -351,7 +351,7 @@ impl<Hash: PartialEq + Copy> PartialUpdateNCAWithAdditionalLink<Hash> {
             link_siblings,
         }
     }
-    pub fn from_delta_merkle_proof_pair_alt_height<H: MerkleHasher<Hash>>(
+    pub fn from_delta_merkle_proof_pair_alt_height<H: MerkleZeroHasherWithMarkedLeaf<Hash>>(
         dmp_a: &DeltaMerkleProofCore<Hash>,
         dmp_b: &DeltaMerkleProofCore<Hash>,
     ) -> Self {
@@ -384,7 +384,7 @@ impl<Hash: PartialEq + Copy> PartialUpdateNCAWithAdditionalLink<Hash> {
             link_siblings,
         }
     }
-    pub fn to_full_proof<H: MerkleHasher<Hash>>(&self) -> UpdateNCAWithAdditionalLink<Hash> {
+    pub fn to_full_proof<H: MerkleZeroHasherWithMarkedLeaf<Hash>>(&self) -> UpdateNCAWithAdditionalLink<Hash> {
         let nca_proof = self.nca_proof.to_full_proof::<H>();
         let link_proof = DeltaMerkleProofCore::from_params::<H>(
             nca_proof.nearest_common_ancestor_index,
@@ -394,7 +394,7 @@ impl<Hash: PartialEq + Copy> PartialUpdateNCAWithAdditionalLink<Hash> {
         );
         UpdateNCAWithAdditionalLink { nca_proof, link_proof }
     }
-    pub fn into_full_proof<H: MerkleHasher<Hash>>(self) -> UpdateNCAWithAdditionalLink<Hash> {
+    pub fn into_full_proof<H: MerkleZeroHasherWithMarkedLeaf<Hash>>(self) -> UpdateNCAWithAdditionalLink<Hash> {
         let nca_proof = self.nca_proof.into_full_proof::<H>();
         let link_proof = DeltaMerkleProofCore::from_params::<H>(
             nca_proof.nearest_common_ancestor_index,
@@ -413,7 +413,7 @@ pub struct UpdateNCAWithAdditionalLink<Hash: PartialEq + Copy> {
 }
 
 impl<Hash: PartialEq + Copy> UpdateNCAWithAdditionalLink<Hash> {
-    pub fn from_delta_merkle_proof_pair<H: MerkleHasher<Hash>>(dmp_a: &DeltaMerkleProofCore<Hash>, dmp_b: &DeltaMerkleProofCore<Hash>) -> Self {
+    pub fn from_delta_merkle_proof_pair<H: MerkleZeroHasherWithMarkedLeaf<Hash>>(dmp_a: &DeltaMerkleProofCore<Hash>, dmp_b: &DeltaMerkleProofCore<Hash>) -> Self {
         PartialUpdateNCAWithAdditionalLink::from_delta_merkle_proof_pair::<H>(dmp_a, dmp_b).to_full_proof::<H>()
     }
     pub fn to_partial_proof(&self) -> PartialUpdateNCAWithAdditionalLink<Hash> {
@@ -436,7 +436,7 @@ impl<Hash: PartialEq + Copy> UpdateNCAWithAdditionalLink<Hash> {
             link_siblings: self.link_proof.siblings,
         }
     }
-    pub fn verify<H: MerkleHasher<Hash>>(&self) -> bool {
+    pub fn verify<H: MerkleZeroHasherWithMarkedLeaf<Hash>>(&self) -> bool {
         self.nca_proof.verify::<H>()
             && self.link_proof.verify::<H>()
             && self.nca_proof.old_nearest_common_ancestor_value == self.link_proof.old_value
@@ -514,14 +514,14 @@ mod tests {
     use super::{PartialUpdateNCAWithAdditionalLink, UpdateNCAWithAdditionalLink};
     use crate::hash::{
         merkle::utils::{common::SimpleMerkleNodeKey, simple_merkle_tree::SimpleMerkleTree},
-        traits::hasher::{MerkleZeroHasher, PoseidonHasher},
+        traits::hasher::{MerkleZeroHasherWithMarkedLeaf, PoseidonHasher},
     };
 
     type F = GoldilocksField;
     type PsyHash = QHashOut<F>;
     type H = PoseidonHasher;
 
-    fn _rand_leaf_node_key<Hasher: MerkleZeroHasher<Hash>, Hash: Copy + PartialEq + Default + Debug>(
+    fn _rand_leaf_node_key<Hasher: MerkleZeroHasherWithMarkedLeaf<Hash>, Hash: Copy + PartialEq + Default + Debug>(
         tree: &SimpleMerkleTree<Hasher, Hash>,
     ) -> SimpleMerkleNodeKey {
         let index = thread_rng().gen::<u64>() & tree.get_max_leaf_index();

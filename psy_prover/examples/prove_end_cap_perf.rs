@@ -15,7 +15,7 @@ use psy_common::{
 use psy_config::PSY_NETWORK_MAGIC;
 use psy_crypto::{
     common::witnesses::qrecursion::header::QRecursionAggStandardHeader,
-    hash::{merkle::core::MerkleProofCore, traits::hasher::MerkleZeroHasher},
+    hash::{merkle::core::MerkleProofCore, traits::hasher::MerkleZeroHasherWithMarkedLeaf},
 };
 use psy_data::ups::ups_end_cap::UPSEndCapFromProofTreeGadgetInput;
 use psy_ups_circuit::circuit_manager::core::PsyUPSStepCircuitManager;
@@ -92,7 +92,7 @@ where
 
 struct EndCapTestBench<C: GenericConfig<D> + 'static, const D: usize>
 where
-    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasher<QHashOut<C::F>>,
+    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasherWithMarkedLeaf<HashOut<C::F>> + MerkleZeroHasherWithMarkedLeaf<QHashOut<C::F>>,
 {
     step_circuit_mgr: PsyUPSStepCircuitManager<C, D>,
     pub end_cap_proving_times: Vec<u64>,
@@ -102,7 +102,7 @@ where
 
 impl<C: GenericConfig<D> + 'static, const D: usize> EndCapTestBench<C, D>
 where
-    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasher<QHashOut<C::F>>,
+    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasherWithMarkedLeaf<HashOut<C::F>> + MerkleZeroHasherWithMarkedLeaf<QHashOut<C::F>>,
 {
     pub fn new() -> Self {
         Self {

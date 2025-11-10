@@ -3,7 +3,7 @@ use kvq::traits::KVQSerializable;
 use plonky2::{field::goldilocks_field::GoldilocksField, hash::hash_types::RichField};
 use psy_common::data::qhashout::QHashOut;
 use psy_config::network_constants::CONTRACT_FUNCTION_TREE_HEIGHT;
-use psy_crypto::hash::{merkle::utils::simple_merkle_tree::SimpleMerkleTree, traits::hasher::MerkleZeroHasher};
+use psy_crypto::hash::{merkle::utils::simple_merkle_tree::SimpleMerkleTree, traits::hasher::{MerkleZeroHasher, MerkleZeroHasherWithMarkedLeaf}};
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
@@ -26,7 +26,7 @@ impl<F: RichField> QBCDeployContract<F> {
             function_whitelist,
         }
     }
-    pub fn into_with_whitelist_root<H: MerkleZeroHasher<QHashOut<F>>>(self) -> anyhow::Result<QBCDeployContractWithRoot<F>> {
+    pub fn into_with_whitelist_root<H: MerkleZeroHasherWithMarkedLeaf<QHashOut<F>>>(self) -> anyhow::Result<QBCDeployContractWithRoot<F>> {
         QBCDeployContractWithRoot::<F>::new::<H>(self.deployer, self.code_definition, self.function_whitelist)
     }
 }
@@ -51,7 +51,7 @@ pub struct QBCDeployContractWithRoot<F: RichField> {
 }
 
 impl<F: RichField> QBCDeployContractWithRoot<F> {
-    pub fn new<H: MerkleZeroHasher<QHashOut<F>>>(
+    pub fn new<H: MerkleZeroHasherWithMarkedLeaf<QHashOut<F>>>(
         deployer: QHashOut<F>,
         code_definition: ContractCodeDefinition,
         function_whitelist: Vec<QHashOut<F>>,

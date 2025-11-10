@@ -12,7 +12,7 @@ use psy_crypto::{
     },
     hash::{
         merkle::{core::MerkleProofCore, utils::simple_merkle_tree::SimpleMerkleTree},
-        traits::hasher::MerkleZeroHasher,
+        traits::hasher::MerkleZeroHasherWithMarkedLeaf,
     },
 };
 use psy_vm::ups::circuit_manager::{PortableQTreeRecursion, PortableQTreeRecursionCircuitsProve};
@@ -36,7 +36,7 @@ pub struct PortableQTreeRecursionManager<C: GenericConfig<D>, const D: usize> {
 #[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
 impl<C: GenericConfig<D>, const D: usize> PortableQTreeRecursionManager<C, D>
 where
-    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasher<QHashOut<C::F>>,
+    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasherWithMarkedLeaf<HashOut<C::F>> + MerkleZeroHasherWithMarkedLeaf<QHashOut<C::F>>,
 {
     pub async fn new(q_recursion_tree_height: usize) -> Self {
         let proof_tree = SimpleMerkleTree::<C::Hasher, QHashOut<C::F>>::new(q_recursion_tree_height as u8);

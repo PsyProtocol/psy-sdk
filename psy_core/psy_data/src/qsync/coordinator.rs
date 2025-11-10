@@ -15,7 +15,7 @@ use psy_crypto::{
             utils::append_only_merkle_tree::get_merkle_proofs_for_compact,
         },
         traits::{
-            hasher::{FieldQHasher, MerkleZeroHasher},
+            hasher::{FieldQHasher, MerkleZeroHasherWithMarkedLeaf},
             qhashable::QFieldHashable,
         },
     },
@@ -39,7 +39,7 @@ pub struct PsyCheckpointSyncInfoCompact<F: RichField> {
 }
 
 impl<F: RichField> PsyCheckpointSyncInfoCompact<F> {
-    pub fn get_registered_user_merkle_proofs<H: MerkleZeroHasher<QHashOut<F>> + FieldQHasher<F>>(&self) -> Vec<MerkleProofCore<QHashOut<F>>> {
+    pub fn get_registered_user_merkle_proofs<H: MerkleZeroHasherWithMarkedLeaf<QHashOut<F>> + FieldQHasher<F>>(&self) -> Vec<MerkleProofCore<QHashOut<F>>> {
         get_merkle_proofs_for_compact::<H, QHashOut<F>>(
             self.block_state.next_user_id - (self.registered_users.len() as u64),
             &self.regsitered_users_start_pivot_siblings,
@@ -168,7 +168,7 @@ pub struct PsyCheckpointSyncInfo<F: RichField> {
     pub slot: u64,
 }
 impl<F: RichField> PsyCheckpointSyncInfo<F> {
-    pub fn get_registered_user_merkle_proofs<H: MerkleZeroHasher<QHashOut<F>> + FieldQHasher<F>>(&self) -> Vec<MerkleProofCore<QHashOut<F>>> {
+    pub fn get_registered_user_merkle_proofs<H: MerkleZeroHasherWithMarkedLeaf<QHashOut<F>> + FieldQHasher<F>>(&self) -> Vec<MerkleProofCore<QHashOut<F>>> {
         get_merkle_proofs_for_compact::<H, QHashOut<F>>(
             self.core.block_state.next_user_id - (self.registered_users.len() as u64),
             &self.regsitered_users_start_pivot_siblings,
