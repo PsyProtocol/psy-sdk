@@ -164,7 +164,7 @@ async fn run_test3() -> anyhow::Result<()> {
 
     let sync1 = coordinator_processor_node.store.get_checkpoint_sync_info_compact(1).await?;
     realm_processor_node.handle_checkpoint_sync(sync1).await?;
-    realm_processor_node.build_block(0).await?;
+    realm_processor_node.build_block(realm_processor_node.latest_checkpoint().await? + 1, 0).await?;
     let realm_worker_output_job_id =
         SimpleAsyncRealmWorker::run_worker_until_done::<_, _, SimpleCircuitLibrary<GoldilocksField>, PsyCoordinatorCircuitManager<C, D>, C, D>(
             &realm_q.clone(),
@@ -277,7 +277,7 @@ async fn run_test3() -> anyhow::Result<()> {
     helper.send_txs_to_edge(&realm_edge_node).await?;
     timer.lap("sent all to edge");
 
-    realm_processor_node.build_block(0).await?;
+    realm_processor_node.build_block(realm_processor_node.latest_checkpoint().await? + 1, 0).await?;
     timer.lap("built block");
     let realm_worker_output_job_id =
         SimpleAsyncRealmWorker::run_worker_until_done::<_, _, SimpleCircuitLibrary<GoldilocksField>, PsyCoordinatorCircuitManager<C, D>, C, D>(
@@ -325,7 +325,7 @@ async fn run_test3() -> anyhow::Result<()> {
 
     timer.lap("finished jobs");
 
-    realm_processor_node.build_block(0).await?;
+    realm_processor_node.build_block(realm_processor_node.latest_checkpoint().await? + 1, 0).await?;
     timer.lap("built block");
     let realm_worker_output_job_id =
         SimpleAsyncRealmWorker::run_worker_until_done::<_, _, SimpleCircuitLibrary<GoldilocksField>, PsyCoordinatorCircuitManager<C, D>, C, D>(

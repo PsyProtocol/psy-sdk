@@ -872,14 +872,11 @@ impl<
         Ok(())
     }
 
-    pub async fn build_block(&self, slot: u64) -> anyhow::Result<(QProvingJobDataID, Vec<QueueOffsetState>)> {
+    pub async fn build_block(&self, new_checkpoint_id: u64, slot: u64) -> anyhow::Result<(QProvingJobDataID, Vec<QueueOffsetState>)> {
         self.task_store.clear_task_graph().await?;
-
-        let last_blockstate = self.store.get_latest_block_state().await?;
         self.proof_store
-            .cleanup_old_proofs(last_blockstate.checkpoint_id, MAX_CHECKPOINT_COUNT as u64)
+            .cleanup_old_proofs(new_checkpoint_id.saturating_sub(1), MAX_CHECKPOINT_COUNT as u64)
             .await?;
-        let new_checkpoint_id = last_blockstate.checkpoint_id + 1;
         info!("🔔 realm processor build block checkpoint_id: {}", new_checkpoint_id);
 
         let has_guta = self.has_pending_guta_tasks(new_checkpoint_id).await?;

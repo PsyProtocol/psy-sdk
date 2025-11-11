@@ -132,7 +132,7 @@ impl<
         Ok(contract_helper)
     }
     pub async fn produce_block(&mut self) -> anyhow::Result<()> {
-        self.realm_proc.build_block(0).await?;
+        self.realm_proc.build_block(self.realm_proc.latest_checkpoint().await? + 1,0).await?;
         let realm_worker_output_job_id =
             SimpleAsyncRealmWorker::run_worker_until_done::<_, _, SimpleCircuitLibrary<GoldilocksField>, PsyCoordinatorCircuitManager<C, D>, C, D>(
                 &self.realm_w_queue_store,
