@@ -5,19 +5,23 @@
       "users_per_realm": 1048576,
       "global_user_tree_height": 24,
       "realm_user_tree_height": 20,
-      "group_realm_height": 1,
+      "group_realm_height": 2,
       "realm_configs": [
         {
           "id": 0,
-          "rpc_url": [
-            "http://127.0.0.1:8546"
-          ]
+          "rpc_url": ["http://127.0.0.1:8546"]
         },
         {
           "id": 1,
-          "rpc_url": [
-            "http://127.0.0.1:8547"
-          ]
+          "rpc_url": ["http://127.0.0.1:8547"]
+        },
+        {
+          "id": 2,
+          "rpc_url": ["http://127.0.0.1:8548"]
+        },
+        {
+          "id": 3,
+          "rpc_url": ["http://127.0.0.1:8549"]
         }
       ],
       "coordinator_configs": [
@@ -37,9 +41,9 @@
       "whitelist": {
         "enabled": true,
         "secp256k1": [
-            "0x48f060a5c6142c3443ee300d62fc7009B4A4d3A0",
-            "0x640e10C82fc06f896D5B818157d6426F578C4a92",
-            "0xC209b356df092D57527E65b7bF7c23f60e93e65D"
+          "0x48f060a5c6142c3443ee300d62fc7009B4A4d3A0",
+          "0x640e10C82fc06f896D5B818157d6426F578C4a92",
+          "0xC209b356df092D57527E65b7bF7c23f60e93e65D"
         ]
       },
       "native_currency": "0",
