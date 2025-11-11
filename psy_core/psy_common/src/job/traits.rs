@@ -113,6 +113,8 @@ pub trait QProofStoreReaderAsync {
     async fn get_proof_by_id<C: GenericConfig<D>, const D: usize>(&self, id: QProvingJobDataID) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>>;
     async fn get_bytes_by_id(&self, id: QProvingJobDataID) -> anyhow::Result<Vec<u8>>;
     async fn contains_id(&self, id: QProvingJobDataID) -> anyhow::Result<bool>;
+
+    async fn contains_item(&self, channel_id: u64, id: u64) -> anyhow::Result<bool> { Ok(false) }
     async fn get_obj_by_id<T: DeserializeOwned>(&self, id: QProvingJobDataID) -> anyhow::Result<T> {
         bincode::deserialize::<T>(&self.get_bytes_by_id(id).await?).map_err(|e| anyhow::anyhow!(e))
     }

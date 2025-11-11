@@ -195,20 +195,6 @@ impl<
         Ok(())
     }
 
-    async fn handle_guta_state_updates_from_users(&self, checkpoint_id: u64) -> anyhow::Result<QueueOffsetState> {
-        // Use position-based consumption for CST updates
-        let (updates, consumption_state) = self
-            .checkpoint_queue
-            .peek_with_position::<CSTUserUpdate<QHashOut<F>>>(self.max_processed_end_caps_per_block, CST_USER_UPDATE_CHANNEL_ID, checkpoint_id)
-            .await?;
-
-        debug!(checkpoint_id = checkpoint_id, updates_count = updates.len(), "Checkpoint updates");
-
-        // Process updates with error handling
-        self.store.injest_checked_cst_nodes_imm(&updates).await?;
-        Ok(consumption_state)
-    }
-
     async fn handle_guta_from_users_ensure_no_topline(
         &self,
         checkpoint_id: u64,
@@ -484,16 +470,11 @@ impl<
         Vec<QueueOffsetState>,
     )> {
         let mut consumption_state = vec![];
-        consumption_state.push(self.handle_guta_state_updates_from_users(checkpoint_id).await?);
-
-        let (mut guta_queue_items, _consumption_state) = self
-            .checkpoint_queue
-            .peek_with_position::<UserEndCapNonProofCoreInputQueueItem<F>>(
-                self.max_processed_end_caps_per_block,
-                self.realm_config.guta_channel_id,
-                checkpoint_id,
-            )
-            .await?;
+        let (mut guta_queue_items,_consumption_state) = self.checkpoint_queue.peek_with_position::<UserEndCapNonProofCoreInputQueueItem<F>>(
+            self.max_processed_end_caps_per_block,
+            self.realm_config.guta_channel_id,
+            checkpoint_id,
+        ).await?;
         consumption_state.push(_consumption_state);
         debug!(guta_queue_items = %serde_json::to_string_pretty(&guta_queue_items)?, "GUTA queue items for aggregation");
 
@@ -568,6 +549,12 @@ impl<
 
             filtered_items.push(guta_queue_item);
         }
+
+        let cst_user_update = filtered_items.iter().map(|item| item.cst_user_update.clone()).collect::<Vec<_>>();
+        debug!(checkpoint_id = checkpoint_id, updates_count = cst_user_update.len(), "Checkpoint updates");
+
+        // Process updates with error handling
+        self.store.injest_checked_cst_nodes_imm(&cst_user_update).await?;
 
         let guta_queue_items = filtered_items;
 

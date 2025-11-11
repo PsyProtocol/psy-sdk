@@ -23,7 +23,7 @@ use ts_rs::TS;
 use super::{end_cap_input::SubmitUserEndCapNonProofInput, proof_input::VerifyEndCapSimpleStandardInput, stats::GUTAStats};
 use crate::{
     qdata::{ups_end_cap_result::UPSEndCapResultCompact, user::PsyUserLeaf},
-    qstore::uct_merkle_nodes::CSTUserUpdateStore,
+    qstore::uct_merkle_nodes::{CSTUserUpdateStore, CSTUserUpdate},
 };
 
 #[derive(Clone, Debug)]
@@ -101,11 +101,12 @@ impl<F: RichField> PsyContractStateUpdateHistory<F> {
         Ok(())
     }
 }
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
 pub struct UserEndCapNonProofCoreInputQueueItem<F: RichField> {
     pub input: SubmitUserEndCapNonProofCoreInput<F>,
     pub checkpoint_tree_proof: MerkleProofCore<QHashOut<F>>,
+    pub cst_user_update: CSTUserUpdate<QHashOut<F>>,
     pub proof_id: QProvingJobDataID,
     pub checkpoint_id: u64,
     pub channel_id: u64,

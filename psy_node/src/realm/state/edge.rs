@@ -113,7 +113,7 @@ impl<SR: PsyRealmStoreReaderAsync<F> + Sync, DQ: CheckpointDrainQueueEmitterAsyn
 
         let end_cap_checkpoint_id = input.core.checkpoint_id.to_canonical_u64();
         let checkpoint_id = self.get_checkpoint_id_async().await?;
-        let next_checkpoint_id = checkpoint_id + 1; //todo fix bug?
+        let next_checkpoint_id = checkpoint_id + 1;
         if end_cap_checkpoint_id > checkpoint_id {
             tracing::info!(
                 "ensure end cap checkpoint id: {} {} {}",
@@ -223,7 +223,7 @@ impl<SR: PsyRealmStoreReaderAsync<F> + Sync, DQ: CheckpointDrainQueueEmitterAsyn
 
         let proof_id = QProvingJobDataID::new(
             QJobTopic::GenerateStandardProof,
-            u64::MAX,
+            next_checkpoint_id,
             0,
             self.realm_config.realm_id,
             user_id_u64 as u32,
@@ -233,7 +233,7 @@ impl<SR: PsyRealmStoreReaderAsync<F> + Sync, DQ: CheckpointDrainQueueEmitterAsyn
             0,
         );
 
-        if self.proof_store.contains_id(proof_id).await? {
+        if self.proof_store.contains_item(self.realm_config.guta_channel_id, user_id_u64).await? {
             tracing::warn!("already submitted proof {:?} for this block", proof_id);
             anyhow::bail!("already submitted proof {:?} for this block", proof_id);
         }
@@ -246,6 +246,7 @@ impl<SR: PsyRealmStoreReaderAsync<F> + Sync, DQ: CheckpointDrainQueueEmitterAsyn
         let queue_item = UserEndCapNonProofCoreInputQueueItem {
             input: input.core,
             proof_id,
+            cst_user_update,
             checkpoint_tree_proof,
             checkpoint_id: next_checkpoint_id,
             channel_id: self.realm_config.guta_channel_id,
@@ -253,8 +254,6 @@ impl<SR: PsyRealmStoreReaderAsync<F> + Sync, DQ: CheckpointDrainQueueEmitterAsyn
 
         tracing::info!("queue item pretty: {}", serde_json::to_string_pretty(&queue_item).unwrap());
 
-        debug!("Enqueuing contract state tree update for user {}", cst_user_update.user_id);
-        self.checkpoint_queue.cdq_push_imm(cst_user_update).await?;
         self.checkpoint_queue.cdq_push_imm(queue_item).await?;
 
         debug!("enqueued queue item successfully");
@@ -272,22 +271,10 @@ impl<SR: PsyRealmStoreReaderAsync<F> + Sync, DQ: CheckpointDrainQueueEmitterAsyn
             .to_canonical_u64();
         tracing::debug!("get user {} tx status at nonce {}, onchain_nonce {}", user_id, nonce, onchain_nonce);
 
-        let proof_id = QProvingJobDataID::new(
-            QJobTopic::GenerateStandardProof,
-            u64::MAX,
-            0,
-            self.realm_config.realm_id,
-            user_id as u32,
-            (onchain_nonce + 1) as u32,
-            ProvingJobCircuitType::UserEndCap,
-            ProvingJobDataType::OutputProof,
-            0,
-        );
-
         if nonce != onchain_nonce + 1 {
             tracing::warn!("nonce {} != onchain_nonce {}", nonce, onchain_nonce);
             Ok(TxStatus::Confirmed)
-        } else if self.proof_store.contains_id(proof_id).await? {
+        } else if self.proof_store.contains_item(self.realm_config.guta_channel_id, user_id).await? {
             Ok(TxStatus::Pending)
         } else {
             Ok(TxStatus::Submittable)
