@@ -79,7 +79,6 @@ echo "Starting Psy Benchmark Suite..."
 echo "================================="
 
 # Start all benchmarks in parallel
-run_benchmark "user-registration" "make run-benchmark-register"
 run_benchmark "mint-1" "make run-benchmark-mint"
 run_benchmark "mint-2" "make run-benchmark-mint"
 run_benchmark "mint-3" "make run-benchmark-mint"
