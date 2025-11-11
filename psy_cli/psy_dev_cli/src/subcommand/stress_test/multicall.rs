@@ -355,12 +355,11 @@ impl Multicast {
 
     async fn init_user0(&self, mint_amount: u64) -> Result<(u64, QHashOut<GoldilocksField>)> {
         let pk0 = QHashOut::from_string_or_panic(USER0_PRIVATE_KEY);
-        let public_key0 = QHashOut::from_string_or_panic(USER0_SECP_ZK_PUBLIC_KEY);
-        let from_user_id = { self.wallet_session.read().st_provider.get_user_id(public_key0).await? };
-        {
+        let public_key0 = {
             let fingerprint = psy_prover::wallet::memory_wallet::get_zk_fingerprint();
-            self.wallet_session.write().add_user(pk0, fingerprint).await?;
-        }
+            self.wallet_session.write().add_user(pk0, fingerprint).await?
+        };
+        let from_user_id = { self.wallet_session.read().st_provider.get_user_id(public_key0).await? };
         info!("Start to execute mint contract call");
         self.exec_contract_call(
             public_key0,
