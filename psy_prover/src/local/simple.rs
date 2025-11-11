@@ -14,7 +14,7 @@ use psy_common::{
     job::{id::QProvingJobDataID, traits::QProofStore},
 };
 use psy_config::get_default_worker_public_key;
-use psy_crypto::hash::{merkle::utils::sub_tree_nca::PartialUpdateNearestCommonAncestorProof, traits::hasher::MerkleZeroHasher};
+use psy_crypto::hash::{merkle::utils::sub_tree_nca::PartialUpdateNearestCommonAncestorProof, traits::hasher::MerkleZeroHasherWithMarkedLeaf};
 use psy_data::{
     guta::{
         api::{SubmitUserEndCapProofAPIInput, SubmitUserEndCapProofIDAPIInput},
@@ -33,7 +33,7 @@ pub struct SimpleAPI<
     C: GenericConfig<D, F = F> + 'static,
     const D: usize,
 > where
-    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasher<QHashOut<C::F>>,
+    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasherWithMarkedLeaf<HashOut<C::F>> + MerkleZeroHasherWithMarkedLeaf<QHashOut<C::F>>,
 {
     proof_store: PS,
     state_store: SS,
@@ -54,7 +54,7 @@ impl<
         const D: usize,
     > SimpleAPI<PS, SS, F, C, D>
 where
-    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasher<QHashOut<C::F>>,
+    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasherWithMarkedLeaf<HashOut<C::F>> + MerkleZeroHasherWithMarkedLeaf<QHashOut<C::F>>,
 {
     pub async fn new(proof_store: PS, state_store: SS, guta_circuits: PsyGUTACircuitManager<C, D>) -> anyhow::Result<Self> {
         let latest_block_state = state_store.get_latest_block_state().await?;
@@ -73,7 +73,7 @@ type F = GoldilocksField;
 const D: usize = 2;
 impl<PS: QProofStore, SS: PsyComboDataStoreReaderWriterSync<F>, C: GenericConfig<D, F = F> + 'static> SimpleAPI<PS, SS, F, C, D>
 where
-    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasher<QHashOut<C::F>>,
+    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasherWithMarkedLeaf<HashOut<C::F>> + MerkleZeroHasherWithMarkedLeaf<QHashOut<C::F>>,
 {
     pub fn submit_proof(&mut self, proof_input: SubmitUserEndCapProofAPIInput<F, C, D>) -> anyhow::Result<()> {
         let user_id = proof_input.input.core.state_transition.user_id.to_canonical_u64();

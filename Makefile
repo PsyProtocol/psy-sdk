@@ -1,3 +1,4 @@
+export DARGO_STD_PATH := $(PWD)/psy_compiler/psy-std/std.psy
 export SQLX_OFFLINE=true
 export DARGO_STD_PATH := $(PWD)/psy_compiler/psy-std/std.psy
 
@@ -15,6 +16,7 @@ default: build wallet-build
 
 check:
 	@cargo check --workspace --all-targets --tests --benches --examples --bins
+	@cd psy_sdk/psy-ts-sdk/packages/psy-sdk && pnpm type-check
 
 fix:
 	# @cargo machete --fix
@@ -123,10 +125,15 @@ config_gen_v2:
 
 .PHONY: check fix build format run test update-snapshots
 
+
+config_gen:
+	@RUST_LOG=${LOG_LEVEL} cargo run --profile ${PROFILE} --package psy_prover --example config_gen_v2;
+
+
 ################################################################################
 #                                   TMP                                        #
 ################################################################################
-PROJECT_DIR              := $(PWD)/examples
+PROJECT_DIR              := $(PWD)/psy_compiler/psy-precompiles
 FILE                     := $(PWD)/psy_compiler/tests/opcode_test.psy
 PARAMETERS               := 1,2
 USER0_PRIVATE_KEY        := 17c975c2668ebe0ca7c87f67c6414ebb7fd664f46370a0af2a3b204c8824ac5a
@@ -162,17 +169,9 @@ REALM_RPC_URL            := $(shell jq -r '.networks.localhost.realm_configs[${R
 GLOBAL_USER_TREE_HEIGHT  := $(shell jq -r '.networks.localhost.global_user_tree_height' config.json)
 REALM_USER_TREE_HEIGHT   := $(shell jq -r '.networks.localhost.realm_user_tree_height' config.json)
 REALM_TREE_LEAF_LEVEL    := $(shell echo $$(($(GLOBAL_USER_TREE_HEIGHT) - $(REALM_USER_TREE_HEIGHT))))
+USER1_ID                 := $(shell ./target/${PROFILE}/psy_dev_cli get-user-id-from-registration-id ${REGISTRATION_ID} --strategy ${STRATEGY} | awk '{for(i=1;i<=NF;i++) if($$i=="ID:") print $$(i+1)}' | tail -1)
 
 init:
-	# Create main project directory
-	@mkdir -p ${PROJECT_DIR}
-	# Create token contract subdirectory
-	@rm -rf ${PROJECT_DIR}/token && ./target/${PROFILE}/dargo new ${PROJECT_DIR}/token
-	@cp psy_compiler/tests/new_token.psy ${PROJECT_DIR}/token/src/main.psy
-	@rm -rf ${PROJECT_DIR}/rewards && ./target/${PROFILE}/dargo new ${PROJECT_DIR}/rewards
-	@cp psy_compiler/tests/rewards.psy ${PROJECT_DIR}/rewards/src/main.psy
-	@rm -rf ${PROJECT_DIR}/mining_rewards &&./target/${PROFILE}/dargo new ${PROJECT_DIR}/mining_rewards
-	@cp psy_compiler/tests/mining_rewards.psy ${PROJECT_DIR}/mining_rewards/src/main.psy
 	@mkdir -p $(PWD)/db
 	@echo "Waiting for databases to be ready..."
 	# @echo "Starting Redis containers..."
@@ -195,14 +194,14 @@ shutdown:
 	@docker-compose -f ./scripts/docker-compose.db.yml down -v --remove-orphans
 	@rm -rf ./target/redis-data > /dev/null 2>&1 || true
 	# @docker rm -f psy-scylla-coordinator psy-scylla-realm0 psy-scylla-realm1 > /dev/null 2>&1 || true
-	@sudo rm -fr ${PROJECT_DIR} ${PWD}/db logs > /dev/null 2>&1 || true
+	@sudo rm -fr ${PWD}/db logs > /dev/null 2>&1 || true
 	@echo "Removing user job tracker JSON files..."
 	@rm -f ${USER0_PUBLIC_KEY}.json ${USER0_SECP_ZK_PUBLIC_KEY}.json ${USER1_PUBLIC_KEY}.json ${USER1_SECP_ZK_PUBLIC_KEY}.json ${USER2_PUBLIC_KEY}.json ${USER2_SECP_ZK_PUBLIC_KEY}.json ${USER3_PUBLIC_KEY}.json ${USER3_SECP_ZK_PUBLIC_KEY}.json > /dev/null 2>&1 || true
 
-run-all: shutdown init compile
+run-all: shutdown init
 	@./scripts/run_all.sh
 
-run-all-v2: shutdown init compile
+run-all-v2: shutdown init
 	@./scripts/run_all_v2.sh
 
 run-scenario0:
@@ -210,12 +209,6 @@ run-scenario0:
 
 interpret:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/dargo execute --program-dir $(dir ${FILE}) --debug --entry-path $(notdir ${FILE}) --parameters ${PARAMETERS}
-
-compile:
-	# Compile token contract
-	@RUST_LOG=${LOG_LEVEL} cd ${PROJECT_DIR}/token && ../../target/${PROFILE}/dargo compile --entry-path src/main.psy --contract-name=ContractRef --method-names simple_mint simple_burn simple_transfer simple_claim
-	@RUST_LOG=${LOG_LEVEL} cd ${PROJECT_DIR}/rewards && ../../target/${PROFILE}/dargo compile --entry-path src/main.psy --contract-name=ContractRef --method-names simple_mint simple_burn simple_transfer simple_claim batch_claim_pm_rewards
-	@RUST_LOG=${LOG_LEVEL} cd ${PROJECT_DIR}/mining_rewards && ../../target/${PROFILE}/dargo compile --entry-path src/main.psy --contract-name=ContractRef --method-names advance_to_checkpoint advance_to_checkpoint_and_seal claim_simple_reward claim_guta_proof
 
 run-api-services:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_node_cli api-services
@@ -242,7 +235,7 @@ run-realm-processor:
 run-realm-store:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_dev_cli store \
 	  --database lmdbx\
-	  --lmdbx-path ${PWD}/db/realm0 
+	  --lmdbx-path ${PWD}/db/realm0
 	  --listen-addr=0.0.0.0:11111
 
 run-realm-edge:
@@ -270,6 +263,120 @@ run-realm-edge1:
       --coordinator-addr=http://127.0.0.1:8545 \
       --realm-id=1 \
 	  --queue-biz-key realm1
+
+run-realm-processor2:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_node_cli realm-processor \
+      --redis-uri=redis://127.0.0.1:6379 \
+      --database lmdbx \
+      --lmdbx-path ${PWD}/db/realm2 \
+      --node-id=2 \
+      --realm-id=2 \
+	  --queue-biz-key realm2
+
+run-realm-edge2:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_node_cli realm-edge \
+      --listen-addr=0.0.0.0:8548 \
+      --redis-uri=redis://127.0.0.1:6379 \
+      --database lmdbx \
+      --lmdbx-path ${PWD}/db/realm2 \
+      --coordinator-addr=http://127.0.0.1:8545 \
+      --realm-id=2 \
+	  --queue-biz-key realm2
+
+run-realm-processor3:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_node_cli realm-processor \
+      --redis-uri=redis://127.0.0.1:6379 \
+      --database lmdbx \
+      --lmdbx-path ${PWD}/db/realm3 \
+      --node-id=2 \
+      --realm-id=3 \
+	  --queue-biz-key realm3
+
+run-realm-edge3:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_node_cli realm-edge \
+      --listen-addr=0.0.0.0:8549 \
+      --redis-uri=redis://127.0.0.1:6379 \
+      --database lmdbx \
+      --lmdbx-path ${PWD}/db/realm3 \
+      --coordinator-addr=http://127.0.0.1:8545 \
+      --realm-id=3 \
+	  --queue-biz-key realm3
+
+run-realm-processor4:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_node_cli realm-processor \
+      --redis-uri=redis://127.0.0.1:6379 \
+      --database lmdbx \
+      --lmdbx-path ${PWD}/db/realm4 \
+      --node-id=2 \
+      --realm-id=4 \
+	  --queue-biz-key realm4
+
+run-realm-edge4:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_node_cli realm-edge \
+      --listen-addr=0.0.0.0:8550 \
+      --redis-uri=redis://127.0.0.1:6379 \
+      --database lmdbx \
+      --lmdbx-path ${PWD}/db/realm4 \
+      --coordinator-addr=http://127.0.0.1:8545 \
+      --realm-id=4 \
+	  --queue-biz-key realm4
+
+run-realm-processor5:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_node_cli realm-processor \
+      --redis-uri=redis://127.0.0.1:6379 \
+      --database lmdbx \
+      --lmdbx-path ${PWD}/db/realm5 \
+      --node-id=2 \
+      --realm-id=5 \
+	  --queue-biz-key realm5
+
+run-realm-edge5:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_node_cli realm-edge \
+      --listen-addr=0.0.0.0:8551 \
+      --redis-uri=redis://127.0.0.1:6379 \
+      --database lmdbx \
+      --lmdbx-path ${PWD}/db/realm5 \
+      --coordinator-addr=http://127.0.0.1:8545 \
+      --realm-id=5 \
+	  --queue-biz-key realm5
+
+run-realm-processor6:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_node_cli realm-processor \
+      --redis-uri=redis://127.0.0.1:6379 \
+      --database lmdbx \
+      --lmdbx-path ${PWD}/db/realm6 \
+      --node-id=2 \
+      --realm-id=6 \
+	  --queue-biz-key realm6
+
+run-realm-edge6:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_node_cli realm-edge \
+      --listen-addr=0.0.0.0:8552 \
+      --redis-uri=redis://127.0.0.1:6379 \
+      --database lmdbx \
+      --lmdbx-path ${PWD}/db/realm6 \
+      --coordinator-addr=http://127.0.0.1:8545 \
+      --realm-id=6 \
+	  --queue-biz-key realm6
+
+run-realm-processor7:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_node_cli realm-processor \
+      --redis-uri=redis://127.0.0.1:6379 \
+      --database lmdbx \
+      --lmdbx-path ${PWD}/db/realm3 \
+      --node-id=2 \
+      --realm-id=7 \
+	  --queue-biz-key realm7
+
+run-realm-edge7:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_node_cli realm-edge \
+      --listen-addr=0.0.0.0:8553 \
+      --redis-uri=redis://127.0.0.1:6379 \
+      --database lmdbx \
+      --lmdbx-path ${PWD}/db/realm7 \
+      --coordinator-addr=http://127.0.0.1:8545 \
+      --realm-id=7 \
+	  --queue-biz-key realm7
 
 run-realm-processor-v2:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_node_cli realm-processor-v2 \
@@ -353,6 +460,36 @@ run-worker2:
       --config=./config.json \
       --private-key=${USER2_PRIVATE_KEY}
 
+run-worker3:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_node_cli worker \
+      --config=./config.json \
+      --private-key=474cc8e224f11ae4e8fd954ba1ed452ddd6be1f0e7004dc9d8a3cde7904876ff
+
+run-worker4:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_node_cli worker \
+      --config=./config.json \
+      --private-key=75e3573a6f5c4e5b5c03c9a030a945c4ab6ff275f7a575fdad9f09b910ab7244
+
+run-worker5:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_node_cli worker \
+      --config=./config.json \
+      --private-key=691e70254fba261f3a095904daa35a85e7d341fa188fa66adb7f4a8688af51a0
+
+run-worker6:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_node_cli worker \
+      --config=./config.json \
+      --private-key=48001860a5289eb83e4c5e4a7a080250703ee797716edc95038c64b9927ce01c
+
+run-worker7:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_node_cli worker \
+      --config=./config.json \
+      --private-key=53d13861c42eca37a573c9e50fae74c297369347d237f44cec5b2faa6c2e4f77
+
+run-worker8:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_node_cli worker \
+      --config=./config.json \
+      --private-key=9283264949e3248ccd661dca69441e5fa60ab4073177380bd97717cda56739ec
+
 TIKV_PD_ENDPOINTS := 127.0.0.1:2379,127.0.0.1:2381,127.0.0.1:2383
 
 init-tikv: init
@@ -417,6 +554,124 @@ run-realm-edge1-tikv:
 		--realm-id=1 \
 		--queue-biz-key realm1
 
+run-realm-processor2-tikv:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_node_cli realm-processor \
+		--redis-uri=redis://127.0.0.1:6379 \
+		--database tikv \
+		--tikv-pd-endpoints ${TIKV_PD_ENDPOINTS} \
+		--tikv-namespace realm2 \
+		--realm-id=2 \
+		--queue-biz-key realm2
+
+run-realm-edge2-tikv:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_node_cli realm-edge \
+		--listen-addr=0.0.0.0:8548 \
+        --redis-uri=redis://127.0.0.1:6379 \
+        --database tikv \
+		--tikv-pd-endpoints ${TIKV_PD_ENDPOINTS} \
+		--tikv-namespace realm2 \
+        --coordinator-addr=http://127.0.0.1:8545 \
+		--realm-id=2 \
+		--queue-biz-key realm2
+
+run-realm-processor3-tikv:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_node_cli realm-processor \
+		--redis-uri=redis://127.0.0.1:6379 \
+		--database tikv \
+		--tikv-pd-endpoints ${TIKV_PD_ENDPOINTS} \
+		--tikv-namespace realm3 \
+		--realm-id=3 \
+		--queue-biz-key realm3
+
+run-realm-edge3-tikv:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_node_cli realm-edge \
+		--listen-addr=0.0.0.0:8549 \
+        --redis-uri=redis://127.0.0.1:6379 \
+        --database tikv \
+		--tikv-pd-endpoints ${TIKV_PD_ENDPOINTS} \
+		--tikv-namespace realm3 \
+        --coordinator-addr=http://127.0.0.1:8545 \
+		--realm-id=3 \
+		--queue-biz-key realm3
+
+run-realm-processor4-tikv:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_node_cli realm-processor \
+		--redis-uri=redis://127.0.0.1:6379 \
+		--database tikv \
+		--tikv-pd-endpoints ${TIKV_PD_ENDPOINTS} \
+		--tikv-namespace realm4 \
+		--realm-id=4 \
+		--queue-biz-key realm4
+
+run-realm-edge4-tikv:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_node_cli realm-edge \
+		--listen-addr=0.0.0.0:8550 \
+		--redis-uri=redis://127.0.0.1:6379 \
+		--database tikv \
+		--tikv-pd-endpoints ${TIKV_PD_ENDPOINTS} \
+		--tikv-namespace realm4 \
+		--realm-id=4 \
+		--queue-biz-key realm4
+
+run-realm-processor5-tikv:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_node_cli realm-processor \
+		--redis-uri=redis://127.0.0.1:6379 \
+		--database tikv \
+		--tikv-pd-endpoints ${TIKV_PD_ENDPOINTS} \
+		--tikv-namespace realm5 \
+		--realm-id=5 \
+		--queue-biz-key realm5
+
+run-realm-edge5-tikv:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_node_cli realm-edge \
+		--listen-addr=0.0.0.0:8551 \
+		--redis-uri=redis://127.0.0.1:6379 \
+		--database tikv \
+		--tikv-pd-endpoints ${TIKV_PD_ENDPOINTS} \
+		--tikv-namespace realm5 \
+		--realm-id=5 \
+		--queue-biz-key realm5
+
+
+run-realm-processor6-tikv:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_node_cli realm-processor \
+		--redis-uri=redis://127.0.0.1:6379 \
+		--database tikv \
+		--tikv-pd-endpoints ${TIKV_PD_ENDPOINTS} \
+		--tikv-namespace realm6 \
+		--realm-id=6 \
+		--queue-biz-key realm6
+
+run-realm-edge6-tikv:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_node_cli realm-edge \
+		--listen-addr=0.0.0.0:8552 \
+		--redis-uri=redis://127.0.0.1:6379 \
+		--database tikv \
+		--tikv-pd-endpoints ${TIKV_PD_ENDPOINTS} \
+		--tikv-namespace realm6 \
+		--realm-id=6 \
+		--queue-biz-key realm6
+
+
+run-realm-processor7-tikv:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_node_cli realm-processor \
+		--redis-uri=redis://127.0.0.1:6379 \
+		--database tikv \
+		--tikv-pd-endpoints ${TIKV_PD_ENDPOINTS} \
+		--tikv-namespace realm7 \
+		--realm-id=7 \
+		--queue-biz-key realm7
+
+run-realm-edge7-tikv:
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_node_cli realm-edge \
+		--listen-addr=0.0.0.0:8553 \
+		--redis-uri=redis://127.0.0.1:6379 \
+		--database tikv \
+		--tikv-pd-endpoints ${TIKV_PD_ENDPOINTS} \
+		--tikv-namespace realm7 \
+		--realm-id=7 \
+		--queue-biz-key realm7
+
 run-watcher-coordinator-tikv:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_node_cli watcher \
 	--node-id 0 \
@@ -450,8 +705,17 @@ run-watcher-realm1-tikv:
     --tikv-namespace realm1 \
     --queue-biz-key realm1
 
-run-all-tikv: shutdown-tikv init-tikv compile
+run-all-tikv: shutdown-tikv init-tikv
 	@./scripts/run_all_tikv.sh
+
+build-node:
+	@docker build -f Dockerfile-psy-rollup . -t psy-rollup:latest
+
+run-node: init-tikv
+	@docker-compose -f ./scripts/docker-compose.node.yml up -d
+
+shutdown-node: shutdown-tikv
+	@docker-compose -f ./scripts/docker-compose.node.yml down -v
 
 run-user-prover:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_user_cli local-prover
@@ -464,9 +728,6 @@ run-benchmark:
 
 run-benchmark-user:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_dev_cli stress-test --only-user --concurrent-tasks 1000
-
-run-benchmark-register:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/examples/register_user
 
 run-benchmark-mint:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_dev_cli stress-test --task-type multicall --only-mint --concurrent-tasks 100
@@ -536,32 +797,32 @@ get-deploy-contract-cmd:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_user_cli deploy-contract --private-key=${USER1_PRIVATE_KEY} --contract-path ${PROJECT_DIR}/token/target/token.json --output-path ${PROJECT_DIR}/token/target/
 
 multi-contract-call:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_user_cli wallet-session -p ${USER0_PRIVATE_KEY} --contract-id ${CONTRACT_ID}
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_user_cli call -p ${USER0_PRIVATE_KEY} --contract-id ${CONTRACT_ID}
 
 mint:
 	@echo "All users minting 1000 tokens..."
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_user_cli submit-end-caproof -p ${USER0_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_mint --inputs 1000000000000 --sign-type $(SIGN_TYPE)
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_user_cli submit-end-caproof -p ${USER1_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_mint --inputs 1000000000000 --sign-type $(SIGN_TYPE)
-	# @RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_user_cli submit-end-caproof -p ${USER2_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_mint --inputs 1000000000000
-	# @RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_user_cli submit-end-caproof -p ${USER3_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_mint --inputs 1000000000000
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_user_cli call -p ${USER0_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_mint --inputs "[1000000000000]" --sign-type $(SIGN_TYPE)
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_user_cli call -p ${USER1_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_mint --inputs "[1000000000000]" --sign-type $(SIGN_TYPE)
+	# @RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_user_cli call -p ${USER2_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_mint --inputs "[1000000000000]"
+	# @RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_user_cli call -p ${USER3_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_mint --inputs "[1000000000000]"
 
 transfer:
 	@echo "USER0 transferring 250 to USER1..."
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_user_cli submit-end-caproof -p ${USER0_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name batch_simple_transfer --inputs 1048576 --inputs 0 --inputs 0 --inputs 0 --inputs 0 --inputs 250000000000 --inputs 0 --inputs 0 --inputs 0 --inputs 0 --sign-type $(SIGN_TYPE)
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_user_cli call -p ${USER0_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name batch_simple_transfer --inputs "[$(USER1_ID), 0, 0, 0, 0, 250000000000, 0, 0, 0, 0]" --sign-type $(SIGN_TYPE)
 	@echo "USER1 transferring 250 to USER0..."
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_user_cli submit-end-caproof -p ${USER1_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name batch_simple_transfer --inputs 0 --inputs 0 --inputs 0 --inputs 0 --inputs 0 --inputs 250000000000 --inputs 0 --inputs 0 --inputs 0 --inputs 0 --sign-type $(SIGN_TYPE)
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_user_cli call -p ${USER1_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name batch_simple_transfer --inputs "[0, 0, 0, 0, 0, 250000000000, 0, 0, 0, 0]" --sign-type $(SIGN_TYPE)
 
 claim:
 	@echo "USER1 claiming transfer..."
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_user_cli submit-end-caproof -p ${USER1_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_claim --inputs 0 --sign-type $(SIGN_TYPE)
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_user_cli call -p ${USER1_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_claim --inputs "[0]" --sign-type $(SIGN_TYPE)
 	@echo "USER0 claiming transfer..."
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_user_cli submit-end-caproof -p ${USER0_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_claim --inputs 1048576 --sign-type $(SIGN_TYPE)
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_user_cli call -p ${USER0_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_claim --inputs "[$(USER1_ID)]" --sign-type $(SIGN_TYPE)
 
 return-back:
 	@echo "USER1 transferring back to USER0..."
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_user_cli submit-end-caproof -p ${USER1_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_transfer --inputs 0 --inputs 250000000000 --sign-type $(SIGN_TYPE)
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_user_cli call -p ${USER1_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_transfer --inputs "[0, 250000000000]" --sign-type $(SIGN_TYPE)
 	@echo "USER0 transferring back to USER1..."
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_user_cli submit-end-caproof -p ${USER0_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_transfer --inputs 1048576 --inputs 250000000000 --sign-type $(SIGN_TYPE)
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_user_cli call -p ${USER0_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_transfer --inputs "[$(USER1_ID), 250000000000]" --sign-type $(SIGN_TYPE)
 
 claim-rewards:
 	@RUST_LOG=info ./target/${PROFILE}/psy_user_cli claim-rewards --private-key ${CURRENT_USER_PRIVATE_KEY} --sign-type secp256k1 --limit 10000
@@ -698,9 +959,9 @@ image:
 
 wasm-build:
 	@cd psy_sdk/psy-rust-sdk && wasm-pack build --target web --out-dir ../psy-ts-sdk/packages/psy-sdk/src/local-web-prover --out-name psy_prover --no-pack --release
-	@cd psy_sdk/psy-rust-sdk && cp ../psy-ts-sdk/.gitignore.template ../psy-ts-sdk/packages/psy-sdk/src/local-web-prover/.gitignore
+	@cp .github/templates/.gitignore.wasm ./psy_sdk/psy-ts-sdk/packages/psy-sdk/src/local-web-prover/.gitignore
 	@cd psy_sdk/psy-rust-sdk && wasm-pack build --target nodejs --out-dir ../psy-ts-sdk/packages/psy-sdk/src/local-prover --out-name psy_prover --no-pack --release
-	@cd psy_sdk/psy-rust-sdk && cp ../psy-ts-sdk/.gitignore.template ../psy-ts-sdk/packages/psy-sdk/src/local-prover/.gitignore
+	@cp .github/templates/.gitignore.wasm ./psy_sdk/psy-ts-sdk/packages/psy-sdk/src/local-prover/.gitignore
 
 help:
 	@grep -E '^[a-zA-Z_-]+:.*?' Makefile | cut -d: -f1 | sort

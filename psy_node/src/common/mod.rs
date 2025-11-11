@@ -151,7 +151,6 @@ pub fn log_proof_details(prefix: &str, job_id: QProvingJobDataID, proof: &PsyPro
 }
 
 pub mod clock;
-pub mod health;
 pub mod retry;
 pub mod slot;
 pub mod whitelist;

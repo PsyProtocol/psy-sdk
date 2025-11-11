@@ -1,7 +1,8 @@
 use std::borrow::Cow;
 
+use kvq::memory::simple::KVQSimpleMemoryBackingStore;
 use plonky2::{
-    field::goldilocks_field::GoldilocksField,
+    field::{extension::Extendable, goldilocks_field::GoldilocksField},
     hash::hash_types::RichField,
     plonk::{
         config::{GenericConfig, PoseidonGoldilocksConfig},
@@ -20,37 +21,31 @@ use psy_crypto::{
 };
 use psy_data::{
     guta::{api::SubmitGUTARealmResultAPINoProofInput, end_cap_input::SubmitUserEndCapNonProofInput},
+    models::user::contract_state_tree::UserContractStateTreeId,
     qblock::cmds::deploy_contract::QBCDeployContract,
     qdata::{
         checkpoint::{PsyBlockState, PsyCheckpointLeaf},
         contract::{ContractCodeDefinition, PsyContractLeaf},
         user::PsyUserLeaf,
+        user_contract_state::UserContractState,
     },
+    qstore::imm::{cache::PsyCmdStoreWithCache, cmd_processor::PsyReadCommandProcessorSync},
     ups::{
         start_step::UPSStartStepInput,
         ups_cfc_standard_step::{UPSCFCDeferredTransactionCircuitInput, UPSCFCStandardTransactionCircuitInput},
         ups_end_cap::UPSEndCapFromProofTreeGadgetInput,
     },
 };
-use psy_vm::{dpn::vm::def::DPNFunctionCircuitDefinition, vm::cfc_input::DapenContractFunctionCircuitInput};
+// Use types from psy_vm
+pub use psy_vm::ups::signature::{DPNSoftwareDefinedSignatureInput, Plonky2SoftwareDefinedSignatureInput};
+use psy_vm::{
+    dpn::{ops::state_cmd::data::DPNStateCmd, vm::def::DPNFunctionCircuitDefinition},
+    vm::cfc_input::DapenContractFunctionCircuitInput,
+};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_with::serde_as;
 use ts_rs::TS;
 
-// Define wallet types internally for shared use
-#[derive(Debug, Clone, Serialize, Deserialize, TS)]
-pub struct QSoftwareDefinedSignatureWitnessInput {
-    pub cfc_input: DapenContractFunctionCircuitInput<GoldilocksField>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, TS)]
-pub struct QSoftwareDefinedSignatureInput {
-    pub fn_def: DPNFunctionCircuitDefinition,
-    pub contract_id: u64,
-    pub contract_state_tree_height: u8,
-    pub session_proof_tree_height: u8,
-    pub force_four_align: bool,
-}
 const D: usize = 2;
 type C = PoseidonGoldilocksConfig;
 
@@ -281,10 +276,14 @@ pub enum RequestParams<F: RichField> {
     ZKSignatureMinifierProof(QSignatureMinifierProofRPCRequest),
     #[serde(rename = "psy_prove_secp_sign")]
     SECPSignatureProof(QSecpSignatureProofRPCRequest),
-    #[serde(rename = "psy_register_software_defined_circuit")]
-    RegisterSoftwareDefinedCircuit(QRegisterSoftwareDefinedCircuitRPCRequest),
-    #[serde(rename = "psy_prove_software_defined_sign")]
-    SoftwareDefinedSignatureProof(QSoftwareDefinedSignatureProofRPCRequest<F>),
+    #[serde(rename = "psy_register_dpn_software_defined_circuit")]
+    RegisterDPNSoftwareDefinedCircuit(QRegisterDPNSoftwareDefinedCircuitRPCRequest),
+    #[serde(rename = "psy_register_plonky2_software_defined_circuit")]
+    RegisterPlonky2SoftwareDefinedCircuit(QRegisterPlonky2SoftwareDefinedCircuitRPCRequest),
+    #[serde(rename = "psy_prove_dpn_software_defined_sign")]
+    DPNSoftwareDefinedSignatureProof(DPNSoftwareDefinedSignatureProofRPCRequest<F>),
+    #[serde(rename = "psy_prove_plonky2_software_defined_sign")]
+    Plonky2SoftwareDefinedSignatureProof(Plonky2SoftwareDefinedSignatureProofRPCRequest<F>),
     // #[serde(rename = "psy_finalize_tree")]
     // FinalizeTree,
     // #[serde(rename = "psy_prove_ups_end_cap")]
@@ -1201,17 +1200,39 @@ pub struct QSecpSignatureProofRPCRequest {
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[serde(bound = "")]
 // #[ts(export, concrete(F = GoldilocksField))]
-pub struct QRegisterSoftwareDefinedCircuitRPCRequest {
-    pub input: QSoftwareDefinedSignatureInput,
+pub struct QRegisterDPNSoftwareDefinedCircuitRPCRequest {
+    pub fn_def: DPNFunctionCircuitDefinition,
+    pub contract_id: u64,
+    pub contract_state_tree_height: u8,
+    pub session_proof_tree_height: u8,
+    pub force_four_align: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[serde(bound = "")]
+// #[ts(export, concrete(F = GoldilocksField))]
+pub struct QRegisterPlonky2SoftwareDefinedCircuitRPCRequest {
+    pub contract_state_tree_height: u8,
+    pub input_len: usize,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[serde(bound = "")]
 #[ts(export, concrete(F = GoldilocksField))]
-pub struct QSoftwareDefinedSignatureProofRPCRequest<F: RichField> {
+pub struct DPNSoftwareDefinedSignatureProofRPCRequest<F: RichField> {
     pub fingerprint: QHashOut<F>,
     pub private_key: QHashOut<F>,
-    pub input: QSoftwareDefinedSignatureWitnessInput,
+    pub input: DPNSoftwareDefinedSignatureInput,
+    pub sig_hash: QHashOut<F>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[serde(bound = "")]
+#[ts(export, concrete(F = GoldilocksField))]
+pub struct Plonky2SoftwareDefinedSignatureProofRPCRequest<F: RichField> {
+    pub fingerprint: QHashOut<F>,
+    pub private_key: QHashOut<F>,
+    pub circuit_inputs: Vec<GoldilocksField>,
     pub sig_hash: QHashOut<F>,
 }
 

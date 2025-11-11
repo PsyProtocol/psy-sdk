@@ -1,9 +1,9 @@
 use std::fmt::Debug;
 
 use super::{common::SimpleMerkleNodeKey, simple_merkle_tree::SimpleMerkleTree};
-use crate::hash::{merkle::core::MerkleProofCore, traits::hasher::MerkleZeroHasher};
+use crate::hash::{merkle::core::MerkleProofCore, traits::hasher::MerkleZeroHasherWithMarkedLeaf};
 
-pub fn get_merkle_proofs_for_compact<Hasher: MerkleZeroHasher<Hash>, Hash: Copy + PartialEq + Default + Debug>(
+pub fn get_merkle_proofs_for_compact<Hasher: MerkleZeroHasherWithMarkedLeaf<Hash>, Hash: Copy + PartialEq + Default + Debug>(
     from_index: u64,
     siblings: &[Hash],
     values: &[Hash],

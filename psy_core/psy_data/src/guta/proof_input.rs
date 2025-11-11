@@ -1,7 +1,11 @@
 use kvq::traits::KVQSerializable;
 use plonky2::{
-    field::goldilocks_field::GoldilocksField,
+    field::{
+        goldilocks_field::GoldilocksField,
+        types::{Field, PrimeField64},
+    },
     hash::hash_types::{HashOut, RichField},
+    plonk::config::AlgebraicHasher,
 };
 use psy_common::{data::qhashout::QHashOut, job::id::QProvingJobDataID};
 use psy_config::{network_constants::GLOBAL_USER_TREE_HEIGHT, DEFAULT_USER_STATE_TREE_ROOT_U64};
@@ -15,7 +19,7 @@ use psy_crypto::hash::{
         utils::sub_tree_nca::PartialUpdateNearestCommonAncestorProof,
     },
     traits::{
-        hasher::{FieldQHasher, MerkleHasher, MerkleZeroHasher},
+        hasher::{FieldQHasher, MerkleHasher, MerkleZeroHasher, MerkleZeroHasherWithMarkedLeaf},
         qhashable::QFieldHashable,
     },
 };
@@ -281,13 +285,15 @@ impl<F: RichField> VerifyTwoEndCapCircuitInput<F> {
         }
     }
 
-    pub fn get_new_guta_header(&self) -> GlobalUserTreeAggregatorHeader<F> {
+    pub fn get_new_guta_header<H: AlgebraicHasher<F> + MerkleZeroHasherWithMarkedLeaf<HashOut<F>> + MerkleZeroHasherWithMarkedLeaf<QHashOut<F>>>(
+        &self,
+    ) -> GlobalUserTreeAggregatorHeader<F> {
         GlobalUserTreeAggregatorHeader {
             guta_circuit_whitelist: self.guta_circuit_whitelist,
             checkpoint_tree_root: self.a_end_cap.checkpoint_historical_merkle_proof.root,
             state_transition: SubTreeNodeStateTransition {
-                old_node_value: self.nca_proof.compute_old_nca_value::<PsyHasher>(),
-                new_node_value: self.nca_proof.compute_new_nca_value::<PsyHasher>(),
+                old_node_value: self.nca_proof.compute_old_nca_value::<H>(),
+                new_node_value: self.nca_proof.compute_new_nca_value::<H>(),
                 node_index: F::from_canonical_u64(self.nca_proof.get_nca_index()),
                 node_level: F::from_canonical_u8(self.nca_proof.nearest_common_ancestor_level),
             },

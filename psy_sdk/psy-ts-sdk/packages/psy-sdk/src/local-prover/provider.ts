@@ -3,15 +3,16 @@ import { WasmRpcServer } from "./psy_prover";
 import { PrivateKey, PublicKey, QHashOut, U8Bytes } from "../core";
 import {
     ContractCallArgs,
+    ContractCallData,
     DPNFunctionCircuitDefinition,
     IPsyUserProverProvider,
     QBCDeployContract,
     SignData,
+    SignType,
     WalletKeyPair,
 } from "../local-prover-rpc/types";
-import { JobInfo, ZKPublicKeyInfo } from "../types";
+import { ZKPublicKeyInfo } from "../types";
 import { PsyJSON } from "../utils";
-import { json } from "stream/consumers";
 
 export class PsyWasmUserProverProvider implements IPsyUserProverProvider {
     private wasmServer: WasmRpcServer;
@@ -21,15 +22,9 @@ export class PsyWasmUserProverProvider implements IPsyUserProverProvider {
         this.wasmServer = new WasmRpcServer(json);
     }
 
-    async execContractCall(pkHash: string, contractCallArg: ContractCallArgs[]): Promise<string> {
-        const json = PsyJSON.stringify(contractCallArg);
+    async execContractCall(pkHash: string, callData: ContractCallData): Promise<string> {
+        const json = PsyJSON.stringify(callData);
         return this.wasmServer.exec_contract_call_json(pkHash, json);
-    }
-
-    async execContractCallWithSignData(pkHash: string, contractCallArg: ContractCallArgs[], signData: SignData|null|undefined): Promise<QHashOut> {
-        const json = PsyJSON.stringify(contractCallArg);
-        const signDataJson = signData ? PsyJSON.stringify(signData) : null;
-        return this.wasmServer.exec_contract_call_with_sign_data_json(pkHash, json, signDataJson);
     }
 
     async getClaimRewardsCallArgs(jobInfos: string): Promise<ContractCallArgs[]> {
@@ -58,30 +53,19 @@ export class PsyWasmUserProverProvider implements IPsyUserProverProvider {
         return this.wasmServer.prove_contract_calls_json(pkHash, json);
     }
 
-    async signAndSubmit(pkHash: PublicKey): Promise<string> {
-        return this.wasmServer.sign_and_submit(pkHash);
+    async signAndSubmit(pkHash: PublicKey, signData?: SignData): Promise<string> {
+        const signDataJson = signData ? PsyJSON.stringify(signData) : null;
+        return this.wasmServer.sign_and_submit(pkHash, signDataJson);
     }
 
-    async signAndSubmitWithData(pkHash: PublicKey, signData: SignData|null|undefined): Promise<QHashOut> {
-        const signDataJson = signData ? PsyJSON.stringify(signData) : null;
-        return this.wasmServer.sign_and_submit_with_sign_data(pkHash, signDataJson);
-    }
 
     // User operations
-    async registerUser(privateKey: PrivateKey): Promise<PublicKey> {
-        return this.wasmServer.register_user(privateKey.toString());
+    async registerUser(privateKey: PrivateKey, signType: SignType): Promise<PublicKey> {
+        return this.wasmServer.register_user(privateKey.toString(), signType);
     }
 
-    async registerUserWithType(privateKey: PrivateKey, signType: string, fingerprint: string|null|undefined): Promise<PublicKey> {
-        return this.wasmServer.register_user_with_type(privateKey.toString(), signType, fingerprint);
-    }
-
-    async addUser(privateKey: PrivateKey): Promise<PublicKey> {
-        return this.wasmServer.add_user(privateKey.toString());
-    }
-
-    async addUserWithType(privateKey: PrivateKey, signType: string, fingerprint: string|null|undefined): Promise<PublicKey> {
-        return this.wasmServer.add_user_with_type(privateKey.toString(), signType, fingerprint);
+    async addUser(privateKey: PrivateKey, signType: SignType): Promise<PublicKey> {
+        return this.wasmServer.add_user(privateKey.toString(), signType);
     }
 
     async getZKPublicKey(privateKey: PrivateKey): Promise<ZKPublicKeyInfo> {

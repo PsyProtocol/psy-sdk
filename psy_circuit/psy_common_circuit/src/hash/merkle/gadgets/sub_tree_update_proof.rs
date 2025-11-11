@@ -164,7 +164,7 @@ mod tests {
             simple_merkle_tree::SimpleMerkleTree,
             sub_tree_nca::{PartialUpdateNearestCommonAncestorProof, UpdateNCAWithAdditionalLink},
         },
-        traits::hasher::{MerkleZeroHasher, PoseidonHasher},
+        traits::hasher::{MerkleZeroHasherWithMarkedLeaf, PoseidonHasher},
     };
     use rand::{thread_rng, Rng, RngCore};
 
@@ -215,7 +215,7 @@ mod tests {
     type PsyHash = QHashOut<F>;
     type H = PoseidonHasher;
 
-    fn _rand_leaf_node_key<Hasher: MerkleZeroHasher<Hash>, Hash: Copy + PartialEq + Default + Debug>(
+    fn _rand_leaf_node_key<Hasher: MerkleZeroHasherWithMarkedLeaf<Hash>, Hash: Copy + PartialEq + Default + Debug>(
         tree: &SimpleMerkleTree<Hasher, Hash>,
     ) -> SimpleMerkleNodeKey {
         let index = thread_rng().gen::<u64>() & tree.get_max_leaf_index();

@@ -11,6 +11,7 @@ use psy_data::{
         contract::{ContractCodeDefinition, PsyContractLeaf, SimpleContractCodeDefinition},
         user::{self, PsyUserLeaf},
     },
+    qstore::imm::cmd_processor::PsyReadCommandProcessorSync,
     traits::qdatastore::{
         qmetadata::QMetaDataStoreReaderSync,
         qtreedata::{PsyComboDataStoreReaderSync, QTreeDataStoreReaderSync},

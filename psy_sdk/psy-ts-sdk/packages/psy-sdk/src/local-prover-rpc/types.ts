@@ -1,5 +1,5 @@
 import { Felt, PrivateKey, PublicKey, QHashOut, U8Bytes } from "../core";
-import { QBCDeployContract, ZKPublicKeyInfo, ContractCallArgs, WalletKeyPair, JobInfo } from "../types";
+import { QBCDeployContract, ZKPublicKeyInfo, ContractCallArgs, WalletKeyPair } from "../types";
 
 // Assertion for DPN function circuits
 interface DPNAssertEqInfoIndexed {
@@ -86,24 +86,31 @@ interface SubmitUserEndCapNonProofInput {
 }
 
 export interface SignData {
-    fingerprint: QHashOut;
-    sign_contract_id: bigint;
-    sign_inputs: bigint[];
+    contract_id: number;
+    inputs: number[];
+}
+
+export interface ContractCallData {
+    contract_calls: ContractCallArgs[];
+    software_defined_call?: SignData;
+}
+
+export enum SignType {
+    ZKSign = "zk",
+    SECP256K1Sign = "secp256k1",
+    SoftwareDefinedDPNSign = "software-defined-dpn",
+    SoftwareDefinedPlonky2Sign = "software-defined-plonky2"
 }
 
 // Namespace corresponds to "psy" in Rust
 enum PsyUserProverRPCCommand {
     ExecContractCall = "psy_exec_contract_call",
-    ExecContractCallWithSignData = "psy_exec_contract_call_with_sign_data",
     StartSession = "psy_start_session",
     ProveContractCall = "psy_prove_contract_call",
     ProveContractCalls = "psy_prove_contract_calls",
     SignAndSubmit = "psy_sign_and_submit",
-    SignAndSubmitWithData = "psy_sign_and_submit_with_sign_data",
     RegisterUser = "psy_register_user",
-    RegisterUserWithType = "psy_register_user_with_sign_type",
     AddUser = "psy_add_user",
-    AddUserWithType = "psy_add_user_with_sign_type",
     SwitchUser = "psy_switch_user",
     GetZKPublicKey = "psy_get_zk_public_key",
     GetRandomKeypair = "psy_get_random_keypair",
@@ -119,22 +126,18 @@ enum PsyUserProverRPCCommand {
 
 interface IPsyUserProverProvider {
     // Local proving operations
-    execContractCall(pk_hash: string, contractCallArg: ContractCallArgs[]): Promise<QHashOut>;
-    execContractCallWithSignData(pk_hash: string, contractCallArg: ContractCallArgs[], signData: SignData): Promise<QHashOut>;
+    execContractCall(pk_hash: string, callData: ContractCallData): Promise<string>;
     startSession(pk_hash: string): Promise<string>;
     proveContractCall(pk_hash: string, contractCallArg: ContractCallArgs): Promise<string>;
     proveContractCalls(pk_hash: string, contractCallArgs: ContractCallArgs[]): Promise<string>;
-    signAndSubmit(pk_hash: string): Promise<QHashOut>;
-    signAndSubmitWithData(pk_hash: string, signData: SignData): Promise<QHashOut>;
+    signAndSubmit(pk_hash: string, signData?: SignData): Promise<string>;
 
     getClaimRewardsCallArgs(jobInfos: string): Promise<ContractCallArgs[]>;
     claimRewards(pk_hash: string, jobInfos: string): Promise<string>;
 
     // User operations
-    registerUser(privateKey: PrivateKey): Promise<PublicKey>;
-    registerUserWithType(privateKey: PrivateKey, signType: string, fingerprint: string|null|undefined): Promise<PublicKey>;
-    addUser(privateKey: PrivateKey): Promise<PublicKey>;
-    addUserWithType(privateKey: PrivateKey, signType: string, fingerprint: string|null|undefined): Promise<PublicKey>;
+    registerUser(privateKey: PrivateKey, signType: SignType): Promise<PublicKey>;
+    addUser(privateKey: PrivateKey, signType: SignType): Promise<PublicKey>;
     // switchUser(pkHash: PublicKey): Promise<void>;
     getZKPublicKey(privateKey: PrivateKey): Promise<ZKPublicKeyInfo>;
     getRandomKeypair(): Promise<WalletKeyPair>;

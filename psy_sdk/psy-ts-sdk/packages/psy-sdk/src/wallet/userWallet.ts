@@ -1,19 +1,14 @@
 import { userWalletCache } from "./cache";
 import { IPsyUserWallet, IPsyCompleteUserInfo } from "./types";
-import { CoordinatorEdgeRpcProvider, ICoordinatorEdgeRpcProvider } from "../coord-edge-rpc";
-import { PrivateKey, PublicKey } from "../core";
+import { ICoordinatorEdgeRpcProvider } from "../coord-edge-rpc";
 import {
-    IPsyUserProverProvider,
-    WalletKeyPair,
     ContractCallArgs,
     DPNFunctionCircuitDefinition,
-    QBCDeployContract,
-    PsyRPCUserProverProvider,
 } from "../local-prover-rpc";
 import { PsyUserLeaf } from "../types";
 import { psyFelt } from "../utils";
-import { IPsyTransactionSigner, PsyMemoryTransactionSigner } from "../zksigner";
-import { IRealmEdgeRpcProvider, RealmEdgeRpcProvider } from "../realm-edge-rpc";
+import { IPsyTransactionSigner } from "../zksigner";
+import { IRealmEdgeRpcProvider } from "../realm-edge-rpc";
 import { getPsyNetworkMagicForNetworkId, NetworkId } from "../action";
 
 class PsyUserWallet implements IPsyUserWallet {
@@ -21,7 +16,6 @@ class PsyUserWallet implements IPsyUserWallet {
     networkMagic: bigint;
     coordinator: ICoordinatorEdgeRpcProvider;
     realm: IRealmEdgeRpcProvider;
-    // prover: IPsyUserProverProvider;
     signer: IPsyTransactionSigner;
 
     userId: number;
@@ -143,7 +137,11 @@ class PsyUserWallet implements IPsyUserWallet {
     // }
 
     async execContractCall(pk_hash: string, contractCallArgs: ContractCallArgs | ContractCallArgs[]): Promise<string> {
-        return this.signer.signAndSubmit(pk_hash, contractCallArgs);
+        const callData = {
+            contract_calls: Array.isArray(contractCallArgs) ? contractCallArgs : [contractCallArgs],
+            software_defined_call: undefined
+        };
+        return this.signer.signAndSubmit(pk_hash, callData);
     }
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars

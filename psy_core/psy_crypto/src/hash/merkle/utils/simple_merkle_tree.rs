@@ -8,7 +8,7 @@ use crate::hash::{
         core::{DeltaMerkleProofCore, MerkleProofCore},
         spiderman::SpidermanUpdateProof,
     },
-    traits::hasher::MerkleZeroHasher,
+    traits::hasher::MerkleZeroHasherWithMarkedLeaf,
 };
 
 #[derive(Debug, Clone)]
@@ -19,7 +19,7 @@ pub struct SimpleMerkleTree<Hasher, Hash: Copy + PartialEq + Default> {
     _hasher: PhantomData<Hasher>,
 }
 
-impl<Hasher: MerkleZeroHasher<Hash>, Hash: Copy + PartialEq + Default + Debug> SimpleMerkleTree<Hasher, Hash> {
+impl<Hasher: MerkleZeroHasherWithMarkedLeaf<Hash>, Hash: Copy + PartialEq + Default + Debug> SimpleMerkleTree<Hasher, Hash> {
     pub fn new(height: u8) -> Self {
         Self {
             nodes: hashbrown::HashMap::new(),

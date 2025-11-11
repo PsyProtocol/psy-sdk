@@ -4,7 +4,10 @@ use fred::prelude::*;
 use kvq::{memory::simple::KVQSimpleMemoryBackingStore, traits::KVQBinaryStore};
 use plonky2::{
     field::{extension::Extendable, goldilocks_field::GoldilocksField, types::Field},
-    hash::hash_types::{HashOut, RichField},
+    hash::{
+        hash_types::{HashOut, RichField},
+        poseidon::PoseidonHash,
+    },
     plonk::config::{AlgebraicHasher, GenericConfig, PoseidonGoldilocksConfig},
 };
 use psy_common::{
@@ -48,7 +51,6 @@ use psy_node::{
     },
     worker::{simple_async_coord::SimpleAsyncCoordinatorWorker, simple_async_realm::SimpleAsyncRealmWorker},
 };
-use psy_rust_sdk::common::UPSCircuitManagerTrait;
 use psy_store::{
     node::{
         coordinator::{PsyCoordinatorStoreReaderAsync, PsyCoordinatorStoreWriterAsyncImm},
@@ -65,6 +67,7 @@ use psy_ups_circuit::{
     circuit_manager::core::{PsyUPSStepCircuitManager, QCircuitManager},
     session::UserProvingSessionManager,
 };
+use psy_vm::ups::circuit_manager::UPSCircuitManager;
 
 use super::super::test_helpers::{
     contract::{gen_test_contract, SimpleTestContract},
@@ -295,7 +298,8 @@ async fn run_test3() -> anyhow::Result<()> {
     // await?; println!("[mainfnc] current_state_roots:
     // {}",serde_json::to_string_pretty(&stroots).unwrap());
     timer.lap("start: init PsyUPSStepCircuitManager");
-    let main_circuits = QCircuitManager::Local(PsyUPSStepCircuitManager::<C, D>::new_with_config(PSY_NETWORK_MAGIC));
+    let main_circuits = PsyUPSStepCircuitManager::<C, D>::new_with_config(PSY_NETWORK_MAGIC);
+    let boxed_main_circuits: QCircuitManager<C, D> = Box::new(PsyUPSStepCircuitManager::<C, D>::new_with_config(PSY_NETWORK_MAGIC));
     //main_circuits.print_common_config();
     timer.lap("end: init PsyUPSStepCircuitManager");
     let lps: PsyLocalProvingSessionStore<GoldilocksField, Arc<KVQSimpleMemoryBackingStore>> = PsyLocalProvingSessionStore::new_at(
@@ -313,9 +317,12 @@ async fn run_test3() -> anyhow::Result<()> {
     );
     main_circuits.register_info(&mut circuit_info);
     contract_helper.register_funcs(0, &mut circuit_info);
-    let mut mgr =
-        UserProvingSessionManager::<GoldilocksField, PsyHasher, _, C, D>::new(lps, circuit_info, main_circuits.ups_circuit_whitelist_root().await?)
-            .await?;
+    let mut mgr = UserProvingSessionManager::<GoldilocksField, PoseidonHash, _, C, D>::new(
+        lps,
+        circuit_info,
+        main_circuits.ups_circuit_whitelist_root().await?,
+    )
+    .await?;
     timer.lap("setup mgr");
     timer.lap("started up");
     timer.lap("START USER PROVING SESSION");

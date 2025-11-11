@@ -26,7 +26,7 @@ use psy_crypto::{
         proof_data::{InputLeafProof, TreeAwareTreeProofRecord},
     },
     hash::traits::{
-        hasher::{FieldQHasher, MerkleZeroHasher},
+        hasher::{FieldQHasher, MerkleZeroHasher, MerkleZeroHasherWithMarkedLeaf},
         qhashable::QFieldHashable,
     },
 };
@@ -45,7 +45,9 @@ use psy_data::{
     },
     qstore::{
         controllers::{
-            proving_session::PsyLocalProvingSessionStore, session_info::SessionCircuitInfoStore, state_tracker::PsyUserSessionUpdateHistory,
+            proving_session::{PsyLocalProvingSessionStore, PsyReadLocalProvingSessionStore},
+            session_info::SessionCircuitInfoStore,
+            state_tracker::PsyUserSessionUpdateHistory,
         },
         imm::{
             cache::PsyCmdStoreWithCache,
@@ -56,6 +58,7 @@ use psy_data::{
             cmd_processor::{PsyReadCommandProcessorSync, PsyReadCommandProcessorSyncMut},
         },
     },
+    traits::qdatastore::qtreedata::PsyComboDataStoreReaderSync,
     ups::{
         start_step::UPSStartStepInput,
         ups_cfc_standard_step::{UPSCFCDeferredTransactionCircuitInput, UPSCFCStandardTransactionCircuitInput},
@@ -66,15 +69,14 @@ use psy_data::{
     },
 };
 use psy_dpn_circuit::circuits::cfc::DapenContractFunctionCircuit;
-use psy_provider::common::UPSCircuitManagerTrait;
 use psy_vm::{
     dpn::{contract::cfc_code_definition_to_dapen_fc, vm::def::DPNFunctionCircuitDefinition},
+    ups::circuit_manager::UPSCircuitManager,
     vm::{cfc_input::DapenContractFunctionCircuitInput, exec::PsyEvalSessionResult},
 };
 use serde::Serialize;
 
-use super::circuit_manager::core::PsyUPSStepCircuitManager;
-use crate::circuit_manager::core::QCircuitManager;
+use crate::circuit_manager::core::PsyUPSStepCircuitManager;
 
 const UPS_STEP_LEAF_TYPE: u64 = 1;
 const CFC_LEAF_TYPE: u64 = 2;
@@ -82,12 +84,12 @@ const ZK_SIG_LEAF_TYPE: u64 = 3;
 
 pub struct UserProvingSessionManager<
     F: RichField + Extendable<D>,
-    H: MerkleZeroHasher<QHashOut<F>> + MerkleZeroHasher<HashOut<F>> + AlgebraicHasher<F>,
-    R: PsyReadCommandProcessorSync<F> + Send + Sync,
+    H: MerkleZeroHasherWithMarkedLeaf<HashOut<F>> + MerkleZeroHasherWithMarkedLeaf<QHashOut<F>> + AlgebraicHasher<F> + Send,
+    R: PsyReadCommandProcessorSync<F> + PsyComboDataStoreReaderSync<F> + Send + Sync,
     C: GenericConfig<D, F = F, Hasher = H>,
     const D: usize,
 > {
-    pub lps: PsyLocalProvingSessionStore<F, R>,
+    pub lps: PsyLocalProvingSessionStore<F, R, H>,
     circuit_info: SessionCircuitInfoStore<F>,
     pub proof_tree_state: PortableQTreeRecursionManager<C, D>,
     pub current_ups_header: UserProvingSessionHeader<F>,
@@ -105,8 +107,8 @@ const D: usize = 2;
 #[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
 #[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
 impl<
-        H: MerkleZeroHasher<QHashOut<F>> + MerkleZeroHasher<HashOut<F>> + AlgebraicHasher<F> + FieldQHasher<F>,
-        R: PsyReadCommandProcessorSync<F> + Send + Sync,
+        H: MerkleZeroHasherWithMarkedLeaf<HashOut<F>> + MerkleZeroHasherWithMarkedLeaf<QHashOut<F>> + AlgebraicHasher<F> + FieldQHasher<F> + Send,
+        R: PsyReadCommandProcessorSync<F> + PsyComboDataStoreReaderSync<F> + Send + Sync,
         C: GenericConfig<D, F = F, Hasher = H> + Serialize,
     > UserProvingSessionManager<F, H, R, C, D>
 {
@@ -133,7 +135,7 @@ impl<
     }
 
     pub async fn new(
-        mut lps: PsyLocalProvingSessionStore<F, R>,
+        mut lps: PsyLocalProvingSessionStore<F, R, H>,
         circuit_info: SessionCircuitInfoStore<F>,
         ups_step_circuit_whitelist_root: QHashOut<F>,
     ) -> anyhow::Result<Self> {
@@ -157,7 +159,6 @@ impl<
         tracing::debug!("ups_start_checkpoint_id: {}", latest_checkpoint_id_u64);
 
         let current_checkpoint_leaf = lps
-            .cmd_store
             .resolve_get_checkpoint_leaf_mut(&QSRCmdGetCheckpointLeafData {
                 checkpoint_id: latest_checkpoint_id_u64,
             })
@@ -197,7 +198,7 @@ impl<
         })
     }
 
-    pub async fn new_dummy(lps: PsyLocalProvingSessionStore<F, R>, circuit_info: SessionCircuitInfoStore<F>) -> anyhow::Result<Self> {
+    pub async fn new_dummy(lps: PsyLocalProvingSessionStore<F, R, H>, circuit_info: SessionCircuitInfoStore<F>) -> anyhow::Result<Self> {
         let proof_tree_state = PortableQTreeRecursionManager::<C, D>::new(UPS_SESSION_PROOF_TREE_HEIGHT as usize).await;
 
         Ok(Self {
@@ -222,7 +223,6 @@ impl<
         );
         let checkpoint_tree_proof = self
             .lps
-            .cmd_store
             .resolve_get_merkle_proof_mut(&QSRMerkleCmd::GetCheckpointTreeMerkleProof(QSRMerkleCmdGetCheckpointTreeMerkleProof {
                 checkpoint_id: start_checkpoint_id,
                 leaf_checkpoint_id: start_checkpoint_id,
@@ -237,7 +237,6 @@ impl<
         );
         let user_tree_proof = self
             .lps
-            .cmd_store
             .resolve_get_merkle_proof_mut(&QSRMerkleCmd::GetUserTreeMerkleProof(QSRMerkleCmdGetUserTreeMerkleProof {
                 checkpoint_id: start_checkpoint_id,
                 user_id: self.lps.get_current_user_id_64(),
@@ -263,7 +262,7 @@ impl<
         new_hash_tip
     }
 
-    pub async fn prove_ups_start<CM: UPSCircuitManagerTrait<C, D> + ?Sized>(&mut self, circuit_mgr: &CM) -> anyhow::Result<()> {
+    pub async fn prove_ups_start<CM: UPSCircuitManager<C, D> + ?Sized>(&mut self, circuit_mgr: &CM) -> anyhow::Result<()> {
         let mut timer = DebugTimer::new("prove_ups_start");
         timer.lap("start");
         tracing::info!("get_ups_start_witness");
@@ -370,7 +369,6 @@ impl<
     async fn resolve_contract_function(&mut self, contract_id: u64, method_id: u32) -> anyhow::Result<(usize, DPNFunctionCircuitDefinition)> {
         let contract_def = self
             .lps
-            .cmd_store
             .resolve_get_contract_code_mut(&QSRCmdGetContractCodeDefinition { contract_id })
             .await?;
 
@@ -385,7 +383,7 @@ impl<
         Ok((fn_id, fn_circuit_def))
     }
 
-    pub async fn prove_contract_call<CM: UPSCircuitManagerTrait<C, D> + ?Sized>(
+    pub async fn prove_contract_call<CM: UPSCircuitManager<C, D> + ?Sized>(
         &mut self,
         circuit_mgr: &CM,
         contract_id: F,
@@ -398,7 +396,7 @@ impl<
         Ok(())
     }
 
-    pub async fn prove_standard_call<CM: UPSCircuitManagerTrait<C, D> + ?Sized>(
+    pub async fn prove_standard_call<CM: UPSCircuitManager<C, D> + ?Sized>(
         &mut self,
         circuit_mgr: &CM,
         contract_id: F,
@@ -442,7 +440,7 @@ impl<
             None => anyhow::bail!("error finding historical root proof in proof_tree_state"),
         };
         let checkpoint_state = self.get_checkpoint_state();
-        let last_tx_rec: &PsyLocalTransactionRecord<GoldilocksField> = self.lps.transaction_records.last().unwrap();
+        let last_tx_rec: &PsyLocalTransactionRecord<GoldilocksField> = self.lps.last_transaction_record();
         let user_contract_tree_update_proof = last_tx_rec.user_contract_tree_update_proof.clone();
         let deferred_tx_debt_pivot_proof = self.lps.get_deferred_tx_tree_leaf(deferred_tx_pivot_index)?;
         let inline_tx_debt_pivot_proof = self.lps.get_inline_tx_tree_leaf(inline_tx_pivot_index)?;
@@ -538,7 +536,7 @@ impl<
         self.current_ups_header = new_ups_header;
         self.tx_log.push(tx_log_item);
 
-        let deferred_debt_items = self.lps.transaction_records.last().unwrap().added_deferred_tx_items.clone();
+        let deferred_debt_items = self.lps.last_transaction_record().added_deferred_tx_items.clone();
 
         for debt_item in &deferred_debt_items {
             self.repay_deferred_debt(circuit_mgr, debt_item).await?;
@@ -572,7 +570,7 @@ impl<
         sighash
     }
 
-    pub async fn prove_burn_fee<CM: UPSCircuitManagerTrait<C, D> + ?Sized>(&mut self, circuit_mgr: &CM) -> anyhow::Result<()> {
+    pub async fn prove_burn_fee<CM: UPSCircuitManager<C, D> + ?Sized>(&mut self, circuit_mgr: &CM) -> anyhow::Result<()> {
         tracing::info!("Adding burn transaction for GUTA fee: {}", GUTA_FEE);
 
         let (burn_fn_id, burn_fn_circuit_def) = self
@@ -591,7 +589,7 @@ impl<
         Ok(())
     }
 
-    pub async fn prove_end_cap<CM: UPSCircuitManagerTrait<C, D> + ?Sized>(
+    pub async fn prove_end_cap<CM: UPSCircuitManager<C, D> + psy_vm::ups::circuit_manager::PortableQTreeRecursion<C, D> + ?Sized>(
         &mut self,
         circuit_mgr: &CM,
         network_magic: u64,
@@ -707,7 +705,7 @@ impl<
             .await
     }
 
-    async fn repay_deferred_debt<CM: UPSCircuitManagerTrait<C, D> + ?Sized>(
+    async fn repay_deferred_debt<CM: UPSCircuitManager<C, D> + ?Sized>(
         &mut self,
         circuit_mgr: &CM,
         initial_debt_item: &psy_data::dpn::proving_session::DPNTransactionDebtItem<DPNProvingSessionSimpleMethodCall<F>, F>,
@@ -717,7 +715,7 @@ impl<
         while let Some(debt_item) = debt_queue.pop() {
             self.prove_deferred_call(circuit_mgr, &debt_item).await?;
 
-            let new_debt_items = self.lps.transaction_records.last().unwrap().added_deferred_tx_items.clone();
+            let new_debt_items = self.lps.last_transaction_record().added_deferred_tx_items.clone();
 
             debt_queue.extend(new_debt_items);
         }
@@ -725,7 +723,7 @@ impl<
         Ok(())
     }
 
-    async fn prove_deferred_call<CM: UPSCircuitManagerTrait<C, D> + ?Sized>(
+    async fn prove_deferred_call<CM: UPSCircuitManager<C, D> + ?Sized>(
         &mut self,
         circuit_mgr: &CM,
         debt_item: &DPNTransactionDebtItem<DPNProvingSessionSimpleMethodCall<F>, F>,
@@ -768,7 +766,7 @@ impl<
             None => anyhow::bail!("error finding historical root proof in proof_tree_state"),
         };
         let checkpoint_state = self.get_checkpoint_state();
-        let last_tx_rec = self.lps.transaction_records.last().unwrap();
+        let last_tx_rec = self.lps.last_transaction_record();
         let user_contract_tree_update_proof = last_tx_rec.user_contract_tree_update_proof.clone();
         let deferred_tx_pivot_index = debt_item.tree_index;
         let inline_tx_pivot_index = self.lps.get_inline_tx_debt_latest_index();

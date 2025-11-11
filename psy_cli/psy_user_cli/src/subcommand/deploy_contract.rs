@@ -6,7 +6,7 @@ use plonky2::{
     hash::{hashing::hash_n_to_hash_no_pad, poseidon::PoseidonPermutation},
     plonk::config::PoseidonGoldilocksConfig,
 };
-use psy_common::data::qhashout::QHashOut;
+use psy_common::{args::SignType, data::qhashout::QHashOut};
 use psy_common_circuit::circuits::{traits::qstandard::QStandardCircuit, zk_signature3::manager::SimplePsyZKSignatureManager};
 use psy_config::network_constants::{GLOBAL_USER_TREE_HEIGHT, MAX_CONTRACT_STATE_TREE_HEIGHT, UPS_SESSION_PROOF_TREE_HEIGHT};
 use psy_crypto::{hash::traits::qhashable::QFieldHashable, signature::zk::wallet::SimplePsyPrivateKey};
@@ -17,8 +17,8 @@ use psy_data::{
 };
 use psy_dpn_circuit::circuits::cfc::DapenContractFunctionCircuit;
 use psy_prover::{
-    local::args::SignType,
     session::{gen_contract_deploy_and_circuits_for_functions, WalletSession},
+    wallet::memory_wallet::get_zk_fingerprint,
 };
 use psy_rust_sdk::{
     provider::{QUserRpcProvider, RpcProvider},
@@ -44,9 +44,8 @@ pub async fn run(args: DeployContractArgs) -> anyhow::Result<()> {
         .map(|f| -> anyhow::Result<_> { QHashOut::<F>::from_str(f).map_err(|e| anyhow::anyhow!("parse fingerprint error: {}", e)) })
         .transpose()?;
 
-    let deployer = wallet_session
-        .add_user_with_type(private_key, SignType::from(args.sign_type.clone()), fingerprint)
-        .await?;
+    let fingerprint = fingerprint.unwrap_or_else(|| get_zk_fingerprint());
+    let deployer = wallet_session.add_user(private_key, fingerprint).await?;
 
     let defs_array: Vec<DPNFunctionCircuitDefinition> = serde_json::from_str(&fs::read_to_string(args.contract_path)?)?;
 
@@ -68,7 +67,8 @@ pub async fn run(args: DeployContractArgs) -> anyhow::Result<()> {
     let sign_proof = match args.sign_type.clone() {
         SignType::ZKSign => wallet_session.wallet.zk_sign_for_public_key(deployer, sig_hash).await?,
         SignType::SECP256K1Sign => wallet_session.wallet.zk_sign_secp256k1(deployer, sig_hash).await?,
-        SignType::SoftwareDefinedSign => unimplemented!("software defined sign not supported"),
+        SignType::SoftwareDefinedDPNSign => unimplemented!("software defined dpn sign not supported"),
+        SignType::SoftwareDefinedPlonky2Sign => unimplemented!("software defined plonky2 sign not supported"),
     };
 
     match args.output_path {

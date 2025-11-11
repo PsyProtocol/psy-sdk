@@ -6,7 +6,7 @@ use std::{net::SocketAddr, sync::Arc};
 use clap::{Args, Parser, ValueEnum};
 use hyper::Method;
 use jsonrpsee::server::Server;
-use psy_prover::health::HealthLayer;
+use psy_common::health::HealthLayer;
 use psy_store::store::{from_backend, journal::JournalStore, BackendConfig, PsyStore};
 use serde::{Deserialize, Serialize};
 use tower_http::cors::{Any, CorsLayer};

@@ -7,20 +7,15 @@ use anyhow::Result;
 use plonky2::field::goldilocks_field::GoldilocksField;
 use psy_common::data::qhashout::QHashOut;
 use psy_crypto::signature::zk::data::ZKPublicKeyInfo;
-use psy_prover::wallet::memory_wallet::ZK_FINGERPRINT;
+use psy_prover::wallet::memory_wallet::get_zk_fingerprint;
 use psy_provider::request::{Id, QRegisterUserRPCRequest, RequestParams, RpcRequest, Version};
 use rand::Rng;
 use reqwest::Client;
 
-//just copy from psy_user_cli/src/subcommand/register_user.rs
-// const ZK_FINGERPRINT: &str =
-// "d2f572f1402fa8a92c9af0a2226e05ef8f5f4f34d764c6515b90d2b391fc48c1";
-
-// Generate a random public key using thread_rng for better performance
 #[inline(always)]
 fn generate_random_public_key() -> ZKPublicKeyInfo<GoldilocksField> {
     let mut rng = rand::thread_rng();
-    let fingerprint = QHashOut::<GoldilocksField>::from_str(&ZK_FINGERPRINT).unwrap();
+    let fingerprint = get_zk_fingerprint();
 
     let u64v = [rng.r#gen::<u64>(), rng.r#gen::<u64>(), rng.r#gen::<u64>(), rng.r#gen::<u64>()];
     let public_key_param = QHashOut::<GoldilocksField>::from_values(u64v[0], u64v[1], u64v[2], u64v[3]);

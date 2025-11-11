@@ -1,10 +1,14 @@
 use plonky2::{
-    field::{goldilocks_field::GoldilocksField, types::Field},
+    field::{extension::Extendable, goldilocks_field::GoldilocksField, types::Field},
     hash::{
         hash_types::{HashOut, RichField},
         poseidon::PoseidonHash,
     },
-    plonk::config::{AlgebraicHasher, Hasher},
+    iop::target::BoolTarget,
+    plonk::{
+        circuit_builder::CircuitBuilder,
+        config::{AlgebraicHasher, Hasher},
+    },
     util::log2_ceil,
 };
 use psy_common::data::{
@@ -113,10 +117,9 @@ pub trait MerkleHasherWithMarkedLeaf<Hash: PartialEq>: MerkleHasher<Hash> {
 pub trait MerkleZeroHasher<Hash: PartialEq>: MerkleHasher<Hash> {
     fn get_zero_hash(reverse_level: usize) -> Hash;
 }
-pub trait BaseMerkleZeroHasherWithMarkedLeaf<Hash: PartialEq>: MerkleHasherWithMarkedLeaf<Hash> {
+pub trait MerkleZeroHasherWithMarkedLeaf<Hash: PartialEq>: MerkleZeroHasher<Hash> + MerkleHasherWithMarkedLeaf<Hash> {
     fn get_zero_hash_marked(reverse_level: usize) -> Hash;
 }
-pub trait MerkleZeroHasherWithMarkedLeaf<Hash: PartialEq>: BaseMerkleZeroHasherWithMarkedLeaf<Hash> + MerkleZeroHasher<Hash> {}
 
 pub const ZERO_HASH_CACHE_SIZE: usize = 128;
 pub trait MerkleZeroHasherWithCache<Hash: PartialEq + Copy>: MerkleHasher<Hash> {
@@ -209,7 +212,42 @@ impl<H: FieldQHasher<F>, F: RichField> MerkleHasher<QHashOut<F>> for H {
     }
 }
 
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub struct PoseidonHasher;
+
+impl<F: RichField> Hasher<F> for PoseidonHasher {
+    const HASH_SIZE: usize = <PoseidonHash as Hasher<F>>::HASH_SIZE;
+
+    type Hash = HashOut<F>;
+    type Permutation = <PoseidonHash as Hasher<F>>::Permutation;
+
+    fn hash_no_pad(input: &[F]) -> Self::Hash {
+        PoseidonHash::hash_no_pad(input)
+    }
+
+    fn hash_pad(input: &[F]) -> Self::Hash {
+        PoseidonHash::hash_pad(input)
+    }
+
+    fn two_to_one(left: Self::Hash, right: Self::Hash) -> Self::Hash {
+        <PoseidonHash as Hasher<F>>::two_to_one(left, right)
+    }
+}
+
+impl<F: RichField> AlgebraicHasher<F> for PoseidonHasher {
+    type AlgebraicPermutation = <PoseidonHash as AlgebraicHasher<F>>::AlgebraicPermutation;
+
+    fn permute_swapped<const D: usize>(
+        inputs: Self::AlgebraicPermutation,
+        swap: BoolTarget,
+        builder: &mut CircuitBuilder<F, D>,
+    ) -> Self::AlgebraicPermutation
+    where
+        F: RichField + Extendable<D>,
+    {
+        <PoseidonHash as AlgebraicHasher<F>>::permute_swapped(inputs, swap, builder)
+    }
+}
 impl<F: RichField> BasicFieldHasher<F> for PoseidonHasher {
     fn hash_many(elements: &[F]) -> HashOut<F> {
         PoseidonHash::hash_no_pad(elements)
@@ -286,7 +324,20 @@ impl<F: QRichField> MerkleHasherWithMarkedLeaf<HashOut<F>> for PoseidonHash {
     }
 }
 
-impl BaseMerkleZeroHasherWithMarkedLeaf<QHashOut<GoldilocksField>> for PoseidonHash {
+impl<Hash: PartialEq + Copy, T: MerkleZeroHasherWithCache<Hash> + MerkleZeroHasherWithCacheMarkedLeaf<Hash>> MerkleZeroHasherWithMarkedLeaf<Hash>
+    for T
+{
+    fn get_zero_hash_marked(reverse_level: usize) -> Hash {
+        if reverse_level < ZERO_HASH_CACHE_SIZE {
+            T::CACHED_MARKED_LEAF_ZERO_HASHES[reverse_level]
+        } else {
+            let current = T::CACHED_MARKED_LEAF_ZERO_HASHES[ZERO_HASH_CACHE_SIZE - 1];
+            iterate_merkle_hasher::<Hash, Self>(current, reverse_level - ZERO_HASH_CACHE_SIZE + 1)
+        }
+    }
+}
+
+impl MerkleZeroHasherWithMarkedLeaf<QHashOut<GoldilocksField>> for PoseidonHash {
     fn get_zero_hash_marked(reverse_level: usize) -> QHashOut<GoldilocksField> {
         PoseidonHasher::get_zero_hash_marked(reverse_level)
     }
@@ -297,11 +348,9 @@ impl MerkleZeroHasher<QHashOut<GoldilocksField>> for PoseidonHash {
     }
 }
 
-impl MerkleZeroHasherWithMarkedLeaf<QHashOut<GoldilocksField>> for PoseidonHash {}
-
-impl BaseMerkleZeroHasherWithMarkedLeaf<HashOut<GoldilocksField>> for PoseidonHash {
+impl MerkleZeroHasherWithMarkedLeaf<HashOut<GoldilocksField>> for PoseidonHash {
     fn get_zero_hash_marked(reverse_level: usize) -> HashOut<GoldilocksField> {
-        <PoseidonHash as BaseMerkleZeroHasherWithMarkedLeaf<QHashOut<GoldilocksField>>>::get_zero_hash_marked(reverse_level).0
+        <PoseidonHash as MerkleZeroHasherWithMarkedLeaf<QHashOut<GoldilocksField>>>::get_zero_hash_marked(reverse_level).0
     }
 }
 impl MerkleZeroHasher<HashOut<GoldilocksField>> for PoseidonHash {
@@ -373,20 +422,5 @@ impl<Hash: PartialEq + Copy, T: MerkleZeroHasherWithCache<Hash>> MerkleZeroHashe
     }
 }
 
-impl<Hash: PartialEq + Copy, T: MerkleZeroHasherWithCacheMarkedLeaf<Hash>> BaseMerkleZeroHasherWithMarkedLeaf<Hash> for T {
-    fn get_zero_hash_marked(reverse_level: usize) -> Hash {
-        if reverse_level < ZERO_HASH_CACHE_SIZE {
-            T::CACHED_MARKED_LEAF_ZERO_HASHES[reverse_level]
-        } else {
-            let current = T::CACHED_MARKED_LEAF_ZERO_HASHES[ZERO_HASH_CACHE_SIZE - 1];
-            iterate_merkle_hasher::<Hash, Self>(current, reverse_level - ZERO_HASH_CACHE_SIZE + 1)
-        }
-    }
-}
-
-impl<Hash: PartialEq + Copy, T: MerkleZeroHasherWithCacheMarkedLeaf<Hash> + MerkleZeroHasherWithCache<Hash>> MerkleZeroHasherWithMarkedLeaf<Hash>
-    for T
-{
-}
-
+impl<F: RichField> QAlgebraicHasher<F> for PoseidonHasher {}
 impl<F: RichField> QAlgebraicHasher<F> for PoseidonHash {}

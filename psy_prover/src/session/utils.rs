@@ -11,18 +11,18 @@ use plonky2::{
     plonk::config::PoseidonGoldilocksConfig,
 };
 use psy_common::{
+    args::{ContractCallArgs, WorkerJobTracker},
     data::{
         qhashout::QHashOut,
         secp256k1::{bytes_to_u32_vec_le, CompressedPublicKey},
     },
     job::id::{ProvingJobCircuitType, QProvingJobDataID, VariableHeightRewardMerkleProof, GUTA_REWARDS_TREE_MAX_HEIGHT},
+    JobInfo, JobLocation,
 };
 use psy_config::MINING_REWARDS_CONTRACT_ID;
 use psy_crypto::signature::secp256k1::core::PsyCompressedSecp256K1Signature;
 use psy_provider::provider::RpcProvider;
 use serde::{Deserialize, Serialize};
-
-use crate::local::args::{ContractCallArgs, JobInfo, JobLocation, WorkerJobTracker};
 
 type C = PoseidonGoldilocksConfig;
 const D: usize = 2;

@@ -1,6 +1,5 @@
 import { getPsyNetworkMagicForNetworkId, NetworkId } from "../../action";
-import { ContractCallArgs, DPNFunctionCircuitDefinition, IPsyUserProverProvider } from "../../local-prover-rpc";
-import { JobInfo } from "../../types";
+import { ContractCallArgs, ContractCallData, DPNFunctionCircuitDefinition, IPsyUserProverProvider, SignType } from "../../local-prover-rpc";
 import { IPsyTransactionSigner, TPsyTransactionSignerAbility } from "../types";
 
 class PsyMemoryTransactionSigner implements IPsyTransactionSigner {
@@ -9,7 +8,7 @@ class PsyMemoryTransactionSigner implements IPsyTransactionSigner {
     publicKeyHex: string;
     privateKeyHex: string;
     signType: string;
-    fingerprint?: string;
+    fingerprint: string;
     prover: IPsyUserProverProvider;
     private constructor(
         proverProvider: IPsyUserProverProvider,
@@ -17,7 +16,7 @@ class PsyMemoryTransactionSigner implements IPsyTransactionSigner {
         publicKeyHex: string,
         privateKeyHex: string,
         signType: string,
-        fingerprint?: string
+        fingerprint: string
     ) {
         this.networkId = networkId;
         this.networkMagic = getPsyNetworkMagicForNetworkId(networkId);
@@ -27,9 +26,9 @@ class PsyMemoryTransactionSigner implements IPsyTransactionSigner {
         this.signType = signType;
         this.fingerprint = fingerprint;
     }
-    static async create(proverProvider: IPsyUserProverProvider, networkId: NetworkId, privateKeyHex: string, signType: string, fingerprint?: string) {
-        const publicKeyHex = await proverProvider.addUserWithType(privateKeyHex, signType, fingerprint);
-        return new PsyMemoryTransactionSigner(proverProvider, networkId, publicKeyHex, privateKeyHex, signType, fingerprint);
+    static async create(proverProvider: IPsyUserProverProvider, networkId: NetworkId, privateKeyHex: string, signType: SignType, fingerprint: string) {
+        const publicKeyHex = await proverProvider.addUser(privateKeyHex, signType);
+        return new PsyMemoryTransactionSigner(proverProvider, networkId, publicKeyHex, privateKeyHex, signType.toString(), fingerprint);
     }
     getPrivateKeyHex(): Promise<string> {
         return Promise.resolve(this.privateKeyHex);
@@ -39,18 +38,12 @@ class PsyMemoryTransactionSigner implements IPsyTransactionSigner {
         return Promise.resolve(this.signType);
     }
 
-    getFingerprint(): Promise<string|null|undefined> {
+    getFingerprint(): Promise<string> {
         return Promise.resolve(this.fingerprint);
     }
-    // async signHash(hash: QHashOut): Promise<ProofWithPublicInputs> {
-    //     return this.prover.getZKSignature(hash);
-    // }
 
-    async signAndSubmit(pk_hash: string, contractCallArgs: ContractCallArgs | ContractCallArgs[]): Promise<string> {
-        if (contractCallArgs instanceof Array) {
-            return this.prover.execContractCall(pk_hash, contractCallArgs);
-        }
-        return this.prover.execContractCall(pk_hash, [contractCallArgs]);
+    async signAndSubmit(pk_hash: string, callData: ContractCallData): Promise<string> {
+        return this.prover.execContractCall(pk_hash, callData);
     }
 
     async deployContract(pk_hash: string, circuitDefs: DPNFunctionCircuitDefinition[]): Promise<string> {
@@ -65,12 +58,12 @@ class PsyMemoryTransactionSigner implements IPsyTransactionSigner {
         return this.publicKeyHex;
     }
 
-    async registerUser(privateKeyHex: string, signType: string, fingerprint?: string): Promise<string> {
-        return this.prover.registerUserWithType(privateKeyHex, signType, fingerprint);
+    async registerUser(privateKeyHex: string, signType: SignType): Promise<string> {
+        return this.prover.registerUser(privateKeyHex, signType);
     }
 
-    async addUser(privateKeyHex: string, signType: string, fingerprint?: string): Promise<string> {
-        return this.prover.addUserWithType(privateKeyHex, signType, fingerprint);
+    async addUser(privateKeyHex: string, signType: SignType): Promise<string> {
+        return this.prover.addUser(privateKeyHex, signType);
     }
 
     async getClaimRewardsCallArgs(jobInfos: string): Promise<ContractCallArgs[]> {

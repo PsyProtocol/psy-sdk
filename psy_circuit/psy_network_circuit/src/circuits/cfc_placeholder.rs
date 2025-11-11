@@ -18,7 +18,7 @@ use psy_common_circuit::{
 };
 use psy_crypto::hash::{
     merkle::{core::DeltaMerkleProofCore, utils::simple_merkle_tree::SimpleMerkleTree},
-    traits::hasher::MerkleZeroHasher,
+    traits::hasher::MerkleZeroHasherWithMarkedLeaf,
 };
 
 #[derive(Debug)]
@@ -125,7 +125,7 @@ where
 
 impl<C: GenericConfig<D> + 'static, const D: usize> CFCPlaceholderCircuit<C, D>
 where
-    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>>,
+    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasherWithMarkedLeaf<HashOut<C::F>> + MerkleZeroHasherWithMarkedLeaf<QHashOut<C::F>>,
 {
     pub fn prove_seq_filler(&self) -> ProofWithPublicInputs<C::F, C, D> {
         let height = self.delta_merkle_proofs[0].siblings.len();

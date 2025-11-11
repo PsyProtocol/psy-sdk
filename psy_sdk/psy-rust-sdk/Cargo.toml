@@ -50,10 +50,10 @@ getrandom = { workspace = true }
 hex = {workspace = true}
 
 psy_provider = { workspace = true }
+psy_prover = { workspace = true }
 
 # Native-only dependencies
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-psy_prover = { workspace = true }
 
 # WASM-specific dependencies
 [target.'cfg(target_arch = "wasm32")'.dependencies]
