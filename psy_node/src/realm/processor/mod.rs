@@ -525,7 +525,7 @@ impl RealmProcessor {
         next_checkpoint_id: u64,
         slot: u64,
     ) -> anyhow::Result<(QProvingJobDataID, Vec<QueueOffsetState>)> {
-        build_ctx.build_block(slot).await
+        build_ctx.build_block(next_checkpoint_id, slot).await
     }
 
     fn validate_slot(&self) -> anyhow::Result<()> {

@@ -33,6 +33,7 @@ use crate::queue::{
 
 pub const REALM_PENDING_USER_QUEUE_KEY_PREFIX: &'static str = "RMPUQ";
 pub const MAX_CHECKPOINT_COUNT: usize = 256;
+pub const QUEUE_ITEM_EXPIRE_TIME_SECONDS: i64 = 1800; // 30 minutes
 
 #[auto_impl(&, Box, Arc)]
 pub trait BizKey {
@@ -153,7 +154,7 @@ impl QProofStoreReaderAsync for ProofStoreRedis {
         let id_key = self.id_key(channel_id);
         let exists:Option<i64> = self.redis.zscore(id_key, id).await?;
         if let Some(score) = exists {
-            if score >= server_time[0] - 1800 { // 30 minutes
+            if score >= server_time[0] - QUEUE_ITEM_EXPIRE_TIME_SECONDS { // 30 minutes
                 return Ok(true);
             }
         }
@@ -797,7 +798,7 @@ impl CheckpointDrainQueueConsumerAsyncImmWithPosition for ProofStoreRedis {
         tracing::debug!("Consumed redis {} items for checkpoint {}, channel_id {}, state_key {}",
                          state.consumed_count, state.checkpoint_id, state.channel_id, state_key);
         let now = self.redis.server_time().await?;
-        builder = builder.zremrangebyscore(id_key, 0, now[0] - 1800);
+        builder = builder.zremrangebyscore(id_key, 0, now[0] - QUEUE_ITEM_EXPIRE_TIME_SECONDS);
         builder.execute_atomic(&self.redis).await?;
         Ok(())
     }

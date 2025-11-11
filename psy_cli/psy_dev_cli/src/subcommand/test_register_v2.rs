@@ -163,7 +163,7 @@ async fn run_test3() -> anyhow::Result<()> {
 
     let sync1 = coordinator_processor_node.store.get_checkpoint_sync_info_compact(1).await?;
     realm_processor_node.handle_checkpoint_sync(sync1).await?;
-    realm_processor_node.build_block(0).await?;
+    realm_processor_node.build_block(realm_processor_node.latest_checkpoint().await? + 1, 0).await?;
     let realm_worker_output_job_id =
         SimpleAsyncRealmWorker::run_worker_until_done::<_, _, SimpleCircuitLibrary<GoldilocksField>, PsyCoordinatorCircuitManager<C, D>, C, D>(
             &realm_q.clone(),
@@ -320,7 +320,7 @@ async fn run_test3() -> anyhow::Result<()> {
         .handle_recv_end_cap_from_user(mgr.get_api_input().await?, &end_cap_proof)
         .await?;
 
-    realm_processor_node.build_block(0).await?;
+    realm_processor_node.build_block(realm_processor_node.latest_checkpoint().await? + 1, 0).await?;
     let realm_worker_output_job_id =
         SimpleAsyncRealmWorker::run_worker_until_done::<_, _, SimpleCircuitLibrary<GoldilocksField>, PsyCoordinatorCircuitManager<C, D>, C, D>(
             &realm_q.clone(),
