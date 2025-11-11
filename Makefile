@@ -1,4 +1,5 @@
 export SQLX_OFFLINE=true
+export DARGO_STD_PATH := $(PWD)/psy_compiler/psy-std/std.psy
 
 PROFILE := release
 LOG_LEVEL := psy_ups_circuit=trace,psy_dpn_circuit=trace,tikv_client=warn,psy_store=trace,psy_user_cli=debug,psy_dev_cli=debug,psy_services=info,psy_node_cli=debug,psy_node=trace,psy_common_circuit=trace,psy_network_circuit=trace,psy_prover=trace,psy_data=trace,plonky2=error
@@ -449,9 +450,6 @@ run-benchmark:
 
 run-benchmark-user:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_dev_cli stress-test --only-user --concurrent-tasks 1000
-
-run-benchmark-register:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/examples/register_user
 
 run-benchmark-mint:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_dev_cli stress-test --task-type multicall --only-mint --concurrent-tasks 100
