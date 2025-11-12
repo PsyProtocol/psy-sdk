@@ -12,7 +12,7 @@ use kvq::{
 };
 
 #[auto_impl(&, Box, Arc)]
-pub trait Journal: KVQBinaryStore {
+pub trait Journal: KVQBinaryStore + BackupHandler {
     fn commit(&self, _checkpoint_id: Option<u64>) -> anyhow::Result<(Vec<KVQPair<Vec<u8>, Vec<u8>>>, Vec<Vec<u8>>)>;
     fn is_committed(&self) -> bool;
     fn rollback(&self, _checkpoint_id: u64) -> anyhow::Result<()>;
@@ -30,6 +30,14 @@ pub trait Journal: KVQBinaryStore {
 pub struct JournalStore<S: KVQBinaryStore> {
     #[delegate(KVQBinaryStore)]
     inner: KVQBinaryStoreCached<S>,
+}
+
+#[async_trait]
+impl<S: KVQBinaryStore> BackupHandler for JournalStore<S> {
+    async fn handle_backup(&self, request: BackupRequest) -> anyhow::Result<()> {
+        tracing::info!("JournalStore does not need handle backup request: {:?}", request);
+        Ok(())
+    }
 }
 
 impl<S: KVQBinaryStore> JournalStore<S> {

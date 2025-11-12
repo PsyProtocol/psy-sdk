@@ -1,16 +1,48 @@
-use ambassador::Delegate;
+use std::fmt::Debug;
+
 use async_trait::async_trait;
 use kvq::traits::{KVQBinaryStore, KVQBinaryStoreAsync, KVQPair};
+use psy_common::data::qhashout::QHashOut;
+use psy_crypto::hash::merkle::core::MerkleProofCore;
+use serde::{Deserialize, Serialize};
 use tokio::sync::mpsc;
 use tracing::error;
 
 use super::{Journal, JournalAsync};
+use crate::queue::redis_queue::QueueOffsetState;
 
 /// Backup request sent to the backup task
-pub struct BackupRequest {
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum BackupRequest {
+    Checkpoint(BackupCheckpoint),
+    PendingUsers(BackupPendingUsers),
+    RealmState(BackupRealmState),
+    PendingUsersQueueState(QueueOffsetState),
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BackupCheckpoint {
     pub checkpoint_id: u64,
     pub pair_to_set: Vec<(Vec<u8>, Vec<u8>)>,
     pub removed_keys: Vec<Vec<u8>>,
+    pub is_committed: bool,
+}
+
+type F = psy_data::config::store_config::PsyFelt;
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BackupPendingUsers {
+    pub checkpoint_id: u64,
+    pub start_user_index: u64,
+    pub pending_users: Vec<MerkleProofCore<QHashOut<F>>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BackupRealmState {
+    pub checkpoint_id: u64,
+    pub last_processed_user_num: u64,
+    pub current_processed_user_num: u64,
+    pub total_pending_users: u64,
+    pub is_committed: bool,
 }
 
 /// Callback trait for handling backup operations
@@ -47,20 +79,36 @@ impl<J: Journal> BackupJournalStore<J> {
         self.backup_tx = None;
     }
 
-    fn send_backup_request(&self, checkpoint_id: u64, pair_to_set: Vec<KVQPair<Vec<u8>, Vec<u8>>>, removed_keys: Vec<Vec<u8>>) {
+    fn send_backup_request_inner(&self, request: BackupRequest) {
         if let Some(ref backup_tx) = self.backup_tx {
-            let pair_to_set = pair_to_set.into_iter().map(|pair| (pair.key, pair.value)).collect();
-
-            let request = BackupRequest {
-                checkpoint_id,
-                pair_to_set,
-                removed_keys,
-            };
-
             if let Err(e) = backup_tx.send(request) {
-                error!("❌ Failed to send backup request for checkpoint {}: {}", checkpoint_id, e);
+                error!("❌ Failed to send backup request for checkpoint {:?}: {}", 0, e);
             }
         }
+    }
+
+    fn send_backup_checkpoint_request(
+        &self,
+        checkpoint_id: u64,
+        pair_to_set: Vec<KVQPair<Vec<u8>, Vec<u8>>>,
+        removed_keys: Vec<Vec<u8>>,
+        is_committed: bool,
+    ) {
+        let request = BackupCheckpoint {
+            checkpoint_id,
+            pair_to_set: pair_to_set.into_iter().map(|pair| (pair.key, pair.value)).collect(),
+            removed_keys,
+            is_committed,
+        };
+        self.send_backup_request_inner(BackupRequest::Checkpoint(request));
+    }
+}
+
+#[async_trait]
+impl<J: Journal> BackupHandler for BackupJournalStore<J> {
+    async fn handle_backup(&self, request: BackupRequest) -> anyhow::Result<()> {
+        self.send_backup_request_inner(request);
+        Ok(())
     }
 }
 
@@ -132,7 +180,7 @@ impl<J: Journal> Journal for BackupJournalStore<J> {
 
         // Send backup request after successful commit
         if let Some(checkpoint_id) = checkpoint_id {
-            self.send_backup_request(checkpoint_id, result.0.clone(), result.1.clone());
+            self.send_backup_checkpoint_request(checkpoint_id, result.0.clone(), result.1.clone(), true);
         }
 
         Ok(result)
@@ -185,20 +233,28 @@ impl<J: JournalAsync> BackupJournalStoreAsync<J> {
         self.backup_tx = None;
     }
 
-    fn send_backup_request(&self, checkpoint_id: u64, pair_to_set: Vec<KVQPair<Vec<u8>, Vec<u8>>>, removed_keys: Vec<Vec<u8>>) {
+    fn send_backup_request(&self, request: BackupRequest) {
         if let Some(ref backup_tx) = self.backup_tx {
-            let pair_to_set = pair_to_set.into_iter().map(|pair| (pair.key, pair.value)).collect();
-
-            let request = BackupRequest {
-                checkpoint_id,
-                pair_to_set,
-                removed_keys,
-            };
-
             if let Err(e) = backup_tx.send(request) {
-                error!("❌ Failed to send backup request for checkpoint {}: {}", checkpoint_id, e);
+                error!("❌ Failed to send backup request: {}", e);
             }
         }
+    }
+
+    fn send_backup_checkpoint_request(
+        &self,
+        checkpoint_id: u64,
+        pair_to_set: Vec<KVQPair<Vec<u8>, Vec<u8>>>,
+        removed_keys: Vec<Vec<u8>>,
+        is_committed: bool,
+    ) {
+        let request = BackupCheckpoint {
+            checkpoint_id,
+            pair_to_set: pair_to_set.into_iter().map(|pair| (pair.key, pair.value)).collect(),
+            removed_keys,
+            is_committed,
+        };
+        self.send_backup_request(BackupRequest::Checkpoint(request));
     }
 }
 
@@ -272,7 +328,7 @@ impl<J: JournalAsync + Send + Sync> JournalAsync for BackupJournalStoreAsync<J> 
 
         // Send backup request after successful commit
         if let Some(checkpoint_id) = checkpoint_id {
-            self.send_backup_request(checkpoint_id, result.0.clone(), result.1.clone());
+            self.send_backup_checkpoint_request(checkpoint_id, result.0.clone(), result.1.clone(), true);
         }
 
         Ok(result)

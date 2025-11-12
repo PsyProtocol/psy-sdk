@@ -91,7 +91,7 @@ type C = PoseidonGoldilocksConfig;
 const D: usize = 2;
 type F = PsyFelt;
 
-struct CoordinatorBackupRequest {
+pub struct CoordinatorBackupRequest {
     checkpoint_id: u64,
     pair_to_set: Vec<(Vec<u8>, Vec<u8>)>,
     removed_keys: Vec<Vec<u8>>,
@@ -173,8 +173,6 @@ impl<
         // Get current checkpoint to listen from
         let latest_block_state = self.ctx.store.get_latest_block_state().await?;
         let notify_message = self.edge_command_queue.consume_item(COORDINATOR_EDGE_TO_PROCESSOR_CHANNEL).await?;
-
-        let latest_block_state = self.ctx.store.get_latest_block_state().await?;
 
         let CEQueueNotification::StartProduceBlock { next_checkpoint } = notify_message;
         debug!(

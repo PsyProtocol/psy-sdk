@@ -43,9 +43,8 @@ pub trait BizKey {
 pub trait QueuePrefixKey {
     fn worker_queue_key(&self) -> String;
 
-
     fn drain_queue_key(&self, channel_id: u64) -> String {
-        format!("{}-{}-{}", self.worker_queue_key(), PS_DRAIN_QUEUE_KEY_PREFIX,channel_id)
+        format!("{}-{}-{}", self.worker_queue_key(), PS_DRAIN_QUEUE_KEY_PREFIX, channel_id)
     }
     fn notifications_queue_key(&self) -> String;
     fn proof_store_key(&self) -> String;
@@ -109,7 +108,6 @@ impl<T: BizKey> QueuePrefixKey for T {
         format!("ids:{}-{}", channel_id, self.biz_key())
     }
 
-
     fn public_inputs_key(&self) -> String {
         format!("public_inputs-{}", self.biz_key())
     }
@@ -148,13 +146,13 @@ impl ProofStoreRedis {
 
 #[async_trait]
 impl QProofStoreReaderAsync for ProofStoreRedis {
-
     async fn contains_item(&self, channel_id: u64, id: u64) -> anyhow::Result<bool> {
         let server_time = self.redis.server_time().await?;
         let id_key = self.id_key(channel_id);
-        let exists:Option<i64> = self.redis.zscore(id_key, id).await?;
+        let exists: Option<i64> = self.redis.zscore(id_key, id).await?;
         if let Some(score) = exists {
-            if score >= server_time[0] - QUEUE_ITEM_EXPIRE_TIME_SECONDS { // 30 minutes
+            if score >= server_time[0] - QUEUE_ITEM_EXPIRE_TIME_SECONDS {
+                // 30 minutes
                 return Ok(true);
             }
         }
@@ -205,17 +203,10 @@ impl QProofStoreWriterAsyncImm for ProofStoreRedis {
         self.redis
             .cmd_builder()
             .sadd(checkpoint_list_key, checkpoint_id)
-            .hset(
-                checkpoint_proofs_key,
-                id.to_fixed_bytes().to_vec(),
-                proof_bytes,
-            )
-            .hset(
-                public_inputs_key,
-                id.to_fixed_bytes().to_vec(),
-                public_inputs_data,
-            )
-            .execute_atomic(&self.redis).await?;
+            .hset(checkpoint_proofs_key, id.to_fixed_bytes().to_vec(), proof_bytes)
+            .hset(public_inputs_key, id.to_fixed_bytes().to_vec(), public_inputs_data)
+            .execute_atomic(&self.redis)
+            .await?;
 
         Ok(())
     }
@@ -233,11 +224,7 @@ impl QProofStoreWriterAsyncImm for ProofStoreRedis {
 
             builder = builder
                 .sadd(checkpoint_list_key, checkpoint_id)
-                .hset(
-                    checkpoint_proofs_key,
-                    kv.key.to_fixed_bytes().to_vec(),
-                    &kv.value
-                );
+                .hset(checkpoint_proofs_key, kv.key.to_fixed_bytes().to_vec(), &kv.value);
         }
 
         builder.execute_atomic(&self.redis).await?;
@@ -249,11 +236,9 @@ impl QProofStoreWriterAsyncImm for ProofStoreRedis {
         self.add_checkpoint(checkpoint_id).await?;
 
         let checkpoint_proofs_key = self.checkpoint_proofs_key(checkpoint_id);
-        self.redis.hset(
-            checkpoint_proofs_key,
-            id.to_fixed_bytes().to_vec(),
-            data.to_vec(),
-        ).await?;
+        self.redis
+            .hset(checkpoint_proofs_key, id.to_fixed_bytes().to_vec(), data.to_vec())
+            .await?;
         Ok(())
     }
 
@@ -311,16 +296,12 @@ impl QProofStoreWriterAsyncImm for ProofStoreRedis {
 impl CheckpointDrainQueueEmitterAsyncImm for ProofStoreRedis {
     async fn cdq_push_imm<T: DQSerializable>(&self, item: T) -> anyhow::Result<()> {
         let channel_id = item.get_dq_metadata().channel_id;
-        let item_id = item.get_dq_metadata().item_id;//user id or realm id
+        let item_id = item.get_dq_metadata().item_id; //user id or realm id
         let key = self.drain_queue_key(channel_id);
         let id_key = self.id_key(channel_id);
         let now = self.redis.server_time().await?;
         let mut builder = self.redis.cmd_builder();
-        let builder = builder.hset(
-            key,
-            item_id,
-            item.to_bytes()?,
-        ).zadd(id_key, item_id, now[0]);
+        let builder = builder.hset(key, item_id, item.to_bytes()?).zadd(id_key, item_id, now[0]);
         builder.execute_atomic(&self.redis).await?;
         Ok(())
     }
@@ -328,10 +309,7 @@ impl CheckpointDrainQueueEmitterAsyncImm for ProofStoreRedis {
 
 #[async_trait]
 impl CheckpointDrainQueueConsumerAsyncImm for ProofStoreRedis {
-    async fn cdq_drain_imm<T: DQSerializable>(
-        &self,
-        channel_id: u64,
-    ) -> anyhow::Result<Vec<T>> {
+    async fn cdq_drain_imm<T: DQSerializable>(&self, channel_id: u64) -> anyhow::Result<Vec<T>> {
         let key = self.drain_queue_key(channel_id);
         let id_key = self.id_key(channel_id);
         let ids: Vec<u64> = self.redis.zrange(id_key.clone(), 0, -1).await?;
@@ -341,18 +319,12 @@ impl CheckpointDrainQueueConsumerAsyncImm for ProofStoreRedis {
             return Ok(vec![]);
         }
         let members: Vec<Vec<u8>> = self.redis.hget(key.clone(), ids).await?;
-        let items: Vec<T> = members
-            .into_iter()
-            .filter_map(|data| T::from_bytes(&data).ok())
-            .collect();
+        let items: Vec<T> = members.into_iter().filter_map(|data| T::from_bytes(&data).ok()).collect();
         self.redis.del(key).await?;
         Ok(items)
     }
 
-    async fn cdq_peek_imm<T: DQSerializable>(
-        &self,
-        channel_id: u64,
-    ) -> anyhow::Result<Vec<T>> {
+    async fn cdq_peek_imm<T: DQSerializable>(&self, channel_id: u64) -> anyhow::Result<Vec<T>> {
         let id_key: String = self.id_key(channel_id);
         let ids: Vec<u64> = self.redis.zrange(id_key.clone(), 0, -1).await?;
         // Handle empty ids case
@@ -361,18 +333,12 @@ impl CheckpointDrainQueueConsumerAsyncImm for ProofStoreRedis {
             return Ok(vec![]);
         }
         let members: Vec<Vec<u8>> = self.redis.hget(self.drain_queue_key(channel_id), ids).await?;
-        let items: Vec<T> = members
-            .into_iter()
-            .filter_map(|data| T::from_bytes(&data).ok())
-            .collect();
+        let items: Vec<T> = members.into_iter().filter_map(|data| T::from_bytes(&data).ok()).collect();
 
         Ok(items)
     }
 
-    async fn cdq_len_imm(
-        &self,
-        channel_id: u64,
-    ) -> anyhow::Result<usize> {
+    async fn cdq_len_imm(&self, channel_id: u64) -> anyhow::Result<usize> {
         let id_key = self.id_key(channel_id);
         let count: usize = self.redis.zcard(id_key).await?;
         Ok(count)
@@ -391,6 +357,8 @@ pub trait CheckpointDrainQueueConsumerAsyncImmWithPosition: CheckpointDrainQueue
     async fn get_last_peek_offset(&self, channel_id: u64) -> anyhow::Result<Option<QueueOffsetState>>;
 
     async fn commit_offset(&self, state: &QueueOffsetState) -> anyhow::Result<()>;
+
+    async fn get_queue_count(&self, channel_id: u64) -> anyhow::Result<u64>;
 }
 
 #[async_trait]
@@ -604,6 +572,7 @@ pub trait QPendingUserStoreAsyncImm: Send + Sync {
 
     async fn commit_offset(&self, state: &QueueOffsetState) -> anyhow::Result<()>;
     async fn get_last_peek_offset(&self) -> anyhow::Result<Option<QueueOffsetState>>;
+    async fn set_last_peek_offset(&self, state: &QueueOffsetState) -> anyhow::Result<()>;
 }
 
 #[async_trait]
@@ -720,6 +689,13 @@ impl QPendingUserStoreAsyncImm for ProofStoreRedis {
         }
         Ok(None)
     }
+
+    async fn set_last_peek_offset(&self, state: &QueueOffsetState) -> anyhow::Result<()> {
+        let state_key = format!("{}-{}", self.realm_pending_user_key(), "CONSUMPTION_STATE");
+        let state_data = bincode::serialize(&state).map_err(|e| anyhow::anyhow!("Failed to serialize state: {}", e))?;
+        self.redis.set(state_key, state_data).await?;
+        Ok(())
+    }
 }
 
 #[async_trait]
@@ -740,13 +716,16 @@ impl CheckpointDrainQueueConsumerAsyncImmWithPosition for ProofStoreRedis {
         let ids: Vec<u64> = self.redis.zrange(self.id_key(channel_id), 0, end_index).await?;
         // Handle empty ids case
         if ids.is_empty() {
-            return Ok((vec![], QueueOffsetState {
-                start_position: 0,
-                end_position: -1,
-                checkpoint_id,
-                channel_id,
-                consumed_count: 0,
-            }));
+            return Ok((
+                vec![],
+                QueueOffsetState {
+                    start_position: 0,
+                    end_position: -1,
+                    checkpoint_id,
+                    channel_id,
+                    consumed_count: 0,
+                },
+            ));
         }
         let members: Vec<Vec<u8>> = self.redis.hget(key, ids).await?;
 
@@ -761,12 +740,18 @@ impl CheckpointDrainQueueConsumerAsyncImmWithPosition for ProofStoreRedis {
             consumed_count: items.len(),
         };
 
-        // let state_key = format!("{}-{}-{}", self.worker_queue_key(), "DRAIN_CONSUMPTION_STATE", channel_id);
-        // let state_data = bincode::serialize(&state).map_err(|e| anyhow::anyhow!("Failed to serialize state: {}", e))?;
-        // self.redis.set(state_key.clone(), state_data).await?;
+        // let state_key = format!("{}-{}-{}", self.worker_queue_key(),
+        // "DRAIN_CONSUMPTION_STATE", channel_id); let state_data =
+        // bincode::serialize(&state).map_err(|e| anyhow::anyhow!("Failed to serialize
+        // state: {}", e))?; self.redis.set(state_key.clone(),
+        // state_data).await?;
 
-        tracing::debug!("Peek redis {} items from drain queue {} for checkpoint {}",
-              items.len(), channel_id, checkpoint_id);
+        tracing::debug!(
+            "Peek redis {} items from drain queue {} for checkpoint {}",
+            items.len(),
+            channel_id,
+            checkpoint_id
+        );
 
         Ok((items, state))
     }
@@ -791,15 +776,32 @@ impl CheckpointDrainQueueConsumerAsyncImmWithPosition for ProofStoreRedis {
         let mut builder = self.redis.cmd_builder();
         let key = self.drain_queue_key(state.channel_id);
         let id_key = self.id_key(state.channel_id);
-        let ids: Vec<u64> = self.redis.zrange(id_key.clone(), state.start_position as isize, state.end_position as isize).await?;
+        let ids: Vec<u64> = self
+            .redis
+            .zrange(id_key.clone(), state.start_position as isize, state.end_position as isize)
+            .await?;
         builder = builder.zremrangebyrank(id_key.clone(), state.start_position as isize, state.end_position as isize);
-        builder = builder.hdel(key, &ids);// remove tx
+        builder = builder.hdel(key, &ids); // remove tx
         builder = builder.del(state_key.clone());
-        tracing::debug!("Consumed redis {} items for checkpoint {}, channel_id {}, state_key {}",
-                         state.consumed_count, state.checkpoint_id, state.channel_id, state_key);
+        tracing::debug!(
+            "Consumed redis {} items for checkpoint {}, channel_id {}, state_key {}",
+            state.consumed_count,
+            state.checkpoint_id,
+            state.channel_id,
+            state_key
+        );
         let now = self.redis.server_time().await?;
         builder = builder.zremrangebyscore(id_key, 0, now[0] - QUEUE_ITEM_EXPIRE_TIME_SECONDS);
         builder.execute_atomic(&self.redis).await?;
         Ok(())
+    }
+
+    async fn get_queue_count(&self, channel_id: u64) -> anyhow::Result<u64> {
+        let checkpoint_queue_prefix = format!("{}-{}", self.worker_queue_key(), PS_DRAIN_QUEUE_KEY_PREFIX);
+        let key = format!("{}-{}", checkpoint_queue_prefix, channel_id);
+
+        let len = self.redis.llen(key).await?;
+
+        Ok(len as u64)
     }
 }
