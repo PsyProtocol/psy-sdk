@@ -1,5 +1,5 @@
 use std::{
-    sync::Arc,
+    sync::{Arc, RwLock},
     time::{Duration, Instant},
 };
 
@@ -63,7 +63,7 @@ use psy_store::{
         task_queue::QProvingTaskStore,
         QPendingUserStoreAsyncImm,
     },
-    store::journal::Journal,
+    store::journal::{backup_journal::BackupRealmState, BackupRequest, Journal},
 };
 use serde::{Deserialize, Serialize};
 use tracing::{debug, error, info, trace};
@@ -117,6 +117,16 @@ impl RealmConfig {
         global_user_id & ((1u64 << (self.realm_root_level as u64)) - 1u64)
     }
 }
+
+#[derive(Debug, Clone, Default)]
+pub struct RealmConsumptionState {
+    // pub build_checkpoint_id: u64,
+    // backup and recovery pending users
+    pub last_processed_user_num: u64,
+    pub current_processed_user_num: u64,
+    pub total_pending_users: u64,
+}
+
 #[derive(Clone)]
 pub struct RealmProcessorContext<
     SR: PsyRealmStoreWriterAsyncImm<F> + PsyRealmStoreReaderAsync<F> + Journal,
@@ -135,6 +145,7 @@ pub struct RealmProcessorContext<
     pub proof_verifier: Arc<GenericCircuitVerifier<C, D>>,
     pub realm_config: RealmConfig,
     pub max_processed_end_caps_per_block: Option<isize>,
+    pub consumption_state: Arc<RwLock<RealmConsumptionState>>,
 }
 
 impl<
@@ -157,6 +168,32 @@ impl<
         task_store: Arc<TS>,
         proof_verifier: Arc<GenericCircuitVerifier<C, D>>,
     ) -> anyhow::Result<Self> {
+        Self::new_with_state(
+            realm_config,
+            max_processed_end_caps_per_block,
+            store,
+            checkpoint_queue,
+            sync_queue,
+            prover_queue,
+            proof_store,
+            task_store,
+            proof_verifier,
+            Arc::new(RwLock::new(RealmConsumptionState::default())),
+        )
+        .await
+    }
+    pub async fn new_with_state(
+        realm_config: RealmConfig,
+        max_processed_end_caps_per_block: Option<isize>,
+        store: SR,
+        checkpoint_queue: Arc<DQ>,
+        sync_queue: Arc<HQ>,
+        prover_queue: Arc<WQ>,
+        proof_store: Arc<PS>,
+        task_store: Arc<TS>,
+        proof_verifier: Arc<GenericCircuitVerifier<C, D>>,
+        consumption_state: Arc<RwLock<RealmConsumptionState>>,
+    ) -> anyhow::Result<Self> {
         Ok(Self {
             realm_config,
             max_processed_end_caps_per_block,
@@ -167,6 +204,7 @@ impl<
             proof_store,
             task_store,
             proof_verifier,
+            consumption_state,
         })
     }
 
@@ -470,11 +508,14 @@ impl<
         Vec<QueueOffsetState>,
     )> {
         let mut consumption_state = vec![];
-        let (mut guta_queue_items,_consumption_state) = self.checkpoint_queue.peek_with_position::<UserEndCapNonProofCoreInputQueueItem<F>>(
-            self.max_processed_end_caps_per_block,
-            self.realm_config.guta_channel_id,
-            checkpoint_id,
-        ).await?;
+        let (mut guta_queue_items, _consumption_state) = self
+            .checkpoint_queue
+            .peek_with_position::<UserEndCapNonProofCoreInputQueueItem<F>>(
+                self.max_processed_end_caps_per_block,
+                self.realm_config.guta_channel_id,
+                checkpoint_id,
+            )
+            .await?;
         consumption_state.push(_consumption_state);
         debug!(guta_queue_items = %serde_json::to_string_pretty(&guta_queue_items)?, "GUTA queue items for aggregation");
 
@@ -886,6 +927,13 @@ impl<
             .sync_queue
             .peek_with_position(if has_guta { 32 } else { 64 }, new_checkpoint_id)
             .await?;
+        {
+            let mut realm_state = self
+                .consumption_state
+                .write()
+                .map_err(|_| anyhow::anyhow!("Failed to acquire write lock"))?;
+            realm_state.current_processed_user_num += pending_users.len() as u64;
+        }
         let (guta_jobs, guta_transition, guta_dmp, guta_graph, consumption_state) = self
             .handle_guta_from_users_ensure_no_topline(new_checkpoint_id, slot, &mut pending_users)
             .await?;
@@ -946,6 +994,28 @@ impl<
         for state in queue_offset_state {
             self.checkpoint_queue.commit_offset(&state).await?;
         }
+        {
+            let realm_state = self
+                .consumption_state
+                .read()
+                .map_err(|_| anyhow::anyhow!("Failed to acquire read lock"))?;
+            self.store
+                .handle_backup(BackupRequest::RealmState(BackupRealmState {
+                    checkpoint_id,
+                    last_processed_user_num: realm_state.last_processed_user_num,
+                    current_processed_user_num: realm_state.current_processed_user_num,
+                    total_pending_users: realm_state.total_pending_users,
+                    is_committed: true,
+                }))
+                .await?;
+        }
+        {
+            let mut realm_state = self
+                .consumption_state
+                .write()
+                .map_err(|_| anyhow::anyhow!("Failed to acquire write lock"))?;
+            realm_state.last_processed_user_num = realm_state.current_processed_user_num;
+        }
         Ok(())
     }
 
@@ -961,6 +1031,13 @@ impl<
     }
 
     pub async fn rollback(&self, checkpoint_id: u64) -> anyhow::Result<()> {
+        {
+            let mut realm_state = self
+                .consumption_state
+                .write()
+                .map_err(|_| anyhow::anyhow!("Failed to acquire write lock"))?;
+            realm_state.current_processed_user_num = realm_state.last_processed_user_num;
+        }
         self.task_store.clear_job_dependency_graph(checkpoint_id).await?;
         self.store.rollback(checkpoint_id)
     }

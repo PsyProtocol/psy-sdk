@@ -12,11 +12,12 @@ pub struct CheckpointBackup {
     pub removed_keys: Vec<Vec<u8>>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, Default)]
 pub struct RecoveryInfo {
     pub latest_checkpoint: u64,
     pub last_update_timestamp: u64,
     pub checkpoints_available: Vec<u64>,
+    pub cached_checkpoint_available: Vec<u64>,
 }
 
 #[derive(Clone)]
@@ -151,6 +152,7 @@ impl CoordinatorS3BackupClient {
             latest_checkpoint: 0,
             last_update_timestamp: 0,
             checkpoints_available: vec![],
+            cached_checkpoint_available: vec![],
         });
 
         recovery_info.latest_checkpoint = latest_checkpoint;
