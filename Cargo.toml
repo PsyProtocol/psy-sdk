@@ -143,7 +143,7 @@ tempfile = "3.19"
 miette = { version = "7.2", features = ["fancy"] }
 dotenv = "0.15"
 
-smol_str = { version = "0.3",  features = ["serde"] }
+smol_str = { version = "=0.3.2",  features = ["serde"] }
 thin-vec = "0.2"
 id-arena = "2.2"
 unescaper = "0.1"

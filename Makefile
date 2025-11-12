@@ -30,11 +30,11 @@ fmt:
 	@cargo fmt
 
 install:
-	@cargo install --path psy_compiler/psy-dargo-cli
-	@cargo install --path psy_compiler/psy-lsp-server
-	@cargo install --path psy_user_cli
-	@cargo install --path psy_node_cli
-	@cargo install --path psy_dev_cli
+	@cargo install --path psy_compiler/psy-dargo-cli --locked
+	@cargo install --path psy_compiler/psy-lsp-server --locked
+	@cargo install --path psy_cli/psy_user_cli --locked
+	@cargo install --path psy_cli/psy_node_cli --locked
+	@cargo install --path psy_cli/psy_dev_cli --locked
 
 clean:
 	@rm -r target
