@@ -1,4 +1,3 @@
-import { WebProverConfig } from "./config";
 import { WasmRpcServer } from "./psy_prover";
 import { PrivateKey, PublicKey, QHashOut, U8Bytes } from "../core";
 import {
@@ -13,11 +12,12 @@ import {
 } from "../local-prover-rpc/types";
 import { ZKPublicKeyInfo } from "../types";
 import { PsyJSON } from "../utils";
+import { PsyNetworkConfig } from "../config";
 
 export class PsyWasmUserProverProvider implements IPsyUserProverProvider {
     private wasmServer: WasmRpcServer;
 
-    constructor(rpcConfigJson: WebProverConfig) {
+    constructor(rpcConfigJson: PsyNetworkConfig) {
         const json = PsyJSON.stringify(rpcConfigJson);
         this.wasmServer = new WasmRpcServer(json);
     }

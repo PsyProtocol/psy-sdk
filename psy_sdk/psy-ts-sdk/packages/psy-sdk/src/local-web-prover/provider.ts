@@ -1,5 +1,4 @@
-import { WebProverConfig } from "./config";
-import { initSync, WasmRpcServer } from "./psy_prover";
+import { initSync, WasmRpcServer, WasmPsyConfig, WasmPsyConfigBuilder, WasmConstants } from "./psy_prover";
 import { wasmBinary } from "./wasm-binary";
 import { PrivateKey, PublicKey, QHashOut, U8Bytes } from "../core";
 import {
@@ -14,6 +13,7 @@ import {
 } from "../local-prover-rpc/types";
 import { ZKPublicKeyInfo } from "../types";
 import { PsyJSON } from "../utils";
+import { PsyNetworkConfig } from "../config";
 
 // Synchronous WASM initialization function
 export function initWasmSync(): void {
@@ -31,8 +31,9 @@ export function initWasmSync(): void {
 export class PsyWasmWebProverProvider implements IPsyUserProverProvider {
     static wasmServer: WasmRpcServer;
 
-    constructor(rpcConfigJson: WebProverConfig) {
+    constructor(rpcConfigJson: PsyNetworkConfig) {
         const json = PsyJSON.stringify(rpcConfigJson);
+        console.log(`WASM init with config: ${json}`);
         if (!PsyWasmWebProverProvider.wasmServer) {
             const now = new Date().getTime();
             initWasmSync();
@@ -146,5 +147,150 @@ export class PsyWasmWebProverProvider implements IPsyUserProverProvider {
 
     async getResult(id: QHashOut): Promise<U8Bytes> {
         return PsyWasmWebProverProvider.wasmServer.get_result(id.toString());
+    }
+}
+
+export class PsyWasmConstantsProvider {
+    private static _cache: Record<string, any> | null = null;
+
+    static getAll(): Record<string, any> {
+        if (!this._cache) {
+            try {
+                this._cache = JSON.parse(WasmConstants.getAllConstants());
+            } catch (err) {
+                console.warn("[PsyWasmConstantsProvider] parse error:", err);
+                this._cache = {};
+            }
+        }
+        return this._cache!;
+    }
+
+    static get<T = any>(key: keyof typeof WasmConstants | string): T {
+        if (key in WasmConstants) {
+            return (WasmConstants as any)[key] as T;
+        }
+        return this.getAll()[key as string] as T;
+    }
+
+    static getRawJson(): string {
+        return WasmConstants.getAllConstants();
+    }
+
+    static refresh(): void {
+        this._cache = null;
+    }
+
+    static get globalUserTreeHeight(): number {
+        return WasmConstants.global_user_tree_height;
+    }
+
+    static get coordinatorUserTreeHeight(): number {
+        return WasmConstants.coordinator_user_tree_height;
+    }
+
+    static get realmUserTreeHeight(): number {
+        return WasmConstants.realm_user_tree_height;
+    }
+
+    static get groupRealmHeight(): number {
+        return WasmConstants.group_realm_height;
+    }
+
+    static get usersPerRealm(): bigint {
+        return WasmConstants.users_per_realm;
+    }
+
+    static get nativeCurrency(): string {
+        return WasmConstants.native_currency;
+    }
+
+    static get nativeCurrencyName(): string {
+        return WasmConstants.native_currency_name;
+    }
+
+    static get nativeCurrencyDecimal(): number {
+        return WasmConstants.native_currency_decimal;
+    }
+
+    static get registerUserFee(): bigint {
+        return WasmConstants.register_user_fee;
+    }
+
+    static get deployContractFee(): bigint {
+        return WasmConstants.deploy_contract_fee;
+    }
+
+    static get gutaFee(): bigint {
+        return WasmConstants.guta_fee;
+    }
+
+    static get currentNetwork(): string {
+        return WasmConstants.current_network;
+    }
+
+    static get configPath(): string {
+        return WasmConstants.config_path;
+    }
+
+    static get coordinatorRpcUrl(): string {
+        return WasmConstants.coordinator_rpc_url;
+    }
+
+    static get realmRpcUrls(): string[] {
+        return WasmConstants.realm_rpc_urls;
+    }
+}
+
+export class PsyWasmConfigBuilderProvider {
+    static wasmPsyConfigBuilder: WasmPsyConfigBuilder | null = null;
+    static wasmPsyConfig: WasmPsyConfig | null = null;
+
+    static initBuilder(): WasmPsyConfigBuilder {
+        this.wasmPsyConfigBuilder = new WasmPsyConfigBuilder();
+        return this.wasmPsyConfigBuilder;
+    }
+
+    static fromJson(json: string): WasmPsyConfigBuilder {
+        const builder = new WasmPsyConfigBuilder();
+        builder.json(json);
+        this.wasmPsyConfigBuilder = builder;
+        return builder;
+    }
+
+    static setNetwork(network: string): WasmPsyConfigBuilder {
+        if (!this.wasmPsyConfigBuilder) this.initBuilder();
+        this.wasmPsyConfigBuilder!.network(network);
+        return this.wasmPsyConfigBuilder!;
+    }
+
+    static build(): WasmPsyConfig {
+        if (!this.wasmPsyConfigBuilder)
+            throw new Error("WasmPsyConfigBuilder not initialized");
+        this.wasmPsyConfig = this.wasmPsyConfigBuilder.build();
+        return this.wasmPsyConfig!;
+    }
+
+    static useNetwork(network: string): void {
+        if (!this.wasmPsyConfig)
+            throw new Error("WasmPsyConfig not built yet. Call build() first.");
+        this.wasmPsyConfig.useNetwork(network);
+    }
+
+    static getCurrentNetwork(): string {
+        if (!this.wasmPsyConfig)
+            throw new Error("WasmPsyConfig not built yet. Call build() first.");
+        return this.wasmPsyConfig.getCurrentNetwork();
+    }
+
+    static listNetworks(): string[] {
+        if (!this.wasmPsyConfig)
+            throw new Error("WasmPsyConfig not built yet. Call build() first.");
+        return this.wasmPsyConfig.listNetworks();
+    }
+
+    static getNetworkJson(network: string): string {
+        if (!this.wasmPsyConfig)
+            throw new Error("WasmPsyConfig not built yet. Call build() first.");
+        return this.wasmPsyConfig.getNetworkJson(network);
     }
 }

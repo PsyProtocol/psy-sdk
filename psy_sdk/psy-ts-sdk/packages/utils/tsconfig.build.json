@@ -11,6 +11,12 @@
     "esModuleInterop": true,
     "skipLibCheck": true
   },
-  "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist"]
+  "include": [
+    "src/**/*",
+    "**/*.json"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist"
+  ]
 }

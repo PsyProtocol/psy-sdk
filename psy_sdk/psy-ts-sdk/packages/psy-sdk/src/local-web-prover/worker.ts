@@ -1,7 +1,7 @@
-import { WebProverConfig } from "./config";
 import initWasm, { WasmRpcServer } from "./psy_prover";
 import { PsyUserProverRPCCommand } from "../local-prover-rpc/types";
 import { PsyJSON } from "../utils";
+import { PsyNetworkConfig } from "../config";
 
 // Server-side message types
 interface ServerRequest {
@@ -30,7 +30,7 @@ interface ClientConnection {
 
 interface InitMessage {
     type: 'init';
-    config: WebProverConfig;
+    config: PsyNetworkConfig;
 }
 
 interface ClientRegisterMessage {
@@ -55,7 +55,7 @@ class PsyProverServer {
         startTime: Date.now()
     };
 
-    async initialize(config: WebProverConfig): Promise<void> {
+    async initialize(config: PsyNetworkConfig): Promise<void> {
         if (this.isInitialized) return;
         
         try {
