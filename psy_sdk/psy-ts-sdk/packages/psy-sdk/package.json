@@ -12,7 +12,7 @@
   ],
   "scripts": {
     "build:wasm": "ts-node src/local-web-prover/build-wasm-binary.ts",
-    "build": "pnpm run clean && pnpm run build:wasm && pnpm run compile",
+    "build": "cpx ../../../../config.json src/config && pnpm run clean && pnpm run build:wasm && pnpm run compile",
     "clean": "rimraf ./dist",
     "compile": "tsc -p tsconfig.build.json && cpx 'src/local-prover/psy_prover_bg.*' dist/local-prover",
     "lint": "eslint 'src/**/*.{ts,tsx}' --max-warnings 100",

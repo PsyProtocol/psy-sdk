@@ -1,4 +1,3 @@
-import { WebProverConfig } from "./config";
 import { ServerRequest, ServerResponse } from "./worker";
 import { PrivateKey, PublicKey, QHashOut, U8Bytes } from "../core";
 import {
@@ -13,6 +12,7 @@ import {
     WalletKeyPair,
 } from "../local-prover-rpc/types";
 import { ZKPublicKeyInfo } from "../types";
+import { PsyNetworkConfig } from "../config";
 
 // Client-side types
 interface ClientRequest {
@@ -59,7 +59,7 @@ class PsyWorkerManager {
         return PsyWorkerManager.instance;
     }
 
-    async initializeWorker(workerScript: string, config: WebProverConfig): Promise<void> {
+    async initializeWorker(workerScript: string, config: PsyNetworkConfig): Promise<void> {
         if (this.isInitialized) return;
 
         if (this.initPromise) {
@@ -70,7 +70,7 @@ class PsyWorkerManager {
         await this.initPromise;
     }
 
-    private async doInitialize(workerScript: string, config: WebProverConfig): Promise<void> {
+    private async doInitialize(workerScript: string, config: PsyNetworkConfig): Promise<void> {
         if (typeof Worker === 'undefined') {
             throw new Error('Web Workers are not supported in this environment');
         }
@@ -92,7 +92,7 @@ class PsyWorkerManager {
         this.isInitialized = true;
     }
 
-    private async initWorker(config: WebProverConfig): Promise<void> {
+    private async initWorker(config: PsyNetworkConfig): Promise<void> {
         return new Promise((resolve, reject) => {
             const timeout = setTimeout(() => {
                 reject(new Error('Worker initialization timeout'));
@@ -209,12 +209,12 @@ export class PsyProverClient implements IPsyUserProverProvider {
     private requestCounter = 0;
     private isConnected = false;
 
-    constructor(workerScript: string, config: WebProverConfig) {
+    constructor(workerScript: string, config: PsyNetworkConfig) {
         this.clientId = this.generateClientId();
         this.initialize(workerScript, config);
     }
 
-    private async initialize(workerScript: string, config: WebProverConfig): Promise<void> {
+    private async initialize(workerScript: string, config: PsyNetworkConfig): Promise<void> {
         try {
             // Ensure Worker is initialized
             await PsyProverClient.workerManager.initializeWorker(workerScript, config);
