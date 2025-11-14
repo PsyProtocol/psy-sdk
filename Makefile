@@ -16,7 +16,7 @@ default: build wallet-build
 
 check:
 	@cargo check --workspace --all-targets --tests --benches --examples --bins
-	@cd psy_sdk/psy-ts-sdk/packages/psy-sdk && pnpm type-check
+	@cd psy_sdk/psy-ts-sdk/packages/psy-sdk && pnpm install && pnpm type-check
 
 fix:
 	# @cargo machete --fix

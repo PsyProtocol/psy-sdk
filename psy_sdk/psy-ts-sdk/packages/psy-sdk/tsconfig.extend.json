@@ -2,13 +2,16 @@
   "compilerOptions": {
     "baseUrl": ".",
     "paths": {
-      "@psy/*": ["packages/*/src"]
+      "@psy/*": [
+        "packages/*/src"
+      ]
     },
+    "module": "esnext",
+    "moduleResolution": "node",
     "noEmit": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "resolveJsonModule": true,
-    "module": "commonjs",
     "target": "ES2020",
     "sourceMap": true,
     "strict": true,
