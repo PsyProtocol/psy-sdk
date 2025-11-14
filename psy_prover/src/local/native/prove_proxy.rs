@@ -247,7 +247,7 @@ pub struct LocalCommonCircuitsData {
 #[derive(Debug)]
 pub struct ProveProxyServerProvider {
     pub rpc_provider: RpcProvider,
-    pub contract_circuits: DashMap<u64, Vec<DapenContractFunctionCircuit<C, D>>>,
+    pub contract_circuits: DashMap<u64, Vec<Arc<DapenContractFunctionCircuit<C, D>>>>,
 
     pub circuit_manager: Arc<PsyUPSStepCircuitManager<C, D>>,
     pub circuit_info: Arc<SessionCircuitInfoStore<F>>,
@@ -390,12 +390,12 @@ impl ProveProxyServerProvider {
             let dapen_fc = cfc_code_definition_to_dapen_fc(&func)
                 .map_err(|err| ErrorObjectOwned::owned(1, "cfc_code_definition_to_dapen_fc error", Some(err.to_string())))?;
             tracing::info!("register contract {} function {}", contract_id, dapen_fc.name);
-            circuits.push(DapenContractFunctionCircuit::<C, D>::new(
+            circuits.push(Arc::new(DapenContractFunctionCircuit::<C, D>::new(
                 &dapen_fc,
                 contract_code.state_tree_height as usize,
                 UPS_SESSION_PROOF_TREE_HEIGHT as usize,
                 false,
-            ));
+            )));
         }
         self.contract_circuits.insert(contract_id, circuits);
         Ok(())
