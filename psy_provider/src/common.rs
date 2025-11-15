@@ -48,18 +48,14 @@ where
 
     async fn register_contract_circuits(&self, contract_id: u64, contract_code: &ContractCodeDefinition) -> anyhow::Result<()>;
 
-    async fn get_method_id(&self, contract_id: u64, method_name: String) -> anyhow::Result<u64>;
+    async fn get_fn_id(&self, contract_id: u64, method_name: String) -> anyhow::Result<u64>;
 
-    async fn get_contract_method_common_data(
-        &self,
-        contract_id: u64,
-        method_id: u32,
-    ) -> anyhow::Result<(QHashOut<C::F>, VerifierOnlyCircuitData<C, D>)>;
+    async fn get_contract_method_common_data(&self, contract_id: u64, fn_id: u32) -> anyhow::Result<(QHashOut<C::F>, VerifierOnlyCircuitData<C, D>)>;
 
     async fn prove_contract_call(
         &self,
         contract_id: u64,
-        method_id: u32,
+        fn_id: u32,
         input: &DapenContractFunctionCircuitInput<C::F>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>>;
 

@@ -1,6 +1,5 @@
 use std::sync::Arc;
 
-use quick_cache::sync::Cache;
 use plonky2::{
     hash::hash_types::{HashOut, RichField},
     plonk::{
@@ -58,6 +57,7 @@ use psy_vm::{
     ups::circuit_manager::{PortableQTreeRecursion, PortableQTreeRecursionCircuitsData, PortableQTreeRecursionCircuitsProve, UPSCircuitManager},
     vm::cfc_input::DapenContractFunctionCircuitInput,
 };
+use quick_cache::sync::Cache;
 use serde::Serialize;
 
 #[derive(Debug)]
@@ -241,7 +241,7 @@ where
         Ok(())
     }
 
-    async fn get_method_id(&self, contract_id: u64, method_name: String) -> anyhow::Result<u64> {
+    async fn get_fn_id(&self, contract_id: u64, method_name: String) -> anyhow::Result<u64> {
         if let Some(circuits_arc) = self.contract_circuits.get(&contract_id) {
             let circuits = &**circuits_arc; // Unwrap Arc<Vec<Arc<...>>>
             for (id, circuit) in circuits.iter().enumerate() {
@@ -253,38 +253,34 @@ where
         Err(anyhow::format_err!("contract {} method {} is not found", contract_id, method_name))
     }
 
-    async fn get_contract_method_common_data(
-        &self,
-        contract_id: u64,
-        method_id: u32,
-    ) -> anyhow::Result<(QHashOut<C::F>, VerifierOnlyCircuitData<C, D>)> {
+    async fn get_contract_method_common_data(&self, contract_id: u64, fn_id: u32) -> anyhow::Result<(QHashOut<C::F>, VerifierOnlyCircuitData<C, D>)> {
         if let Some(circuits_arc) = self.contract_circuits.get(&contract_id) {
             let circuits = &**circuits_arc; // Unwrap Arc<Vec<Arc<...>>>
-            tracing::info!("get contract {} method {} common data", contract_id, method_id);
+            tracing::info!("get contract {} method {} common data", contract_id, fn_id);
             let circuit = circuits
-                .get(method_id as usize)
-                .ok_or_else(|| anyhow::format_err!("contract {} method {} is not found", contract_id, method_id))?;
+                .get(fn_id as usize)
+                .ok_or_else(|| anyhow::format_err!("contract {} method {} is not found", contract_id, fn_id))?;
 
             return Ok((circuit.get_fingerprint(), circuit.get_verifier_config_ref().clone()));
         }
-        Err(anyhow::format_err!("contract {} method {} is not found", contract_id, method_id))
+        Err(anyhow::format_err!("contract {} method {} is not found", contract_id, fn_id))
     }
 
     async fn prove_contract_call(
         &self,
         contract_id: u64,
-        method_id: u32,
+        fn_id: u32,
         input: &DapenContractFunctionCircuitInput<C::F>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         if let Some(fn_circuits_arc) = self.contract_circuits.get(&contract_id) {
             let fn_circuits = &**fn_circuits_arc; // Unwrap Arc<Vec<Arc<...>>>
             let fn_circuit = fn_circuits
-                .get(method_id as usize)
-                .ok_or_else(|| anyhow::format_err!("contract {} method {} is not found", contract_id, method_id))?;
+                .get(fn_id as usize)
+                .ok_or_else(|| anyhow::format_err!("contract {} method {} is not found", contract_id, fn_id))?;
 
             fn_circuit.prove_base(&input)
         } else {
-            Err(anyhow::format_err!("contract {} method {} is not found", contract_id, method_id))
+            Err(anyhow::format_err!("contract {} method {} is not found", contract_id, fn_id))
         }
     }
 

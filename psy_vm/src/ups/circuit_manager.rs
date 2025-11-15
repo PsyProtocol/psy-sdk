@@ -48,18 +48,14 @@ where
 
     async fn register_contract_circuits(&self, contract_id: u64, contract_code: &ContractCodeDefinition) -> anyhow::Result<()>;
 
-    async fn get_method_id(&self, contract_id: u64, method_name: String) -> anyhow::Result<u64>;
+    async fn get_fn_id(&self, contract_id: u64, method_name: String) -> anyhow::Result<u64>;
 
-    async fn get_contract_method_common_data(
-        &self,
-        contract_id: u64,
-        method_id: u32,
-    ) -> anyhow::Result<(QHashOut<C::F>, VerifierOnlyCircuitData<C, D>)>;
+    async fn get_contract_method_common_data(&self, contract_id: u64, fn_id: u32) -> anyhow::Result<(QHashOut<C::F>, VerifierOnlyCircuitData<C, D>)>;
 
     async fn prove_contract_call(
         &self,
         contract_id: u64,
-        method_id: u32,
+        fn_id: u32,
         input: &DapenContractFunctionCircuitInput<C::F>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>>;
 
@@ -157,25 +153,21 @@ where
         (**self).register_contract_circuits(contract_id, contract_code).await
     }
 
-    async fn get_method_id(&self, contract_id: u64, method_name: String) -> anyhow::Result<u64> {
-        (**self).get_method_id(contract_id, method_name).await
+    async fn get_fn_id(&self, contract_id: u64, method_name: String) -> anyhow::Result<u64> {
+        (**self).get_fn_id(contract_id, method_name).await
     }
 
-    async fn get_contract_method_common_data(
-        &self,
-        contract_id: u64,
-        method_id: u32,
-    ) -> anyhow::Result<(QHashOut<C::F>, VerifierOnlyCircuitData<C, D>)> {
-        (**self).get_contract_method_common_data(contract_id, method_id).await
+    async fn get_contract_method_common_data(&self, contract_id: u64, fn_id: u32) -> anyhow::Result<(QHashOut<C::F>, VerifierOnlyCircuitData<C, D>)> {
+        (**self).get_contract_method_common_data(contract_id, fn_id).await
     }
 
     async fn prove_contract_call(
         &self,
         contract_id: u64,
-        method_id: u32,
+        fn_id: u32,
         input: &DapenContractFunctionCircuitInput<C::F>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
-        (**self).prove_contract_call(contract_id, method_id, input).await
+        (**self).prove_contract_call(contract_id, fn_id, input).await
     }
 
     async fn prove_ups_cfc_standard_tx(
@@ -329,25 +321,21 @@ where
         (**self).register_contract_circuits(contract_id, contract_code).await
     }
 
-    async fn get_method_id(&self, contract_id: u64, method_name: String) -> anyhow::Result<u64> {
-        (**self).get_method_id(contract_id, method_name).await
+    async fn get_fn_id(&self, contract_id: u64, method_name: String) -> anyhow::Result<u64> {
+        (**self).get_fn_id(contract_id, method_name).await
     }
 
-    async fn get_contract_method_common_data(
-        &self,
-        contract_id: u64,
-        method_id: u32,
-    ) -> anyhow::Result<(QHashOut<C::F>, VerifierOnlyCircuitData<C, D>)> {
-        (**self).get_contract_method_common_data(contract_id, method_id).await
+    async fn get_contract_method_common_data(&self, contract_id: u64, fn_id: u32) -> anyhow::Result<(QHashOut<C::F>, VerifierOnlyCircuitData<C, D>)> {
+        (**self).get_contract_method_common_data(contract_id, fn_id).await
     }
 
     async fn prove_contract_call(
         &self,
         contract_id: u64,
-        method_id: u32,
+        fn_id: u32,
         input: &DapenContractFunctionCircuitInput<C::F>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
-        (**self).prove_contract_call(contract_id, method_id, input).await
+        (**self).prove_contract_call(contract_id, fn_id, input).await
     }
 
     async fn prove_ups_cfc_standard_tx(

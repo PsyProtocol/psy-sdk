@@ -258,8 +258,8 @@ pub enum RequestParams<F: RichField> {
     ProveUpsStart(QProveUpsStartRPCRequest<F>),
     #[serde(rename = "psy_register_contract_circuits")]
     RegisterCircuits(QRegisterCircuitsRPCRequest),
-    #[serde(rename = "psy_get_method_id")]
-    GetMethodId(QGetMethodIdRPCRequest),
+    #[serde(rename = "psy_get_fn_id")]
+    GetFnId(QGetFnIdRPCRequest),
     #[serde(rename = "psy_get_contract_method_common_data")]
     GetContractMethodCommonData(QGetContractMethodCommonDataRPCRequest),
     #[serde(rename = "psy_prove_contract_call")]
@@ -1130,7 +1130,7 @@ pub struct QRegisterCircuitsRPCRequest {
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[serde(bound = "")]
 #[ts(export)]
-pub struct QGetMethodIdRPCRequest {
+pub struct QGetFnIdRPCRequest {
     pub contract_id: u64,
     pub method_name: String,
 }
@@ -1140,7 +1140,7 @@ pub struct QGetMethodIdRPCRequest {
 #[ts(export)]
 pub struct QGetContractMethodCommonDataRPCRequest {
     pub contract_id: u64,
-    pub method_id: u32,
+    pub fn_id: u32,
     // pub fingerprint: QHashOut<F>,
     // pub method_name: AltVerifierOnlyCircuitData<F>,
 }
@@ -1150,7 +1150,7 @@ pub struct QGetContractMethodCommonDataRPCRequest {
 #[ts(export, concrete(F = GoldilocksField))]
 pub struct QProveContractCallRPCRequest<F: RichField> {
     pub contract_id: u64,
-    pub method_id: u32,
+    pub fn_id: u32,
     pub input: DapenContractFunctionCircuitInput<F>,
 }
 
