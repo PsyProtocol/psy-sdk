@@ -30,7 +30,6 @@ psy_vm = { workspace = true, default-features = false }
 psy_data = { workspace = true, default-features = false }
 psy_crypto = { workspace = true }
 psy_store = { workspace = true, default-features = false }
-psylang_macros = { workspace = true }
 
 k256 = { workspace = true }
 

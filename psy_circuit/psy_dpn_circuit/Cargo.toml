@@ -29,7 +29,6 @@ psy_vm = { workspace = true, default-features = false }
 psy_data = { workspace = true, default-features = false }
 psy_crypto = { workspace = true }
 psy_store = { workspace = true, default-features = false }
-psylang_macros = { workspace = true }
 
 k256 = { workspace = true }
 
@@ -59,10 +58,6 @@ alloy-signer-local = { workspace = true }
 alloy-primitives = { workspace = true }
 parking_lot = { workspace = true}
 http = { workspace = true }
-
-
-
-
 
 [features]
 # default = ["is_sync"]

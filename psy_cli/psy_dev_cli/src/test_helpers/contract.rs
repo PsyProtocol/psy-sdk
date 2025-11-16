@@ -49,6 +49,7 @@ impl<C: DPNContext<Felt>> SimpleContractStateful<C> {
 
         new_balance
     }
+
     pub fn simple_transfer(&mut self, ctx: &mut C, recipient: Felt, amount: Felt) -> Felt {
         let self_user_id = ctx.get_user_id();
         let self_user_leaf = ctx.get_state_hash_at(self_user_id);
@@ -74,6 +75,7 @@ impl<C: DPNContext<Felt>> SimpleContractStateful<C> {
         ctx.cset_state_hash_at(recipient, [p2p_leaf[0], p2p_leaf[1], new_total_sent_to_recipient, p2p_leaf[3]]);
         current_balance
     }
+
     pub fn simple_claim(&mut self, ctx: &mut C, sender: Felt) -> Felt {
         let self_user_id = ctx.get_user_id();
         ctx.assert_true((sender != self_user_id).into(), "you cannot claim from your self");
@@ -116,6 +118,7 @@ impl<C: DPNContext<Felt>> SimpleContractStateful<C> {
     }
 }
 
+// Rest of the helper functions and structs for test contracts...
 fn compile_simple_mint_debug() -> anyhow::Result<DPNFunctionCircuitDefinition> {
     let mut ctx = QExecContext::new();
     let mut contract = SimpleContractStateful::new();
@@ -129,6 +132,7 @@ fn compile_simple_mint_debug() -> anyhow::Result<DPNFunctionCircuitDefinition> {
 
     Ok(fn_circuit_def)
 }
+
 fn compile_simple_transfer() -> anyhow::Result<DPNFunctionCircuitDefinition> {
     let mut ctx = QExecContext::new();
     let mut contract = SimpleContractStateful::new();
@@ -166,6 +170,7 @@ where
     pub circuit: DapenContractFunctionCircuit<C, D>,
     pub def: DPNFunctionCircuitDefinition,
 }
+
 pub struct SimpleTestContract<C: GenericConfig<D>, const D: usize>
 where
     C::Hasher: AlgebraicHasher<C::F>,
@@ -203,6 +208,7 @@ where
 type C = PoseidonGoldilocksConfig;
 const D: usize = 2;
 type F = GoldilocksField;
+
 impl SimpleTestContract<C, D> {
     pub async fn prove_func<
         R: PsyReadCommandProcessorSync<F>
@@ -223,8 +229,7 @@ impl SimpleTestContract<C, D> {
                 mgr.prove_contract_call(
                     circuit_mgr,
                     F::from_canonical_u32(contract_id),
-                    i as u32, //f.def.method_id,
-                    // &f.circuit,
+                    i as u32,
                     &f.def,
                     inputs,
                 )
