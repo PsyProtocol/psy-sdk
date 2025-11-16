@@ -1,11 +1,10 @@
 export DARGO_STD_PATH := $(PWD)/psy_compiler/psy-std/std.psy
 export SQLX_OFFLINE=true
-export DARGO_STD_PATH := $(PWD)/psy_compiler/psy-std/std.psy
 
 PROFILE := release
 LOG_LEVEL := psy_ups_circuit=trace,psy_dpn_circuit=trace,tikv_client=warn,psy_store=trace,psy_user_cli=debug,psy_dev_cli=debug,psy_services=info,psy_node_cli=debug,psy_node=trace,psy_common_circuit=trace,psy_network_circuit=trace,psy_prover=trace,psy_data=trace,plonky2=error
 
-
+AWS_S3_BUCKET := psy-backup
 BACKUP ?= false
 ifeq ($(BACKUP),true)
 	# you must set aws credentials and config in under ~/.aws folder or in environment variables if you want to enable backup
@@ -23,95 +22,18 @@ fix:
 	@cargo fix --all-targets --allow-dirty --allow-staged
 
 build: config_gen_v2
-	@RUSTFLAGS="-A warnings" cargo build --profile ${PROFILE} -p psy-precompiles
-	@RUSTFLAGS="-A warnings" cargo build --profile ${PROFILE} --bin psy_user_cli --bin psy_node_cli --bin psy_dev_cli --bin dargo --bin psy-lsp-server --bin psy_services
+	@RUSTFLAGS="-A warnings" cargo build --profile ${PROFILE} --bin psy_user_cli --bin psy_node_cli --bin psy_dev_cli --bin psy_services
 
 fmt:
 	@cargo fmt
 
 install:
-	@cargo install --path psy_compiler/psy-dargo-cli --locked
-	@cargo install --path psy_compiler/psy-lsp-server --locked
 	@cargo install --path psy_cli/psy_user_cli --locked
 	@cargo install --path psy_cli/psy_node_cli --locked
 	@cargo install --path psy_cli/psy_dev_cli --locked
 
 clean:
-	@rm -r target
-
-DARGO_CLI_COMPILE = RUST_LOG=$(LOG_LEVEL) ./target/${PROFILE}/dargo compile --program-dir psy_compiler/tests --debug --entry-path
-DARGO_CLI_EXECUTE = RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/dargo execute --program-dir psy_compiler/tests --debug --entry-path
-DARGO_CLI_TEST    = RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/dargo test --file
-
-ci:
-	@$(DARGO_CLI_TEST) psy_compiler/tests/in_mod_attr_test.psy
-	# @$(DARGO_CLI_TEST) psy_compiler/tests/should_panic_test.psy
-	@$(DARGO_CLI_TEST) psy_compiler/tests/for_if_test.psy
-	@$(DARGO_CLI_TEST) psy_compiler/tests/array_struct_modification_test.psy
-	@$(DARGO_CLI_TEST) psy_compiler/tests/conditional_assert_test.psy
-	@$(DARGO_CLI_TEST) psy_compiler/tests/guta_nullifier_calculation_test.psy
-	@$(DARGO_CLI_TEST) psy_compiler/tests/root_calculation_test.psy
-
-	@$(DARGO_CLI_COMPILE) ctx_test.psy
-	@$(DARGO_CLI_COMPILE) storage_test.psy --contract-name=SimpleContract --method-names set_a set_b set_c set_d get_a get_b get_c get_d
-	@$(DARGO_CLI_COMPILE) basic_ups.psy --contract-name=Contract --method-names simple_mint simple_transfer simple_claim
-	@$(DARGO_CLI_COMPILE) token.psy --contract-name=ContractRef --method-names simple_mint simple_transfer simple_claim
-	@$(DARGO_CLI_COMPILE) two_user_ups.psy --contract-name=Contract --method-names simple_mint simple_transfer simple_claim
-
-	@$(DARGO_CLI_EXECUTE) assert_test.psy --parameters 2,3
-	@$(DARGO_CLI_EXECUTE) ctx_test.psy --parameters 2,3
-	@$(DARGO_CLI_EXECUTE) inline_module_test.psy --parameters 2,3
-	@$(DARGO_CLI_EXECUTE) opcode_test.psy --parameters 2,3
-	@$(DARGO_CLI_EXECUTE) parameter_passing_test.psy --parameters 2,3
-	@$(DARGO_CLI_EXECUTE) pub_test.psy --parameters 2,3
-	@$(DARGO_CLI_EXECUTE) return_test.psy --parameters 2,3
-	@$(DARGO_CLI_EXECUTE) self_test.psy
-	@$(DARGO_CLI_EXECUTE) storage_test.psy
-	@$(DARGO_CLI_EXECUTE) trait_test.psy --parameters 2,3
-	@$(DARGO_CLI_EXECUTE) hash_test.psy
-	@$(DARGO_CLI_EXECUTE) hash_two_to_one_test.psy
-	@$(DARGO_CLI_EXECUTE) verify_proof_test.psy
-	@$(DARGO_CLI_EXECUTE) first_class_function_test.psy
-	@$(DARGO_CLI_EXECUTE) type_alias_test.psy
-	@$(DARGO_CLI_EXECUTE) const_test.psy --parameters 1
-	@$(DARGO_CLI_EXECUTE) while_test.psy --parameters 2,3
-	@$(DARGO_CLI_EXECUTE) for_test.psy
-	@$(DARGO_CLI_EXECUTE) lambda_test.psy
-	@$(DARGO_CLI_EXECUTE) generics_test.psy
-	@$(DARGO_CLI_EXECUTE) polymorphism.psy
-	@$(DARGO_CLI_EXECUTE) type_hint_test.psy
-	@$(DARGO_CLI_EXECUTE) exp_test.psy --parameters 2,3
-	@$(DARGO_CLI_EXECUTE) array_test.psy --parameters 1,1
-	@$(DARGO_CLI_EXECUTE) u32_test.psy --parameters 2,3
-	# @$(DARGO_CLI_EXECUTE) enum_test.psy
-	@$(DARGO_CLI_EXECUTE) tuple_test.psy
-	@$(DARGO_CLI_EXECUTE) ambiguity_test.psy
-	@$(DARGO_CLI_EXECUTE) match_test.psy --parameters 100
-	@$(DARGO_CLI_EXECUTE) if_test.psy
-	@$(DARGO_CLI_EXECUTE) block_test.psy
-	@$(DARGO_CLI_EXECUTE) path_test.psy
-	@$(DARGO_CLI_EXECUTE) should_panic_test.psy --parameters 2,3
-	@$(DARGO_CLI_EXECUTE) basic_ups.psy --contract-name=Contract --method-names=simple_mint --method-names=simple_transfer --parameters 133700 --parameters 2,1000
-	@$(DARGO_CLI_EXECUTE) basic_ups.psy --contract-name=Contract --method-names=simple_mint --method-names=simple_transfer --parameters 1000 --parameters=2,100
-	@$(DARGO_CLI_EXECUTE) token.psy --contract-name=ContractRef --method-names=simple_mint --method-names=simple_transfer --parameters 1000 --parameters 2,100
-	@$(DARGO_CLI_EXECUTE) two_user_ups.psy --contract-name=Contract --method-names=simple_mint --method-names=simple_transfer --parameters 1000 --parameters 2,100
-	@$(DARGO_CLI_EXECUTE) check_secp_sign_test.psy
-	@$(DARGO_CLI_EXECUTE) clear_entire_tree_test.psy
-
-	@RUST_LOG=${LOG_LEVEL} cargo test --profile ${PROFILE} \
-	       --package psy-ast \
-	       --package psy-parser \
-	       -- \
-	       --nocapture
-
-	@RUST_LOG=${LOG_LEVEL} cargo test --profile ${PROFILE} \
-	       --package psy-sema \
-	       --package psy-interpreter \
-	       -- \
-	       --nocapture
-
-update-snapshots:
-	@cargo insta review
+	@rm -rf target
 
 WATCHED_DIRS := psy_network_circuit psy_common_circuit psy_dpn_circuit psy_ups_circuit psy_core/psy_config/src/network_constants.rs psy_core/psy_crypto/src/common/user_id.rs
 
@@ -134,8 +56,6 @@ config_gen:
 #                                   TMP                                        #
 ################################################################################
 PROJECT_DIR              := $(PWD)/psy_compiler/psy-precompiles
-FILE                     := $(PWD)/psy_compiler/tests/opcode_test.psy
-PARAMETERS               := 1,2
 USER0_PRIVATE_KEY        := 17c975c2668ebe0ca7c87f67c6414ebb7fd664f46370a0af2a3b204c8824ac5a
 USER0_PUBLIC_KEY         := cc92647d3a77819dec2f054a241d0863c9bd54cf5a1103ca560ed85ad59c460d
 USER0_SECP_ZK_PUBLIC_KEY := 49deab842acf3d26236419d4fce1b2cb01081aef55d4ef0e566f980e3890cf2f
@@ -206,9 +126,6 @@ run-all-v2: shutdown init
 
 run-scenario0:
 	@./scripts/run_scenario0.sh
-
-interpret:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/dargo execute --program-dir $(dir ${FILE}) --debug --entry-path $(notdir ${FILE}) --parameters ${PARAMETERS}
 
 run-api-services:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_node_cli api-services
@@ -922,7 +839,6 @@ get-user-contract-tree-merkle-proof:
 get-user-contract-state-tree-merkle-proof:
 	@./target/${PROFILE}/psy_user_cli get-user-contract-state-tree-merkle-proof --checkpoint-id ${CHECKPOINT_ID} --user-id ${USER_ID} --contract-id ${CONTRACT_ID} --height ${CONTRACT_STATE_HEIGHT} --leaf-id ${SLOT_ID}
 
-AWS_S3_BUCKET := psy-backup
 
 sync-store-coordinator-processor:
 	@./target/${PROFILE}/psy_node_cli coordinator-processor-sync --aws-bucket ${AWS_S3_BUCKET} --database lmdbx --lmdbx-path ${PWD}/db/coordinator

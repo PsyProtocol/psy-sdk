@@ -1,8 +1,6 @@
 [workspace]
 members = [
     "psy_vm",
-    "psy_compiler/psylang_ex",
-    "psy_compiler/psylang_macros",
     "psy_core/kvq",
     "psy_core/psy_common",
     "psy_core/psy_crypto",
@@ -17,16 +15,6 @@ members = [
     "psy_cli/psy_user_cli",
     "psy_cli/psy_node_cli",
     "psy_cli/psy_dev_cli",
-    "psy_compiler/psy-precompiles",
-    "psy_compiler/psy-fmt",
-    "psy_compiler/psy-lsp-server",
-    "psy_compiler/psy-parser",
-    "psy_compiler/psy-ast",
-    "psy_compiler/psy-sema",
-    "psy_compiler/psy-lexer",
-    "psy_compiler/psy-interpreter",
-    "psy_compiler/psy-package",
-    "psy_compiler/psy-dargo-cli",
     "psy_services",
     "psy_sdk/psy-rust-sdk",
     "psy_core/psy_config",
@@ -227,7 +215,6 @@ jsonrpsee = { version = "0.26", features = ["server", "client", "macros"] }
 config = "0.15"
 
 psy_vm = { path = "./psy_vm", default-features = false }
-psylang_macros = { path = "./psy_compiler/psylang_macros" }
 psy_crypto = { path = "./psy_core/psy_crypto" }
 psy_store = { path = "./psy_store", default-features = false}
 psy_data = { path = "./psy_core/psy_data", default-features = false}
@@ -240,18 +227,6 @@ psy_dpn_circuit = { path = "./psy_circuit/psy_dpn_circuit", default-features = f
 psy_ups_circuit = { path = "./psy_circuit/psy_ups_circuit", default-features = false}
 kvq = { path = "./psy_core/kvq" }
 psy_network_circuit = { path = "./psy_circuit/psy_network_circuit", default-features = false}
-psy-precompiles = { path = "./psy-precompiles" , default-features = false}
-
-psy-ast = { path = "./psy_compiler/psy-ast" }
-psy-fmt = { path = "./psy_compiler/psy-fmt" }
-psy-lsp-server = { path = "./psy_compiler/psy-lsp-server" }
-psy-parser = { path = "./psy_compiler/psy-parser" }
-psy-sema = { path = "./psy_compiler/psy-sema" }
-psy-lexer = { path = "./psy_compiler/psy-lexer" }
-psy-interpreter = { path = "./psy_compiler/psy-interpreter" }
-psy-package = { path = "./psy_compiler/psy-package" }
-dargo = { path = "./psy_compiler/psy-dargo-cli" }
-psy-abi = { path = "./psy_compiler/psy-abi" }
 psy_services = { path = "./psy_services" }
 psy_rust_sdk = { path = "./psy_sdk/psy-rust-sdk" }
 psy_provider = { path = "./psy_provider" }
