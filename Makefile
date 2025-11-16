@@ -1,4 +1,3 @@
-export DARGO_STD_PATH := $(PWD)/psy_compiler/psy-std/std.psy
 export SQLX_OFFLINE=true
 
 PROFILE := release
@@ -55,7 +54,6 @@ config_gen:
 ################################################################################
 #                                   TMP                                        #
 ################################################################################
-PROJECT_DIR              := $(PWD)/psy_compiler/psy-precompiles
 USER0_PRIVATE_KEY        := 17c975c2668ebe0ca7c87f67c6414ebb7fd664f46370a0af2a3b204c8824ac5a
 USER0_PUBLIC_KEY         := cc92647d3a77819dec2f054a241d0863c9bd54cf5a1103ca560ed85ad59c460d
 USER0_SECP_ZK_PUBLIC_KEY := 49deab842acf3d26236419d4fce1b2cb01081aef55d4ef0e566f980e3890cf2f
@@ -659,8 +657,8 @@ run-benchmark-flow-repeat:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_dev_cli stress-test --task-type multicall --only-flow --repeat 100
 
 run-benchmark-deploy:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_user_cli deploy-contract --private-key=17c975c2668ebe0ca7c87f67c6414ebb7fd664f46370a0af2a3b204c8824ac5a --contract-path ./psy_compiler/psy-precompiles/token/target/token.json
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_dev_cli stress-test --task-type multicall --only-deploy-contract  --concurrent-tasks 100  --contract-path ./psy_compiler/psy-precompiles/token/target/token.json
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_user_cli deploy-contract --private-key=17c975c2668ebe0ca7c87f67c6414ebb7fd664f46370a0af2a3b204c8824ac5a --contract-path token.json
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_dev_cli stress-test --task-type multicall --only-deploy-contract  --concurrent-tasks 100  --contract-path token.json
 
 generate-access-token:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_node_cli generate-access-token

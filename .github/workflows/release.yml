@@ -138,12 +138,11 @@ jobs:
           TAG_NAME: ${{ (env.IS_NIGHTLY == 'true' && 'nightly') || needs.prepare.outputs.tag_name }}
           TARGET: ${{ matrix.target }}
           OUT_DIR: target/${{ matrix.target }}/${{ env.PROFILE }}
-          DARGO_STD_PATH: ${{ github.workspace }}/psy_compiler/psy-std/std.psy
           SQLX_OFFLINE: true
         shell: bash
         run: |
           set -eo pipefail
-          flags=(--target $TARGET --profile $PROFILE 
+          flags=(--target $TARGET --profile $PROFILE
             --bin psy_user_cli --bin psy_node_cli --bin psy_dev_cli --bin dargo --bin psy-lsp-server)
 
           [[ "$TARGET" == *windows* ]] && ext=".exe"
