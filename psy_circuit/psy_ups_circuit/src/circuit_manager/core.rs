@@ -53,7 +53,7 @@ use psy_network_circuit::ups::circuits::{
     ups_start::UPSStartSessionCircuit,
 };
 use psy_vm::{
-    dpn::contract::cfc_code_definition_to_dapen_fc,
+    dpn::{contract::cfc_code_definition_to_dapen_fc, vm::def::DPNFunctionCircuitDefinition},
     ups::circuit_manager::{PortableQTreeRecursion, PortableQTreeRecursionCircuitsData, PortableQTreeRecursionCircuitsProve, UPSCircuitManager},
     vm::cfc_input::DapenContractFunctionCircuitInput,
 };
@@ -251,6 +251,42 @@ where
             }
         }
         Err(anyhow::format_err!("contract {} method {} is not found", contract_id, method_name))
+    }
+
+    async fn resolve_contract_function_by_method_name(
+        &self,
+        contract_id: u64,
+        contract_code: &ContractCodeDefinition,
+        method_name: String,
+    ) -> anyhow::Result<(u64, DPNFunctionCircuitDefinition)> {
+        self.register_contract_circuits(contract_id, contract_code).await?;
+        let fn_id = self.get_fn_id(contract_id, method_name.clone()).await?;
+        let fn_circuit_def = cfc_code_definition_to_dapen_fc(contract_code.functions.get(fn_id as usize).ok_or(anyhow::format_err!(
+            "contract {} method {} `{}` is not found",
+            contract_id,
+            fn_id,
+            method_name
+        ))?)?;
+
+        Ok((fn_id, fn_circuit_def))
+    }
+
+    async fn resolve_contract_function_by_method_id(
+        &self,
+        contract_id: u64,
+        contract_code: &ContractCodeDefinition,
+        method_id: u32,
+    ) -> anyhow::Result<(u64, DPNFunctionCircuitDefinition)> {
+        self.register_contract_circuits(contract_id, contract_code).await?;
+        let (fn_id, fn_code_def) = contract_code
+            .functions
+            .iter()
+            .enumerate()
+            .find_map(|(fn_id, f)| if f.method_id == method_id { Some((fn_id, f)) } else { None })
+            .ok_or_else(|| anyhow::anyhow!("method ({}) not found in contract", method_id))?;
+        let fn_circuit_def = cfc_code_definition_to_dapen_fc(fn_code_def)?;
+
+        Ok((fn_id as u64, fn_circuit_def))
     }
 
     async fn get_contract_method_common_data(&self, contract_id: u64, fn_id: u32) -> anyhow::Result<(QHashOut<C::F>, VerifierOnlyCircuitData<C, D>)> {

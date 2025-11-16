@@ -50,6 +50,21 @@ where
 
     async fn get_fn_id(&self, contract_id: u64, method_name: String) -> anyhow::Result<u64>;
 
+    // Combine register_contract_circuits and get_fn_id
+    async fn resolve_contract_function_by_method_name(
+        &self,
+        contract_id: u64,
+        contract_code: &ContractCodeDefinition,
+        method_name: String,
+    ) -> anyhow::Result<(u64, DPNFunctionCircuitDefinition)>;
+
+    async fn resolve_contract_function_by_method_id(
+        &self,
+        contract_id: u64,
+        contract_code: &ContractCodeDefinition,
+        method_id: u32,
+    ) -> anyhow::Result<(u64, DPNFunctionCircuitDefinition)>;
+
     async fn get_contract_method_common_data(&self, contract_id: u64, fn_id: u32) -> anyhow::Result<(QHashOut<C::F>, VerifierOnlyCircuitData<C, D>)>;
 
     async fn prove_contract_call(
@@ -155,6 +170,28 @@ where
 
     async fn get_fn_id(&self, contract_id: u64, method_name: String) -> anyhow::Result<u64> {
         (**self).get_fn_id(contract_id, method_name).await
+    }
+
+    async fn resolve_contract_function_by_method_name(
+        &self,
+        contract_id: u64,
+        contract_code: &ContractCodeDefinition,
+        method_name: String,
+    ) -> anyhow::Result<(u64, DPNFunctionCircuitDefinition)> {
+        (**self)
+            .resolve_contract_function_by_method_name(contract_id, contract_code, method_name)
+            .await
+    }
+
+    async fn resolve_contract_function_by_method_id(
+        &self,
+        contract_id: u64,
+        contract_code: &ContractCodeDefinition,
+        method_id: u32,
+    ) -> anyhow::Result<(u64, DPNFunctionCircuitDefinition)> {
+        (**self)
+            .resolve_contract_function_by_method_id(contract_id, contract_code, method_id)
+            .await
     }
 
     async fn get_contract_method_common_data(&self, contract_id: u64, fn_id: u32) -> anyhow::Result<(QHashOut<C::F>, VerifierOnlyCircuitData<C, D>)> {
@@ -323,6 +360,28 @@ where
 
     async fn get_fn_id(&self, contract_id: u64, method_name: String) -> anyhow::Result<u64> {
         (**self).get_fn_id(contract_id, method_name).await
+    }
+
+    async fn resolve_contract_function_by_method_name(
+        &self,
+        contract_id: u64,
+        contract_code: &ContractCodeDefinition,
+        method_name: String,
+    ) -> anyhow::Result<(u64, DPNFunctionCircuitDefinition)> {
+        (**self)
+            .resolve_contract_function_by_method_name(contract_id, contract_code, method_name)
+            .await
+    }
+
+    async fn resolve_contract_function_by_method_id(
+        &self,
+        contract_id: u64,
+        contract_code: &ContractCodeDefinition,
+        method_id: u32,
+    ) -> anyhow::Result<(u64, DPNFunctionCircuitDefinition)> {
+        (**self)
+            .resolve_contract_function_by_method_id(contract_id, contract_code, method_id)
+            .await
     }
 
     async fn get_contract_method_common_data(&self, contract_id: u64, fn_id: u32) -> anyhow::Result<(QHashOut<C::F>, VerifierOnlyCircuitData<C, D>)> {

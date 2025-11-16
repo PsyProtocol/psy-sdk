@@ -41,6 +41,7 @@ use psy_data::{
     },
 };
 use psy_vm::{
+    dpn::vm::def::DPNFunctionCircuitDefinition,
     ups::circuit_manager::{PortableQTreeRecursion, PortableQTreeRecursionCircuitsData, PortableQTreeRecursionCircuitsProve, UPSCircuitManager},
     vm::cfc_input::DapenContractFunctionCircuitInput,
 };
@@ -63,9 +64,10 @@ use crate::{
         DPNSoftwareDefinedSignatureInput, DPNSoftwareDefinedSignatureProofRPCRequest, QBlockStateRPCRequest, QGetContractMethodCommonDataRPCRequest,
         QGetFnIdRPCRequest, QGetTxStatusRPCRequest, QLatestBlockStateRPCRequest, QLeftAggRightLeafRpcRequestV2, QLeftLeafRightAggRpcRequestV2,
         QProveContractCallRPCRequest, QProveUpsStartRPCRequest, QRegisterCircuitsRPCRequest, QRegisterDPNSoftwareDefinedCircuitRPCRequest,
-        QRegisterPlonky2SoftwareDefinedCircuitRPCRequest, QSecpSignatureProofRPCRequest, QSignatureMinifierProofRPCRequest,
-        QSignatureProofRPCRequest, QSingleLeafRpcRequestV2, QTwoAggRpcRequsetV2, QTwoLeafRpcRequestV2, QUpsCfcDeferredTxRPCRequest,
-        QUpsCfcStandardTxRPCRequest, QUpsEndCapRPCRequestV2, QUserSubTreeMerkleProofRPCRequest, RequestParamsV2,
+        QRegisterPlonky2SoftwareDefinedCircuitRPCRequest, QResolveContractFunctionByMethodIdRPCRequest,
+        QResolveContractFunctionByMethodNameRPCRequest, QSecpSignatureProofRPCRequest, QSignatureMinifierProofRPCRequest, QSignatureProofRPCRequest,
+        QSingleLeafRpcRequestV2, QTwoAggRpcRequsetV2, QTwoLeafRpcRequestV2, QUpsCfcDeferredTxRPCRequest, QUpsCfcStandardTxRPCRequest,
+        QUpsEndCapRPCRequestV2, QUserSubTreeMerkleProofRPCRequest, RequestParamsV2,
     },
     session::TxStatus,
 };
@@ -874,6 +876,58 @@ where
             ResponseResult::Success(method_id) => {
                 tracing::info!("get fn id `{}` of contract {}", method_id, contract_id);
                 Ok(method_id)
+            }
+            ResponseResult::Error(e) => Err(anyhow::format_err!("rpc call failed `{:?}`", e)),
+        }
+    }
+
+    async fn resolve_contract_function_by_method_name(
+        &self,
+        contract_id: u64,
+        contract_code: &ContractCodeDefinition,
+        method_name: String,
+    ) -> anyhow::Result<(u64, DPNFunctionCircuitDefinition)> {
+        tracing::info!("resolve method `{}` of contract {}", method_name, contract_id);
+        let response = psy_rpc_call_back!(
+            self,
+            &self.proof_proxy_url,
+            RequestParams::<C::F>::ResolveContractFunctionByMethodName(QResolveContractFunctionByMethodNameRPCRequest {
+                contract_id,
+                contract_code: contract_code.clone(),
+                method_name
+            }),
+            (u64, DPNFunctionCircuitDefinition)
+        );
+        match response.result {
+            ResponseResult::Success((fn_id, circuit_def)) => {
+                tracing::info!("get fn id `{}` of contract {}", fn_id, contract_id);
+                Ok((fn_id, circuit_def))
+            }
+            ResponseResult::Error(e) => Err(anyhow::format_err!("rpc call failed `{:?}`", e)),
+        }
+    }
+
+    async fn resolve_contract_function_by_method_id(
+        &self,
+        contract_id: u64,
+        contract_code: &ContractCodeDefinition,
+        method_id: u32,
+    ) -> anyhow::Result<(u64, DPNFunctionCircuitDefinition)> {
+        tracing::info!("resolve method `{}` of contract {}", method_id, contract_id);
+        let response = psy_rpc_call_back!(
+            self,
+            &self.proof_proxy_url,
+            RequestParams::<C::F>::ResolveContractFunctionByMethodId(QResolveContractFunctionByMethodIdRPCRequest {
+                contract_id,
+                contract_code: contract_code.clone(),
+                method_id
+            }),
+            (u64, DPNFunctionCircuitDefinition)
+        );
+        match response.result {
+            ResponseResult::Success((fn_id, circuit_def)) => {
+                tracing::info!("get fn id `{}` of contract {}", fn_id, contract_id);
+                Ok((fn_id, circuit_def))
             }
             ResponseResult::Error(e) => Err(anyhow::format_err!("rpc call failed `{:?}`", e)),
         }

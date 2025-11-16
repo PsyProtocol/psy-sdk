@@ -260,6 +260,10 @@ pub enum RequestParams<F: RichField> {
     RegisterCircuits(QRegisterCircuitsRPCRequest),
     #[serde(rename = "psy_get_fn_id")]
     GetFnId(QGetFnIdRPCRequest),
+    #[serde(rename = "psy_resolve_contract_function_by_method_name")]
+    ResolveContractFunctionByMethodName(QResolveContractFunctionByMethodNameRPCRequest),
+    #[serde(rename = "psy_resolve_contract_function_by_method_id")]
+    ResolveContractFunctionByMethodId(QResolveContractFunctionByMethodIdRPCRequest),
     #[serde(rename = "psy_get_contract_method_common_data")]
     GetContractMethodCommonData(QGetContractMethodCommonDataRPCRequest),
     #[serde(rename = "psy_prove_contract_call")]
@@ -1133,6 +1137,24 @@ pub struct QRegisterCircuitsRPCRequest {
 pub struct QGetFnIdRPCRequest {
     pub contract_id: u64,
     pub method_name: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[serde(bound = "")]
+#[ts(export)]
+pub struct QResolveContractFunctionByMethodNameRPCRequest {
+    pub contract_id: u64,
+    pub contract_code: ContractCodeDefinition,
+    pub method_name: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[serde(bound = "")]
+#[ts(export)]
+pub struct QResolveContractFunctionByMethodIdRPCRequest {
+    pub contract_id: u64,
+    pub contract_code: ContractCodeDefinition,
+    pub method_id: u32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]

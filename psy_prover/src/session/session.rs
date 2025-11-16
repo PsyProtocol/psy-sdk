@@ -150,11 +150,9 @@ where
 {
     let contract_code = st.resolve_get_contract_code(&QSRCmdGetContractCodeDefinition { contract_id }).await?;
 
-    circuit_mgr.register_contract_circuits(contract_id, &contract_code).await?;
-
-    let fn_id = circuit_mgr.get_fn_id(contract_id, fn_name.to_string()).await?;
-
-    let dapen_fc = cfc_code_definition_to_dapen_fc(&contract_code.functions[fn_id as usize])?;
+    let (fn_id, dapen_fc) = circuit_mgr
+        .resolve_contract_function_by_method_name(contract_id, &contract_code, fn_name.to_string())
+        .await?;
 
     mgr.prove_standard_call(circuit_mgr, F::from_canonical_u64(contract_id), fn_id as u32, &dapen_fc, inputs)
         .await
