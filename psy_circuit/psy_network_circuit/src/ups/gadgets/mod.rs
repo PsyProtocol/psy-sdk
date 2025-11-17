@@ -11,3 +11,4 @@ pub mod ups_signature_data;
 pub mod ups_standard_cfc_state_delta;
 pub mod verify_previous_ups_step;
 pub mod verify_previous_ups_step_partial_from_current;
+pub mod ups_start_register_user;

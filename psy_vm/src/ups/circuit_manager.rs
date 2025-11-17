@@ -25,9 +25,7 @@ use psy_data::{
     qstore::{controllers::session_info::SessionCircuitInfoStore, imm::cmd_processor::PsyReadCommandProcessorSync},
     traits::qdatastore::qtreedata::PsyComboDataStoreReaderSync,
     ups::{
-        start_step::UPSStartStepInput,
-        ups_cfc_standard_step::{UPSCFCDeferredTransactionCircuitInput, UPSCFCStandardTransactionCircuitInput},
-        ups_end_cap::UPSEndCapFromProofTreeGadgetInput,
+        start_step::UPSStartStepInput, start_step_register_user::UPSStartStepRegisterUserInput, ups_cfc_standard_step::{UPSCFCDeferredTransactionCircuitInput, UPSCFCStandardTransactionCircuitInput}, ups_end_cap::UPSEndCapFromProofTreeGadgetInput
     },
 };
 
@@ -45,6 +43,7 @@ where
 {
     async fn register_info(&self, info_store: &mut SessionCircuitInfoStore<C::F>);
     async fn prove_ups_start(&self, input: &UPSStartStepInput<C::F>) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>>;
+    async fn prove_ups_start_register_user(&self, input: &UPSStartStepRegisterUserInput<C::F>) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>>;
 
     async fn register_contract_circuits(&self, contract_id: u64, contract_code: &ContractCodeDefinition) -> anyhow::Result<()>;
 
@@ -115,6 +114,10 @@ where
 
     async fn ups_start_circuit_verifier_config(&self) -> anyhow::Result<VerifierOnlyCircuitData<C, D>>;
 
+    async fn ups_start_register_user_circuit_fingerprint(&self) -> anyhow::Result<QHashOut<C::F>>;
+
+    async fn ups_start_register_user_circuit_verifier_config(&self) -> anyhow::Result<VerifierOnlyCircuitData<C, D>>;
+
     async fn ups_cfc_standard_tx_circuit_fingerprint(&self) -> anyhow::Result<QHashOut<C::F>>;
 
     async fn ups_cfc_standard_tx_circuit_verifier_config(&self) -> anyhow::Result<VerifierOnlyCircuitData<C, D>>;
@@ -151,6 +154,9 @@ where
 
     async fn prove_ups_start(&self, input: &UPSStartStepInput<C::F>) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         (**self).prove_ups_start(input).await
+    }
+    async fn prove_ups_start_register_user(&self, input: &UPSStartStepRegisterUserInput<C::F>) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
+        (**self).prove_ups_start_register_user(input).await
     }
 
     async fn register_contract_circuits(&self, contract_id: u64, contract_code: &ContractCodeDefinition) -> anyhow::Result<()> {
@@ -264,6 +270,14 @@ where
 
     async fn ups_start_circuit_verifier_config(&self) -> anyhow::Result<VerifierOnlyCircuitData<C, D>> {
         (**self).ups_start_circuit_verifier_config().await
+    }
+
+    async fn ups_start_register_user_circuit_fingerprint(&self) -> anyhow::Result<QHashOut<C::F>> {
+        (**self).ups_start_register_user_circuit_fingerprint().await
+    }
+
+    async fn ups_start_register_user_circuit_verifier_config(&self) -> anyhow::Result<VerifierOnlyCircuitData<C, D>> {
+        (**self).ups_start_register_user_circuit_verifier_config().await
     }
 
     async fn ups_cfc_standard_tx_circuit_fingerprint(&self) -> anyhow::Result<QHashOut<C::F>> {
@@ -325,6 +339,10 @@ where
         (**self).prove_ups_start(input).await
     }
 
+    async fn prove_ups_start_register_user(&self, input: &UPSStartStepRegisterUserInput<C::F>) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
+        (**self).prove_ups_start_register_user(input).await
+    }
+
     async fn register_contract_circuits(&self, contract_id: u64, contract_code: &ContractCodeDefinition) -> anyhow::Result<()> {
         (**self).register_contract_circuits(contract_id, contract_code).await
     }
@@ -436,6 +454,14 @@ where
 
     async fn ups_start_circuit_verifier_config(&self) -> anyhow::Result<VerifierOnlyCircuitData<C, D>> {
         (**self).ups_start_circuit_verifier_config().await
+    }
+
+    async fn ups_start_register_user_circuit_fingerprint(&self) -> anyhow::Result<QHashOut<C::F>> {
+        (**self).ups_start_register_user_circuit_fingerprint().await
+    }
+
+    async fn ups_start_register_user_circuit_verifier_config(&self) -> anyhow::Result<VerifierOnlyCircuitData<C, D>> {
+        (**self).ups_start_register_user_circuit_verifier_config().await
     }
 
     async fn ups_cfc_standard_tx_circuit_fingerprint(&self) -> anyhow::Result<QHashOut<C::F>> {

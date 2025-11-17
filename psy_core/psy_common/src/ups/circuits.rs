@@ -73,6 +73,7 @@ pub enum LocalCircuitType {
     UPSStart = 0,
     UPSCFCStandard = 1,
     UPSCFCDeferred = 2,
+    UPSStartRegisterUser = 3,
     // ...
     UPSEndCap = 31,
 
@@ -135,6 +136,7 @@ impl TryFrom<u8> for LocalCircuitType {
             0 => Ok(LocalCircuitType::UPSStart),
             1 => Ok(LocalCircuitType::UPSCFCStandard),
             2 => Ok(LocalCircuitType::UPSCFCDeferred),
+            3 => Ok(LocalCircuitType::UPSStartRegisterUser),
             31 => Ok(LocalCircuitType::UPSEndCap),
             33 => Ok(LocalCircuitType::PTAggSingle),
             34 => Ok(LocalCircuitType::PTAggTwoLeaf),

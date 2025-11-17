@@ -7,7 +7,7 @@ use plonky2::{
 };
 use psy_common::data::qhashout::QHashOut;
 use psy_config::network_constants::{DEFERRED_TRANSACTION_TREE_HEIGHT, INLINE_TRANSACTION_TREE_HEIGHT};
-use psy_crypto::hash::{
+use psy_crypto::{common::user_id::get_registration_id_from_user_id, hash::{
     merkle::{
         core::{DeltaMerkleProofCore, MerkleProofCore},
         utils::simple_merkle_tree::SimpleMerkleTree,
@@ -17,7 +17,7 @@ use psy_crypto::hash::{
         qhashable::QFieldHashable,
     },
     utils::safe_hash_fixed_length,
-};
+}};
 
 use super::{
     session_store::{config::LPS_DEFERRED_TRANSACTION_TREE_ID, tx_tree::TransactionDebtTreeRef},
@@ -43,20 +43,16 @@ use crate::{
         contract_inclusion::{PsyContractFunctionInclusionProof, PsyContractInclusionProof},
         user::PsyUserLeaf,
     },
-    qstore::imm::{
+    qstore::{controllers::register_helpers::get_new_empty_user_leaf, imm::{
         cache::PsyCmdStoreWithCache,
         cmd::{
-            QSRCmdGetBlockState, QSRCmdGetCheckpointLeafData, QSRCmdGetContractCodeDefinition, QSRCmdGetContractLeafData, QSRCmdGetUserLeafData,
-            QSRHashCmd, QSRHashCmdGetCheckpointTreeRoot, QSRHashCmdGetContractTreeRoot, QSRHashCmdGetDepositTreeRoot,
-            QSRHashCmdGetUserRegistrationTreeRoot, QSRHashCmdGetUserTreeRoot, QSRHashCmdGetWithdrawalTreeRoot, QSRMerkleCmd,
-            QSRMerkleCmdGetContractFunctionTreeMerkleProof, QSRMerkleCmdGetContractTreeMerkleProof, QSRMerkleCmdGetUserContractStateTreeMerkleProof,
-            QSRMerkleCmdGetUserContractTreeMerkleProof, QSRMerkleCmdGetUserTreeMerkleProof,
+            QSRCmdGetBlockState, QSRCmdGetCheckpointLeafData, QSRCmdGetContractCodeDefinition, QSRCmdGetContractLeafData, QSRCmdGetUserLeafData, QSRHashCmd, QSRHashCmdGetCheckpointTreeRoot, QSRHashCmdGetContractTreeRoot, QSRHashCmdGetDepositTreeRoot, QSRHashCmdGetUserRegistrationTreeRoot, QSRHashCmdGetUserTreeRoot, QSRHashCmdGetWithdrawalTreeRoot, QSRMerkleCmd, QSRMerkleCmdGetContractFunctionTreeMerkleProof, QSRMerkleCmdGetContractTreeMerkleProof, QSRMerkleCmdGetUserContractStateTreeMerkleProof, QSRMerkleCmdGetUserContractTreeMerkleProof, QSRMerkleCmdGetUserRegistrationTreeMerkleProof, QSRMerkleCmdGetUserTreeMerkleProof
         },
         cmd_processor::{
             DPNReadOtherUserLeafMerkleProof, PsyReadCommandBatchInput, PsyReadCommandBatchOutput, PsyReadCommandProcessorSync,
             PsyReadCommandProcessorSyncMut,
         },
-    },
+    }},
     ups::{ups_context_input::UserProvingSessionStartContext, ups_standard_cfc_input::UPSCFCStandardStateDeltaInput},
 };
 
@@ -777,6 +773,39 @@ impl<F: RichField, H: MerkleZeroHasherWithMarkedLeaf<QHashOut<F>> + FieldQHasher
 
         Ok(())
     }
+    pub async fn get_ups_start_register_user_ctx(&mut self) -> anyhow::Result<UserProvingSessionStartContext<F>> {
+        let checkpoint_id = self.start_checkpoint_u64;
+        let checkpoint_leaf = self
+            .cmd_store
+            .resolve_get_checkpoint_leaf_mut(&QSRCmdGetCheckpointLeafData { checkpoint_id })
+            .await?;
+        let checkpoint_tree_root = self
+            .cmd_store
+            .resolve_get_hash_mut(&QSRHashCmd::GetCheckpointTreeRoot(QSRHashCmdGetCheckpointTreeRoot { checkpoint_id }))
+            .await?;
+
+
+        let user_registration_tree_proof: MerkleProofCore<QHashOut<F>> = self
+            .cmd_store
+            .resolve_get_merkle_proof_mut(&QSRMerkleCmd::GetUserRegistrationTreeMerkleProof(QSRMerkleCmdGetUserRegistrationTreeMerkleProof {
+                checkpoint_id: self.start_checkpoint_u64,
+                leaf_index: get_registration_id_from_user_id(self.user_id.to_canonical_u64()),
+            }))
+            .await?;
+
+        let user_leaf = get_new_empty_user_leaf(self.user_id, user_registration_tree_proof.value);
+        
+        let start_ctx = UserProvingSessionStartContext::<F> {
+            checkpoint_id: self.start_checkpoint,
+            checkpoint_tree_root,
+            checkpoint_leaf_hash: checkpoint_leaf.qfhash::<H>(),
+            start_session_user_leaf: user_leaf,
+        };
+        tracing::debug!("ups_start_ctx: {}", serde_json::to_string_pretty(&start_ctx).unwrap());
+        Ok(start_ctx)
+    }
+
+
     pub async fn get_ups_start_ctx(&mut self) -> anyhow::Result<UserProvingSessionStartContext<F>> {
         let checkpoint_id = self.start_checkpoint_u64;
         let checkpoint_leaf = self

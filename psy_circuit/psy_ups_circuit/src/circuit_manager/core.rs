@@ -43,15 +43,13 @@ use psy_data::{
     qdata::contract::ContractCodeDefinition,
     qstore::controllers::session_info::SessionCircuitInfoStore,
     ups::{
-        start_step::UPSStartStepInput,
-        ups_cfc_standard_step::{UPSCFCDeferredTransactionCircuitInput, UPSCFCStandardTransactionCircuitInput},
-        ups_end_cap::UPSEndCapFromProofTreeGadgetInput,
+        start_step::UPSStartStepInput, start_step_register_user::UPSStartStepRegisterUserInput, ups_cfc_standard_step::{UPSCFCDeferredTransactionCircuitInput, UPSCFCStandardTransactionCircuitInput}, ups_end_cap::UPSEndCapFromProofTreeGadgetInput
     },
 };
 use psy_dpn_circuit::circuits::cfc::DapenContractFunctionCircuit;
 use psy_network_circuit::ups::circuits::{
     end_cap::UPSStandardEndCapCircuit, ups_cfc_deferred_tx::UPSCFCDeferredTransactionCircuit, ups_cfc_standard::UPSCFCStandardTransactionCircuit,
-    ups_start::UPSStartSessionCircuit,
+    ups_start::UPSStartSessionCircuit, ups_start_register_user::{self, UPSStartSessionRegisterUserCircuit},
 };
 use psy_vm::{
     dpn::contract::cfc_code_definition_to_dapen_fc,
@@ -66,6 +64,7 @@ where
     C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasherWithMarkedLeaf<HashOut<C::F>> + MerkleZeroHasherWithMarkedLeaf<QHashOut<C::F>>,
 {
     pub ups_start: UPSStartSessionCircuit<C, D>,
+    pub ups_start_register_user: UPSStartSessionRegisterUserCircuit<C, D>,
     pub proof_tree_agg_circuits: PortableQTreeRecursionCircuits<C, D>,
     pub ups_cfc_standard_tx: UPSCFCStandardTransactionCircuit<C, D>,
     pub ups_cfc_deferred_tx: UPSCFCDeferredTransactionCircuit<C, D>,
@@ -75,6 +74,7 @@ where
     pub ups_start_whitelist_proof: MerkleProofCore<QHashOut<C::F>>,
     pub ups_cfc_standard_tx_whitelist_proof: MerkleProofCore<QHashOut<C::F>>,
     pub ups_cfc_deferred_tx_whitelist_proof: MerkleProofCore<QHashOut<C::F>>,
+    pub ups_start_register_user_whitelist_proof: MerkleProofCore<QHashOut<C::F>>,
 
     // contract circuits
     pub contract_circuits: DashMap<u64, Vec<DapenContractFunctionCircuit<C, D>>>,
@@ -92,6 +92,7 @@ where
         network_magic: u64,
     ) -> Self {
         let ups_start = UPSStartSessionCircuit::new();
+        let ups_start_register_user = UPSStartSessionRegisterUserCircuit::new();
         let ups_cfc_standard_tx = UPSCFCStandardTransactionCircuit::new();
         let ups_cfc_deferred_tx = UPSCFCDeferredTransactionCircuit::new();
 
@@ -101,9 +102,12 @@ where
                 ups_start.get_fingerprint(),
                 ups_cfc_standard_tx.get_fingerprint(),
                 ups_cfc_deferred_tx.get_fingerprint(),
+                ups_start_register_user.get_fingerprint(),
             ],
         )
         .unwrap();
+
+        let ups_start_register_user_whitelist_proof = ups_circuit_whitelist_proofs.pop().unwrap();
         let ups_cfc_deferred_tx_whitelist_proof = ups_circuit_whitelist_proofs.pop().unwrap();
         let ups_cfc_standard_tx_whitelist_proof = ups_circuit_whitelist_proofs.pop().unwrap();
         let ups_start_whitelist_proof = ups_circuit_whitelist_proofs.pop().unwrap();
@@ -139,6 +143,7 @@ where
 
         Self {
             ups_start,
+            ups_start_register_user,
             proof_tree_agg_circuits,
             ups_cfc_standard_tx,
             ups_cfc_deferred_tx,
@@ -147,6 +152,7 @@ where
             ups_start_whitelist_proof,
             ups_cfc_standard_tx_whitelist_proof,
             ups_cfc_deferred_tx_whitelist_proof,
+            ups_start_register_user_whitelist_proof,
             contract_circuits: DashMap::new(),
             zk_circuit: PsyBasicZKSignatureCircuit::new(),
             secp_circuit: Secp256K1SignatureCircuit::new(),
@@ -165,6 +171,14 @@ where
         println!(
             "================================\n[ups_cfc_deferred_tx.common]:\n{:?}",
             self.ups_cfc_deferred_tx.get_common_circuit_data_ref()
+        );
+        println!(
+            "\n\n\n\n================================\n[ups_start.common]:\n{:?}",
+            self.ups_start.get_common_circuit_data_ref()
+        );
+        println!(
+            "\n\n\n\n================================\n[ups_start_register_user.common]:\n{:?}",
+            self.ups_start_register_user.get_common_circuit_data_ref()
         );
         println!(
             "================================\n[ups_end_cap.common]:\n{:?}",
@@ -204,6 +218,11 @@ where
             self.ups_end_cap.get_verifier_config_ref().into(),
         );
         info_store.register_circuit(
+            LocalCircuitType::UPSStartRegisterUser.into(),
+            self.ups_start_register_user.get_fingerprint(),
+            self.ups_start_register_user.get_verifier_config_ref().into(),
+        );
+        info_store.register_circuit(
             LocalCircuitType::UPSEndCap.into(),
             self.ups_end_cap.get_fingerprint(),
             self.ups_end_cap.get_verifier_config_ref().into(),
@@ -212,6 +231,7 @@ where
         info_store.register_whitelist_merkle_proof(LocalCircuitType::UPSStart.into(), self.ups_start_whitelist_proof.clone());
         info_store.register_whitelist_merkle_proof(LocalCircuitType::UPSCFCStandard.into(), self.ups_cfc_standard_tx_whitelist_proof.clone());
         info_store.register_whitelist_merkle_proof(LocalCircuitType::UPSCFCDeferred.into(), self.ups_cfc_deferred_tx_whitelist_proof.clone());
+        info_store.register_whitelist_merkle_proof(LocalCircuitType::UPSStartRegisterUser.into(), self.ups_start_register_user_whitelist_proof.clone());
 
         register_qtree_recursion_circuits(&self.proof_tree_agg_circuits.circuit_set, info_store);
         register_qtree_recursion_circuits_whitelist_proofs(&self.proof_tree_agg_circuits.circuit_inclusion_proofs, info_store);
@@ -219,6 +239,9 @@ where
 
     async fn prove_ups_start(&self, input: &UPSStartStepInput<C::F>) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         self.ups_start.prove_base(input)
+    }
+    async fn prove_ups_start_register_user(&self, input: &UPSStartStepRegisterUserInput<C::F>) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
+        self.ups_start_register_user.prove_base(input)
     }
 
     async fn register_contract_circuits(&self, contract_id: u64, contract_code: &ContractCodeDefinition) -> anyhow::Result<()> {
@@ -372,6 +395,13 @@ where
 
     async fn ups_start_circuit_verifier_config(&self) -> anyhow::Result<VerifierOnlyCircuitData<C, D>> {
         Ok(self.ups_start.get_verifier_config_ref().clone().into())
+    }
+    async fn ups_start_register_user_circuit_fingerprint(&self) -> anyhow::Result<QHashOut<C::F>> {
+        Ok(self.ups_start_register_user.get_fingerprint())
+    }
+
+    async fn ups_start_register_user_circuit_verifier_config(&self) -> anyhow::Result<VerifierOnlyCircuitData<C, D>> {
+        Ok(self.ups_start_register_user.get_verifier_config_ref().clone().into())
     }
 
     async fn ups_cfc_standard_tx_circuit_fingerprint(&self) -> anyhow::Result<QHashOut<C::F>> {
