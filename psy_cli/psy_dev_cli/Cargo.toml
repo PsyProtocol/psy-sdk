@@ -53,19 +53,3 @@ num_cpus = "1.17.0"
 [[bin]]
 name = "psy_dev_cli"
 path = "src/main.rs"
-
-[[example]]
-name = "test_basic_ups"
-path = "examples/test_basic_ups.rs"
-
-[[example]]
-name = "test_prove_contract"
-path = "examples/test_prove_contract.rs"
-
-[[example]]
-name = "test_prove_token_contract"
-path = "examples/test_prove_token_contract.rs"
-
-[[example]]
-name = "test_two_user_ups"
-path = "examples/test_two_user_ups.rs"
