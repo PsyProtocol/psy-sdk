@@ -84,10 +84,7 @@ pub struct Multicast {
 impl Multicast {
     pub async fn new(rpc_config: NetworkConfig<GoldilocksField>) -> Result<Self> {
         let wallet_session = WalletSession::new(&rpc_config).await?;
-        Ok(Self {
-            wallet_session,
-            rpc_config,
-        })
+        Ok(Self { wallet_session, rpc_config })
     }
 
     pub async fn exec_contract_call(
@@ -168,7 +165,7 @@ impl Multicast {
                 method_name: "simple_transfer".to_string(),
                 inputs: vec![to_user_id, transfer_amount],
             });
-            
+
             let fingerprint = psy_prover::wallet::memory_wallet::get_zk_fingerprint();
             self.wallet_session.add_user(user_info[i].pk.clone(), fingerprint).await?;
         }
@@ -324,7 +321,7 @@ impl Multicast {
         let mint_amount = 250000000000u64;
         let (from_user_id, public_key0) = self.init_user0(mint_amount).await?;
         if contract_path.is_empty() {
-            contract_path = "./psy-precompiles/token/target/token.json".to_string();
+            contract_path = "../psy-compiler/psy-precompiles/token/target/token.json".to_string();
         }
         info!("deploying contract from {}", contract_path.clone());
         let defs_array: Vec<DPNFunctionCircuitDefinition> = serde_json::from_str(&fs::read_to_string(contract_path)?)?;

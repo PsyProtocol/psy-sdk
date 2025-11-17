@@ -657,8 +657,8 @@ run-benchmark-flow-repeat:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_dev_cli stress-test --task-type multicall --only-flow --repeat 100
 
 run-benchmark-deploy:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_user_cli deploy-contract --private-key=17c975c2668ebe0ca7c87f67c6414ebb7fd664f46370a0af2a3b204c8824ac5a --contract-path token.json
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_dev_cli stress-test --task-type multicall --only-deploy-contract  --concurrent-tasks 100  --contract-path token.json
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_user_cli deploy-contract --private-key=17c975c2668ebe0ca7c87f67c6414ebb7fd664f46370a0af2a3b204c8824ac5a --contract-path ${PWD}/../psy-compiler/psy-precompiles/token/target/token.json
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_dev_cli stress-test --task-type multicall --only-deploy-contract  --concurrent-tasks 100  --contract-path ${PWD}/../psy-compiler/psy-precompiles/token/target/token.json
 
 generate-access-token:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_node_cli generate-access-token
@@ -700,16 +700,16 @@ register-random-user:
 deploy-contract:
 	@echo "Deploying contracts..."
 	@echo "USER0 deploying token contract..."
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_user_cli deploy-contract --private-key=${USER0_PRIVATE_KEY} --contract-path ${PROJECT_DIR}/token/target/token.json --is-deploy
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_user_cli deploy-contract --private-key=${USER0_PRIVATE_KEY} --contract-path ${PWD}/../psy-compiler/psy-precompiles/token/target/token.json --is-deploy
 	@echo "USER1 deploying token contract..."
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_user_cli deploy-contract --private-key=${USER1_PRIVATE_KEY} --contract-path ${PROJECT_DIR}/token/target/token.json --is-deploy
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_user_cli deploy-contract --private-key=${USER1_PRIVATE_KEY} --contract-path ${PWD}/../psy-compiler/psy-precompiles/token/target/token.json --is-deploy
 
 get-deploy-contract-cmd:
 	@echo "Deploying contracts..."
 	@echo "USER0 deploying token contract..."
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_user_cli deploy-contract --private-key=${USER0_PRIVATE_KEY} --contract-path ${PROJECT_DIR}/token/target/token.json --output-path ${PROJECT_DIR}/token/target/
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_user_cli deploy-contract --private-key=${USER0_PRIVATE_KEY} --contract-path ${PWD}/../psy-compiler/psy-precompiles/token/target/token.json --output-path ./target/
 	@echo "USER1 deploying token contract..."
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_user_cli deploy-contract --private-key=${USER1_PRIVATE_KEY} --contract-path ${PROJECT_DIR}/token/target/token.json --output-path ${PROJECT_DIR}/token/target/
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_user_cli deploy-contract --private-key=${USER1_PRIVATE_KEY} --contract-path ${PWD}/../psy-compiler/psy-precompiles/token/target/token.json --output-path ./target/
 
 multi-contract-call:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_user_cli call -p ${USER0_PRIVATE_KEY} --contract-id ${CONTRACT_ID}
