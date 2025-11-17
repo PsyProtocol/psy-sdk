@@ -4,6 +4,9 @@ use psy_common::{args::SignType, data::qhashout::QHashOut};
 use psy_rust_sdk::provider::NetworkConfig;
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
+
+pub use psy_common::args::WalletSourceArgs;
+
 #[derive(Clone, Args)]
 pub struct RandomWalletArgs {
     #[clap(long, default_value = "zk")]
@@ -24,15 +27,13 @@ pub enum WalletCommands {
         output: Option<String>,
         #[arg(long, help = "Password for the wallet")]
         password: Option<String>,
+        #[command(flatten)]
+        wallet: WalletSourceArgs,
     },
     /// Load and display wallet info
     Load {
-        #[arg(long, help = "Private key hex string")]
-        private_key: Option<String>,
-        #[arg(long, help = "Path to keystore file")]
-        keystore_path: Option<String>,
-        #[arg(long, help = "Password for the keystore")]
-        password: Option<String>,
+        #[command(flatten)]
+        wallet: WalletSourceArgs,
     },
     /// List accounts in keystore directory
     List {
@@ -43,26 +44,16 @@ pub enum WalletCommands {
 
 #[derive(Clone, Args)]
 pub struct GetPublicKeyArgs {
-    /// user private key
-    #[clap(long, short)]
-    pub private_key: String,
-    /// signature type
-    #[clap(long, short, default_value = "zk")]
-    pub sign_type: SignType,
+    #[command(flatten)]
+    pub wallet: WalletSourceArgs,
 }
 
 #[derive(Clone, Args, Serialize, Deserialize)]
 pub struct RegisterUserArgs {
     #[clap(env, long, default_value = "config.json", env)]
     pub rpc_config: String,
-    /// user private key
-    #[clap(long, short)]
-    pub private_key: Option<String>,
-    #[clap(long, short, default_value = "zk")]
-    pub sign_type: SignType,
-    /// optional fingerprint (defaults to standard circuit fingerprint)
-    #[clap(long)]
-    pub fingerprint: Option<String>,
+    #[command(flatten)]
+    pub wallet: WalletSourceArgs,
 }
 
 #[derive(Clone, Args)]

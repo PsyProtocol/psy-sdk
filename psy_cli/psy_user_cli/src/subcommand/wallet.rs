@@ -12,7 +12,7 @@ use super::args::{WalletArgs, WalletCommands};
 
 pub fn run(args: WalletArgs) -> Result<()> {
     match args.command {
-        WalletCommands::Create { output, password } => {
+        WalletCommands::Create { output, password, .. } => {
             let wallet = Wallet::new()?;
 
             if let Some(path) = output {
@@ -37,12 +37,12 @@ pub fn run(args: WalletArgs) -> Result<()> {
 
             Ok(())
         }
-        WalletCommands::Load {
-            private_key,
-            keystore_path,
-            password,
-        } => {
-            let wallet = Wallet::load(private_key.as_deref(), keystore_path.as_ref().map(|p| Path::new(p)), password.as_deref())?;
+        WalletCommands::Load { wallet, .. } => {
+            let wallet = Wallet::load(
+                wallet.private_key.as_deref(),
+                wallet.keystore_path.as_ref().map(|p| Path::new(p)),
+                wallet.password.as_deref(),
+            )?;
 
             println!("✅ Wallet loaded:");
             println!("ETH Address: {}", wallet.address());

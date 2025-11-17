@@ -943,22 +943,6 @@ pub struct WalletKeyPair {
     pub public_key: ZKPublicKeyInfo<F>,
 }
 
-pub async fn run(args: WalletSessionArgs) -> anyhow::Result<()> {
-    let psy_config = psy_config::PsyConfigGoldilocks::from_file(&args.rpc_config)?;
-    let rpc_config = psy_config.get_current_network()?;
-    let private_key = QHashOut::<F>::from_str(&args.private_key).map_err(|e| anyhow::format_err!("{}", e.to_string()))?;
-    let mut wallet_session = WalletSession::new(&rpc_config).await?;
-    let fingerprint = crate::wallet::memory_wallet::get_zk_fingerprint();
-    let public_key = wallet_session.add_user(private_key, fingerprint).await?;
-
-    let contract_call_data = args.to_contract_call_data()?;
-    let tx_hash = wallet_session.exec_contract_call(public_key, contract_call_data).await?;
-
-    tracing::info!("wallet session multi contract call with tx hash: {}", tx_hash);
-
-    Ok(())
-}
-
 #[cfg(all(not(target_arch = "wasm32"), feature = "is_sync"))]
 mod tests {
     use std::{path::Path, thread, time::Duration};

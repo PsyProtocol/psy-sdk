@@ -16,6 +16,7 @@ cfg_if::cfg_if! {
         pub mod claim_rewards;
         pub mod claim_amount;
         pub mod check_tx;
+        pub mod key_utils;
     }
 }
 
