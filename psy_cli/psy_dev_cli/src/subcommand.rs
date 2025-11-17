@@ -2,10 +2,6 @@ use clap::{command, Parser, Subcommand};
 pub use get_user_id_from_registration_id::GetUserIdFromRegistrationIdArgs;
 pub use job::JobArgs;
 
-pub mod benchmark_full_group_1;
-pub mod benchmark_full_group_2;
-pub mod benchmark_full_group_3;
-pub mod benchmark_register_v2;
 pub mod check_registered_users;
 pub mod generate;
 pub mod generate_token;
@@ -19,8 +15,6 @@ pub mod realm_status;
 pub mod register_user;
 pub mod store;
 pub mod stress_test;
-pub mod test_full_group_1;
-pub mod test_register_v2;
 
 #[derive(Parser)]
 pub struct Cli {
@@ -30,24 +24,6 @@ pub struct Cli {
 
 #[derive(Subcommand)]
 pub enum Commands {
-    #[command(about = "Run test full group 1 (from psy_test_sandbox)")]
-    TestFullGroup1(TestFullGroup1Args),
-
-    #[command(about = "Run test register v2 (from psy_test_sandbox)")]
-    TestRegisterV2(TestRegisterV2Args),
-
-    #[command(about = "Run benchmark full group 1")]
-    BenchmarkFullGroup1(BenchmarkFullGroup1Args),
-
-    #[command(about = "Run benchmark full group 2")]
-    BenchmarkFullGroup2(BenchmarkFullGroup2Args),
-
-    #[command(about = "Run benchmark full group 3")]
-    BenchmarkFullGroup3(BenchmarkFullGroup3Args),
-
-    #[command(about = "Run benchmark register v2")]
-    BenchmarkRegisterV2(BenchmarkRegisterV2Args),
-
     #[command(about = "Generate JWT access token")]
     GenerateToken(GenerateTokenArgs),
 
@@ -91,60 +67,6 @@ pub enum Commands {
 
     #[command(about = "Store utility commands")]
     Store(store::StoreConfig),
-}
-
-#[derive(Parser)]
-pub struct TestFullGroup1Args {
-    #[arg(long, default_value = "redis://127.0.0.1:6379")]
-    pub redis_url: String,
-
-    #[arg(long, default_value = "db")]
-    pub db_path: String,
-}
-
-#[derive(Parser)]
-pub struct TestRegisterV2Args {
-    #[arg(long, default_value = "redis://127.0.0.1:6379")]
-    pub redis_url: String,
-
-    #[arg(long, default_value = "db")]
-    pub db_path: String,
-}
-
-#[derive(Parser)]
-pub struct BenchmarkFullGroup1Args {
-    #[arg(long, default_value = "redis://127.0.0.1:6379")]
-    pub redis_url: String,
-
-    #[arg(long, default_value = "10")]
-    pub num_workers: usize,
-}
-
-#[derive(Parser)]
-pub struct BenchmarkFullGroup2Args {
-    #[arg(long, default_value = "redis://127.0.0.1:6379")]
-    pub redis_url: String,
-
-    #[arg(long, default_value = "10")]
-    pub num_workers: usize,
-}
-
-#[derive(Parser)]
-pub struct BenchmarkFullGroup3Args {
-    #[arg(long, default_value = "redis://127.0.0.1:6379")]
-    pub redis_url: String,
-
-    #[arg(long, default_value = "10")]
-    pub num_workers: usize,
-}
-
-#[derive(Parser)]
-pub struct BenchmarkRegisterV2Args {
-    #[arg(long, default_value = "redis://127.0.0.1:6379")]
-    pub redis_url: String,
-
-    #[arg(long, default_value = "1")]
-    pub num_users: usize,
 }
 
 #[derive(Parser)]
