@@ -81,7 +81,7 @@ pub fn parse_contract_call_args(s: &str) -> anyhow::Result<Vec<ContractCallArgs>
 pub struct WalletSourceArgs {
     #[clap(long, default_value = "secp256k1")]
     pub sign_type: SignType,
-    #[clap(long, conflicts_with = "keystore_path")]
+    #[clap(short, long, conflicts_with = "keystore_path")]
     pub private_key: Option<String>,
     #[clap(long, conflicts_with = "private_key")]
     pub keystore_path: Option<String>,
