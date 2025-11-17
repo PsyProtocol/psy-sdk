@@ -1,6 +1,6 @@
-use std::collections::HashMap;
+use std::sync::Arc;
 
-use dashmap::DashMap;
+use quick_cache::sync::Cache;
 use plonky2::{
     hash::hash_types::{HashOut, RichField},
     plonk::{
@@ -77,7 +77,7 @@ where
     pub ups_cfc_deferred_tx_whitelist_proof: MerkleProofCore<QHashOut<C::F>>,
 
     // contract circuits
-    pub contract_circuits: DashMap<u64, Vec<DapenContractFunctionCircuit<C, D>>>,
+    pub contract_circuits: Cache<u64, Arc<Vec<Arc<DapenContractFunctionCircuit<C, D>>>>>,
 
     pub zk_circuit: PsyBasicZKSignatureCircuit<C, D>,
     pub secp_circuit: Secp256K1SignatureCircuit<C, D>,
@@ -147,7 +147,7 @@ where
             ups_start_whitelist_proof,
             ups_cfc_standard_tx_whitelist_proof,
             ups_cfc_deferred_tx_whitelist_proof,
-            contract_circuits: DashMap::new(),
+            contract_circuits: Cache::new(200), // Capacity: 200 contracts
             zk_circuit: PsyBasicZKSignatureCircuit::new(),
             secp_circuit: Secp256K1SignatureCircuit::new(),
         }
@@ -230,19 +230,20 @@ where
         for func in contract_code.functions.iter() {
             let dapen_fc = cfc_code_definition_to_dapen_fc(&func)?;
             tracing::info!("register contract {} function {}", contract_id, dapen_fc.name);
-            circuits.push(DapenContractFunctionCircuit::<C, D>::new(
+            circuits.push(Arc::new(DapenContractFunctionCircuit::<C, D>::new(
                 &dapen_fc,
                 contract_code.state_tree_height as usize,
                 UPS_SESSION_PROOF_TREE_HEIGHT as usize,
                 false,
-            ));
+            )));
         }
-        self.contract_circuits.insert(contract_id, circuits);
+        self.contract_circuits.insert(contract_id, Arc::new(circuits));
         Ok(())
     }
 
     async fn get_method_id(&self, contract_id: u64, method_name: String) -> anyhow::Result<u64> {
-        if let Some(circuits) = self.contract_circuits.get(&contract_id) {
+        if let Some(circuits_arc) = self.contract_circuits.get(&contract_id) {
+            let circuits = &**circuits_arc; // Unwrap Arc<Vec<Arc<...>>>
             for (id, circuit) in circuits.iter().enumerate() {
                 if circuit.fn_def.name == method_name {
                     return Ok(id as u64);
@@ -257,7 +258,8 @@ where
         contract_id: u64,
         method_id: u32,
     ) -> anyhow::Result<(QHashOut<C::F>, VerifierOnlyCircuitData<C, D>)> {
-        if let Some(circuits) = self.contract_circuits.get(&contract_id) {
+        if let Some(circuits_arc) = self.contract_circuits.get(&contract_id) {
+            let circuits = &**circuits_arc; // Unwrap Arc<Vec<Arc<...>>>
             tracing::info!("get contract {} method {} common data", contract_id, method_id);
             let circuit = circuits
                 .get(method_id as usize)
@@ -274,7 +276,8 @@ where
         method_id: u32,
         input: &DapenContractFunctionCircuitInput<C::F>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
-        if let Some(fn_circuits) = &self.contract_circuits.get(&contract_id) {
+        if let Some(fn_circuits_arc) = self.contract_circuits.get(&contract_id) {
+            let fn_circuits = &**fn_circuits_arc; // Unwrap Arc<Vec<Arc<...>>>
             let fn_circuit = fn_circuits
                 .get(method_id as usize)
                 .ok_or_else(|| anyhow::format_err!("contract {} method {} is not found", contract_id, method_id))?;

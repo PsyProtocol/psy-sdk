@@ -19,6 +19,7 @@ serde_cbor = { workspace = true}
 clap = { workspace = true }
 ts-rs = { workspace = true }
 dashmap = { workspace = true }
+quick_cache = { workspace = true }
 
 kvq = { workspace = true }
 psy_common = { workspace = true }
