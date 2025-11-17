@@ -459,11 +459,11 @@ impl<
             anyhow::bail!("value doesn't match user leaf");
         }
 
-        tracing::info!("circuit_mgr.ups_start.prove_base start");
+        tracing::info!("circuit_mgr.ups_start_register_user.prove_base start");
         let proof = circuit_mgr.prove_ups_start_register_user(&input).await?;
-        timer.lap("circuit_mgr.ups_start.prove_base");
+        timer.lap("circuit_mgr.ups_start_register_user.prove_base");
 
-        timer.lap("prove_ups_start");
+        timer.lap("prove_ups_start_register_user");
         let known_proof_tree_root = self.proof_tree_state.get_proof_tree_root().await;
         let inner_public_inputs_hash = input.ups_header.qfhash::<H>();
 
