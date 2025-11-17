@@ -42,7 +42,6 @@ minijinja = { workspace = true }
 jsonrpsee = { workspace = true }
 hex = { workspace = true }
 
-psylang_macros = { git = "https://github.com/QEDProtocol/qedlang-rust", rev = "cb5e2d0bf6cf7988547d7d17c03731304d954dc2" }
 
 # Plonky2
 plonky2 = { workspace = true }
@@ -54,20 +53,3 @@ num_cpus = "1.17.0"
 [[bin]]
 name = "psy_dev_cli"
 path = "src/main.rs"
-
-# Examples that use psylang_macros
-[[example]]
-name = "test_basic_ups"
-path = "examples/test_basic_ups.rs"
-
-[[example]]
-name = "test_prove_contract"
-path = "examples/test_prove_contract.rs"
-
-[[example]]
-name = "test_prove_token_contract"
-path = "examples/test_prove_token_contract.rs"
-
-[[example]]
-name = "test_two_user_ups"
-path = "examples/test_two_user_ups.rs"

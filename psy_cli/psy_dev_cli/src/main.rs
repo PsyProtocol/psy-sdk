@@ -1,7 +1,6 @@
 mod aws;
 mod subcommand;
 use clap::Parser;
-use psy_dev_cli::test_helpers;
 use subcommand::{Cli, Commands};
 
 #[tokio::main]
@@ -12,24 +11,6 @@ async fn main() -> anyhow::Result<()> {
     psy_common::setup_logging()?;
 
     match cli.command {
-        Commands::TestFullGroup1(args) => {
-            subcommand::test_full_group_1::run(args).await?;
-        }
-        Commands::TestRegisterV2(args) => {
-            subcommand::test_register_v2::run(args).await?;
-        }
-        Commands::BenchmarkFullGroup1(args) => {
-            subcommand::benchmark_full_group_1::run(args).await?;
-        }
-        Commands::BenchmarkFullGroup2(args) => {
-            subcommand::benchmark_full_group_2::run(args).await?;
-        }
-        Commands::BenchmarkFullGroup3(args) => {
-            subcommand::benchmark_full_group_3::run(args).await?;
-        }
-        Commands::BenchmarkRegisterV2(args) => {
-            subcommand::benchmark_register_v2::run(args).await?;
-        }
         Commands::GenerateToken(args) => {
             subcommand::generate_token::run(args).await?;
         }
