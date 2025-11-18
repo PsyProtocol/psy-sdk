@@ -457,19 +457,14 @@ pub struct ClaimRewardsArgs {
     #[clap(env, long, default_value = "config.json", env)]
     pub rpc_config: String,
 
-    /// Private key for signing the transaction
-    #[clap(long, short)]
-    pub private_key: String,
+    #[command(flatten)]
+    pub wallet: WalletSourceArgs,
 
     /// Job specifications in format "job_id:location" where location is either
     /// "realm:id" or "coordinator" Example: --job "12345:realm:0" --job
     /// "67890:coordinator"
     #[arg(long = "job", action = clap::ArgAction::Append)]
     pub jobs: Vec<String>,
-
-    /// Signature type
-    #[clap(long, short, default_value = "zk")]
-    pub sign_type: SignType,
 
     /// Maximum number of checkpoints to process in one batch (optional, limits
     /// processing load)
