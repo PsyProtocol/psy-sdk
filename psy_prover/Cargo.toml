@@ -59,6 +59,7 @@ parking_lot = { workspace = true}
 http = { workspace = true }
 clap = { workspace = true }
 dashmap = { workspace = true }
+quick_cache = { workspace = true }
 
 # WASM-only dependencies
 [target.'cfg(target_arch = "wasm32")'.dependencies]
