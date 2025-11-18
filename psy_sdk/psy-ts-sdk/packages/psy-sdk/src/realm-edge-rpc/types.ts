@@ -115,6 +115,20 @@ export interface IRealmEdgeRpcProvider {
         height: number,
         leafId: Felt
     ): Promise<QHashOut>;
+    getSlotValue(
+        checkpointId: Felt,
+        userId: Felt,
+        contractId: Felt,
+        height: number,
+        slot: Felt
+    ): Promise<Felt>;
+    getSlotValues(
+        checkpointId: Felt,
+        userId: Felt,
+        contractId: Felt,
+        height: number,
+        slots: Felt[]
+    ): Promise<Felt[]>;
 
     // Get user contract state tree merkle proof
     getUserContractStateTreeMerkleProof(

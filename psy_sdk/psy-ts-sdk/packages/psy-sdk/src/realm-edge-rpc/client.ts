@@ -224,6 +224,35 @@ export class RealmEdgeRpcProvider extends Provider implements IRealmEdgeRpcProvi
         ]);
     }
 
+    async getSlotValue(
+        checkpointId: Felt,
+        userId: Felt,
+        contractId: Felt,
+        height: number,
+        slot: Felt
+    ): Promise<Felt> {
+        const slotValues = await this.getSlotValues(checkpointId, userId, contractId, height, [slot]);
+        return slotValues[0];
+    }
+
+    async getSlotValues(
+        checkpointId: Felt,
+        userId: Felt,
+        contractId: Felt,
+        height: number,
+        slots: Felt[]
+    ): Promise<Felt[]> {
+        const slotValues: Felt[] = [];
+        for (const slot of slots) {
+            const slotIndex = BigInt(slot) / 4n;
+            const slotOffset = 3n - BigInt(slot) % 4n;
+            const slotHash = await this.getUserContractStateTreeLeafHash(checkpointId, userId, contractId, height, slotIndex);
+            const slotValue = parseInt(slotHash?.substring(Number(slotOffset) * 16, Number(slotOffset) * 16 + 16), 16);
+            slotValues.push(slotValue);
+        }
+        return slotValues;
+    }
+
     // Get user contract state tree merkle proof
     async getUserContractStateTreeMerkleProof(
         checkpointId: Felt,
@@ -494,6 +523,27 @@ export class MultiRealmRpcProvider implements IRealmEdgeRpcProvider {
         return this.rpcs
             .get(this.getRealmId(Number(userId)))!
             .getUserContractStateTreeLeafHashF(checkpointId, userId, contractId, height, leafId);
+    }
+    async getSlotValue(
+        checkpointId: Felt,
+        userId: Felt,
+        contractId: Felt,
+        height: number,
+        slot: Felt
+    ): Promise<Felt> {
+        const slotValues = await this.getSlotValues(checkpointId, userId, contractId, height, [slot]);
+        return slotValues[0];
+    }
+    async getSlotValues(
+        checkpointId: Felt,
+        userId: Felt,
+        contractId: Felt,
+        height: number,
+        slots: Felt[]
+    ): Promise<Felt[]> {
+        return this.rpcs
+            .get(this.getRealmId(Number(userId)))!
+            .getSlotValues(checkpointId, userId, contractId, height, slots);
     }
     getUserContractStateTreeMerkleProof(
         checkpointId: Felt,
