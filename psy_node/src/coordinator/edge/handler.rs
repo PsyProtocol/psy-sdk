@@ -37,7 +37,7 @@ use psy_data::{
         header::GlobalUserTreeAggregatorHeader,
     },
     models::checkpoint::sync_info::PsyCheckpointSyncInfoModelReaderCore,
-    qblock::cmds::deploy_contract::QBCDeployContract,
+    qblock::cmds::deploy_contract::{QBCDeployContract, QContractABI},
     qdata::{
         checkpoint::{CheckpointSyncInfo, PsyBlockState, PsyCheckpointGlobalStateRoots, PsyCheckpointLeaf},
         contract::{ContractCodeDefinition, PsyContractLeaf},
@@ -187,7 +187,7 @@ impl CoordinatorEdgeHandler {
         })
     }
 
-    pub async fn deploy_contract(&self, mut contract: QBCDeployContract<PsyFelt>) -> anyhow::Result<ContractUUID> {
+    pub async fn deploy_contract(&self, mut contract: QBCDeployContract<PsyFelt>, abi: QContractABI) -> anyhow::Result<ContractUUID> {
         let latest = self.get_latest_checkpoint_id().await?;
         let next_checkpoint_id = latest + 1;
 
@@ -229,6 +229,7 @@ impl CoordinatorEdgeHandler {
             function_count,
             functions: contract_metadata.functions,
             function_whitelist_root: contract_metadata.function_whitelist_root,
+            abi,
         };
 
         if let Err(e) = self.watcher_client.deploy_contract(&contract_metadata.deployer, metadata).await {
@@ -375,7 +376,9 @@ impl CoordinatorEdgeHandler {
     }
 
     pub async fn has_pending_guta(&self, realm_id: u32) -> anyhow::Result<bool> {
-        self.history_queue.contains_item(self.ctx.coordinator_config.guta_channel_id, realm_id as u64).await
+        self.history_queue
+            .contains_item(self.ctx.coordinator_config.guta_channel_id, realm_id as u64)
+            .await
     }
 
     pub async fn get_checkpoint_sync_info(&self, realm_id: u32, request_checkpoint_id: u64) -> anyhow::Result<CheckpointSyncInfo<F>> {
@@ -665,8 +668,8 @@ impl CoordinatorEdgeRpcServer for CoordinatorEdgeHandler {
         self.get_user_id(public_key).await.map_err(|e| RpcError::Anyhow(e.into()))
     }
 
-    async fn deploy_contract(&self, deploy_contract: QBCDeployContract<F>) -> RpcResult<String> {
-        self.deploy_contract(deploy_contract)
+    async fn deploy_contract(&self, deploy_contract: QBCDeployContract<F>, abi: QContractABI) -> RpcResult<String> {
+        self.deploy_contract(deploy_contract, abi)
             .await
             .map(|contract_uuid| contract_uuid.to_string())
             .map_err(RpcError::Anyhow)
