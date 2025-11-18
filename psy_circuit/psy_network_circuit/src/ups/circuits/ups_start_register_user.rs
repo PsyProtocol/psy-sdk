@@ -21,7 +21,7 @@ use psy_common_circuit::{
 };
 use psy_config::network_constants::UPS_SESSION_PROOF_TREE_HEIGHT;
 use psy_crypto::hash::traits::hasher::MerkleZeroHasher;
-use psy_data::ups::{start_step_register_user::UPSStartStepRegisterUserInput};
+use psy_data::ups::start_step_register_user::UPSStartStepRegisterUserInput;
 
 use crate::ups::gadgets::ups_start_register_user::UPSStartStepRegisterUserGadget;
 
@@ -108,7 +108,8 @@ where
     }
 }
 
-impl<C: GenericConfig<D>, const D: usize> QStandardCircuitProvable<UPSStartStepRegisterUserInput<C::F>, C, D> for UPSStartSessionRegisterUserCircuit<C, D>
+impl<C: GenericConfig<D>, const D: usize> QStandardCircuitProvable<UPSStartStepRegisterUserInput<C::F>, C, D>
+    for UPSStartSessionRegisterUserCircuit<C, D>
 where
     C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>>,
 {
@@ -117,12 +118,16 @@ where
     }
 }
 
-impl<S: QProofStoreReaderSync, C: GenericConfig<D>, const D: usize> QStandardCircuitProvableWithProofStoreSync<S, UPSStartStepRegisterUserInput<C::F>, C, D>
-    for UPSStartSessionRegisterUserCircuit<C, D>
+impl<S: QProofStoreReaderSync, C: GenericConfig<D>, const D: usize>
+    QStandardCircuitProvableWithProofStoreSync<S, UPSStartStepRegisterUserInput<C::F>, C, D> for UPSStartSessionRegisterUserCircuit<C, D>
 where
     C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>>,
 {
-    fn prove_with_proof_store_sync(&self, _store: &S, input: &UPSStartStepRegisterUserInput<C::F>) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
+    fn prove_with_proof_store_sync(
+        &self,
+        _store: &S,
+        input: &UPSStartStepRegisterUserInput<C::F>,
+    ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         self.prove_standard(input)
     }
 }

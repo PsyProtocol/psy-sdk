@@ -126,10 +126,10 @@ impl UPSStartStepRegisterUserGadget {
         let user_registration_tree_proof_root = self.user_registration_tree_proof.root;
         let state_roots_user_registration_tree_root = self.state_roots_gadget.user_registration_tree_root;
         builder.connect_hashes(user_registration_tree_proof_root, state_roots_user_registration_tree_root);
-        
+
         let user_registration_tree_index = self.user_registration_tree_proof.index;
         let header_user_id = self.header_gadget.session_start_context.start_session_user_leaf.user_id;
-        
+
         let expected_user_id_from_user_registration_tree = circuit_user_registration_tree_index_bits_to_user_id::<H, F, D>(
             builder,
             user_registration_tree_index,
@@ -165,7 +165,7 @@ impl UPSStartStepRegisterUserGadget {
         builder.connect(self.header_gadget.session_start_context.start_session_user_leaf.nonce, zero);
         builder.connect(self.header_gadget.session_start_context.start_session_user_leaf.last_checkpoint_id, zero);
         builder.connect(self.header_gadget.session_start_context.start_session_user_leaf.event_index, zero);
-        
+
         // ensure that the public key in the user leaf matches the public key from the registration tree proof
         let user_leaf_public_key = self.header_gadget.session_start_context.start_session_user_leaf.public_key;
         builder.connect_hashes(user_leaf_public_key, user_registration_tree_public_key);

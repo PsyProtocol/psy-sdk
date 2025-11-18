@@ -87,7 +87,7 @@ pub struct UserProvingSessionManager<
     circuit_info: SessionCircuitInfoStore<F>,
     pub proof_tree_state: PortableQTreeRecursionManager<C, D>,
     pub current_ups_header: UserProvingSessionHeader<F>,
-    pub previous_ups_header: UserProvingSessionHeader<F>,
+    previous_ups_header: UserProvingSessionHeader<F>,
     current_checkpoint_leaf: PsyCheckpointLeaf<F>,
     current_global_state_roots: PsyCheckpointGlobalStateRoots<F>,
     last_ups_step_proof_info: TreeAwareTreeProofRecord<F>,
@@ -192,87 +192,6 @@ impl<
         })
     }
 
-
-    pub async fn new_register_user(
-        mut lps: PsyLocalProvingSessionStore<F, R, H>,
-        circuit_info: SessionCircuitInfoStore<F>,
-        ups_step_circuit_whitelist_root: QHashOut<F>,
-    ) -> anyhow::Result<Self> {
-        let proof_tree_state = PortableQTreeRecursionManager::<C, D>::new(UPS_SESSION_PROOF_TREE_HEIGHT as usize).await;
-        let session_start_context = lps.get_ups_start_register_user_ctx().await?;
-
-        let mut new_user = session_start_context.start_session_user_leaf.clone();
-
-        let latest_checkpoint_id_u64 = lps.get_current_start_checkpoint_id_u64();
-        let latest_checkpoint_id_f = lps.get_current_start_checkpoint_id();
-
-        if latest_checkpoint_id_u64 != 0 && latest_checkpoint_id_u64 <= new_user.last_checkpoint_id.to_canonical_u64() {
-            anyhow::bail!(
-                "Invalid checkpoint: new checkpoint {} must be > last user_leaf checkpoint {}",
-                latest_checkpoint_id_u64,
-                new_user.last_checkpoint_id.to_canonical_u64()
-            );
-        }
-
-        new_user.last_checkpoint_id = latest_checkpoint_id_f;
-        tracing::debug!("ups_start_checkpoint_id: {}", latest_checkpoint_id_u64);
-
-        let current_checkpoint_leaf = lps
-            .resolve_get_checkpoint_leaf_mut(&QSRCmdGetCheckpointLeafData {
-                checkpoint_id: latest_checkpoint_id_u64,
-            })
-            .await?;
-
-        let current_global_state_roots = lps.get_global_state_tree_roots(latest_checkpoint_id_u64).await?;
-
-        tracing::debug!(
-            "ups_start_global_state_roots: {}",
-            serde_json::to_string_pretty(&current_global_state_roots).unwrap()
-        );
-
-        let current_state = UserProvingSessionCurrentState {
-            user_leaf: new_user,
-            deferred_tx_debt_tree_root: H::get_zero_hash(DEFERRED_TRANSACTION_TREE_HEIGHT as usize),
-            inline_tx_debt_tree_root: H::get_zero_hash(INLINE_TRANSACTION_TREE_HEIGHT as usize),
-            tx_hash_stack: QHashOut::ZERO,
-            tx_count: F::ZERO,
-        };
-
-        let current_ups_header = UserProvingSessionHeader {
-            ups_step_circuit_whitelist_root,
-            session_start_context,
-            current_state,
-        };
-
-        Ok(Self {
-            lps,
-            proof_tree_state,
-            current_ups_header: current_ups_header.clone(),
-            previous_ups_header: current_ups_header,
-            current_checkpoint_leaf,
-            current_global_state_roots,
-            last_ups_step_proof_info: TreeAwareTreeProofRecord::default(),
-            circuit_info,
-            tx_log: vec![],
-        })
-    }
-
-    pub async fn new_dummy(lps: PsyLocalProvingSessionStore<F, R, H>, circuit_info: SessionCircuitInfoStore<F>) -> anyhow::Result<Self> {
-        let proof_tree_state = PortableQTreeRecursionManager::<C, D>::new(UPS_SESSION_PROOF_TREE_HEIGHT as usize).await;
-
-        Ok(Self {
-            lps,
-            proof_tree_state,
-            current_ups_header: UserProvingSessionHeader::default(),
-            previous_ups_header: UserProvingSessionHeader::default(),
-            current_checkpoint_leaf: PsyCheckpointLeaf::default(),
-            current_global_state_roots: PsyCheckpointGlobalStateRoots::default(),
-            last_ups_step_proof_info: TreeAwareTreeProofRecord::default(),
-            circuit_info,
-            tx_log: vec![],
-        })
-    }
-
     pub async fn get_ups_start_witness(&mut self) -> anyhow::Result<UPSStartStepInput<F>> {
         let start_checkpoint_id = self.lps.get_current_start_checkpoint_id_u64();
         tracing::info!(
@@ -311,51 +230,30 @@ impl<
         };
         Ok(input)
     }
-    pub async fn get_ups_start_register_user_witness(&mut self) -> anyhow::Result<UPSStartStepRegisterUserInput<F>> {
+
+    async fn build_register_user_input_from_start(
+        &mut self,
+        base_input: &UPSStartStepInput<F>,
+    ) -> anyhow::Result<UPSStartStepRegisterUserInput<F>> {
         let start_checkpoint_id = self.lps.get_current_start_checkpoint_id_u64();
-        tracing::info!(
-            "resolve checkpoint tree proof at checkpoint {}, leaf checkpoint {}",
-            self.lps.get_current_write_checkpoint_id_u64(),
-            start_checkpoint_id
-        );
-        let checkpoint_tree_proof = self
+        let user_registration_tree_proof: MerkleProofCore<QHashOut<F>> = self
             .lps
-            .resolve_get_merkle_proof_mut(&QSRMerkleCmd::GetCheckpointTreeMerkleProof(QSRMerkleCmdGetCheckpointTreeMerkleProof {
-                checkpoint_id: start_checkpoint_id,
-                leaf_checkpoint_id: start_checkpoint_id,
-            }))
+            .resolve_get_merkle_proof_mut(&QSRMerkleCmd::GetUserRegistrationTreeMerkleProof(
+                QSRMerkleCmdGetUserRegistrationTreeMerkleProof {
+                    checkpoint_id: start_checkpoint_id,
+                    leaf_index: get_registration_id_from_user_id(self.lps.get_current_user_id_64()),
+                },
+            ))
             .await?;
 
-        tracing::info!(
-            "resolve user tree proof at checkpoint {}, start checkpoint {}, user {}",
-            self.lps.get_current_write_checkpoint_id_u64(),
-            start_checkpoint_id,
-            self.lps.get_current_user_id_64(),
-        );
-        let user_tree_proof = self
-            .lps
-            .resolve_get_merkle_proof_mut(&QSRMerkleCmd::GetUserTreeMerkleProof(QSRMerkleCmdGetUserTreeMerkleProof {
-                checkpoint_id: start_checkpoint_id,
-                user_id: self.lps.get_current_user_id_64(),
-            }))
-            .await?;
-
-
-        let user_registration_tree_proof: MerkleProofCore<QHashOut<F>> = self.lps.resolve_get_merkle_proof_mut(&QSRMerkleCmd::GetUserRegistrationTreeMerkleProof(QSRMerkleCmdGetUserRegistrationTreeMerkleProof {
-                checkpoint_id: start_checkpoint_id,
-                leaf_index: get_registration_id_from_user_id(self.lps.get_current_user_id_64()),
-            }))
-            .await?;
-        
-    let input = UPSStartStepRegisterUserInput {
-            ups_header: self.current_ups_header.clone(),
-            checkpoint_leaf: self.current_checkpoint_leaf.clone(),
-            state_roots: self.current_global_state_roots.clone(),
-            checkpoint_tree_proof,
-            user_tree_proof,
+        Ok(UPSStartStepRegisterUserInput {
+            ups_header: base_input.ups_header.clone(),
+            checkpoint_leaf: base_input.checkpoint_leaf.clone(),
+            state_roots: base_input.state_roots.clone(),
+            checkpoint_tree_proof: base_input.checkpoint_tree_proof.clone(),
+            user_tree_proof: base_input.user_tree_proof.clone(),
             user_registration_tree_proof,
-        };
-        Ok(input)
+        })
     }
 
     pub fn append_to_tx_log(&mut self, item: DPNProvingSessionSimpleMethodCall<F>) -> QHashOut<F> {
@@ -387,86 +285,39 @@ impl<
             anyhow::bail!("invalid user tree proof");
         }
 
-        if input.ups_header.session_start_context.start_session_user_leaf.qfhash::<PsyHasher>() != input.user_tree_proof.value {
-            tracing::error!(
-                "input.ups_header.session_start_context.start_session_user_leaf.qfhash::<PsyHasher>()!= input.user_tree_proof.value\n{:?}!= {:?}",
-                input
-                    .ups_header
-                    .session_start_context
-                    .start_session_user_leaf
-                    .qfhash::<PsyHasher>()
-                    .to_string(),
-                input.user_tree_proof.value.to_string()
-            );
-            anyhow::bail!("value doesn't match user leaf");
-        }
-
-        tracing::info!("circuit_mgr.ups_start.prove_base start");
-        let proof = circuit_mgr.prove_ups_start(&input).await?;
-        timer.lap("circuit_mgr.ups_start.prove_base");
+        let inner_public_inputs_hash = input.ups_header.qfhash::<H>();
+        let proof = if self.lps.is_new_user() {
+            if input.user_tree_proof.value != QHashOut::ZERO {
+                tracing::error!("Expected user tree proof value to be ZERO for new user, got: {}", input.user_tree_proof.value);
+                anyhow::bail!("invalid user tree proof value for new user");
+            }
+            tracing::info!("new user detected, proving register-user start");
+            let register_input = self.build_register_user_input_from_start(&input).await?;
+            circuit_mgr.prove_ups_start_register_user(&register_input).await?
+        } else {
+            if input.ups_header.session_start_context.start_session_user_leaf.qfhash::<PsyHasher>()
+                != input.user_tree_proof.value
+            {
+                tracing::error!(
+                    "input.ups_header.session_start_context.start_session_user_leaf.qfhash::<PsyHasher>()!= input.user_tree_proof.value\n{:?}!= {:?}",
+                    input
+                        .ups_header
+                        .session_start_context
+                        .start_session_user_leaf
+                        .qfhash::<PsyHasher>()
+                        .to_string(),
+                    input.user_tree_proof.value.to_string()
+                );
+                anyhow::bail!("value doesn't match user leaf");
+            }
+            tracing::info!("circuit_mgr.ups_start.prove_base start");
+            let proof = circuit_mgr.prove_ups_start(&input).await?;
+            timer.lap("circuit_mgr.ups_start.prove_base");
+            proof
+        };
 
         timer.lap("prove_ups_start");
         let known_proof_tree_root = self.proof_tree_state.get_proof_tree_root().await;
-        let inner_public_inputs_hash = input.ups_header.qfhash::<H>();
-
-        let last_ups_step_proof_index = self
-            .proof_tree_state
-            .injest_single_leaf_proof(InputLeafProof {
-                leaf_circuit_type: UPS_STEP_LEAF_TYPE,
-                fingerprint: circuit_mgr.ups_start_circuit_fingerprint().await?,
-                verifier_data: circuit_mgr.ups_start_circuit_verifier_config().await?,
-                proof,
-            })
-            .await;
-        self.last_ups_step_proof_info = TreeAwareTreeProofRecord {
-            circuit_id: LocalCircuitType::UPSStart.into(),
-            inner_public_inputs_hash,
-            known_proof_tree_root,
-            proof_tree_index: last_ups_step_proof_index,
-        };
-        self.previous_ups_header = self.current_ups_header.clone();
-        self.current_ups_header = input.ups_header;
-        timer.lap("injest_single_leaf_proof");
-
-        Ok(())
-    }
-
-    pub async fn prove_ups_start_register_user<CM: UPSCircuitManager<C, D> + ?Sized>(&mut self, circuit_mgr: &CM) -> anyhow::Result<()> {
-        let mut timer = DebugTimer::new("prove_ups_start_register_user");
-        timer.lap("start");
-        tracing::info!("get_ups_start_register_user_witness");
-        let input = self.get_ups_start_register_user_witness().await?;
-
-        timer.lap("gen_witness");
-        if !input.checkpoint_tree_proof.verify::<PsyHasher>() {
-            tracing::error!(
-                "input.checkpoint_tree_proof {}",
-                serde_json::to_string_pretty(&input.checkpoint_tree_proof)?
-            );
-            anyhow::bail!("invalid checkpoint tree proof");
-        }
-
-        if !input.user_tree_proof.verify::<PsyHasher>() {
-            tracing::error!("input.user_tree_proof {}", serde_json::to_string_pretty(&input.user_tree_proof)?);
-            anyhow::bail!("invalid user tree proof");
-        }
-
-        if input.user_tree_proof.value != QHashOut::ZERO {
-            tracing::error!(
-                "input.user_tree_proof.value is not zero \n{:?}!= [0,0,0,0]",
-                input.user_tree_proof.value.to_string()
-            );
-            anyhow::bail!("value doesn't match user leaf");
-        }
-
-        tracing::info!("circuit_mgr.ups_start_register_user.prove_base start");
-        let proof = circuit_mgr.prove_ups_start_register_user(&input).await?;
-        timer.lap("circuit_mgr.ups_start_register_user.prove_base");
-
-        timer.lap("prove_ups_start_register_user");
-        let known_proof_tree_root = self.proof_tree_state.get_proof_tree_root().await;
-        let inner_public_inputs_hash = input.ups_header.qfhash::<H>();
-
         let last_ups_step_proof_index = self
             .proof_tree_state
             .injest_single_leaf_proof(InputLeafProof {

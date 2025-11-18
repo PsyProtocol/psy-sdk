@@ -17,6 +17,7 @@ use psy_common::{
     ups::circuits::LocalCircuitType,
     JobInfo, JobLocation,
 };
+pub use psy_provider::session::TxStatus;
 use psy_common_circuit::circuits::traits::qstandard::QStandardCircuit;
 use psy_config::{
     network_constants::{MAX_CONTRACT_STATE_TREE_HEIGHT, TOKEN_CONTRACT_ID, UPS_SESSION_PROOF_TREE_HEIGHT},
@@ -32,7 +33,7 @@ use psy_crypto::{
 use psy_data::{
     config::store_config::{PsyHash, PsyHasher},
     qblock::cmds::deploy_contract::QBCDeployContract,
-    qdata::{checkpoint::PsyBlockState, contract::ContractCodeDefinition, user_contract_state::UserContractState},
+    qdata::{checkpoint::PsyBlockState, contract::ContractCodeDefinition, user::PsyUserLeaf, user_contract_state::UserContractState},
     qstore::{
         controllers::{
             proving_session::{PsyLocalProvingSessionStore, PsyReadLocalProvingSessionStore},
@@ -160,90 +161,19 @@ where
         .await
 }
 
-pub enum UserState {
-    Active,
-    Registering,
-    InActive,
-}
+pub struct WalletSession {
+    pub wallet: PsyMemoryWallet,
+    pub circuit_info: SessionCircuitInfoStore<F>,
+    pub st_provider: RpcProvider,
 
-pub struct UserSessionStateManager {
-    pub user_state: UserState,
-    pub rpc_provider: RpcProvider,
-    pub mgr: UserProvingSessionManager<F, PoseidonHash, RpcProvider, C, D>,
-    pub user_id: u64,
-    pub nonce: F,
-    pub current_checkpoint_id: u64,
+    pub user_session_mgrs: DashMap<QHashOut<F>, UserProvingSessionManager<F, PoseidonHash, RpcProvider, C, D>>,
 }
 
 #[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
 #[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
-impl UserSessionStateManager {
-    pub async fn new<CM: UPSCircuitManager<C, D> + ?Sized>(
-        user_id: u64,
-        nonce: F,
-        checkpoint_id: u64,
-        st_provider: RpcProvider,
-        circuit_info: SessionCircuitInfoStore<F>,
-        main_circuits: &CM,
-    ) -> anyhow::Result<UserSessionStateManager> {
-        tracing::info!("create local proving session store");
-        let mut rpc_provider = st_provider.clone();
-        rpc_provider.current_user_id = user_id;
-        let lps = PsyLocalProvingSessionStore::new_at(
-            rpc_provider.clone(),
-            F::from_noncanonical_u64(checkpoint_id),
-            F::from_canonical_u64(user_id),
-            nonce,
-            UPS_SESSION_PROOF_TREE_HEIGHT as usize,
-        );
-
-        tracing::info!(
-            "create ups manager, user_id: {}, nonce: {}, checkpoint_id: {}",
-            user_id,
-            nonce,
-            checkpoint_id
-        );
-        let mgr = UserProvingSessionManager::<F, _, _, C, D>::new(lps, circuit_info, main_circuits.ups_circuit_whitelist_root().await?).await?;
-
-        Ok(UserSessionStateManager {
-            user_state: UserState::Active,
-            rpc_provider,
-            mgr,
-            user_id,
-            nonce: nonce,
-            current_checkpoint_id: checkpoint_id,
-        })
-    }
-
-    pub async fn new_with_dummy_mgr(
-        user_state: UserState,
-        st_provider: RpcProvider,
-        circuit_info: SessionCircuitInfoStore<F>,
-    ) -> anyhow::Result<UserSessionStateManager> {
-        tracing::info!("create dummy local proving session store");
-        let lps = PsyLocalProvingSessionStore::new_at(
-            st_provider.clone(),
-            F::from_noncanonical_u64(0),
-            F::from_canonical_u64(0),
-            F::from_canonical_u64(0),
-            UPS_SESSION_PROOF_TREE_HEIGHT as usize,
-        );
-
-        tracing::info!("create ups manager");
-        let mgr = UserProvingSessionManager::<F, _, _, C, D>::new_dummy(lps, circuit_info).await?;
-
-        Ok(UserSessionStateManager {
-            user_state,
-            rpc_provider: st_provider.clone(),
-            mgr,
-            user_id: 0,
-            nonce: F::from_canonical_u64(0),
-            current_checkpoint_id: 0,
-        })
-    }
-
-    pub async fn check_user_state(&self) -> anyhow::Result<()> {
-        match self.rpc_provider.get_tx_status(self.user_id, self.nonce.to_noncanonical_u64()).await? {
+impl WalletSession {
+    async fn check_user_state(&self, user_id: u64, nonce: F) -> anyhow::Result<()> {
+        match self.st_provider.get_tx_status(user_id, nonce.to_noncanonical_u64()).await? {
             TxStatus::Confirmed => {
                 tracing::warn!("tx status is confirmed");
                 Err(anyhow::format_err!(
@@ -260,22 +190,12 @@ impl UserSessionStateManager {
             }
         }
     }
-}
 
-pub use psy_provider::session::TxStatus;
+    pub async fn check_tx_is_confirmed(&self, checkpoint_id: u64, user_id: u64, tx_hash: QHashOut<F>) -> anyhow::Result<bool> {
+        let user_leaf_data = self.st_provider.get_user_leaf_data(checkpoint_id, user_id).await?;
+        Ok(user_leaf_data.qfhash::<PsyHasher>() == tx_hash)
+    }
 
-pub struct WalletSession {
-    pub wallet: PsyMemoryWallet,
-    wallet_keys_store: DashMap<QHashOut<F>, ZKPublicKeyInfo<F>>,
-    pub circuit_info: SessionCircuitInfoStore<F>,
-    pub st_provider: RpcProvider,
-
-    pub user_session_mgrs: DashMap<QHashOut<F>, UserSessionStateManager>,
-}
-
-#[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
-#[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
-impl WalletSession {
     pub async fn new(rpc_config: &psy_config::NetworkConfigGoldilocks) -> anyhow::Result<Self> {
         tracing::info!("init rpc provider");
         let st_provider = RpcProvider::new_with_config(rpc_config)?;
@@ -319,7 +239,6 @@ impl WalletSession {
 
         Ok(WalletSession {
             wallet,
-            wallet_keys_store: DashMap::new(),
             circuit_info,
             st_provider,
             user_session_mgrs: DashMap::new(),
@@ -345,80 +264,40 @@ impl WalletSession {
     pub async fn add_user(&mut self, private_key: QHashOut<F>, fingerprint: QHashOut<F>) -> anyhow::Result<QHashOut<F>> {
         let pk_info = self.wallet.get_or_create_user(private_key, fingerprint).await?;
         let public_key = pk_info.qfhash::<PsyHasher>();
-        let checkpoint_id = self.st_provider.get_latest_block_state().await?.checkpoint_id;
-        tracing::info!(
-            "add user {} with fingerprint {}, on checkpoint_id {}",
-            public_key.to_string(),
-            fingerprint,
-            checkpoint_id
-        );
 
-        let (user_id, nonce, user_state) = match self.st_provider.get_user_id(public_key).await {
-            Ok(user_id) => match self.st_provider.get_user_leaf_data(checkpoint_id, user_id).await {
-                Ok(user_leaf_data) => (user_id, user_leaf_data.nonce, UserState::Active),
-                Err(e) => {
-                    tracing::warn!(
-                        "can not get user id for user `{}`, wait for 2 blocks after register: {}",
-                        public_key.to_string(),
-                        e
-                    );
-                    (user_id, F::ZERO, UserState::Registering)
-                }
-            },
-            Err(e) => {
-                tracing::warn!(
-                    "can not get user id for user `{}`, please register it first: {}",
-                    public_key.to_string(),
-                    e
-                );
-                (0, F::ZERO, UserState::InActive)
-            }
-        };
+        let user_id = self.st_provider.get_user_id(public_key).await
+            .map_err(|e| anyhow::format_err!("User {} not registered. Please register first: {}", public_key, e))?;
 
-        if !self.wallet_keys_store.contains_key(&public_key) {
-            self.wallet_keys_store.insert(public_key, pk_info);
-
-            match user_state {
-                UserState::Active => {
-                    self.user_session_mgrs.insert(
-                        public_key,
-                        UserSessionStateManager::new(
-                            user_id,
-                            nonce + F::from_canonical_u64(1),
-                            checkpoint_id,
-                            self.st_provider.clone(),
-                            self.circuit_info.clone(),
-                            self.wallet.random_circuit_manager().as_ref(),
-                        )
-                        .await?,
-                    );
-                }
-                UserState::Registering | UserState::InActive => {
-                    self.user_session_mgrs.insert(
-                        public_key,
-                        UserSessionStateManager::new_with_dummy_mgr(user_state, self.st_provider.clone(), self.circuit_info.clone()).await?,
-                    );
-                }
-            }
-
-            tracing::info!("user {} added", pk_info.qfhash::<PsyHasher>().to_string());
+        if let Some((_, existing_mgr)) = self.user_session_mgrs.remove(&public_key) {
+            let cleaned_mgr = existing_mgr.into_clean_for_user(F::from_canonical_u64(user_id)).await?;
+            self.user_session_mgrs.insert(public_key, cleaned_mgr);
         } else {
-            tracing::info!("user {} already added", pk_info.qfhash::<PsyHasher>().to_string());
+            let rpc_provider = self.st_provider.with_user_id_owned(user_id);
+            let lps = PsyLocalProvingSessionStore::new_at(
+                rpc_provider,
+                F::ZERO,
+                F::from_canonical_u64(user_id),
+                F::ZERO,
+                UPS_SESSION_PROOF_TREE_HEIGHT as usize,
+            ).into_clean_for_user(F::from_canonical_u64(user_id)).await?;
+
+            let circuit_mgr = self.wallet.random_circuit_manager();
+            let mgr = UserProvingSessionManager::<F, _, _, C, D>::new(
+                lps,
+                self.circuit_info.clone(),
+                circuit_mgr.ups_circuit_whitelist_root().await?,
+            ).await?;
+
+            self.user_session_mgrs.insert(public_key, mgr);
         }
 
+        tracing::info!("user {} added", public_key.to_string());
         Ok(public_key)
     }
 
     pub async fn exec_contract_call(&self, public_key: QHashOut<F>, call_data: ContractCallData) -> anyhow::Result<QHashOut<F>> {
         tracing::info!("exec contract call: {}", serde_json::to_string_pretty(&call_data.contract_calls)?);
-        let pk_info = *self
-            .wallet_keys_store
-            .get(&public_key)
-            .ok_or(anyhow::format_err!(
-                "user {} not found, cannot get public key param",
-                public_key.to_string()
-            ))?
-            .value();
+        let pk_info = self.wallet.get_public_key_info(&public_key).await?;
         tracing::info!(
             "exec contract call for fingerprint {} (sign data provided: {})",
             pk_info.fingerprint,
@@ -428,35 +307,24 @@ impl WalletSession {
         tracing::info!("start session on global checkpoint: {}", result.checkpoint_id);
         self.start_session(public_key).await?;
         tracing::info!("prove contract calls");
-        self.prove_contract_calls(public_key, call_data.contract_calls).await?;
+        self.prove_contract_call(public_key, call_data.contract_calls).await?;
         tracing::info!("sign and submit on global checkpoint: {}", result.checkpoint_id);
         let end_user_leaf_hash = self.sign_and_submit(public_key, call_data.software_defined_call).await?;
         Ok(end_user_leaf_hash)
     }
 
-    pub async fn check_tx_is_confirmed(&self, checkpoint_id: u64, user_id: u64, tx_hash: QHashOut<F>) -> anyhow::Result<bool> {
-        let user_leaf_data = self.st_provider.get_user_leaf_data(checkpoint_id, user_id).await?;
-        Ok(user_leaf_data.qfhash::<PsyHasher>() == tx_hash)
-    }
-
     pub async fn start_session(&self, public_key: QHashOut<F>) -> anyhow::Result<()> {
-        tracing::info!("start new user proving session");
-        tracing::info!(
-            "get user session manager: {:?}",
-            self.user_session_mgrs.iter().map(|item| item.key().to_string()).collect::<Vec<_>>()
-        );
         let mut user_session_mgr = self
             .user_session_mgrs
             .get_mut(&public_key)
             .ok_or_else(|| anyhow::format_err!("user {} not found", public_key.to_string()))?;
 
-        let latest_block_state = user_session_mgr.rpc_provider.get_realm_latest_block_state().await?;
+        let latest_block_state = self.st_provider.get_realm_latest_block_state().await?;
         let global_latest_block_state = self.st_provider.get_latest_block_state().await?;
 
         if latest_block_state.checkpoint_id <= global_latest_block_state.checkpoint_id {
             tracing::info!(
-                "block state: user_id {}, realm latest checkpoint {}, coordinator checkpoint {}",
-                user_session_mgr.user_id,
+                "block state: realm latest checkpoint {}, coordinator checkpoint {}",
                 latest_block_state.checkpoint_id,
                 global_latest_block_state.checkpoint_id
             );
@@ -473,97 +341,21 @@ impl WalletSession {
             ));
         };
 
-        match user_session_mgr.user_state {
-            UserState::Active => {
-                let latest_nonce = self
-                    .st_provider
-                    .get_user_leaf_data(latest_block_state.checkpoint_id, user_session_mgr.user_id)
-                    .await?
-                    .nonce
-                    + F::from_noncanonical_u64(1);
-
-                if latest_nonce == user_session_mgr.nonce
-                    && latest_block_state.checkpoint_id == user_session_mgr.current_checkpoint_id
-                    && user_session_mgr.mgr.current_ups_header.current_state.tx_count == F::ZERO
-                {
-                    tracing::info!("user session manager already exists");
-                } else {
-                    tracing::info!("create new user session manager");
-                    *user_session_mgr = UserSessionStateManager::new(
-                        user_session_mgr.user_id,
-                        latest_nonce,
-                        latest_block_state.checkpoint_id,
-                        self.st_provider.clone(),
-                        self.circuit_info.clone(),
-                        self.wallet.random_circuit_manager().as_ref(),
-                    )
-                    .await?;
-                };
-            }
-            UserState::InActive | UserState::Registering => {
-                let user_id = self
-                    .st_provider
-                    .get_user_id(public_key)
-                    .await
-                    .map_err(|e| anyhow::format_err!("can not get user id for user `{}`, please add it first: {}", public_key.to_string(), e))?;
-                let checkpoint_id = latest_block_state.checkpoint_id;
-                let user_leaf_data = self.st_provider.get_user_leaf_data(checkpoint_id, user_id).await.map_err(|e| {
-                    anyhow::format_err!(
-                        "can not get user id for user `{}`, please wait for 2 blocks after register: {}",
-                        public_key.to_string(),
-                        e
-                    )
-                })?;
-                *user_session_mgr = UserSessionStateManager::new(
-                    user_id,
-                    user_leaf_data.nonce + F::from_canonical_u64(1),
-                    checkpoint_id,
-                    self.st_provider.clone(),
-                    self.circuit_info.clone(),
-                    self.wallet.random_circuit_manager().as_ref(),
-                )
-                .await?;
-            }
-        }
-
         tracing::info!("local proving ups start");
-
-        tracing::info!("user session manager nonce: {}", user_session_mgr.nonce);
+        tracing::info!("user session manager nonce: {}", user_session_mgr.lps.get_nonce());
 
         user_session_mgr
-            .mgr
             .prove_ups_start(self.wallet.random_circuit_manager().as_ref())
             .await?;
 
-        user_session_mgr.check_user_state().await?;
+        let user_id = user_session_mgr.lps.get_current_user_id_64();
+        let nonce = user_session_mgr.lps.get_nonce();
+        self.check_user_state(user_id, nonce).await?;
 
         Ok(())
     }
 
-    pub async fn prove_contract_call(&self, public_key: QHashOut<F>, contract_call_arg: ContractCallArgs) -> anyhow::Result<()> {
-        let mut user_session_mgr = self
-            .user_session_mgrs
-            .get_mut(&public_key)
-            .ok_or_else(|| anyhow::format_err!("user {} not found", public_key.to_string()))?;
-        tracing::info!(
-            "prove contract call at contract {}, method {}",
-            contract_call_arg.contract_id,
-            contract_call_arg.method_name
-        );
-        prove_func(
-            &user_session_mgr.rpc_provider.clone(),
-            self.wallet.random_circuit_manager().as_ref(),
-            &mut user_session_mgr.mgr,
-            contract_call_arg.contract_id,
-            &contract_call_arg.method_name,
-            contract_call_arg.inputs.iter().map(|x| F::from_noncanonical_u64(*x)).collect(),
-        )
-        .await?;
-        user_session_mgr.mgr.prove_burn_fee(self.wallet.random_circuit_manager().as_ref()).await?;
-        Ok(())
-    }
-
-    pub async fn prove_contract_calls(&self, public_key: QHashOut<F>, contract_call_args: Vec<ContractCallArgs>) -> anyhow::Result<()> {
+    pub async fn prove_contract_call(&self, public_key: QHashOut<F>, contract_call_args: Vec<ContractCallArgs>) -> anyhow::Result<()> {
         let mut user_session_mgr = self
             .user_session_mgrs
             .get_mut(&public_key)
@@ -575,17 +367,22 @@ impl WalletSession {
                 contract_call_arg.method_name
             );
             prove_func(
-                &user_session_mgr.rpc_provider.clone(),
+                &self.st_provider,
                 self.wallet.random_circuit_manager().as_ref(),
-                &mut user_session_mgr.mgr,
+                &mut *user_session_mgr,
                 contract_call_arg.contract_id,
                 &contract_call_arg.method_name,
                 contract_call_arg.inputs.iter().map(|x| F::from_noncanonical_u64(*x)).collect(),
             )
             .await?;
         }
-        user_session_mgr.mgr.prove_burn_fee(self.wallet.random_circuit_manager().as_ref()).await?;
-        user_session_mgr.check_user_state().await?;
+        user_session_mgr
+            .prove_burn_fee(self.wallet.random_circuit_manager().as_ref())
+            .await?;
+
+        let user_id = user_session_mgr.lps.get_current_user_id_64();
+        let nonce = user_session_mgr.lps.get_nonce();
+        self.check_user_state(user_id, nonce).await?;
 
         Ok(())
     }
@@ -595,19 +392,11 @@ impl WalletSession {
         public_key: QHashOut<F>,
         software_defined_call: Option<DPNSoftwareDefinedCallData>,
     ) -> anyhow::Result<QHashOut<F>> {
+        let pk_info = self.wallet.get_public_key_info(&public_key).await?;
         let mut user_session_mgr = self
             .user_session_mgrs
             .get_mut(&public_key)
             .ok_or_else(|| anyhow::format_err!("user {} not found", public_key.to_string()))?;
-
-        let pk_info = *self
-            .wallet_keys_store
-            .get(&public_key)
-            .ok_or(anyhow::format_err!(
-                "user {} not found, cannot get public key param",
-                user_session_mgr.user_id
-            ))?
-            .value();
 
         tracing::info!(
             "sign and submit for fingerprint {} (software defined call provided: {})",
@@ -630,7 +419,8 @@ impl WalletSession {
             };
         }
 
-        let sighash = user_session_mgr.mgr.get_sighash(PSY_NETWORK_MAGIC, user_session_mgr.nonce);
+        let nonce = user_session_mgr.lps.get_nonce();
+        let sighash = user_session_mgr.get_sighash(PSY_NETWORK_MAGIC, nonce);
 
         tracing::info!("zk sign for signhash: {}", sighash.to_string());
         let signature_result = self.wallet.sign_with_public_key(&public_key, &sign_context, sighash).await?;
@@ -640,7 +430,6 @@ impl WalletSession {
         } = signature_result;
 
         user_session_mgr
-            .mgr
             .proof_tree_state
             .finalize_tree(self.wallet.random_circuit_manager().as_ref())
             .await?;
@@ -655,14 +444,12 @@ impl WalletSession {
         tracing::info!(
             "prove end cap with network magic {:x}, nonce {}, fingerprint {}, public key param {}, signature proof {:?}",
             PSY_NETWORK_MAGIC,
-            user_session_mgr.nonce,
+            nonce,
             circuit_fingerprint,
             public_key_param,
             signature_proof.public_inputs
         );
-        let nonce = user_session_mgr.nonce.clone();
         let end_cap_proof = user_session_mgr
-            .mgr
             .prove_end_cap(
                 self.wallet.random_circuit_manager().as_ref(),
                 PSY_NETWORK_MAGIC,
@@ -674,7 +461,7 @@ impl WalletSession {
             )
             .await?;
 
-        let user_ec_input = user_session_mgr.mgr.get_api_input().await?;
+        let user_ec_input = user_session_mgr.get_api_input().await?;
         tracing::info!("get user ec input: {}", serde_json::to_string_pretty(&user_ec_input)?);
 
         let end_user_leaf_hash = user_ec_input.core.state_transition.end_user_leaf_hash;
@@ -683,14 +470,15 @@ impl WalletSession {
             anyhow::bail!("end user leaf hash not match");
         }
 
-        user_session_mgr.check_user_state().await?;
+        let user_id = user_session_mgr.lps.get_current_user_id_64();
+        self.check_user_state(user_id, nonce).await?;
 
         let req = QSubmitEndCapRPCRequest {
             user_ec_input,
             proof: end_cap_proof,
         };
 
-        user_session_mgr.rpc_provider.submit_end_cap_proof::<F>(req).await?;
+        self.st_provider.submit_end_cap_proof::<F>(req).await?;
 
         Ok(end_user_leaf_hash)
     }
@@ -699,7 +487,7 @@ impl WalletSession {
         &self,
         call_data: &DPNSoftwareDefinedCallData,
         fingerprint: QHashOut<F>,
-        user_session_mgr: &mut UserSessionStateManager,
+        user_session_mgr: &mut UserProvingSessionManager<F, PoseidonHash, RpcProvider, C, D>,
         mut sign_context: SignContext,
     ) -> anyhow::Result<SignContext> {
         let sdc = self
@@ -710,18 +498,22 @@ impl WalletSession {
         let cfc_call_inputs = call_data.inputs.iter().map(|x| F::from_noncanonical_u64(*x)).collect::<Vec<_>>();
 
         let cfc_proof_input = user_session_mgr
-            .mgr
             .exec_contract_call(F::from_noncanonical_u64(call_data.contract_id), &sdc.fn_def, cfc_call_inputs)
             .await?;
 
         let signature_input = DPNSoftwareDefinedSignatureInput { cfc_input: cfc_proof_input };
 
+        let current_checkpoint_id = user_session_mgr.lps.get_current_start_checkpoint_id_u64();
+        let user_id = user_session_mgr.lps.get_current_user_id_64();
+        let start_contract_state_tree_root = user_session_mgr.lps.last_transaction_record().start_contract_state_tree_root;
+        let checkpoint_tree_root = self.st_provider.get_checkpoint_tree_root(current_checkpoint_id).await?;
+
         Ok(sign_context.with_psy_signature_input(
             signature_input,
-            user_session_mgr.current_checkpoint_id,
-            user_session_mgr.user_id,
-            user_session_mgr.mgr.lps.last_transaction_record().start_contract_state_tree_root,
-            self.st_provider.get_checkpoint_tree_root(user_session_mgr.current_checkpoint_id).await?,
+            current_checkpoint_id,
+            user_id,
+            start_contract_state_tree_root,
+            checkpoint_tree_root,
         ))
     }
 
@@ -729,19 +521,18 @@ impl WalletSession {
         &self,
         call_data: &DPNSoftwareDefinedCallData,
         fingerprint: QHashOut<F>,
-        user_session_mgr: &mut UserSessionStateManager,
+        user_session_mgr: &mut UserProvingSessionManager<F, PoseidonHash, RpcProvider, C, D>,
     ) -> anyhow::Result<SignContext> {
-        let user_id = user_session_mgr.user_id;
-        let checkpoint_id = user_session_mgr.current_checkpoint_id;
+        let user_id = user_session_mgr.lps.get_current_user_id_64();
+        let checkpoint_id = user_session_mgr.lps.get_current_start_checkpoint_id_u64();
         let user_leaf = user_session_mgr
-            .mgr
             .lps
             .resolve_get_user_leaf_mut(&QSRCmdGetUserLeafData { checkpoint_id, user_id })
             .await?;
 
         let checkpoint_tree_root = self.st_provider.get_checkpoint_tree_root(checkpoint_id).await?;
 
-        let transaction_record = user_session_mgr.mgr.lps.last_transaction_record();
+        let transaction_record = user_session_mgr.lps.last_transaction_record();
 
         let circuit_inputs = call_data.inputs.iter().map(|x| F::from_noncanonical_u64(*x)).collect::<Vec<_>>();
 
@@ -750,13 +541,13 @@ impl WalletSession {
             user_leaf,
             transaction_record.end_contract_state_tree_root,
             F::from_canonical_u64(call_data.contract_id),
-            F::from_canonical_u64(user_session_mgr.current_checkpoint_id),
+            F::from_canonical_u64(checkpoint_id),
         );
 
         let state_reader: StateReader<F, 2, RpcProvider> = StateReader::new(
             user_contract_state,
-            user_session_mgr.mgr.lps.clone_cmd_store(),
-            user_session_mgr.mgr.lps.clone_state_tree_store(),
+            user_session_mgr.lps.clone_cmd_store(),
+            user_session_mgr.lps.clone_state_tree_store(),
         )
         .await;
 

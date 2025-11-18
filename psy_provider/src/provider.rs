@@ -386,6 +386,31 @@ impl RpcProvider {
         }
     }
 
+    pub async fn with_user_id<T, F, Fut>(&mut self, user_id: u64, f: F) -> T
+    where
+        F: FnOnce(&mut Self) -> Fut,
+        Fut: std::future::Future<Output = T>,
+    {
+        let original_user_id = self.current_user_id;
+        self.current_user_id = user_id;
+
+        let result = f(self).await;
+
+        self.current_user_id = original_user_id;
+
+        result
+    }
+
+    pub fn with_user_id_owned(&self, user_id: u64) -> Self {
+        Self {
+            client: self.client.clone(),
+            realm_configs: self.realm_configs.clone(),
+            coordinator_configs: self.coordinator_configs.clone(),
+            users_per_realm: self.users_per_realm,
+            current_user_id: user_id,
+        }
+    }
+
     pub async fn get_realm_latest_block_state(&self) -> anyhow::Result<psy_data::qdata::checkpoint::PsyBlockState> {
         tracing::info!("Fetching latest realm block state");
         let rpc_url = self.get_realm_url(self.current_user_id)?;

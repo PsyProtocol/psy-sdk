@@ -216,19 +216,19 @@ impl<
         let dmps = input.get_registered_user_merkle_proofs::<PsyHasher>();
         self.store.injest_checkpoint_sync_data_imm(input.to_sync_info::<PsyHasher>()).await?;
 
-        // Filter users that belong to this realm
-        let realm_users: Vec<_> = dmps
-            .into_iter()
-            .filter(|x| {
-                let real_id = get_user_id_from_registration_id(x.index);
-                self.realm_config.includes_user_id(real_id)
-            })
-            .collect();
-
-        if !realm_users.is_empty() {
-            info!("Adding {} new pending users to Redis queue", realm_users.len());
-            self.sync_queue.push_pending_users(&realm_users).await?;
-        }
+        // // Filter users that belong to this realm
+        // let realm_users: Vec<_> = dmps
+        //     .into_iter()
+        //     .filter(|x| {
+        //         let real_id = get_user_id_from_registration_id(x.index);
+        //         self.realm_config.includes_user_id(real_id)
+        //     })
+        //     .collect();
+        //
+        // if !realm_users.is_empty() {
+        //     info!("Adding {} new pending users to Redis queue", realm_users.len());
+        //     self.sync_queue.push_pending_users(&realm_users).await?;
+        // }
 
         Ok(())
     }
