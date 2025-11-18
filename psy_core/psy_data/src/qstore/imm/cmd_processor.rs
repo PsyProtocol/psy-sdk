@@ -17,6 +17,21 @@ use crate::{
     },
 };
 
+pub trait QUserIdManager {
+    fn get_user_id(&self) -> u64;
+    fn set_user_id(&mut self, user_id: u64);
+}
+
+impl QUserIdManager for kvq::memory::simple::KVQSimpleMemoryBackingStore {
+    fn get_user_id(&self) -> u64 {
+        0
+    }
+
+    fn set_user_id(&mut self, _user_id: u64) {
+        // No-op for memory store
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub struct PsyReadCommandBatchInput {
     pub get_user_leaf: Vec<QSRCmdGetUserLeafData>,

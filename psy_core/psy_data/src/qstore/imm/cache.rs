@@ -9,7 +9,7 @@ use super::{
         QSRCmdGetBlockState, QSRCmdGetCheckpointLeafData, QSRCmdGetContractCodeDefinition, QSRCmdGetContractLeafData, QSRCmdGetUserLeafData,
         QSRHashCmd, QSRMerkleCmd,
     },
-    cmd_processor::{PsyReadCommandBatchInput, PsyReadCommandBatchOutput, PsyReadCommandProcessorSync, PsyReadCommandProcessorSyncMut},
+    cmd_processor::{PsyReadCommandBatchInput, PsyReadCommandBatchOutput, PsyReadCommandProcessorSync, PsyReadCommandProcessorSyncMut, QUserIdManager},
 };
 use crate::qdata::{
     checkpoint::{PsyBlockState, PsyCheckpointLeaf},
@@ -41,14 +41,14 @@ impl<F: RichField> PsyCmdDataStoreCache<F> {
     }
 }
 #[derive(Debug, Clone)]
-pub struct PsyCmdStoreWithCache<F: RichField, S: PsyReadCommandProcessorSync<F>> {
+pub struct PsyCmdStoreWithCache<F: RichField, S: PsyReadCommandProcessorSync<F> + QUserIdManager> {
     pub last_checkpoint: F,
     pub last_checkpoint_u64: u64,
     pub cache: PsyCmdDataStoreCache<F>,
     pub read_store: S,
 }
 
-impl<F: RichField, S: PsyReadCommandProcessorSync<F>> PsyCmdStoreWithCache<F, S> {
+impl<F: RichField, S: PsyReadCommandProcessorSync<F> + QUserIdManager> PsyCmdStoreWithCache<F, S> {
     pub fn new(last_checkpoint_u64: u64, read_store: S) -> Self {
         Self {
             last_checkpoint: F::from_noncanonical_u64(last_checkpoint_u64),
@@ -60,11 +60,15 @@ impl<F: RichField, S: PsyReadCommandProcessorSync<F>> PsyCmdStoreWithCache<F, S>
     pub fn clear_cache_mut(&mut self) {
         self.cache = PsyCmdDataStoreCache::new();
     }
+
+    pub fn set_user_id(&mut self, user_id: u64) {
+        self.read_store.set_user_id(user_id);
+    }
 }
 
 #[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
 #[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
-impl<F: RichField, S: PsyReadCommandProcessorSync<F> + Send> PsyReadCommandProcessorSyncMut<F> for PsyCmdStoreWithCache<F, S> {
+impl<F: RichField, S: PsyReadCommandProcessorSync<F> + QUserIdManager + Send> PsyReadCommandProcessorSyncMut<F> for PsyCmdStoreWithCache<F, S> {
     async fn resolve_batch_mut(&mut self, input: &PsyReadCommandBatchInput) -> anyhow::Result<PsyReadCommandBatchOutput<F>> {
         let filtered_get = PsyReadCommandBatchInput {
             get_user_leaf: input

@@ -50,7 +50,7 @@ use crate::{
         },
         cmd_processor::{
             DPNReadOtherUserLeafMerkleProof, PsyReadCommandBatchInput, PsyReadCommandBatchOutput, PsyReadCommandProcessorSync,
-            PsyReadCommandProcessorSyncMut,
+            PsyReadCommandProcessorSyncMut, QUserIdManager,
         },
     }},
     ups::{ups_context_input::UserProvingSessionStartContext, ups_standard_cfc_input::UPSCFCStandardStateDeltaInput},
@@ -91,7 +91,7 @@ pub trait PsyReadLocalProvingSessionStoreMut<F: RichField + PrimeField64>: PsyRe
 
 pub struct PsyLocalProvingSessionStore<
     F: RichField + PrimeField64,
-    R: PsyReadCommandProcessorSync<F> + Send + Sync,
+    R: PsyReadCommandProcessorSync<F> + QUserIdManager + Send + Sync,
     H: MerkleZeroHasherWithMarkedLeaf<QHashOut<F>> + Send = PsyHasher,
 > {
     cmd_store: PsyCmdStoreWithCache<F, R>,
@@ -126,7 +126,7 @@ pub struct PsyLocalProvingSessionStore<
 
 #[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
 #[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
-impl<F: RichField, H: MerkleZeroHasherWithMarkedLeaf<QHashOut<F>> + Send, R: PsyReadCommandProcessorSync<F> + Send + Sync>
+impl<F: RichField, H: MerkleZeroHasherWithMarkedLeaf<QHashOut<F>> + Send, R: PsyReadCommandProcessorSync<F> + QUserIdManager + Send + Sync>
     PsyReadLocalProvingSessionStore<F> for PsyLocalProvingSessionStore<F, R, H>
 {
     fn get_current_contract_id(&self) -> F {
@@ -204,7 +204,7 @@ impl<F: RichField, H: MerkleZeroHasherWithMarkedLeaf<QHashOut<F>> + Send, R: Psy
 
 #[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
 #[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
-impl<F: RichField, H: MerkleZeroHasherWithMarkedLeaf<QHashOut<F>> + Send, R: PsyReadCommandProcessorSync<F> + Send + Sync>
+impl<F: RichField, H: MerkleZeroHasherWithMarkedLeaf<QHashOut<F>> + Send, R: PsyReadCommandProcessorSync<F> + QUserIdManager + Send + Sync>
     PsyReadCommandProcessorSyncMut<F> for PsyLocalProvingSessionStore<F, R, H>
 {
     async fn resolve_batch_mut(&mut self, input: &PsyReadCommandBatchInput) -> anyhow::Result<PsyReadCommandBatchOutput<F>> {
@@ -249,7 +249,7 @@ impl<F: RichField, H: MerkleZeroHasherWithMarkedLeaf<QHashOut<F>> + Send, R: Psy
 impl<
         F: RichField + PrimeField64,
         H: MerkleZeroHasherWithMarkedLeaf<QHashOut<F>> + FieldQHasher<F> + Send,
-        R: PsyReadCommandProcessorSync<F> + Send + Sync,
+        R: PsyReadCommandProcessorSync<F> + QUserIdManager + Send + Sync,
     > PsyReadLocalProvingSessionStoreMut<F> for PsyLocalProvingSessionStore<F, R, H>
 {
     type Hasher = H;
@@ -286,7 +286,7 @@ impl<
 
 #[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
 #[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
-impl<F: RichField, H: MerkleZeroHasherWithMarkedLeaf<QHashOut<F>> + Send, R: PsyReadCommandProcessorSync<F> + Send + Sync>
+impl<F: RichField, H: MerkleZeroHasherWithMarkedLeaf<QHashOut<F>> + Send, R: PsyReadCommandProcessorSync<F> + QUserIdManager + Send + Sync>
     PsyLocalProvingSessionStore<F, R, H>
 {
     pub fn new_at(read_store: R, start_checkpoint: F, user_id: F, nonce: F, q_recursion_tree_height: usize) -> Self {
@@ -357,7 +357,8 @@ impl<F: RichField, H: MerkleZeroHasherWithMarkedLeaf<QHashOut<F>> + Send, R: Psy
     }
     pub fn into_clean_for_user_at_checkpoint(self, user_id: F, nonce: F, start_checkpoint: F) -> Self {
         let q_recursion_tree_height = self.session_proof_tree_height;
-        let cmd_store = self.into_cmd_store();
+        let mut cmd_store = self.into_cmd_store();
+        cmd_store.set_user_id(user_id.to_canonical_u64());
 
         Self::new_at_with_cmd_store(cmd_store, start_checkpoint, user_id, nonce, q_recursion_tree_height)
     }
@@ -390,26 +391,19 @@ impl<F: RichField, H: MerkleZeroHasherWithMarkedLeaf<QHashOut<F>> + Send, R: Psy
         self.write_checkpoint_u64 = self.start_checkpoint_u64 + 1;
     }
 
-    pub fn clone_cmd_store(&self) -> PsyCmdStoreWithCache<F, R>
+    pub fn get_cmd_store(&self) -> &PsyCmdStoreWithCache<F, R>
     where
         R: Clone,
     {
-        self.cmd_store.clone()
+        &self.cmd_store
     }
 
-    pub fn clone_state_tree_store(&self) -> KVQSimpleMemoryBackingStore {
-        self.state_tree_store.clone()
+    pub fn get_state_tree_store(&self) -> &KVQSimpleMemoryBackingStore {
+        &self.state_tree_store
     }
 
     pub fn get_read_store(&self) -> &R {
         &self.cmd_store.read_store
-    }
-
-    pub fn clone_read_store(&self) -> R
-    where
-        R: Clone,
-    {
-        self.cmd_store.read_store.clone()
     }
 
     pub fn last_transaction_record_mut(&mut self) -> &mut PsyLocalTransactionRecord<F> {
@@ -423,7 +417,7 @@ impl<F: RichField, H: MerkleZeroHasherWithMarkedLeaf<QHashOut<F>> + Send, R: Psy
 
 #[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
 #[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
-impl<F: RichField, H: MerkleZeroHasherWithMarkedLeaf<QHashOut<F>> + FieldQHasher<F> + Send, R: PsyReadCommandProcessorSync<F> + Send + Sync>
+impl<F: RichField, H: MerkleZeroHasherWithMarkedLeaf<QHashOut<F>> + FieldQHasher<F> + Send, R: PsyReadCommandProcessorSync<F> + QUserIdManager + Send + Sync>
     PsyLocalProvingSessionStore<F, R, H>
 {
     pub fn get_deferred_tx_debt_latest_index(&self) -> u64 {

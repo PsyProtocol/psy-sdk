@@ -35,10 +35,6 @@ pub async fn run(args: RegisterUserArgs) -> Result<()> {
     type C = PoseidonGoldilocksConfig;
     const D: usize = 2;
 
-    let user_sdc: DPNFunctionCircuitDefinition = serde_json::from_str(&std::fs::read_to_string("sdc.json")?)?;
-
-    let contract_state_tree_height = MAX_CONTRACT_STATE_TREE_HEIGHT;
-
     let mut info = load_wallet_key_info(&args.wallet, false)?;
     let mut fingerprint = info.fingerprint.clone();
     let mut private_key_base = info.private_key;

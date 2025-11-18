@@ -411,6 +411,24 @@ impl RpcProvider {
         }
     }
 
+    pub fn set_user_id(&mut self, user_id: u64) {
+        self.current_user_id = user_id;
+    }
+}
+
+impl psy_data::qstore::imm::cmd_processor::QUserIdManager for RpcProvider {
+    fn get_user_id(&self) -> u64 {
+        self.current_user_id
+    }
+
+    fn set_user_id(&mut self, user_id: u64) {
+        self.current_user_id = user_id;
+    }
+}
+
+#[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
+#[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
+impl RpcProvider {
     pub async fn get_realm_latest_block_state(&self) -> anyhow::Result<psy_data::qdata::checkpoint::PsyBlockState> {
         tracing::info!("Fetching latest realm block state");
         let rpc_url = self.get_realm_url(self.current_user_id)?;

@@ -40,7 +40,7 @@ use psy_data::{
             session_info::SessionCircuitInfoStore,
         },
         imm::{
-            cmd::{QSRCmdGetContractCodeDefinition, QSRCmdGetUserLeafData, QSRHashCmd, QSRHashCmdGetUserContractStateTreeRoot},
+            cmd::{QSRCmdGetContractCodeDefinition, QSRCmdGetUserLeafData, QSRHashCmd, QSRHashCmdGetUserContractStateTreeRoot, QSRMerkleCmd, QSRMerkleCmdGetUserTreeMerkleProof},
             cmd_processor::{PsyReadCommandProcessorSync, PsyReadCommandProcessorSyncMut},
         },
     },
@@ -139,7 +139,7 @@ type F = GoldilocksField;
 #[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
 #[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
 pub async fn prove_func<R, CM: UPSCircuitManager<C, D> + ?Sized>(
-    st: &R,
+    contract_code: ContractCodeDefinition,
     circuit_mgr: &CM,
     mgr: &mut UserProvingSessionManager<F, PoseidonHash, R, C, D>,
     contract_id: u64,
@@ -147,10 +147,8 @@ pub async fn prove_func<R, CM: UPSCircuitManager<C, D> + ?Sized>(
     inputs: Vec<F>,
 ) -> anyhow::Result<()>
 where
-    R: PsyReadCommandProcessorSync<F> + PsyComboDataStoreReaderSync<F> + Send + Sync,
+    R: PsyReadCommandProcessorSync<F> + PsyComboDataStoreReaderSync<F> + psy_data::qstore::imm::cmd_processor::QUserIdManager + Send + Sync,
 {
-    let contract_code = st.resolve_get_contract_code(&QSRCmdGetContractCodeDefinition { contract_id }).await?;
-
     circuit_mgr.register_contract_circuits(contract_id, &contract_code).await?;
 
     let method_id = circuit_mgr.get_method_id(contract_id, fn_name.to_string()).await?;
@@ -173,7 +171,7 @@ pub struct WalletSession {
 #[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
 impl WalletSession {
     async fn check_user_state(&self, user_id: u64, nonce: F) -> anyhow::Result<()> {
-        match self.st_provider.get_tx_status(user_id, nonce.to_noncanonical_u64()).await? {
+        match self.st_provider.with_user_id_owned(user_id).get_tx_status(user_id, nonce.to_noncanonical_u64()).await? {
             TxStatus::Confirmed => {
                 tracing::warn!("tx status is confirmed");
                 Err(anyhow::format_err!(
@@ -191,8 +189,8 @@ impl WalletSession {
         }
     }
 
-    pub async fn check_tx_is_confirmed(&self, checkpoint_id: u64, user_id: u64, tx_hash: QHashOut<F>) -> anyhow::Result<bool> {
-        let user_leaf_data = self.st_provider.get_user_leaf_data(checkpoint_id, user_id).await?;
+    pub async fn check_tx_is_confirmed(&mut self, checkpoint_id: u64, user_id: u64, tx_hash: QHashOut<F>) -> anyhow::Result<bool> {
+        let user_leaf_data = self.st_provider.with_user_id_owned(user_id).get_user_leaf_data(checkpoint_id, user_id).await?;
         Ok(user_leaf_data.qfhash::<PsyHasher>() == tx_hash)
     }
 
@@ -319,7 +317,7 @@ impl WalletSession {
             .get_mut(&public_key)
             .ok_or_else(|| anyhow::format_err!("user {} not found", public_key.to_string()))?;
 
-        let latest_block_state = self.st_provider.get_realm_latest_block_state().await?;
+        let latest_block_state = user_session_mgr.lps.get_read_store().get_realm_latest_block_state().await?;
         let global_latest_block_state = self.st_provider.get_latest_block_state().await?;
 
         if latest_block_state.checkpoint_id <= global_latest_block_state.checkpoint_id {
@@ -360,14 +358,16 @@ impl WalletSession {
             .user_session_mgrs
             .get_mut(&public_key)
             .ok_or_else(|| anyhow::format_err!("user {} not found", public_key.to_string()))?;
+        let cmd_store = user_session_mgr.lps.get_cmd_store();
         for contract_call_arg in contract_call_args {
             tracing::info!(
                 "prove contract call at contract {}, method {}",
                 contract_call_arg.contract_id,
                 contract_call_arg.method_name
             );
+            let contract_code = user_session_mgr.lps.resolve_get_contract_code_mut(&QSRCmdGetContractCodeDefinition { contract_id: contract_call_arg.contract_id }).await?;
             prove_func(
-                &self.st_provider,
+                contract_code,
                 self.wallet.random_circuit_manager().as_ref(),
                 &mut *user_session_mgr,
                 contract_call_arg.contract_id,
@@ -478,7 +478,7 @@ impl WalletSession {
             proof: end_cap_proof,
         };
 
-        self.st_provider.submit_end_cap_proof::<F>(req).await?;
+        user_session_mgr.lps.get_read_store().submit_end_cap_proof::<F>(req).await?;
 
         Ok(end_user_leaf_hash)
     }
@@ -546,8 +546,8 @@ impl WalletSession {
 
         let state_reader: StateReader<F, 2, RpcProvider> = StateReader::new(
             user_contract_state,
-            user_session_mgr.lps.clone_cmd_store(),
-            user_session_mgr.lps.clone_state_tree_store(),
+            user_session_mgr.lps.get_cmd_store().clone(),
+            user_session_mgr.lps.get_state_tree_store().clone(),
         )
         .await;
 

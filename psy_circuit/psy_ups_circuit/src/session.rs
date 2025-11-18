@@ -79,7 +79,7 @@ const ZK_SIG_LEAF_TYPE: u64 = 3;
 pub struct UserProvingSessionManager<
     F: RichField + Extendable<D>,
     H: MerkleZeroHasherWithMarkedLeaf<HashOut<F>> + MerkleZeroHasherWithMarkedLeaf<QHashOut<F>> + AlgebraicHasher<F> + Send,
-    R: PsyReadCommandProcessorSync<F> + PsyComboDataStoreReaderSync<F> + Send + Sync,
+    R: PsyReadCommandProcessorSync<F> + PsyComboDataStoreReaderSync<F> + psy_data::qstore::imm::cmd_processor::QUserIdManager + Send + Sync,
     C: GenericConfig<D, F = F, Hasher = H>,
     const D: usize,
 > {
@@ -102,7 +102,7 @@ const D: usize = 2;
 #[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
 impl<
         H: MerkleZeroHasherWithMarkedLeaf<HashOut<F>> + MerkleZeroHasherWithMarkedLeaf<QHashOut<F>> + AlgebraicHasher<F> + FieldQHasher<F> + Send,
-        R: PsyReadCommandProcessorSync<F> + PsyComboDataStoreReaderSync<F> + Send + Sync,
+        R: PsyReadCommandProcessorSync<F> + PsyComboDataStoreReaderSync<F> + psy_data::qstore::imm::cmd_processor::QUserIdManager + Send + Sync,
         C: GenericConfig<D, F = F, Hasher = H> + Serialize,
     > UserProvingSessionManager<F, H, R, C, D>
 {
