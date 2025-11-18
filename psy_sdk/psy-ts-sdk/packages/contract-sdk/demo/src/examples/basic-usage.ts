@@ -1,35 +1,54 @@
 // src/examples/basic-usage.ts
 import { Contract, Signer } from "../../../generated";
-import { createProvider } from "../providers";
-import { config } from "../config";
+import { createMemoryWalletProvider } from "../providers";
+import { PsyNetworkConfig, networkConfig } from "../config";
+import { SignType } from "@psy/psy-sdk";
+
+const privateKey = "17c975c2668ebe0ca7c87f67c6414ebb7fd664f46370a0af2a3b204c8824ac5a";
+const signType = "zk" as SignType;
+const zkFingerprint = "d2f572f1402fa8a92c9af0a2226e05ef8f5f4f34d764c6515b90d2b391fc48c1";
+const contractId = 0;
 
 async function basicUsageExample() {
     console.log("🚀 Basic SDK Usage Example");
     console.log("=========================\n");
 
-    // Step 1: Create provider
-    console.log("1️⃣ Creating RPC Provider...");
-    const provider = createProvider("local");
-    console.log(`   Connected to: ${config.rpc.url}\n`);
+    // Step 1: Create wallet provider
+    console.log("1️⃣ Creating Memory Wallet Provider...");
+    const provider = await createMemoryWalletProvider(networkConfig);
+    console.log(`   Connected to coordinator:`, networkConfig.coordinator_configs);
+    console.log(`   Connected to realm:`, networkConfig.realm_configs);
 
-    // Step 2: Create signer (required for state-changing operations)
-    console.log("2️⃣ Creating Signer...");
-    // Use the currentKeyPair from config which handles the derivation
-    const currentKeyPair = config.user.currentKeyPair;
-    const signer = Signer.fromPublicKey(currentKeyPair.publicKey, provider);
-    console.log(`   Public Key: ${currentKeyPair.publicKey}`);
-    console.log(`   User ID: ${currentKeyPair.userId}`);
-    console.log(`   Realm ID: ${currentKeyPair.realmId}\n`);
+    const checkpointId = (await provider.coordinatorEdgeRpcProvider.getLatestBlockState()).checkpoint_id;
+
+    // Step 2: add user
+    console.log("2️⃣ Adding User...");
+    console.log(`   Provider:`, provider.signerProvider);
+    const publicKey = await provider.signerProvider.registerUser(privateKey, signType);
+    await provider.signerProvider.importPrivateKey?.(privateKey, signType, zkFingerprint);
+    console.log(`   Public Key: ${publicKey}`);
+
+    const userId = await provider.coordinatorEdgeRpcProvider.getUserId(publicKey);
+    console.log(`   User ID: ${userId}`);
+
+    const userLeafData = await provider.realmEdgeRpcProvider.getRpcProviderByUserId(userId).getUserLeafData(checkpointId, userId);
+    console.log(`   User data: ${userLeafData}\n`);
+
 
     // Step 3: Create contract instance with signer
     console.log("3️⃣ Creating Contract Instance...");
+    const singer = {
+        publicKey,
+        provider,
+    }
     const contract = new Contract(
-        config.contract.userId,
-        config.contract.id,
-        signer // Pass signer instead of provider for full functionality
+        checkpointId,
+        userId,
+        contractId,
+        singer // Pass signer instead of provider for full functionality
     );
-    console.log(`   User ID: ${config.contract.userId}`);
-    console.log(`   Contract ID: ${config.contract.id}\n`);
+    console.log(`   User ID: ${userId}`);
+    console.log(`   Contract ID: ${contractId}\n`);
 
     // Step 4: Read simple state variable (no signer needed for reads)
     console.log("4️⃣ Reading Balance...");
@@ -80,8 +99,9 @@ async function basicUsageExample() {
     console.log("7️⃣ Read-Only Contract Example...");
     console.log("   Creating read-only contract (no signer)...");
     const readOnlyContract = new Contract(
-        config.contract.userId,
-        config.contract.id,
+        checkpointId,
+        userId,
+        contractId,
         provider // Pass provider directly for read-only access
     );
 

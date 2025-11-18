@@ -69,6 +69,9 @@ importers:
 
   packages/contract-sdk/demo:
     dependencies:
+      '@psy/psy-sdk':
+        specifier: workspace:*
+        version: link:../../psy-sdk
       dotenv:
         specifier: ^16.3.1
         version: 16.6.1
