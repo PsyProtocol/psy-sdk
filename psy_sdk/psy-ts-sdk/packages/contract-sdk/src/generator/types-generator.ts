@@ -4,7 +4,7 @@ export class TypesGenerator {
 
 // Common types used throughout the SDK
 export type BigNumberish = bigint | string | number;
-export type GUint = bigint;
+export type GUint = bigint | number;;
 export type GHash = [GUint, GUint, GUint, GUint];
 
 // Signer interface - holds public key for transaction signing
@@ -16,6 +16,7 @@ export interface ISigner {
 // Contract provider interface
 export interface IContractProvider {
   getContractState(
+    checkpointId: GUint,
     contractId: GUint,
     userId: GUint,
     slots: GUint[]
@@ -25,7 +26,7 @@ export interface IContractProvider {
     contractId: GUint,
     functionName: string,
     args: any[],
-    publicKey?: string  // Optional public key for signing
+    publicKey: string
   ): Promise<any>;
 }
 
@@ -46,8 +47,8 @@ export class Signer implements ISigner {
   }
 
   // Convenience method to attach to a contract
-  attachTo<T>(ContractClass: new (userId: GUint, contractId: GUint, signer: ISigner) => T, userId: GUint, contractId: GUint): T {
-    return new ContractClass(userId, contractId, this);
+  attachTo<T>(ContractClass: new (checkpointId: GUint, userId: GUint, contractId: GUint, signer: ISigner) => T, checkpointId: GUint, userId: GUint, contractId: GUint): T {
+    return new ContractClass(checkpointId, userId, contractId, this);
   }
 }
 
