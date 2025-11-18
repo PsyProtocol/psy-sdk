@@ -26,7 +26,6 @@ psy_data = { workspace = true, default-features = false }
 psy_crypto = { workspace = true }
 psy_provider = { workspace = true }
 psy_ups_circuit = { workspace = true, default-features = false }
-psylang_macros = { workspace = true }
 
 k256 = { workspace = true }
 rand = { workspace = true }
