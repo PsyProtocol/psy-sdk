@@ -71,7 +71,7 @@ export class WasmRpcServer {
   add_user(private_key_str: string, sign_type: string): Promise<string>;
   get_zk_public_key_json(private_key_str: string): Promise<string>;
   get_random_keypair_json(): Promise<string>;
-  deploy_contract_json(deployer: string, circuit_defs_json: string): Promise<string>;
+  deploy_contract_json(deployer: string, circuit_defs_json: string, abi_json: string): Promise<string>;
   get_deploy_contract_cmd_json(deployer: string, circuit_defs_json: string): string;
   ping(message: string): string;
   get_result(id_str: string): Uint8Array;
@@ -123,7 +123,7 @@ export interface InitOutput {
   readonly wasmrpcserver_add_user: (a: number, b: number, c: number, d: number, e: number) => any;
   readonly wasmrpcserver_get_zk_public_key_json: (a: number, b: number, c: number) => any;
   readonly wasmrpcserver_get_random_keypair_json: (a: number) => any;
-  readonly wasmrpcserver_deploy_contract_json: (a: number, b: number, c: number, d: number, e: number) => any;
+  readonly wasmrpcserver_deploy_contract_json: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => any;
   readonly wasmrpcserver_get_deploy_contract_cmd_json: (a: number, b: number, c: number, d: number, e: number) => [number, number, number, number];
   readonly wasmrpcserver_ping: (a: number, b: number, c: number) => [number, number, number, number];
   readonly wasmrpcserver_get_result: (a: number, b: number, c: number) => [number, number, number, number];
@@ -139,9 +139,9 @@ export interface InitOutput {
   readonly __wbindgen_export_7: WebAssembly.Table;
   readonly __externref_table_dealloc: (a: number) => void;
   readonly __externref_drop_slice: (a: number, b: number) => void;
-  readonly closure2815_externref_shim: (a: number, b: number, c: any) => void;
-  readonly wasm_bindgen__convert__closures_____invoke__hdbb75882342686d8: (a: number, b: number) => void;
-  readonly closure3158_externref_shim: (a: number, b: number, c: any, d: any) => void;
+  readonly closure2830_externref_shim: (a: number, b: number, c: any) => void;
+  readonly wasm_bindgen__convert__closures_____invoke__h85873df66f3258de: (a: number, b: number) => void;
+  readonly closure3173_externref_shim: (a: number, b: number, c: any, d: any) => void;
   readonly __wbindgen_thread_destroy: (a?: number, b?: number, c?: number) => void;
   readonly __wbindgen_start: (a: number) => void;
 }

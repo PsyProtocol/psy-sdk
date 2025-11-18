@@ -43,7 +43,7 @@ export const wasmrpcserver_register_user: (a: number, b: number, c: number, d: n
 export const wasmrpcserver_add_user: (a: number, b: number, c: number, d: number, e: number) => any;
 export const wasmrpcserver_get_zk_public_key_json: (a: number, b: number, c: number) => any;
 export const wasmrpcserver_get_random_keypair_json: (a: number) => any;
-export const wasmrpcserver_deploy_contract_json: (a: number, b: number, c: number, d: number, e: number) => any;
+export const wasmrpcserver_deploy_contract_json: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => any;
 export const wasmrpcserver_get_deploy_contract_cmd_json: (a: number, b: number, c: number, d: number, e: number) => [number, number, number, number];
 export const wasmrpcserver_ping: (a: number, b: number, c: number) => [number, number, number, number];
 export const wasmrpcserver_get_result: (a: number, b: number, c: number) => [number, number, number, number];
@@ -59,8 +59,8 @@ export const __wbindgen_realloc: (a: number, b: number, c: number, d: number) =>
 export const __wbindgen_export_7: WebAssembly.Table;
 export const __externref_table_dealloc: (a: number) => void;
 export const __externref_drop_slice: (a: number, b: number) => void;
-export const closure2815_externref_shim: (a: number, b: number, c: any) => void;
-export const wasm_bindgen__convert__closures_____invoke__hdbb75882342686d8: (a: number, b: number) => void;
-export const closure3158_externref_shim: (a: number, b: number, c: any, d: any) => void;
+export const closure2830_externref_shim: (a: number, b: number, c: any) => void;
+export const wasm_bindgen__convert__closures_____invoke__h85873df66f3258de: (a: number, b: number) => void;
+export const closure3173_externref_shim: (a: number, b: number, c: any, d: any) => void;
 export const __wbindgen_thread_destroy: (a?: number, b?: number, c?: number) => void;
 export const __wbindgen_start: (a: number) => void;

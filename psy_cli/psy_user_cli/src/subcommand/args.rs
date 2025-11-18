@@ -81,6 +81,8 @@ pub struct DeployContractArgs {
     pub output_path: Option<String>,
     #[clap(long, env)]
     pub is_deploy: bool,
+    #[clap(long, env)]
+    pub abi_path: String,
 }
 
 #[derive(Clone, Args, Serialize, Deserialize)]

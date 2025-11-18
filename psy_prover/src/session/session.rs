@@ -31,7 +31,7 @@ use psy_crypto::{
 };
 use psy_data::{
     config::store_config::{PsyHash, PsyHasher},
-    qblock::cmds::deploy_contract::QBCDeployContract,
+    qblock::cmds::deploy_contract::{QBCDeployContract, QContractABI},
     qdata::{checkpoint::PsyBlockState, contract::ContractCodeDefinition, user_contract_state::UserContractState},
     qstore::{
         controllers::{
@@ -789,12 +789,20 @@ impl WalletSession {
         Ok(deploy_cmd)
     }
 
-    pub async fn deploy_contract(&self, deployer: QHashOut<F>, circuit_defs: Vec<DPNFunctionCircuitDefinition>) -> anyhow::Result<String> {
+    pub async fn deploy_contract(
+        &self,
+        deployer: QHashOut<F>,
+        circuit_defs: Vec<DPNFunctionCircuitDefinition>,
+        abi: QContractABI,
+    ) -> anyhow::Result<String> {
         let deploy_cmd = self.get_deploy_contract_cmd(deployer, circuit_defs)?;
 
         let contract_uuid = self
             .st_provider
-            .deploy_contract::<F>(QDeployContractRPCRequest { deploy_contract: deploy_cmd })
+            .deploy_contract::<F>(QDeployContractRPCRequest {
+                deploy_contract: deploy_cmd,
+                abi,
+            })
             .await?;
         Ok(contract_uuid)
     }

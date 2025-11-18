@@ -126,9 +126,9 @@ export class PsyWasmWebProverProvider implements IPsyUserProverProvider {
     }
 
     // Contract deployment
-    async deployContract(deployer: PublicKey, circuitDefs: DPNFunctionCircuitDefinition[]): Promise<string> {
+    async deployContract(deployer: PublicKey, circuitDefs: DPNFunctionCircuitDefinition[], abi_json: string): Promise<string> {
         const json = PsyJSON.stringify(circuitDefs);
-        return PsyWasmWebProverProvider.wasmServer.deploy_contract_json(deployer, json);
+        return PsyWasmWebProverProvider.wasmServer.deploy_contract_json(deployer, json, abi_json);
     }
 
     async getDeployContractCmd(

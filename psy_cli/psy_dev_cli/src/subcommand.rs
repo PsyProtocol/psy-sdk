@@ -283,4 +283,7 @@ pub struct StressTestArgs {
 
     #[arg(long, default_value = "", help = "Path to contract file")]
     pub contract_path: String,
+
+    #[arg(long, default_value = "", help = "Path to ABI file")]
+    pub abi_path: String,
 }

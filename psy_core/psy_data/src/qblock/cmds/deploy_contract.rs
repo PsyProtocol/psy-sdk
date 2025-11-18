@@ -110,3 +110,126 @@ pub struct QFunctionMetadata {
     pub num_inputs: u32,
     pub num_outputs: u32,
 }
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, TS)]
+#[serde(untagged)]
+pub enum TypeAbiSpec {
+    Basic(String),
+    Array {
+        #[serde(rename = "type")]
+        type_name: String,
+        inner_type: String,
+        length: u32,
+    },
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, TS)]
+pub struct ParamAbiSpec {
+    pub name: String,
+    #[serde(rename = "type")]
+    pub param_type: TypeAbiSpec,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, TS)]
+pub struct FieldAbiSpec {
+    pub name: String,
+    #[serde(rename = "type")]
+    pub field_type: TypeAbiSpec,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, TS)]
+pub struct FunctionAbiSpec {
+    pub name: String,
+    pub params: Vec<ParamAbiSpec>,
+    #[serde(rename = "return")]
+    pub return_type: Vec<TypeAbiSpec>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, TS)]
+pub struct StructAbiSpec {
+    pub name: String,
+    pub is_contract: bool,
+    pub fields: Vec<FieldAbiSpec>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub functions: Option<Vec<FunctionAbiSpec>>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, TS)]
+pub struct QContractABI {
+    pub version: String,
+    pub structs: Vec<StructAbiSpec>,
+}
+
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_qcontract_abi_serialization() -> anyhow::Result<()> {
+        let abi_str = r#"{
+            "version": "1.0.0",
+            "structs": [
+                {
+                    "name": "PsyTokenContract",
+                    "is_contract": true,
+                    "fields": [
+                        {
+                            "name": "balance",
+                            "type": "Felt"
+                        },
+                        {
+                            "name": "last_claimed_pow_rewards_checkpoint_id",
+                            "type": "Felt"
+                        },
+                        {
+                            "name": "claimed_rewards",
+                            "type": "Felt"
+                        },
+                        {
+                            "name": "other_user_info",
+                            "type": {
+                                "type": "Array",
+                                "inner_type": "OtherUserInfo",
+                                "length": 16777216
+                            }
+                        }
+                    ],
+                    "functions": [
+                        {
+                            "name": "simple_mint",
+                            "params": [
+                                {
+                                    "name": "amount",
+                                    "type": "Felt"
+                                }
+                            ],
+                            "return": []
+                        }
+                    ]
+                },
+                {
+                    "name": "OtherUserInfo",
+                    "is_contract": false,
+                    "fields": [
+                        {
+                            "name": "amount_sent",
+                            "type": "Felt"
+                        },
+                        {
+                            "name": "amount_claimed",
+                            "type": "Felt"
+                        }
+                    ]
+                }
+            ]
+        }"#;
+
+        let deserialized: QContractABI = serde_json::from_str(&abi_str)?;
+        let serialized = serde_json::to_string_pretty(&deserialized)?;
+
+        let deserialized2: QContractABI = serde_json::from_str(&serialized)?;
+
+        assert_eq!(deserialized, deserialized2);
+
+        Ok(())
+    }
+}

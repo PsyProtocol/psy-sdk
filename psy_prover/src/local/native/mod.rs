@@ -14,7 +14,7 @@ use psy_common::{
     data::qhashout::QHashOut,
 };
 use psy_crypto::signature::zk::data::ZKPublicKeyInfo;
-use psy_data::qblock::cmds::deploy_contract::QBCDeployContract;
+use psy_data::qblock::cmds::deploy_contract::{QBCDeployContract, QContractABI};
 use psy_provider::provider::RpcProvider;
 use psy_vm::dpn::vm::def::DPNFunctionCircuitDefinition;
 use tokio::time::timeout;
@@ -50,7 +50,12 @@ pub trait Rpc {
     #[method(name = "get_random_keypair")]
     async fn get_random_keypair(&self) -> Result<WalletKeyPair, ErrorObjectOwned>;
     #[method(name = "deploy_contract")]
-    async fn deploy_contract(&self, deployer: QHashOut<F>, circuit_defs: Vec<DPNFunctionCircuitDefinition>) -> Result<String, ErrorObjectOwned>;
+    async fn deploy_contract(
+        &self,
+        deployer: QHashOut<F>,
+        circuit_defs: Vec<DPNFunctionCircuitDefinition>,
+        abi: QContractABI,
+    ) -> Result<String, ErrorObjectOwned>;
     #[method(name = "get_deploy_contract_cmd")]
     async fn get_deploy_contract_cmd(
         &self,
@@ -193,10 +198,15 @@ impl RpcServer for RpcServerImpl {
         .map_err(|e| ErrorObject::owned(1, e.to_string(), None::<()>))
     }
 
-    async fn deploy_contract(&self, deployer: QHashOut<F>, circuit_defs: Vec<DPNFunctionCircuitDefinition>) -> Result<String, ErrorObjectOwned> {
+    async fn deploy_contract(
+        &self,
+        deployer: QHashOut<F>,
+        circuit_defs: Vec<DPNFunctionCircuitDefinition>,
+        abi: QContractABI,
+    ) -> Result<String, ErrorObjectOwned> {
         let wallet_session = self.wallet_session.clone();
         tokio::task::spawn_blocking(move || {
-            tokio::runtime::Handle::current().block_on(async move { wallet_session.read().deploy_contract(deployer, circuit_defs).await })
+            tokio::runtime::Handle::current().block_on(async move { wallet_session.read().deploy_contract(deployer, circuit_defs, abi).await })
         })
         .await
         .map_err(|e| ErrorObject::owned(1, e.to_string(), None::<()>))?

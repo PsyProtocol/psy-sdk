@@ -22,7 +22,7 @@ use psy_crypto::{
 use psy_data::{
     guta::{api::SubmitGUTARealmResultAPINoProofInput, end_cap_input::SubmitUserEndCapNonProofInput},
     models::user::contract_state_tree::UserContractStateTreeId,
-    qblock::cmds::deploy_contract::QBCDeployContract,
+    qblock::cmds::deploy_contract::{QBCDeployContract, QContractABI},
     qdata::{
         checkpoint::{PsyBlockState, PsyCheckpointLeaf},
         contract::{ContractCodeDefinition, PsyContractLeaf},
@@ -551,6 +551,7 @@ impl<F: RichField> QRegisterUserRPCRequest<F> {
 #[serde(bound = "")]
 pub struct QDeployContractRPCRequest<F: RichField> {
     pub deploy_contract: QBCDeployContract<F>,
+    pub abi: QContractABI,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]

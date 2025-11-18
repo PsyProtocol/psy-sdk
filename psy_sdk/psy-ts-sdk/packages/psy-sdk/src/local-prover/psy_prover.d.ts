@@ -71,7 +71,7 @@ export class WasmRpcServer {
   add_user(private_key_str: string, sign_type: string): Promise<string>;
   get_zk_public_key_json(private_key_str: string): Promise<string>;
   get_random_keypair_json(): Promise<string>;
-  deploy_contract_json(deployer: string, circuit_defs_json: string): Promise<string>;
+  deploy_contract_json(deployer: string, circuit_defs_json: string, abi_json: string): Promise<string>;
   get_deploy_contract_cmd_json(deployer: string, circuit_defs_json: string): string;
   ping(message: string): string;
   get_result(id_str: string): Uint8Array;

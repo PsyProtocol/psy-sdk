@@ -86,10 +86,14 @@ pub async fn run(args: DeployContractArgs) -> anyhow::Result<()> {
 
     if args.is_deploy {
         tracing::info!("user cli deploying contract");
+        let abi = serde_json::from_str(&fs::read_to_string(args.abi_path)?)?;
 
         let contract_uuid = wallet_session
             .st_provider
-            .deploy_contract(QDeployContractRPCRequest { deploy_contract: deploy_cmd })
+            .deploy_contract(QDeployContractRPCRequest {
+                deploy_contract: deploy_cmd,
+                abi,
+            })
             .await?;
         tracing::info!("contract deployed: {}", contract_uuid);
         tracing::info!("contract deployed: {:?}", ContractUUID::from_str(&contract_uuid)?);

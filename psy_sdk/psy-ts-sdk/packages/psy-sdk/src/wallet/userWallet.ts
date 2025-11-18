@@ -126,8 +126,8 @@ class PsyUserWallet implements IPsyUserWallet {
     //     return this.prover.getRandomKeypair();
     // }
 
-    async deployContract(pk_hash: string, circuitDefs: DPNFunctionCircuitDefinition[]): Promise<string> {
-        return this.signer.deployContract(pk_hash, circuitDefs);
+    async deployContract(pk_hash: string, circuitDefs: DPNFunctionCircuitDefinition[], abi_json: string): Promise<string> {
+        return this.signer.deployContract(pk_hash, circuitDefs, abi_json);
     }
 
     // async getDeployContract(circuitDefs: DPNFunctionCircuitDefinition[]): Promise<QBCDeployContract> {
