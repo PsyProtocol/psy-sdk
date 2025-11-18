@@ -468,7 +468,7 @@ pub struct ClaimRewardsArgs {
     pub jobs: Vec<String>,
 
     /// Signature type
-    #[clap(long, short, default_value = "secp256k1")]
+    #[clap(long, short, default_value = "zk")]
     pub sign_type: SignType,
 
     /// Maximum number of checkpoints to process in one batch (optional, limits

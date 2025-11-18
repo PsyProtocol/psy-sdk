@@ -41,7 +41,7 @@ pub fn run(args: WalletArgs) -> Result<()> {
             let wallet = Wallet::load(
                 wallet.private_key.as_deref(),
                 wallet.keystore_path.as_ref().map(|p| Path::new(p)),
-                wallet.password.as_deref(),
+                wallet.wallet_password.as_deref(),
             )?;
 
             println!("✅ Wallet loaded:");

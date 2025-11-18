@@ -121,11 +121,11 @@ fn load_or_create_key(args: &WalletSourceArgs, allow_generate: bool) -> Result<(
         return Ok((parse_qhash(raw)?, false));
     }
     if let Some(path) = &args.keystore_path {
-        match Wallet::load(None, Some(Path::new(path)), args.password.as_deref()) {
+        match Wallet::load(None, Some(Path::new(path)), args.wallet_password.as_deref()) {
             Ok(wallet) => return Ok((parse_qhash(&wallet.private_key_hex())?, false)),
             Err(_) if allow_generate => {
                 let mut wallet = Wallet::new()?;
-                wallet.save(Path::new(path), args.password.as_deref())?;
+                wallet.save(Path::new(path), args.wallet_password.as_deref())?;
                 return Ok((parse_qhash(&wallet.private_key_hex())?, true));
             }
             Err(e) => return Err(e),

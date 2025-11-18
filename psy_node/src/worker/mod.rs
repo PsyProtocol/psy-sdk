@@ -40,7 +40,6 @@ pub async fn run_worker(
     verifier: Arc<GenericCircuitVerifier<C, D>>,
     wallet: Arc<Wallet>,
     worker_public_key: QHashOut<F>,
-    user_id: u64,
 ) -> anyhow::Result<()> {
     info!("Running worker for edge: {}", edge_url);
     let job_client = JobClient::new(edge_url).await?;
@@ -48,7 +47,7 @@ pub async fn run_worker(
     let store = job_client.clone();
     let job_receiver = job_client;
     let worker_pk_str = worker_public_key.to_string();
-    info!("⭐ worker public key = {}, user id = {}", worker_pk_str, user_id);
+    info!("⭐ worker public key = {}", worker_pk_str);
 
     // Configure retry behavior based on location
     let retry_config = match location {

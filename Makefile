@@ -363,17 +363,20 @@ run-api-service:
 run-worker0:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_node_cli worker \
       --config=./config.json \
-      --private-key=${USER0_PRIVATE_KEY}
+      --keystore-path=.wallets/miner0.json \
+      --recipient=3
 
 run-worker1:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_node_cli worker \
       --config=./config.json \
-      --private-key=${USER1_PRIVATE_KEY}
+      --keystore-path=.wallets/miner1.json \
+      --recipient=4
 
 run-worker2:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_node_cli worker \
       --config=./config.json \
-      --private-key=${USER2_PRIVATE_KEY}
+      --keystore-path=.wallets/miner2.json \
+      --recipient=5
 
 run-worker3:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_node_cli worker \

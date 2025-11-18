@@ -79,14 +79,14 @@ pub fn parse_contract_call_args(s: &str) -> anyhow::Result<Vec<ContractCallArgs>
 
 #[derive(Clone, Args, Serialize, Deserialize)]
 pub struct WalletSourceArgs {
-    #[clap(long, default_value = "secp256k1")]
+    #[clap(long, default_value = "zk")]
     pub sign_type: SignType,
-    #[clap(short, long, conflicts_with = "keystore_path")]
+    #[clap(short, long, env = "PRIVATE_KEY", conflicts_with = "keystore_path")]
     pub private_key: Option<String>,
-    #[clap(long, conflicts_with = "private_key")]
+    #[clap(long, env = "KEYSTORE_PATH", conflicts_with = "private_key")]
     pub keystore_path: Option<String>,
-    #[clap(long)]
-    pub password: Option<String>,
+    #[clap(long, env = "WALLET_PASSWORD")]
+    pub wallet_password: Option<String>,
     #[clap(long)]
     pub fingerprint: Option<String>,
 }

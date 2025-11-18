@@ -89,25 +89,25 @@ pub async fn run(
     let network = config.get_current_network()?;
     let worker_coordinator_client = WorkerCoordinatorClient::new(&network.coordinator_configs[0].rpc_url[0]).await?;
 
-    // Use retry_with_backoff from retry.rs
-    let retry_config = RetryConfig {
-        max_retries: 60,
-        base_delay_ms: 10000,       // 10 seconds
-        exponential_backoff: false, // Keep constant delay like original
+    let recipient_user_id = if let Some(recipient) = recipient {
+        recipient
+    } else {
+        // Use retry_with_backoff from retry.rs
+        let retry_config = RetryConfig {
+            max_retries: 60,
+            base_delay_ms: 10000,       // 10 seconds
+            exponential_backoff: false, // Keep constant delay like original
+        };
+        retry_with_backoff(&retry_config, &format!("get user ID for {}", worker_public_key), || async {
+            worker_coordinator_client.get_user_id(&worker_public_key).await
+        })
+        .await
+        .map_err(|e| {
+            error!("Failed to get user ID after all retries");
+            anyhow::anyhow!("Failed to retrieve user ID: {}", e)
+        })?
     };
-
-    let user_id = retry_with_backoff(&retry_config, &format!("get user ID for {}", worker_public_key), || async {
-        worker_coordinator_client.get_user_id(&worker_public_key).await
-    })
-    .await
-    .map_err(|e| {
-        error!("Failed to get user ID after all retries");
-        anyhow::anyhow!("Failed to retrieve user ID: {}", e)
-    })?;
-
-    info!("Successfully retrieved user ID: {}", user_id);
-
-    let recipient_user_id = recipient.unwrap_or(user_id);
+    info!("user_id: {}", recipient_user_id);
 
     let prover = Arc::new(PsyCoordinatorCircuitManager::<C, D>::new_with_library(
         &proof_verifier.library,
@@ -128,7 +128,6 @@ pub async fn run(
                 proof_verifier.clone(),
                 wallet.clone(),
                 worker_public_key.clone(),
-                user_id,
             ));
             handles.push(handle);
         }
@@ -144,7 +143,6 @@ pub async fn run(
                 proof_verifier.clone(),
                 wallet.clone(),
                 worker_public_key.clone(),
-                user_id,
             ));
             handles.push(handle);
         }

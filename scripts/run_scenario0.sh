@@ -64,11 +64,11 @@ sleep 30
 run_make_command "make build-block" "Make build Block 2"
 echo "wait for block 2 to be committed"
 sleep 10s
-run_make_command "make mint" "Mint"
-echo "wait for block 3 to be committed"
-sleep 10s
+# run_make_command "make mint" "Mint"
+# echo "wait for block 3 to be committed"
+# sleep 10s
 
-get_user_token_info
+# get_user_token_info
 
 run_make_command "make transfer" "Transfer"
 echo "wait for block 4 to be committed"
