@@ -15,7 +15,6 @@ pub mod realm_status;
 pub mod register_user;
 pub mod store;
 pub mod stress_test;
-
 #[derive(Parser)]
 pub struct Cli {
     #[command(subcommand)]

@@ -42,6 +42,7 @@ minijinja = { workspace = true }
 jsonrpsee = { workspace = true }
 hex = { workspace = true }
 
+
 # Plonky2
 plonky2 = { workspace = true }
 parking_lot = { workspace = true}
