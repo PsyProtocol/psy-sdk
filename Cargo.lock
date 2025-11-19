@@ -3203,9 +3203,11 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "899def5c37c4fd7b2664648c28120ecec138e4d395b459e5ca34f9cce2dd77fd"
 dependencies = [
  "cfg-if",
+ "js-sys",
  "libc",
  "r-efi",
  "wasip2",
+ "wasm-bindgen",
 ]
 
 [[package]]
@@ -5552,7 +5554,7 @@ dependencies = [
  "dashmap 6.1.0",
  "dirs",
  "futures",
- "getrandom 0.2.16",
+ "getrandom 0.3.4",
  "hex",
  "http 1.3.1",
  "hyper 1.8.1",
@@ -5715,7 +5717,7 @@ dependencies = [
  "dashmap 6.1.0",
  "dirs",
  "futures",
- "getrandom 0.2.16",
+ "getrandom 0.3.4",
  "hex",
  "http 1.3.1",
  "hyper 1.8.1",
@@ -5774,7 +5776,7 @@ dependencies = [
  "dashmap 6.1.0",
  "dirs",
  "futures",
- "getrandom 0.2.16",
+ "getrandom 0.3.4",
  "hex",
  "http 1.3.1",
  "hyper 1.8.1",
@@ -5822,7 +5824,7 @@ dependencies = [
  "clap",
  "console_error_panic_hook",
  "dashmap 6.1.0",
- "getrandom 0.2.16",
+ "getrandom 0.3.4",
  "hex",
  "js-sys",
  "k256",
@@ -5945,7 +5947,7 @@ dependencies = [
  "dashmap 6.1.0",
  "dirs",
  "futures",
- "getrandom 0.2.16",
+ "getrandom 0.3.4",
  "hex",
  "http 1.3.1",
  "hyper 1.8.1",
