@@ -36,6 +36,7 @@ pub enum UPSCircuitType {
     Start = 0,
     CFCStandard = 1,
     CFCDeferred = 2,
+    StartRegisterUser = 3,
 }
 impl UPSCircuitType {
     pub fn to_u8(&self) -> u8 {
@@ -46,6 +47,7 @@ impl UPSCircuitType {
             UPSCircuitType::Start => LocalCircuitType::UPSStart,
             UPSCircuitType::CFCStandard => LocalCircuitType::UPSCFCStandard,
             UPSCircuitType::CFCDeferred => LocalCircuitType::UPSCFCDeferred,
+            UPSCircuitType::StartRegisterUser => LocalCircuitType::UPSStartRegisterUser,
         }
     }
 }
@@ -56,6 +58,7 @@ impl TryFrom<u8> for UPSCircuitType {
             0 => Ok(UPSCircuitType::Start),
             1 => Ok(UPSCircuitType::CFCStandard),
             2 => Ok(UPSCircuitType::CFCDeferred),
+            3 => Ok(UPSCircuitType::StartRegisterUser),
             _ => Err(anyhow::format_err!("Invalid UPSCircuitType value: {}", value)),
         }
     }

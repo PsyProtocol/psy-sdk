@@ -336,7 +336,11 @@ impl<
             })
             .await;
         self.last_ups_step_proof_info = TreeAwareTreeProofRecord {
-            circuit_id: LocalCircuitType::UPSStart.into(),
+            circuit_id: if self.lps.is_new_user() {
+                LocalCircuitType::UPSStartRegisterUser.into()
+            } else {
+                LocalCircuitType::UPSStart.into()
+            },
             inner_public_inputs_hash,
             known_proof_tree_root,
             proof_tree_index: last_ups_step_proof_index,
