@@ -22,8 +22,9 @@ use ts_rs::TS;
 
 use super::{end_cap_input::SubmitUserEndCapNonProofInput, proof_input::VerifyEndCapSimpleStandardInput, stats::GUTAStats};
 use crate::{
+    qblock::cmds::deploy_contract::{PsyContractSlotUpdates, PsySlotUpdate},
     qdata::{ups_end_cap_result::UPSEndCapResultCompact, user::PsyUserLeaf},
-    qstore::uct_merkle_nodes::{CSTUserUpdateStore, CSTUserUpdate},
+    qstore::uct_merkle_nodes::{CSTUserUpdate, CSTUserUpdateStore},
 };
 
 #[derive(Clone, Debug)]
@@ -100,7 +101,32 @@ impl<F: RichField> PsyContractStateUpdateHistory<F> {
 
         Ok(())
     }
+
+    pub fn get_slot_updates(&self) -> anyhow::Result<PsyContractSlotUpdates<F>> {
+        let slot_updates = self
+            .contract_state_tree_updates
+            .iter()
+            .flat_map(|update| {
+                let old_elements = &update.old_value.0.elements;
+                let new_elements = &update.new_value.0.elements;
+                old_elements
+                    .iter()
+                    .zip(new_elements.iter())
+                    .enumerate()
+                    .filter(|(_, (old, new))| old != new)
+                    .map(|(offset, (old, new))| PsySlotUpdate {
+                        slot: update.index * 4 + offset as u64,
+                        old_value: *old,
+                        new_value: *new,
+                    })
+            })
+            .collect::<Vec<_>>();
+        let contract_id = self.user_contract_tree_update_proof.index as u32;
+        let contract_update = PsyContractSlotUpdates { contract_id, slot_updates };
+        Ok(contract_update)
+    }
 }
+
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
 pub struct UserEndCapNonProofCoreInputQueueItem<F: RichField> {

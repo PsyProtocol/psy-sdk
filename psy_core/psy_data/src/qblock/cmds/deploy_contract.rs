@@ -160,6 +160,23 @@ pub struct QContractABI {
     pub structs: Vec<StructAbiSpec>,
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, TS)]
+#[serde(bound = "for<'de2> F: Deserialize<'de2>")]
+#[ts(export, concrete(F = GoldilocksField))]
+pub struct PsySlotUpdate<F: RichField> {
+    pub slot: u64,
+    pub old_value: F,
+    pub new_value: F,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, TS)]
+#[serde(bound = "for<'de2> F: Deserialize<'de2>")]
+#[ts(export, concrete(F = GoldilocksField))]
+pub struct PsyContractSlotUpdates<F: RichField> {
+    pub contract_id: u32,
+    pub slot_updates: Vec<PsySlotUpdate<F>>,
+}
+
 mod tests {
     use super::*;
 

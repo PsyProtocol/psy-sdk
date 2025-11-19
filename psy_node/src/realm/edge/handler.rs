@@ -396,6 +396,7 @@ where
             .await
             .map_err(RpcError::Anyhow)?
             .checkpoint_id;
+        let slot_updates = user_ec_input.get_slot_updates().map_err(RpcError::Anyhow)?;
         let endcap_event = UserEndcapSubmissionEvent {
             realm_id: self.ctx.realm_config.realm_id as u64,
             user_id: user_ec_input.core.state_transition.user_id.to_canonical_u64(),
@@ -406,6 +407,7 @@ where
                 endcap_proof_public_inputs: proof.public_inputs.clone(),
                 node_id: self.watcher_client.node_id.clone().unwrap_or_default(),
                 node_type: WatcherSourceNodeType::Realm.to_string(),
+                slot_updates,
             },
             timestamp: current_datetime(),
         };

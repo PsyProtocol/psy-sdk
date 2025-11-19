@@ -6,7 +6,10 @@ use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
 use super::api::{PsyContractStateUpdateHistory, SimpleContractHeightCache, SubmitUserEndCapNonProofCoreInput};
-use crate::qstore::uct_merkle_nodes::{CSTUserUpdate, CSTUserUpdateStore};
+use crate::{
+    qblock::cmds::deploy_contract::PsyContractSlotUpdates,
+    qstore::uct_merkle_nodes::{CSTUserUpdate, CSTUserUpdateStore},
+};
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash, Default, TS)]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
@@ -117,6 +120,15 @@ impl<F: RichField> SubmitUserEndCapNonProofInput<F> {
         let upd = injestor.into_updates(checkpoint_id, self.core.state_transition.user_id.to_canonical_u64());
 
         Ok(upd)
+    }
+
+    pub fn get_slot_updates(&self) -> anyhow::Result<Vec<PsyContractSlotUpdates<F>>> {
+        let contract_updates = self
+            .contract_state_updates
+            .iter()
+            .map(|x| x.get_slot_updates())
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(contract_updates)
     }
 }
 
