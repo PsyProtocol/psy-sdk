@@ -32,6 +32,7 @@ use psy_data::{
     qstore::imm::{cache::PsyCmdStoreWithCache, cmd_processor::PsyReadCommandProcessorSync},
     ups::{
         start_step::UPSStartStepInput,
+        start_step_register_user::UPSStartStepRegisterUserInput,
         ups_cfc_standard_step::{UPSCFCDeferredTransactionCircuitInput, UPSCFCStandardTransactionCircuitInput},
         ups_end_cap::UPSEndCapFromProofTreeGadgetInput,
     },
@@ -256,6 +257,8 @@ pub enum RequestParams<F: RichField> {
     GetCircuitsData(),
     #[serde(rename = "psy_prove_ups_start")]
     ProveUpsStart(QProveUpsStartRPCRequest<F>),
+    #[serde(rename = "psy_prove_ups_start_register_user")]
+    ProveUpsStartRegisterUser(QProveUpsStartRegisterUserRPCRequest<F>),
     #[serde(rename = "psy_register_contract_circuits")]
     RegisterCircuits(QRegisterCircuitsRPCRequest),
     #[serde(rename = "psy_get_fn_id")]
@@ -1121,6 +1124,13 @@ pub struct QBlockStateFRPCRequest<F: RichField> {
 #[ts(export, concrete(F = GoldilocksField))]
 pub struct QProveUpsStartRPCRequest<F: RichField> {
     pub input: UPSStartStepInput<F>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[serde(bound = "")]
+#[ts(export, concrete(F = GoldilocksField))]
+pub struct QProveUpsStartRegisterUserRPCRequest<F: RichField> {
+    pub input: UPSStartStepRegisterUserInput<F>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]

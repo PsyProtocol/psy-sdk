@@ -1,11 +1,9 @@
-pub mod edge_v2;
 pub mod error;
 pub mod handler;
 pub mod rpc;
 use std::sync::Arc;
 
 use anyhow::Result;
-pub use edge_v2::run_realm_edge_v2;
 use hyper::Method;
 use jsonrpsee::server::ServerBuilder;
 use psy_common::health::HealthLayer;
@@ -21,8 +19,9 @@ use super::{config::RealmEdgeConfig, rpc::RealmEdgeRpcServer, C, D, F};
 use crate::{
     common::{jobs::JobSchedulerRpcServer, verifier::get_cached_generic_verifier, whitelist::WhiteListCache},
     realm::{
+        client::ConcreteCoordinatorClient,
         handler::RealmEdgeHandler,
-        state::{edge::RealmEdgeContext, edge_queue_helper::RealmEdgeQueueHelper, processor::RealmConfig, queue_factory::QueueFactory},
+        state::{edge::RealmEdgeContext, processor::RealmConfig},
     },
     watcher::watcher_client::WatcherClient,
 };
@@ -59,13 +58,6 @@ pub async fn run_realm_edge(config: RealmEdgeConfig) -> Result<()> {
     let store = store::new(&config.backend.to_backend()).await?;
     let store_reader = Arc::new(store);
 
-    let queue_helper = QueueFactory::create_rsmq_helper::<F>(
-        &config.redis.redis_uri,
-        config.redis.pool_size.unwrap_or(10),
-        config.realm.realm_id,
-        store_reader.clone(),
-    )
-    .await?;
 
     debug!("created store reader successfully!");
     // Create proof verifier
@@ -79,8 +71,11 @@ pub async fn run_realm_edge(config: RealmEdgeConfig) -> Result<()> {
     // Use the same ProofStoreRedis for checkpoint sync
     let sync_queue = proof_store.clone();
 
+    // Create coordinator client
+    let coordinator_client = Arc::new(ConcreteCoordinatorClient::new(config.rpc.coordinator_addr.clone())?);
+
     // Create Edge node context
-    let edge_ctx = RealmEdgeContext::new(realm_config, store_reader.clone(), checkpoint_queue, proof_store.clone(), proof_verifier).await?;
+    let edge_ctx = RealmEdgeContext::new(realm_config, store_reader.clone(), checkpoint_queue, proof_store.clone(), proof_verifier, coordinator_client.clone()).await?;
 
     let cors_opts = CorsLayer::new()
         .allow_methods([Method::POST, Method::OPTIONS])
@@ -112,8 +107,6 @@ pub async fn run_realm_edge(config: RealmEdgeConfig) -> Result<()> {
         Arc::new(task_store),
         whitelist_cache,
         watcher_client,
-        &config.rpc.coordinator_addr,
-        Arc::new(queue_helper),
     )?;
 
     let mut rpc_module = RealmEdgeRpcServer::into_rpc(handler.clone());

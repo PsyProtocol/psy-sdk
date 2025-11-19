@@ -25,7 +25,6 @@ use psy_data::{
 use psy_provider::request::{QDeployContractRPCRequest, QRegisterUserRPCRequest};
 
 use super::types::LatestCheckpointResponse;
-use crate::common_v2::traits::realm::{BasicRealmStatusOnCoordinator, GlobalBlockUpdateFromCoordinator, RealmDataForCoordinator};
 
 type F = PsyFelt;
 type C = PoseidonGoldilocksConfig;
@@ -60,8 +59,6 @@ pub trait CoordinatorEdgeRpc {
     #[method(name = "has_pending_guta")]
     async fn has_pending_guta(&self, realm_id: u32) -> RpcResult<bool>;
 
-    #[method(name = "submit_realm_result")]
-    async fn submit_realm_result(&self, realm_result: RealmDataForCoordinator<F>) -> RpcResult<()>;
 
     #[method(name = "get_latest_checkpoint")]
     async fn get_latest_checkpoint(&self) -> RpcResult<LatestCheckpointResponse>;
@@ -149,6 +146,9 @@ pub trait CoordinatorEdgeRpc {
         self.get_user_registration_tree_merkle_proof(checkpoint_id.to_canonical_u64(), leaf_index.to_canonical_u64())
             .await
     }
+
+    #[method(name = "get_user_registration_proof")]
+    async fn get_user_registration_proof(&self, user_id: u64) -> RpcResult<MerkleProofCore<QHashOut<F>>>;
 
     // User tree
     #[method(name = "get_user_tree_root")]
@@ -359,23 +359,10 @@ pub trait CoordinatorEdgeRpc {
     #[method(name = "get_graphviz")]
     async fn get_graphviz(&self, checkpoint_id: u64) -> RpcResult<String>;
 
-    #[method(name = "get_current_realm_status_on_coordinator")]
-    async fn get_current_realm_status_on_coordinator(&self, realm_id: u64) -> RpcResult<BasicRealmStatusOnCoordinator<F>>;
 
     #[method(name = "get_contract_metadata")]
     async fn get_contract_metadata(&self, contract_uuid: &str) -> RpcResult<ContractMetaData<F>>;
 
     #[method(name = "get_current_checkpoint_id")]
     async fn get_current_checkpoint_id(&self) -> RpcResult<u64>;
-
-    #[method(name = "get_latest_block_updates_from_coordinator")]
-    async fn get_latest_block_updates_from_coordinator(
-        &self,
-        realm_id: u32,
-        from_checkpoint: u64,
-        to_checkpoint: u64,
-    ) -> RpcResult<Vec<GlobalBlockUpdateFromCoordinator<F>>>;
-
-    #[method(name = "wait_until_coordinator_completed")]
-    async fn wait_until_coordinator_completed(&self, realm_id: u64, checkpoint_id: u64) -> RpcResult<GlobalBlockUpdateFromCoordinator<F>>;
 }

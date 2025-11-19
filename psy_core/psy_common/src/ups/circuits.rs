@@ -36,6 +36,7 @@ pub enum UPSCircuitType {
     Start = 0,
     CFCStandard = 1,
     CFCDeferred = 2,
+    StartRegisterUser = 3,
 }
 impl UPSCircuitType {
     pub fn to_u8(&self) -> u8 {
@@ -46,6 +47,7 @@ impl UPSCircuitType {
             UPSCircuitType::Start => LocalCircuitType::UPSStart,
             UPSCircuitType::CFCStandard => LocalCircuitType::UPSCFCStandard,
             UPSCircuitType::CFCDeferred => LocalCircuitType::UPSCFCDeferred,
+            UPSCircuitType::StartRegisterUser => LocalCircuitType::UPSStartRegisterUser,
         }
     }
 }
@@ -56,6 +58,7 @@ impl TryFrom<u8> for UPSCircuitType {
             0 => Ok(UPSCircuitType::Start),
             1 => Ok(UPSCircuitType::CFCStandard),
             2 => Ok(UPSCircuitType::CFCDeferred),
+            3 => Ok(UPSCircuitType::StartRegisterUser),
             _ => Err(anyhow::format_err!("Invalid UPSCircuitType value: {}", value)),
         }
     }
@@ -73,6 +76,7 @@ pub enum LocalCircuitType {
     UPSStart = 0,
     UPSCFCStandard = 1,
     UPSCFCDeferred = 2,
+    UPSStartRegisterUser = 3,
     // ...
     UPSEndCap = 31,
 
@@ -135,6 +139,7 @@ impl TryFrom<u8> for LocalCircuitType {
             0 => Ok(LocalCircuitType::UPSStart),
             1 => Ok(LocalCircuitType::UPSCFCStandard),
             2 => Ok(LocalCircuitType::UPSCFCDeferred),
+            3 => Ok(LocalCircuitType::UPSStartRegisterUser),
             31 => Ok(LocalCircuitType::UPSEndCap),
             33 => Ok(LocalCircuitType::PTAggSingle),
             34 => Ok(LocalCircuitType::PTAggTwoLeaf),

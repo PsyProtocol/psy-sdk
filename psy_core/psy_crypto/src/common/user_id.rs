@@ -19,6 +19,8 @@ pub trait UserIdGeneratorStrategy {
         global_user_tree_height: usize,
     ) -> Target;
     fn get_user_id_from_registration_id(registration_id: u64) -> u64;
+    // add this function
+    fn get_registration_id_from_user_id(user_id: u64) -> u64;
 }
 pub struct UserIdBitsStrategy1;
 
@@ -40,6 +42,10 @@ impl UserIdGeneratorStrategy for UserIdBitsStrategy1 {
     fn get_user_id_from_registration_id(registration_id: u64) -> u64 {
         let dif = 64 - GLOBAL_USER_TREE_HEIGHT as u64;
         (registration_id).reverse_bits() >> dif
+    }
+
+    fn get_registration_id_from_user_id(user_id: u64) -> u64 {
+        reverse_bits_in_limit(user_id, GLOBAL_USER_TREE_HEIGHT)
     }
 }
 
@@ -75,6 +81,13 @@ impl UserIdGeneratorStrategy for UserIdBitsStrategy2 {
 
         (new_top_bits << REALM_USER_TREE_HEIGHT) | new_bottom_bits
     }
+
+    fn get_registration_id_from_user_id(user_id: u64) -> u64 {
+        let realm_seq = user_id & ((1u64 << REALM_USER_TREE_HEIGHT) - 1);
+        let reversed_coord = user_id >> REALM_USER_TREE_HEIGHT;
+        let coord_id = reverse_bits_in_limit(reversed_coord, COORDINATOR_USER_TREE_HEIGHT);
+        (realm_seq << COORDINATOR_USER_TREE_HEIGHT) | coord_id
+    }
 }
 
 pub struct UserIdBitsStrategy3;
@@ -99,6 +112,13 @@ impl UserIdGeneratorStrategy for UserIdBitsStrategy3 {
 
     fn get_user_id_from_registration_id(registration_id: u64) -> u64 {
         (reverse_bits_in_limit(registration_id >> 10u64, GLOBAL_USER_TREE_HEIGHT - 10) << 10u64) | (registration_id & ((1u64 << 10) - 1u64))
+    }
+
+    fn get_registration_id_from_user_id(user_id: u64) -> u64 {
+        let low = user_id & ((1u64 << 10) - 1);
+        let reversed_top = user_id >> 10;
+        let top_part = reverse_bits_in_limit(reversed_top, GLOBAL_USER_TREE_HEIGHT - 10);
+        (top_part << 10) | low
     }
 }
 
@@ -138,6 +158,7 @@ impl UserIdGeneratorStrategy for UserIdBitsStrategy4 {
 
         let user_index_bits =
             user_registration_tree_leaf_index_bits[(GROUP_REALM_HEIGHT as usize)..((GROUP_REALM_HEIGHT + REALM_USER_TREE_HEIGHT) as usize)].to_vec();
+
         let group_id_bits = user_registration_tree_leaf_index_bits[((GROUP_REALM_HEIGHT + REALM_USER_TREE_HEIGHT) as usize)..].to_vec();
 
         let user_index_half_bits = (REALM_USER_TREE_HEIGHT / 2) as usize;
@@ -172,6 +193,25 @@ impl UserIdGeneratorStrategy for UserIdBitsStrategy4 {
 
         (realm_id << REALM_USER_TREE_HEIGHT) | modified_user_index
     }
+
+    fn get_registration_id_from_user_id(user_id: u64) -> u64 {
+        let modified_user_index = user_id & ((1u64 << REALM_USER_TREE_HEIGHT) - 1);
+        let realm_id = user_id >> REALM_USER_TREE_HEIGHT;
+
+        let half = REALM_USER_TREE_HEIGHT / 2;
+        let reversed_high_half = modified_user_index & ((1u64 << half) - 1);
+        let low_half = modified_user_index >> half;
+        let high_half = reverse_bits_in_limit(reversed_high_half, half);
+        let user_index = (high_half << half) | low_half;
+
+        let reversed_realm_index = realm_id & ((1u64 << GROUP_REALM_HEIGHT) - 1);
+        let group_id = realm_id >> GROUP_REALM_HEIGHT;
+        let realm_index = reverse_bits_in_limit(reversed_realm_index, GROUP_REALM_HEIGHT);
+
+        let shift1 = GROUP_REALM_HEIGHT;
+        let shift2 = GROUP_REALM_HEIGHT + REALM_USER_TREE_HEIGHT;
+        ((group_id << shift2) | (user_index << shift1)) | realm_index
+    }
 }
 /*
 // reverse bits gives a very even distribution
@@ -200,6 +240,9 @@ type UserIdBitsStrategy = UserIdBitsStrategy4;
 
 pub fn get_user_id_from_registration_id(registration_id: u64) -> u64 {
     UserIdBitsStrategy::get_user_id_from_registration_id(registration_id)
+}
+pub fn get_registration_id_from_user_id(user_id: u64) -> u64 {
+    UserIdBitsStrategy::get_registration_id_from_user_id(user_id)
 }
 pub fn circuit_user_registration_tree_index_bits_to_user_id<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
     builder: &mut CircuitBuilder<F, D>,
@@ -333,6 +376,35 @@ mod tests {
         }
     }
 
+    fn test_inverse<UIDGen: UserIdGeneratorStrategy>(batch_size: usize, count: usize, rand_count: usize) -> anyhow::Result<()> {
+        let height = GLOBAL_USER_TREE_HEIGHT as u64;
+        let mask = (1u64 << height) - 1;
+        let max_regions = (count / batch_size) as u64;
+        let rand_regions = (rand_count / batch_size) as u64;
+        let b_size = batch_size as u64;
+        for i in 0u64..(max_regions + 1) {
+            let ids: Vec<u64> = ((i * b_size)..((i + 1u64) * b_size)).map(|x| x & mask).collect();
+            for &reg in &ids {
+                let user = UIDGen::get_user_id_from_registration_id(reg);
+                let reg_back = UIDGen::get_registration_id_from_user_id(user);
+                if reg_back != reg {
+                    anyhow::bail!("Inverse failed: reg {} -> user {} -> back {}", reg, user, reg_back);
+                }
+            }
+        }
+        for _ in 0u64..rand_regions {
+            let ids: Vec<u64> = (0..batch_size).map(|_| thread_rng().next_u64() & mask).collect();
+            for &reg in &ids {
+                let user = UIDGen::get_user_id_from_registration_id(reg);
+                let reg_back = UIDGen::get_registration_id_from_user_id(user);
+                if reg_back != reg {
+                    anyhow::bail!("Inverse failed: reg {} -> user {} -> back {}", reg, user, reg_back);
+                }
+            }
+        }
+        Ok(())
+    }
+
     #[test]
     fn check_strategy_1() {
         SimpleBitsTester::<PoseidonGoldilocksConfig, 2>::full_check::<UserIdBitsStrategy1>(1024, 64 * 1024, 64 * 1024).unwrap();
@@ -348,6 +420,23 @@ mod tests {
     #[test]
     fn check_strategy_4() {
         SimpleBitsTester::<PoseidonGoldilocksConfig, 2>::full_check::<UserIdBitsStrategy4>(1024, 64 * 1024, 64 * 1024).unwrap();
+    }
+
+    #[test]
+    fn test_inverse_strategy_1() {
+        test_inverse::<UserIdBitsStrategy1>(1024, 64 * 1024, 64 * 1024).unwrap();
+    }
+    #[test]
+    fn test_inverse_strategy_2() {
+        test_inverse::<UserIdBitsStrategy2>(1024, 64 * 1024, 64 * 1024).unwrap();
+    }
+    #[test]
+    fn test_inverse_strategy_3() {
+        test_inverse::<UserIdBitsStrategy3>(1024, 64 * 1024, 64 * 1024).unwrap();
+    }
+    #[test]
+    fn test_inverse_strategy_4() {
+        test_inverse::<UserIdBitsStrategy4>(1024, 64 * 1024, 64 * 1024).unwrap();
     }
     /*
     #[test]

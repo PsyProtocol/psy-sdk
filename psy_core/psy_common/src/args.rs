@@ -78,13 +78,25 @@ pub fn parse_contract_call_args(s: &str) -> anyhow::Result<Vec<ContractCallArgs>
 }
 
 #[derive(Clone, Args, Serialize, Deserialize)]
+pub struct WalletSourceArgs {
+    #[clap(long, default_value = "zk")]
+    pub sign_type: SignType,
+    #[clap(short, long, env = "PRIVATE_KEY", conflicts_with = "keystore_path")]
+    pub private_key: Option<String>,
+    #[clap(long, env = "KEYSTORE_PATH", conflicts_with = "private_key")]
+    pub keystore_path: Option<String>,
+    #[clap(long, env = "WALLET_PASSWORD")]
+    pub wallet_password: Option<String>,
+    #[clap(long)]
+    pub fingerprint: Option<String>,
+}
+
+#[derive(Clone, Args, Serialize, Deserialize)]
 pub struct WalletSessionArgs {
     #[clap(env, long, default_value = "config.json", env)]
     pub rpc_config: String,
-    #[arg(long, short, default_value = "17c975c2668ebe0ca7c87f67c6414ebb7fd664f46370a0af2a3b204c8824ac5a", env)]
-    pub private_key: String,
-    #[clap(env, long, default_value = "zk", env)]
-    pub sign_type: SignType,
+    #[command(flatten)]
+    pub wallet: WalletSourceArgs,
 
     #[clap(long, action = clap::ArgAction::Append)]
     pub contract_id: Vec<u64>,

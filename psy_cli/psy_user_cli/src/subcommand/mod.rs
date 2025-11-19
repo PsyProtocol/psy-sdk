@@ -8,14 +8,13 @@ pub mod prove_proxy;
 
 cfg_if::cfg_if! {
     if #[cfg(not(target_arch = "wasm32"))] {
-        pub mod get_public_key;
-        pub mod random_wallet;
         pub mod wallet;
         pub mod register_user;
         pub mod submit_end_cap_proof;
         pub mod claim_rewards;
         pub mod claim_amount;
         pub mod check_tx;
+        pub mod key_utils;
     }
 }
 
@@ -27,8 +26,6 @@ pub struct Cli {
 
 #[derive(Subcommand)]
 pub enum Commands {
-    GetPublicKey(crate::subcommand::args::GetPublicKeyArgs),
-    RandomWallet(crate::subcommand::args::RandomWalletArgs),
     Wallet(crate::subcommand::args::WalletArgs),
     RegisterUser(crate::subcommand::args::RegisterUserArgs),
 

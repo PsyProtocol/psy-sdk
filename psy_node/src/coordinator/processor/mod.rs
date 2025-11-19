@@ -82,7 +82,6 @@ use crate::{
         slot::{LocalClock, Parity, Slot, SLOT_SIZE},
         verifier::get_cached_generic_verifier,
     },
-    common_v2::traits::realm::BasicRealmStatusOnCoordinator,
     coordinator::state::processor::{CoordinatorConfig, CoordinatorProcessorContext},
     realm::RealmProcessor,
 };

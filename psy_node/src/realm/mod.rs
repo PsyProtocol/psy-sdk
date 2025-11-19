@@ -11,6 +11,7 @@ pub type F = psy_data::config::store_config::PsyFelt;
 pub type H = PsyHasher;
 
 pub mod backup;
+pub mod client;
 pub mod config;
 pub mod edge;
 pub mod processor;

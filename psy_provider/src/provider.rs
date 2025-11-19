@@ -36,6 +36,7 @@ use psy_data::{
     traits::qdatastore::{qmetadata::QMetaDataStoreReaderSync, qtreedata::QTreeDataStoreReaderSync},
     ups::{
         start_step::UPSStartStepInput,
+        start_step_register_user::UPSStartStepRegisterUserInput,
         ups_cfc_standard_step::{UPSCFCDeferredTransactionCircuitInput, UPSCFCStandardTransactionCircuitInput},
         ups_end_cap::UPSEndCapFromProofTreeGadgetInput,
     },
@@ -63,8 +64,8 @@ use crate::{
     request::{
         DPNSoftwareDefinedSignatureInput, DPNSoftwareDefinedSignatureProofRPCRequest, QBlockStateRPCRequest, QGetContractMethodCommonDataRPCRequest,
         QGetFnIdRPCRequest, QGetTxStatusRPCRequest, QLatestBlockStateRPCRequest, QLeftAggRightLeafRpcRequestV2, QLeftLeafRightAggRpcRequestV2,
-        QProveContractCallRPCRequest, QProveUpsStartRPCRequest, QRegisterCircuitsRPCRequest, QRegisterDPNSoftwareDefinedCircuitRPCRequest,
-        QRegisterPlonky2SoftwareDefinedCircuitRPCRequest, QResolveContractFunctionByMethodIdRPCRequest,
+        QProveContractCallRPCRequest, QProveUpsStartRPCRequest, QProveUpsStartRegisterUserRPCRequest, QRegisterCircuitsRPCRequest,
+        QRegisterDPNSoftwareDefinedCircuitRPCRequest, QRegisterPlonky2SoftwareDefinedCircuitRPCRequest, QResolveContractFunctionByMethodIdRPCRequest,
         QResolveContractFunctionByMethodNameRPCRequest, QSecpSignatureProofRPCRequest, QSignatureMinifierProofRPCRequest, QSignatureProofRPCRequest,
         QSingleLeafRpcRequestV2, QTwoAggRpcRequsetV2, QTwoLeafRpcRequestV2, QUpsCfcDeferredTxRPCRequest, QUpsCfcStandardTxRPCRequest,
         QUpsEndCapRPCRequestV2, QUserSubTreeMerkleProofRPCRequest, RequestParamsV2,
@@ -387,6 +388,49 @@ impl RpcProvider {
         }
     }
 
+    pub async fn with_user_id<T, F, Fut>(&mut self, user_id: u64, f: F) -> T
+    where
+        F: FnOnce(&mut Self) -> Fut,
+        Fut: std::future::Future<Output = T>,
+    {
+        let original_user_id = self.current_user_id;
+        self.current_user_id = user_id;
+
+        let result = f(self).await;
+
+        self.current_user_id = original_user_id;
+
+        result
+    }
+
+    pub fn with_user_id_owned(&self, user_id: u64) -> Self {
+        Self {
+            client: self.client.clone(),
+            realm_configs: self.realm_configs.clone(),
+            coordinator_configs: self.coordinator_configs.clone(),
+            users_per_realm: self.users_per_realm,
+            current_user_id: user_id,
+        }
+    }
+
+    pub fn set_user_id(&mut self, user_id: u64) {
+        self.current_user_id = user_id;
+    }
+}
+
+impl psy_data::qstore::imm::cmd_processor::QUserIdManager for RpcProvider {
+    fn get_user_id(&self) -> u64 {
+        self.current_user_id
+    }
+
+    fn set_user_id(&mut self, user_id: u64) {
+        self.current_user_id = user_id;
+    }
+}
+
+#[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
+#[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
+impl RpcProvider {
     pub async fn get_realm_latest_block_state(&self) -> anyhow::Result<psy_data::qdata::checkpoint::PsyBlockState> {
         tracing::info!("Fetching latest realm block state");
         let rpc_url = self.get_realm_url(self.current_user_id)?;
@@ -649,6 +693,7 @@ pub struct QCommonCircuitData<F: RichField> {
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
 pub struct LocalCommonCircuitsData<F: RichField> {
     pub ups_start: QCommonCircuitData<F>,
+    pub ups_start_register_user: QCommonCircuitData<F>,
     pub ups_cfc_standard_tx: QCommonCircuitData<F>,
     pub ups_cfc_deferred_tx: QCommonCircuitData<F>,
     pub ups_end_cap: QCommonCircuitData<F>,
@@ -657,6 +702,7 @@ pub struct LocalCommonCircuitsData<F: RichField> {
 
     pub ups_circuit_whitelist_root: QHashOut<F>,
     pub ups_start_whitelist_proof: MerkleProofCore<QHashOut<F>>,
+    pub ups_start_register_user_whitelist_proof: MerkleProofCore<QHashOut<F>>,
     pub ups_cfc_standard_tx_whitelist_proof: MerkleProofCore<QHashOut<F>>,
     pub ups_cfc_deferred_tx_whitelist_proof: MerkleProofCore<QHashOut<F>>,
 
@@ -738,6 +784,11 @@ where
             self.common_circuits_data.ups_start.verifier_config.clone(),
         );
         info_store.register_circuit(
+            LocalCircuitType::UPSStartRegisterUser.into(),
+            self.common_circuits_data.ups_start_register_user.fingerprint,
+            self.common_circuits_data.ups_start_register_user.verifier_config.clone(),
+        );
+        info_store.register_circuit(
             LocalCircuitType::UPSCFCStandard.into(),
             self.common_circuits_data.ups_cfc_standard_tx.fingerprint,
             self.common_circuits_data.ups_cfc_standard_tx.verifier_config.clone(),
@@ -761,6 +812,12 @@ where
         info_store.register_whitelist_merkle_proof(
             LocalCircuitType::UPSStart.into(),
             self.common_circuits_data.ups_start_whitelist_proof.clone(),
+        );
+        info_store.register_whitelist_merkle_proof(
+            LocalCircuitType::UPSStartRegisterUser.into(),
+            self.common_circuits_data
+                .ups_start_register_user_whitelist_proof
+                .clone(),
         );
         info_store.register_whitelist_merkle_proof(
             LocalCircuitType::UPSCFCStandard.into(),
@@ -834,6 +891,31 @@ where
             self,
             &self.proof_proxy_url,
             RequestParams::<C::F>::ProveUpsStart(QProveUpsStartRPCRequest {
+                input: input.clone(),
+            }),
+            ProofWithPublicInputs<C::F, C, D>
+        );
+        match response.result {
+            ResponseResult::Success(proof) => {
+                tracing::info!("get proof: {}", serde_json::to_string_pretty(&proof.public_inputs)?);
+                Ok(proof)
+            }
+            ResponseResult::Error(e) => Err(anyhow::format_err!("rpc call failed `{:?}`", e)),
+        }
+    }
+
+    async fn prove_ups_start_register_user(
+        &self,
+        input: &UPSStartStepRegisterUserInput<C::F>,
+    ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
+        tracing::info!(
+            "prove ups start register user: {}",
+            serde_json::to_string_pretty(&input)?
+        );
+        let response = psy_rpc_call_back!(
+            self,
+            &self.proof_proxy_url,
+            RequestParams::<C::F>::ProveUpsStartRegisterUser(QProveUpsStartRegisterUserRPCRequest {
                 input: input.clone(),
             }),
             ProofWithPublicInputs<C::F, C, D>
@@ -1195,6 +1277,19 @@ where
 
     async fn ups_start_circuit_verifier_config(&self) -> anyhow::Result<VerifierOnlyCircuitData<C, D>> {
         Ok(self.common_circuits_data.ups_start.verifier_config.clone().to_verifier_data())
+    }
+
+    async fn ups_start_register_user_circuit_fingerprint(&self) -> anyhow::Result<QHashOut<C::F>> {
+        Ok(self.common_circuits_data.ups_start_register_user.fingerprint)
+    }
+
+    async fn ups_start_register_user_circuit_verifier_config(&self) -> anyhow::Result<VerifierOnlyCircuitData<C, D>> {
+        Ok(self
+            .common_circuits_data
+            .ups_start_register_user
+            .verifier_config
+            .clone()
+            .to_verifier_data())
     }
 
     async fn ups_cfc_standard_tx_circuit_fingerprint(&self) -> anyhow::Result<QHashOut<C::F>> {

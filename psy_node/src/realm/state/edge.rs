@@ -34,13 +34,17 @@ use psy_data::{
         api::{SimpleContractHeightCache, UserEndCapNonProofCoreInputQueueItem},
         end_cap_input::SubmitUserEndCapNonProofInput,
     },
+    qstore::controllers::register_helpers::get_new_empty_user_leaf,
 };
 use psy_prover::session::TxStatus;
 use psy_store::node::realm::PsyRealmStoreReaderAsync;
 use tracing::debug;
 
 use super::processor::RealmConfig;
-use crate::realm::{C, D, F, H};
+use crate::{
+    common::traits::realm::CoordinatorClient,
+    realm::{client::ConcreteCoordinatorClient, C, D, F, H},
+};
 
 #[derive(Clone)]
 pub struct RealmEdgeContext<SR: PsyRealmStoreReaderAsync<F> + Sync, DQ: CheckpointDrainQueueEmitterAsyncImm, PS: QProofStoreAsyncImm> {
@@ -49,6 +53,7 @@ pub struct RealmEdgeContext<SR: PsyRealmStoreReaderAsync<F> + Sync, DQ: Checkpoi
     pub proof_store: Arc<PS>,
     pub proof_verifier: Arc<GenericCircuitVerifier<C, D>>,
     pub realm_config: RealmConfig,
+    pub coordinator_client: Arc<ConcreteCoordinatorClient>,
 }
 
 impl<SR: PsyRealmStoreReaderAsync<F> + Sync, DQ: CheckpointDrainQueueEmitterAsyncImm, PS: QProofStoreAsyncImm> RealmEdgeContext<SR, DQ, PS> {
@@ -58,6 +63,7 @@ impl<SR: PsyRealmStoreReaderAsync<F> + Sync, DQ: CheckpointDrainQueueEmitterAsyn
         checkpoint_queue: Arc<DQ>,
         proof_store: Arc<PS>,
         proof_verifier: Arc<GenericCircuitVerifier<C, D>>,
+        coordinator_client: Arc<ConcreteCoordinatorClient>,
     ) -> anyhow::Result<Self> {
         Ok(Self {
             realm_config,
@@ -65,6 +71,7 @@ impl<SR: PsyRealmStoreReaderAsync<F> + Sync, DQ: CheckpointDrainQueueEmitterAsyn
             checkpoint_queue,
             proof_store,
             proof_verifier,
+            coordinator_client,
         })
     }
 
@@ -76,7 +83,7 @@ impl<SR: PsyRealmStoreReaderAsync<F> + Sync, DQ: CheckpointDrainQueueEmitterAsyn
         self.proof_verifier.verify_proof_of_type(circuit_type, proof)
     }
 
-    pub async fn get_checkpoint_id_async(&self) -> anyhow::Result<u64> {
+    pub async fn get_latest_checkpoint_id(&self) -> anyhow::Result<u64> {
         Ok(self.store_reader.get_latest_block_state().await?.checkpoint_id)
     }
 
@@ -112,7 +119,7 @@ impl<SR: PsyRealmStoreReaderAsync<F> + Sync, DQ: CheckpointDrainQueueEmitterAsyn
         input.ensure_simple_self_consistent::<H>(proof_public_inputs_hash, &contracts_helper)?;
 
         let end_cap_checkpoint_id = input.core.checkpoint_id.to_canonical_u64();
-        let checkpoint_id = self.get_checkpoint_id_async().await?;
+        let checkpoint_id = self.get_latest_checkpoint_id().await?;
         let next_checkpoint_id = checkpoint_id + 1;
         if end_cap_checkpoint_id > checkpoint_id {
             tracing::info!(
@@ -148,12 +155,20 @@ impl<SR: PsyRealmStoreReaderAsync<F> + Sync, DQ: CheckpointDrainQueueEmitterAsyn
                 checkpoint_tree_proof.root,
                 input.core.state_transition.checkpoint_tree_root_hash,
             );
-            // anyhow::bail!("invalid checkpoint_root_hash");
         }
 
         tracing::info!("get user{} data at checkpoint {}", user_id_u64, checkpoint_id);
-        let user_leaf = self.store_reader.get_user_leaf_data(checkpoint_id, user_id_u64).await?;
-        let expected_start_user_leaf_hash = user_leaf.qfhash::<H>();
+        let (user_leaf, expected_start_user_leaf_hash) = match self.store_reader.get_user_leaf_data(checkpoint_id, user_id_u64).await {
+            Ok(user_leaf) => {
+                let hash = user_leaf.qfhash::<H>();
+                (user_leaf, hash)
+            }
+            Err(_) => {
+                let user_registration_tree_proof = self.coordinator_client.get_user_registration_proof(user_id_u64).await?;
+                let new_user_leaf = get_new_empty_user_leaf(F::from_canonical_u64(user_id_u64), user_registration_tree_proof.value);
+                (new_user_leaf, QHashOut::<F>::ZERO)
+            }
+        };
         if expected_start_user_leaf_hash != input.core.state_transition.start_user_leaf_hash {
             tracing::error!(
                 "ensure expected_start_user_leaf_hash: {} == input.core.state_transition.start_user_leaf_hash {}",
@@ -263,16 +278,18 @@ impl<SR: PsyRealmStoreReaderAsync<F> + Sync, DQ: CheckpointDrainQueueEmitterAsyn
 
     pub async fn get_tx_status(&self, user_id: u64, nonce: u64) -> anyhow::Result<TxStatus> {
         let latest_checkpoint_id = self.store_reader.get_latest_block_state().await?.checkpoint_id;
-        let onchain_nonce = self
+        let expected_nonce = match self
             .store_reader
             .get_user_leaf_data(latest_checkpoint_id, user_id)
-            .await?
-            .nonce
-            .to_canonical_u64();
-        tracing::debug!("get user {} tx status at nonce {}, onchain_nonce {}", user_id, nonce, onchain_nonce);
+            .await
+        {
+            Ok(user_leaf) => user_leaf.nonce.to_canonical_u64() + 1,
+            Err(_) => 1,
+        };
+        tracing::debug!("get user {} tx status at nonce {}, expected_nonce {}", user_id, nonce, expected_nonce);
 
-        if nonce != onchain_nonce + 1 {
-            tracing::warn!("nonce {} != onchain_nonce {}", nonce, onchain_nonce);
+        if nonce != expected_nonce {
+            tracing::warn!("nonce {} != expected_nonce {}", nonce, expected_nonce);
             Ok(TxStatus::Confirmed)
         } else if self.proof_store.contains_item(self.realm_config.guta_channel_id, user_id).await? {
             Ok(TxStatus::Pending)

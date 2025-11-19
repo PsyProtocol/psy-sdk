@@ -13,7 +13,7 @@ use clap::Parser;
 use error::Result;
 
 use crate::subcommand::{
-    check_tx, claim_amount, claim_rewards, deploy_contract, get_public_key, random_wallet, register_user, submit_end_cap_proof, wallet, Cli, Commands,
+    check_tx, claim_amount, claim_rewards, deploy_contract, register_user, submit_end_cap_proof, wallet, Cli, Commands,
 };
 
 #[tokio::main]
@@ -24,8 +24,6 @@ async fn main() -> anyhow::Result<()> {
     psy_common::setup_logging()?;
     tracing::info!("psy user cli");
     match cli.command {
-        Commands::GetPublicKey(args) => get_public_key::run(args).await?,
-        Commands::RandomWallet(args) => random_wallet::run(args)?,
         Commands::Wallet(args) => wallet::run(args)?,
         Commands::RegisterUser(args) => register_user::run(args).await?,
         Commands::DeployContract(args) => deploy_contract::run(args).await?,
