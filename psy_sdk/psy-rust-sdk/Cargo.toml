@@ -45,7 +45,6 @@ serde-wasm-bindgen = { workspace = true }
 k256 = { workspace = true }
 
 rand = { workspace = true }
-getrandom = { workspace = true }
 hex = {workspace = true}
 
 psy_provider = { workspace = true }
@@ -53,11 +52,12 @@ psy_prover = { workspace = true }
 
 # Native-only dependencies
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+getrandom = { workspace = true }
 
 # WASM-specific dependencies
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 reqwest = { workspace = true, features = ["json"] }
-getrandom = { workspace = true, features = ["js"] }
+getrandom = { workspace = true, features = ["wasm_js"] }
 
 
 [package.metadata.wasm-pack.profile.release]
