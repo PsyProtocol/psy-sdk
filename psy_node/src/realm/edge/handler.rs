@@ -98,9 +98,8 @@ where
         task_store: Arc<QProvingTaskStoreImpl>,
         whitelist_cache: WhiteListCache,
         watcher_client: Arc<WatcherClient>,
-        coordinator_addr: &str,
     ) -> Result<Self, anyhow::Error> {
-        let coordinator_client = Arc::new(ConcreteCoordinatorClient::new(coordinator_addr.to_string())?);
+        let coordinator_client = ctx.coordinator_client.clone();
         Ok(Self {
             ctx,
             job_notify_queue,

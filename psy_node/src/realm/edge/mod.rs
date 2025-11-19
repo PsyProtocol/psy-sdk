@@ -19,6 +19,7 @@ use super::{config::RealmEdgeConfig, rpc::RealmEdgeRpcServer, C, D, F};
 use crate::{
     common::{jobs::JobSchedulerRpcServer, verifier::get_cached_generic_verifier, whitelist::WhiteListCache},
     realm::{
+        client::ConcreteCoordinatorClient,
         handler::RealmEdgeHandler,
         state::{edge::RealmEdgeContext, processor::RealmConfig},
     },
@@ -70,8 +71,11 @@ pub async fn run_realm_edge(config: RealmEdgeConfig) -> Result<()> {
     // Use the same ProofStoreRedis for checkpoint sync
     let sync_queue = proof_store.clone();
 
+    // Create coordinator client
+    let coordinator_client = Arc::new(ConcreteCoordinatorClient::new(config.rpc.coordinator_addr.clone())?);
+
     // Create Edge node context
-    let edge_ctx = RealmEdgeContext::new(realm_config, store_reader.clone(), checkpoint_queue, proof_store.clone(), proof_verifier).await?;
+    let edge_ctx = RealmEdgeContext::new(realm_config, store_reader.clone(), checkpoint_queue, proof_store.clone(), proof_verifier, coordinator_client.clone()).await?;
 
     let cors_opts = CorsLayer::new()
         .allow_methods([Method::POST, Method::OPTIONS])
@@ -103,7 +107,6 @@ pub async fn run_realm_edge(config: RealmEdgeConfig) -> Result<()> {
         Arc::new(task_store),
         whitelist_cache,
         watcher_client,
-        &config.rpc.coordinator_addr,
     )?;
 
     let mut rpc_module = RealmEdgeRpcServer::into_rpc(handler.clone());

@@ -45,9 +45,7 @@ use psy_data::{
     },
     qstore::{
         controllers::{
-            proving_session::{PsyLocalProvingSessionStore, PsyReadLocalProvingSessionStore},
-            session_info::SessionCircuitInfoStore,
-            state_tracker::PsyUserSessionUpdateHistory,
+            proving_session::{PsyLocalProvingSessionStore, PsyReadLocalProvingSessionStore}, register_helpers::get_default_user_contract_tree_root, session_info::SessionCircuitInfoStore, state_tracker::PsyUserSessionUpdateHistory
         },
         imm::{
             cache::PsyCmdStoreWithCache,
@@ -914,6 +912,11 @@ impl<
 
         let updates = self.get_user_session_update_history().await?;
 
+        let start_user_leaf_hash = if self.current_ups_header.session_start_context.start_session_user_leaf.user_state_tree_root == get_default_user_contract_tree_root::<F>() {
+            QHashOut::<F>::ZERO
+        } else {
+            self.current_ups_header.session_start_context.start_session_user_leaf.qfhash::<H>()
+        };
         let core = SubmitUserEndCapNonProofCoreInput {
             checkpoint_id,
             stats: GUTAStats {
@@ -923,7 +926,7 @@ impl<
                 slots_modified: F::from_canonical_u32(updates.total_slots_modified),
             },
             state_transition: UPSEndCapResultCompact {
-                start_user_leaf_hash: self.current_ups_header.session_start_context.start_session_user_leaf.qfhash::<H>(),
+                start_user_leaf_hash,
                 end_user_leaf_hash: self.current_ups_header.current_state.user_leaf.qfhash::<H>(),
                 checkpoint_tree_root_hash: self.current_ups_header.session_start_context.checkpoint_tree_root,
                 user_id: self.current_ups_header.session_start_context.start_session_user_leaf.user_id,

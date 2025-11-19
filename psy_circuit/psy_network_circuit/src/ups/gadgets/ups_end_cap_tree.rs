@@ -111,6 +111,23 @@ impl UPSEndCapFromProofTreeGadget {
         }
     }
 
+     pub fn get_state_transition_pi_hash<H: AlgebraicHasher<F> + MerkleZeroHasher<HashOut<F>>, F: RichField + Extendable<D>, const D: usize>(
+        &self,
+        builder: &mut CircuitBuilder<F, D>,
+    ) -> HashOutTarget {
+        let start_state_leaf_hash_with_potential_register_user =
+            self.verify_previous_ups_step_gadget
+                .previous_step_header_gadget.session_start_context
+                .get_end_cap_start_session_user_leaf_hash_with_potential_register_user::<H, F, D>(builder);
+        let end_cap_core_result_compact_modified_gadget = UPSEndCapResultCompactGadget {
+            start_user_leaf_hash: start_state_leaf_hash_with_potential_register_user,
+            end_user_leaf_hash: self.end_cap_core_gadget.end_cap_result_gadget.end_user_leaf_hash,
+            checkpoint_tree_root_hash: self.end_cap_core_gadget.end_cap_result_gadget.checkpoint_tree_root_hash,
+            user_id: self.end_cap_core_gadget.end_cap_result_gadget.user_id,
+        };
+        end_cap_core_result_compact_modified_gadget.to_hash::<H, F, D>(builder)
+    }
+
     pub fn set_witness_params<F: RichField>(
         &self,
         witness: &mut impl Witness<F>,

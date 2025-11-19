@@ -566,26 +566,19 @@ impl<
                 }
             }
 
-            match self
-                .store
-                .get_user_leaf_data(real_checkpoint_id, guta_queue_item.input.new_user_leaf.user_id.to_canonical_u64())
-                .await
-            {
-                Ok(latest_user_leaf_data) => {
-                    let latest_user_leaf_hash = latest_user_leaf_data.qfhash::<PsyHasher>();
-                    if latest_user_leaf_hash != guta_queue_item.input.state_transition.start_user_leaf_hash {
-                        tracing::warn!(
-                            "Invalid latest user leaf hash, stored: {}, expected: {}",
-                            latest_user_leaf_hash,
-                            guta_queue_item.input.state_transition.start_user_leaf_hash
-                        );
-                        continue;
-                    }
-                }
-                Err(e) => {
-                    tracing::error!("Failed to get user leaf data: {}", e);
-                    continue;
-                }
+            let user_id = guta_queue_item.input.new_user_leaf.user_id.to_canonical_u64();
+            let latest_user_leaf_hash = match self.store.get_user_leaf_data(real_checkpoint_id, user_id).await {
+                Ok(latest_user_leaf_data) => latest_user_leaf_data.qfhash::<PsyHasher>(),
+                Err(_) => QHashOut::<F>::ZERO,
+            };
+            
+            if latest_user_leaf_hash != guta_queue_item.input.state_transition.start_user_leaf_hash {
+                tracing::warn!(
+                    "Invalid latest user leaf hash, stored: {}, expected: {}",
+                    latest_user_leaf_hash,
+                    guta_queue_item.input.state_transition.start_user_leaf_hash
+                );
+                continue;
             }
 
             filtered_items.push(guta_queue_item);
