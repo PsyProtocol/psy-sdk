@@ -43,17 +43,6 @@ impl UserProvingSessionStartContextGadget {
             start_session_user_leaf_hash,
         }
     }
-    pub fn get_end_cap_start_session_user_leaf_hash_with_potential_register_user<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(&self, builder: &mut CircuitBuilder<F, D>) -> HashOutTarget {
-        // if the start session user leaf has last_checkpoint_id == 0 and the default state tree root, it is a new user being registered, so the transition should start from the zero hash
-        // otherwise, use the start session user leaf hash
-        let is_last_checkpoint_id_zero = builder.is_zero(self.start_session_user_leaf.last_checkpoint_id);
-        let default_user_state_tree_root = builder.constant_qhash(get_default_user_state_tree_root::<F>());
-        let is_state_root_default = builder.is_equal_hash(self.start_session_user_leaf.user_state_tree_root, default_user_state_tree_root);
-        let is_registering_new_user = builder.and(is_last_checkpoint_id_zero, is_state_root_default);
-        let zero_hash = builder.constant_qhash(QHashOut::ZERO);
-        builder.select_hash(is_registering_new_user, zero_hash, self.start_session_user_leaf_hash)
-    }
-
     /*
     pub fn ensure_self_consistent<H:AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
         &self,

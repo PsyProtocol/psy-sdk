@@ -1,4 +1,3 @@
-pub mod processor_v2;
 use std::{
     collections::HashMap,
     sync::{
@@ -14,7 +13,6 @@ use plonky2::{
     field::{goldilocks_field::GoldilocksField, types::Field},
     plonk::proof::ProofWithPublicInputs,
 };
-pub use processor_v2::*;
 use psy_common::{
     data::qhashout::QHashOut,
     job::{id::QProvingJobDataID, traits::QProofStoreReaderAsync},
@@ -64,15 +62,13 @@ use crate::{
         slot::{LocalClock, Slot},
         verifier::get_cached_generic_verifier,
     },
-    common_v2::traits::realm::CoordinatorClient,
-    coordinator::client_v2::ConcreteCoordinatorClient,
+    common::traits::realm::CoordinatorClient,
+    realm::client::ConcreteCoordinatorClient,
     realm::{
         backup::{create_realm_checkpoint_backup, create_realm_pending_users_backup, create_realm_state_backup},
         config::RealmNodeConfig,
         state::{
-            edge_queue_helper::RealmEdgeQueueHelper,
             processor::{RealmConfig, RealmConsumptionState, RealmProcessorContext},
-            queue_factory::QueueFactory,
         },
         C, D, F,
     },
@@ -110,7 +106,6 @@ pub struct RealmProcessor {
     pub slot_timer: SlotTimer<LocalClock>,
     pub remote_latest_slot: AtomicU64,
     pub config_path: String,
-    pub queue_helper: Arc<RealmEdgeQueueHelper<F>>,
     pub client: Arc<ConcreteCoordinatorClient>,
     pub backup_tx: Option<mpsc::UnboundedSender<BackupRequest>>,
     pub backup_client: Option<RealmS3BackupClient>,
@@ -159,13 +154,6 @@ impl RealmProcessor {
         };
 
         let coordinator_client = Arc::new(ConcreteCoordinatorClient::new(config.coordinator_addr.clone())?);
-        let queue_helper = QueueFactory::create_rsmq_helper::<F>(
-            &config.redis.redis_uri,
-            config.redis.pool_size.unwrap_or(10),
-            config.realm.realm_id,
-            Arc::new(store.clone()),
-        )
-        .await?;
 
         let processor = RealmProcessor {
             realm_config,
@@ -178,7 +166,6 @@ impl RealmProcessor {
             slot_timer: SlotTimer::new(LocalClock),
             remote_latest_slot: AtomicU64::new(0),
             config_path: config.config_path.clone(),
-            queue_helper: Arc::new(queue_helper),
             client: coordinator_client,
             backup_tx,
             backup_client,

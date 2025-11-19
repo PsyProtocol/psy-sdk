@@ -9,7 +9,7 @@ use tracing::{error, info, trace};
 
 use crate::{
     common::retry::{RetryConfig, Retryable},
-    common_v2::traits::realm::*,
+    common::traits::realm::*,
     coordinator::edge::rpc::CoordinatorEdgeRpcClient,
 };
 
@@ -39,51 +39,21 @@ impl CoordinatorClient<F> for ConcreteCoordinatorClient {
         })
         .await
     }
-    async fn get_current_realm_status_on_coordinator(&self, realm_id: u64) -> anyhow::Result<BasicRealmStatusOnCoordinator<F>> {
-        self.retry_with_backoff("get_current_realm_status_on_coordinator", || async {
-            self.rpc_client.get_current_realm_status_on_coordinator(realm_id).await
-        })
-        .await
-    }
-
-    async fn wait_until_coordinator_completed(&self, realm_id: u64, checkpoint_id: u64) -> anyhow::Result<GlobalBlockUpdateFromCoordinator<F>> {
-        self.retry_with_backoff("wait_until_coordinator_completed", || async {
-            self.rpc_client.wait_until_coordinator_completed(realm_id, checkpoint_id).await
-        })
-        .await
-    }
 
     async fn get_latest_block_updates_from_coordinator(
         &self,
         realm_id: u64,
         from_checkpoint: u64,
         to_checkpoint: u64,
-    ) -> anyhow::Result<Vec<GlobalBlockUpdateFromCoordinator<F>>> {
-        self.retry_with_backoff("get_latest_block_updates_from_coordinator", || async {
-            self.rpc_client
-                .get_latest_block_updates_from_coordinator(realm_id as u32, from_checkpoint, to_checkpoint)
-                .await
-        })
-        .await
-    }
-
-    async fn submit_realm_result(&self, realm_result: &RealmDataForCoordinator<F>) -> anyhow::Result<()> {
-        self.retry_with_backoff("submit_realm_result", || async {
-            match self.rpc_client.submit_realm_result(realm_result.clone()).await {
-                Ok(_) => {
-                    trace!("Successfully submitted job to coordinator");
-                    Ok(())
-                }
-                Err(err) => {
-                    error!("Failed to submit job to coordinator: {:?}", err);
-                    if err.to_string().contains("ServerError") {
-                        return Ok(());
-                    }
-                    Err(err)
-                }
+    ) -> anyhow::Result<Vec<CheckpointSyncInfo<F>>> {
+        let mut result = Vec::new();
+        for checkpoint_id in from_checkpoint..=to_checkpoint {
+            match self.get_checkpoint_sync_info(realm_id as u32, checkpoint_id).await {
+                Ok(sync_info) => result.push(sync_info),
+                Err(_) => break,
             }
-        })
-        .await
+        }
+        Ok(result)
     }
 
     async fn get_checkpoint_sync_info(&self, realm_id: u32, checkpoint_id: u64) -> anyhow::Result<CheckpointSyncInfo<F>> {

@@ -141,8 +141,10 @@ where
             end_cap_from_proof_tree_gadget.current_proof_tree_root,
         );
 
-        // UPDATED to support registering new users gracefully
-        let state_transition_pi_hash = end_cap_from_proof_tree_gadget.get_state_transition_pi_hash::<C::Hasher, C::F, D>(&mut builder);
+        let state_transition_pi_hash = end_cap_from_proof_tree_gadget
+            .end_cap_core_gadget
+            .end_cap_result_gadget
+            .to_hash::<C::Hasher, C::F, D>(&mut builder);
         let guta_stats_pi_hash = end_cap_from_proof_tree_gadget
             .end_cap_core_gadget
             .guta_stats

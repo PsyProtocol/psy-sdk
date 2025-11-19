@@ -76,7 +76,7 @@ impl<SR: PsyRealmStoreReaderAsync<F> + Sync, DQ: CheckpointDrainQueueEmitterAsyn
         self.proof_verifier.verify_proof_of_type(circuit_type, proof)
     }
 
-    pub async fn get_checkpoint_id_async(&self) -> anyhow::Result<u64> {
+    pub async fn get_latest_checkpoint_id(&self) -> anyhow::Result<u64> {
         Ok(self.store_reader.get_latest_block_state().await?.checkpoint_id)
     }
 
@@ -112,7 +112,7 @@ impl<SR: PsyRealmStoreReaderAsync<F> + Sync, DQ: CheckpointDrainQueueEmitterAsyn
         input.ensure_simple_self_consistent::<H>(proof_public_inputs_hash, &contracts_helper)?;
 
         let end_cap_checkpoint_id = input.core.checkpoint_id.to_canonical_u64();
-        let checkpoint_id = self.get_checkpoint_id_async().await?;
+        let checkpoint_id = self.get_latest_checkpoint_id().await?;
         let next_checkpoint_id = checkpoint_id + 1;
         if end_cap_checkpoint_id > checkpoint_id {
             tracing::info!(

@@ -4,9 +4,7 @@ pub mod api_service;
 pub mod coordinator_edge;
 pub mod coordinator_processor;
 pub mod realm_edge;
-pub mod realm_edge_v2;
 pub mod realm_processor;
-pub mod realm_processor_v2;
 pub mod watcher;
 pub mod worker;
 

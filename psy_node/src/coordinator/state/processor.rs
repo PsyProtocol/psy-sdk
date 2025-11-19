@@ -95,7 +95,7 @@ use psy_store::{
 use serde::{Deserialize, Serialize};
 use tracing::{debug, error, info, trace, warn};
 
-use crate::{common::slot::SLOT_SIZE, common_v2::traits::realm::BasicRealmStatusOnCoordinator};
+use crate::common::slot::SLOT_SIZE;
 
 type F = PsyFelt;
 type C = PoseidonGoldilocksConfig;

@@ -64,7 +64,6 @@ use crate::{
         jobs::{JobSchedulerRpcServer, MESSAGE_CLAIM_JOB},
         verifier::get_cached_generic_verifier,
     },
-    common_v2::traits::realm::{BasicRealmStatusOnCoordinator, GlobalBlockUpdateFromCoordinator, RealmDataForCoordinator},
     coordinator::{
         args::CoordinatorEdgeArgs,
         edge::{DrainQueue, ProofStore, StoreReader},
@@ -600,15 +599,6 @@ impl CoordinatorEdgeHandler {
         );
     }
 
-    pub async fn get_current_realm_status_on_coordinator(&self, realm_id: u64) -> anyhow::Result<BasicRealmStatusOnCoordinator<F>> {
-        let realm_status = self.store.get_realm_status(realm_id).await?;
-        Ok(BasicRealmStatusOnCoordinator {
-            realm_id,
-            checkpoint_id: realm_status.checkpoint_id,
-            realm_root_hash: realm_status.realm_root_hash,
-        })
-    }
-
     pub async fn get_contract_metadata(&self, contract_uuid: &str) -> anyhow::Result<ContractMetaData<F>> {
         let contract_uuid = ContractUUID::from_str(contract_uuid)?;
         let contract_meta = self.store.get_contract_metadata(contract_uuid).await?;
@@ -695,45 +685,6 @@ impl CoordinatorEdgeRpcServer for CoordinatorEdgeHandler {
     async fn submit_guta_v1(&self, input: SubmitGUTARealmResultAPINoProofInput<F>, proof: Vec<u8>, realm_id: u64) -> RpcResult<()> {
         let proof =
             bincode::deserialize::<ProofWithPublicInputs<F, C, D>>(&proof).map_err(|err| RpcError::Anyhow(anyhow::format_err!(err.to_string())))?;
-        self.submit_guta(input, proof, realm_id).await.map_err(RpcError::Anyhow)?;
-        Ok(())
-    }
-
-    async fn submit_realm_result(&self, realm_result: RealmDataForCoordinator<F>) -> RpcResult<()> {
-        let checkpoint_id = realm_result.header.checkpoint_id;
-        let current_checkpoint_id = self.get_current_checkpoint_id().await?;
-        debug!(
-            "submit realm result , realm checkpoint id: {}, current coordinator checkpoint id: {}",
-            checkpoint_id, current_checkpoint_id
-        );
-        if checkpoint_id > current_checkpoint_id + 1 {
-            return Err(RpcError::Anyhow(anyhow::format_err!(
-                "checkpoint id {} is greater than current checkpoint id {}",
-                checkpoint_id,
-                current_checkpoint_id
-            )));
-        }
-        let realm_id = realm_result.header.realm_id;
-
-        let top_line_proof = DeltaMerkleProofCore {
-            index: realm_id,
-            old_value: realm_result.header.start_realm_root,
-            old_root: realm_result.header.start_realm_root,
-            new_value: realm_result.header.end_realm_root,
-            new_root: realm_result.header.end_realm_root,
-            siblings: vec![],
-        };
-        let checkpoint_tree_root = self.get_checkpoint_tree_root(checkpoint_id).await.map_err(RpcError::Anyhow)?;
-        let input = SubmitGUTARealmResultAPINoProofInput {
-            realm_id,
-            checkpoint_id: realm_result.header.checkpoint_id + 1,
-            guta_stats: realm_result.header.guta_stats,
-            top_line_proof,
-            checkpoint_tree_root,
-            proof_id: realm_result.header.root_job_id,
-        };
-        let proof = bincode::deserialize::<ProofWithPublicInputs<F, C, D>>(&realm_result.proof)
-            .map_err(|err| RpcError::Anyhow(anyhow::format_err!(err.to_string())))?;
         self.submit_guta(input, proof, realm_id).await.map_err(RpcError::Anyhow)?;
         Ok(())
     }
@@ -1081,9 +1032,6 @@ impl CoordinatorEdgeRpcServer for CoordinatorEdgeHandler {
         Ok(graphviz_content)
     }
 
-    async fn get_current_realm_status_on_coordinator(&self, realm_id: u64) -> RpcResult<BasicRealmStatusOnCoordinator<F>> {
-        self.get_current_realm_status_on_coordinator(realm_id).await.map_err(RpcError::Anyhow)
-    }
 
     async fn get_contract_metadata(&self, contract_uuid: &str) -> RpcResult<ContractMetaData<F>> {
         self.get_contract_metadata(contract_uuid).await.map_err(RpcError::Anyhow)
@@ -1091,42 +1039,6 @@ impl CoordinatorEdgeRpcServer for CoordinatorEdgeHandler {
 
     async fn get_current_checkpoint_id(&self) -> RpcResult<u64> {
         self.get_latest_checkpoint_id().await.map_err(RpcError::Anyhow)
-    }
-
-    async fn get_latest_block_updates_from_coordinator(
-        &self,
-        realm_id: u32,
-        from_checkpoint: u64,
-        to_checkpoint: u64,
-    ) -> RpcResult<Vec<GlobalBlockUpdateFromCoordinator<F>>> {
-        if from_checkpoint >= to_checkpoint {
-            return Err(RpcError::Anyhow(anyhow::format_err!(
-                "from_checkpoint >= to_checkpoint: {} >= {}",
-                from_checkpoint,
-                to_checkpoint
-            )));
-        }
-        let current_checpoint_id = self.get_current_checkpoint_id().await?;
-        if from_checkpoint > current_checpoint_id {
-            return Err(RpcError::Anyhow(anyhow::format_err!(
-                "from_checkpoint > current_checpoint_id: {} > {}",
-                from_checkpoint,
-                current_checpoint_id
-            )));
-        }
-        let effective_to_checkpoint = std::cmp::min(to_checkpoint, current_checpoint_id);
-        let mut block_updates = Vec::new();
-        for checkpoint_id in from_checkpoint..=effective_to_checkpoint {
-            let sync_info = self.get_checkpoint_sync_info(realm_id, checkpoint_id).await.map_err(RpcError::Anyhow)?;
-            block_updates.push(sync_info);
-        }
-        Ok(block_updates)
-    }
-
-    async fn wait_until_coordinator_completed(&self, realm_id: u64, checkpoint_id: u64) -> RpcResult<GlobalBlockUpdateFromCoordinator<F>> {
-        self.get_checkpoint_sync_info(realm_id as u32, checkpoint_id)
-            .await
-            .map_err(RpcError::Anyhow)
     }
 }
 
