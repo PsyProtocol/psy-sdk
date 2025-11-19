@@ -322,8 +322,16 @@ impl<
             .proof_tree_state
             .injest_single_leaf_proof(InputLeafProof {
                 leaf_circuit_type: UPS_STEP_LEAF_TYPE,
-                fingerprint: circuit_mgr.ups_start_circuit_fingerprint().await?,
-                verifier_data: circuit_mgr.ups_start_circuit_verifier_config().await?,
+                fingerprint: if self.lps.is_new_user() {
+                    circuit_mgr.ups_start_register_user_circuit_fingerprint().await?
+                } else {
+                    circuit_mgr.ups_start_circuit_fingerprint().await?
+                },
+                verifier_data: if self.lps.is_new_user() {
+                    circuit_mgr.ups_start_register_user_circuit_verifier_config().await?
+                } else {
+                    circuit_mgr.ups_start_circuit_verifier_config().await?
+                },
                 proof,
             })
             .await;

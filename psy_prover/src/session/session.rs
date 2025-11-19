@@ -422,7 +422,7 @@ impl WalletSession {
         let nonce = user_session_mgr.lps.get_nonce();
         let sighash = user_session_mgr.get_sighash(PSY_NETWORK_MAGIC, nonce);
 
-        tracing::info!("zk sign for signhash: {}", sighash.to_string());
+        tracing::info!("zk sign for signhash: {}, nonce: {}", sighash.to_string(), nonce);
         let signature_result = self.wallet.sign_with_public_key(&public_key, &sign_context, sighash).await?;
         let SignatureResult {
             proof: signature_proof,

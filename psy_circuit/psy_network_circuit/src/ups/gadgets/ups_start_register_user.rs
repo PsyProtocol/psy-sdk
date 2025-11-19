@@ -208,7 +208,7 @@ impl UPSStartStepRegisterUserGadget {
         // updated checkpoint id, as the user leaf in start session
         let mut header_new_current_user_leaf = self.header_gadget.session_start_context.start_session_user_leaf.clone();
 
-        header_new_current_user_leaf.last_checkpoint_id = self.header_gadget.session_start_context.checkpoint_id;
+        header_new_current_user_leaf.last_checkpoint_id = self.header_gadget.current_state.user_leaf.last_checkpoint_id;
 
         // make it immutable to keep things keep/safe
         let header_new_current_user_leaf = header_new_current_user_leaf;
@@ -247,10 +247,8 @@ impl UPSStartStepRegisterUserGadget {
 
     pub fn set_witness<F: RichField>(&self, witness: &mut impl Witness<F>, target: &UPSStartStepRegisterUserInput<F>) -> anyhow::Result<()> {
         tracing::debug!(
-            "🏁 UPS Start set_witness - user_leaf: {}, checkpoint_leaf: {}, checkpoint_tree_root: {}",
-            serde_json::to_string_pretty(&target.ups_header.current_state.user_leaf).unwrap(),
-            serde_json::to_string_pretty(&target.checkpoint_leaf).unwrap(),
-            serde_json::to_string_pretty(&target.ups_header.session_start_context.checkpoint_tree_root).unwrap()
+            "🏁 UPS Start set_witness - UPSStartStepRegisterUserInput: {}",
+            serde_json::to_string_pretty(&target).unwrap(),
         );
 
         self.header_gadget.set_witness(witness, &target.ups_header)?;
