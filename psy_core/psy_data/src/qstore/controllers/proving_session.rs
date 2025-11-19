@@ -339,7 +339,7 @@ impl<F: RichField, H: MerkleZeroHasherWithMarkedLeaf<QHashOut<F>> + Send, R: Psy
             .await?;
 
         let (nonce, is_new_user) = if user_tree_proof.value == QHashOut::ZERO {
-            (F::ZERO, true)
+            (F::ONE, true)
         } else {
             let user_leaf = self
             .cmd_store
@@ -569,13 +569,25 @@ impl<F: RichField, H: MerkleZeroHasherWithMarkedLeaf<QHashOut<F>> + FieldQHasher
             .await?;
         let state_roots = self.get_global_state_tree_roots(checkpoint_id).await?;
 
-        let user_leaf = self
-            .cmd_store
-            .resolve_get_user_leaf_mut(&QSRCmdGetUserLeafData {
-                checkpoint_id: self.start_checkpoint_u64 + 1000,
-                user_id: user.to_canonical_u64(),
-            })
-            .await?;
+        let user_leaf = if user == self.user_id && self.is_new_user {
+            let user_registration_tree_proof: MerkleProofCore<QHashOut<F>> = self
+                .cmd_store
+                .resolve_get_merkle_proof_mut(&QSRMerkleCmd::GetUserRegistrationTreeMerkleProof(
+                    QSRMerkleCmdGetUserRegistrationTreeMerkleProof {
+                        checkpoint_id: self.start_checkpoint_u64,
+                        leaf_index: get_registration_id_from_user_id(user.to_canonical_u64()),
+                    },
+                ))
+                .await?;
+            get_new_empty_user_leaf(user, user_registration_tree_proof.value)
+        } else {
+            self.cmd_store
+                .resolve_get_user_leaf_mut(&QSRCmdGetUserLeafData {
+                    checkpoint_id: self.start_checkpoint_u64 + 1000,
+                    user_id: user.to_canonical_u64(),
+                })
+                .await?
+        };
 
         if user_leaf.last_checkpoint_id.to_canonical_u64() > checkpoint_id {
             anyhow::bail!(
@@ -751,13 +763,25 @@ impl<F: RichField, H: MerkleZeroHasherWithMarkedLeaf<QHashOut<F>> + FieldQHasher
                 user_id: user_id.to_canonical_u64(),
             }))
             .await?;
-        let user_leaf = self
-            .cmd_store
-            .resolve_get_user_leaf_mut(&QSRCmdGetUserLeafData {
-                checkpoint_id: self.start_checkpoint_u64,
-                user_id: user_id.to_canonical_u64(),
-            })
-            .await?;
+        let user_leaf = if user_id == self.user_id && self.is_new_user {
+            let user_registration_tree_proof: MerkleProofCore<QHashOut<F>> = self
+                .cmd_store
+                .resolve_get_merkle_proof_mut(&QSRMerkleCmd::GetUserRegistrationTreeMerkleProof(
+                    QSRMerkleCmdGetUserRegistrationTreeMerkleProof {
+                        checkpoint_id: self.start_checkpoint_u64,
+                        leaf_index: get_registration_id_from_user_id(user_id.to_canonical_u64()),
+                    },
+                ))
+                .await?;
+            get_new_empty_user_leaf(user_id, user_registration_tree_proof.value)
+        } else {
+            self.cmd_store
+                .resolve_get_user_leaf_mut(&QSRCmdGetUserLeafData {
+                    checkpoint_id: self.start_checkpoint_u64,
+                    user_id: user_id.to_canonical_u64(),
+                })
+                .await?
+        };
         Ok(DPNReadOtherUserLeafMerkleProof { user_tree_proof, user_leaf })
     }
     pub fn add_deferred_tx_to_debt(&mut self, tx: DPNProvingSessionSimpleMethodCall<F>) -> anyhow::Result<DeltaMerkleProofCore<QHashOut<F>>> {
