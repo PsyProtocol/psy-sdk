@@ -147,6 +147,9 @@ pub trait CoordinatorEdgeRpc {
             .await
     }
 
+    #[method(name = "get_user_registration_proof")]
+    async fn get_user_registration_proof(&self, user_id: u64) -> RpcResult<MerkleProofCore<QHashOut<F>>>;
+
     // User tree
     #[method(name = "get_user_tree_root")]
     async fn get_user_tree_root(&self, checkpoint_id: u64) -> RpcResult<QHashOut<F>>;

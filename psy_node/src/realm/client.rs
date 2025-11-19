@@ -4,6 +4,8 @@ use jsonrpsee::{
     proc_macros::rpc,
 };
 use plonky2::plonk::config::PoseidonGoldilocksConfig;
+use psy_common::data::qhashout::QHashOut;
+use psy_crypto::hash::merkle::core::MerkleProofCore;
 use psy_data::{config::store_config::PsyFelt, guta::api::SubmitGUTARealmResultAPINoProofInput, qdata::checkpoint::CheckpointSyncInfo};
 use tracing::{error, info, trace};
 
@@ -91,5 +93,12 @@ impl CoordinatorClient<F> for ConcreteCoordinatorClient {
             .get_latest_checkpoint_sync_info(realm_id)
             .await
             .map_err(|e| anyhow::anyhow!(e))
+    }
+
+    async fn get_user_registration_proof(&self, user_id: u64) -> anyhow::Result<MerkleProofCore<QHashOut<F>>> {
+        self.retry_with_backoff("get_user_registration_proof", || async {
+            self.rpc_client.get_user_registration_proof(user_id).await
+        })
+        .await
     }
 }

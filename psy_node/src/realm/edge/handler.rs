@@ -4,7 +4,6 @@ use anyhow::{anyhow, bail, ensure};
 use async_trait::async_trait;
 use jsonrpsee::{
     core::{client::ClientT, RpcResult},
-    http_client::{HttpClient, HttpClientBuilder},
     rpc_params,
     types::{ErrorCode, ErrorObject},
 };
@@ -60,11 +59,13 @@ use super::{error::RpcError, rpc::RealmEdgeRpcServer};
 use crate::{
     common::{
         jobs::{JobSchedulerRpcServer, MESSAGE_CLAIM_JOB},
+        traits::realm::CoordinatorClient,
         utils::current_datetime,
         whitelist::{WhiteList, WhiteListCache},
     },
     coordinator::edge::ProofStore,
     realm::{
+        client::ConcreteCoordinatorClient,
         state::edge::RealmEdgeContext,
         C, D, F, H,
     },
@@ -82,7 +83,7 @@ pub struct RealmEdgeHandler<SR: PsyRealmStoreReaderAsync<F> + Sync, DQ: Checkpoi
     task_store: Arc<QProvingTaskStoreImpl>,
     whitelist_cache: WhiteListCache,
     watcher_client: Arc<WatcherClient>,
-    coordinator_client: HttpClient,
+    coordinator_client: Arc<ConcreteCoordinatorClient>,
 }
 
 impl<SR, DQ, PS> RealmEdgeHandler<SR, DQ, PS>
@@ -99,7 +100,7 @@ where
         watcher_client: Arc<WatcherClient>,
         coordinator_addr: &str,
     ) -> Result<Self, anyhow::Error> {
-        let coordinator_client = HttpClientBuilder::default().build(coordinator_addr)?;
+        let coordinator_client = Arc::new(ConcreteCoordinatorClient::new(coordinator_addr.to_string())?);
         Ok(Self {
             ctx,
             job_notify_queue,
@@ -428,6 +429,7 @@ where
                     );
                     let coordinator_proofs = self
                         .coordinator_client
+                        .rpc_client
                         .request::<Vec<(VariableHeightRewardMerkleProof, QProvingJobDataID)>, _>(
                             "psy_generate_batch_variable_height_reward_proofs",
                             jsonrpsee::rpc_params![checkpoint_id, vec![root_job_id]],

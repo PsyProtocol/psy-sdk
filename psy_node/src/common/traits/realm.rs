@@ -63,4 +63,5 @@ pub trait CoordinatorClient<F: RichField> {
     async fn submit_guta_v1(&self, input: &SubmitGUTARealmResultAPINoProofInput<F>, proof: &[u8], realm_id: u64) -> anyhow::Result<()>;
     async fn has_pending_guta(&self, realm_id: u32) -> anyhow::Result<bool>;
     async fn get_latest_checkpoint_sync_info(&self, realm_id: u32) -> anyhow::Result<CheckpointSyncInfo<F>>;
+    async fn get_user_registration_proof(&self, user_id: u64) -> anyhow::Result<MerkleProofCore<QHashOut<F>>>;
 }
