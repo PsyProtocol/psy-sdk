@@ -8,12 +8,6 @@ use ts_rs::TS;
 pub use psy_common::args::WalletSourceArgs;
 
 #[derive(Clone, Args)]
-pub struct RandomWalletArgs {
-    #[clap(long, default_value = "zk")]
-    pub sign_type: SignType,
-}
-
-#[derive(Clone, Args)]
 pub struct WalletArgs {
     #[command(subcommand)]
     pub command: WalletCommands,
@@ -40,13 +34,18 @@ pub enum WalletCommands {
         #[arg(long, help = "Keystore directory path")]
         keystore_dir: Option<String>,
     },
+    /// Generate a random wallet
+    Random {
+        #[clap(long, default_value = "zk")]
+        sign_type: SignType,
+    },
+    /// Display wallet information
+    Info {
+        #[command(flatten)]
+        wallet: WalletSourceArgs,
+    },
 }
 
-#[derive(Clone, Args)]
-pub struct GetPublicKeyArgs {
-    #[command(flatten)]
-    pub wallet: WalletSourceArgs,
-}
 
 #[derive(Clone, Args, Serialize, Deserialize)]
 pub struct RegisterUserArgs {

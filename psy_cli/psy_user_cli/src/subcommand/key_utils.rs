@@ -17,9 +17,11 @@ use psy_data::config::store_config::PsyHasher;
 use psy_prover::wallet::memory_wallet::{get_secp256k1_fingerprint, get_zk_fingerprint};
 use psy_rust_sdk::wallet::secp_wallet::Wallet;
 use psy_ups_circuit::signature::software_defined::get_sdc_public_key_param;
+use serde::{Deserialize, Serialize};
 
 use super::args::WalletSourceArgs;
 
+#[derive(Serialize, Deserialize)]
 pub struct WalletKeyInfo {
     pub sign_type: SignType,
     pub private_key: QHashOut<GoldilocksField>,
@@ -143,3 +145,4 @@ fn parse_qhash(value: &str) -> Result<QHashOut<GoldilocksField>> {
     let hash = Hash256::from_hex_string(normalized).map_err(|e| anyhow!("failed to parse private key: {}", e))?;
     Ok(QHashOut::from(hash))
 }
+

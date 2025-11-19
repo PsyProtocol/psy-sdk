@@ -39,13 +39,11 @@ pub async fn run(args: RegisterUserArgs) -> Result<()> {
     let mut fingerprint = info.fingerprint.clone();
     let mut private_key_base = info.private_key;
     let mut generated_private_key = info.generated;
-    let main_circuits: Box<dyn UPSCircuitManager<C, D>> = Box::new(PsyUPSStepCircuitManager::<C, D>::new_with_config(
-        psy_config::network_constants::PSY_NETWORK_MAGIC,
-    ));
-    let mut wallet = PsyMemoryWallet::new(vec![main_circuits]);
 
-    let public_key_info = wallet.get_or_create_user(private_key_base, fingerprint).await?;
-
+    let public_key_info = ZKPublicKeyInfo {
+        fingerprint,
+        public_key_param: info.public_key_param,
+    };
     provider.register_user(QRegisterUserRPCRequest { public_key: public_key_info }).await?;
 
     let public_key_hash = public_key_info.qfhash::<PsyHasher>();

@@ -113,8 +113,8 @@ shutdown:
 	@rm -rf ./target/redis-data > /dev/null 2>&1 || true
 	# @docker rm -f psy-scylla-coordinator psy-scylla-realm0 psy-scylla-realm1 > /dev/null 2>&1 || true
 	@sudo rm -fr ${PWD}/db logs > /dev/null 2>&1 || true
-	@echo "Removing user job tracker JSON files..."
-	@rm -f ${USER0_PUBLIC_KEY}.json ${USER0_SECP_ZK_PUBLIC_KEY}.json ${USER1_PUBLIC_KEY}.json ${USER1_SECP_ZK_PUBLIC_KEY}.json ${USER2_PUBLIC_KEY}.json ${USER2_SECP_ZK_PUBLIC_KEY}.json ${USER3_PUBLIC_KEY}.json ${USER3_SECP_ZK_PUBLIC_KEY}.json > /dev/null 2>&1 || true
+	# @echo "Removing user job tracker JSON files..."
+	# @rm -f ${USER0_PUBLIC_KEY}.json ${USER0_SECP_ZK_PUBLIC_KEY}.json ${USER1_PUBLIC_KEY}.json ${USER1_SECP_ZK_PUBLIC_KEY}.json ${USER2_PUBLIC_KEY}.json ${USER2_SECP_ZK_PUBLIC_KEY}.json ${USER3_PUBLIC_KEY}.json ${USER3_SECP_ZK_PUBLIC_KEY}.json > /dev/null 2>&1 || true
 
 run-all: shutdown init
 	@./scripts/run_all.sh
@@ -664,13 +664,13 @@ generate-access-token:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_node_cli generate-access-token
 
 get-public-key:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_user_cli get-public-key --private-key=${CURRENT_USER_PRIVATE_KEY} --sign-type ${SIGN_TYPE}
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_user_cli wallet info --private-key=${CURRENT_USER_PRIVATE_KEY} --sign-type ${SIGN_TYPE}
 
 wallet:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_user_cli wallet create
 
 random-wallet:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_user_cli random-wallet
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_user_cli wallet random --sign-type ${SIGN_TYPE}
 
 register-user:
 	@echo "Registering all 4 users..."

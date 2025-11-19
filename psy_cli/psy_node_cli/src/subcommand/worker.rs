@@ -114,7 +114,7 @@ pub async fn run(
         user_id_hash(recipient_user_id),
     ));
 
-    let job_tracker = Arc::new(Mutex::new(WorkerJobTracker::load_from_file(worker_public_key)));
+    // let job_tracker = Arc::new(Mutex::new(WorkerJobTracker::load_from_file(worker_public_key)));
 
     let mut handles = Vec::new();
 
@@ -123,7 +123,7 @@ pub async fn run(
             let handle = tokio::spawn(run_worker(
                 rpc_url.clone(),
                 JobLocation::Coordinator,
-                job_tracker.clone(),
+                // job_tracker.clone(),
                 prover.clone(),
                 proof_verifier.clone(),
                 wallet.clone(),
@@ -138,7 +138,7 @@ pub async fn run(
             let handle = tokio::spawn(run_worker(
                 rpc_url.clone(),
                 JobLocation::Realm(realm_config.id),
-                job_tracker.clone(),
+                // job_tracker.clone(),
                 prover.clone(),
                 proof_verifier.clone(),
                 wallet.clone(),
