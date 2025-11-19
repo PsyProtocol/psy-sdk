@@ -377,9 +377,9 @@ impl<
             inclusion_proof,
         };
 
-        // if !proof_attestation_witness.verify::<H>() {
-        //     anyhow::bail!("AttestTreeAwareProofInTreeInput verification failed for
-        // previous UPS step"); }
+        if !proof_attestation_witness.verify::<H>() {
+            anyhow::bail!("AttestTreeAwareProofInTreeInput verification failed for previous UPS step");
+        }
 
         Ok(VerifyPreviousUPSStepProofInProofTreeInput {
             proof_attestation_witness,
@@ -477,9 +477,9 @@ impl<
             inclusion_proof: proof_tree_inclusion_proof,
         };
 
-        // if !verify_cfc_proof_input.verify::<H>() {
-        //     anyhow::bail!("AttestTreeAwareProofInTreeInput verification failed for
-        // CFC standard step"); }
+        if !verify_cfc_proof_input.verify::<H>() {
+            anyhow::bail!("AttestTreeAwareProofInTreeInput verification failed for CFC standard step");
+        }
 
         let process_cfc_state_delta_input = UPSCFCStandardStateDeltaInput {
             cfc_transaction_input_context: cfc_proof_input.tx_input_ctx,
@@ -803,9 +803,9 @@ impl<
             inclusion_proof: proof_tree_inclusion_proof,
         };
 
-        // if !verify_cfc_proof_input.verify::<H>() {
-        //     anyhow::bail!("AttestTreeAwareProofInTreeInput verification failed for
-        // CFC deferred transaction step"); }
+        if !verify_cfc_proof_input.verify::<H>() {
+            anyhow::bail!("AttestTreeAwareProofInTreeInput verification failed for CFC deferred transaction step");
+        }
 
         let process_cfc_state_delta_input = UPSCFCStandardStateDeltaInput {
             cfc_transaction_input_context: cfc_proof_input.tx_input_ctx,
