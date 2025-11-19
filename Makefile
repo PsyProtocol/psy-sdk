@@ -119,9 +119,6 @@ shutdown:
 run-all: shutdown init
 	@./scripts/run_all.sh
 
-run-all-v2: shutdown init
-	@./scripts/run_all_v2.sh
-
 run-scenario0:
 	@./scripts/run_scenario0.sh
 
