@@ -5650,6 +5650,7 @@ dependencies = [
  "psy_services",
  "psy_store",
  "psy_vm",
+ "quick_cache",
  "rand 0.8.5",
  "redis 0.30.0",
  "reqwest",
@@ -5736,6 +5737,7 @@ dependencies = [
  "psy_store",
  "psy_ups_circuit",
  "psy_vm",
+ "quick_cache",
  "rand 0.8.5",
  "rayon",
  "reqwest",
@@ -5962,6 +5964,7 @@ dependencies = [
  "psy_network_circuit",
  "psy_store",
  "psy_vm",
+ "quick_cache",
  "rand 0.8.5",
  "rayon",
  "reqwest",
@@ -6070,6 +6073,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7f50b1c63b38611e7d4d7f68b82d3ad0cc71a2ad2e7f61fc10f1328d917c93cd"
 dependencies = [
  "memchr",
+]
+
+[[package]]
+name = "quick_cache"
+version = "0.6.18"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7ada44a88ef953a3294f6eb55d2007ba44646015e18613d2f213016379203ef3"
+dependencies = [
+ "ahash",
+ "equivalent",
+ "hashbrown 0.16.0",
+ "parking_lot",
 ]
 
 [[package]]

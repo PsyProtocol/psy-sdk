@@ -76,6 +76,7 @@ parking_lot = { version = "0.12", features = ["nightly"] }
 smallvec = "1.15"
 thiserror = "2.0"
 dashmap = "6.1"
+quick_cache = "0.6"
 cc = "1.2"
 bindgen = "0.71"
 
@@ -282,7 +283,6 @@ strum_macros = "0.27"
 # AWS dependencies
 aws-config = "1.0"
 aws-sdk-s3 = "1.0"
-
 
 [profile.release]
 debug = false

@@ -758,7 +758,14 @@ impl<
         let deferred_tx = &debt_item.call_data;
         let method_id = deferred_tx.method_id.to_canonical_u64() as u32;
         let contract_id = deferred_tx.contract_id.to_canonical_u64();
-        let (fn_id, fn_circuit_def) = self.resolve_contract_function(contract_id, method_id).await?;
+
+        let contract_def = self
+            .lps
+            .resolve_get_contract_code_mut(&QSRCmdGetContractCodeDefinition { contract_id })
+            .await?;
+        let (fn_id, fn_circuit_def) = circuit_mgr
+            .resolve_contract_function_by_method_id(contract_id, &contract_def, method_id)
+            .await?;
         let cfc_proof_input = self
             .exec_deferred_contract_call(
                 deferred_tx.contract_id,

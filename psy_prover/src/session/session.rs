@@ -151,11 +151,11 @@ where
 {
     circuit_mgr.register_contract_circuits(contract_id, &contract_code).await?;
 
-    let method_id = circuit_mgr.get_method_id(contract_id, fn_name.to_string()).await?;
+    let (fn_id, dapen_fc) = circuit_mgr
+        .resolve_contract_function_by_method_name(contract_id, &contract_code, fn_name.to_string())
+        .await?;
 
-    let dapen_fc = cfc_code_definition_to_dapen_fc(&contract_code.functions[method_id as usize])?;
-
-    mgr.prove_standard_call(circuit_mgr, F::from_canonical_u64(contract_id), method_id as u32, &dapen_fc, inputs)
+    mgr.prove_standard_call(circuit_mgr, F::from_canonical_u64(contract_id), fn_id as u32, &dapen_fc, inputs)
         .await
 }
 
