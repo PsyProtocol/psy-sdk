@@ -147,27 +147,19 @@ PIDS+=($!)
 sleep 5
 run_service "make run-coordinator-edge-tikv" "coordinator-edge-tikv" "$COORDINATOR_EDGE_LOG" &
 PIDS+=($!)
-run_service "make run-realm-processor2-tikv" "realm-processor2-tikv" "$REALM_PROCESSOR2_LOG" &
-PIDS+=($!)
-run_service "make run-realm-processor3-tikv" "realm-processor3-tikv" "$REALM_PROCESSOR3_LOG" &
-PIDS+=($!)
-#run_service "make run-realm-processor4-tikv" "realm-processor4-tikv" "$REALM_PROCESSOR4_LOG" &
-#PIDS+=($!)
-#run_service "make run-realm-processor5-tikv" "realm-processor5-tikv" "$REALM_PROCESSOR5_LOG" &
-#PIDS+=($!)
-#run_service "make run-realm-processor6-tikv" "realm-processor6-tikv" "$REALM_PROCESSOR6_LOG" &
-#PIDS+=($!)
-#run_service "make run-realm-processor7-tikv" "realm-processor7-tikv" "$REALM_PROCESSOR7_LOG" &
-#PIDS+=($!)
-
-
-sleep 8
 
 # Group 2: Start realm services (depend on coordinator) (using TiKV)
+sleep 8
 run_service "make run-realm-processor-tikv" "realm-processor-tikv" "$REALM_PROCESSOR_LOG" &
 PIDS+=($!)
 run_service "make run-realm-processor1-tikv" "realm-processor1-tikv" "$REALM_PROCESSOR1_LOG" &
 PIDS+=($!)
+run_service "make run-realm-processor2-tikv" "realm-processor2-tikv" "$REALM_PROCESSOR2_LOG" &
+PIDS+=($!)
+run_service "make run-realm-processor3-tikv" "realm-processor3-tikv" "$REALM_PROCESSOR3_LOG" &
+PIDS+=($!)
+
+sleep 5
 run_service "make run-realm-edge-tikv" "realm-edge-tikv" "$REALM_EDGE_LOG" &
 PIDS+=($!)
 run_service "make run-realm-edge1-tikv" "realm-edge1-tikv" "$REALM_EDGE1_LOG" &

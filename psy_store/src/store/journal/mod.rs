@@ -236,9 +236,7 @@ impl<S: KVQBinaryStoreAsync + Send + Sync> KVQBinaryStore for JournalStore<S> {
     }
 
     fn delete(&self, key: &Vec<u8>) -> anyhow::Result<bool> {
-        tokio::task::block_in_place(|| {
-            tokio::runtime::Handle::current().block_on(async { <Self as KVQBinaryStoreAsync>::delete(self, key).await })
-        })
+        tokio::task::block_in_place(|| tokio::runtime::Handle::current().block_on(async { <Self as KVQBinaryStoreAsync>::delete(self, key).await }))
     }
 
     fn delete_many(&self, keys: &[Vec<u8>]) -> anyhow::Result<Vec<bool>> {

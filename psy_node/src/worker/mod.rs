@@ -1,4 +1,3 @@
-pub mod client;
 pub mod job_tracker;
 pub mod simple_async_coord;
 pub mod simple_async_realm;

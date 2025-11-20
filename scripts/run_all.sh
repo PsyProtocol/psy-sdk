@@ -116,24 +116,12 @@ run_service() {
     done
 }
 
-# Group 1: Start coordinator services 
+# Group 1: Start coordinator services
 run_service "make run-coordinator-processor" "coordinator-processor" "$COORDINATOR_PROCESSOR_LOG" &
 PIDS+=($!)
 sleep 5
 run_service "make run-coordinator-edge" "coordinator-edge" "$COORDINATOR_EDGE_LOG" &
 PIDS+=($!)
-run_service "make run-realm-processor2" "realm-processor2" "$REALM_PROCESSOR2_LOG" &
-PIDS+=($!)
-run_service "make run-realm-processor3" "realm-processor3" "$REALM_PROCESSOR3_LOG" &
-PIDS+=($!)
-#run_service "make run-realm-processor4" "realm-processor4" "$REALM_PROCESSOR4_LOG" &
-#PIDS+=($!)
-#run_service "make run-realm-processor5" "realm-processor5" "$REALM_PROCESSOR5_LOG" &
-#PIDS+=($!)
-#run_service "make run-realm-processor6" "realm-processor6" "$REALM_PROCESSOR6_LOG" &
-#PIDS+=($!)
-#run_service "make run-realm-processor7" "realm-processor7" "$REALM_PROCESSOR7_LOG" &
-#PIDS+=($!)
 
 # Group 2: Start realm services (depend on coordinator)
 sleep 8
@@ -141,6 +129,12 @@ run_service "make run-realm-processor" "realm-processor" "$REALM_PROCESSOR_LOG" 
 PIDS+=($!)
 run_service "make run-realm-processor1" "realm-processor1" "$REALM_PROCESSOR1_LOG" &
 PIDS+=($!)
+run_service "make run-realm-processor2" "realm-processor2" "$REALM_PROCESSOR2_LOG" &
+PIDS+=($!)
+run_service "make run-realm-processor3" "realm-processor3" "$REALM_PROCESSOR3_LOG" &
+PIDS+=($!)
+
+sleep 5
 run_service "make run-realm-edge" "realm-edge" "$REALM_EDGE_LOG" &
 PIDS+=($!)
 run_service "make run-realm-edge1" "realm-edge1" "$REALM_EDGE1_LOG" &

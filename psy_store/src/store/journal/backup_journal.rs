@@ -226,9 +226,7 @@ impl<J: Journal + Send + Sync> KVQBinaryStore for BackupJournalStore<J> {
     }
 
     fn get_fuzzy_range_leq_kv(&self, key: &Vec<u8>, fuzzy_bytes: usize) -> anyhow::Result<Vec<KVQPair<Vec<u8>, Vec<u8>>>> {
-        block_in_place(|| Handle::current().block_on(async {
-            <Self as KVQBinaryStoreAsync>::get_fuzzy_range_leq_kv(self, key, fuzzy_bytes).await
-        }))
+        block_in_place(|| Handle::current().block_on(async { <Self as KVQBinaryStoreAsync>::get_fuzzy_range_leq_kv(self, key, fuzzy_bytes).await }))
     }
 
     fn get_leq_kv(&self, key: &Vec<u8>, fuzzy_bytes: usize) -> anyhow::Result<Option<KVQPair<Vec<u8>, Vec<u8>>>> {

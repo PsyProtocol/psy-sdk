@@ -5692,6 +5692,7 @@ dependencies = [
  "psy_network_circuit",
  "psy_node",
  "psy_prover",
+ "psy_provider",
  "psy_rust_sdk",
  "psy_services",
  "psy_store",
