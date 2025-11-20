@@ -174,39 +174,27 @@ impl<S: KVQBinaryStoreAsync + Send + Sync> KVQSimpleCachedStore<S> {
 
 impl<S: KVQBinaryStoreAsync + Send + Sync> KVQBinaryStoreCache for KVQSimpleCachedStore<S> {
     fn flush_changes(&self) -> anyhow::Result<(Vec<KVQPair<Vec<u8>, Vec<u8>>>, Vec<Vec<u8>>)> {
-        tokio::task::block_in_place(|| {
-            tokio::runtime::Handle::current().block_on(async { self.flush_changes().await })
-        })
+        tokio::task::block_in_place(|| tokio::runtime::Handle::current().block_on(async { self.flush_changes().await }))
     }
 
     fn clear_cache(&self) {
-        tokio::task::block_in_place(|| {
-            tokio::runtime::Handle::current().block_on(async { self.clear_cache().await })
-        })
+        tokio::task::block_in_place(|| tokio::runtime::Handle::current().block_on(async { self.clear_cache().await }))
     }
 
     fn flush_simple(&self, checkpoint_id: Option<u64>) -> anyhow::Result<(Vec<KVQPair<Vec<u8>, Vec<u8>>>, Vec<Vec<u8>>)> {
-        tokio::task::block_in_place(|| {
-            tokio::runtime::Handle::current().block_on(async { self.flush_simple(checkpoint_id).await })
-        })
+        tokio::task::block_in_place(|| tokio::runtime::Handle::current().block_on(async { self.flush_simple(checkpoint_id).await }))
     }
 
     fn is_removed(&self, key: &Vec<u8>) -> bool {
-        tokio::task::block_in_place(|| {
-            tokio::runtime::Handle::current().block_on(async { self.is_removed(key).await })
-        })
+        tokio::task::block_in_place(|| tokio::runtime::Handle::current().block_on(async { self.is_removed(key).await }))
     }
 
     fn get_non_removed_keys(&self) -> Vec<Vec<u8>> {
-        tokio::task::block_in_place(|| {
-            tokio::runtime::Handle::current().block_on(async { self.get_non_removed_keys().await })
-        })
+        tokio::task::block_in_place(|| tokio::runtime::Handle::current().block_on(async { self.get_non_removed_keys().await }))
     }
 
     fn get_removed_keys(&self) -> Vec<Vec<u8>> {
-        tokio::task::block_in_place(|| {
-            tokio::runtime::Handle::current().block_on(async { self.get_removed_keys().await })
-        })
+        tokio::task::block_in_place(|| tokio::runtime::Handle::current().block_on(async { self.get_removed_keys().await }))
     }
 }
 
@@ -484,9 +472,7 @@ impl<S: KVQBinaryStoreAsync + Send + Sync> KVQBinaryStore for KVQSimpleCachedSto
     }
 
     fn delete(&self, key: &Vec<u8>) -> anyhow::Result<bool> {
-        tokio::task::block_in_place(|| {
-            tokio::runtime::Handle::current().block_on(async { <Self as KVQBinaryStoreAsync>::delete(self, key).await })
-        })
+        tokio::task::block_in_place(|| tokio::runtime::Handle::current().block_on(async { <Self as KVQBinaryStoreAsync>::delete(self, key).await }))
     }
 
     fn delete_many(&self, keys: &[Vec<u8>]) -> anyhow::Result<Vec<bool>> {
@@ -504,9 +490,10 @@ impl<S: KVQBinaryStoreAsync + Send + Sync> KVQBinaryStore for KVQSimpleCachedSto
 
 #[cfg(test)]
 mod tests {
+    use std::sync::Arc;
+
     use super::*;
     use crate::memory::simple::KVQSimpleMemoryBackingStore;
-    use std::sync::Arc;
 
     #[tokio::test(flavor = "multi_thread")]
     async fn test_basic_operations() {
@@ -514,14 +501,26 @@ mod tests {
         let store = KVQSimpleCachedStore::new(Arc::new(backing));
 
         <KVQSimpleCachedStore<_> as KVQBinaryStore>::set_ref(&store, &vec![1], &vec![10]).unwrap();
-        assert_eq!(<KVQSimpleCachedStore<_> as KVQBinaryStore>::get_exact(&store, &vec![1]).unwrap(), vec![10]);
+        assert_eq!(
+            <KVQSimpleCachedStore<_> as KVQBinaryStore>::get_exact(&store, &vec![1]).unwrap(),
+            vec![10]
+        );
 
-        assert_eq!(<KVQSimpleCachedStore<_> as KVQBinaryStore>::get_exact_if_exists(&store, &vec![1]).unwrap(), Some(vec![10]));
-        assert_eq!(<KVQSimpleCachedStore<_> as KVQBinaryStore>::get_exact_if_exists(&store, &vec![2]).unwrap(), None);
+        assert_eq!(
+            <KVQSimpleCachedStore<_> as KVQBinaryStore>::get_exact_if_exists(&store, &vec![1]).unwrap(),
+            Some(vec![10])
+        );
+        assert_eq!(
+            <KVQSimpleCachedStore<_> as KVQBinaryStore>::get_exact_if_exists(&store, &vec![2]).unwrap(),
+            None
+        );
 
         assert!(<KVQSimpleCachedStore<_> as KVQBinaryStore>::delete(&store, &vec![1]).unwrap());
         assert!(<KVQSimpleCachedStore<_> as KVQBinaryStore>::get_exact(&store, &vec![1]).is_err());
-        assert_eq!(<KVQSimpleCachedStore<_> as KVQBinaryStore>::get_exact_if_exists(&store, &vec![1]).unwrap(), None);
+        assert_eq!(
+            <KVQSimpleCachedStore<_> as KVQBinaryStore>::get_exact_if_exists(&store, &vec![1]).unwrap(),
+            None
+        );
     }
 
     #[tokio::test(flavor = "multi_thread")]
@@ -532,12 +531,21 @@ mod tests {
 
         let store = KVQSimpleCachedStore::new(Arc::new(backing));
 
-        assert_eq!(<KVQSimpleCachedStore<_> as KVQBinaryStore>::get_leq(&store, &vec![3], 0).unwrap(), Some(vec![30]));
-        assert_eq!(<KVQSimpleCachedStore<_> as KVQBinaryStore>::get_leq(&store, &vec![4], 0).unwrap(), Some(vec![30]));
+        assert_eq!(
+            <KVQSimpleCachedStore<_> as KVQBinaryStore>::get_leq(&store, &vec![3], 0).unwrap(),
+            Some(vec![30])
+        );
+        assert_eq!(
+            <KVQSimpleCachedStore<_> as KVQBinaryStore>::get_leq(&store, &vec![4], 0).unwrap(),
+            Some(vec![30])
+        );
         assert_eq!(<KVQSimpleCachedStore<_> as KVQBinaryStore>::get_leq(&store, &vec![0], 0).unwrap(), None);
 
         <KVQSimpleCachedStore<_> as KVQBinaryStore>::set_ref(&store, &vec![2], &vec![20]).unwrap();
-        assert_eq!(<KVQSimpleCachedStore<_> as KVQBinaryStore>::get_leq(&store, &vec![2], 0).unwrap(), Some(vec![20]));
+        assert_eq!(
+            <KVQSimpleCachedStore<_> as KVQBinaryStore>::get_leq(&store, &vec![2], 0).unwrap(),
+            Some(vec![20])
+        );
 
         <KVQSimpleCachedStore<_> as KVQBinaryStore>::delete(&store, &vec![1]).unwrap();
         assert_eq!(<KVQSimpleCachedStore<_> as KVQBinaryStore>::get_leq(&store, &vec![1], 0).unwrap(), None);
@@ -557,7 +565,10 @@ mod tests {
         assert_eq!(deletes.len(), 1);
 
         <KVQSimpleCachedStore<_> as KVQBinaryStoreCache>::clear_cache(&store);
-        assert_eq!(<KVQSimpleCachedStore<_> as KVQBinaryStore>::get_exact_if_exists(&store, &vec![1]).unwrap(), None);
+        assert_eq!(
+            <KVQSimpleCachedStore<_> as KVQBinaryStore>::get_exact_if_exists(&store, &vec![1]).unwrap(),
+            None
+        );
     }
 
     #[tokio::test]
@@ -569,10 +580,19 @@ mod tests {
 
         let store = KVQSimpleCachedStore::new(Arc::new(backing));
 
-        assert_eq!(<KVQSimpleCachedStore<_> as KVQBinaryStore>::get_leq(&store, &vec![3], 0).unwrap(), Some(vec![30]));
-        assert_eq!(<KVQSimpleCachedStore<_> as KVQBinaryStore>::get_leq(&store, &vec![4], 0).unwrap(), Some(vec![30]));
+        assert_eq!(
+            <KVQSimpleCachedStore<_> as KVQBinaryStore>::get_leq(&store, &vec![3], 0).unwrap(),
+            Some(vec![30])
+        );
+        assert_eq!(
+            <KVQSimpleCachedStore<_> as KVQBinaryStore>::get_leq(&store, &vec![4], 0).unwrap(),
+            Some(vec![30])
+        );
         assert_eq!(<KVQSimpleCachedStore<_> as KVQBinaryStore>::get_leq(&store, &vec![0], 0).unwrap(), None);
-        assert_eq!(<KVQSimpleCachedStore<_> as KVQBinaryStore>::get_leq(&store, &vec![6], 0).unwrap(), Some(vec![50]));
+        assert_eq!(
+            <KVQSimpleCachedStore<_> as KVQBinaryStore>::get_leq(&store, &vec![6], 0).unwrap(),
+            Some(vec![50])
+        );
     }
 
     #[tokio::test]
@@ -584,10 +604,16 @@ mod tests {
         let store = KVQSimpleCachedStore::new(Arc::new(backing));
 
         <KVQSimpleCachedStore<_> as KVQBinaryStore>::set_ref(&store, &vec![3], &vec![30]).unwrap();
-        assert_eq!(<KVQSimpleCachedStore<_> as KVQBinaryStore>::get_leq(&store, &vec![4], 0).unwrap(), Some(vec![30]));
+        assert_eq!(
+            <KVQSimpleCachedStore<_> as KVQBinaryStore>::get_leq(&store, &vec![4], 0).unwrap(),
+            Some(vec![30])
+        );
 
         <KVQSimpleCachedStore<_> as KVQBinaryStore>::delete(&store, &vec![3]).unwrap();
-        assert_eq!(<KVQSimpleCachedStore<_> as KVQBinaryStore>::get_leq(&store, &vec![4], 0).unwrap(), Some(vec![10]));
+        assert_eq!(
+            <KVQSimpleCachedStore<_> as KVQBinaryStore>::get_leq(&store, &vec![4], 0).unwrap(),
+            Some(vec![10])
+        );
     }
 
     #[tokio::test]
@@ -639,8 +665,14 @@ mod tests {
         let store = KVQSimpleCachedStore::new(Arc::new(backing));
 
         <KVQSimpleCachedStore<_> as KVQBinaryStore>::set_ref(&store, &vec![1], &vec![20]).unwrap();
-        assert_eq!(<KVQSimpleCachedStore<_> as KVQBinaryStore>::get_exact(&store, &vec![1]).unwrap(), vec![20]);
-        assert_eq!(<KVQSimpleCachedStore<_> as KVQBinaryStore>::get_leq(&store, &vec![1], 0).unwrap(), Some(vec![20]));
+        assert_eq!(
+            <KVQSimpleCachedStore<_> as KVQBinaryStore>::get_exact(&store, &vec![1]).unwrap(),
+            vec![20]
+        );
+        assert_eq!(
+            <KVQSimpleCachedStore<_> as KVQBinaryStore>::get_leq(&store, &vec![1], 0).unwrap(),
+            Some(vec![20])
+        );
     }
 
     #[tokio::test]
@@ -652,7 +684,13 @@ mod tests {
 
         let store = KVQSimpleCachedStore::new(Arc::new(backing));
 
-        assert_eq!(<KVQSimpleCachedStore<_> as KVQBinaryStore>::get_leq(&store, &vec![1, 2, 4], 0).unwrap(), Some(vec![10]));
-        assert_eq!(<KVQSimpleCachedStore<_> as KVQBinaryStore>::get_leq(&store, &vec![1, 2, 4], 1).unwrap(), Some(vec![10]));
+        assert_eq!(
+            <KVQSimpleCachedStore<_> as KVQBinaryStore>::get_leq(&store, &vec![1, 2, 4], 0).unwrap(),
+            Some(vec![10])
+        );
+        assert_eq!(
+            <KVQSimpleCachedStore<_> as KVQBinaryStore>::get_leq(&store, &vec![1, 2, 4], 1).unwrap(),
+            Some(vec![10])
+        );
     }
 }
