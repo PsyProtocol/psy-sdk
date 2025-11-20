@@ -7,17 +7,20 @@ use plonky2::{
 };
 use psy_common::data::qhashout::QHashOut;
 use psy_config::network_constants::{DEFERRED_TRANSACTION_TREE_HEIGHT, INLINE_TRANSACTION_TREE_HEIGHT};
-use psy_crypto::{common::user_id::get_registration_id_from_user_id, hash::{
-    merkle::{
-        core::{DeltaMerkleProofCore, MerkleProofCore},
-        utils::simple_merkle_tree::SimpleMerkleTree,
+use psy_crypto::{
+    common::user_id::get_registration_id_from_user_id,
+    hash::{
+        merkle::{
+            core::{DeltaMerkleProofCore, MerkleProofCore},
+            utils::simple_merkle_tree::SimpleMerkleTree,
+        },
+        traits::{
+            hasher::{FieldQHasher, MerkleZeroHasher, MerkleZeroHasherWithCache, MerkleZeroHasherWithMarkedLeaf},
+            qhashable::QFieldHashable,
+        },
+        utils::safe_hash_fixed_length,
     },
-    traits::{
-        hasher::{FieldQHasher, MerkleZeroHasher, MerkleZeroHasherWithCache, MerkleZeroHasherWithMarkedLeaf},
-        qhashable::QFieldHashable,
-    },
-    utils::safe_hash_fixed_length,
-}};
+};
 
 use super::{
     session_store::{config::LPS_DEFERRED_TRANSACTION_TREE_ID, tx_tree::TransactionDebtTreeRef},
@@ -43,16 +46,24 @@ use crate::{
         contract_inclusion::{PsyContractFunctionInclusionProof, PsyContractInclusionProof},
         user::PsyUserLeaf,
     },
-    qstore::{controllers::register_helpers::get_new_empty_user_leaf, imm::{
-        cache::PsyCmdStoreWithCache,
-        cmd::{
-            QSRCmdGetBlockState, QSRCmdGetCheckpointLeafData, QSRCmdGetContractCodeDefinition, QSRCmdGetContractLeafData, QSRCmdGetUserLeafData, QSRHashCmd, QSRHashCmdGetCheckpointTreeRoot, QSRHashCmdGetContractTreeRoot, QSRHashCmdGetDepositTreeRoot, QSRHashCmdGetUserRegistrationTreeRoot, QSRHashCmdGetUserTreeRoot, QSRHashCmdGetWithdrawalTreeRoot, QSRMerkleCmd, QSRMerkleCmdGetContractFunctionTreeMerkleProof, QSRMerkleCmdGetContractTreeMerkleProof, QSRMerkleCmdGetUserContractStateTreeMerkleProof, QSRMerkleCmdGetUserContractTreeMerkleProof, QSRMerkleCmdGetUserRegistrationTreeMerkleProof, QSRMerkleCmdGetUserTreeMerkleProof
+    qstore::{
+        controllers::register_helpers::get_new_empty_user_leaf,
+        imm::{
+            cache::PsyCmdStoreWithCache,
+            cmd::{
+                QSRCmdGetBlockState, QSRCmdGetCheckpointLeafData, QSRCmdGetContractCodeDefinition, QSRCmdGetContractLeafData, QSRCmdGetUserLeafData,
+                QSRHashCmd, QSRHashCmdGetCheckpointTreeRoot, QSRHashCmdGetContractTreeRoot, QSRHashCmdGetDepositTreeRoot,
+                QSRHashCmdGetUserRegistrationTreeRoot, QSRHashCmdGetUserTreeRoot, QSRHashCmdGetWithdrawalTreeRoot, QSRMerkleCmd,
+                QSRMerkleCmdGetContractFunctionTreeMerkleProof, QSRMerkleCmdGetContractTreeMerkleProof,
+                QSRMerkleCmdGetUserContractStateTreeMerkleProof, QSRMerkleCmdGetUserContractTreeMerkleProof,
+                QSRMerkleCmdGetUserRegistrationTreeMerkleProof, QSRMerkleCmdGetUserTreeMerkleProof,
+            },
+            cmd_processor::{
+                DPNReadOtherUserLeafMerkleProof, PsyReadCommandBatchInput, PsyReadCommandBatchOutput, PsyReadCommandProcessorSync,
+                PsyReadCommandProcessorSyncMut, QUserIdManager,
+            },
         },
-        cmd_processor::{
-            DPNReadOtherUserLeafMerkleProof, PsyReadCommandBatchInput, PsyReadCommandBatchOutput, PsyReadCommandProcessorSync,
-            PsyReadCommandProcessorSyncMut, QUserIdManager,
-        },
-    }},
+    },
     ups::{ups_context_input::UserProvingSessionStartContext, ups_standard_cfc_input::UPSCFCStandardStateDeltaInput},
 };
 
@@ -330,24 +341,22 @@ impl<F: RichField, H: MerkleZeroHasherWithMarkedLeaf<QHashOut<F>> + Send, R: Psy
         let start_checkpoint = F::from_canonical_u64(blk_state.checkpoint_id);
         let user_tree_proof: MerkleProofCore<QHashOut<F>> = self
             .cmd_store
-            .resolve_get_merkle_proof_mut(&QSRMerkleCmd::GetUserTreeMerkleProof(
-                QSRMerkleCmdGetUserTreeMerkleProof {
-                    checkpoint_id: blk_state.checkpoint_id,
-                    user_id: user_id.to_canonical_u64(),
-                },
-            ))
+            .resolve_get_merkle_proof_mut(&QSRMerkleCmd::GetUserTreeMerkleProof(QSRMerkleCmdGetUserTreeMerkleProof {
+                checkpoint_id: blk_state.checkpoint_id,
+                user_id: user_id.to_canonical_u64(),
+            }))
             .await?;
 
         let (nonce, is_new_user) = if user_tree_proof.value == QHashOut::ZERO {
             (F::ONE, true)
         } else {
             let user_leaf = self
-            .cmd_store
-            .resolve_get_user_leaf_mut(&QSRCmdGetUserLeafData {
-                checkpoint_id: blk_state.checkpoint_id,
-                user_id: user_id.to_canonical_u64(),
-            })
-            .await?;
+                .cmd_store
+                .resolve_get_user_leaf_mut(&QSRCmdGetUserLeafData {
+                    checkpoint_id: blk_state.checkpoint_id,
+                    user_id: user_id.to_canonical_u64(),
+                })
+                .await?;
             (user_leaf.nonce + F::ONE, false)
         };
 
@@ -417,8 +426,11 @@ impl<F: RichField, H: MerkleZeroHasherWithMarkedLeaf<QHashOut<F>> + Send, R: Psy
 
 #[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
 #[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
-impl<F: RichField, H: MerkleZeroHasherWithMarkedLeaf<QHashOut<F>> + FieldQHasher<F> + Send, R: PsyReadCommandProcessorSync<F> + QUserIdManager + Send + Sync>
-    PsyLocalProvingSessionStore<F, R, H>
+impl<
+        F: RichField,
+        H: MerkleZeroHasherWithMarkedLeaf<QHashOut<F>> + FieldQHasher<F> + Send,
+        R: PsyReadCommandProcessorSync<F> + QUserIdManager + Send + Sync,
+    > PsyLocalProvingSessionStore<F, R, H>
 {
     pub fn get_deferred_tx_debt_latest_index(&self) -> u64 {
         self.deferred_tx_debt_store.get_latest_index()

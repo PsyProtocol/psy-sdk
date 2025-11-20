@@ -25,7 +25,10 @@ use psy_data::{
     qstore::{controllers::session_info::SessionCircuitInfoStore, imm::cmd_processor::PsyReadCommandProcessorSync},
     traits::qdatastore::qtreedata::PsyComboDataStoreReaderSync,
     ups::{
-        start_step::UPSStartStepInput, start_step_register_user::UPSStartStepRegisterUserInput, ups_cfc_standard_step::{UPSCFCDeferredTransactionCircuitInput, UPSCFCStandardTransactionCircuitInput}, ups_end_cap::UPSEndCapFromProofTreeGadgetInput
+        start_step::UPSStartStepInput,
+        start_step_register_user::UPSStartStepRegisterUserInput,
+        ups_cfc_standard_step::{UPSCFCDeferredTransactionCircuitInput, UPSCFCStandardTransactionCircuitInput},
+        ups_end_cap::UPSEndCapFromProofTreeGadgetInput,
     },
 };
 

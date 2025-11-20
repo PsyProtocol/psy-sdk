@@ -17,7 +17,6 @@ use psy_common::{
     ups::circuits::LocalCircuitType,
     JobInfo, JobLocation,
 };
-pub use psy_provider::session::TxStatus;
 use psy_common_circuit::circuits::traits::qstandard::QStandardCircuit;
 use psy_config::{
     network_constants::{MAX_CONTRACT_STATE_TREE_HEIGHT, TOKEN_CONTRACT_ID, UPS_SESSION_PROOF_TREE_HEIGHT},
@@ -40,7 +39,10 @@ use psy_data::{
             session_info::SessionCircuitInfoStore,
         },
         imm::{
-            cmd::{QSRCmdGetContractCodeDefinition, QSRCmdGetUserLeafData, QSRHashCmd, QSRHashCmdGetUserContractStateTreeRoot, QSRMerkleCmd, QSRMerkleCmdGetUserTreeMerkleProof},
+            cmd::{
+                QSRCmdGetContractCodeDefinition, QSRCmdGetUserLeafData, QSRHashCmd, QSRHashCmdGetUserContractStateTreeRoot, QSRMerkleCmd,
+                QSRMerkleCmdGetUserTreeMerkleProof,
+            },
             cmd_processor::{PsyReadCommandProcessorSync, PsyReadCommandProcessorSyncMut},
         },
     },
@@ -50,6 +52,7 @@ use psy_data::{
     },
 };
 use psy_dpn_circuit::circuits::cfc::DapenContractFunctionCircuit;
+pub use psy_provider::session::TxStatus;
 use psy_provider::{
     provider::{NetworkConfig, ProveProxyRpcProvider, QUserRpcProvider, RpcProvider},
     request::{DPNSoftwareDefinedSignatureInput, QDeployContractRPCRequest, QRegisterUserRPCRequest, QSubmitEndCapRPCRequest},
@@ -171,7 +174,12 @@ pub struct WalletSession {
 #[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
 impl WalletSession {
     async fn check_user_state(&self, user_id: u64, nonce: F) -> anyhow::Result<()> {
-        match self.st_provider.with_user_id_owned(user_id).get_tx_status(user_id, nonce.to_noncanonical_u64()).await? {
+        match self
+            .st_provider
+            .with_user_id_owned(user_id)
+            .get_tx_status(user_id, nonce.to_noncanonical_u64())
+            .await?
+        {
             TxStatus::Confirmed => {
                 tracing::warn!("tx status is confirmed");
                 Err(anyhow::format_err!(
@@ -190,7 +198,11 @@ impl WalletSession {
     }
 
     pub async fn check_tx_is_confirmed(&mut self, checkpoint_id: u64, user_id: u64, tx_hash: QHashOut<F>) -> anyhow::Result<bool> {
-        let user_leaf_data = self.st_provider.with_user_id_owned(user_id).get_user_leaf_data(checkpoint_id, user_id).await?;
+        let user_leaf_data = self
+            .st_provider
+            .with_user_id_owned(user_id)
+            .get_user_leaf_data(checkpoint_id, user_id)
+            .await?;
         Ok(user_leaf_data.qfhash::<PsyHasher>() == tx_hash)
     }
 
@@ -263,7 +275,10 @@ impl WalletSession {
         let pk_info = self.wallet.get_or_create_user(private_key, fingerprint).await?;
         let public_key = pk_info.qfhash::<PsyHasher>();
 
-        let user_id = self.st_provider.get_user_id(public_key).await
+        let user_id = self
+            .st_provider
+            .get_user_id(public_key)
+            .await
             .map_err(|e| anyhow::format_err!("User {} not registered. Please register first: {}", public_key, e))?;
 
         if let Some((_, existing_mgr)) = self.user_session_mgrs.remove(&public_key) {
@@ -277,14 +292,14 @@ impl WalletSession {
                 F::from_canonical_u64(user_id),
                 F::ZERO,
                 UPS_SESSION_PROOF_TREE_HEIGHT as usize,
-            ).into_clean_for_user(F::from_canonical_u64(user_id)).await?;
+            )
+            .into_clean_for_user(F::from_canonical_u64(user_id))
+            .await?;
 
             let circuit_mgr = self.wallet.random_circuit_manager();
-            let mgr = UserProvingSessionManager::<F, _, _, C, D>::new(
-                lps,
-                self.circuit_info.clone(),
-                circuit_mgr.ups_circuit_whitelist_root().await?,
-            ).await?;
+            let mgr =
+                UserProvingSessionManager::<F, _, _, C, D>::new(lps, self.circuit_info.clone(), circuit_mgr.ups_circuit_whitelist_root().await?)
+                    .await?;
 
             self.user_session_mgrs.insert(public_key, mgr);
         }
@@ -342,9 +357,7 @@ impl WalletSession {
         tracing::info!("local proving ups start");
         tracing::info!("user session manager nonce: {}", user_session_mgr.lps.get_nonce());
 
-        user_session_mgr
-            .prove_ups_start(self.wallet.random_circuit_manager().as_ref())
-            .await?;
+        user_session_mgr.prove_ups_start(self.wallet.random_circuit_manager().as_ref()).await?;
 
         let user_id = user_session_mgr.lps.get_current_user_id_64();
         let nonce = user_session_mgr.lps.get_nonce();
@@ -365,7 +378,12 @@ impl WalletSession {
                 contract_call_arg.contract_id,
                 contract_call_arg.method_name
             );
-            let contract_code = user_session_mgr.lps.resolve_get_contract_code_mut(&QSRCmdGetContractCodeDefinition { contract_id: contract_call_arg.contract_id }).await?;
+            let contract_code = user_session_mgr
+                .lps
+                .resolve_get_contract_code_mut(&QSRCmdGetContractCodeDefinition {
+                    contract_id: contract_call_arg.contract_id,
+                })
+                .await?;
             prove_func(
                 contract_code,
                 self.wallet.random_circuit_manager().as_ref(),
@@ -376,9 +394,7 @@ impl WalletSession {
             )
             .await?;
         }
-        user_session_mgr
-            .prove_burn_fee(self.wallet.random_circuit_manager().as_ref())
-            .await?;
+        user_session_mgr.prove_burn_fee(self.wallet.random_circuit_manager().as_ref()).await?;
 
         let user_id = user_session_mgr.lps.get_current_user_id_64();
         let nonce = user_session_mgr.lps.get_nonce();

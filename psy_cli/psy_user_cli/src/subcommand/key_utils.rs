@@ -145,4 +145,3 @@ fn parse_qhash(value: &str) -> Result<QHashOut<GoldilocksField>> {
     let hash = Hash256::from_hex_string(normalized).map_err(|e| anyhow!("failed to parse private key: {}", e))?;
     Ok(QHashOut::from(hash))
 }
-

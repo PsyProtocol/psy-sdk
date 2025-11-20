@@ -40,9 +40,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use tracing::{info, warn};
 
-use crate::subcommand::key_utils::load_wallet_key_info;
-
 use super::args::ClaimRewardsArgs;
+use crate::subcommand::key_utils::load_wallet_key_info;
 
 type ApiResponse = Vec<WorkerEvent>;
 

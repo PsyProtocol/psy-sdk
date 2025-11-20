@@ -59,7 +59,6 @@ pub trait CoordinatorEdgeRpc {
     #[method(name = "has_pending_guta")]
     async fn has_pending_guta(&self, realm_id: u32) -> RpcResult<bool>;
 
-
     #[method(name = "get_latest_checkpoint")]
     async fn get_latest_checkpoint(&self) -> RpcResult<LatestCheckpointResponse>;
 
@@ -358,7 +357,6 @@ pub trait CoordinatorEdgeRpc {
 
     #[method(name = "get_graphviz")]
     async fn get_graphviz(&self, checkpoint_id: u64) -> RpcResult<String>;
-
 
     #[method(name = "get_contract_metadata")]
     async fn get_contract_metadata(&self, contract_uuid: &str) -> RpcResult<ContractMetaData<F>>;

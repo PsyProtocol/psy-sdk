@@ -242,9 +242,7 @@ impl ResilientRedisConnection {
         K: redis::ToRedisArgs + Send + Sync + Clone + 'static,
         V: redis::FromRedisValue + Send + 'static,
     {
-        self.execute(move |mut conn| async move {
-            conn.mget(keys).await
-        }).await
+        self.execute(move |mut conn| async move { conn.mget(keys).await }).await
     }
 
     pub async fn zrange<K, V>(&self, keys: K, start: isize, stop: isize) -> Result<Vec<V>>
@@ -252,20 +250,16 @@ impl ResilientRedisConnection {
         K: redis::ToRedisArgs + Send + Sync + Clone + 'static,
         V: redis::FromRedisValue + Send + 'static,
     {
-        self.execute(move |mut conn| async move {
-            conn.zrange(keys, start, stop).await
-        }).await
+        self.execute(move |mut conn| async move { conn.zrange(keys, start, stop).await }).await
     }
 
-    pub async fn zrembyscore<K,M, V>(&self, keys: K, min: M, max: M) -> Result<V>
+    pub async fn zrembyscore<K, M, V>(&self, keys: K, min: M, max: M) -> Result<V>
     where
         K: redis::ToRedisArgs + Send + Sync + Clone + 'static,
         M: redis::ToRedisArgs + Send + Sync + Clone + 'static,
         V: redis::FromRedisValue + Send + 'static,
     {
-        self.execute(move |mut conn| async move {
-            conn.zrembyscore(keys, min, max).await
-        }).await
+        self.execute(move |mut conn| async move { conn.zrembyscore(keys, min, max).await }).await
     }
 
     pub async fn zremrangebyrank<K, V>(&self, keys: K, start: isize, stop: isize) -> Result<V>
@@ -273,11 +267,9 @@ impl ResilientRedisConnection {
         K: redis::ToRedisArgs + Send + Sync + Clone + 'static,
         V: redis::FromRedisValue + Send + 'static,
     {
-        self.execute(move |mut conn| async move {
-            conn.zremrangebyrank(keys, start, stop).await
-        }).await
+        self.execute(move |mut conn| async move { conn.zremrangebyrank(keys, start, stop).await })
+            .await
     }
-
 
     pub async fn lpop<K, V>(&self, key: K, count: Option<usize>) -> Result<Option<V>>
     where
@@ -375,9 +367,7 @@ impl ResilientRedisConnection {
         K: redis::ToRedisArgs + Send + Sync + Clone + 'static,
     {
         let key_clone = key.clone();
-        self.execute(move |mut conn| async move {
-            conn.exists(key_clone).await
-        }).await
+        self.execute(move |mut conn| async move { conn.exists(key_clone).await }).await
     }
 
     pub async fn hexists<K, F>(&self, key: K, field: F) -> Result<bool>
@@ -402,8 +392,7 @@ impl ResilientRedisConnection {
             .await
     }
 
-    pub async fn zscore<K,M, V>(&self, key: K, member: M) -> Result<V>
-
+    pub async fn zscore<K, M, V>(&self, key: K, member: M) -> Result<V>
     where
         K: redis::ToRedisArgs + Send + Sync + Clone + 'static,
         M: redis::ToRedisArgs + Send + Sync + Clone + 'static,
@@ -411,22 +400,18 @@ impl ResilientRedisConnection {
     {
         let key_clone = key.clone();
         let member_clone = member.clone();
-        self.execute(move |mut conn| async move {
-            conn.zscore(key_clone, member_clone).await
-        }).await
+        self.execute(move |mut conn| async move { conn.zscore(key_clone, member_clone).await })
+            .await
     }
 
-    pub async fn zadd<K,M,S, V>(&self, key: K, member: M, score: S) -> Result<V>
-
+    pub async fn zadd<K, M, S, V>(&self, key: K, member: M, score: S) -> Result<V>
     where
         K: redis::ToRedisArgs + Send + Sync + Clone + 'static,
         M: redis::ToRedisArgs + Send + Sync + Clone + 'static,
         S: redis::ToRedisArgs + Send + Sync + Clone + 'static,
         V: redis::FromRedisValue + Send + 'static,
     {
-        self.execute(move |mut conn| async move {
-            conn.zadd(key, member, score).await
-        }).await
+        self.execute(move |mut conn| async move { conn.zadd(key, member, score).await }).await
     }
 
     pub async fn smembers<K, V>(&self, key: K) -> Result<Vec<V>>
@@ -452,19 +437,15 @@ impl ResilientRedisConnection {
         K: redis::ToRedisArgs + Send + Sync + Clone + 'static,
         V: FromRedisValue + Send + Sync + Clone + 'static,
     {
-        self.execute(move |mut conn| async move {
-            conn.zcard(key).await
-        }).await
+        self.execute(move |mut conn| async move { conn.zcard(key).await }).await
     }
 
-    pub async fn zremrangebyscore<K,M>(&self, key: K, min: M, max: M) -> Result<()>
+    pub async fn zremrangebyscore<K, M>(&self, key: K, min: M, max: M) -> Result<()>
     where
         K: redis::ToRedisArgs + Send + Sync + Clone + 'static,
         M: redis::ToRedisArgs + Send + Sync + Clone + 'static,
     {
-        self.execute(move |mut conn| async move {
-            conn.zrembyscore(key, min, max).await
-        }).await
+        self.execute(move |mut conn| async move { conn.zrembyscore(key, min, max).await }).await
     }
 
     pub async fn del<K>(&self, key: K) -> Result<()>
@@ -527,11 +508,8 @@ impl ResilientRedisConnection {
     }
 
     pub async fn server_time(&self) -> Result<Vec<i64>> {
-        self.execute(|mut conn| async move {
-            redis::cmd("TIME")
-                .query_async(&mut conn)
-                .await
-        }).await
+        self.execute(|mut conn| async move { redis::cmd("TIME").query_async(&mut conn).await })
+            .await
     }
 
     pub async fn execute_commands(&self, commands: Vec<redis::Cmd>) -> Result<Vec<redis::Value>> {
@@ -585,7 +563,7 @@ impl CommandBuilder {
 
     pub fn exists<K>(mut self, key: K) -> Self
     where
-        K: redis::ToRedisArgs
+        K: redis::ToRedisArgs,
     {
         let mut cmd = redis::cmd("EXISTS");
         cmd.arg(key);
@@ -595,14 +573,13 @@ impl CommandBuilder {
 
     pub fn get<K>(mut self, key: K) -> Self
     where
-        K: redis::ToRedisArgs
+        K: redis::ToRedisArgs,
     {
         let mut cmd = redis::cmd("GET");
         cmd.arg(key);
         self.commands.push(cmd);
         self
     }
-
 
     pub fn set<K, V>(mut self, key: K, value: V) -> Self
     where
@@ -731,7 +708,7 @@ impl CommandBuilder {
         self
     }
 
-    pub fn zadd<K, S, M>(mut self, key: K, member: M, score: S)  -> Self
+    pub fn zadd<K, S, M>(mut self, key: K, member: M, score: S) -> Self
     where
         K: redis::ToRedisArgs,
         S: ToRedisArgs,
@@ -753,7 +730,7 @@ impl CommandBuilder {
         self
     }
 
-    pub fn zremrangebyscore<K,M>(mut self, key: K, min: M, max: M) -> Self
+    pub fn zremrangebyscore<K, M>(mut self, key: K, min: M, max: M) -> Self
     where
         K: redis::ToRedisArgs + Send + Sync + Clone + 'static,
         M: redis::ToRedisArgs + Send + Sync + Clone + 'static,

@@ -10,8 +10,10 @@ use psy_data::{config::store_config::PsyFelt, guta::api::SubmitGUTARealmResultAP
 use tracing::{error, info, trace};
 
 use crate::{
-    common::retry::{RetryConfig, Retryable},
-    common::traits::realm::*,
+    common::{
+        retry::{RetryConfig, Retryable},
+        traits::realm::*,
+    },
     coordinator::edge::rpc::CoordinatorEdgeRpcClient,
 };
 

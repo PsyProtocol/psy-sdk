@@ -1493,7 +1493,7 @@ impl<
         checkpoint_id: u64,
         offset_states: Vec<QueueOffsetState>,
     ) -> anyhow::Result<(Vec<kvq::traits::KVQPair<Vec<u8>, Vec<u8>>>, Vec<Vec<u8>>)> {
-        let (pair_to_set, remove_keys) = self.store.commit(None)?;
+        let (pair_to_set, remove_keys) = self.store.commit(None).await?;
         for offset_state in offset_states.iter() {
             self.checkpoint_queue.commit_offset(offset_state).await?;
         }
@@ -1506,7 +1506,7 @@ impl<
 
     pub async fn rollback(&self, checkpoint_id: u64) -> anyhow::Result<()> {
         self.task_store.clear_job_dependency_graph(checkpoint_id).await?;
-        self.store.rollback(checkpoint_id)
+        self.store.rollback(checkpoint_id).await
     }
 
     // commit redis queue

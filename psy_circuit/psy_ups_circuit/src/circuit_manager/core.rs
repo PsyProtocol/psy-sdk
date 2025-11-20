@@ -1,7 +1,5 @@
 use std::sync::Arc;
 
-use quick_cache::sync::Cache;
-
 use plonky2::{
     hash::hash_types::{HashOut, RichField},
     plonk::{
@@ -44,19 +42,26 @@ use psy_data::{
     qdata::contract::ContractCodeDefinition,
     qstore::controllers::session_info::SessionCircuitInfoStore,
     ups::{
-        start_step::UPSStartStepInput, start_step_register_user::UPSStartStepRegisterUserInput, ups_cfc_standard_step::{UPSCFCDeferredTransactionCircuitInput, UPSCFCStandardTransactionCircuitInput}, ups_end_cap::UPSEndCapFromProofTreeGadgetInput
+        start_step::UPSStartStepInput,
+        start_step_register_user::UPSStartStepRegisterUserInput,
+        ups_cfc_standard_step::{UPSCFCDeferredTransactionCircuitInput, UPSCFCStandardTransactionCircuitInput},
+        ups_end_cap::UPSEndCapFromProofTreeGadgetInput,
     },
 };
 use psy_dpn_circuit::circuits::cfc::DapenContractFunctionCircuit;
 use psy_network_circuit::ups::circuits::{
-    end_cap::UPSStandardEndCapCircuit, ups_cfc_deferred_tx::UPSCFCDeferredTransactionCircuit, ups_cfc_standard::UPSCFCStandardTransactionCircuit,
-    ups_start::UPSStartSessionCircuit, ups_start_register_user::{self, UPSStartSessionRegisterUserCircuit},
+    end_cap::UPSStandardEndCapCircuit,
+    ups_cfc_deferred_tx::UPSCFCDeferredTransactionCircuit,
+    ups_cfc_standard::UPSCFCStandardTransactionCircuit,
+    ups_start::UPSStartSessionCircuit,
+    ups_start_register_user::{self, UPSStartSessionRegisterUserCircuit},
 };
 use psy_vm::{
     dpn::{contract::cfc_code_definition_to_dapen_fc, vm::def::DPNFunctionCircuitDefinition},
     ups::circuit_manager::{PortableQTreeRecursion, PortableQTreeRecursionCircuitsData, PortableQTreeRecursionCircuitsProve, UPSCircuitManager},
     vm::cfc_input::DapenContractFunctionCircuitInput,
 };
+use quick_cache::sync::Cache;
 use serde::Serialize;
 
 #[derive(Debug)]
@@ -232,7 +237,10 @@ where
         info_store.register_whitelist_merkle_proof(LocalCircuitType::UPSStart.into(), self.ups_start_whitelist_proof.clone());
         info_store.register_whitelist_merkle_proof(LocalCircuitType::UPSCFCStandard.into(), self.ups_cfc_standard_tx_whitelist_proof.clone());
         info_store.register_whitelist_merkle_proof(LocalCircuitType::UPSCFCDeferred.into(), self.ups_cfc_deferred_tx_whitelist_proof.clone());
-        info_store.register_whitelist_merkle_proof(LocalCircuitType::UPSStartRegisterUser.into(), self.ups_start_register_user_whitelist_proof.clone());
+        info_store.register_whitelist_merkle_proof(
+            LocalCircuitType::UPSStartRegisterUser.into(),
+            self.ups_start_register_user_whitelist_proof.clone(),
+        );
 
         register_qtree_recursion_circuits(&self.proof_tree_agg_circuits.circuit_set, info_store);
         register_qtree_recursion_circuits_whitelist_proofs(&self.proof_tree_agg_circuits.circuit_inclusion_proofs, info_store);

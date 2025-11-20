@@ -1,25 +1,13 @@
-#[cfg(not(target_arch = "wasm32"))]
-pub mod async_cache;
-#[cfg(not(target_arch = "wasm32"))]
-pub use async_cache::*;
-
-pub mod sync_cache;
-pub use sync_cache::*;
-
-#[cfg(test)]
-mod cache_tests;
-
-#[cfg(test)]
-mod test_helpers;
-
+pub mod simple;
 use auto_impl::auto_impl;
 use serde::{Deserialize, Serialize};
+pub use simple::*;
 
 use crate::traits::{KVQBinaryStore, KVQBinaryStoreAsync, KVQPair};
 
 #[async_trait::async_trait]
 #[auto_impl(&, Box, Arc)]
-pub trait KVQBinaryStoreCachedTraitAsync: KVQBinaryStoreAsync {
+pub trait KVQBinaryStoreCacheAsync: KVQBinaryStoreAsync {
     async fn flush_changes(&self) -> anyhow::Result<(Vec<KVQPair<Vec<u8>, Vec<u8>>>, Vec<Vec<u8>>)>;
 
     async fn clear_cache(&self);
@@ -30,7 +18,7 @@ pub trait KVQBinaryStoreCachedTraitAsync: KVQBinaryStoreAsync {
 }
 
 #[auto_impl(&, Box, Arc)]
-pub trait KVQBinaryStoreCachedTrait: KVQBinaryStore {
+pub trait KVQBinaryStoreCache: KVQBinaryStore {
     fn flush_changes(&self) -> anyhow::Result<(Vec<KVQPair<Vec<u8>, Vec<u8>>>, Vec<Vec<u8>>)>;
     fn clear_cache(&self);
     fn flush_simple(&self, checkpoint_id: Option<u64>) -> anyhow::Result<(Vec<KVQPair<Vec<u8>, Vec<u8>>>, Vec<Vec<u8>>)>;

@@ -64,11 +64,7 @@ use crate::{
         whitelist::{WhiteList, WhiteListCache},
     },
     coordinator::edge::ProofStore,
-    realm::{
-        client::ConcreteCoordinatorClient,
-        state::edge::RealmEdgeContext,
-        C, D, F, H,
-    },
+    realm::{client::ConcreteCoordinatorClient, state::edge::RealmEdgeContext, C, D, F, H},
     watcher::{
         events::{JobCompletedEvent, JobStartedEvent, UserEndcapSubmissionEvent, UserEndcapSubmissionMetadata, WatcherMessage},
         watcher_client::WatcherClient,

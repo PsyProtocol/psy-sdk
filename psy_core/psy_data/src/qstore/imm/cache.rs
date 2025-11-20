@@ -9,7 +9,9 @@ use super::{
         QSRCmdGetBlockState, QSRCmdGetCheckpointLeafData, QSRCmdGetContractCodeDefinition, QSRCmdGetContractLeafData, QSRCmdGetUserLeafData,
         QSRHashCmd, QSRMerkleCmd,
     },
-    cmd_processor::{PsyReadCommandBatchInput, PsyReadCommandBatchOutput, PsyReadCommandProcessorSync, PsyReadCommandProcessorSyncMut, QUserIdManager},
+    cmd_processor::{
+        PsyReadCommandBatchInput, PsyReadCommandBatchOutput, PsyReadCommandProcessorSync, PsyReadCommandProcessorSyncMut, QUserIdManager,
+    },
 };
 use crate::qdata::{
     checkpoint::{PsyBlockState, PsyCheckpointLeaf},

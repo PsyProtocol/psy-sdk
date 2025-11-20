@@ -43,8 +43,16 @@ impl UserProvingSessionStartContextGadget {
             start_session_user_leaf_hash,
         }
     }
-    pub fn get_end_cap_start_session_user_leaf_hash_with_potential_register_user<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(&self, builder: &mut CircuitBuilder<F, D>) -> HashOutTarget {
-        // if the start session user leaf has the default state tree root, it is a new user being registered, so the transition should start from the zero hash
+    pub fn get_end_cap_start_session_user_leaf_hash_with_potential_register_user<
+        H: AlgebraicHasher<F>,
+        F: RichField + Extendable<D>,
+        const D: usize,
+    >(
+        &self,
+        builder: &mut CircuitBuilder<F, D>,
+    ) -> HashOutTarget {
+        // if the start session user leaf has the default state tree root, it is a new
+        // user being registered, so the transition should start from the zero hash
         // otherwise, use the start session user leaf hash
         let default_user_state_tree_root = builder.constant_qhash(get_default_user_state_tree_root::<F>());
         let is_state_root_default = builder.is_equal_hash(self.start_session_user_leaf.user_state_tree_root, default_user_state_tree_root);
