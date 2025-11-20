@@ -142,22 +142,7 @@ pub async fn run(args: ClaimRewardsArgs) -> Result<()> {
         }
 
         let mut job_infos = all_job_infos.get(&checkpoint_id).cloned().unwrap_or_default();
-        job_infos.retain(|job_info| {
-            matches!(
-                job_info.job_id.circuit_type,
-                ProvingJobCircuitType::GUTAOnlyRegisterUsers
-                    | ProvingJobCircuitType::GUTARegisterUsers
-                    | ProvingJobCircuitType::GUTATwoEndCap
-                    | ProvingJobCircuitType::GUTATwoGUTA
-                    | ProvingJobCircuitType::GUTALeftEndCapRightGUTA
-                    | ProvingJobCircuitType::GUTALeftGUTARightEndCap
-                    | ProvingJobCircuitType::GUTASingleEndCap
-                    | ProvingJobCircuitType::GUTAVerifyToCap
-                    | ProvingJobCircuitType::GUTATwoGUTAWithCheckpointUpgrade
-                    | ProvingJobCircuitType::GUTAVerifyToCapWithCheckpointUpgrade
-                    | ProvingJobCircuitType::GUTANoChange
-            )
-        });
+        job_infos.retain(|job_info| job_info.job_id.circuit_type.is_guta_job());
         if job_infos.is_empty() {
             continue;
         }

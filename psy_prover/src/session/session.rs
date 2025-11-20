@@ -607,22 +607,7 @@ impl WalletSession {
     }
 
     pub async fn get_claim_rewards_call_args(&self, mut job_infos: Vec<JobInfo>) -> anyhow::Result<Vec<ContractCallArgs>> {
-        job_infos.retain(|job_info| {
-            matches!(
-                job_info.job_id.circuit_type,
-                ProvingJobCircuitType::GUTAOnlyRegisterUsers
-                    | ProvingJobCircuitType::GUTARegisterUsers
-                    | ProvingJobCircuitType::GUTATwoEndCap
-                    | ProvingJobCircuitType::GUTATwoGUTA
-                    | ProvingJobCircuitType::GUTALeftEndCapRightGUTA
-                    | ProvingJobCircuitType::GUTALeftGUTARightEndCap
-                    | ProvingJobCircuitType::GUTASingleEndCap
-                    | ProvingJobCircuitType::GUTAVerifyToCap
-                    | ProvingJobCircuitType::GUTATwoGUTAWithCheckpointUpgrade
-                    | ProvingJobCircuitType::GUTAVerifyToCapWithCheckpointUpgrade
-                    | ProvingJobCircuitType::GUTANoChange
-            )
-        });
+        job_infos.retain(|job_info| job_info.job_id.circuit_type.is_guta_job());
 
         if job_infos.is_empty() {
             tracing::info!("No valid GUTA jobs found after filtering");

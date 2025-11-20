@@ -732,34 +732,6 @@ impl QProvingTaskStore for QProvingTaskStoreImpl {
         Ok(())
     }
 
-    async fn get_graph_for_job(&self, job_id: &QProvingJobDataID) -> Result<BidirectionalGraph<QProvingJobDataID>> {
-        use psy_common::job::id::ProvingJobCircuitType;
-
-        match job_id.circuit_type {
-            ProvingJobCircuitType::BatchDeployContracts
-            | ProvingJobCircuitType::BatchDeployContractsAggregate
-            | ProvingJobCircuitType::DummyBatchDeployContractsAggregate => Ok(self.job_graph.lock().await.deploy_contracts_graph.clone()),
-
-            ProvingJobCircuitType::AppendUserRegistrationTree
-            | ProvingJobCircuitType::AppendUserRegistrationTreeAggregate
-            | ProvingJobCircuitType::DummyAppendUserRegistrationTreeAggregate => Ok(self.job_graph.lock().await.user_registrations_graph.clone()),
-
-            ProvingJobCircuitType::GUTAOnlyRegisterUsers
-            | ProvingJobCircuitType::GUTARegisterUsers
-            | ProvingJobCircuitType::GUTATwoEndCap
-            | ProvingJobCircuitType::GUTATwoGUTA
-            | ProvingJobCircuitType::GUTALeftEndCapRightGUTA
-            | ProvingJobCircuitType::GUTALeftGUTARightEndCap
-            | ProvingJobCircuitType::GUTASingleEndCap
-            | ProvingJobCircuitType::GUTAVerifyToCap
-            | ProvingJobCircuitType::GUTATwoGUTAWithCheckpointUpgrade
-            | ProvingJobCircuitType::GUTAVerifyToCapWithCheckpointUpgrade
-            | ProvingJobCircuitType::GUTANoChange => Ok(self.job_graph.lock().await.guta_graph.clone()),
-
-            _ => Err(anyhow!("Job ID {:?} does not belong to any known graph", job_id)),
-        }
-    }
-
     async fn write_next_tasks(&self, task: &QProvingTask, next_task: &QProvingTask) -> Result<()> {
         let mut task_graph = self.task_graph.lock().await;
         task_graph.add_dep(next_task.clone(), task.clone());
@@ -800,6 +772,21 @@ impl QProvingTaskStore for QProvingTaskStoreImpl {
         tracing::debug!("Task graph layers: {:#?}", layers);
         drop(task_graph); // Release the lock before calling save_task_topology_with_layers
         self.initialize_task_topology(layers).await
+    }
+
+    async fn get_graph_for_job(&self, job_id: &QProvingJobDataID) -> Result<BidirectionalGraph<QProvingJobDataID>> {
+        use psy_common::job::id::ProvingJobCircuitType;
+
+        let graph = self.job_graph.lock().await;
+        if job_id.circuit_type.is_deploy_contracts_job() {
+            Ok(graph.deploy_contracts_graph.clone())
+        } else if job_id.circuit_type.is_user_registration_job() {
+            Ok(graph.user_registrations_graph.clone())
+        } else if job_id.circuit_type.is_guta_job() {
+            Ok(graph.guta_graph.clone())
+        } else {
+            Err(anyhow!("Job ID {:?} does not belong to any known graph", job_id))
+        }
     }
 }
 
