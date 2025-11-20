@@ -1,11 +1,10 @@
 use clap::{Args, Parser, Subcommand, ValueEnum};
 use plonky2::field::goldilocks_field::GoldilocksField;
+pub use psy_common::args::WalletSourceArgs;
 use psy_common::{args::SignType, data::qhashout::QHashOut};
 use psy_rust_sdk::provider::NetworkConfig;
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
-
-pub use psy_common::args::WalletSourceArgs;
 
 #[derive(Clone, Args)]
 pub struct WalletArgs {
@@ -45,7 +44,6 @@ pub enum WalletCommands {
         wallet: WalletSourceArgs,
     },
 }
-
 
 #[derive(Clone, Args, Serialize, Deserialize)]
 pub struct RegisterUserArgs {

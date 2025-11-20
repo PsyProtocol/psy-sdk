@@ -2,7 +2,7 @@ use std::{collections::BTreeMap, ops::Bound::Included, sync::Arc};
 
 use parking_lot::RwLock;
 
-use crate::traits::{KVQBinaryStore, KVQPair};
+use crate::traits::{KVQBinaryStore, KVQBinaryStoreAsync, KVQPair};
 
 #[derive(Debug, Clone)]
 pub struct KVQSimpleMemoryBackingStore {
@@ -30,7 +30,7 @@ impl KVQBinaryStore for KVQSimpleMemoryBackingStore {
     fn get_many_exact(&self, keys: &[Vec<u8>]) -> anyhow::Result<Vec<Vec<u8>>> {
         let mut result = Vec::new();
         for key in keys {
-            let r = self.get_exact(key)?;
+            let r = <Self as KVQBinaryStore>::get_exact(self, key)?;
             result.push(r);
         }
         Ok(result)
@@ -105,7 +105,7 @@ impl KVQBinaryStore for KVQSimpleMemoryBackingStore {
     fn get_many_leq(&self, keys: &[Vec<u8>], fuzzy_bytes: usize) -> anyhow::Result<Vec<Option<Vec<u8>>>> {
         let mut results: Vec<Option<Vec<u8>>> = Vec::with_capacity(keys.len());
         for k in keys {
-            let r = self.get_leq(k, fuzzy_bytes)?;
+            let r = <Self as KVQBinaryStore>::get_leq(self, k, fuzzy_bytes)?;
             results.push(r.to_owned());
         }
         Ok(results)
@@ -114,7 +114,7 @@ impl KVQBinaryStore for KVQSimpleMemoryBackingStore {
     fn get_many_leq_kv(&self, keys: &[Vec<u8>], fuzzy_bytes: usize) -> anyhow::Result<Vec<Option<KVQPair<Vec<u8>, Vec<u8>>>>> {
         let mut results: Vec<Option<KVQPair<Vec<u8>, Vec<u8>>>> = Vec::with_capacity(keys.len());
         for k in keys {
-            let r = self.get_leq_kv(k, fuzzy_bytes)?;
+            let r = <Self as KVQBinaryStore>::get_leq_kv(self, k, fuzzy_bytes)?;
             results.push(r);
         }
         Ok(results)
@@ -250,5 +250,73 @@ impl KVQBinaryStore for KVQSimpleMemoryBackingStore {
             }
             Ok(())
         }
+    }
+}
+
+#[async_trait::async_trait]
+impl KVQBinaryStoreAsync for KVQSimpleMemoryBackingStore {
+    async fn get_exact(&self, key: &Vec<u8>) -> anyhow::Result<Vec<u8>> {
+        <Self as KVQBinaryStore>::get_exact(self, key)
+    }
+
+    async fn get_exact_if_exists(&self, key: &Vec<u8>) -> anyhow::Result<Option<Vec<u8>>> {
+        <Self as KVQBinaryStore>::get_exact_if_exists(self, key)
+    }
+
+    async fn get_many_exact(&self, keys: &[Vec<u8>]) -> anyhow::Result<Vec<Vec<u8>>> {
+        <Self as KVQBinaryStore>::get_many_exact(self, keys)
+    }
+
+    async fn get_leq(&self, key: &Vec<u8>, fuzzy_bytes: usize) -> anyhow::Result<Option<Vec<u8>>> {
+        <Self as KVQBinaryStore>::get_leq(self, key, fuzzy_bytes)
+    }
+
+    async fn get_leq_kv(&self, key: &Vec<u8>, fuzzy_bytes: usize) -> anyhow::Result<Option<KVQPair<Vec<u8>, Vec<u8>>>> {
+        <Self as KVQBinaryStore>::get_leq_kv(self, key, fuzzy_bytes)
+    }
+
+    async fn get_many_leq(&self, keys: &[Vec<u8>], fuzzy_bytes: usize) -> anyhow::Result<Vec<Option<Vec<u8>>>> {
+        <Self as KVQBinaryStore>::get_many_leq(self, keys, fuzzy_bytes)
+    }
+
+    async fn get_many_leq_kv(&self, keys: &[Vec<u8>], fuzzy_bytes: usize) -> anyhow::Result<Vec<Option<KVQPair<Vec<u8>, Vec<u8>>>>> {
+        <Self as KVQBinaryStore>::get_many_leq_kv(self, keys, fuzzy_bytes)
+    }
+
+    async fn get_fuzzy_range_leq_kv(&self, key: &Vec<u8>, fuzzy_bytes: usize) -> anyhow::Result<Vec<KVQPair<Vec<u8>, Vec<u8>>>> {
+        <Self as KVQBinaryStore>::get_fuzzy_range_leq_kv(self, key, fuzzy_bytes)
+    }
+
+    async fn set(&self, key: Vec<u8>, value: Vec<u8>) -> anyhow::Result<()> {
+        <Self as KVQBinaryStore>::set(self, key, value)
+    }
+
+    async fn set_ref(&self, key: &Vec<u8>, value: &Vec<u8>) -> anyhow::Result<()> {
+        <Self as KVQBinaryStore>::set_ref(self, key, value)
+    }
+
+    async fn set_many_ref<'a>(&self, items: &[KVQPair<&'a Vec<u8>, &'a Vec<u8>>]) -> anyhow::Result<()> {
+        <Self as KVQBinaryStore>::set_many_ref(self, items)
+    }
+
+    async fn set_many_vec(&self, items: Vec<KVQPair<Vec<u8>, Vec<u8>>>) -> anyhow::Result<()> {
+        <Self as KVQBinaryStore>::set_many_vec(self, items)
+    }
+
+    async fn set_many_split_ref(&self, keys: &[Vec<u8>], values: &[Vec<u8>]) -> anyhow::Result<()> {
+        <Self as KVQBinaryStore>::set_many_split_ref(self, keys, values)
+    }
+
+    async fn delete(&self, key: &Vec<u8>) -> anyhow::Result<bool> {
+        <Self as KVQBinaryStore>::delete(self, key)
+    }
+
+    async fn delete_many(&self, keys: &[Vec<u8>]) -> anyhow::Result<Vec<bool>> {
+        <Self as KVQBinaryStore>::delete_many(self, keys)
+    }
+
+    async fn set_and_delete_many(&self, sets: &[KVQPair<&Vec<u8>, &Vec<u8>>], deletes: &[Vec<u8>]) -> anyhow::Result<()> {
+        <Self as KVQBinaryStore>::set_and_delete_many(self, sets, deletes)?;
+        Ok(())
     }
 }

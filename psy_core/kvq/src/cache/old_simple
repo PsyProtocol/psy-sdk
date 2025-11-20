@@ -1,0 +1,1205 @@
+use std::{
+    collections::{BTreeMap, HashMap},
+    ops::Bound::Included,
+    sync::{
+        atomic::{AtomicU64, Ordering},
+        Arc,
+    },
+};
+
+use anyhow::Result;
+use tokio::sync::RwLock;
+
+use crate::{
+    traits::{KVQBinaryStore, KVQBinaryStoreAsync, KVQPair},
+    transactional::{KVQTransactionalStore, KVQTransactionalStoreAsync},
+};
+
+#[derive(Clone, Debug)]
+pub enum CacheValueType {
+    Bytes(Vec<u8>),
+    Removed,
+}
+
+#[derive(Clone)]
+pub struct KVQSimpleCachedStore<S: KVQBinaryStoreAsync> {
+    pub store: Arc<S>,
+    pub proper_delete_return: bool,
+    pub transactions: Arc<RwLock<HashMap<u64, BTreeMap<Vec<u8>, CacheValueType>>>>,
+    pub tx_stack: Arc<RwLock<Vec<u64>>>,
+    pub tx_id_counter: Arc<AtomicU64>,
+}
+
+impl<S: KVQBinaryStoreAsync> KVQSimpleCachedStore<S> {
+    pub fn new(store: Arc<S>) -> Self {
+        Self {
+            store,
+            proper_delete_return: false,
+            transactions: Arc::new(RwLock::new(HashMap::new())),
+            tx_stack: Arc::new(RwLock::new(Vec::new())),
+            tx_id_counter: Arc::new(AtomicU64::new(1)),
+        }
+    }
+
+    pub async fn begin_transaction(&self) -> u64 {
+        let tx_id = self.tx_id_counter.fetch_add(1, Ordering::SeqCst);
+        self.transactions.write().await.insert(tx_id, BTreeMap::new());
+        self.tx_stack.write().await.push(tx_id);
+        tx_id
+    }
+
+    pub async fn commit(&self) -> anyhow::Result<()> {
+        let tx_id = self
+            .tx_stack
+            .write()
+            .await
+            .pop()
+            .ok_or_else(|| anyhow::anyhow!("No active transaction"))?;
+        let changes = self.transactions.write().await.remove(&tx_id);
+        if let Some(changes) = changes {
+            let keys_to_set: Vec<KVQPair<Vec<u8>, Vec<u8>>> = changes
+                .iter()
+                .filter_map(|(k, v)| match v {
+                    CacheValueType::Bytes(b) => Some(KVQPair {
+                        key: k.clone(),
+                        value: b.clone(),
+                    }),
+                    CacheValueType::Removed => None,
+                })
+                .collect();
+
+            let keys_to_delete: Vec<Vec<u8>> = changes
+                .iter()
+                .filter_map(|(k, v)| match v {
+                    CacheValueType::Bytes(_) => None,
+                    CacheValueType::Removed => Some(k.clone()),
+                })
+                .collect();
+
+            let keys_to_set_ref: Vec<KVQPair<&Vec<u8>, &Vec<u8>>> = keys_to_set
+                .iter()
+                .map(|kv| KVQPair {
+                    key: &kv.key,
+                    value: &kv.value,
+                })
+                .collect();
+
+            self.store.set_many_ref(&keys_to_set_ref).await?;
+            self.store.delete_many(&keys_to_delete).await?;
+        }
+        Ok(())
+    }
+
+    pub async fn rollback(&self) -> anyhow::Result<()> {
+        let tx_id = self
+            .tx_stack
+            .write()
+            .await
+            .pop()
+            .ok_or_else(|| anyhow::anyhow!("No active transaction"))?;
+        self.transactions.write().await.remove(&tx_id);
+        Ok(())
+    }
+
+    fn get_leq_from_cache(&self, key: &Vec<u8>, fuzzy_bytes: usize, map: &BTreeMap<Vec<u8>, CacheValueType>) -> Option<KVQPair<Vec<u8>, Vec<u8>>> {
+        if fuzzy_bytes == 0 {
+            for (k, v) in map.range(..=key.clone()).rev() {
+                match v {
+                    CacheValueType::Bytes(b) => {
+                        return Some(KVQPair {
+                            key: k.clone(),
+                            value: b.clone(),
+                        });
+                    }
+                    CacheValueType::Removed => {}
+                }
+            }
+        } else {
+            let key_end = key.to_vec();
+            let mut base_key = key.to_vec();
+            let key_len = base_key.len();
+
+            for i in 0..fuzzy_bytes {
+                base_key[key_len - i - 1] = 0;
+            }
+
+            for (k, v) in map.range((Included(base_key), Included(key_end))).rev() {
+                match v {
+                    CacheValueType::Bytes(b) => {
+                        return Some(KVQPair {
+                            key: k.clone(),
+                            value: b.clone(),
+                        });
+                    }
+                    CacheValueType::Removed => {}
+                }
+            }
+        }
+        None
+    }
+}
+
+#[async_trait::async_trait]
+impl<S: KVQBinaryStoreAsync + Send + Sync> KVQBinaryStoreAsync for KVQSimpleCachedStore<S> {
+    async fn get_exact_if_exists(&self, key: &Vec<u8>) -> Result<Option<Vec<u8>>> {
+        let tx_stack = self.tx_stack.read().await;
+        if let Some(tx_id) = tx_stack.last() {
+            let transactions = self.transactions.read().await;
+            let map = transactions.get(tx_id).ok_or_else(|| anyhow::anyhow!("Transaction not found"))?;
+
+            if let Some(value) = map.get(key) {
+                match value {
+                    CacheValueType::Bytes(b) => return Ok(Some(b.clone())),
+                    CacheValueType::Removed => return Ok(None),
+                }
+            }
+        }
+        self.store.get_exact_if_exists(key).await
+    }
+
+    async fn get_exact(&self, key: &Vec<u8>) -> Result<Vec<u8>> {
+        let tx_stack = self.tx_stack.read().await;
+        if let Some(tx_id) = tx_stack.last() {
+            let transactions = self.transactions.read().await;
+            let map = transactions.get(tx_id).ok_or_else(|| anyhow::anyhow!("Transaction not found"))?;
+
+            if let Some(value) = map.get(key) {
+                match value {
+                    CacheValueType::Bytes(b) => return Ok(b.clone()),
+                    CacheValueType::Removed => return Err(anyhow::anyhow!("Key was deleted from cache")),
+                }
+            }
+        }
+        self.store.get_exact(key).await
+    }
+
+    async fn get_many_exact(&self, keys: &[Vec<u8>]) -> Result<Vec<Vec<u8>>> {
+        let tx_stack = self.tx_stack.read().await;
+        if let Some(tx_id) = tx_stack.last() {
+            let transactions = self.transactions.read().await;
+            let map = transactions.get(tx_id).ok_or_else(|| anyhow::anyhow!("Transaction not found"))?;
+
+            let mut results = Vec::with_capacity(keys.len());
+            let mut missing_indices = Vec::new();
+            let mut missing_keys = Vec::new();
+
+            for (i, key) in keys.iter().enumerate() {
+                if let Some(value) = map.get(key) {
+                    match value {
+                        CacheValueType::Bytes(b) => results.push(Some(b.clone())),
+                        CacheValueType::Removed => return Err(anyhow::anyhow!("Key was deleted from cache")),
+                    }
+                } else {
+                    results.push(None);
+                    missing_indices.push(i);
+                    missing_keys.push(key.clone());
+                }
+            }
+
+            if !missing_keys.is_empty() {
+                let store_values = self.store.get_many_exact(&missing_keys).await?;
+                for (idx, value) in missing_indices.iter().zip(store_values) {
+                    results[*idx] = Some(value);
+                }
+            }
+
+            results.into_iter().map(|r| r.ok_or_else(|| anyhow::anyhow!("Missing value"))).collect()
+        } else {
+            self.store.get_many_exact(keys).await
+        }
+    }
+
+    async fn get_leq(&self, key: &Vec<u8>, fuzzy_bytes: usize) -> Result<Option<Vec<u8>>> {
+        if fuzzy_bytes > key.len() {
+            return Err(anyhow::anyhow!("Fuzzy bytes must be less than or equal to key length"));
+        }
+
+        let tx_stack = self.tx_stack.read().await;
+        let empty_map = BTreeMap::new();
+        let transactions = self.transactions.read().await;
+
+        let cache_map = if let Some(tx_map) = tx_stack.last().and_then(|tx_id| transactions.get(tx_id)) {
+            tx_map
+        } else {
+            &empty_map
+        };
+
+        let cache_candidate = self.get_leq_from_cache(key, fuzzy_bytes, cache_map);
+        let store_candidate = self.store.get_leq_kv(key, fuzzy_bytes).await?;
+
+        match (cache_candidate, store_candidate) {
+            (None, None) => Ok(None),
+            (Some(c), None) => Ok(Some(c.value)),
+            (None, Some(s)) => {
+                if cache_map.get(&s.key).map_or(false, |v| matches!(v, CacheValueType::Removed)) {
+                    Ok(None)
+                } else {
+                    Ok(Some(s.value))
+                }
+            }
+            (Some(c), Some(s)) => {
+                if cache_map.get(&s.key).map_or(false, |v| matches!(v, CacheValueType::Removed)) {
+                    Ok(Some(c.value))
+                } else {
+                    Ok(Some(if c.key >= s.key { c.value } else { s.value }))
+                }
+            }
+        }
+    }
+
+    async fn get_fuzzy_range_leq_kv(&self, key: &Vec<u8>, fuzzy_bytes: usize) -> Result<Vec<KVQPair<Vec<u8>, Vec<u8>>>> {
+        if fuzzy_bytes > key.len() {
+            return Err(anyhow::anyhow!("Fuzzy bytes must be less than or equal to key length"));
+        }
+
+        let tx_stack = self.tx_stack.read().await;
+        let empty_map = BTreeMap::new();
+        let transactions = self.transactions.read().await;
+
+        let cache_map = if let Some(tx_map) = tx_stack.last().and_then(|tx_id| transactions.get(tx_id)) {
+            tx_map
+        } else {
+            &empty_map
+        };
+
+        let key_end = key.to_vec();
+        let mut base_key = key.to_vec();
+        let key_len = base_key.len();
+
+        for i in 0..fuzzy_bytes {
+            base_key[key_len - i - 1] = 0;
+        }
+
+        let mut results = BTreeMap::new();
+
+        for item in self.store.get_fuzzy_range_leq_kv(key, fuzzy_bytes).await? {
+            results.insert(item.key.clone(), item);
+        }
+
+        for (k, v) in cache_map.range((Included(base_key), Included(key_end))) {
+            match v {
+                CacheValueType::Bytes(b) => {
+                    results.insert(
+                        k.clone(),
+                        KVQPair {
+                            key: k.clone(),
+                            value: b.clone(),
+                        },
+                    );
+                }
+                CacheValueType::Removed => {
+                    results.remove(k);
+                }
+            }
+        }
+
+        Ok(results.into_values().collect())
+    }
+
+    async fn get_leq_kv(&self, key: &Vec<u8>, fuzzy_bytes: usize) -> Result<Option<KVQPair<Vec<u8>, Vec<u8>>>> {
+        if fuzzy_bytes > key.len() {
+            return Err(anyhow::anyhow!("Fuzzy bytes must be less than or equal to key length"));
+        }
+
+        let tx_stack = self.tx_stack.read().await;
+        let empty_map = BTreeMap::new();
+        let transactions = self.transactions.read().await;
+
+        let cache_map = if let Some(tx_map) = tx_stack.last().and_then(|tx_id| transactions.get(tx_id)) {
+            tx_map
+        } else {
+            &empty_map
+        };
+
+        let cache_candidate = self.get_leq_from_cache(key, fuzzy_bytes, cache_map);
+        let store_candidate = self.store.get_leq_kv(key, fuzzy_bytes).await?;
+
+        match (cache_candidate, store_candidate) {
+            (None, None) => Ok(None),
+            (Some(c), None) => Ok(Some(c)),
+            (None, Some(s)) => {
+                if cache_map.get(&s.key).map_or(false, |v| matches!(v, CacheValueType::Removed)) {
+                    Ok(None)
+                } else {
+                    Ok(Some(s))
+                }
+            }
+            (Some(c), Some(s)) => {
+                if cache_map.get(&s.key).map_or(false, |v| matches!(v, CacheValueType::Removed)) {
+                    Ok(Some(c))
+                } else {
+                    Ok(Some(if c.key >= s.key { c } else { s }))
+                }
+            }
+        }
+    }
+
+    async fn get_many_leq(&self, keys: &[Vec<u8>], fuzzy_bytes: usize) -> Result<Vec<Option<Vec<u8>>>> {
+        let mut results = Vec::with_capacity(keys.len());
+        for key in keys {
+            results.push(<Self as KVQBinaryStoreAsync>::get_leq(self, key, fuzzy_bytes).await?);
+        }
+        Ok(results)
+    }
+
+    async fn get_many_leq_kv(&self, keys: &[Vec<u8>], fuzzy_bytes: usize) -> Result<Vec<Option<KVQPair<Vec<u8>, Vec<u8>>>>> {
+        let mut results = Vec::with_capacity(keys.len());
+        for key in keys {
+            results.push(<Self as KVQBinaryStoreAsync>::get_leq_kv(self, key, fuzzy_bytes).await?);
+        }
+        Ok(results)
+    }
+
+    async fn set(&self, key: Vec<u8>, value: Vec<u8>) -> Result<()> {
+        let tx_stack = self.tx_stack.read().await;
+        let tx_id = tx_stack.last().ok_or_else(|| anyhow::anyhow!("No active transaction"))?;
+        let mut transactions = self.transactions.write().await;
+        let tx_map = transactions.get_mut(tx_id).ok_or_else(|| anyhow::anyhow!("Transaction not found"))?;
+        tx_map.insert(key, CacheValueType::Bytes(value));
+        Ok(())
+    }
+
+    async fn set_ref(&self, key: &Vec<u8>, value: &Vec<u8>) -> Result<()> {
+        let tx_stack = self.tx_stack.read().await;
+        let tx_id = tx_stack.last().ok_or_else(|| anyhow::anyhow!("No active transaction"))?;
+        let mut transactions = self.transactions.write().await;
+        let tx_map = transactions.get_mut(tx_id).ok_or_else(|| anyhow::anyhow!("Transaction not found"))?;
+        tx_map.insert(key.clone(), CacheValueType::Bytes(value.clone()));
+        Ok(())
+    }
+
+    async fn set_many_ref<'a>(&self, items: &[KVQPair<&'a Vec<u8>, &'a Vec<u8>>]) -> Result<()> {
+        let tx_stack = self.tx_stack.read().await;
+        let tx_id = tx_stack.last().ok_or_else(|| anyhow::anyhow!("No active transaction"))?;
+        let mut transactions = self.transactions.write().await;
+        let tx_map = transactions.get_mut(tx_id).ok_or_else(|| anyhow::anyhow!("Transaction not found"))?;
+        for item in items {
+            tx_map.insert(item.key.clone(), CacheValueType::Bytes(item.value.clone()));
+        }
+        Ok(())
+    }
+
+    async fn set_many_vec(&self, items: Vec<KVQPair<Vec<u8>, Vec<u8>>>) -> Result<()> {
+        let tx_stack = self.tx_stack.read().await;
+        let tx_id = tx_stack.last().ok_or_else(|| anyhow::anyhow!("No active transaction"))?;
+        let mut transactions = self.transactions.write().await;
+        let tx_map = transactions.get_mut(tx_id).ok_or_else(|| anyhow::anyhow!("Transaction not found"))?;
+        for item in items {
+            tx_map.insert(item.key, CacheValueType::Bytes(item.value));
+        }
+        Ok(())
+    }
+
+    async fn delete(&self, key: &Vec<u8>) -> Result<bool> {
+        let tx_stack = self.tx_stack.read().await;
+        let tx_id = tx_stack.last().ok_or_else(|| anyhow::anyhow!("No active transaction"))?;
+        let mut transactions = self.transactions.write().await;
+        let tx_map = transactions.get_mut(tx_id).ok_or_else(|| anyhow::anyhow!("Transaction not found"))?;
+
+        let exists = if tx_map.contains_key(key) {
+            matches!(tx_map.get(key), Some(CacheValueType::Bytes(_)))
+        } else {
+            self.store.get_exact_if_exists(key).await?.is_some()
+        };
+
+        tx_map.insert(key.clone(), CacheValueType::Removed);
+        Ok(exists)
+    }
+
+    async fn delete_many(&self, keys: &[Vec<u8>]) -> Result<Vec<bool>> {
+        let mut results = Vec::with_capacity(keys.len());
+        for key in keys {
+            results.push(<Self as KVQBinaryStoreAsync>::delete(self, key).await?);
+        }
+        Ok(results)
+    }
+
+    async fn set_many_split_ref(&self, keys: &[Vec<u8>], values: &[Vec<u8>]) -> Result<()> {
+        if keys.len() != values.len() {
+            anyhow::bail!("Keys and values must have the same length");
+        } else {
+            let tx_stack = self.tx_stack.read().await;
+            let tx_id = tx_stack.last().ok_or_else(|| anyhow::anyhow!("No active transaction"))?;
+            let mut transactions = self.transactions.write().await;
+            let tx_map = transactions.get_mut(&tx_id).ok_or_else(|| anyhow::anyhow!("No active transaction"))?;
+            for i in 0..keys.len() {
+                tx_map.insert(keys[i].clone(), CacheValueType::Bytes(values[i].clone()));
+            }
+            Ok(())
+        }
+    }
+}
+
+impl<S: KVQBinaryStoreAsync + Send + Sync> KVQBinaryStore for KVQSimpleCachedStore<S> {
+    fn get_exact_if_exists(&self, key: &Vec<u8>) -> Result<Option<Vec<u8>>> {
+        tokio::task::block_in_place(|| {
+            tokio::runtime::Handle::current().block_on(async { <Self as KVQBinaryStoreAsync>::get_exact_if_exists(self, key).await })
+        })
+    }
+
+    fn get_exact(&self, key: &Vec<u8>) -> Result<Vec<u8>> {
+        tokio::task::block_in_place(|| {
+            tokio::runtime::Handle::current().block_on(async { <Self as KVQBinaryStoreAsync>::get_exact(self, key).await })
+        })
+    }
+
+    fn get_many_exact(&self, keys: &[Vec<u8>]) -> Result<Vec<Vec<u8>>> {
+        tokio::task::block_in_place(|| {
+            tokio::runtime::Handle::current().block_on(async { <Self as KVQBinaryStoreAsync>::get_many_exact(self, keys).await })
+        })
+    }
+
+    fn get_leq(&self, key: &Vec<u8>, fuzzy_bytes: usize) -> Result<Option<Vec<u8>>> {
+        tokio::task::block_in_place(|| {
+            tokio::runtime::Handle::current().block_on(async { <Self as KVQBinaryStoreAsync>::get_leq(self, key, fuzzy_bytes).await })
+        })
+    }
+
+    fn get_fuzzy_range_leq_kv(&self, key: &Vec<u8>, fuzzy_bytes: usize) -> Result<Vec<KVQPair<Vec<u8>, Vec<u8>>>> {
+        tokio::task::block_in_place(|| {
+            tokio::runtime::Handle::current().block_on(async { <Self as KVQBinaryStoreAsync>::get_fuzzy_range_leq_kv(self, key, fuzzy_bytes).await })
+        })
+    }
+
+    fn get_leq_kv(&self, key: &Vec<u8>, fuzzy_bytes: usize) -> Result<Option<KVQPair<Vec<u8>, Vec<u8>>>> {
+        tokio::task::block_in_place(|| {
+            tokio::runtime::Handle::current().block_on(async { <Self as KVQBinaryStoreAsync>::get_leq_kv(self, key, fuzzy_bytes).await })
+        })
+    }
+
+    fn get_many_leq(&self, keys: &[Vec<u8>], fuzzy_bytes: usize) -> Result<Vec<Option<Vec<u8>>>> {
+        tokio::task::block_in_place(|| {
+            tokio::runtime::Handle::current().block_on(async { <Self as KVQBinaryStoreAsync>::get_many_leq(self, keys, fuzzy_bytes).await })
+        })
+    }
+
+    fn get_many_leq_kv(&self, keys: &[Vec<u8>], fuzzy_bytes: usize) -> Result<Vec<Option<KVQPair<Vec<u8>, Vec<u8>>>>> {
+        tokio::task::block_in_place(|| {
+            tokio::runtime::Handle::current().block_on(async { <Self as KVQBinaryStoreAsync>::get_many_leq_kv(self, keys, fuzzy_bytes).await })
+        })
+    }
+
+    fn set(&self, key: Vec<u8>, value: Vec<u8>) -> Result<()> {
+        tokio::task::block_in_place(|| {
+            tokio::runtime::Handle::current().block_on(async { <Self as KVQBinaryStoreAsync>::set(self, key, value).await })
+        })
+    }
+
+    fn set_ref(&self, key: &Vec<u8>, value: &Vec<u8>) -> Result<()> {
+        tokio::task::block_in_place(|| {
+            tokio::runtime::Handle::current().block_on(async { <Self as KVQBinaryStoreAsync>::set_ref(self, key, value).await })
+        })
+    }
+
+    fn set_many_ref<'a>(&self, items: &[KVQPair<&'a Vec<u8>, &'a Vec<u8>>]) -> Result<()> {
+        tokio::task::block_in_place(|| {
+            tokio::runtime::Handle::current().block_on(async { <Self as KVQBinaryStoreAsync>::set_many_ref(self, items).await })
+        })
+    }
+
+    fn set_many_vec(&self, items: Vec<KVQPair<Vec<u8>, Vec<u8>>>) -> Result<()> {
+        tokio::task::block_in_place(|| {
+            tokio::runtime::Handle::current().block_on(async { <Self as KVQBinaryStoreAsync>::set_many_vec(self, items).await })
+        })
+    }
+
+    fn delete(&self, key: &Vec<u8>) -> Result<bool> {
+        tokio::task::block_in_place(|| tokio::runtime::Handle::current().block_on(async { <Self as KVQBinaryStoreAsync>::delete(self, key).await }))
+    }
+
+    fn delete_many(&self, keys: &[Vec<u8>]) -> Result<Vec<bool>> {
+        tokio::task::block_in_place(|| {
+            tokio::runtime::Handle::current().block_on(async { <Self as KVQBinaryStoreAsync>::delete_many(self, keys).await })
+        })
+    }
+
+    fn set_many_split_ref(&self, keys: &[Vec<u8>], values: &[Vec<u8>]) -> Result<()> {
+        tokio::task::block_in_place(|| {
+            tokio::runtime::Handle::current().block_on(async { <Self as KVQBinaryStoreAsync>::set_many_split_ref(self, keys, values).await })
+        })
+    }
+}
+
+pub trait KVQBinaryStoreCached {
+    fn begin_transaction(&self) -> u64;
+    fn commit(&self) -> anyhow::Result<()>;
+    fn rollback(&self) -> anyhow::Result<()>;
+}
+
+impl<S: KVQBinaryStoreAsync + Send + Sync> KVQBinaryStoreCached for KVQSimpleCachedStore<S> {
+    fn begin_transaction(&self) -> u64 {
+        tokio::task::block_in_place(|| tokio::runtime::Handle::current().block_on(self.begin_transaction()))
+    }
+
+    fn commit(&self) -> anyhow::Result<()> {
+        tokio::task::block_in_place(|| tokio::runtime::Handle::current().block_on(self.commit()))
+    }
+
+    fn rollback(&self) -> anyhow::Result<()> {
+        tokio::task::block_in_place(|| tokio::runtime::Handle::current().block_on(self.rollback()))
+    }
+}
+
+#[async_trait::async_trait]
+pub trait KVQBinaryStoreCachedAsync {
+    async fn begin_transaction(&self) -> u64;
+    async fn commit(&self) -> anyhow::Result<()>;
+    async fn rollback(&self) -> anyhow::Result<()>;
+}
+
+#[async_trait::async_trait]
+impl<S: KVQBinaryStoreAsync + Send + Sync> KVQBinaryStoreCachedAsync for KVQSimpleCachedStore<S> {
+    async fn begin_transaction(&self) -> u64 {
+        self.begin_transaction().await
+    }
+
+    async fn commit(&self) -> anyhow::Result<()> {
+        self.commit().await
+    }
+
+    async fn rollback(&self) -> anyhow::Result<()> {
+        self.rollback().await
+    }
+}
+
+impl<S: KVQBinaryStoreAsync + Send + Sync> KVQTransactionalStore for KVQSimpleCachedStore<S> {
+    fn begin_transaction(&self) -> u64 {
+        unimplemented!("Sync transaction not supported for async store")
+    }
+
+    fn commit(&self) -> anyhow::Result<()> {
+        unimplemented!("Sync commit not supported for async store")
+    }
+
+    fn rollback(&self) -> anyhow::Result<()> {
+        unimplemented!("Sync rollback not supported for async store")
+    }
+
+    fn get_base_store(&self) -> &dyn KVQBinaryStore {
+        unimplemented!("Sync base store not supported for async store")
+    }
+}
+
+#[async_trait::async_trait]
+impl<S: KVQBinaryStoreAsync + Send + Sync> KVQTransactionalStoreAsync for KVQSimpleCachedStore<S> {
+    async fn begin_transaction(&self) -> u64 {
+        self.begin_transaction().await
+    }
+
+    async fn commit(&self) -> anyhow::Result<()> {
+        self.commit().await
+    }
+
+    async fn rollback(&self) -> anyhow::Result<()> {
+        self.rollback().await
+    }
+
+    async fn get_base_store(&self) -> &dyn KVQBinaryStoreAsync {
+        &*self.store
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+
+    use super::*;
+    use crate::{
+        memory::simple::KVQSimpleMemoryBackingStore,
+        traits::{KVQBinaryStore, KVQBinaryStoreAsync},
+    };
+
+    #[tokio::test]
+    async fn test_basic_operations() {
+        let backing = Arc::new(KVQSimpleMemoryBackingStore::new());
+        let cache = KVQSimpleCachedStore::new(backing.clone());
+        cache.begin_transaction().await;
+
+        <KVQSimpleCachedStore<_> as KVQBinaryStoreAsync>::set_ref(&cache, &vec![1], &vec![10])
+            .await
+            .unwrap();
+        assert_eq!(
+            <KVQSimpleCachedStore<_> as KVQBinaryStoreAsync>::get_exact(&cache, &vec![1])
+                .await
+                .unwrap(),
+            vec![10]
+        );
+
+        assert_eq!(
+            <KVQSimpleCachedStore<_> as KVQBinaryStoreAsync>::get_exact_if_exists(&cache, &vec![1])
+                .await
+                .unwrap(),
+            Some(vec![10])
+        );
+        assert_eq!(
+            <KVQSimpleCachedStore<_> as KVQBinaryStoreAsync>::get_exact_if_exists(&cache, &vec![2])
+                .await
+                .unwrap(),
+            None
+        );
+
+        assert!(<KVQSimpleCachedStore<_> as KVQBinaryStoreAsync>::delete(&cache, &vec![1]).await.unwrap());
+        assert!(<KVQSimpleCachedStore<_> as KVQBinaryStoreAsync>::get_exact(&cache, &vec![1])
+            .await
+            .is_err());
+        assert_eq!(
+            <KVQSimpleCachedStore<_> as KVQBinaryStoreAsync>::get_exact_if_exists(&cache, &vec![1])
+                .await
+                .unwrap(),
+            None
+        );
+    }
+
+    #[tokio::test]
+    async fn test_get_leq_basic() {
+        let backing = Arc::new(KVQSimpleMemoryBackingStore::new());
+        <Arc<KVQSimpleMemoryBackingStore> as KVQBinaryStore>::set_ref(&backing, &vec![1], &vec![10]).unwrap();
+        <Arc<KVQSimpleMemoryBackingStore> as KVQBinaryStore>::set_ref(&backing, &vec![3], &vec![30]).unwrap();
+        <Arc<KVQSimpleMemoryBackingStore> as KVQBinaryStore>::set_ref(&backing, &vec![5], &vec![50]).unwrap();
+
+        let cache = KVQSimpleCachedStore::new(backing);
+        cache.begin_transaction().await;
+
+        assert_eq!(
+            <KVQSimpleCachedStore<_> as KVQBinaryStoreAsync>::get_leq(&cache, &vec![3], 0)
+                .await
+                .unwrap(),
+            Some(vec![30])
+        );
+        assert_eq!(
+            <KVQSimpleCachedStore<_> as KVQBinaryStoreAsync>::get_leq(&cache, &vec![4], 0)
+                .await
+                .unwrap(),
+            Some(vec![30])
+        );
+        assert_eq!(
+            <KVQSimpleCachedStore<_> as KVQBinaryStoreAsync>::get_leq(&cache, &vec![0], 0)
+                .await
+                .unwrap(),
+            None
+        );
+        assert_eq!(
+            <KVQSimpleCachedStore<_> as KVQBinaryStoreAsync>::get_leq(&cache, &vec![6], 0)
+                .await
+                .unwrap(),
+            Some(vec![50])
+        );
+    }
+
+    #[tokio::test]
+    async fn test_get_leq_with_cache_updates() {
+        let backing = Arc::new(KVQSimpleMemoryBackingStore::new());
+        <Arc<KVQSimpleMemoryBackingStore> as KVQBinaryStore>::set_ref(&backing, &vec![1], &vec![10]).unwrap();
+        <Arc<KVQSimpleMemoryBackingStore> as KVQBinaryStore>::set_ref(&backing, &vec![5], &vec![50]).unwrap();
+
+        let cache = KVQSimpleCachedStore::new(backing);
+        cache.begin_transaction().await;
+
+        <KVQSimpleCachedStore<_> as KVQBinaryStoreAsync>::set_ref(&cache, &vec![3], &vec![30])
+            .await
+            .unwrap();
+        assert_eq!(
+            <KVQSimpleCachedStore<_> as KVQBinaryStoreAsync>::get_leq(&cache, &vec![4], 0)
+                .await
+                .unwrap(),
+            Some(vec![30])
+        );
+
+        assert!(<KVQSimpleCachedStore<_> as KVQBinaryStoreAsync>::delete(&cache, &vec![3]).await.unwrap());
+        assert_eq!(
+            <KVQSimpleCachedStore<_> as KVQBinaryStoreAsync>::get_leq(&cache, &vec![4], 0)
+                .await
+                .unwrap(),
+            Some(vec![10])
+        );
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_get_fuzzy_range_leq_kv_interleaved() {
+        let backing = Arc::new(KVQSimpleMemoryBackingStore::new());
+        <Arc<KVQSimpleMemoryBackingStore> as KVQBinaryStore>::set_ref(&backing, &vec![2], &vec![20]).unwrap();
+        <Arc<KVQSimpleMemoryBackingStore> as KVQBinaryStore>::set_ref(&backing, &vec![4], &vec![40]).unwrap();
+        <Arc<KVQSimpleMemoryBackingStore> as KVQBinaryStore>::set_ref(&backing, &vec![5], &vec![50]).unwrap();
+
+        let cache = KVQSimpleCachedStore::new(backing);
+        KVQBinaryStoreCached::begin_transaction(&cache);
+
+        <KVQSimpleCachedStore<_> as KVQBinaryStore>::set_ref(&cache, &vec![1], &vec![10]).unwrap();
+        <KVQSimpleCachedStore<_> as KVQBinaryStore>::set_ref(&cache, &vec![3], &vec![30]).unwrap();
+
+        let result = <KVQSimpleCachedStore<_> as KVQBinaryStore>::get_fuzzy_range_leq_kv(&cache, &vec![5], 0).unwrap();
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].key, vec![5]);
+        assert_eq!(result[0].value, vec![50]);
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_get_fuzzy_range_leq_kv_with_fuzzy() {
+        let backing = Arc::new(KVQSimpleMemoryBackingStore::new());
+        <Arc<KVQSimpleMemoryBackingStore> as KVQBinaryStore>::set_ref(&backing, &vec![1, 0], &vec![10]).unwrap();
+        <Arc<KVQSimpleMemoryBackingStore> as KVQBinaryStore>::set_ref(&backing, &vec![1, 1], &vec![11]).unwrap();
+        <Arc<KVQSimpleMemoryBackingStore> as KVQBinaryStore>::set_ref(&backing, &vec![1, 2], &vec![12]).unwrap();
+        <Arc<KVQSimpleMemoryBackingStore> as KVQBinaryStore>::set_ref(&backing, &vec![2, 0], &vec![20]).unwrap();
+
+        let cache = KVQSimpleCachedStore::new(backing.clone());
+        KVQBinaryStoreCached::begin_transaction(&cache);
+
+        let result = <KVQSimpleCachedStore<_> as KVQBinaryStore>::get_fuzzy_range_leq_kv(&cache, &vec![1, 3], 1).unwrap();
+        assert_eq!(result.len(), 3);
+        assert_eq!(result[0].key, vec![1, 0]);
+        assert_eq!(result[1].key, vec![1, 1]);
+        assert_eq!(result[2].key, vec![1, 2]);
+
+        <KVQSimpleCachedStore<_> as KVQBinaryStore>::delete(&cache, &vec![1, 1]).unwrap();
+        <KVQSimpleCachedStore<_> as KVQBinaryStore>::set_ref(&cache, &vec![1, 3], &vec![13]).unwrap();
+
+        let result2 = <KVQSimpleCachedStore<_> as KVQBinaryStore>::get_fuzzy_range_leq_kv(&cache, &vec![1, 3], 1).unwrap();
+        assert_eq!(result2.len(), 3);
+        assert_eq!(result2[0].key, vec![1, 0]);
+        assert_eq!(result2[1].key, vec![1, 2]);
+        assert_eq!(result2[2].key, vec![1, 3]);
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_get_fuzzy_range_leq_kv_with_deletion() {
+        let backing = Arc::new(KVQSimpleMemoryBackingStore::new());
+        <Arc<KVQSimpleMemoryBackingStore> as KVQBinaryStore>::set_ref(&backing, &vec![2], &vec![20]).unwrap();
+        <Arc<KVQSimpleMemoryBackingStore> as KVQBinaryStore>::set_ref(&backing, &vec![3], &vec![30]).unwrap();
+
+        let cache = KVQSimpleCachedStore::new(backing);
+        KVQBinaryStoreCached::begin_transaction(&cache);
+
+        <KVQSimpleCachedStore<_> as KVQBinaryStore>::delete(&cache, &vec![2]).unwrap();
+        <KVQSimpleCachedStore<_> as KVQBinaryStore>::set_ref(&cache, &vec![2], &vec![25]).unwrap();
+
+        let result = <KVQSimpleCachedStore<_> as KVQBinaryStore>::get_fuzzy_range_leq_kv(&cache, &vec![2], 0).unwrap();
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].key, vec![2]);
+        assert_eq!(result[0].value, vec![25]);
+
+        <KVQSimpleCachedStore<_> as KVQBinaryStore>::delete(&cache, &vec![2]).unwrap();
+        let result2 = <KVQSimpleCachedStore<_> as KVQBinaryStore>::get_fuzzy_range_leq_kv(&cache, &vec![2], 0).unwrap();
+        assert_eq!(result2.len(), 0);
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_get_leq_kv() {
+        let backing = Arc::new(KVQSimpleMemoryBackingStore::new());
+        <Arc<KVQSimpleMemoryBackingStore> as KVQBinaryStore>::set_ref(&backing, &vec![1], &vec![10]).unwrap();
+        <Arc<KVQSimpleMemoryBackingStore> as KVQBinaryStore>::set_ref(&backing, &vec![3], &vec![30]).unwrap();
+
+        let cache = KVQSimpleCachedStore::new(backing);
+        KVQBinaryStoreCached::begin_transaction(&cache);
+
+        let result = <KVQSimpleCachedStore<_> as KVQBinaryStore>::get_leq_kv(&cache, &vec![2], 0).unwrap();
+        assert!(result.is_some());
+        let pair = result.unwrap();
+        assert_eq!(pair.key, vec![1]);
+        assert_eq!(pair.value, vec![10]);
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_cache_overrides_backing() {
+        let backing = Arc::new(KVQSimpleMemoryBackingStore::new());
+        <Arc<KVQSimpleMemoryBackingStore> as KVQBinaryStore>::set_ref(&backing, &vec![1], &vec![10]).unwrap();
+
+        let cache = KVQSimpleCachedStore::new(backing);
+        KVQBinaryStoreCached::begin_transaction(&cache);
+
+        <KVQSimpleCachedStore<_> as KVQBinaryStore>::set_ref(&cache, &vec![1], &vec![20]).unwrap();
+        assert_eq!(
+            <KVQSimpleCachedStore<_> as KVQBinaryStore>::get_exact(&cache, &vec![1]).unwrap(),
+            vec![20]
+        );
+        assert_eq!(
+            <KVQSimpleCachedStore<_> as KVQBinaryStore>::get_leq(&cache, &vec![1], 0).unwrap(),
+            Some(vec![20])
+        );
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_fuzzy_bytes() {
+        let backing = Arc::new(KVQSimpleMemoryBackingStore::new());
+        <Arc<KVQSimpleMemoryBackingStore> as KVQBinaryStore>::set_ref(&backing, &vec![1, 2, 3], &vec![10]).unwrap();
+        <Arc<KVQSimpleMemoryBackingStore> as KVQBinaryStore>::set_ref(&backing, &vec![1, 2, 5], &vec![20]).unwrap();
+        <Arc<KVQSimpleMemoryBackingStore> as KVQBinaryStore>::set_ref(&backing, &vec![1, 3, 0], &vec![30]).unwrap();
+
+        let cache = KVQSimpleCachedStore::new(backing);
+        KVQBinaryStoreCached::begin_transaction(&cache);
+
+        assert_eq!(
+            <KVQSimpleCachedStore<_> as KVQBinaryStore>::get_leq(&cache, &vec![1, 2, 4], 0).unwrap(),
+            Some(vec![10])
+        );
+        assert_eq!(
+            <KVQSimpleCachedStore<_> as KVQBinaryStore>::get_leq(&cache, &vec![1, 2, 4], 1).unwrap(),
+            Some(vec![10])
+        );
+    }
+
+    #[tokio::test]
+    async fn test_transaction_stack() {
+        let backing = Arc::new(KVQSimpleMemoryBackingStore::new());
+        let cache = KVQSimpleCachedStore::new(backing.clone());
+
+        // Start first transaction
+        let tx1 = cache.begin_transaction().await;
+        <KVQSimpleCachedStore<_> as KVQBinaryStoreAsync>::set_ref(&cache, &vec![1], &vec![10])
+            .await
+            .unwrap();
+
+        // Start second transaction (nested)
+        let tx2 = cache.begin_transaction().await;
+        <KVQSimpleCachedStore<_> as KVQBinaryStoreAsync>::set_ref(&cache, &vec![2], &vec![20])
+            .await
+            .unwrap();
+
+        // Start third transaction
+        let tx3 = cache.begin_transaction().await;
+        <KVQSimpleCachedStore<_> as KVQBinaryStoreAsync>::set_ref(&cache, &vec![3], &vec![30])
+            .await
+            .unwrap();
+
+        // Can only commit from top of stack (tx3)
+        cache.commit().await.unwrap();
+        assert_eq!(
+            <Arc<KVQSimpleMemoryBackingStore> as KVQBinaryStore>::get_exact(&backing, &vec![3]).unwrap(),
+            vec![30]
+        );
+
+        // Now can commit tx2
+        cache.commit().await.unwrap();
+        assert_eq!(
+            <Arc<KVQSimpleMemoryBackingStore> as KVQBinaryStore>::get_exact(&backing, &vec![2]).unwrap(),
+            vec![20]
+        );
+
+        // Finally commit tx1
+        cache.commit().await.unwrap();
+        assert_eq!(
+            <Arc<KVQSimpleMemoryBackingStore> as KVQBinaryStore>::get_exact(&backing, &vec![1]).unwrap(),
+            vec![10]
+        );
+    }
+
+    #[tokio::test]
+    async fn test_transaction_rollback() {
+        let backing = Arc::new(KVQSimpleMemoryBackingStore::new());
+        <Arc<KVQSimpleMemoryBackingStore> as KVQBinaryStore>::set_ref(&backing, &vec![1], &vec![10]).unwrap();
+
+        let cache = KVQSimpleCachedStore::new(backing.clone());
+
+        cache.begin_transaction().await;
+        <KVQSimpleCachedStore<_> as KVQBinaryStoreAsync>::set_ref(&cache, &vec![1], &vec![20])
+            .await
+            .unwrap();
+        <KVQSimpleCachedStore<_> as KVQBinaryStoreAsync>::set_ref(&cache, &vec![2], &vec![30])
+            .await
+            .unwrap();
+
+        // Rollback should discard changes
+        cache.rollback().await.unwrap();
+
+        // Original value should still be there
+        assert_eq!(
+            <Arc<KVQSimpleMemoryBackingStore> as KVQBinaryStore>::get_exact(&backing, &vec![1]).unwrap(),
+            vec![10]
+        );
+        // New key should not exist
+        assert!(<Arc<KVQSimpleMemoryBackingStore> as KVQBinaryStore>::get_exact(&backing, &vec![2]).is_err());
+    }
+
+    #[tokio::test]
+    async fn test_nested_transaction_independent_commit() {
+        let backing = Arc::new(KVQSimpleMemoryBackingStore::new());
+        let cache = KVQSimpleCachedStore::new(backing.clone());
+
+        // Start first transaction
+        cache.begin_transaction().await;
+        <KVQSimpleCachedStore<_> as KVQBinaryStoreAsync>::set_ref(&cache, &vec![1], &vec![10])
+            .await
+            .unwrap();
+
+        // Start nested transaction
+        cache.begin_transaction().await;
+        <KVQSimpleCachedStore<_> as KVQBinaryStoreAsync>::set_ref(&cache, &vec![2], &vec![20])
+            .await
+            .unwrap();
+
+        // Commit only the nested transaction (top of stack)
+        cache.commit().await.unwrap();
+
+        // Nested transaction changes should be committed
+        assert_eq!(
+            <Arc<KVQSimpleMemoryBackingStore> as KVQBinaryStore>::get_exact(&backing, &vec![2]).unwrap(),
+            vec![20]
+        );
+
+        // But parent transaction changes should not be committed yet
+        assert!(<Arc<KVQSimpleMemoryBackingStore> as KVQBinaryStore>::get_exact(&backing, &vec![1]).is_err());
+
+        // Commit parent transaction
+        cache.commit().await.unwrap();
+        assert_eq!(
+            <Arc<KVQSimpleMemoryBackingStore> as KVQBinaryStore>::get_exact(&backing, &vec![1]).unwrap(),
+            vec![10]
+        );
+    }
+
+    #[tokio::test]
+    async fn test_nested_transaction_independent_rollback() {
+        let backing = Arc::new(KVQSimpleMemoryBackingStore::new());
+        <Arc<KVQSimpleMemoryBackingStore> as KVQBinaryStore>::set_ref(&backing, &vec![1], &vec![100]).unwrap();
+
+        let cache = KVQSimpleCachedStore::new(backing.clone());
+
+        // Start first transaction
+        cache.begin_transaction().await;
+        <KVQSimpleCachedStore<_> as KVQBinaryStoreAsync>::set_ref(&cache, &vec![1], &vec![10])
+            .await
+            .unwrap();
+        <KVQSimpleCachedStore<_> as KVQBinaryStoreAsync>::set_ref(&cache, &vec![3], &vec![30])
+            .await
+            .unwrap();
+
+        // Start nested transaction
+        cache.begin_transaction().await;
+        <KVQSimpleCachedStore<_> as KVQBinaryStoreAsync>::set_ref(&cache, &vec![2], &vec![20])
+            .await
+            .unwrap();
+        <KVQSimpleCachedStore<_> as KVQBinaryStoreAsync>::set_ref(&cache, &vec![1], &vec![15])
+            .await
+            .unwrap();
+
+        // Rollback only the nested transaction
+        cache.rollback().await.unwrap();
+
+        // Nested transaction changes should be discarded
+        assert!(<Arc<KVQSimpleMemoryBackingStore> as KVQBinaryStore>::get_exact(&backing, &vec![2]).is_err());
+
+        // Parent transaction changes should still be in cache
+        let cached_value = <KVQSimpleCachedStore<_> as KVQBinaryStoreAsync>::get_exact(&cache, &vec![1])
+            .await
+            .unwrap();
+        assert_eq!(cached_value, vec![10]); // Parent transaction value, not nested
+
+        // Commit parent transaction
+        cache.commit().await.unwrap();
+        assert_eq!(
+            <Arc<KVQSimpleMemoryBackingStore> as KVQBinaryStore>::get_exact(&backing, &vec![1]).unwrap(),
+            vec![10]
+        );
+        assert_eq!(
+            <Arc<KVQSimpleMemoryBackingStore> as KVQBinaryStore>::get_exact(&backing, &vec![3]).unwrap(),
+            vec![30]
+        );
+    }
+
+    #[tokio::test]
+    async fn test_multiple_nested_transactions_selective_operations() {
+        let backing = Arc::new(KVQSimpleMemoryBackingStore::new());
+        let cache = KVQSimpleCachedStore::new(backing.clone());
+
+        // Transaction 1
+        cache.begin_transaction().await;
+        <KVQSimpleCachedStore<_> as KVQBinaryStoreAsync>::set_ref(&cache, &vec![1], &vec![10])
+            .await
+            .unwrap();
+
+        // Transaction 2
+        cache.begin_transaction().await;
+        <KVQSimpleCachedStore<_> as KVQBinaryStoreAsync>::set_ref(&cache, &vec![2], &vec![20])
+            .await
+            .unwrap();
+
+        // Transaction 3
+        cache.begin_transaction().await;
+        <KVQSimpleCachedStore<_> as KVQBinaryStoreAsync>::set_ref(&cache, &vec![3], &vec![30])
+            .await
+            .unwrap();
+
+        // Transaction 4
+        cache.begin_transaction().await;
+        <KVQSimpleCachedStore<_> as KVQBinaryStoreAsync>::set_ref(&cache, &vec![4], &vec![40])
+            .await
+            .unwrap();
+
+        // Commit transaction 4
+        cache.commit().await.unwrap();
+        assert_eq!(
+            <Arc<KVQSimpleMemoryBackingStore> as KVQBinaryStore>::get_exact(&backing, &vec![4]).unwrap(),
+            vec![40]
+        );
+
+        // Rollback transaction 3
+        cache.rollback().await.unwrap();
+        assert!(<Arc<KVQSimpleMemoryBackingStore> as KVQBinaryStore>::get_exact(&backing, &vec![3]).is_err());
+
+        // Commit transaction 2
+        cache.commit().await.unwrap();
+        assert_eq!(
+            <Arc<KVQSimpleMemoryBackingStore> as KVQBinaryStore>::get_exact(&backing, &vec![2]).unwrap(),
+            vec![20]
+        );
+
+        // Commit transaction 1
+        cache.commit().await.unwrap();
+        assert_eq!(
+            <Arc<KVQSimpleMemoryBackingStore> as KVQBinaryStore>::get_exact(&backing, &vec![1]).unwrap(),
+            vec![10]
+        );
+    }
+
+    #[tokio::test]
+    async fn test_read_without_transaction() {
+        let backing = Arc::new(KVQSimpleMemoryBackingStore::new());
+        <Arc<KVQSimpleMemoryBackingStore> as KVQBinaryStore>::set_ref(&backing, &vec![1], &vec![10]).unwrap();
+        <Arc<KVQSimpleMemoryBackingStore> as KVQBinaryStore>::set_ref(&backing, &vec![2], &vec![20]).unwrap();
+
+        let cache = KVQSimpleCachedStore::new(backing.clone());
+
+        // Read without any active transaction should work
+        let result1 = <KVQSimpleCachedStore<_> as KVQBinaryStoreAsync>::get_exact_if_exists(&cache, &vec![1])
+            .await
+            .unwrap();
+        assert_eq!(result1, Some(vec![10]));
+
+        let result2 = <KVQSimpleCachedStore<_> as KVQBinaryStoreAsync>::get_leq(&cache, &vec![2], 0)
+            .await
+            .unwrap();
+        assert_eq!(result2, Some(vec![20]));
+
+        let result3 = <KVQSimpleCachedStore<_> as KVQBinaryStoreAsync>::get_exact(&cache, &vec![1])
+            .await
+            .unwrap();
+        assert_eq!(result3, vec![10]);
+    }
+
+    #[tokio::test]
+    async fn test_get_leq_from_cache() {
+        let backing = Arc::new(KVQSimpleMemoryBackingStore::new());
+        <Arc<KVQSimpleMemoryBackingStore> as KVQBinaryStore>::set_ref(&backing, &vec![1], &vec![10]).unwrap();
+        <Arc<KVQSimpleMemoryBackingStore> as KVQBinaryStore>::set_ref(&backing, &vec![3], &vec![30]).unwrap();
+
+        let cache = KVQSimpleCachedStore::new(backing.clone());
+        cache.begin_transaction().await;
+
+        <KVQSimpleCachedStore<_> as KVQBinaryStoreAsync>::set_ref(&cache, &vec![2], &vec![20])
+            .await
+            .unwrap();
+
+        let result = <KVQSimpleCachedStore<_> as KVQBinaryStoreAsync>::get_leq(&cache, &vec![2], 0)
+            .await
+            .unwrap();
+        assert_eq!(result, Some(vec![20]));
+
+        let result2 = <KVQSimpleCachedStore<_> as KVQBinaryStoreAsync>::get_leq(&cache, &vec![4], 0)
+            .await
+            .unwrap();
+        assert_eq!(result2, Some(vec![30])); // Fixed behavior: correctly
+                                             // returns store value
+    }
+
+    #[tokio::test]
+    async fn test_simple_cache() {
+        let backing = Arc::new(KVQSimpleMemoryBackingStore::new());
+        let cache = KVQSimpleCachedStore::new(backing.clone());
+
+        cache.begin_transaction().await;
+
+        <KVQSimpleCachedStore<_> as KVQBinaryStoreAsync>::set_ref(&cache, &vec![1], &vec![10])
+            .await
+            .unwrap();
+        <KVQSimpleCachedStore<_> as KVQBinaryStoreAsync>::set_ref(&cache, &vec![2], &vec![20])
+            .await
+            .unwrap();
+
+        let result1 = <KVQSimpleCachedStore<_> as KVQBinaryStoreAsync>::get_exact(&cache, &vec![1])
+            .await
+            .unwrap();
+        assert_eq!(result1, vec![10]);
+
+        let result2 = <KVQSimpleCachedStore<_> as KVQBinaryStoreAsync>::get_exact(&cache, &vec![2])
+            .await
+            .unwrap();
+        assert_eq!(result2, vec![20]);
+
+        <KVQSimpleCachedStore<_> as KVQBinaryStoreAsync>::delete(&cache, &vec![1]).await.unwrap();
+
+        let result3 = <KVQSimpleCachedStore<_> as KVQBinaryStoreAsync>::get_exact(&cache, &vec![1]).await;
+        assert!(result3.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_ranges() {
+        let backing = Arc::new(KVQSimpleMemoryBackingStore::new());
+        <Arc<KVQSimpleMemoryBackingStore> as KVQBinaryStore>::set_ref(&backing, &vec![10], &vec![100]).unwrap();
+        <Arc<KVQSimpleMemoryBackingStore> as KVQBinaryStore>::set_ref(&backing, &vec![30], &vec![150]).unwrap();
+        <Arc<KVQSimpleMemoryBackingStore> as KVQBinaryStore>::set_ref(&backing, &vec![50], &vec![200]).unwrap();
+
+        let cache = KVQSimpleCachedStore::new(backing.clone());
+        cache.begin_transaction().await;
+
+        <KVQSimpleCachedStore<_> as KVQBinaryStoreAsync>::set_ref(&cache, &vec![20], &vec![120])
+            .await
+            .unwrap();
+        <KVQSimpleCachedStore<_> as KVQBinaryStoreAsync>::set_ref(&cache, &vec![40], &vec![180])
+            .await
+            .unwrap();
+
+        // Test cases where cache value should be returned
+        let result1 = <KVQSimpleCachedStore<_> as KVQBinaryStoreAsync>::get_leq(&cache, &vec![25], 0)
+            .await
+            .unwrap();
+        assert_eq!(result1, Some(vec![120])); // cache [20] is closest to [25]
+
+        // Test case where store value should be returned
+        let result2 = <KVQSimpleCachedStore<_> as KVQBinaryStoreAsync>::get_leq(&cache, &vec![35], 0)
+            .await
+            .unwrap();
+        assert_eq!(result2, Some(vec![150])); // store [30] is closest to [35]
+
+        let result3 = <KVQSimpleCachedStore<_> as KVQBinaryStoreAsync>::get_leq(&cache, &vec![45], 0)
+            .await
+            .unwrap();
+        assert_eq!(result3, Some(vec![180])); // cache [40] is closest to [45]
+    }
+
+    #[tokio::test]
+    async fn test_concurrency() {
+        use std::sync::Arc;
+
+        use tokio::task;
+
+        let backing = Arc::new(KVQSimpleMemoryBackingStore::new());
+        let cache = Arc::new(KVQSimpleCachedStore::new(backing.clone()));
+
+        let mut handles = Vec::new();
+
+        for i in 0..10 {
+            let cache_clone = cache.clone();
+            let handle = task::spawn(async move {
+                let _tx_id = <KVQSimpleCachedStore<_> as KVQBinaryStoreCachedAsync>::begin_transaction(&*cache_clone).await;
+                let key = vec![i];
+                let value = vec![i * 10];
+                <KVQSimpleCachedStore<_> as KVQBinaryStoreAsync>::set_ref(&*cache_clone, &key, &value)
+                    .await
+                    .unwrap();
+
+                let result = <KVQSimpleCachedStore<_> as KVQBinaryStoreAsync>::get_exact(&*cache_clone, &key)
+                    .await
+                    .unwrap();
+                assert_eq!(result, value);
+
+                <KVQSimpleCachedStore<_> as KVQBinaryStoreCachedAsync>::commit(&*cache_clone)
+                    .await
+                    .unwrap();
+            });
+            handles.push(handle);
+        }
+
+        for handle in handles {
+            handle.await.unwrap();
+        }
+    }
+}

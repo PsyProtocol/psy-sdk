@@ -8,7 +8,10 @@ use psy_rust_sdk::wallet::secp_wallet::Wallet;
 use rpassword::read_password;
 use tracing::info;
 
-use super::{args::{WalletArgs, WalletCommands}, key_utils::load_wallet_key_info};
+use super::{
+    args::{WalletArgs, WalletCommands},
+    key_utils::load_wallet_key_info,
+};
 
 pub fn run(args: WalletArgs) -> Result<()> {
     match args.command {

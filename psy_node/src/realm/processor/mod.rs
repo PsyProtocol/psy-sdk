@@ -60,16 +60,14 @@ use crate::{
     common::{
         clock::SlotTimer,
         slot::{LocalClock, Slot},
+        traits::realm::CoordinatorClient,
         verifier::get_cached_generic_verifier,
     },
-    common::traits::realm::CoordinatorClient,
-    realm::client::ConcreteCoordinatorClient,
     realm::{
         backup::{create_realm_checkpoint_backup, create_realm_pending_users_backup, create_realm_state_backup},
+        client::ConcreteCoordinatorClient,
         config::RealmNodeConfig,
-        state::{
-            processor::{RealmConfig, RealmConsumptionState, RealmProcessorContext},
-        },
+        state::processor::{RealmConfig, RealmConsumptionState, RealmProcessorContext},
         C, D, F,
     },
 };
@@ -415,7 +413,7 @@ impl RealmProcessor {
                         .collect();
                     let removed_keys = &backup.removed_keys;
                     ctx.store.set_and_delete_many(&pair_to_set_ref, &removed_keys)?;
-                    ctx.store.commit(None)?;
+                    ctx.store.commit(None).await?;
 
                     let local_realm_root = ctx
                         .store
@@ -599,7 +597,7 @@ impl RealmProcessor {
     async fn confirm_checkpoint(&self, realm_root: QHashOut<F>, checkpoint_id: u64, latest_checkpoint_id: u64) -> anyhow::Result<()> {
         let snapshot = self.load_snapshot(realm_root)?;
         let build_ctx = self.context().await?;
-        build_ctx.store.restore_cache(snapshot.cache)?;
+        build_ctx.store.restore_cache(snapshot.cache).await?;
         trace!(
             "synced checkpoint id: {}, latest checkpoint id: {}, realm root: {}",
             checkpoint_id,
@@ -702,7 +700,7 @@ impl RealmProcessor {
     ) -> anyhow::Result<(Vec<KVQPair<Vec<u8>, Vec<u8>>>, Vec<Vec<u8>>)> {
         let (pre_realm_root, realm_root) = self.get_realm_root_diff(build_ctx, checkpoint_id).await?;
 
-        if let Some(cache) = build_ctx.store.get_cache()? {
+        if let Some(cache) = build_ctx.store.get_cache().await? {
             // Get or initialize version
             let version = self.get_realm_root_version(realm_root)?;
 
@@ -847,12 +845,12 @@ impl RealmProcessor {
 
                 let pending_users_count = sync_ctx.sync_queue.get_pending_users_count().await?;
                 trace!("Pending users count after checkpoint sync: {}", pending_users_count);
-                sync_ctx.store.commit(None)?;
+                sync_ctx.store.commit(None).await?;
                 Ok(())
             }
             Err(err) => {
                 error!(?sync_checkpoint_id, ?err, "Error sync checkpoint");
-                sync_ctx.store.rollback(sync_checkpoint_id)?;
+                sync_ctx.store.rollback(sync_checkpoint_id).await?;
                 Err(err)
             }
         }

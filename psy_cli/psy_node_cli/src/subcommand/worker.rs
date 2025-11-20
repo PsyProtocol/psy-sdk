@@ -114,7 +114,8 @@ pub async fn run(
         user_id_hash(recipient_user_id),
     ));
 
-    // let job_tracker = Arc::new(Mutex::new(WorkerJobTracker::load_from_file(worker_public_key)));
+    // let job_tracker =
+    // Arc::new(Mutex::new(WorkerJobTracker::load_from_file(worker_public_key)));
 
     let mut handles = Vec::new();
 

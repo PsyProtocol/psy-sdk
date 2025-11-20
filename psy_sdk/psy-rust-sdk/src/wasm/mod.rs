@@ -345,7 +345,7 @@ impl WasmRpcServer {
         let pk_hash = QHashOut::<F>::from_str(pk_hash).map_err(|e| JsError::new(&format!("Parse public key hash error: {}", e)))?;
 
         self.wallet_session
-            .prove_contract_call(pk_hash, contract_call_arg)
+            .prove_contract_call(pk_hash, vec![contract_call_arg])
             .await
             .map_err(|e| JsError::new(&format!("Prove contract call error: {}", e)))?;
         Ok("prove contract call".to_string())
@@ -359,7 +359,7 @@ impl WasmRpcServer {
         let pk_hash = QHashOut::<F>::from_str(pk_hash).map_err(|e| JsError::new(&format!("Parse public key hash error: {}", e)))?;
 
         self.wallet_session
-            .prove_contract_calls(pk_hash, contract_call_args)
+            .prove_contract_call(pk_hash, contract_call_args)
             .await
             .map_err(|e| JsError::new(&format!("Prove contract calls error: {}", e)))?;
         Ok("prove contract calls".to_string())

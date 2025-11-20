@@ -12,9 +12,7 @@ shadow!(build);
 use clap::Parser;
 use error::Result;
 
-use crate::subcommand::{
-    check_tx, claim_amount, claim_rewards, deploy_contract, register_user, submit_end_cap_proof, wallet, Cli, Commands,
-};
+use crate::subcommand::{check_tx, claim_amount, claim_rewards, deploy_contract, register_user, submit_end_cap_proof, wallet, Cli, Commands};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {

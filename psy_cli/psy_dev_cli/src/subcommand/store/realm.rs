@@ -122,22 +122,24 @@ pub trait RealmStoreRpc {
 #[async_trait]
 impl RealmStoreRpcServer for StoreProvider {
     async fn get_snapshot(&self, checkpoint_id: u64) -> RpcResult<Vec<u8>> {
-        match self.store.get_cache() {
+        match self.store.get_cache().await {
             Ok(snapshot) => Ok(snapshot.unwrap_or(vec![])),
             Err(e) => Err(RpcError::Anyhow(e).into()),
         }
     }
 
     async fn restore_snapshot(&self, snapshot: Vec<u8>) -> RpcResult<()> {
-        Ok(self.store.restore_cache(snapshot).map_err(RpcError::Anyhow)?)
+        self.store.restore_cache(snapshot).await.map_err(RpcError::Anyhow)?;
+        Ok(())
     }
     async fn commit(&self, checkpoint_id: u64) -> RpcResult<()> {
-        let _ = self.store.commit(Some(checkpoint_id)).map_err(RpcError::Anyhow)?;
+        let _ = self.store.commit(Some(checkpoint_id)).await.map_err(RpcError::Anyhow)?;
         Ok(())
     }
 
     async fn rollback(&self, checkpoint_id: u64) -> RpcResult<()> {
-        Ok(self.store.rollback(checkpoint_id).map_err(RpcError::Anyhow)?)
+        self.store.rollback(checkpoint_id).await.map_err(RpcError::Anyhow)?;
+        Ok(())
     }
 
     async fn get_checkpoint_leaf_data(&self, checkpoint_id: u64) -> RpcResult<PsyCheckpointLeaf<F>> {

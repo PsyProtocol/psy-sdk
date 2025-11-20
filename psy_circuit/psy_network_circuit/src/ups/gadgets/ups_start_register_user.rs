@@ -10,9 +10,10 @@ use psy_common_circuit::{
     hash::merkle::gadgets::merkle_proof::MerkleProofGadget,
     traits::{CreatableTarget, CreatableWithHasherTarget, WitnessValueFor},
 };
-use psy_config::{DEFAULT_USER_STATE_TREE_ROOT_U64, network_constants::{
-    CHECKPOINT_TREE_HEIGHT, DEFERRED_TRANSACTION_TREE_HEIGHT, GLOBAL_USER_TREE_HEIGHT, INLINE_TRANSACTION_TREE_HEIGHT,
-}};
+use psy_config::{
+    network_constants::{CHECKPOINT_TREE_HEIGHT, DEFERRED_TRANSACTION_TREE_HEIGHT, GLOBAL_USER_TREE_HEIGHT, INLINE_TRANSACTION_TREE_HEIGHT},
+    DEFAULT_USER_STATE_TREE_ROOT_U64,
+};
 use psy_crypto::{common::user_id::circuit_user_registration_tree_index_bits_to_user_id, hash::traits::hasher::iterate_merkle_hasher_alg};
 use psy_data::ups::{start_step::UPSStartStepInput, start_step_register_user::UPSStartStepRegisterUserInput};
 
@@ -122,7 +123,8 @@ impl UPSStartStepRegisterUserGadget {
         // END: ensure that the user_tree_proof.root matches the user tree root in
         // state_roots_gadget
 
-        // START: ensure that the user_registration_tree_proof.root matches the checkpoint and that the user id is correct
+        // START: ensure that the user_registration_tree_proof.root matches the
+        // checkpoint and that the user id is correct
         let user_registration_tree_proof_root = self.user_registration_tree_proof.root;
         let state_roots_user_registration_tree_root = self.state_roots_gadget.user_registration_tree_root;
         builder.connect_hashes(user_registration_tree_proof_root, state_roots_user_registration_tree_root);
@@ -136,18 +138,18 @@ impl UPSStartStepRegisterUserGadget {
             &self.user_registration_tree_index_bits,
             GLOBAL_USER_TREE_HEIGHT as usize,
         );
-        // ensure that the user id from the header matches the index from ups leaf header
+        // ensure that the user id from the header matches the index from ups leaf
+        // header
         builder.connect(header_user_id, expected_user_id_from_user_registration_tree);
 
         let user_registration_tree_public_key = self.user_registration_tree_proof.value;
 
         // sanity check, ensure the user is actually registered
         builder.assert_non_zero_hash(user_registration_tree_public_key);
-        // END: ensure that the user_registration_tree_proof.root matches the checkpointm that the user id is correct
+        // END: ensure that the user_registration_tree_proof.root matches the
+        // checkpointm that the user id is correct
 
         // START: ensure that the user leaf is constructed correctly for a new user
-
-
 
         let default_user_state_tree_root = builder.constant_qhash(QHashOut::from_values(
             DEFAULT_USER_STATE_TREE_ROOT_U64[0],
@@ -160,13 +162,15 @@ impl UPSStartStepRegisterUserGadget {
         let user_leaf_user_state_tree_root = self.header_gadget.session_start_context.start_session_user_leaf.user_state_tree_root;
         builder.connect_hashes(user_leaf_user_state_tree_root, default_user_state_tree_root);
         let zero = builder.zero();
-        // ensure in the user leaf, balance, nonce, last_checkpoint_id, event_index are zero
+        // ensure in the user leaf, balance, nonce, last_checkpoint_id, event_index are
+        // zero
         builder.connect(self.header_gadget.session_start_context.start_session_user_leaf.balance, zero);
         builder.connect(self.header_gadget.session_start_context.start_session_user_leaf.nonce, zero);
         builder.connect(self.header_gadget.session_start_context.start_session_user_leaf.last_checkpoint_id, zero);
         builder.connect(self.header_gadget.session_start_context.start_session_user_leaf.event_index, zero);
 
-        // ensure that the public key in the user leaf matches the public key from the registration tree proof
+        // ensure that the public key in the user leaf matches the public key from the
+        // registration tree proof
         let user_leaf_public_key = self.header_gadget.session_start_context.start_session_user_leaf.public_key;
         builder.connect_hashes(user_leaf_public_key, user_registration_tree_public_key);
 
@@ -257,7 +261,8 @@ impl UPSStartStepRegisterUserGadget {
         self.checkpoint_tree_proof
             .set_witness_core_proof_q_generic(witness, &target.checkpoint_tree_proof)?;
         self.user_tree_proof.set_witness_core_proof_q_generic(witness, &target.user_tree_proof)?;
-        self.user_registration_tree_proof.set_witness_core_proof_q_generic(witness, &target.user_registration_tree_proof)?;
+        self.user_registration_tree_proof
+            .set_witness_core_proof_q_generic(witness, &target.user_registration_tree_proof)?;
         Ok(())
     }
 }

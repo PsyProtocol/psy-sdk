@@ -571,7 +571,7 @@ impl<
                 Ok(latest_user_leaf_data) => latest_user_leaf_data.qfhash::<PsyHasher>(),
                 Err(_) => QHashOut::<F>::ZERO,
             };
-            
+
             if latest_user_leaf_hash != guta_queue_item.input.state_transition.start_user_leaf_hash {
                 tracing::warn!(
                     "Invalid latest user leaf hash, stored: {}, expected: {}",
@@ -1017,7 +1017,7 @@ impl<
         checkpoint_id: u64,
         queue_offset_state: Vec<QueueOffsetState>,
     ) -> anyhow::Result<(Vec<kvq::traits::KVQPair<Vec<u8>, Vec<u8>>>, Vec<Vec<u8>>)> {
-        let (pair_to_set, remove_keys) = self.store.commit(Some(checkpoint_id))?;
+        let (pair_to_set, remove_keys) = self.store.commit(Some(checkpoint_id)).await?;
         self.commit_offset(checkpoint_id, queue_offset_state).await?;
         self.task_store.save_job_dependency_graph(checkpoint_id).await?;
         Ok((pair_to_set, remove_keys))
@@ -1032,7 +1032,7 @@ impl<
             realm_state.current_processed_user_num = realm_state.last_processed_user_num;
         }
         self.task_store.clear_job_dependency_graph(checkpoint_id).await?;
-        self.store.rollback(checkpoint_id)
+        self.store.rollback(checkpoint_id).await
     }
 
     pub async fn latest_checkpoint(&self) -> anyhow::Result<u64> {

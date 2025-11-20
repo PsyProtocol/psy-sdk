@@ -815,9 +815,7 @@ where
         );
         info_store.register_whitelist_merkle_proof(
             LocalCircuitType::UPSStartRegisterUser.into(),
-            self.common_circuits_data
-                .ups_start_register_user_whitelist_proof
-                .clone(),
+            self.common_circuits_data.ups_start_register_user_whitelist_proof.clone(),
         );
         info_store.register_whitelist_merkle_proof(
             LocalCircuitType::UPSCFCStandard.into(),
@@ -904,14 +902,8 @@ where
         }
     }
 
-    async fn prove_ups_start_register_user(
-        &self,
-        input: &UPSStartStepRegisterUserInput<C::F>,
-    ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
-        tracing::info!(
-            "prove ups start register user: {}",
-            serde_json::to_string_pretty(&input)?
-        );
+    async fn prove_ups_start_register_user(&self, input: &UPSStartStepRegisterUserInput<C::F>) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
+        tracing::info!("prove ups start register user: {}", serde_json::to_string_pretty(&input)?);
         let response = psy_rpc_call_back!(
             self,
             &self.proof_proxy_url,

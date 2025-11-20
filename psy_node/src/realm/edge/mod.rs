@@ -58,7 +58,6 @@ pub async fn run_realm_edge(config: RealmEdgeConfig) -> Result<()> {
     let store = store::new(&config.backend.to_backend()).await?;
     let store_reader = Arc::new(store);
 
-
     debug!("created store reader successfully!");
     // Create proof verifier
     let proof_verifier = Arc::new(get_cached_generic_verifier::<C, D>());
@@ -75,7 +74,15 @@ pub async fn run_realm_edge(config: RealmEdgeConfig) -> Result<()> {
     let coordinator_client = Arc::new(ConcreteCoordinatorClient::new(config.rpc.coordinator_addr.clone())?);
 
     // Create Edge node context
-    let edge_ctx = RealmEdgeContext::new(realm_config, store_reader.clone(), checkpoint_queue, proof_store.clone(), proof_verifier, coordinator_client.clone()).await?;
+    let edge_ctx = RealmEdgeContext::new(
+        realm_config,
+        store_reader.clone(),
+        checkpoint_queue,
+        proof_store.clone(),
+        proof_verifier,
+        coordinator_client.clone(),
+    )
+    .await?;
 
     let cors_opts = CorsLayer::new()
         .allow_methods([Method::POST, Method::OPTIONS])
@@ -101,13 +108,7 @@ pub async fn run_realm_edge(config: RealmEdgeConfig) -> Result<()> {
     let watcher_client = Arc::new(watcher);
     info!("✅ Watcher client initialized successfully");
 
-    let handler = RealmEdgeHandler::new(
-        edge_ctx.clone(),
-        job_notify_queue,
-        Arc::new(task_store),
-        whitelist_cache,
-        watcher_client,
-    )?;
+    let handler = RealmEdgeHandler::new(edge_ctx.clone(), job_notify_queue, Arc::new(task_store), whitelist_cache, watcher_client)?;
 
     let mut rpc_module = RealmEdgeRpcServer::into_rpc(handler.clone());
     let job_rpc_module = JobSchedulerRpcServer::into_rpc(handler);
