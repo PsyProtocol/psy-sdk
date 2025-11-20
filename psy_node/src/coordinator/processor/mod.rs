@@ -422,17 +422,6 @@ impl
         warn!("🔚 Coordinator backup task stopped");
     }
 
-    async fn backup_checkpoint(
-        &self,
-        backup_client: &CoordinatorS3BackupClient,
-        checkpoint_id: u64,
-        pair_to_set: Vec<kvq::traits::KVQPair<Vec<u8>, Vec<u8>>>,
-        removed_keys: Vec<Vec<u8>>,
-    ) {
-        let pair_to_set = pair_to_set.into_iter().map(|pair| (pair.key, pair.value)).collect();
-        try_backup_coordinator_checkpoint(backup_client, checkpoint_id, pair_to_set, removed_keys).await;
-    }
-
     async fn process_genesis_contracts<SR: PsyCoordinatorStoreWriterAsyncImm<F> + PsyCoordinatorStoreReaderAsync<F>>(
         store: &SR,
         genesis_config: &psy_config::GenesisConfigGoldilocks,
