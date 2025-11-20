@@ -372,25 +372,16 @@ where
             let candidate_checkpoint_id = checkpoint_id + offset;
 
             if let Ok(graph) = self.task_store.load_job_dependency_graph(candidate_checkpoint_id).await {
-                let all_jobs_found = job_ids.iter().all(|job_id| match job_id.circuit_type {
-                    ProvingJobCircuitType::AppendUserRegistrationTree
-                    | ProvingJobCircuitType::AppendUserRegistrationTreeAggregate
-                    | ProvingJobCircuitType::DummyAppendUserRegistrationTreeAggregate => graph.user_registrations_graph.has_node(job_id),
-                    ProvingJobCircuitType::BatchDeployContracts
-                    | ProvingJobCircuitType::BatchDeployContractsAggregate
-                    | ProvingJobCircuitType::DummyBatchDeployContractsAggregate => graph.deploy_contracts_graph.has_node(job_id),
-                    ProvingJobCircuitType::GUTARegisterUsers
-                    | ProvingJobCircuitType::GUTAOnlyRegisterUsers
-                    | ProvingJobCircuitType::GUTATwoGUTA
-                    | ProvingJobCircuitType::GUTANoChange
-                    | ProvingJobCircuitType::GUTASingleEndCap
-                    | ProvingJobCircuitType::GUTATwoEndCap
-                    | ProvingJobCircuitType::GUTALeftEndCapRightGUTA
-                    | ProvingJobCircuitType::GUTALeftGUTARightEndCap
-                    | ProvingJobCircuitType::GUTATwoGUTAWithCheckpointUpgrade
-                    | ProvingJobCircuitType::GUTAVerifyToCapWithCheckpointUpgrade
-                    | ProvingJobCircuitType::GUTAVerifyToCap => graph.guta_graph.has_node(job_id),
-                    _ => false,
+                let all_jobs_found = job_ids.iter().all(|job_id| {
+                    if job_id.circuit_type.is_user_registration_job() {
+                        graph.user_registrations_graph.has_node(job_id)
+                    } else if job_id.circuit_type.is_deploy_contracts_job() {
+                        graph.deploy_contracts_graph.has_node(job_id)
+                    } else if job_id.circuit_type.is_guta_job() {
+                        graph.guta_graph.has_node(job_id)
+                    } else {
+                        false
+                    }
                 });
                 if all_jobs_found {
                     actual_checkpoint_id = candidate_checkpoint_id;
@@ -464,35 +455,18 @@ where
                             None::<()>,
                         )
                     })?;
-                    let expected_root = match job_id.circuit_type {
-                        ProvingJobCircuitType::AppendUserRegistrationTree
-                        | ProvingJobCircuitType::AppendUserRegistrationTreeAggregate
-                        | ProvingJobCircuitType::DummyAppendUserRegistrationTreeAggregate => {
-                            checkpoint_leaf.stats.pm_rewards_commitment.register_users_root
-                        }
-                        ProvingJobCircuitType::GUTARegisterUsers
-                        | ProvingJobCircuitType::GUTAOnlyRegisterUsers
-                        | ProvingJobCircuitType::GUTATwoGUTA
-                        | ProvingJobCircuitType::GUTANoChange
-                        | ProvingJobCircuitType::GUTASingleEndCap
-                        | ProvingJobCircuitType::GUTATwoEndCap
-                        | ProvingJobCircuitType::GUTALeftEndCapRightGUTA
-                        | ProvingJobCircuitType::GUTATwoGUTAWithCheckpointUpgrade
-                        | ProvingJobCircuitType::GUTAVerifyToCapWithCheckpointUpgrade
-                        | ProvingJobCircuitType::GUTALeftGUTARightEndCap
-                        | ProvingJobCircuitType::GUTAVerifyToCap => checkpoint_leaf.stats.pm_rewards_commitment.gutas_root,
-                        ProvingJobCircuitType::BatchDeployContracts
-                        | ProvingJobCircuitType::BatchDeployContractsAggregate
-                        | ProvingJobCircuitType::DummyBatchDeployContractsAggregate => {
-                            checkpoint_leaf.stats.pm_rewards_commitment.deploy_contracts_root
-                        }
-                        _ => {
-                            return Err(ErrorObject::owned(
-                                jsonrpsee::types::ErrorCode::InvalidParams.code(),
-                                format!("Job type {:?} not supported for proof generation", job_id.circuit_type),
-                                None::<()>,
-                            ));
-                        }
+                    let expected_root = if job_id.circuit_type.is_user_registration_job() {
+                        checkpoint_leaf.stats.pm_rewards_commitment.register_users_root
+                    } else if job_id.circuit_type.is_guta_job() {
+                        checkpoint_leaf.stats.pm_rewards_commitment.gutas_root
+                    } else if job_id.circuit_type.is_deploy_contracts_job() {
+                        checkpoint_leaf.stats.pm_rewards_commitment.deploy_contracts_root
+                    } else {
+                        return Err(ErrorObject::owned(
+                            jsonrpsee::types::ErrorCode::InvalidParams.code(),
+                            format!("Job type {:?} not supported for proof generation", job_id.circuit_type),
+                            None::<()>,
+                        ));
                     };
 
                     if computed_root != expected_root {

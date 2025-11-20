@@ -215,17 +215,11 @@ where
     C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasherWithMarkedLeaf<HashOut<C::F>> + MerkleZeroHasherWithMarkedLeaf<QHashOut<C::F>>,
 {
     fn can_process_job(&self, job_id: QProvingJobDataID) -> bool {
-        match job_id.circuit_type {
-            ProvingJobCircuitType::AppendUserRegistrationTree => true,
-            ProvingJobCircuitType::AppendUserRegistrationTreeAggregate => true,
-            ProvingJobCircuitType::DummyAppendUserRegistrationTreeAggregate => true,
-            ProvingJobCircuitType::BatchDeployContracts => true,
-            ProvingJobCircuitType::BatchDeployContractsAggregate => true,
-            ProvingJobCircuitType::DummyBatchDeployContractsAggregate => true,
-            ProvingJobCircuitType::AggUserRegisterDeployContractsGUTA => true,
-            ProvingJobCircuitType::GenerateRollupStateTransitionProof => true,
-            _ => self.guta_circuits.can_process_job(job_id),
-        }
+        job_id.circuit_type.is_user_registration_job()
+            || job_id.circuit_type.is_deploy_contracts_job()
+            || job_id.circuit_type == ProvingJobCircuitType::AggUserRegisterDeployContractsGUTA
+            || job_id.circuit_type == ProvingJobCircuitType::GenerateRollupStateTransitionProof
+            || self.guta_circuits.can_process_job(job_id)
     }
 }
 #[async_trait]
