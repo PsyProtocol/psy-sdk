@@ -23,7 +23,7 @@ use ts_rs::TS;
 use super::{end_cap_input::SubmitUserEndCapNonProofInput, proof_input::VerifyEndCapSimpleStandardInput, stats::GUTAStats};
 use crate::{
     qdata::{ups_end_cap_result::UPSEndCapResultCompact, user::PsyUserLeaf},
-    qstore::uct_merkle_nodes::{CSTUserUpdateStore, CSTUserUpdate},
+    qstore::uct_merkle_nodes::{CSTUserUpdate, CSTUserUpdateStore},
 };
 
 #[derive(Clone, Debug)]

@@ -63,7 +63,7 @@ impl CoordinatorRecoveryManager {
         self.current_checkpoint_id = CoordinatorProcessNode::initialize_store(&self.store, genesis_config).await?;
         if self.current_checkpoint_id == 0 {
             info!("Initialized store to genesis state, commit checkpoint 0");
-            self.store.commit(None)?;
+            self.store.commit(None).await?;
         }
 
         let start_checkpoint = self.current_checkpoint_id + 1;
@@ -81,7 +81,7 @@ impl CoordinatorRecoveryManager {
             match self.recover_checkpoint(checkpoint_id).await {
                 Ok(()) => {
                     info!("✅ Successfully recovered checkpoint {}", checkpoint_id);
-                    self.store.commit(None)?;
+                    self.store.commit(None).await?;
                     self.current_checkpoint_id = checkpoint_id; // Update current checkpoint
                 }
                 Err(e) => {

@@ -374,7 +374,9 @@ impl CoordinatorEdgeHandler {
     }
 
     pub async fn has_pending_guta(&self, realm_id: u32) -> anyhow::Result<bool> {
-        self.history_queue.contains_item(self.ctx.coordinator_config.guta_channel_id, realm_id as u64).await
+        self.history_queue
+            .contains_item(self.ctx.coordinator_config.guta_channel_id, realm_id as u64)
+            .await
     }
 
     pub async fn get_checkpoint_sync_info(&self, realm_id: u32, request_checkpoint_id: u64) -> anyhow::Result<CheckpointSyncInfo<F>> {
@@ -708,9 +710,7 @@ impl CoordinatorEdgeRpcServer for CoordinatorEdgeHandler {
     }
 
     async fn get_user_registration_proof(&self, user_id: u64) -> RpcResult<MerkleProofCore<QHashOut<F>>> {
-        self.get_user_registration_proof(user_id)
-            .await
-            .map_err(RpcError::Anyhow)
+        self.get_user_registration_proof(user_id).await.map_err(RpcError::Anyhow)
     }
 
     async fn get_user_tree_root(&self, checkpoint_id: u64) -> RpcResult<QHashOut<F>> {
@@ -985,7 +985,6 @@ impl CoordinatorEdgeRpcServer for CoordinatorEdgeHandler {
         let graphviz_content = graph.get_graphviz();
         Ok(graphviz_content)
     }
-
 
     async fn get_contract_metadata(&self, contract_uuid: &str) -> RpcResult<ContractMetaData<F>> {
         self.get_contract_metadata(contract_uuid).await.map_err(RpcError::Anyhow)

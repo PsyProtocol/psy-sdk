@@ -3,7 +3,7 @@ use psy_common::data::qhashout::QHashOut;
 use psy_config::DEFAULT_USER_STATE_TREE_ROOT_U64;
 
 use crate::qdata::user::PsyUserLeaf;
-pub fn get_default_user_contract_tree_root<F: RichField>() -> QHashOut<F>{
+pub fn get_default_user_contract_tree_root<F: RichField>() -> QHashOut<F> {
     QHashOut::from_values(
         DEFAULT_USER_STATE_TREE_ROOT_U64[0],
         DEFAULT_USER_STATE_TREE_ROOT_U64[1],

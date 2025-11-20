@@ -21,14 +21,20 @@ use psy_config::network_constants::{
     TOKEN_SIMPLE_BURN_METHOD_ID, UPS_SESSION_PROOF_TREE_HEIGHT,
 };
 use psy_crypto::{
-    common::{user_id::get_registration_id_from_user_id, witnesses::qrecursion::{
-        header::{AttestProofInTreeInput, AttestTreeAwareProofInTreeInput},
-        proof_data::{InputLeafProof, TreeAwareTreeProofRecord},
-    }},
-    hash::{merkle::core::MerkleProofCore, traits::{
-        hasher::{FieldQHasher, MerkleZeroHasher, MerkleZeroHasherWithMarkedLeaf},
-        qhashable::QFieldHashable,
-    }},
+    common::{
+        user_id::get_registration_id_from_user_id,
+        witnesses::qrecursion::{
+            header::{AttestProofInTreeInput, AttestTreeAwareProofInTreeInput},
+            proof_data::{InputLeafProof, TreeAwareTreeProofRecord},
+        },
+    },
+    hash::{
+        merkle::core::MerkleProofCore,
+        traits::{
+            hasher::{FieldQHasher, MerkleZeroHasher, MerkleZeroHasherWithMarkedLeaf},
+            qhashable::QFieldHashable,
+        },
+    },
 };
 use psy_data::{
     config::store_config::PsyHasher,
@@ -45,19 +51,29 @@ use psy_data::{
     },
     qstore::{
         controllers::{
-            proving_session::{PsyLocalProvingSessionStore, PsyReadLocalProvingSessionStore}, register_helpers::get_default_user_contract_tree_root, session_info::SessionCircuitInfoStore, state_tracker::PsyUserSessionUpdateHistory
+            proving_session::{PsyLocalProvingSessionStore, PsyReadLocalProvingSessionStore},
+            register_helpers::get_default_user_contract_tree_root,
+            session_info::SessionCircuitInfoStore,
+            state_tracker::PsyUserSessionUpdateHistory,
         },
         imm::{
             cache::PsyCmdStoreWithCache,
             cmd::{
-                QSRCmdGetCheckpointLeafData, QSRCmdGetContractCodeDefinition, QSRMerkleCmd, QSRMerkleCmdGetCheckpointTreeMerkleProof, QSRMerkleCmdGetUserRegistrationTreeMerkleProof, QSRMerkleCmdGetUserTreeMerkleProof
+                QSRCmdGetCheckpointLeafData, QSRCmdGetContractCodeDefinition, QSRMerkleCmd, QSRMerkleCmdGetCheckpointTreeMerkleProof,
+                QSRMerkleCmdGetUserRegistrationTreeMerkleProof, QSRMerkleCmdGetUserTreeMerkleProof,
             },
             cmd_processor::{PsyReadCommandProcessorSync, PsyReadCommandProcessorSyncMut},
         },
     },
     traits::qdatastore::qtreedata::PsyComboDataStoreReaderSync,
     ups::{
-        start_step::UPSStartStepInput, start_step_register_user::UPSStartStepRegisterUserInput, ups_cfc_standard_step::{UPSCFCDeferredTransactionCircuitInput, UPSCFCStandardTransactionCircuitInput}, ups_context_input::{UserProvingSessionCurrentState, UserProvingSessionHeader}, ups_end_cap::UPSEndCapFromProofTreeGadgetInput, ups_standard_cfc_input::{UPSCFCStandardStateDeltaInput, UPSVerifyCFCStandardStepInput, UPSVerifyPopDeferredTxStepInput}, verify_previous_ups_step::VerifyPreviousUPSStepProofInProofTreeInput
+        start_step::UPSStartStepInput,
+        start_step_register_user::UPSStartStepRegisterUserInput,
+        ups_cfc_standard_step::{UPSCFCDeferredTransactionCircuitInput, UPSCFCStandardTransactionCircuitInput},
+        ups_context_input::{UserProvingSessionCurrentState, UserProvingSessionHeader},
+        ups_end_cap::UPSEndCapFromProofTreeGadgetInput,
+        ups_standard_cfc_input::{UPSCFCStandardStateDeltaInput, UPSVerifyCFCStandardStepInput, UPSVerifyPopDeferredTxStepInput},
+        verify_previous_ups_step::VerifyPreviousUPSStepProofInProofTreeInput,
     },
 };
 use psy_dpn_circuit::circuits::cfc::DapenContractFunctionCircuit;
@@ -229,10 +245,7 @@ impl<
         Ok(input)
     }
 
-    async fn build_register_user_input_from_start(
-        &mut self,
-        base_input: &UPSStartStepInput<F>,
-    ) -> anyhow::Result<UPSStartStepRegisterUserInput<F>> {
+    async fn build_register_user_input_from_start(&mut self, base_input: &UPSStartStepInput<F>) -> anyhow::Result<UPSStartStepRegisterUserInput<F>> {
         let start_checkpoint_id = self.lps.get_current_start_checkpoint_id_u64();
         let user_registration_tree_proof: MerkleProofCore<QHashOut<F>> = self
             .lps
@@ -286,16 +299,17 @@ impl<
         let inner_public_inputs_hash = input.ups_header.qfhash::<H>();
         let proof = if self.lps.is_new_user() {
             if input.user_tree_proof.value != QHashOut::ZERO {
-                tracing::error!("Expected user tree proof value to be ZERO for new user, got: {}", input.user_tree_proof.value);
+                tracing::error!(
+                    "Expected user tree proof value to be ZERO for new user, got: {}",
+                    input.user_tree_proof.value
+                );
                 anyhow::bail!("invalid user tree proof value for new user");
             }
             tracing::info!("new user detected, proving register-user start");
             let register_input = self.build_register_user_input_from_start(&input).await?;
             circuit_mgr.prove_ups_start_register_user(&register_input).await?
         } else {
-            if input.ups_header.session_start_context.start_session_user_leaf.qfhash::<PsyHasher>()
-                != input.user_tree_proof.value
-            {
+            if input.ups_header.session_start_context.start_session_user_leaf.qfhash::<PsyHasher>() != input.user_tree_proof.value {
                 tracing::error!(
                     "input.ups_header.session_start_context.start_session_user_leaf.qfhash::<PsyHasher>()!= input.user_tree_proof.value\n{:?}!= {:?}",
                     input
@@ -912,7 +926,9 @@ impl<
 
         let updates = self.get_user_session_update_history().await?;
 
-        let start_user_leaf_hash = if self.current_ups_header.session_start_context.start_session_user_leaf.user_state_tree_root == get_default_user_contract_tree_root::<F>() {
+        let start_user_leaf_hash = if self.current_ups_header.session_start_context.start_session_user_leaf.user_state_tree_root
+            == get_default_user_contract_tree_root::<F>()
+        {
             QHashOut::<F>::ZERO
         } else {
             self.current_ups_header.session_start_context.start_session_user_leaf.qfhash::<H>()
