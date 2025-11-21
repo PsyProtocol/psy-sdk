@@ -333,6 +333,33 @@ impl WalletSession {
             .get_mut(&public_key)
             .ok_or_else(|| anyhow::format_err!("user {} not found", public_key.to_string()))?;
 
+        let user_id = user_session_mgr.lps.get_read_store().current_user_id;
+        let rpc_provider = self.st_provider.with_user_id_owned(user_id);
+        let realm_block_state = rpc_provider.get_realm_latest_block_state().await?;
+        let user_leaf_data = rpc_provider.get_user_leaf_data(realm_block_state.checkpoint_id, user_id).await?;
+
+        if user_session_mgr.lps.get_nonce().to_canonical_u64() <= user_leaf_data.nonce.to_canonical_u64() {
+            let lps = PsyLocalProvingSessionStore::new_at(
+                rpc_provider,
+                F::from_canonical_u64(realm_block_state.checkpoint_id),
+                F::from_canonical_u64(user_id),
+                user_leaf_data.nonce + F::ONE,
+                UPS_SESSION_PROOF_TREE_HEIGHT as usize,
+            )
+            .into_clean_for_user(F::from_canonical_u64(user_id))
+            .await?;
+
+            let circuit_mgr = self.wallet.random_circuit_manager();
+            *user_session_mgr =
+                UserProvingSessionManager::<F, _, _, C, D>::new(lps, self.circuit_info.clone(), circuit_mgr.ups_circuit_whitelist_root().await?)
+                    .await?;
+        } else {
+            tracing::info!(
+                "user {} nonce is ahead of user leaf data nonce, reuse existing session",
+                public_key.to_string()
+            );
+        }
+
         let latest_block_state = user_session_mgr.lps.get_read_store().get_realm_latest_block_state().await?;
         let global_latest_block_state = self.st_provider.get_latest_block_state().await?;
 
