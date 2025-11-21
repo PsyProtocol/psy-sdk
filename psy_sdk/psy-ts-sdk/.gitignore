@@ -19,4 +19,5 @@ results
 packages/contract-sdk/generated/
 packages/contract-sdk/dist/
 packages/psy-sdk/src/generated-contracts/
+packages/psy-sdk/src/config/config.json
 package-lock.json
