@@ -41,6 +41,7 @@ use serde_json::json;
 use tracing::{info, warn};
 
 use super::args::ClaimRewardsArgs;
+use crate::subcommand::key_utils::load_wallet_key_info;
 
 type ApiResponse = Vec<WorkerEvent>;
 
@@ -51,16 +52,11 @@ const D: usize = 2;
 pub async fn run(args: ClaimRewardsArgs) -> Result<()> {
     let psy_config = psy_config::PsyConfigGoldilocks::from_file(&args.rpc_config)?;
     let rpc_config = psy_config.get_current_network()?.clone();
-    let private_key = QHashOut::from(Hash256::from_hex_string(&args.private_key)?);
+    let info = load_wallet_key_info(&args.wallet, false)?;
 
     let provider = RpcProvider::new_with_config(&rpc_config)?;
     let mut wallet_session = WalletSession::new(&rpc_config).await?;
-    let fingerprint = match args.sign_type {
-        SignType::ZKSign => get_zk_fingerprint(),
-        SignType::SECP256K1Sign => get_secp256k1_fingerprint(),
-        _ => anyhow::bail!("Unsupported sign type: {:?}", args.sign_type),
-    };
-    let user_pk_hash = wallet_session.add_user(private_key, fingerprint).await?;
+    let user_pk_hash = wallet_session.add_user(info.private_key, info.fingerprint).await?;
     let user_id = provider.get_user_id(user_pk_hash).await?;
 
     let latest_block_state = provider.get_latest_block_state().await?;
@@ -146,22 +142,7 @@ pub async fn run(args: ClaimRewardsArgs) -> Result<()> {
         }
 
         let mut job_infos = all_job_infos.get(&checkpoint_id).cloned().unwrap_or_default();
-        job_infos.retain(|job_info| {
-            matches!(
-                job_info.job_id.circuit_type,
-                ProvingJobCircuitType::GUTAOnlyRegisterUsers
-                    | ProvingJobCircuitType::GUTARegisterUsers
-                    | ProvingJobCircuitType::GUTATwoEndCap
-                    | ProvingJobCircuitType::GUTATwoGUTA
-                    | ProvingJobCircuitType::GUTALeftEndCapRightGUTA
-                    | ProvingJobCircuitType::GUTALeftGUTARightEndCap
-                    | ProvingJobCircuitType::GUTASingleEndCap
-                    | ProvingJobCircuitType::GUTAVerifyToCap
-                    | ProvingJobCircuitType::GUTATwoGUTAWithCheckpointUpgrade
-                    | ProvingJobCircuitType::GUTAVerifyToCapWithCheckpointUpgrade
-                    | ProvingJobCircuitType::GUTANoChange
-            )
-        });
+        job_infos.retain(|job_info| job_info.job_id.circuit_type.is_guta_job());
         if job_infos.is_empty() {
             continue;
         }

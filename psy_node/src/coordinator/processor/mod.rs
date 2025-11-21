@@ -82,7 +82,6 @@ use crate::{
         slot::{LocalClock, Parity, Slot, SLOT_SIZE},
         verifier::get_cached_generic_verifier,
     },
-    common_v2::traits::realm::BasicRealmStatusOnCoordinator,
     coordinator::state::processor::{CoordinatorConfig, CoordinatorProcessorContext},
     realm::RealmProcessor,
 };
@@ -251,13 +250,13 @@ impl
         match Self::initialize_store(&psy_store, genesis_config).await {
             Ok(checkpoint_id) if checkpoint_id == 0 => {
                 info!("Initialized store to genesis state");
-                psy_store.commit(None)?;
+                psy_store.commit(None).await?;
             }
             Ok(checkpoint_id) => {
                 info!("Store already initialized, current checkpoint {}", checkpoint_id);
             }
             Err(_) => {
-                psy_store.rollback(0)?;
+                psy_store.rollback(0).await?;
             }
         }
 

@@ -265,7 +265,7 @@ impl PsyMemoryWallet {
         self.random_circuit_manager().prove_zk_sign(private_key, sig_hash).await
     }
 
-    pub fn sdc_sign_for_public_key<S: PsyReadCommandProcessorSync<F> + Send + Sync>(
+    pub fn sdc_sign_for_public_key<S: PsyReadCommandProcessorSync<F> + psy_data::qstore::imm::cmd_processor::QUserIdManager + Send + Sync>(
         &self,
         state_reader: &mut StateReader<F, D, S>,
         public_key: QHashOut<F>,
@@ -274,7 +274,7 @@ impl PsyMemoryWallet {
         unimplemented!()
     }
 
-    pub fn sdc_sign_with_private_key<S: PsyReadCommandProcessorSync<F> + Send + Sync>(
+    pub fn sdc_sign_with_private_key<S: PsyReadCommandProcessorSync<F> + psy_data::qstore::imm::cmd_processor::QUserIdManager + Send + Sync>(
         &self,
         state_reader: &mut StateReader<F, D, S>,
         private_key: QHashOut<F>,

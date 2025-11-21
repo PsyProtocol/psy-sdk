@@ -226,6 +226,41 @@ impl ProvingJobCircuitType {
         Ok(leaf_type)
     }
 
+    pub fn is_deploy_contracts_job(&self) -> bool {
+        matches!(
+            self,
+            ProvingJobCircuitType::BatchDeployContracts
+                | ProvingJobCircuitType::BatchDeployContractsAggregate
+                | ProvingJobCircuitType::DummyBatchDeployContractsAggregate
+        )
+    }
+
+    pub fn is_user_registration_job(&self) -> bool {
+        matches!(
+            self,
+            ProvingJobCircuitType::AppendUserRegistrationTree
+                | ProvingJobCircuitType::AppendUserRegistrationTreeAggregate
+                | ProvingJobCircuitType::DummyAppendUserRegistrationTreeAggregate
+        )
+    }
+
+    pub fn is_guta_job(&self) -> bool {
+        matches!(
+            self,
+            ProvingJobCircuitType::GUTAOnlyRegisterUsers
+                | ProvingJobCircuitType::GUTARegisterUsers
+                | ProvingJobCircuitType::GUTATwoEndCap
+                | ProvingJobCircuitType::GUTATwoGUTA
+                | ProvingJobCircuitType::GUTALeftEndCapRightGUTA
+                | ProvingJobCircuitType::GUTALeftGUTARightEndCap
+                | ProvingJobCircuitType::GUTASingleEndCap
+                | ProvingJobCircuitType::GUTAVerifyToCap
+                | ProvingJobCircuitType::GUTATwoGUTAWithCheckpointUpgrade
+                | ProvingJobCircuitType::GUTAVerifyToCapWithCheckpointUpgrade
+                | ProvingJobCircuitType::GUTANoChange
+        )
+    }
+
     pub fn get_agg_circuit_type_or_err(&self) -> anyhow::Result<Self> {
         let leaf_type = match self {
             ProvingJobCircuitType::AppendUserRegistrationTree => ProvingJobCircuitType::AppendUserRegistrationTreeAggregate,
@@ -477,25 +512,14 @@ impl QProvingJobGraph {
     }
 
     pub fn get_graph_for_job(&self, job_id: &QProvingJobDataID) -> anyhow::Result<&BidirectionalGraph<QProvingJobDataID>> {
-        use ProvingJobCircuitType::*;
-
-        match job_id.circuit_type {
-            BatchDeployContracts | BatchDeployContractsAggregate | DummyBatchDeployContractsAggregate => Ok(&self.deploy_contracts_graph),
-            AppendUserRegistrationTree | AppendUserRegistrationTreeAggregate | DummyAppendUserRegistrationTreeAggregate => {
-                Ok(&self.user_registrations_graph)
-            }
-            GUTAOnlyRegisterUsers
-            | GUTARegisterUsers
-            | GUTATwoEndCap
-            | GUTATwoGUTA
-            | GUTALeftEndCapRightGUTA
-            | GUTALeftGUTARightEndCap
-            | GUTASingleEndCap
-            | GUTAVerifyToCap
-            | GUTATwoGUTAWithCheckpointUpgrade
-            | GUTAVerifyToCapWithCheckpointUpgrade
-            | GUTANoChange => Ok(&self.guta_graph),
-            _ => anyhow::bail!("Unsupported circuit type: {:?}", job_id.circuit_type),
+        if job_id.circuit_type.is_deploy_contracts_job() {
+            Ok(&self.deploy_contracts_graph)
+        } else if job_id.circuit_type.is_user_registration_job() {
+            Ok(&self.user_registrations_graph)
+        } else if job_id.circuit_type.is_guta_job() {
+            Ok(&self.guta_graph)
+        } else {
+            anyhow::bail!("Unsupported circuit type: {:?}", job_id.circuit_type)
         }
     }
 

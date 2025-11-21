@@ -1,4 +1,4 @@
-use std::{fs, path::Path};
+use std::{fs, fs::File, io::BufWriter, path::Path};
 
 use indexmap::IndexMap;
 use plonky2::field::goldilocks_field::GoldilocksField;
@@ -87,12 +87,16 @@ impl WorkerJobTracker {
             Self::new()
         }
     }
-
     pub fn save_to_file(&self, worker_public_key: &str) -> anyhow::Result<()> {
         let filename = format!("{}.json", worker_public_key);
-        let json_content = serde_json::to_string_pretty(self)?;
+        let file = File::create(&filename)?;
+        let writer = BufWriter::new(file);
 
-        fs::write(&filename, json_content)?;
+        // Use to_writer instead of to_string_pretty to avoid large String in memory
+        // If you need pretty format, use to_writer_pretty, but compact is better for
+        // memory serde_json::to_writer_pretty(writer, self)?;
+        serde_json::to_writer(writer, self)?; // Compact JSON, saves memory
+
         info!("Saved job tracker to {}", filename);
         Ok(())
     }

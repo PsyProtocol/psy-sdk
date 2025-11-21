@@ -37,7 +37,11 @@ pub struct StateReaderResults<F: RichField> {
 }
 
 #[derive(Debug)]
-pub struct StateReader<F: RichField + Extendable<D>, const D: usize, R: PsyReadCommandProcessorSync<F> + Send + Sync> {
+pub struct StateReader<
+    F: RichField + Extendable<D>,
+    const D: usize,
+    R: PsyReadCommandProcessorSync<F> + psy_data::qstore::imm::cmd_processor::QUserIdManager + Send + Sync,
+> {
     pub state: UserContractState<F>,
     pub cmd_store: PsyCmdStoreWithCache<F, R>,
     pub state_tree_store: KVQSimpleMemoryBackingStore,
@@ -47,7 +51,12 @@ pub struct StateReader<F: RichField + Extendable<D>, const D: usize, R: PsyReadC
 
 #[cfg_attr(not(target_arch = "wasm32"), maybe_async)]
 #[cfg_attr(target_arch = "wasm32", maybe_async(?Send))]
-impl<F: RichField + Extendable<D>, const D: usize, R: PsyReadCommandProcessorSync<F> + Send + Sync> StateReader<F, D, R> {
+impl<
+        F: RichField + Extendable<D>,
+        const D: usize,
+        R: PsyReadCommandProcessorSync<F> + psy_data::qstore::imm::cmd_processor::QUserIdManager + Send + Sync,
+    > StateReader<F, D, R>
+{
     pub async fn new(state: UserContractState<F>, cmd_store: PsyCmdStoreWithCache<F, R>, state_tree_store: KVQSimpleMemoryBackingStore) -> Self {
         Self {
             state,

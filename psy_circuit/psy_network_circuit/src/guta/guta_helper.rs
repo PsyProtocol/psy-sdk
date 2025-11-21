@@ -402,20 +402,7 @@ where
     C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasherWithMarkedLeaf<HashOut<C::F>> + MerkleZeroHasherWithMarkedLeaf<QHashOut<C::F>>,
 {
     fn can_process_job(&self, job_id: QProvingJobDataID) -> bool {
-        match job_id.circuit_type {
-            ProvingJobCircuitType::GUTASingleEndCap => true,
-            ProvingJobCircuitType::GUTATwoEndCap => true,
-            ProvingJobCircuitType::GUTATwoGUTA => true,
-            ProvingJobCircuitType::GUTALeftGUTARightEndCap => true,
-            ProvingJobCircuitType::GUTALeftEndCapRightGUTA => true,
-            ProvingJobCircuitType::GUTARegisterUsers => true,
-            ProvingJobCircuitType::GUTAOnlyRegisterUsers => true,
-            ProvingJobCircuitType::GUTAVerifyToCap => true,
-            ProvingJobCircuitType::GUTANoChange => true,
-            ProvingJobCircuitType::GUTATwoGUTAWithCheckpointUpgrade => true,
-            ProvingJobCircuitType::GUTAVerifyToCapWithCheckpointUpgrade => true,
-            _ => false,
-        }
+        job_id.circuit_type.is_guta_job()
     }
 }
 #[async_trait]

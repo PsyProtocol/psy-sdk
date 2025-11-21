@@ -5,6 +5,7 @@ export function init_logging(): void;
 export class WasmConstants {
   private constructor();
   free(): void;
+  [Symbol.dispose](): void;
   /**
    * Get all constants as a JSON string for easier JS consumption
    */
@@ -27,6 +28,7 @@ export class WasmConstants {
 }
 export class WasmPsyConfig {
   free(): void;
+  [Symbol.dispose](): void;
   constructor(json: string);
   useNetwork(network_name: string): void;
   getCurrentNetwork(): string;
@@ -43,6 +45,7 @@ export class WasmPsyConfig {
  */
 export class WasmPsyConfigBuilder {
   free(): void;
+  [Symbol.dispose](): void;
   constructor();
   /**
    * Set configuration from JSON string
@@ -59,6 +62,7 @@ export class WasmPsyConfigBuilder {
 }
 export class WasmRpcServer {
   free(): void;
+  [Symbol.dispose](): void;
   constructor(rpc_config_json: string);
   exec_contract_call_json(pk_hash: string, call_data_json: string): Promise<string>;
   get_claim_rewards_call_args_json(job_infos_json: string): Promise<string>;

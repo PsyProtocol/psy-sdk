@@ -1,4 +1,3 @@
-pub mod client;
 pub mod job_tracker;
 pub mod simple_async_coord;
 pub mod simple_async_realm;
@@ -35,12 +34,11 @@ use crate::common::{
 pub async fn run_worker(
     edge_url: String,
     location: JobLocation,
-    job_tracker: Arc<Mutex<WorkerJobTracker>>,
+    // job_tracker: Arc<Mutex<WorkerJobTracker>>,
     prover: Arc<PsyCoordinatorCircuitManager<C, D>>,
     verifier: Arc<GenericCircuitVerifier<C, D>>,
     wallet: Arc<Wallet>,
     worker_public_key: QHashOut<F>,
-    user_id: u64,
 ) -> anyhow::Result<()> {
     info!("Running worker for edge: {}", edge_url);
     let job_client = JobClient::new(edge_url).await?;
@@ -48,7 +46,7 @@ pub async fn run_worker(
     let store = job_client.clone();
     let job_receiver = job_client;
     let worker_pk_str = worker_public_key.to_string();
-    info!("⭐ worker public key = {}, user id = {}", worker_pk_str, user_id);
+    info!("⭐ worker public key = {}", worker_pk_str);
 
     // Configure retry behavior based on location
     let retry_config = match location {
@@ -96,7 +94,7 @@ pub async fn run_worker(
                 &verifier,
                 wallet.clone(),
                 &worker_pk_str,
-                &job_tracker,
+                // &job_tracker,
                 location.clone(),
                 &retry_config,
                 &mut timer,
@@ -131,7 +129,7 @@ async fn process_job_with_retry<S, R>(
     verifier: &Arc<GenericCircuitVerifier<C, D>>,
     wallet: Arc<Wallet>,
     worker_pk_str: &str,
-    job_tracker: &Arc<Mutex<WorkerJobTracker>>,
+    // job_tracker: &Arc<Mutex<WorkerJobTracker>>,
     location: JobLocation,
     retry_config: &RetryConfig,
     timer: &mut TraceTimer,
@@ -162,13 +160,13 @@ where
     info!("Successfully submitted proof for job: {:?}, node: {:?}", job_id, location);
 
     // Update job tracker
-    {
-        let mut tracker = job_tracker.lock().await;
-        tracker.add_completed_job(job_id.get_output_id(), location.clone());
-        if let Err(e) = tracker.save_to_file(worker_pk_str) {
-            error!("Failed to save job tracker: {:?}", e);
-        }
-    }
+    // {
+    //     let mut tracker = job_tracker.lock().await;
+    //     tracker.add_completed_job(job_id.get_output_id(), location.clone());
+    //     if let Err(e) = tracker.save_to_file(worker_pk_str) {
+    //         error!("Failed to save job tracker: {:?}", e);
+    //     }
+    // }
 
     timer.event(format!("FINISHED job {} ({:?})", job_id.to_hex_string(), job_id));
 

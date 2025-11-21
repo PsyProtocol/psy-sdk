@@ -1,4 +1,3 @@
-pub mod processor_v2;
 use std::{
     collections::HashMap,
     sync::{
@@ -14,7 +13,6 @@ use plonky2::{
     field::{goldilocks_field::GoldilocksField, types::Field},
     plonk::proof::ProofWithPublicInputs,
 };
-pub use processor_v2::*;
 use psy_common::{
     data::qhashout::QHashOut,
     job::{id::QProvingJobDataID, traits::QProofStoreReaderAsync},
@@ -62,18 +60,14 @@ use crate::{
     common::{
         clock::SlotTimer,
         slot::{LocalClock, Slot},
+        traits::realm::CoordinatorClient,
         verifier::get_cached_generic_verifier,
     },
-    common_v2::traits::realm::CoordinatorClient,
-    coordinator::client_v2::ConcreteCoordinatorClient,
     realm::{
         backup::{create_realm_checkpoint_backup, create_realm_pending_users_backup, create_realm_state_backup},
+        client::ConcreteCoordinatorClient,
         config::RealmNodeConfig,
-        state::{
-            edge_queue_helper::RealmEdgeQueueHelper,
-            processor::{RealmConfig, RealmConsumptionState, RealmProcessorContext},
-            queue_factory::QueueFactory,
-        },
+        state::processor::{RealmConfig, RealmConsumptionState, RealmProcessorContext},
         C, D, F,
     },
 };
@@ -110,7 +104,6 @@ pub struct RealmProcessor {
     pub slot_timer: SlotTimer<LocalClock>,
     pub remote_latest_slot: AtomicU64,
     pub config_path: String,
-    pub queue_helper: Arc<RealmEdgeQueueHelper<F>>,
     pub client: Arc<ConcreteCoordinatorClient>,
     pub backup_tx: Option<mpsc::UnboundedSender<BackupRequest>>,
     pub backup_client: Option<RealmS3BackupClient>,
@@ -159,13 +152,6 @@ impl RealmProcessor {
         };
 
         let coordinator_client = Arc::new(ConcreteCoordinatorClient::new(config.coordinator_addr.clone())?);
-        let queue_helper = QueueFactory::create_rsmq_helper::<F>(
-            &config.redis.redis_uri,
-            config.redis.pool_size.unwrap_or(10),
-            config.realm.realm_id,
-            Arc::new(store.clone()),
-        )
-        .await?;
 
         let processor = RealmProcessor {
             realm_config,
@@ -178,7 +164,6 @@ impl RealmProcessor {
             slot_timer: SlotTimer::new(LocalClock),
             remote_latest_slot: AtomicU64::new(0),
             config_path: config.config_path.clone(),
-            queue_helper: Arc::new(queue_helper),
             client: coordinator_client,
             backup_tx,
             backup_client,
@@ -428,7 +413,7 @@ impl RealmProcessor {
                         .collect();
                     let removed_keys = &backup.removed_keys;
                     ctx.store.set_and_delete_many(&pair_to_set_ref, &removed_keys)?;
-                    ctx.store.commit(None)?;
+                    ctx.store.commit(None).await?;
 
                     let local_realm_root = ctx
                         .store
@@ -612,7 +597,7 @@ impl RealmProcessor {
     async fn confirm_checkpoint(&self, realm_root: QHashOut<F>, checkpoint_id: u64, latest_checkpoint_id: u64) -> anyhow::Result<()> {
         let snapshot = self.load_snapshot(realm_root)?;
         let build_ctx = self.context().await?;
-        build_ctx.store.restore_cache(snapshot.cache)?;
+        build_ctx.store.restore_cache(snapshot.cache).await?;
         trace!(
             "synced checkpoint id: {}, latest checkpoint id: {}, realm root: {}",
             checkpoint_id,
@@ -715,7 +700,7 @@ impl RealmProcessor {
     ) -> anyhow::Result<(Vec<KVQPair<Vec<u8>, Vec<u8>>>, Vec<Vec<u8>>)> {
         let (pre_realm_root, realm_root) = self.get_realm_root_diff(build_ctx, checkpoint_id).await?;
 
-        if let Some(cache) = build_ctx.store.get_cache()? {
+        if let Some(cache) = build_ctx.store.get_cache().await? {
             // Get or initialize version
             let version = self.get_realm_root_version(realm_root)?;
 
@@ -860,12 +845,12 @@ impl RealmProcessor {
 
                 let pending_users_count = sync_ctx.sync_queue.get_pending_users_count().await?;
                 trace!("Pending users count after checkpoint sync: {}", pending_users_count);
-                sync_ctx.store.commit(None)?;
+                sync_ctx.store.commit(None).await?;
                 Ok(())
             }
             Err(err) => {
                 error!(?sync_checkpoint_id, ?err, "Error sync checkpoint");
-                sync_ctx.store.rollback(sync_checkpoint_id)?;
+                sync_ctx.store.rollback(sync_checkpoint_id).await?;
                 Err(err)
             }
         }

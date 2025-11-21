@@ -87,7 +87,7 @@ fn get_slot_mask(length: u64, sub_slot_index: u64) -> [u8; 4] {
 impl<
         F: RichField + PrimeField64,
         H: MerkleZeroHasherWithMarkedLeaf<QHashOut<F>> + FieldQHasher<F> + Send,
-        R: PsyReadCommandProcessorSync<F> + Send + Sync,
+        R: PsyReadCommandProcessorSync<F> + psy_data::qstore::imm::cmd_processor::QUserIdManager + Send + Sync,
     > PsyCmdInputWitnessResolver<F, H> for PsyLocalProvingSessionStore<F, R, H>
 {
     async fn resolve_vec(&mut self, state_cmd: &DPNStateCmd<u64>) -> anyhow::Result<PsyCmdWithInputAndWitness<F>> {

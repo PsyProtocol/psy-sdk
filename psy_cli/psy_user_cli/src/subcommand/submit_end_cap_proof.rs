@@ -14,15 +14,16 @@ use psy_ups_circuit::signature::software_defined::Plonky2SoftwareDefinedSignatur
 use psy_vm::dpn::vm::def::DPNFunctionCircuitDefinition;
 use serde::{Deserialize, Serialize};
 
+use crate::subcommand::key_utils::load_wallet_key_info;
+
 pub async fn run(args: WalletSessionArgs) -> anyhow::Result<()> {
     let psy_config = psy_config::PsyConfigGoldilocks::from_file(&args.rpc_config)?;
     let rpc_config = psy_config.get_current_network()?.clone();
-    let private_key = QHashOut::<GoldilocksField>::from_str(&args.private_key)?;
 
     let mut wallet_session = WalletSession::new(&rpc_config).await?;
-    let fingerprint = match args.sign_type {
-        SignType::ZKSign => psy_prover::wallet::memory_wallet::get_zk_fingerprint(),
-        SignType::SECP256K1Sign => psy_prover::wallet::memory_wallet::get_secp256k1_fingerprint(),
+    let mut info = load_wallet_key_info(&args.wallet, false)?;
+
+    match args.wallet.sign_type {
         SignType::SoftwareDefinedPlonky2Sign => {
             let fingerprint = wallet_session
                 .wallet
@@ -35,7 +36,7 @@ pub async fn run(args: WalletSessionArgs) -> anyhow::Result<()> {
                 // witnesses
             }
 
-            fingerprint
+            assert_eq!(info.fingerprint, fingerprint, "software-defined-plonky2-sign key fingerprint mismatch");
         }
         SignType::SoftwareDefinedDPNSign => {
             let user_sdc: DPNFunctionCircuitDefinition = serde_json::from_str(&std::fs::read_to_string("sdc.json")?)?;
@@ -49,10 +50,11 @@ pub async fn run(args: WalletSessionArgs) -> anyhow::Result<()> {
                     false,
                 )
                 .await?;
-            fingerprint
+            assert_eq!(info.fingerprint, fingerprint, "software-defined-dpn-sign key fingerprint mismatch");
         }
+        _ => {}
     };
-    let user_pk_hash = wallet_session.add_user(private_key, fingerprint).await?;
+    let user_pk_hash = wallet_session.add_user(info.private_key, info.fingerprint).await?;
     let contract_call_data = args.to_contract_call_data()?;
     let tx_hash = wallet_session.exec_contract_call(user_pk_hash, contract_call_data).await?;
 

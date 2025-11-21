@@ -23,11 +23,11 @@ use psy_node::{
         verifier::get_cached_generic_verifier,
     },
     worker::{
-        client::WorkerCoordinatorClient,
         job_tracker::{JobLocation, WorkerJobTracker},
         run_worker,
     },
 };
+use psy_provider::provider::RpcProvider;
 use psy_rust_sdk::wallet::secp_wallet::Wallet;
 use psy_ups_circuit::circuit_manager::core::PsyUPSStepCircuitManager;
 use psy_vm::ups::circuit_manager::UPSCircuitManager;
@@ -63,6 +63,7 @@ pub async fn run(
     info!("Loading config from: {}", config);
 
     let config = psy_rust_sdk::provider::Config::from_file(&config)?;
+    let network = config.get_current_network()?;
 
     let wallet = Wallet::load(
         private_key.as_deref(),
@@ -81,40 +82,40 @@ pub async fn run(
     let mut memory_wallet = psy_prover::wallet::memory_wallet::PsyMemoryWallet::new(vec![main_circuits]);
 
     let private_key = QHashOut::from(Hash256::from_bytes(&wallet.private_key())?);
-    let public_key_info = memory_wallet.add_secp_private_key(private_key).await?;
+    let public_key_info = memory_wallet.add_zk_private_key(private_key).await?;
     let worker_public_key = public_key_info.qfhash::<PsyHasher>();
 
     let proof_verifier = Arc::new(get_cached_generic_verifier::<C, D>());
 
-    let network = config.get_current_network()?;
-    let worker_coordinator_client = WorkerCoordinatorClient::new(&network.coordinator_configs[0].rpc_url[0]).await?;
+    let rpc_provider = RpcProvider::new_with_config(&network)?;
 
-    // Use retry_with_backoff from retry.rs
-    let retry_config = RetryConfig {
-        max_retries: 60,
-        base_delay_ms: 10000,       // 10 seconds
-        exponential_backoff: false, // Keep constant delay like original
+    let recipient_user_id = if let Some(recipient) = recipient {
+        recipient
+    } else {
+        // Use retry_with_backoff from retry.rs
+        let retry_config = RetryConfig {
+            max_retries: 60,
+            base_delay_ms: 10000,       // 10 seconds
+            exponential_backoff: false, // Keep constant delay like original
+        };
+        retry_with_backoff(&retry_config, &format!("get user ID for {}", worker_public_key), || async {
+            rpc_provider.get_user_id(worker_public_key).await
+        })
+        .await
+        .map_err(|e| {
+            error!("Failed to get user ID after all retries");
+            anyhow::anyhow!("Failed to retrieve user ID: {}", e)
+        })?
     };
-
-    let user_id = retry_with_backoff(&retry_config, &format!("get user ID for {}", worker_public_key), || async {
-        worker_coordinator_client.get_user_id(&worker_public_key).await
-    })
-    .await
-    .map_err(|e| {
-        error!("Failed to get user ID after all retries");
-        anyhow::anyhow!("Failed to retrieve user ID: {}", e)
-    })?;
-
-    info!("Successfully retrieved user ID: {}", user_id);
-
-    let recipient_user_id = recipient.unwrap_or(user_id);
+    info!("user_id: {}", recipient_user_id);
 
     let prover = Arc::new(PsyCoordinatorCircuitManager::<C, D>::new_with_library(
         &proof_verifier.library,
         user_id_hash(recipient_user_id),
     ));
 
-    let job_tracker = Arc::new(Mutex::new(WorkerJobTracker::load_from_file(worker_public_key)));
+    // let job_tracker =
+    // Arc::new(Mutex::new(WorkerJobTracker::load_from_file(worker_public_key)));
 
     let mut handles = Vec::new();
 
@@ -123,12 +124,11 @@ pub async fn run(
             let handle = tokio::spawn(run_worker(
                 rpc_url.clone(),
                 JobLocation::Coordinator,
-                job_tracker.clone(),
+                // job_tracker.clone(),
                 prover.clone(),
                 proof_verifier.clone(),
                 wallet.clone(),
                 worker_public_key.clone(),
-                user_id,
             ));
             handles.push(handle);
         }
@@ -139,12 +139,11 @@ pub async fn run(
             let handle = tokio::spawn(run_worker(
                 rpc_url.clone(),
                 JobLocation::Realm(realm_config.id),
-                job_tracker.clone(),
+                // job_tracker.clone(),
                 prover.clone(),
                 proof_verifier.clone(),
                 wallet.clone(),
                 worker_public_key.clone(),
-                user_id,
             ));
             handles.push(handle);
         }

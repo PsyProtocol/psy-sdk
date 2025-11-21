@@ -1,6 +1,5 @@
 pub mod args;
 pub mod backup;
-pub mod client_v2;
 pub mod edge;
 pub mod error;
 pub mod processor;

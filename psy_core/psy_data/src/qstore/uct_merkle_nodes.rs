@@ -1,5 +1,9 @@
-use std::{collections::HashMap, fmt, fmt::Display};
-use std::fmt::Debug;
+use std::{
+    collections::HashMap,
+    fmt,
+    fmt::{Debug, Display},
+};
+
 use kvq::traits::{KVQPair, KVQSerializable};
 use psy_common::job::drain_queue::{DrainQueueMetadata, DrainQueueMetadataTagged};
 use psy_config::network_constants::CST_USER_UPDATE_CHANNEL_ID;
@@ -21,7 +25,6 @@ pub struct CSTUserUpdate<Hash: PartialEq + Copy + Serialize> {
     pub updates: Vec<CSTDeltaNode<Hash>>,
 }
 
-
 impl<Hash: PartialEq + Copy + Serialize> Debug for CSTUserUpdate<Hash> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let uct_updates_len = self.uct_updates.len();
@@ -34,7 +37,6 @@ impl<Hash: PartialEq + Copy + Serialize> Debug for CSTUserUpdate<Hash> {
             .finish()
     }
 }
-
 
 impl<Hash: PartialEq + Copy + Serialize> DrainQueueMetadataTagged for CSTUserUpdate<Hash> {
     fn get_dq_metadata(&self) -> DrainQueueMetadata {

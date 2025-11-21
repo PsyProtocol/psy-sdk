@@ -35,10 +35,8 @@ pub trait Rpc {
     async fn exec_contract_call(&self, public_key: QHashOut<F>, contract_call_args: Vec<ContractCallArgs>) -> Result<String, ErrorObjectOwned>;
     #[method(name = "start_session")]
     async fn start_session(&self, public_key: QHashOut<F>) -> Result<String, ErrorObjectOwned>;
-    #[method(name = "prove_contract_call")]
-    async fn prove_contract_call(&self, public_key: QHashOut<F>, contract_call_arg: ContractCallArgs) -> Result<String, ErrorObjectOwned>;
     #[method(name = "prove_contract_calls")]
-    async fn prove_contract_calls(&self, public_key: QHashOut<F>, contract_call_args: Vec<ContractCallArgs>) -> Result<String, ErrorObjectOwned>;
+    async fn prove_contract_call(&self, public_key: QHashOut<F>, contract_call_args: Vec<ContractCallArgs>) -> Result<String, ErrorObjectOwned>;
     #[method(name = "sign_and_submit")]
     async fn sign_and_submit(&self, public_key: QHashOut<F>) -> Result<String, ErrorObjectOwned>;
     #[method(name = "register_user")]
@@ -110,24 +108,13 @@ impl RpcServer for RpcServerImpl {
         Ok("start session".to_string())
     }
 
-    async fn prove_contract_call(&self, public_key: QHashOut<F>, contract_call_arg: ContractCallArgs) -> Result<String, ErrorObjectOwned> {
-        let wallet_session = self.wallet_session.clone();
-        tokio::task::spawn_blocking(move || {
-            tokio::runtime::Handle::current().block_on(async move { wallet_session.read().prove_contract_call(public_key, contract_call_arg).await })
-        })
-        .await
-        .map_err(|e| ErrorObject::owned(1, e.to_string(), None::<()>))?
-        .map_err(|e| ErrorObject::owned(1, e.to_string(), None::<()>))?;
-        Ok("prove contract call".to_string())
-    }
-
-    async fn prove_contract_calls(&self, public_key: QHashOut<F>, contract_call_args: Vec<ContractCallArgs>) -> Result<String, ErrorObjectOwned> {
+    async fn prove_contract_call(&self, public_key: QHashOut<F>, contract_call_args: Vec<ContractCallArgs>) -> Result<String, ErrorObjectOwned> {
         let wallet_session = self.wallet_session.clone();
         match timeout(
             Duration::from_secs(60),
             tokio::task::spawn_blocking(move || {
                 tokio::runtime::Handle::current()
-                    .block_on(async move { wallet_session.read().prove_contract_calls(public_key, contract_call_args).await })
+                    .block_on(async move { wallet_session.read().prove_contract_call(public_key, contract_call_args).await })
             }),
         )
         .await

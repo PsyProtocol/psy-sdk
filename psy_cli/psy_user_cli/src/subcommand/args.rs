@@ -1,14 +1,10 @@
 use clap::{Args, Parser, Subcommand, ValueEnum};
 use plonky2::field::goldilocks_field::GoldilocksField;
+pub use psy_common::args::WalletSourceArgs;
 use psy_common::{args::SignType, data::qhashout::QHashOut};
 use psy_rust_sdk::provider::NetworkConfig;
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
-#[derive(Clone, Args)]
-pub struct RandomWalletArgs {
-    #[clap(long, default_value = "zk")]
-    pub sign_type: SignType,
-}
 
 #[derive(Clone, Args)]
 pub struct WalletArgs {
@@ -24,45 +20,37 @@ pub enum WalletCommands {
         output: Option<String>,
         #[arg(long, help = "Password for the wallet")]
         password: Option<String>,
+        #[command(flatten)]
+        wallet: WalletSourceArgs,
     },
     /// Load and display wallet info
     Load {
-        #[arg(long, help = "Private key hex string")]
-        private_key: Option<String>,
-        #[arg(long, help = "Path to keystore file")]
-        keystore_path: Option<String>,
-        #[arg(long, help = "Password for the keystore")]
-        password: Option<String>,
+        #[command(flatten)]
+        wallet: WalletSourceArgs,
     },
     /// List accounts in keystore directory
     List {
         #[arg(long, help = "Keystore directory path")]
         keystore_dir: Option<String>,
     },
-}
-
-#[derive(Clone, Args)]
-pub struct GetPublicKeyArgs {
-    /// user private key
-    #[clap(long, short)]
-    pub private_key: String,
-    /// signature type
-    #[clap(long, short, default_value = "zk")]
-    pub sign_type: SignType,
+    /// Generate a random wallet
+    Random {
+        #[clap(long, default_value = "zk")]
+        sign_type: SignType,
+    },
+    /// Display wallet information
+    Info {
+        #[command(flatten)]
+        wallet: WalletSourceArgs,
+    },
 }
 
 #[derive(Clone, Args, Serialize, Deserialize)]
 pub struct RegisterUserArgs {
     #[clap(env, long, default_value = "config.json", env)]
     pub rpc_config: String,
-    /// user private key
-    #[clap(long, short)]
-    pub private_key: Option<String>,
-    #[clap(long, short, default_value = "zk")]
-    pub sign_type: SignType,
-    /// optional fingerprint (defaults to standard circuit fingerprint)
-    #[clap(long)]
-    pub fingerprint: Option<String>,
+    #[command(flatten)]
+    pub wallet: WalletSourceArgs,
 }
 
 #[derive(Clone, Args)]
@@ -468,19 +456,14 @@ pub struct ClaimRewardsArgs {
     #[clap(env, long, default_value = "config.json", env)]
     pub rpc_config: String,
 
-    /// Private key for signing the transaction
-    #[clap(long, short)]
-    pub private_key: String,
+    #[command(flatten)]
+    pub wallet: WalletSourceArgs,
 
     /// Job specifications in format "job_id:location" where location is either
     /// "realm:id" or "coordinator" Example: --job "12345:realm:0" --job
     /// "67890:coordinator"
     #[arg(long = "job", action = clap::ArgAction::Append)]
     pub jobs: Vec<String>,
-
-    /// Signature type
-    #[clap(long, short, default_value = "secp256k1")]
-    pub sign_type: SignType,
 
     /// Maximum number of checkpoints to process in one batch (optional, limits
     /// processing load)

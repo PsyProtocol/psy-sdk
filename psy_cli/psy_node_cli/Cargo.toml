@@ -24,4 +24,5 @@ psy_data = { workspace = true }
 psy_config = { workspace = true }
 kvq = { workspace = true }
 psy_services = { workspace = true }
+psy_provider = { workspace = true }
 psy_vm = { workspace = true }

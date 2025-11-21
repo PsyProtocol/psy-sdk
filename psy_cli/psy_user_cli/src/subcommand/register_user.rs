@@ -28,62 +28,27 @@ use psy_ups_circuit::{
 };
 use psy_vm::{dpn::vm::def::DPNFunctionCircuitDefinition, ups::circuit_manager::UPSCircuitManager};
 
-use crate::subcommand::args::RegisterUserArgs;
+use crate::subcommand::{args::RegisterUserArgs, key_utils::load_wallet_key_info};
 
 pub async fn run(args: RegisterUserArgs) -> Result<()> {
     let provider = RpcProvider::new_with_config_path(&args.rpc_config)?;
     type C = PoseidonGoldilocksConfig;
     const D: usize = 2;
 
-    let user_sdc: DPNFunctionCircuitDefinition = serde_json::from_str(&std::fs::read_to_string("sdc.json")?)?;
+    let mut info = load_wallet_key_info(&args.wallet, false)?;
+    let mut fingerprint = info.fingerprint.clone();
+    let mut private_key_base = info.private_key;
+    let mut generated_private_key = info.generated;
 
-    let contract_state_tree_height = MAX_CONTRACT_STATE_TREE_HEIGHT;
-
-    let private_key_base = match &args.private_key {
-        Some(key) => QHashOut::<GoldilocksField>::from_str(&key).map_err(|e| anyhow::format_err!("Failed to parse private key: {}", e))?,
-        None => {
-            let private_key = QHashOut::rand();
-            tracing::info!("random private key {:?}", private_key.to_string());
-            private_key
-        }
+    let public_key_info = ZKPublicKeyInfo {
+        fingerprint,
+        public_key_param: info.public_key_param,
     };
-    let main_circuits: Box<dyn UPSCircuitManager<C, D>> = Box::new(PsyUPSStepCircuitManager::<C, D>::new_with_config(
-        psy_config::network_constants::PSY_NETWORK_MAGIC,
-    ));
-    let mut wallet = PsyMemoryWallet::new(vec![main_circuits]);
-
-    let fingerprint = match SignType::from(args.sign_type.clone()) {
-        SignType::ZKSign => {
-            if let Some(fingerprint_str) = args.fingerprint {
-                let expected = get_zk_fingerprint::<GoldilocksField>();
-                let provided = QHashOut::<GoldilocksField>::from_str(&fingerprint_str)?;
-                assert_eq!(provided, expected, "ZK key fingerprint mismatch");
-            }
-            get_zk_fingerprint()
-        }
-        SignType::SECP256K1Sign => {
-            if let Some(fingerprint_str) = args.fingerprint {
-                let expected = get_secp256k1_fingerprint::<GoldilocksField>();
-                let provided = QHashOut::<GoldilocksField>::from_str(&fingerprint_str)?;
-                assert_eq!(provided, expected, "SECP key fingerprint mismatch");
-            }
-            get_secp256k1_fingerprint()
-        }
-        SignType::SoftwareDefinedDPNSign => QHashOut::<GoldilocksField>::from_str(
-            &args
-                .fingerprint
-                .ok_or_else(|| anyhow::format_err!("software defined dpn sign need fingerprint"))?,
-        )?,
-        SignType::SoftwareDefinedPlonky2Sign => wallet.register_plonky2_software_defined_circuit(contract_state_tree_height, 0).await?,
-    };
-
-    let public_key_info = wallet.get_or_create_user(private_key_base, fingerprint).await?;
-
     provider.register_user(QRegisterUserRPCRequest { public_key: public_key_info }).await?;
 
     let public_key_hash = public_key_info.qfhash::<PsyHasher>();
     println!("{{");
-    if args.private_key.is_none() {
+    if generated_private_key {
         println!("  \"private_key\": \"{}\",", private_key_base);
     }
     println!("  \"public_key_hash\": \"{}\",", public_key_hash);

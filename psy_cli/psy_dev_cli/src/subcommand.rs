@@ -69,60 +69,6 @@ pub enum Commands {
 }
 
 #[derive(Parser)]
-pub struct TestFullGroup1Args {
-    #[arg(long, default_value = "redis://127.0.0.1:6379")]
-    pub redis_url: String,
-
-    #[arg(long, default_value = "db")]
-    pub db_path: String,
-}
-
-#[derive(Parser)]
-pub struct TestRegisterV2Args {
-    #[arg(long, default_value = "redis://127.0.0.1:6379")]
-    pub redis_url: String,
-
-    #[arg(long, default_value = "db")]
-    pub db_path: String,
-}
-
-#[derive(Parser)]
-pub struct BenchmarkFullGroup1Args {
-    #[arg(long, default_value = "redis://127.0.0.1:6379")]
-    pub redis_url: String,
-
-    #[arg(long, default_value = "10")]
-    pub num_workers: usize,
-}
-
-#[derive(Parser)]
-pub struct BenchmarkFullGroup2Args {
-    #[arg(long, default_value = "redis://127.0.0.1:6379")]
-    pub redis_url: String,
-
-    #[arg(long, default_value = "10")]
-    pub num_workers: usize,
-}
-
-#[derive(Parser)]
-pub struct BenchmarkFullGroup3Args {
-    #[arg(long, default_value = "redis://127.0.0.1:6379")]
-    pub redis_url: String,
-
-    #[arg(long, default_value = "10")]
-    pub num_workers: usize,
-}
-
-#[derive(Parser)]
-pub struct BenchmarkRegisterV2Args {
-    #[arg(long, default_value = "redis://127.0.0.1:6379")]
-    pub redis_url: String,
-
-    #[arg(long, default_value = "1")]
-    pub num_users: usize,
-}
-
-#[derive(Parser)]
 pub struct GenerateTokenArgs {
     #[arg(long, env = "PRIVATE_JWT_KEY", default_value = "ykGz8xBecyAs")]
     pub private_key: String,

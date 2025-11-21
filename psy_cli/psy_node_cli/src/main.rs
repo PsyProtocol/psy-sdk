@@ -2,10 +2,7 @@ mod subcommand;
 
 use clap::Parser;
 
-use crate::subcommand::{
-    api_service, coordinator_edge, coordinator_processor, realm_edge, realm_edge_v2, realm_processor, realm_processor_v2, watcher, worker, Cli,
-    Commands,
-};
+use crate::subcommand::{api_service, coordinator_edge, coordinator_processor, realm_edge, realm_processor, watcher, worker, Cli, Commands};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {

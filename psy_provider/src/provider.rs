@@ -36,11 +36,13 @@ use psy_data::{
     traits::qdatastore::{qmetadata::QMetaDataStoreReaderSync, qtreedata::QTreeDataStoreReaderSync},
     ups::{
         start_step::UPSStartStepInput,
+        start_step_register_user::UPSStartStepRegisterUserInput,
         ups_cfc_standard_step::{UPSCFCDeferredTransactionCircuitInput, UPSCFCStandardTransactionCircuitInput},
         ups_end_cap::UPSEndCapFromProofTreeGadgetInput,
     },
 };
 use psy_vm::{
+    dpn::vm::def::DPNFunctionCircuitDefinition,
     ups::circuit_manager::{PortableQTreeRecursion, PortableQTreeRecursionCircuitsData, PortableQTreeRecursionCircuitsProve, UPSCircuitManager},
     vm::cfc_input::DapenContractFunctionCircuitInput,
 };
@@ -61,11 +63,12 @@ use super::request::{
 use crate::{
     request::{
         DPNSoftwareDefinedSignatureInput, DPNSoftwareDefinedSignatureProofRPCRequest, QBlockStateRPCRequest, QGetContractMethodCommonDataRPCRequest,
-        QGetMethodIdRPCRequest, QGetTxStatusRPCRequest, QLatestBlockStateRPCRequest, QLeftAggRightLeafRpcRequestV2, QLeftLeafRightAggRpcRequestV2,
-        QProveContractCallRPCRequest, QProveUpsStartRPCRequest, QRegisterCircuitsRPCRequest, QRegisterDPNSoftwareDefinedCircuitRPCRequest,
-        QRegisterPlonky2SoftwareDefinedCircuitRPCRequest, QSecpSignatureProofRPCRequest, QSignatureMinifierProofRPCRequest,
-        QSignatureProofRPCRequest, QSingleLeafRpcRequestV2, QTwoAggRpcRequsetV2, QTwoLeafRpcRequestV2, QUpsCfcDeferredTxRPCRequest,
-        QUpsCfcStandardTxRPCRequest, QUpsEndCapRPCRequestV2, QUserSubTreeMerkleProofRPCRequest, RequestParamsV2,
+        QGetFnIdRPCRequest, QGetTxStatusRPCRequest, QLatestBlockStateRPCRequest, QLeftAggRightLeafRpcRequestV2, QLeftLeafRightAggRpcRequestV2,
+        QProveContractCallRPCRequest, QProveUpsStartRPCRequest, QProveUpsStartRegisterUserRPCRequest, QRegisterCircuitsRPCRequest,
+        QRegisterDPNSoftwareDefinedCircuitRPCRequest, QRegisterPlonky2SoftwareDefinedCircuitRPCRequest, QResolveContractFunctionByMethodIdRPCRequest,
+        QResolveContractFunctionByMethodNameRPCRequest, QSecpSignatureProofRPCRequest, QSignatureMinifierProofRPCRequest, QSignatureProofRPCRequest,
+        QSingleLeafRpcRequestV2, QTwoAggRpcRequsetV2, QTwoLeafRpcRequestV2, QUpsCfcDeferredTxRPCRequest, QUpsCfcStandardTxRPCRequest,
+        QUpsEndCapRPCRequestV2, QUserSubTreeMerkleProofRPCRequest, RequestParamsV2,
     },
     session::TxStatus,
 };
@@ -385,6 +388,49 @@ impl RpcProvider {
         }
     }
 
+    pub async fn with_user_id<T, F, Fut>(&mut self, user_id: u64, f: F) -> T
+    where
+        F: FnOnce(&mut Self) -> Fut,
+        Fut: std::future::Future<Output = T>,
+    {
+        let original_user_id = self.current_user_id;
+        self.current_user_id = user_id;
+
+        let result = f(self).await;
+
+        self.current_user_id = original_user_id;
+
+        result
+    }
+
+    pub fn with_user_id_owned(&self, user_id: u64) -> Self {
+        Self {
+            client: self.client.clone(),
+            realm_configs: self.realm_configs.clone(),
+            coordinator_configs: self.coordinator_configs.clone(),
+            users_per_realm: self.users_per_realm,
+            current_user_id: user_id,
+        }
+    }
+
+    pub fn set_user_id(&mut self, user_id: u64) {
+        self.current_user_id = user_id;
+    }
+}
+
+impl psy_data::qstore::imm::cmd_processor::QUserIdManager for RpcProvider {
+    fn get_user_id(&self) -> u64 {
+        self.current_user_id
+    }
+
+    fn set_user_id(&mut self, user_id: u64) {
+        self.current_user_id = user_id;
+    }
+}
+
+#[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
+#[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
+impl RpcProvider {
     pub async fn get_realm_latest_block_state(&self) -> anyhow::Result<psy_data::qdata::checkpoint::PsyBlockState> {
         tracing::info!("Fetching latest realm block state");
         let rpc_url = self.get_realm_url(self.current_user_id)?;
@@ -647,6 +693,7 @@ pub struct QCommonCircuitData<F: RichField> {
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
 pub struct LocalCommonCircuitsData<F: RichField> {
     pub ups_start: QCommonCircuitData<F>,
+    pub ups_start_register_user: QCommonCircuitData<F>,
     pub ups_cfc_standard_tx: QCommonCircuitData<F>,
     pub ups_cfc_deferred_tx: QCommonCircuitData<F>,
     pub ups_end_cap: QCommonCircuitData<F>,
@@ -655,6 +702,7 @@ pub struct LocalCommonCircuitsData<F: RichField> {
 
     pub ups_circuit_whitelist_root: QHashOut<F>,
     pub ups_start_whitelist_proof: MerkleProofCore<QHashOut<F>>,
+    pub ups_start_register_user_whitelist_proof: MerkleProofCore<QHashOut<F>>,
     pub ups_cfc_standard_tx_whitelist_proof: MerkleProofCore<QHashOut<F>>,
     pub ups_cfc_deferred_tx_whitelist_proof: MerkleProofCore<QHashOut<F>>,
 
@@ -736,6 +784,11 @@ where
             self.common_circuits_data.ups_start.verifier_config.clone(),
         );
         info_store.register_circuit(
+            LocalCircuitType::UPSStartRegisterUser.into(),
+            self.common_circuits_data.ups_start_register_user.fingerprint,
+            self.common_circuits_data.ups_start_register_user.verifier_config.clone(),
+        );
+        info_store.register_circuit(
             LocalCircuitType::UPSCFCStandard.into(),
             self.common_circuits_data.ups_cfc_standard_tx.fingerprint,
             self.common_circuits_data.ups_cfc_standard_tx.verifier_config.clone(),
@@ -759,6 +812,10 @@ where
         info_store.register_whitelist_merkle_proof(
             LocalCircuitType::UPSStart.into(),
             self.common_circuits_data.ups_start_whitelist_proof.clone(),
+        );
+        info_store.register_whitelist_merkle_proof(
+            LocalCircuitType::UPSStartRegisterUser.into(),
+            self.common_circuits_data.ups_start_register_user_whitelist_proof.clone(),
         );
         info_store.register_whitelist_merkle_proof(
             LocalCircuitType::UPSCFCStandard.into(),
@@ -845,6 +902,25 @@ where
         }
     }
 
+    async fn prove_ups_start_register_user(&self, input: &UPSStartStepRegisterUserInput<C::F>) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
+        tracing::info!("prove ups start register user: {}", serde_json::to_string_pretty(&input)?);
+        let response = psy_rpc_call_back!(
+            self,
+            &self.proof_proxy_url,
+            RequestParams::<C::F>::ProveUpsStartRegisterUser(QProveUpsStartRegisterUserRPCRequest {
+                input: input.clone(),
+            }),
+            ProofWithPublicInputs<C::F, C, D>
+        );
+        match response.result {
+            ResponseResult::Success(proof) => {
+                tracing::info!("get proof: {}", serde_json::to_string_pretty(&proof.public_inputs)?);
+                Ok(proof)
+            }
+            ResponseResult::Error(e) => Err(anyhow::format_err!("rpc call failed `{:?}`", e)),
+        }
+    }
+
     async fn register_contract_circuits(&self, contract_id: u64, contract_code: &ContractCodeDefinition) -> anyhow::Result<()> {
         tracing::info!("register contract {} circuits", contract_id);
         let response = psy_rpc_call_back!(
@@ -862,40 +938,88 @@ where
         }
     }
 
-    async fn get_method_id(&self, contract_id: u64, method_name: String) -> anyhow::Result<u64> {
+    async fn get_fn_id(&self, contract_id: u64, method_name: String) -> anyhow::Result<u64> {
         tracing::info!("get method `{}` of contract {}", method_name, contract_id);
         let response = psy_rpc_call_back!(
             self,
             &self.proof_proxy_url,
-            RequestParams::<C::F>::GetMethodId(QGetMethodIdRPCRequest { contract_id, method_name }),
+            RequestParams::<C::F>::GetFnId(QGetFnIdRPCRequest { contract_id, method_name }),
             u64
         );
         match response.result {
             ResponseResult::Success(method_id) => {
-                tracing::info!("get method id `{}` of contract {}", method_id, contract_id);
+                tracing::info!("get fn id `{}` of contract {}", method_id, contract_id);
                 Ok(method_id)
             }
             ResponseResult::Error(e) => Err(anyhow::format_err!("rpc call failed `{:?}`", e)),
         }
     }
 
-    async fn get_contract_method_common_data(
+    async fn resolve_contract_function_by_method_name(
         &self,
         contract_id: u64,
-        method_id: u32,
-    ) -> anyhow::Result<(QHashOut<C::F>, VerifierOnlyCircuitData<C, D>)> {
-        tracing::info!("get method `{}` common data of contract {}", method_id, contract_id);
+        contract_code: &ContractCodeDefinition,
+        method_name: String,
+    ) -> anyhow::Result<(u64, DPNFunctionCircuitDefinition)> {
+        tracing::info!("resolve method `{}` of contract {}", method_name, contract_id);
         let response = psy_rpc_call_back!(
             self,
             &self.proof_proxy_url,
-            RequestParams::<C::F>::GetContractMethodCommonData(QGetContractMethodCommonDataRPCRequest { contract_id, method_id }),
+            RequestParams::<C::F>::ResolveContractFunctionByMethodName(QResolveContractFunctionByMethodNameRPCRequest {
+                contract_id,
+                contract_code: contract_code.clone(),
+                method_name
+            }),
+            (u64, DPNFunctionCircuitDefinition)
+        );
+        match response.result {
+            ResponseResult::Success((fn_id, circuit_def)) => {
+                tracing::info!("get fn id `{}` of contract {}", fn_id, contract_id);
+                Ok((fn_id, circuit_def))
+            }
+            ResponseResult::Error(e) => Err(anyhow::format_err!("rpc call failed `{:?}`", e)),
+        }
+    }
+
+    async fn resolve_contract_function_by_method_id(
+        &self,
+        contract_id: u64,
+        contract_code: &ContractCodeDefinition,
+        method_id: u32,
+    ) -> anyhow::Result<(u64, DPNFunctionCircuitDefinition)> {
+        tracing::info!("resolve method `{}` of contract {}", method_id, contract_id);
+        let response = psy_rpc_call_back!(
+            self,
+            &self.proof_proxy_url,
+            RequestParams::<C::F>::ResolveContractFunctionByMethodId(QResolveContractFunctionByMethodIdRPCRequest {
+                contract_id,
+                contract_code: contract_code.clone(),
+                method_id
+            }),
+            (u64, DPNFunctionCircuitDefinition)
+        );
+        match response.result {
+            ResponseResult::Success((fn_id, circuit_def)) => {
+                tracing::info!("get fn id `{}` of contract {}", fn_id, contract_id);
+                Ok((fn_id, circuit_def))
+            }
+            ResponseResult::Error(e) => Err(anyhow::format_err!("rpc call failed `{:?}`", e)),
+        }
+    }
+
+    async fn get_contract_method_common_data(&self, contract_id: u64, fn_id: u32) -> anyhow::Result<(QHashOut<C::F>, VerifierOnlyCircuitData<C, D>)> {
+        tracing::info!("get method `{}` common data of contract {}", fn_id, contract_id);
+        let response = psy_rpc_call_back!(
+            self,
+            &self.proof_proxy_url,
+            RequestParams::<C::F>::GetContractMethodCommonData(QGetContractMethodCommonDataRPCRequest { contract_id, fn_id }),
             QCommonCircuitData<C::F>
         );
         match response.result {
             ResponseResult::Success(data) => {
                 tracing::info!(
-                    "get method id `{}` of contract {}, fingerprint: {}, common data: {}",
-                    method_id,
+                    "get fn id `{}` of contract {}, fingerprint: {}, common data: {}",
+                    fn_id,
                     contract_id,
                     data.fingerprint.to_string(),
                     serde_json::to_string(&data.verifier_config)?,
@@ -909,7 +1033,7 @@ where
     async fn prove_contract_call(
         &self,
         contract_id: u64,
-        method_id: u32,
+        fn_id: u32,
         input: &DapenContractFunctionCircuitInput<C::F>,
     ) -> anyhow::Result<ProofWithPublicInputs<C::F, C, D>> {
         tracing::info!("prove contract call: {}", serde_json::to_string_pretty(&input)?);
@@ -918,7 +1042,7 @@ where
             &self.proof_proxy_url,
             RequestParams::<C::F>::ProveContractCall(QProveContractCallRPCRequest {
                 contract_id,
-                method_id,
+                fn_id,
                 input: input.clone(),
             }),
             ProofWithPublicInputs<C::F, C, D>
@@ -1145,6 +1269,19 @@ where
 
     async fn ups_start_circuit_verifier_config(&self) -> anyhow::Result<VerifierOnlyCircuitData<C, D>> {
         Ok(self.common_circuits_data.ups_start.verifier_config.clone().to_verifier_data())
+    }
+
+    async fn ups_start_register_user_circuit_fingerprint(&self) -> anyhow::Result<QHashOut<C::F>> {
+        Ok(self.common_circuits_data.ups_start_register_user.fingerprint)
+    }
+
+    async fn ups_start_register_user_circuit_verifier_config(&self) -> anyhow::Result<VerifierOnlyCircuitData<C, D>> {
+        Ok(self
+            .common_circuits_data
+            .ups_start_register_user
+            .verifier_config
+            .clone()
+            .to_verifier_data())
     }
 
     async fn ups_cfc_standard_tx_circuit_fingerprint(&self) -> anyhow::Result<QHashOut<C::F>> {

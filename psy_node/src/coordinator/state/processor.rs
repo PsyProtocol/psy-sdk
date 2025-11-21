@@ -95,7 +95,7 @@ use psy_store::{
 use serde::{Deserialize, Serialize};
 use tracing::{debug, error, info, trace, warn};
 
-use crate::{common::slot::SLOT_SIZE, common_v2::traits::realm::BasicRealmStatusOnCoordinator};
+use crate::common::slot::SLOT_SIZE;
 
 type F = PsyFelt;
 type C = PoseidonGoldilocksConfig;
@@ -224,12 +224,13 @@ impl<
         AggStateTransition<F>,
         u32,
         BidirectionalGraph<QProvingJobDataID>,
+        QueueOffsetState,
     )> {
         let last_blockstate = self.store.get_latest_block_state().await?;
 
         let last_contract_tree_root = self.store.get_contract_tree_root(checkpoint_id).await?;
         tracing::debug!("last_contract_tree_root: {}", last_contract_tree_root);
-        let (deploy_contract_items, _consumption_state) = self
+        let (deploy_contract_items, consumption_state) = self
             .checkpoint_queue
             .peek_with_position::<WithDrainQueueMetadata<QBCDeployContractWithRoot<F>>>(
                 self.max_processed_contracts_per_block,
@@ -373,6 +374,7 @@ impl<
             },
             next_contract_id,
             batch_deploy_contract_graph,
+            consumption_state,
         ))
     }
 
@@ -1231,12 +1233,20 @@ impl<
         let last_checkpoint_leaf = self.store.get_checkpoint_leaf_data(last_blockstate.checkpoint_id).await?;
         let new_checkpoint_id = last_blockstate.checkpoint_id + 1;
         info!("💥 coordinator processor build block checkpoint_id: {}", new_checkpoint_id);
-        let (deploy_jobs, deploy_transition, next_contract_id, deploy_graph) = self.handle_deploy_contracts(new_checkpoint_id, slot).await?;
-        let (user_registration_jobs, user_registration_transition, new_accounts, regsitered_users_start_pivot_siblings, user_reg_graph, offset_state) =
-            self.handle_user_registrations(new_checkpoint_id, slot).await?;
+        let (deploy_jobs, deploy_transition, next_contract_id, deploy_graph, deploy_contract_offset_state) =
+            self.handle_deploy_contracts(new_checkpoint_id, slot).await?;
+        let (
+            user_registration_jobs,
+            user_registration_transition,
+            new_accounts,
+            regsitered_users_start_pivot_siblings,
+            user_reg_graph,
+            register_user_offset_state,
+        ) = self.handle_user_registrations(new_checkpoint_id, slot).await?;
 
         let (guta_jobs, guta_transition, guta_graph, mut offset_states) = self.handle_guta_from_realms(new_checkpoint_id, slot).await?;
-        offset_states.push(offset_state);
+        offset_states.push(deploy_contract_offset_state);
+        offset_states.push(register_user_offset_state);
         // Set the job dependency graphs
         self.task_store.set_job_dependency_graph(deploy_graph, user_reg_graph, guta_graph).await?;
 
@@ -1483,7 +1493,7 @@ impl<
         checkpoint_id: u64,
         offset_states: Vec<QueueOffsetState>,
     ) -> anyhow::Result<(Vec<kvq::traits::KVQPair<Vec<u8>, Vec<u8>>>, Vec<Vec<u8>>)> {
-        let (pair_to_set, remove_keys) = self.store.commit(None)?;
+        let (pair_to_set, remove_keys) = self.store.commit(None).await?;
         for offset_state in offset_states.iter() {
             self.checkpoint_queue.commit_offset(offset_state).await?;
         }
@@ -1496,7 +1506,7 @@ impl<
 
     pub async fn rollback(&self, checkpoint_id: u64) -> anyhow::Result<()> {
         self.task_store.clear_job_dependency_graph(checkpoint_id).await?;
-        self.store.rollback(checkpoint_id)
+        self.store.rollback(checkpoint_id).await
     }
 
     // commit redis queue
@@ -1508,7 +1518,11 @@ impl<
         {
             self.checkpoint_queue.commit_offset(&state).await?;
         }
-        if let Some(state) = self.checkpoint_queue.get_last_peek_offset(self.coordinator_config.register_user_channel_id).await? {
+        if let Some(state) = self
+            .checkpoint_queue
+            .get_last_peek_offset(self.coordinator_config.register_user_channel_id)
+            .await?
+        {
             self.checkpoint_queue.commit_offset(&state).await?;
         }
         if let Some(state) = self

@@ -54,24 +54,12 @@ pub async fn run(args: GetJobProofArgs) -> Result<()> {
     let mut proofs = Vec::new();
 
     for job_info in &job_infos {
-        match job_info.job_id.circuit_type {
-            ProvingJobCircuitType::GUTAOnlyRegisterUsers
-            | ProvingJobCircuitType::GUTARegisterUsers
-            | ProvingJobCircuitType::GUTATwoEndCap
-            | ProvingJobCircuitType::GUTATwoGUTA
-            | ProvingJobCircuitType::GUTALeftEndCapRightGUTA
-            | ProvingJobCircuitType::GUTALeftGUTARightEndCap
-            | ProvingJobCircuitType::GUTASingleEndCap
-            | ProvingJobCircuitType::GUTAVerifyToCap
-            | ProvingJobCircuitType::GUTATwoGUTAWithCheckpointUpgrade
-            | ProvingJobCircuitType::GUTAVerifyToCapWithCheckpointUpgrade
-            | ProvingJobCircuitType::GUTANoChange => {}
-
-            _ => {
-                info!("Skipping non-GUTA job type: {:?}", job_info.job_id.circuit_type);
-                continue;
-            }
-        };
+        if job_info.job_id.circuit_type.is_guta_job() {
+            // GUTA job - continue processing
+        } else {
+            info!("Skipping non-GUTA job type: {:?}", job_info.job_id.circuit_type);
+            continue;
+        }
 
         info!("Processing job: {:?}", job_info.job_id);
 

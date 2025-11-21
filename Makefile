@@ -113,14 +113,11 @@ shutdown:
 	@rm -rf ./target/redis-data > /dev/null 2>&1 || true
 	# @docker rm -f psy-scylla-coordinator psy-scylla-realm0 psy-scylla-realm1 > /dev/null 2>&1 || true
 	@sudo rm -fr ${PWD}/db logs > /dev/null 2>&1 || true
-	@echo "Removing user job tracker JSON files..."
-	@rm -f ${USER0_PUBLIC_KEY}.json ${USER0_SECP_ZK_PUBLIC_KEY}.json ${USER1_PUBLIC_KEY}.json ${USER1_SECP_ZK_PUBLIC_KEY}.json ${USER2_PUBLIC_KEY}.json ${USER2_SECP_ZK_PUBLIC_KEY}.json ${USER3_PUBLIC_KEY}.json ${USER3_SECP_ZK_PUBLIC_KEY}.json > /dev/null 2>&1 || true
+	# @echo "Removing user job tracker JSON files..."
+	# @rm -f ${USER0_PUBLIC_KEY}.json ${USER0_SECP_ZK_PUBLIC_KEY}.json ${USER1_PUBLIC_KEY}.json ${USER1_SECP_ZK_PUBLIC_KEY}.json ${USER2_PUBLIC_KEY}.json ${USER2_SECP_ZK_PUBLIC_KEY}.json ${USER3_PUBLIC_KEY}.json ${USER3_SECP_ZK_PUBLIC_KEY}.json > /dev/null 2>&1 || true
 
 run-all: shutdown init
 	@./scripts/run_all.sh
-
-run-all-v2: shutdown init
-	@./scripts/run_all_v2.sh
 
 run-scenario0:
 	@./scripts/run_scenario0.sh
@@ -363,17 +360,20 @@ run-api-service:
 run-worker0:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_node_cli worker \
       --config=./config.json \
-      --private-key=${USER0_PRIVATE_KEY}
+      --keystore-path=.wallets/miner0.json \
+      --recipient=3145728
 
 run-worker1:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_node_cli worker \
       --config=./config.json \
-      --private-key=${USER1_PRIVATE_KEY}
+      --keystore-path=.wallets/miner1.json \
+      --recipient=1024
 
 run-worker2:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_node_cli worker \
       --config=./config.json \
-      --private-key=${USER2_PRIVATE_KEY}
+      --keystore-path=.wallets/miner2.json \
+      --recipient=2098176
 
 run-worker3:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_node_cli worker \
@@ -657,20 +657,20 @@ run-benchmark-flow-repeat:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_dev_cli stress-test --task-type multicall --only-flow --repeat 100
 
 run-benchmark-deploy:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_user_cli deploy-contract --private-key=17c975c2668ebe0ca7c87f67c6414ebb7fd664f46370a0af2a3b204c8824ac5a --contract-path token.json --abi-path token.abi.json
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_dev_cli stress-test --task-type multicall --only-deploy-contract  --concurrent-tasks 100  --contract-path token.json --abi-path token.abi.json
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_user_cli deploy-contract --private-key=17c975c2668ebe0ca7c87f67c6414ebb7fd664f46370a0af2a3b204c8824ac5a --contract-path ${PWD}/../psy-compiler/psy-precompiles/token/target/token.json --abi-path ${PWD}/../psy-compiler/psy-precompiles/token/target/token.abi.json --is-deploy
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_dev_cli stress-test --task-type multicall --only-deploy-contract  --concurrent-tasks 100  --contract-path ${PWD}/../psy-compiler/psy-precompiles/token/target/token.json --abi-path ${PWD}/../psy-compiler/psy-precompiles/token/target/token.abi.json --is-deploy
 
 generate-access-token:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_node_cli generate-access-token
 
 get-public-key:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_user_cli get-public-key --private-key=${CURRENT_USER_PRIVATE_KEY} --sign-type ${SIGN_TYPE}
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_user_cli wallet info --private-key=${CURRENT_USER_PRIVATE_KEY} --sign-type ${SIGN_TYPE}
 
 wallet:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_user_cli wallet create
 
 random-wallet:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_user_cli random-wallet
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_user_cli wallet random --sign-type ${SIGN_TYPE}
 
 register-user:
 	@echo "Registering all 4 users..."
@@ -700,24 +700,24 @@ register-random-user:
 deploy-contract:
 	@echo "Deploying contracts..."
 	@echo "USER0 deploying token contract..."
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_user_cli deploy-contract --private-key=${USER0_PRIVATE_KEY} --contract-path ${PROJECT_DIR}/token/target/token.json --abi-path ${PROJECT_DIR}/token/target/token.abi.json --is-deploy
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_user_cli deploy-contract --private-key=${USER0_PRIVATE_KEY} --contract-path ${PWD}/../psy-compiler/psy-precompiles/token/target/token.json --abi-path ${PWD}/../psy-compiler/psy-precompiles/token/target/token.abi.json --is-deploy
 	@echo "USER1 deploying token contract..."
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_user_cli deploy-contract --private-key=${USER1_PRIVATE_KEY} --contract-path ${PROJECT_DIR}/token/target/token.json --abi-path ${PROJECT_DIR}/token/target/token.abi.json --is-deploy
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_user_cli deploy-contract --private-key=${USER1_PRIVATE_KEY} --contract-path ${PWD}/../psy-compiler/psy-precompiles/token/target/token.json --abi-path ${PWD}/../psy-compiler/psy-precompiles/token/target/token.abi.json --is-deploy
 
 get-deploy-contract-cmd:
 	@echo "Deploying contracts..."
 	@echo "USER0 deploying token contract..."
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_user_cli deploy-contract --private-key=${USER0_PRIVATE_KEY} --contract-path ${PROJECT_DIR}/token/target/token.json --output-path ${PROJECT_DIR}/token/target/
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_user_cli deploy-contract --private-key=${USER0_PRIVATE_KEY} --contract-path ${PWD}/../psy-compiler/psy-precompiles/token/target/token.json --output-path ./target/
 	@echo "USER1 deploying token contract..."
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_user_cli deploy-contract --private-key=${USER1_PRIVATE_KEY} --contract-path ${PROJECT_DIR}/token/target/token.json --output-path ${PROJECT_DIR}/token/target/
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_user_cli deploy-contract --private-key=${USER1_PRIVATE_KEY} --contract-path ${PWD}/../psy-compiler/psy-precompiles/token/target/token.json --output-path ./target/
 
 multi-contract-call:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_user_cli call -p ${USER0_PRIVATE_KEY} --contract-id ${CONTRACT_ID}
 
 mint:
 	@echo "All users minting 1000 tokens..."
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_user_cli call -p ${USER0_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_mint --inputs "[1000000000000]" --sign-type $(SIGN_TYPE)
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_user_cli call -p ${USER1_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_mint --inputs "[1000000000000]" --sign-type $(SIGN_TYPE)
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_user_cli call --keystore-path .wallets/treasury.json --contract-id ${CONTRACT_ID} --method-name simple_mint --inputs "[1000000000000]" --sign-type $(SIGN_TYPE)
+	# @RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_user_cli call --keystore-path .wallets/treasury.json --contract-id ${CONTRACT_ID} --method-name simple_mint --inputs "[1000000000000]" --sign-type $(SIGN_TYPE)
 	# @RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_user_cli call -p ${USER2_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_mint --inputs "[1000000000000]"
 	# @RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_user_cli call -p ${USER3_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_mint --inputs "[1000000000000]"
 
@@ -740,7 +740,7 @@ return-back:
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_user_cli call -p ${USER0_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_transfer --inputs "[$(USER1_ID), 250000000000]" --sign-type $(SIGN_TYPE)
 
 claim-rewards:
-	@RUST_LOG=info ./target/${PROFILE}/psy_user_cli claim-rewards --private-key ${CURRENT_USER_PRIVATE_KEY} --sign-type secp256k1 --limit 10000
+	@RUST_LOG=info ./target/${PROFILE}/psy_user_cli claim-rewards --keystore-path .wallets/miner0.json --sign-type ${SIGN_TYPE} --limit 10000
 
 get-job-proof:
 	@RUST_LOG=info ./target/${PROFILE}/psy_dev_cli get-job-proof --checkpoint-id ${CHECKPOINT_ID} --private-key ${CURRENT_USER_PRIVATE_KEY} --sign-type secp256k1
