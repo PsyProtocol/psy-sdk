@@ -215,10 +215,11 @@ impl WalletSession {
         let mut main_circuits: Vec<Box<dyn UPSCircuitManager<C, D> + Send + Sync>> = Vec::new();
 
         for proxy_url in rpc_config.prove_proxy_url.iter() {
-            if let Ok(main_circuit) = ProveProxyRpcProvider::new_with_config(proxy_url.to_string()).await {
-                main_circuits.push(Box::new(main_circuit));
-            } else {
-                tracing::info!("prove proxy url `{}` is invalid, skip", proxy_url);
+            match ProveProxyRpcProvider::new_with_config(proxy_url.to_string()).await {
+                Ok(main_circuit) => main_circuits.push(Box::new(main_circuit)),
+                Err(e) => {
+                    tracing::warn!("prove proxy url `{}` is invalid, skip: {}", proxy_url, e);
+                }
             }
         }
         if main_circuits.is_empty() {

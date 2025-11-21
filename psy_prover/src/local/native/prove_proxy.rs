@@ -31,12 +31,13 @@ use psy_data::{
     },
     ups::{
         start_step::UPSStartStepInput,
+        start_step_register_user::UPSStartStepRegisterUserInput,
         ups_cfc_standard_step::{UPSCFCDeferredTransactionCircuitInput, UPSCFCStandardTransactionCircuitInput},
         ups_end_cap::UPSEndCapFromProofTreeGadgetInput,
     },
 };
 use psy_provider::{
-    provider::{NetworkConfig, QCommonCircuitData, RpcProvider},
+    provider::{LocalCommonCircuitsData, NetworkConfig, QCommonCircuitData, RpcProvider},
     request::{DPNSoftwareDefinedSignatureInput, QRegisterDPNSoftwareDefinedCircuitRPCRequest, QRegisterPlonky2SoftwareDefinedCircuitRPCRequest},
 };
 use psy_ups_circuit::{
@@ -61,6 +62,11 @@ pub trait ProveProxyRpc {
     /// local proving proof generate
     #[method(name = "prove_ups_start")]
     async fn prove_ups_start(&self, input: UPSStartStepInput<F>) -> Result<ProofWithPublicInputs<F, C, D>, ErrorObjectOwned>;
+    #[method(name = "prove_ups_start_register_user")]
+    async fn prove_ups_start_register_user(
+        &self,
+        input: UPSStartStepRegisterUserInput<F>,
+    ) -> Result<ProofWithPublicInputs<F, C, D>, ErrorObjectOwned>;
 
     #[method(name = "get_circuits_data")]
     async fn get_circuits_data(&self) -> Result<String, ErrorObjectOwned>;
@@ -236,43 +242,16 @@ pub trait ProveProxyRpc {
     ) -> Result<ProofWithPublicInputs<F, C, D>, ErrorObjectOwned>;
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct LocalCommonCircuitsData {
-    pub ups_start: QCommonCircuitData<F>,
-    pub ups_cfc_standard_tx: QCommonCircuitData<F>,
-    pub ups_cfc_deferred_tx: QCommonCircuitData<F>,
-    pub ups_end_cap: QCommonCircuitData<F>,
-    pub zk_circuit: QCommonCircuitData<F>,
-    pub secp_circuit: QCommonCircuitData<F>,
-
-    pub ups_circuit_whitelist_root: QHashOut<F>,
-    pub ups_start_whitelist_proof: MerkleProofCore<QHashOut<F>>,
-    pub ups_cfc_standard_tx_whitelist_proof: MerkleProofCore<QHashOut<F>>,
-    pub ups_cfc_deferred_tx_whitelist_proof: MerkleProofCore<QHashOut<F>>,
-
-    // proof_tree_agg_circuits data
-    pub single_leaf_circuit: QCommonCircuitData<F>,
-    pub two_leaf_circuit: QCommonCircuitData<F>,
-    pub two_agg_circuit: QCommonCircuitData<F>,
-    pub left_leaf_right_agg_circuit: QCommonCircuitData<F>,
-    pub left_agg_right_leaf_circuit: QCommonCircuitData<F>,
-    pub leaf_circuit_config_id: u64,
-    pub leaf_verifier_data_cap_height: usize,
-    pub agg_verifier_data_cap_height: usize,
-
-    pub circuit_inclusion_proofs: SimpleQTreeRecursionManagerInclusionProofs<F>,
-}
 #[derive(Debug)]
 pub struct ProveProxyServerProvider {
     pub rpc_provider: RpcProvider,
     pub circuit_manager: Arc<PsyUPSStepCircuitManager<C, D>>,
     pub circuit_info: Arc<SessionCircuitInfoStore<F>>,
-    pub circuits_data: LocalCommonCircuitsData,
+    pub circuits_data: LocalCommonCircuitsData<F>,
 }
 
 impl ProveProxyServerProvider {
     pub async fn new_with_config(rpc_config: psy_config::NetworkConfigGoldilocks, network_magic: u64) -> anyhow::Result<Self> {
-        use psy_common::ups::circuits::LocalCircuitType;
         use psy_common_circuit::circuits::traits::qstandard::QStandardCircuit;
         use psy_data::qstore::controllers::session_info::SessionCircuitInfoStore;
 
@@ -299,6 +278,10 @@ impl ProveProxyServerProvider {
                 fingerprint: circuit_manager.ups_start.get_fingerprint(),
                 verifier_config: circuit_manager.ups_start.get_verifier_config_ref().into(),
             },
+            ups_start_register_user: QCommonCircuitData {
+                fingerprint: circuit_manager.ups_start_register_user.get_fingerprint(),
+                verifier_config: circuit_manager.ups_start_register_user.get_verifier_config_ref().into(),
+            },
             ups_cfc_standard_tx: QCommonCircuitData {
                 fingerprint: circuit_manager.ups_cfc_standard_tx.get_fingerprint(),
                 verifier_config: circuit_manager.ups_cfc_standard_tx.get_verifier_config_ref().into(),
@@ -313,6 +296,7 @@ impl ProveProxyServerProvider {
             },
             ups_circuit_whitelist_root: circuit_manager.ups_circuit_whitelist_root.clone(),
             ups_start_whitelist_proof: circuit_manager.ups_start_whitelist_proof.clone(),
+            ups_start_register_user_whitelist_proof: circuit_manager.ups_start_register_user_whitelist_proof.clone(),
             ups_cfc_standard_tx_whitelist_proof: circuit_manager.ups_cfc_standard_tx_whitelist_proof.clone(),
             ups_cfc_deferred_tx_whitelist_proof: circuit_manager.ups_cfc_deferred_tx_whitelist_proof.clone(),
             single_leaf_circuit: QCommonCircuitData {
@@ -430,6 +414,34 @@ impl ProveProxyRpcServer for ProveProxyServerProvider {
             ErrorObjectOwned::owned(
                 1,
                 "prove_ups_start proving error",
+                Some(format!("ZK proof generation failed: {}", prove_err)),
+            )
+        })
+    }
+
+    async fn prove_ups_start_register_user(
+        &self,
+        input: UPSStartStepRegisterUserInput<F>,
+    ) -> Result<ProofWithPublicInputs<F, C, D>, ErrorObjectOwned> {
+        tracing::info!("🔔 prove_ups_start_register_user input");
+
+        let circuit_manager = self.circuit_manager.clone();
+        let input = input.clone();
+
+        let proof_join_handle = tokio::task::spawn_blocking(move || circuit_manager.ups_start_register_user.prove_base(&input));
+
+        let proof_result = proof_join_handle.await.map_err(|join_err| {
+            ErrorObjectOwned::owned(
+                1,
+                "prove_ups_start_register_user: task schedule failed",
+                Some(format!("Thread pool task execution failed: {}", join_err)),
+            )
+        })?;
+
+        proof_result.map_err(|prove_err| {
+            ErrorObjectOwned::owned(
+                1,
+                "prove_ups_start_register_user proving error",
                 Some(format!("ZK proof generation failed: {}", prove_err)),
             )
         })
