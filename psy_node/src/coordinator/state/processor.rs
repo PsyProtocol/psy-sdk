@@ -1508,30 +1508,4 @@ impl<
         self.task_store.clear_job_dependency_graph(checkpoint_id).await?;
         self.store.rollback(checkpoint_id).await
     }
-
-    // commit redis queue
-    pub async fn commit_offset(&self) -> anyhow::Result<()> {
-        if let Some(state) = self
-            .checkpoint_queue
-            .get_last_peek_offset(self.coordinator_config.deploy_contract_channel_id)
-            .await?
-        {
-            self.checkpoint_queue.commit_offset(&state).await?;
-        }
-        if let Some(state) = self
-            .checkpoint_queue
-            .get_last_peek_offset(self.coordinator_config.register_user_channel_id)
-            .await?
-        {
-            self.checkpoint_queue.commit_offset(&state).await?;
-        }
-        if let Some(state) = self
-            .checkpoint_queue
-            .get_last_peek_offset(self.coordinator_config.guta_channel_id)
-            .await?
-        {
-            self.checkpoint_queue.commit_offset(&state).await?;
-        }
-        Ok(())
-    }
 }

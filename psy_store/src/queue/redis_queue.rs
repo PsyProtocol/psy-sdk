@@ -33,7 +33,7 @@ use crate::queue::{
 
 pub const REALM_PENDING_USER_QUEUE_KEY_PREFIX: &'static str = "RMPUQ";
 pub const MAX_CHECKPOINT_COUNT: usize = 256;
-pub const QUEUE_ITEM_EXPIRE_TIME_SECONDS: i64 = 1800; // 30 minutes
+pub const QUEUE_ITEM_EXPIRE_TIME_MICROSECONDS: i64 = 30 * 60 * 1_000_000; // 30 minutes
 
 #[auto_impl(&, Box, Arc)]
 pub trait BizKey {
@@ -142,16 +142,21 @@ impl ProofStoreRedis {
         self.redis.sadd(checkpoint_list_key, checkpoint_id).await?;
         Ok(())
     }
+
+    fn time_to_microseconds(time: &[i64]) -> i64 {
+        time[0] * 1_000_000 + time[1]
+    }
 }
 
 #[async_trait]
 impl QProofStoreReaderAsync for ProofStoreRedis {
     async fn contains_item(&self, channel_id: u64, id: u64) -> anyhow::Result<bool> {
         let server_time = self.redis.server_time().await?;
+        let current_time_micros = Self::time_to_microseconds(&server_time);
         let id_key = self.id_key(channel_id);
         let exists: Option<i64> = self.redis.zscore(id_key, id).await?;
         if let Some(score) = exists {
-            if score >= server_time[0] - QUEUE_ITEM_EXPIRE_TIME_SECONDS {
+            if score >= current_time_micros.saturating_sub(QUEUE_ITEM_EXPIRE_TIME_MICROSECONDS) {
                 // 30 minutes
                 return Ok(true);
             }
@@ -727,11 +732,11 @@ impl CheckpointDrainQueueConsumerAsyncImmWithPosition for ProofStoreRedis {
                 },
             ));
         }
-        let members: Vec<Vec<u8>> = self.redis.hget(key, ids).await?;
+        let members: Vec<Vec<u8>> = self.redis.hget(key, ids.clone()).await?;
 
         let items: Vec<T> = members.into_iter().map(|x| T::from_bytes(&x)).collect::<anyhow::Result<Vec<T>>>()?;
 
-        let end_position: i64 = if items.is_empty() { -1 } else { items.len() as i64 - 1 };
+        let end_position: i64 = if ids.clone().is_empty() { -1 } else { ids.len() as i64 - 1 };
         let state = QueueOffsetState {
             start_position: 0i64,
             end_position,
@@ -791,7 +796,8 @@ impl CheckpointDrainQueueConsumerAsyncImmWithPosition for ProofStoreRedis {
             state_key
         );
         let now = self.redis.server_time().await?;
-        builder = builder.zremrangebyscore(id_key, 0, now[0] - QUEUE_ITEM_EXPIRE_TIME_SECONDS);
+        let current_time_micros = Self::time_to_microseconds(&now);
+        builder = builder.zremrangebyscore(id_key, 0, current_time_micros.saturating_sub(QUEUE_ITEM_EXPIRE_TIME_MICROSECONDS));
         builder.execute_atomic(&self.redis).await?;
         Ok(())
     }
