@@ -9,7 +9,10 @@ use psy_common::{
 use psy_common_circuit::circuits::zk_signature3::manager::SimplePsyZKSignatureManager;
 use psy_config::network_constants::MAX_CONTRACT_STATE_TREE_HEIGHT;
 use psy_crypto::{hash::traits::qhashable::QFieldHashable, signature::zk::wallet::SimplePsyPrivateKey};
-use psy_data::config::store_config::{PsyHasher, C, D};
+use psy_data::{
+    config::store_config::{PsyHasher, C, D},
+    qblock::cmds::deploy_contract::QContractABI,
+};
 use psy_prover::session::{gen_contract_deploy_and_circuits_for_functions, WalletSession};
 use psy_rust_sdk::{
     provider::{QUserRpcProvider, RpcProvider},
@@ -56,7 +59,7 @@ pub async fn run(args: StressTestArgs) -> Result<()> {
             }
             if args.only_deploy_contract {
                 multicall
-                    .deploy_contract(args.concurrent_tasks as u64, args.contract_path.clone())
+                    .deploy_contract(args.concurrent_tasks as u64, args.contract_path.clone(), args.abi_path.clone())
                     .await
                     .unwrap();
             }
@@ -317,17 +320,21 @@ impl Multicast {
         Ok(())
     }
 
-    pub async fn deploy_contract(&mut self, count: u64, mut contract_path: String) -> Result<()> {
+    pub async fn deploy_contract(&mut self, count: u64, mut contract_path: String, mut contract_abi_path: String) -> Result<()> {
         let mint_amount = 250000000000u64;
         let (from_user_id, public_key0) = self.init_user0(mint_amount).await?;
         if contract_path.is_empty() {
             contract_path = "../psy-compiler/psy-precompiles/token/target/token.json".to_string();
         }
+        if contract_abi_path.is_empty() {
+            contract_abi_path = "./psy-precompiles/token/target/token.abi.json".to_string();
+        }
         info!("deploying contract from {}", contract_path.clone());
         let defs_array: Vec<DPNFunctionCircuitDefinition> = serde_json::from_str(&fs::read_to_string(contract_path)?)?;
+        let abi: QContractABI = serde_json::from_str(&fs::read_to_string(contract_abi_path)?)?;
         for i in 0..count {
             tracing::info!("deploying contract for user {} public_key {}, user_id {}", i, public_key0, from_user_id);
-            self.wallet_session.deploy_contract(public_key0, defs_array.clone()).await?;
+            self.wallet_session.deploy_contract(public_key0, defs_array.clone(), abi.clone()).await?;
             tracing::info!("contract deployed for user {} public_key {}, user_id {}", i, public_key0, from_user_id);
         }
         info!("user_deploy_contract: end call");

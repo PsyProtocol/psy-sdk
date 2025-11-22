@@ -2,7 +2,7 @@ use chrono::{DateTime, Utc};
 use psy_common::job::id::{LayerId, ProvingJobCircuitType, QProvingJobDataID};
 use psy_data::{
     config::store_config::PsyFelt,
-    qblock::cmds::deploy_contract::QFunctionMetadata,
+    qblock::cmds::deploy_contract::{PsyContractSlotUpdates, QContractABI, QFunctionMetadata},
     qdata::{contract_uuid::ContractUUID, ups_end_cap_result::UPSEndCapResultCompact, user::PsyUserLeaf},
 };
 use psy_services::models::UserEventTxType;
@@ -52,6 +52,7 @@ pub struct UserContractMetadata {
     pub function_count: usize,
     pub functions: Vec<QFunctionMetadata>,
     pub function_whitelist_root: String,
+    pub abi: QContractABI,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -127,4 +128,5 @@ pub struct UserEndcapSubmissionMetadata {
     pub endcap_proof_public_inputs: Vec<PsyFelt>,
     pub node_id: String,
     pub node_type: String,
+    pub slot_updates: Vec<PsyContractSlotUpdates<PsyFelt>>,
 }

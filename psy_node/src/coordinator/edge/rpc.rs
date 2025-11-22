@@ -14,7 +14,7 @@ use psy_crypto::{hash::merkle::core::MerkleProofCore, signature::zk::data::ZKPub
 use psy_data::{
     config::store_config::{PsyFelt, QCheckpointSyncInfoCompact},
     guta::api::SubmitGUTARealmResultAPINoProofInput,
-    qblock::cmds::deploy_contract::QBCDeployContract,
+    qblock::cmds::deploy_contract::{QBCDeployContract, QContractABI},
     qdata::{
         checkpoint::{CheckpointSyncInfo, PsyBlockState, PsyCheckpointGlobalStateRoots, PsyCheckpointLeaf},
         contract::{ContractCodeDefinition, PsyContractLeaf},
@@ -40,7 +40,7 @@ pub trait CoordinatorEdgeRpc {
     async fn get_user_id(&self, public_key: QHashOut<F>) -> RpcResult<u64>;
 
     #[method(name = "deploy_contract")]
-    async fn deploy_contract(&self, deploy_contract: QBCDeployContract<F>) -> RpcResult<String>;
+    async fn deploy_contract(&self, deploy_contract: QBCDeployContract<F>, abi: QContractABI) -> RpcResult<String>;
 
     #[method(name = "build_block")]
     async fn build_block(&self) -> RpcResult<String>;

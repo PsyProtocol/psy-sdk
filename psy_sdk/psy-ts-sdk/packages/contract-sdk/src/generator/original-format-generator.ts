@@ -14,13 +14,15 @@ export class OriginalFormatContractGenerator {
 export class ${className} {
   private _provider: IContractProvider;
   private _signer?: ISigner;
+  private _checkpointId: Felt;
   private _contractId: GUint;
   private _userId: GUint;
   private _merkleHelper: IMerkleProxyHelper;
   private _decoder: RecursiveDecoder;
   private _stateProxies: Map<string, any> = new Map();
 
-  constructor(userId: GUint, contractId: GUint, signerOrProvider: ISigner | IContractProvider) {
+  constructor(checkpointId: GUint, userId: GUint, contractId: GUint, signerOrProvider: ISigner | IContractProvider) {
+    this._checkpointId = checkpointId;
     this._userId = userId;
     this._contractId = contractId;
     
@@ -47,13 +49,13 @@ export class ${className} {
 
   // Attach a signer to the contract
   attach(signer: ISigner): ${className} {
-    const newContract = new ${className}(this._userId, this._contractId, signer);
+    const newContract = new ${className}(this._checkpointId, this._userId, this._contractId, signer);
     return newContract;
   }
 
   // Connect to a different provider
   connect(signerOrProvider: ISigner | IContractProvider): ${className} {
-    return new ${className}(this._userId, this._contractId, signerOrProvider);
+    return new ${className}(this._checkpointId, this._userId, this._contractId, signerOrProvider);
   }
 
   // Get the current signer
@@ -358,6 +360,7 @@ function wrapMerkleProxyHelperBasicSimplifier(
         // The provider will convert offset -> slot
         const offset = this._calculateOffset(index);
         const data = await this._provider.getContractState(
+          this._checkpointId,
           this._contractId,
           this._userId,
           [offset]  // Pass offset, not slot!

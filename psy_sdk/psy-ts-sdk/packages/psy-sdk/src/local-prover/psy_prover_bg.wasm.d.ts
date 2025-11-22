@@ -44,7 +44,7 @@ export const wasmrpcserver_register_user: (a: number, b: number, c: number, d: n
 export const wasmrpcserver_add_user: (a: number, b: number, c: number, d: number, e: number) => any;
 export const wasmrpcserver_get_zk_public_key_json: (a: number, b: number, c: number) => any;
 export const wasmrpcserver_get_random_keypair_json: (a: number) => any;
-export const wasmrpcserver_deploy_contract_json: (a: number, b: number, c: number, d: number, e: number) => any;
+export const wasmrpcserver_deploy_contract_json: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => any;
 export const wasmrpcserver_get_deploy_contract_cmd_json: (a: number, b: number, c: number, d: number, e: number) => [number, number, number, number];
 export const wasmrpcserver_ping: (a: number, b: number, c: number) => [number, number, number, number];
 export const wasmrpcserver_get_result: (a: number, b: number, c: number) => [number, number, number, number];

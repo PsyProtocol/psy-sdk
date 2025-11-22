@@ -7,7 +7,7 @@ import { TypesGenerator } from "./types-generator";
 import { DecoderGenerator } from "./decoder-generator";
 import { AbiConverter } from "../converters/abi-converter";
 import { AbiFormat } from "../types/abi-format";
-import { PsyJSON } from "packages/psy-sdk/dist";
+import { PsyJSON } from "@psy/psy-sdk";
 
 export class SDKGenerator {
     constructor(private outputDir: string) {}

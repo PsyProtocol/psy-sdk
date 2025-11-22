@@ -1,6 +1,6 @@
 // packages/codegen/src/converters/abi-converter.ts
 
-import { PsyJSON } from "packages/psy-sdk/dist";
+import { PsyJSON } from "@psy/psy-sdk";
 import {
     AbiFormat,
     StructDefinition,

@@ -85,8 +85,8 @@ class PsyRPCUserProverProvider extends BaseProvider implements IPsyUserProverPro
     }
 
     // Contract deployment
-    async deployContract(deployer: string, circuitDefs: DPNFunctionCircuitDefinition[]): Promise<string> {
-        return this.rpc<string>(PsyUserProverRPCCommand.DeployContract, [deployer, circuitDefs]);
+    async deployContract(deployer: string, circuitDefs: DPNFunctionCircuitDefinition[], abi_json: string): Promise<string> {
+        return this.rpc<string>(PsyUserProverRPCCommand.DeployContract, [deployer, circuitDefs, abi_json]);
     }
 
     async getDeployContractCmd(

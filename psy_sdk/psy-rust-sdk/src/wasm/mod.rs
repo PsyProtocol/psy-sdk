@@ -250,7 +250,10 @@ use psy_common::{
     data::{base_types::hash256::Hash256, qhashout::QHashOut, u8bytes::U8Bytes},
 };
 use psy_crypto::signature::zk::data::ZKPublicKeyInfo;
-use psy_data::{guta::end_cap_input::SubmitUserEndCapNonProofInput, qblock::cmds::deploy_contract::QBCDeployContract};
+use psy_data::{
+    guta::end_cap_input::SubmitUserEndCapNonProofInput,
+    qblock::cmds::deploy_contract::{QBCDeployContract, QContractABI},
+};
 use psy_prover::{
     local::store::UserProverWorkerStore,
     session::{WalletKeyPair, WalletSession},
@@ -441,14 +444,15 @@ impl WasmRpcServer {
     }
 
     #[wasm_bindgen]
-    pub async fn deploy_contract_json(&self, deployer: &str, circuit_defs_json: &str) -> Result<String, JsError> {
+    pub async fn deploy_contract_json(&self, deployer: &str, circuit_defs_json: &str, abi_json: &str) -> Result<String, JsError> {
         let deployer = QHashOut::<F>::from_str(deployer).map_err(|e| JsError::new(&format!("Parse deployer error: {}", e)))?;
         let circuit_defs: Vec<DPNFunctionCircuitDefinition> =
             serde_json::from_str(circuit_defs_json).map_err(|e| JsError::new(&format!("Parse circuit defs JSON error: {}", e)))?;
+        let abi: QContractABI = serde_json::from_str(abi_json).map_err(|e| JsError::new(&format!("Parse ABI JSON error: {}", e)))?;
 
         let contract_uuid = self
             .wallet_session
-            .deploy_contract(deployer, circuit_defs)
+            .deploy_contract(deployer, circuit_defs, abi)
             .await
             .map_err(|e| JsError::new(&format!("Deploy contract error: {}", e)))?;
         Ok(contract_uuid)

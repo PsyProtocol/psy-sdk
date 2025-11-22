@@ -7,6 +7,7 @@
     "example:basic": "tsx src/examples/basic-usage.ts"
   },
   "dependencies": {
+    "@psy/psy-sdk": "workspace:*",
     "dotenv": "^16.3.1"
   },
   "devDependencies": {
