@@ -248,9 +248,13 @@ impl CoordinatorEdgeHandler {
     ) -> anyhow::Result<()> {
         debug!("submit_guta input: {}", serde_json::to_string_pretty(&input)?);
         if self.has_pending_guta(realm_id as u32).await? {
-            bail!("has pending guta for realm id {}, input guta checkpoint id is {}, please wait for the next checkpoint", realm_id, input.checkpoint_id);
+            bail!(
+                "has pending guta for realm id {}, input guta checkpoint id is {}, please wait for the next checkpoint",
+                realm_id,
+                input.checkpoint_id
+            );
         }
-        
+
         let checkpoint_id = self.get_latest_checkpoint_id().await?;
         if input.checkpoint_id.saturating_sub(1) < checkpoint_id {
             warn!(

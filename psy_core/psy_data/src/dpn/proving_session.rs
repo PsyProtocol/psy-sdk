@@ -344,9 +344,6 @@ pub struct PsyLocalTransactionRecord<F: RichField> {
     pub call_data: DPNProvingSessionSignableMethodCall<F>,
 
     // state info
-    pub start_contract_state_tree_root: QHashOut<F>,
-    pub end_contract_state_tree_root: QHashOut<F>,
-    pub contract_state_tree_update_proofs: Vec<DeltaMerkleProofCore<QHashOut<F>>>,
     pub user_contract_tree_update_proof: DeltaMerkleProofCore<QHashOut<F>>,
 
     // external call info
@@ -364,19 +361,12 @@ impl<F: RichField> PsyLocalTransactionRecord<F> {
             start_checkpoint,
             write_checkpoint,
             call_data,
-            start_contract_state_tree_root,
-            end_contract_state_tree_root: start_contract_state_tree_root,
-            contract_state_tree_update_proofs: Vec::new(),
             user_contract_tree_update_proof: Default::default(),
             added_deferred_tx_items: Vec::new(),
         }
     }
     pub fn add_deferred_tx_item(&mut self, item: DPNTransactionDebtItem<DPNProvingSessionSimpleMethodCall<F>, F>) {
         self.added_deferred_tx_items.push(item);
-    }
-    pub fn add_contract_state_update_proof(&mut self, proof: DeltaMerkleProofCore<QHashOut<F>>) {
-        self.end_contract_state_tree_root = proof.new_root;
-        self.contract_state_tree_update_proofs.push(proof);
     }
     pub fn set_uct_proof(&mut self, user_contract_tree_update_proof: DeltaMerkleProofCore<QHashOut<F>>) {
         self.user_contract_tree_update_proof = user_contract_tree_update_proof;
