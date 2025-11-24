@@ -85,13 +85,13 @@ use crate::{
     wallet::memory_wallet::PsyMemoryWallet,
 };
 
-trait UPSWithTreeRecursionTrait<C: GenericConfig<D>, const D: usize>: UPSCircuitManager<C, D> + PortableQTreeRecursion<C, D> + Send + Sync
+trait UPSWithTreeRecursion<C: GenericConfig<D>, const D: usize>: UPSCircuitManager<C, D> + PortableQTreeRecursion<C, D> + Send + Sync
 where
     C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasherWithMarkedLeaf<HashOut<C::F>> + MerkleZeroHasherWithMarkedLeaf<QHashOut<C::F>>,
 {
 }
 
-impl<T, C: GenericConfig<D>, const D: usize> UPSWithTreeRecursionTrait<C, D> for T
+impl<T, C: GenericConfig<D>, const D: usize> UPSWithTreeRecursion<C, D> for T
 where
     T: UPSCircuitManager<C, D> + PortableQTreeRecursion<C, D> + Send + Sync,
     C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasherWithMarkedLeaf<HashOut<C::F>> + MerkleZeroHasherWithMarkedLeaf<QHashOut<C::F>>,
@@ -535,7 +535,7 @@ impl WalletSession {
 
         let current_checkpoint_id = user_session_mgr.lps.get_current_start_checkpoint_id_u64();
         let user_id = user_session_mgr.lps.get_current_user_id_64();
-        let start_contract_state_tree_root = user_session_mgr.lps.last_transaction_record().start_contract_state_tree_root;
+        let start_contract_state_tree_root = user_session_mgr.lps.last_transaction_record().user_contract_tree_update_proof.old_value;
         let checkpoint_tree_root = self.st_provider.get_checkpoint_tree_root(current_checkpoint_id).await?;
 
         Ok(sign_context.with_psy_signature_input(
@@ -569,7 +569,7 @@ impl WalletSession {
         let user_contract_state = UserContractState::new(
             checkpoint_tree_root,
             user_leaf,
-            transaction_record.end_contract_state_tree_root,
+            transaction_record.user_contract_tree_update_proof.new_value,
             F::from_canonical_u64(call_data.contract_id),
             F::from_canonical_u64(checkpoint_id),
         );
@@ -593,7 +593,7 @@ impl WalletSession {
                 plonky2_input,
                 checkpoint_id,
                 user_id,
-                transaction_record.start_contract_state_tree_root,
+                transaction_record.user_contract_tree_update_proof.old_value,
                 checkpoint_tree_root,
             ))
     }

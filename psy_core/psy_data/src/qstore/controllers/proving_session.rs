@@ -456,19 +456,7 @@ impl<
             .get_self_user_contract_tree_leaf(call_data.contract_id)
             .await?
             .to_delta_merkle_proof_inplace();
-        let start_contract_state_tree_root = if uct_proof.old_value.eq(&QHashOut::ZERO) {
-            let state_tree_height = self
-                .cmd_store
-                .resolve_get_contract_leaf_mut(&QSRCmdGetContractLeafData {
-                    contract_id: call_data.contract_id.to_canonical_u64(),
-                })
-                .await?
-                .state_tree_height
-                .to_canonical_u64() as usize;
-            H::get_zero_hash(state_tree_height)
-        } else {
-            uct_proof.old_value
-        };
+        tracing::debug!("init_transaction.uct_proof: {}", serde_json::to_string_pretty(&uct_proof).unwrap());
 
         let record = PsyLocalTransactionRecord {
             start_checkpoint: self.start_checkpoint,
@@ -478,9 +466,6 @@ impl<
                 user_id: self.user_id,
                 call_data,
             },
-            start_contract_state_tree_root,
-            end_contract_state_tree_root: start_contract_state_tree_root,
-            contract_state_tree_update_proofs: Vec::new(),
             user_contract_tree_update_proof: uct_proof,
             added_deferred_tx_items: Vec::new(),
         };
@@ -508,6 +493,7 @@ impl<
                 .await?
                 .state_tree_height
                 .to_canonical_u64() as usize;
+            self.set_contract_state_slot(contract_id, F::ZERO, QHashOut::ZERO).await?;
             H::get_zero_hash(state_tree_height)
         } else {
             contract_state_root_proof.value
@@ -825,6 +811,7 @@ impl<
         let contract_id = self.last_transaction_record().call_data.call_data.contract_id;
 
         let uct_proof = self.update_contract_state_root_in_user_contract_tree(contract_id).await?;
+        tracing::debug!("finalize_transaction.uct_proof: {}", serde_json::to_string_pretty(&uct_proof).unwrap());
         self.last_transaction_record_mut().set_uct_proof(uct_proof);
 
         Ok(())
