@@ -11,7 +11,7 @@ use plonky2::{
     plonk::config::PoseidonGoldilocksConfig,
 };
 use psy_common::{
-    args::{ContractCallArgs, DPNSoftwareDefinedCallData, SignType},
+    args::{ContractCallArgs, ContractCallData, DPNSoftwareDefinedCallData, SignType},
     data::{base_types::hash256::Hash256, qhashout::QHashOut},
     job::id::{ProvingJobCircuitType, QProvingJobDataID, VariableHeightRewardMerkleProof, GUTA_REWARDS_TREE_MAX_HEIGHT},
     JobInfo, JobLocation,
@@ -133,103 +133,8 @@ pub async fn run(args: ClaimRewardsArgs) -> Result<()> {
 
     info!("all_job_infos: {}", serde_json::to_string_pretty(&all_job_infos).unwrap());
 
-    let mut sorted_checkpoints: Vec<_> = all_job_infos.keys().copied().collect();
-    sorted_checkpoints.sort();
-
-    for checkpoint_id in sorted_checkpoints {
-        if processed_count >= args.limit {
-            break;
-        }
-
-        let mut job_infos = all_job_infos.get(&checkpoint_id).cloned().unwrap_or_default();
-        job_infos.retain(|job_info| job_info.job_id.circuit_type.is_guta_job());
-        if job_infos.is_empty() {
-            continue;
-        }
-        info!("Checkpoint {} - Found {} valid jobs", checkpoint_id, job_infos.len());
-
-        match provider.get_job_proofs(job_infos.clone()).await {
-            Ok(results) => {
-                for (root_job_id, job_proof) in results {
-                    let actual_checkpoint_id = root_job_id.goal_id;
-                    checkpoint_jobs
-                        .entry(actual_checkpoint_id)
-                        .or_insert_with(Vec::new)
-                        .push((job_proof.clone().pad_to_height(GUTA_REWARDS_TREE_MAX_HEIGHT)));
-                }
-            }
-            Err(e) => {
-                warn!("Failed to get job proofs for checkpoint {}: {}", checkpoint_id, e);
-            }
-        }
-        processed_count += 1;
-    }
-
-    info!(
-        "Total jobs attempted: processed {} checkpoints, checkpoint_jobs.len() = {}",
-        processed_count,
-        checkpoint_jobs.len()
-    );
-    if checkpoint_jobs.is_empty() {
-        info!("No valid checkpoints with rewards to claim - all job proofs failed");
-        return Ok(());
-    }
-
-    let mut sorted_checkpoints: Vec<_> = checkpoint_jobs.keys().copied().collect();
-    sorted_checkpoints.sort();
-
-    let mut all_proofs_with_checkpoints = Vec::new();
-    for &checkpoint_id in &sorted_checkpoints {
-        let jobs = checkpoint_jobs.get(&checkpoint_id).unwrap();
-        let checkpoint_leaf = provider.get_checkpoint_leaf_data(checkpoint_id).await?;
-        let fees_collected = checkpoint_leaf.stats.fees_collected.to_canonical_u64();
-        let gutas_completed = checkpoint_leaf.stats.pm_jobs_completed.gutas_completed.to_canonical_u64();
-        let proposed_reward = if gutas_completed > 0 { fees_collected / gutas_completed } else { 0u64 };
-        if proposed_reward == 0 {
-            warn!(
-                "Skipping checkpoint {} due to zero reward (fees_collected={}, gutas_completed={})",
-                checkpoint_id, fees_collected, gutas_completed
-            );
-            continue;
-        }
-        info!("Checkpoint {} - Reward: {}, Jobs: {}", checkpoint_id, proposed_reward, jobs.len());
-        for proof in jobs {
-            all_proofs_with_checkpoints.push(ProofWithCheckpoint {
-                checkpoint_id,
-                proof: proof.clone(),
-                proposed_reward,
-            });
-        }
-    }
-    if all_proofs_with_checkpoints.is_empty() {
-        info!("No checkpoints with valid rewards to claim");
-        return Ok(());
-    }
-    let mut all_contract_calls = build_claim_calls_for_multi_checkpoints(&all_proofs_with_checkpoints).await;
-    if all_contract_calls.is_empty() {
-        info!("No checkpoints with valid rewards to claim");
-        return Ok(());
-    }
-    let last_checkpoint = all_proofs_with_checkpoints.last().unwrap().checkpoint_id;
-    all_contract_calls.push(ContractCallArgs {
-        contract_id: MINING_REWARDS_CONTRACT_ID as u64,
-        method_name: "end_session".to_string(),
-        inputs: vec![last_checkpoint],
-    });
-    all_contract_calls.push(ContractCallArgs {
-        contract_id: TOKEN_CONTRACT_ID as u64,
-        method_name: "simple_claim_pow_rewards".to_string(),
-        inputs: vec![last_checkpoint],
-    });
-    if all_contract_calls.is_empty() {
-        info!("No rewards to claim");
-        return Ok(());
-    }
-    info!("Executing {} contract calls in single transaction", all_contract_calls.len());
-
-    let all_job_infos: Vec<JobInfo> = all_job_infos.values().flatten().cloned().collect();
-
-    wallet_session.claim_rewards(user_pk_hash, all_job_infos).await?;
+    let jobs: Vec<JobInfo> = all_job_infos.values().flatten().cloned().collect();
+    wallet_session.claim_rewards(user_pk_hash, jobs).await?;
     info!("Successfully claimed rewards");
     Ok(())
 }

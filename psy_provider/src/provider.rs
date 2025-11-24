@@ -550,18 +550,36 @@ impl RpcProvider {
                     "id": 1
                 });
 
-                let response = self.client.post(url).json(&request).send().await?.json::<serde_json::Value>().await?;
+                let response = match self.client.post(url).json(&request).send().await {
+                    Ok(resp) => resp,
+                    Err(e) => {
+                        tracing::warn!("Failed to fetch reward proofs for checkpoint {} @ {}: {}", checkpoint_id, url, e);
+                        continue;
+                    }
+                };
 
-                if let Some(error) = response.get("error") {
-                    return Err(anyhow::format_err!("RPC error: {:?}", error));
-                }
+                let response: RpcResponse<Vec<(VariableHeightRewardMerkleProof, QProvingJobDataID)>> = match response.json().await {
+                    Ok(resp) => resp,
+                    Err(e) => {
+                        tracing::warn!(
+                            "Failed to decode reward proof RPC response for checkpoint {} @ {}: {}",
+                            checkpoint_id,
+                            url,
+                            e
+                        );
+                        continue;
+                    }
+                };
 
-                let result = response.get("result").ok_or(anyhow::format_err!("Missing result in RPC response"))?;
-
-                let proofs: Vec<(VariableHeightRewardMerkleProof, QProvingJobDataID)> = serde_json::from_value(result.clone())?;
-
-                for (proof, job_id) in proofs {
-                    all_results.push((job_id, proof));
+                match response.result {
+                    ResponseResult::Success(proofs) => {
+                        for (proof, job_id) in proofs {
+                            all_results.push((job_id, proof));
+                        }
+                    }
+                    ResponseResult::Error(e) => {
+                        tracing::warn!("Reward proof RPC failed for checkpoint {} @ {}: {:?}", checkpoint_id, url, e);
+                    }
                 }
             }
         }

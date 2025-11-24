@@ -44,9 +44,6 @@ config_gen_v2:
 		echo "No changes detected in watched directories. Skipping config_gen_v2."; \
 	fi
 
-.PHONY: check fix build format run test update-snapshots
-
-
 config_gen:
 	@RUST_LOG=${LOG_LEVEL} cargo run --profile ${PROFILE} --package psy_prover --example config_gen_v2;
 

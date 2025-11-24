@@ -66,7 +66,7 @@ impl<F: RichField> SubmitUserEndCapNonProofInput<F> {
             != self.core.new_user_leaf.user_state_tree_root
         {
             anyhow::bail!(
-                "user_state_tree_root does not match the last new root, left: {:?}, right: {:?}",
+                "user_state_tree_root does not match the last new root, left: {}, right: {}",
                 self.contract_state_updates
                     .last()
                     .as_ref()

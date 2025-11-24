@@ -100,7 +100,7 @@ pub struct UserProvingSessionManager<
     pub lps: PsyLocalProvingSessionStore<F, R, H>,
     circuit_info: SessionCircuitInfoStore<F>,
     pub proof_tree_state: PortableQTreeRecursionManager<C, D>,
-    pub current_ups_header: UserProvingSessionHeader<F>,
+    current_ups_header: UserProvingSessionHeader<F>,
     previous_ups_header: UserProvingSessionHeader<F>,
     current_checkpoint_leaf: PsyCheckpointLeaf<F>,
     current_global_state_roots: PsyCheckpointGlobalStateRoots<F>,
@@ -746,7 +746,7 @@ impl<
     async fn repay_deferred_debt<CM: UPSCircuitManager<C, D> + ?Sized>(
         &mut self,
         circuit_mgr: &CM,
-        initial_debt_item: &psy_data::dpn::proving_session::DPNTransactionDebtItem<DPNProvingSessionSimpleMethodCall<F>, F>,
+        initial_debt_item: &DPNTransactionDebtItem<DPNProvingSessionSimpleMethodCall<F>, F>,
     ) -> anyhow::Result<()> {
         let mut debt_queue = vec![initial_debt_item.clone()];
 

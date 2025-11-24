@@ -318,6 +318,10 @@ impl WalletSession {
     }
 
     pub async fn exec_contract_call(&self, public_key: QHashOut<F>, call_data: ContractCallData) -> anyhow::Result<QHashOut<F>> {
+        if call_data.contract_calls.is_empty() {
+            anyhow::bail!("No contract calls to execute");
+        }
+
         tracing::info!("exec contract call: {}", serde_json::to_string_pretty(&call_data.contract_calls)?);
         let pk_info = self.wallet.get_public_key_info(&public_key).await?;
         tracing::info!(
