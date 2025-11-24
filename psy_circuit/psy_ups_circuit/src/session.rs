@@ -925,7 +925,6 @@ impl<
         let checkpoint_id = self.current_ups_header.current_state.user_leaf.last_checkpoint_id;
 
         let updates = self.get_user_session_update_history().await?;
-        tracing::debug!("user_session_update_history: {}", serde_json::to_string_pretty(&updates).unwrap());
 
         let start_user_leaf_hash = if self.current_ups_header.session_start_context.start_session_user_leaf.user_state_tree_root
             == get_default_user_contract_tree_root::<F>()
