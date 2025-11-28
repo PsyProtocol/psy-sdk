@@ -158,6 +158,19 @@ pub enum RequestParams<F: RichField> {
     #[serde(rename = "psy_get_user_sub_tree_merkle_proof")]
     GetUserSubTreeMerkleProof(QUserSubTreeMerkleProofRPCRequest),
 
+    #[serde(rename = "psy_get_user_event_tree_root")]
+    GetUserEventTreeRoot(QUserEventTreeRootRPCRequest),
+    #[serde(rename = "psy_get_user_event_tree_root_f")]
+    GetUserEventTreeRootF(QUserEventTreeRootFRPCRequest<F>),
+    #[serde(rename = "psy_get_user_event_tree_leaf_hash")]
+    GetUserEventTreeLeafHash(QUserEventTreeLeafHashRPCRequest),
+    #[serde(rename = "psy_get_user_event_tree_leaf_hash_f")]
+    GetUserEventTreeLeafHashF(QUserEventTreeLeafHashFRPCRequest<F>),
+    #[serde(rename = "psy_get_user_event_tree_merkle_proof")]
+    GetUserEventTreeMerkleProof(QUserEventTreeMerkleProofRPCRequest),
+    #[serde(rename = "psy_get_user_event_tree_merkle_proof_f")]
+    GetUserEventTreeMerkleProofF(QUserEventTreeMerkleProofFRPCRequest<F>),
+
     #[serde(rename = "psy_get_contract_function_tree_root")]
     GetContractFunctionTreeRoot(QContractFunctionTreeRootRPCRequest),
     #[serde(rename = "psy_get_contract_function_tree_root_f")]
@@ -251,6 +264,10 @@ pub enum RequestParams<F: RichField> {
     GetBlockState(QBlockStateRPCRequest),
     #[serde(rename = "psy_get_block_state_f")]
     GetBlockStateF(QBlockStateFRPCRequest<F>),
+    #[serde(rename = "psy_get_user_event_data")]
+    GetUserEventData(QUserEventDataRPCRequest),
+    #[serde(rename = "psy_get_user_event_data_f")]
+    GetUserEventDataF(QUserEventDataFRPCRequest<F>),
 
     /// generate proof
     #[serde(rename = "psy_get_circuits_data")]
@@ -816,6 +833,55 @@ pub struct QUserSubTreeMerkleProofRPCRequest {
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[serde(bound = "")]
 #[ts(export)]
+pub struct QUserEventTreeRootRPCRequest {
+    pub checkpoint_id: u64,
+    pub user_id: u64,
+}
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[serde(bound = "")]
+#[ts(export, concrete(F = GoldilocksField))]
+pub struct QUserEventTreeRootFRPCRequest<F: RichField> {
+    pub checkpoint_id: F,
+    pub user_id: F,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[serde(bound = "")]
+#[ts(export)]
+pub struct QUserEventTreeLeafHashRPCRequest {
+    pub checkpoint_id: u64,
+    pub user_id: u64,
+    pub event_index: u64,
+}
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[serde(bound = "")]
+#[ts(export, concrete(F = GoldilocksField))]
+pub struct QUserEventTreeLeafHashFRPCRequest<F: RichField> {
+    pub checkpoint_id: F,
+    pub user_id: F,
+    pub event_index: F,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[serde(bound = "")]
+#[ts(export)]
+pub struct QUserEventTreeMerkleProofRPCRequest {
+    pub checkpoint_id: u64,
+    pub user_id: u64,
+    pub event_index: u64,
+}
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[serde(bound = "")]
+#[ts(export, concrete(F = GoldilocksField))]
+pub struct QUserEventTreeMerkleProofFRPCRequest<F: RichField> {
+    pub checkpoint_id: F,
+    pub user_id: F,
+    pub event_index: F,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[serde(bound = "")]
+#[ts(export)]
 pub struct QContractFunctionTreeRootRPCRequest {
     pub checkpoint_id: u64,
     pub contract_id: u32,
@@ -1118,6 +1184,23 @@ pub struct QBlockStateRPCRequest {
 #[ts(export, concrete(F = GoldilocksField))]
 pub struct QBlockStateFRPCRequest<F: RichField> {
     pub checkpoint_id: F,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[serde(bound = "")]
+pub struct QUserEventDataRPCRequest {
+    pub checkpoint_id: u64,
+    pub user_id: u64,
+    pub event_index: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[serde(bound = "")]
+#[ts(export, concrete(F = GoldilocksField))]
+pub struct QUserEventDataFRPCRequest<F: RichField> {
+    pub checkpoint_id: F,
+    pub user_id: F,
+    pub event_index: F,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]

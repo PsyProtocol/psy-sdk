@@ -6,6 +6,7 @@ use psy_config::network_constants::GLOBAL_USER_TREE_HEIGHT;
 use psy_crypto::hash::merkle::core::MerkleProofCore;
 use psy_data::{
     config::store_config::{CheckpointSyncInfoTableStore, UserPublicKeyTableStore, UserTreeStore},
+    dpn::event::PsyUserEventRecord,
     models::{
         checkpoint::{sync_info::PsyCheckpointSyncInfoModelReaderCore, user_public_keys::PsyUserPublicKeyHelperModelReaderCore},
         kvq_merkle::model::KVQFixedConfigMerkleTreeModelReaderCore,
@@ -137,5 +138,25 @@ impl<T: KVQBinaryStore> PsyRealmStoreReaderAsync<F> for T {
 
     async fn get_user_tree_merkle_proof(&self, checkpoint_id: u64, user_id: u64) -> anyhow::Result<MerkleProofCore<QHashOut<F>>> {
         <Self as QTreeDataStoreReaderSync<F>>::get_user_tree_merkle_proof(self, checkpoint_id, user_id).await
+    }
+
+    async fn get_user_event_tree_merkle_proof(
+        &self,
+        checkpoint_id: u64,
+        user_id: u64,
+        leaf_index: u64,
+    ) -> anyhow::Result<MerkleProofCore<QHashOut<F>>> {
+        <Self as QTreeDataStoreReaderSync<F>>::get_user_event_tree_merkle_proof(self, checkpoint_id, user_id, leaf_index).await
+    }
+
+    async fn get_user_event_tree_root(&self, checkpoint_id: u64, user_id: u64) -> anyhow::Result<QHashOut<F>> {
+        <Self as QTreeDataStoreReaderSync<F>>::get_user_event_tree_root(self, checkpoint_id, user_id).await
+    }
+    async fn get_user_event_tree_leaf_hash(&self, checkpoint_id: u64, user_id: u64, event_index: u64) -> anyhow::Result<QHashOut<F>> {
+        <Self as QTreeDataStoreReaderSync<F>>::get_user_event_tree_leaf_hash(self, checkpoint_id, user_id, event_index).await
+    }
+
+    async fn get_user_event_data(&self, checkpoint_id: u64, user_id: u64, event_index: u64) -> anyhow::Result<PsyUserEventRecord<F>> {
+        <Self as QMetaDataStoreReaderSync<F>>::get_user_event_data(self, checkpoint_id, user_id, event_index).await
     }
 }

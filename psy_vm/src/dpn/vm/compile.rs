@@ -1,7 +1,9 @@
+use psy_config::network_constants::MAX_EVENT_RECORDS_PER_CALL;
+
 use super::def::DPNFunctionCircuitDefinition;
 use crate::dpn::ops::{
     exec_context::QExecContext,
-    op_types::{encode_indexed_op_id, DPNAssertEqInfoIndexed, DPNBuiltInDataType, DPNIndexedVarDef},
+    op_types::{encode_indexed_op_id, DPNAssertEqInfoIndexed, DPNBuiltInDataType, DPNEventRecord, DPNIndexedVarDef},
     state_cmd::{data::DPNStateCmd, types::DPNStateCmdCore},
     sym_felt::SymFeltRef,
     sym_felt_store::SymFeltStore,
@@ -14,6 +16,7 @@ pub struct PsyCompileResult {
     pub state_command_resolution_indices: Vec<usize>,
     pub assertions: Vec<DPNAssertEqInfoIndexed>,
     pub definitions: Vec<DPNIndexedVarDef>,
+    pub events: Vec<DPNEventRecord>,
 
     /*
 
@@ -67,6 +70,7 @@ impl PsyCompileResult {
             total_u32s: 0,
             total_hash160s: 0,
             indexed_map: hashbrown::HashMap::new(),
+            events: vec![],
         }
     }
 
@@ -163,6 +167,9 @@ impl PsyCompileResult {
     }
 
     pub fn compile(&mut self, sym_store: &SymFeltStore, ctx: &QExecContext, outputs: &[SymFeltRef]) {
+        if ctx.events.len() > MAX_EVENT_RECORDS_PER_CALL {
+            panic!("too many events, only {} events are supported", MAX_EVENT_RECORDS_PER_CALL);
+        }
         for i in 0..ctx.input_count {
             let inp = self.injest_sfr(sym_store, SymFeltRef::new_input(i, ctx.input_types[i as usize]));
             self.circuit_inputs.push(inp);
@@ -177,6 +184,18 @@ impl PsyCompileResult {
                 message: assertion.message.to_string(),
                 left,
                 right,
+            });
+        }
+        for event in ctx.events.iter() {
+            let checkpoint_id = self.injest_sfr(sym_store, event.checkpoint_id);
+            let user_id = self.injest_sfr(sym_store, event.user_id);
+            let contract_id = self.injest_sfr(sym_store, event.contract_id);
+            let data = event.data.iter().map(|c| self.injest_sfr(sym_store, *c)).collect::<Vec<_>>();
+            self.events.push(DPNEventRecord {
+                checkpoint_id,
+                user_id,
+                contract_id,
+                data,
             });
         }
         for output in outputs.iter() {
@@ -194,6 +213,7 @@ impl PsyCompileResult {
             state_command_resolution_indices: self.state_command_resolution_indices,
             assertions: self.assertions,
             definitions: self.definitions,
+            events: self.events,
         }
     }
 }

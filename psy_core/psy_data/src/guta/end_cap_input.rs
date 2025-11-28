@@ -7,6 +7,7 @@ use ts_rs::TS;
 
 use super::api::{PsyContractStateUpdateHistory, SimpleContractHeightCache, SubmitUserEndCapNonProofCoreInput};
 use crate::{
+    dpn::event::PsyUserEventRecord,
     qblock::cmds::deploy_contract::PsyContractSlotUpdates,
     qstore::uct_merkle_nodes::{CSTUserUpdate, CSTUserUpdateStore},
 };
@@ -17,6 +18,7 @@ use crate::{
 pub struct SubmitUserEndCapNonProofInput<F: RichField> {
     pub core: SubmitUserEndCapNonProofCoreInput<F>,
     pub contract_state_updates: Vec<PsyContractStateUpdateHistory<F>>,
+    pub events: Vec<PsyUserEventRecord<F>>,
 }
 impl<F: RichField> SubmitUserEndCapNonProofInput<F> {
     pub fn ensure_simple_self_consistent<H: FieldQHasher<F>>(

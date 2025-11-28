@@ -4,6 +4,7 @@ pub mod contract;
 pub mod contract_inclusion;
 pub mod contract_metadata;
 pub mod contract_uuid;
+pub mod event_key;
 pub mod hash_cache_result;
 pub mod hash_key;
 pub mod hash_key_with_id;

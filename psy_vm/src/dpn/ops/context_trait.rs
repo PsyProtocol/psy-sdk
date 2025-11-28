@@ -408,4 +408,7 @@ pub trait DPNContext<F: ContextFelt>: Debug + Clone {
         }
         ToFelts::from_felts(&result)
     }
+
+    // event operations
+    fn emit_event(&mut self, event_data: Vec<F>);
 }

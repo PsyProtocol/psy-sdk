@@ -243,13 +243,13 @@ impl UPSCFCStandardStateDeltaGadget {
         // disable spending balance (TODO: remove)
         builder.connect(tx_in_total_balance_spent, zero_target);
         // disable emitting events (TODO: remove)
-        builder.connect(tx_in_total_events_emitted, zero_target);
+        // builder.connect(tx_in_total_events_emitted, zero_target);
 
         // TODO: compute balance correctly instead of disabling it
         let new_step_user_balance = tx_in_start_user_balance;
 
         // TODO: compute balance correctly instead of disabling it
-        let new_step_event_index = tx_in_start_event_index;
+        let new_step_event_index = builder.add(tx_in_start_event_index, tx_in_total_events_emitted);
 
         // ensure that the transaction inputs and previous step agree on the previous
         // tx_debt_tree_root

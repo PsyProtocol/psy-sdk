@@ -6,6 +6,7 @@ use psy_config::network_constants::{COORDINATOR_USER_TREE_HEIGHT, GLOBAL_USER_TR
 use psy_crypto::hash::merkle::core::MerkleProofCore;
 use psy_data::{
     config::store_config::PsyHasher,
+    dpn::event::PsyUserEventRecord,
     qdata::{
         checkpoint::{PsyBlockState, PsyCheckpointLeaf},
         contract::{ContractCodeDefinition, PsyContractLeaf, SimpleContractCodeDefinition},
@@ -1018,6 +1019,95 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
             }
         }
     }
+
+    #[instrument(skip(self), fields(checkpoint_id, user_id))]
+    async fn get_user_event_tree_root(&self, checkpoint_id: u64, user_id: u64) -> anyhow::Result<QHashOut<F>> {
+        info!("Fetching user event tree root");
+        let rpc_url = self.get_realm_url(user_id)?;
+        let input = QUserEventTreeRootRPCRequest { checkpoint_id, user_id };
+        let response = psy_rpc_call_back!(self, rpc_url, RequestParams::<F>::GetUserEventTreeRoot(input), QHashOut<F>);
+        match response.result {
+            ResponseResult::Success(hash) => {
+                debug!(
+                    checkpoint_id = checkpoint_id,
+                    user_id = user_id,
+                    hash = %hash,
+                    "Successfully fetched hash"
+                );
+                Ok(hash)
+            }
+            ResponseResult::Error(e) => {
+                error!("RPC call failed: {:?}", e);
+                Err(anyhow::format_err!("get_user_event_tree_root rpc call failed `{:?}`", e))
+            }
+        }
+    }
+
+    #[instrument(skip(self), fields(checkpoint_id, user_id, event_index))]
+    async fn get_user_event_tree_leaf_hash(&self, checkpoint_id: u64, user_id: u64, event_index: u64) -> anyhow::Result<QHashOut<F>> {
+        info!("Fetching user event tree leaf hash");
+        let rpc_url = self.get_realm_url(user_id)?;
+        let input = QUserEventTreeLeafHashRPCRequest {
+            checkpoint_id,
+            user_id,
+            event_index,
+        };
+        let response = psy_rpc_call_back!(self, rpc_url, RequestParams::<F>::GetUserEventTreeLeafHash(input), QHashOut<F>);
+        match response.result {
+            ResponseResult::Success(hash) => {
+                debug!(
+                    checkpoint_id = checkpoint_id,
+                    user_id = user_id,
+                    event_index = event_index,
+                    hash = %hash,
+                    "Successfully fetched hash"
+                );
+                Ok(hash)
+            }
+            ResponseResult::Error(e) => {
+                error!("RPC call failed: {:?}", e);
+                Err(anyhow::format_err!("get_user_event_tree_leaf_hash rpc call failed `{:?}`", e))
+            }
+        }
+    }
+
+    #[instrument(skip(self), fields(checkpoint_id, user_id, event_index))]
+    async fn get_user_event_tree_merkle_proof(
+        &self,
+        checkpoint_id: u64,
+        user_id: u64,
+        event_index: u64,
+    ) -> anyhow::Result<MerkleProofCore<QHashOut<F>>> {
+        info!("Fetching user event tree merkle proof");
+        let rpc_url = self.get_realm_url(user_id)?;
+        let input = QUserEventTreeMerkleProofRPCRequest {
+            checkpoint_id,
+            user_id,
+            event_index,
+        };
+        let response = psy_rpc_call_back!(
+            self,
+            rpc_url,
+            RequestParams::<F>::GetUserEventTreeMerkleProof(input),
+            MerkleProofCore<QHashOut<F>>
+        );
+        match response.result {
+            ResponseResult::Success(merkle_proof) => {
+                debug!(
+                    checkpoint_id = checkpoint_id,
+                    user_id = user_id,
+                    event_index = event_index,
+                    merkle_proof = %serde_json::to_string_pretty(&merkle_proof).unwrap(),
+                    "Successfully fetched merkle proof"
+                );
+                Ok(merkle_proof)
+            }
+            ResponseResult::Error(e) => {
+                error!("RPC call failed: {:?}", e);
+                Err(anyhow::format_err!("get_user_event_tree_merkle_proof rpc call failed `{:?}`", e))
+            }
+        }
+    }
 }
 
 #[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
@@ -1044,6 +1134,35 @@ impl QMetaDataStoreReaderSync<F> for RpcProvider {
             ResponseResult::Error(e) => {
                 error!("RPC call failed: {:?}", e);
                 Err(anyhow::format_err!("get_user_leaf_data rpc call failed `{:?}`", e))
+            }
+        }
+    }
+
+    #[instrument(skip(self), fields(checkpoint_id, user_id))]
+    async fn get_user_event_data(&self, user_id: u64, checkpoint_id: u64, event_index: u64) -> anyhow::Result<PsyUserEventRecord<F>> {
+        info!("Fetching user event checkpoint_id: {}, user_id: {}", checkpoint_id, user_id);
+        let rpc_url = self.get_realm_url(user_id)?;
+        let input = QUserEventDataRPCRequest {
+            checkpoint_id,
+            user_id,
+            event_index,
+        };
+        let response = psy_rpc_call_back!(self, rpc_url, RequestParams::<F>::GetUserEventData(input), PsyUserEventRecord<F>);
+        use psy_crypto::hash::traits::qhashable::QFieldHashable;
+        match response.result {
+            ResponseResult::Success(event) => {
+                info!(
+                    "Successfully fetched user event checkpoint_id: {}, user_id: {}, event_index: {}, event: {}",
+                    checkpoint_id,
+                    user_id,
+                    serde_json::to_string_pretty(&event).unwrap(),
+                    event.qfhash::<PsyHasher>().to_string()
+                );
+                Ok(event)
+            }
+            ResponseResult::Error(e) => {
+                error!("RPC call failed: {:?}", e);
+                Err(anyhow::format_err!("get_user_event rpc call failed `{:?}`", e))
             }
         }
     }

@@ -590,6 +590,17 @@ impl<
         // Process updates with error handling
         self.store.injest_checked_cst_nodes_imm(&cst_user_update).await?;
 
+        for guta_queue_item in filtered_items.iter() {
+            if guta_queue_item.events.len() != 0 {
+                let user_id = guta_queue_item.input.new_user_leaf.user_id.to_canonical_u64();
+                let user_leaf_data = self.store.get_user_leaf_data(checkpoint_id, user_id).await?;
+                let user_start_event_index = user_leaf_data.event_index.to_canonical_u64();
+                self.store
+                    .injest_user_contract_events_batch_imm(checkpoint_id, user_start_event_index, &guta_queue_item.events)
+                    .await?;
+            }
+        }
+
         let guta_queue_items = filtered_items;
 
         if guta_queue_items.len() == 0 {

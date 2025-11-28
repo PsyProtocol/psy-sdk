@@ -302,6 +302,7 @@ impl WalletSession {
                 F::ZERO,
                 F::from_canonical_u64(user_id),
                 F::ZERO,
+                F::ZERO,
                 UPS_SESSION_PROOF_TREE_HEIGHT as usize,
             )
             .into_clean_for_user(F::from_canonical_u64(user_id))

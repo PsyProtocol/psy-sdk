@@ -17,10 +17,13 @@ use psy_data::{
     config::store_config::{PsyFelt, PsyHasher},
     dpn::{
         cfc_context_input::{DapenCFCUserTransactionEndContext, DapenCFCUserTransactionInputContext},
+        event::PsyUserEventRecord,
         proving_session::DPNProvingSessionSimpleMethodCall,
     },
     qstore::{
-        controllers::proving_session::{PsyLocalProvingSessionStore, PsyReadLocalProvingSessionStore, PsyReadLocalProvingSessionStoreMut},
+        controllers::proving_session::{
+            PsyEventsStore, PsyLocalProvingSessionStore, PsyReadLocalProvingSessionStore, PsyReadLocalProvingSessionStoreMut,
+        },
         imm::{
             cmd::{
                 QSRCmdGetCheckpointLeafData, QSRCmdGetContractLeafData, QSRMerkleCmd, QSRMerkleCmdGetCheckpointTreeMerkleProof,
@@ -39,7 +42,7 @@ use ts_rs::TS;
 use super::cfc_input::DapenContractFunctionCircuitInput;
 use crate::dpn::{
     ops::{
-        op_types::DPNOpType,
+        op_types::{DPNEventRecord, DPNOpType},
         state_cmd::{data::DPNStateCmd, types::DPNStateCmdCore},
     },
     vm::{def::DPNFunctionCircuitDefinition, exec::SimpleDPNExecutor},
@@ -1136,6 +1139,7 @@ impl<F: RichField + PrimeField64> PsyEvalSessionResult<F> {
     pub async fn process_state_cmd<S>(&mut self, executor: &mut SimpleDPNExecutor<F>, sesh: &mut S, cmd: &DPNStateCmd<u64>) -> anyhow::Result<()>
     where
         S: PsyReadLocalProvingSessionStore<F>
+            + PsyEventsStore<F>
             + PsyReadLocalProvingSessionStoreMut<F>
             + PsyCmdInputWitnessResolver<F, <S as PsyReadLocalProvingSessionStoreMut<F>>::Hasher>,
     {
@@ -1161,6 +1165,7 @@ impl<F: RichField + PrimeField64> PsyEvalSessionResult<F> {
     ) -> anyhow::Result<DapenContractFunctionCircuitInput<F>>
     where
         S: PsyReadLocalProvingSessionStore<F>
+            + PsyEventsStore<F>
             + PsyReadLocalProvingSessionStoreMut<F>
             + PsyCmdInputWitnessResolver<F, <S as PsyReadLocalProvingSessionStoreMut<F>>::Hasher>,
     {
@@ -1183,6 +1188,7 @@ impl<F: RichField + PrimeField64> PsyEvalSessionResult<F> {
     ) -> anyhow::Result<DapenContractFunctionCircuitInput<F>>
     where
         S: PsyReadLocalProvingSessionStore<F>
+            + PsyEventsStore<F>
             + PsyReadLocalProvingSessionStoreMut<F>
             + PsyCmdInputWitnessResolver<F, <S as PsyReadLocalProvingSessionStoreMut<F>>::Hasher>,
     {
@@ -1198,6 +1204,7 @@ impl<F: RichField + PrimeField64> PsyEvalSessionResult<F> {
     ) -> anyhow::Result<DapenContractFunctionCircuitInput<F>>
     where
         S: PsyReadLocalProvingSessionStore<F>
+            + PsyEventsStore<F>
             + PsyReadLocalProvingSessionStoreMut<F>
             + PsyCmdInputWitnessResolver<F, <S as PsyReadLocalProvingSessionStoreMut<F>>::Hasher>,
     {
@@ -1259,13 +1266,31 @@ impl<F: RichField + PrimeField64> PsyEvalSessionResult<F> {
                 anyhow::bail!("assertion failed: {} (left: {}, right: {})", assertion.message, left, right);
             }
         }
+
+        let mut events = Vec::new();
+        let start_event_index = sesh.get_event_index();
+        for (i, event) in fn_def.events.iter().enumerate() {
+            let event_record = PsyUserEventRecord {
+                checkpoint_id: executor.resolve_target(event.checkpoint_id),
+                user_id: executor.resolve_target(event.user_id),
+                contract_id: executor.resolve_target(event.contract_id),
+                method_id: F::from_canonical_u32(fn_def.method_id),
+                event_index: start_event_index + F::from_noncanonical_u64(i as u64),
+                data: event.data.iter().map(|x| executor.resolve_target(*x)).collect::<Vec<F>>(),
+            };
+            events.push(event_record);
+        }
+
+        let total_events_emitted = F::from_noncanonical_u64(events.len() as u64);
+        sesh.write_events(events.clone());
+
         let outputs = fn_def.circuit_outputs.iter().map(|x| executor.resolve_target(*x)).collect::<Vec<F>>();
         let end_ctx = DapenCFCUserTransactionEndContext {
             end_contract_state_tree_root: sesh.get_contract_state_slot(sesh.get_current_contract_id(), F::ZERO).await?.root,
             end_deferred_tx_debt_tree_root: sesh.get_latest_deferred_tx_leaf()?.root,
             outputs_hash: safe_hash_fixed_length::<<S as PsyReadLocalProvingSessionStoreMut<F>>::Hasher, F>(&outputs),
             outputs_length: F::from_noncanonical_u64(outputs.len() as u64),
-            total_events_emitted: F::from_noncanonical_u64(0),
+            total_events_emitted,
             total_balance_spent: F::from_noncanonical_u64(0),
         };
         let input_ctx = DapenCFCUserTransactionInputContext {
@@ -1279,6 +1304,7 @@ impl<F: RichField + PrimeField64> PsyEvalSessionResult<F> {
         Ok(DapenContractFunctionCircuitInput {
             inputs: inputs_clone,
             outputs,
+            events,
             cmd_witnesses: self.cmd_witnesses,
             session_proof_tree_root: sesh.get_q_recursion_proof_tree_root(),
             tx_input_ctx: input_ctx,

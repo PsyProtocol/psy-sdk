@@ -1,10 +1,13 @@
 use plonky2::hash::hash_types::RichField;
 
 //use psy_config::network_constants::PsyTreeConfig;
-use crate::qdata::{
-    checkpoint::{PsyBlockState, PsyCheckpointLeaf},
-    contract::{ContractCodeDefinition, PsyContractLeaf},
-    user::PsyUserLeaf,
+use crate::{
+    dpn::event::PsyUserEventRecord,
+    qdata::{
+        checkpoint::{PsyBlockState, PsyCheckpointLeaf},
+        contract::{ContractCodeDefinition, PsyContractLeaf},
+        user::PsyUserLeaf,
+    },
 };
 
 #[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
@@ -35,6 +38,17 @@ pub trait QMetaDataStoreReaderSync<F: RichField>: Send + Sync {
     async fn get_block_state(&self, checkpoint_id: u64) -> anyhow::Result<PsyBlockState>;
     async fn get_block_state_f(&self, checkpoint_id: F) -> anyhow::Result<PsyBlockState> {
         <Self as QMetaDataStoreReaderSync<F>>::get_block_state(self, checkpoint_id.to_canonical_u64()).await
+    }
+
+    async fn get_user_event_data(&self, user_id: u64, checkpoint_id: u64, event_index: u64) -> anyhow::Result<PsyUserEventRecord<F>>;
+    async fn get_user_event_data_f(&self, checkpoint_id: F, user_id: F, event_index: F) -> anyhow::Result<PsyUserEventRecord<F>> {
+        <Self as QMetaDataStoreReaderSync<F>>::get_user_event_data(
+            self,
+            checkpoint_id.to_canonical_u64(),
+            user_id.to_canonical_u64(),
+            event_index.to_canonical_u64(),
+        )
+        .await
     }
 }
 
@@ -67,4 +81,6 @@ pub trait QMetaDataStoreWriterSync<F: RichField> {
     }
 
     fn set_block_state(&self, block_state: &PsyBlockState) -> anyhow::Result<()>;
+
+    fn set_user_event(&self, checkpoint_id: u64, user_id: u64, event_index: u64, event: &PsyUserEventRecord<F>) -> anyhow::Result<()>;
 }

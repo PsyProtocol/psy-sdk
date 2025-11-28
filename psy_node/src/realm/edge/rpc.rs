@@ -6,6 +6,7 @@ use psy_common::{
 };
 use psy_crypto::hash::merkle::core::MerkleProofCore;
 use psy_data::{
+    dpn::event::PsyUserEventRecord,
     guta::end_cap_input::SubmitUserEndCapNonProofInput,
     qdata::{
         checkpoint::{PsyBlockState, PsyCheckpointGlobalStateRoots, PsyCheckpointLeaf},
@@ -259,6 +260,41 @@ pub trait RealmEdgeRpc {
             .await
     }
 
+    #[method(name = "get_user_event_tree_root")]
+    async fn get_user_event_tree_root(&self, checkpoint_id: u64, user_id: u64) -> RpcResult<QHashOut<F>>;
+
+    #[method(name = "get_user_event_tree_root_f")]
+    async fn get_user_event_tree_root_f(&self, checkpoint_id: F, user_id: F) -> RpcResult<QHashOut<F>> {
+        self.get_user_event_tree_root(checkpoint_id.to_canonical_u64(), user_id.to_canonical_u64())
+            .await
+    }
+
+    #[method(name = "get_user_event_tree_leaf_hash")]
+    async fn get_user_event_tree_leaf_hash(&self, checkpoint_id: u64, user_id: u64, event_index: u64) -> RpcResult<QHashOut<F>>;
+
+    #[method(name = "get_user_event_tree_leaf_hash_f")]
+    async fn get_user_event_tree_leaf_hash_f(&self, checkpoint_id: F, user_id: F, event_index: F) -> RpcResult<QHashOut<F>> {
+        self.get_user_event_tree_leaf_hash(
+            checkpoint_id.to_canonical_u64(),
+            user_id.to_canonical_u64(),
+            event_index.to_canonical_u64(),
+        )
+        .await
+    }
+
+    #[method(name = "get_user_event_tree_merkle_proof")]
+    async fn get_user_event_tree_merkle_proof(&self, checkpoint_id: u64, user_id: u64, event_index: u64) -> RpcResult<MerkleProofCore<QHashOut<F>>>;
+
+    #[method(name = "get_user_event_tree_merkle_proof_f")]
+    async fn get_user_event_tree_merkle_proof_f(&self, checkpoint_id: F, user_id: F, event_index: F) -> RpcResult<MerkleProofCore<QHashOut<F>>> {
+        self.get_user_event_tree_merkle_proof(
+            checkpoint_id.to_canonical_u64(),
+            user_id.to_canonical_u64(),
+            event_index.to_canonical_u64(),
+        )
+        .await
+    }
+
     #[method(name = "generate_batch_variable_height_reward_proofs")]
     async fn generate_batch_variable_height_reward_proofs(
         &self,
@@ -268,4 +304,7 @@ pub trait RealmEdgeRpc {
 
     #[method(name = "get_graphviz")]
     async fn get_graphviz(&self, checkpoint_id: u64) -> RpcResult<String>;
+
+    #[method(name = "get_user_event_data")]
+    async fn get_user_event_data(&self, checkpoint_id: u64, user_id: u64, event_index: u64) -> RpcResult<PsyUserEventRecord<F>>;
 }

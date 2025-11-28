@@ -51,7 +51,7 @@ use psy_data::{
     },
     qstore::{
         controllers::{
-            proving_session::{PsyLocalProvingSessionStore, PsyReadLocalProvingSessionStore},
+            proving_session::{PsyEventsStore, PsyLocalProvingSessionStore, PsyReadLocalProvingSessionStore},
             register_helpers::get_default_user_contract_tree_root,
             session_info::SessionCircuitInfoStore,
             state_tracker::PsyUserSessionUpdateHistory,
@@ -954,6 +954,7 @@ impl<
         Ok(SubmitUserEndCapNonProofInput {
             core,
             contract_state_updates,
+            events: self.lps.read_events(),
         })
     }
 

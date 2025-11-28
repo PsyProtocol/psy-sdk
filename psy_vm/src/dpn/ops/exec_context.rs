@@ -20,7 +20,15 @@ use super::{
     sym_felt::{SymFeltRef, SymRefAssertion},
     sym_felt_store::SymFeltStore,
 };
-use crate::dpn::ops::sym_felt::SymFeltRefValue;
+use crate::dpn::ops::{context_trait::ContextFelt, sym_felt::SymFeltRefValue};
+
+#[derive(Debug, Clone)]
+pub struct EventRecord<F: ContextFelt> {
+    pub checkpoint_id: F,
+    pub user_id: F,
+    pub contract_id: F,
+    pub data: Vec<F>,
+}
 
 #[derive(Debug, Clone)]
 pub struct IfConditionStack {
@@ -40,6 +48,8 @@ pub struct QExecContext {
     external_function_call_count: u16,
     contract_state_tree_height: u16,
     pub set_state_command_count: u32,
+
+    pub events: Vec<EventRecord<SymFeltRef>>,
 }
 
 impl QExecContext {
@@ -55,6 +65,7 @@ impl QExecContext {
             external_function_call_count: 0,
             contract_state_tree_height: 32,
             set_state_command_count: 0,
+            events: vec![],
         }
     }
 
@@ -1146,5 +1157,18 @@ impl DPNContext<SymFeltRef> for QExecContext {
             sub_slot_index,
             values.to_vec(),
         );
+    }
+    fn emit_event(&mut self, event_data: Vec<SymFeltRef>) {
+        if !self.condition_stack.is_empty() {
+            panic!("emit_event should not be called in a condition block");
+        }
+
+        let event_record = EventRecord {
+            checkpoint_id: SymFeltRef::new_valueless(DPNOpType::GetCheckpointId),
+            user_id: SymFeltRef::new_valueless(DPNOpType::GetUserId),
+            contract_id: SymFeltRef::new_valueless(DPNOpType::GetContractId),
+            data: event_data,
+        };
+        self.events.push(event_record);
     }
 }
