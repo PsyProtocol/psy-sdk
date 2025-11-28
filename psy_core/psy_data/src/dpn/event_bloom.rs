@@ -3,6 +3,7 @@ use std::io::Cursor;
 use fastbloom_rs::{BloomFilter, FilterBuilder, Membership};
 use plonky2::hash::hash_types::RichField;
 use serde::{Deserialize, Serialize};
+#[cfg(not(target_arch = "wasm32"))]
 use zstd::{decode_all, encode_all};
 
 use crate::dpn::event::PsyUserEventRecord;
@@ -72,6 +73,7 @@ impl EventBloomFilter {
         Ok(bincode::deserialize(bytes)?)
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn to_compressed_bytes(&self) -> anyhow::Result<Vec<u8>> {
         let serialized = self.to_bytes()?;
         let cursor = Cursor::new(&serialized);
@@ -79,6 +81,7 @@ impl EventBloomFilter {
         Ok(compressed)
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn from_compressed_bytes(bytes: &[u8]) -> anyhow::Result<Self> {
         let decompressed = decode_all(bytes)?;
         Self::from_bytes(&decompressed)
@@ -157,6 +160,7 @@ impl<F: RichField> EventBloomItem for PsyUserEventRecord<F> {
     }
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 mod tests {
     use std::io::Cursor;
 
