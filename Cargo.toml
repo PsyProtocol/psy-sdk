@@ -132,7 +132,7 @@ tempfile = "3.19"
 miette = { version = "7.2", features = ["fancy"] }
 dotenv = "0.15"
 
-smol_str = { version = "=0.3.2",  features = ["serde"] }
+smol_str = { version = "=0.3.2", features = ["serde"] }
 thin-vec = "0.2"
 id-arena = "2.2"
 unescaper = "0.1"
@@ -217,17 +217,17 @@ config = "0.15"
 
 psy_vm = { path = "./psy_vm", default-features = false }
 psy_crypto = { path = "./psy_core/psy_crypto" }
-psy_store = { path = "./psy_store", default-features = false}
-psy_data = { path = "./psy_core/psy_data", default-features = false}
+psy_store = { path = "./psy_store", default-features = false }
+psy_data = { path = "./psy_core/psy_data", default-features = false }
 psy_common = { path = "./psy_core/psy_common" }
 psy_config = { path = "./psy_core/psy_config" }
 psy_node = { path = "./psy_node" }
 psy_prover = { path = "./psy_prover", default-features = false }
-psy_common_circuit = { path = "./psy_circuit/psy_common_circuit", default-features = false}
-psy_dpn_circuit = { path = "./psy_circuit/psy_dpn_circuit", default-features = false}
-psy_ups_circuit = { path = "./psy_circuit/psy_ups_circuit", default-features = false}
+psy_common_circuit = { path = "./psy_circuit/psy_common_circuit", default-features = false }
+psy_dpn_circuit = { path = "./psy_circuit/psy_dpn_circuit", default-features = false }
+psy_ups_circuit = { path = "./psy_circuit/psy_ups_circuit", default-features = false }
 kvq = { path = "./psy_core/kvq" }
-psy_network_circuit = { path = "./psy_circuit/psy_network_circuit", default-features = false}
+psy_network_circuit = { path = "./psy_circuit/psy_network_circuit", default-features = false }
 psy_services = { path = "./psy_services" }
 psy_rust_sdk = { path = "./psy_sdk/psy-rust-sdk" }
 psy_provider = { path = "./psy_provider" }
@@ -283,6 +283,9 @@ strum_macros = "0.27"
 # AWS dependencies
 aws-config = "1.0"
 aws-sdk-s3 = "1.0"
+
+fastbloom-rs = { version = "0.5.10" }
+zstd = "0.13"
 
 [profile.release]
 debug = false

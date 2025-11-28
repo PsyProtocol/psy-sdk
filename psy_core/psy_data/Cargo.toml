@@ -1,14 +1,14 @@
 [package]
 edition = "2021"
-name    = "psy_data"
+name = "psy_data"
 version = "0.1.0"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-anyhow     = { workspace = true }
-serde      = { workspace = true }
-serde_repr      = { workspace = true }
+anyhow = { workspace = true }
+serde = { workspace = true }
+serde_repr = { workspace = true }
 hex = { workspace = true }
 plonky2 = { workspace = true }
 bincode = { workspace = true }
@@ -24,7 +24,10 @@ kvq = { workspace = true }
 psy_config = { workspace = true }
 psy_common = { workspace = true }
 psy_crypto = { workspace = true }
-ts-rs =  { workspace = true }
+ts-rs = { workspace = true }
+
+fastbloom-rs = { workspace = true, features = ["serde"] }
+zstd = { workspace = true }
 
 [features]
 # default = ["is_sync"]
