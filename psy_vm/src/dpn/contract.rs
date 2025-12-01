@@ -12,7 +12,7 @@ use psy_data::qdata::contract::ContractFunctionCodeDefinition;
 
 use crate::dpn::{
     ops::{
-        op_types::{DPNAssertEqInfoIndexed, DPNIndexedVarDef},
+        op_types::{DPNAssertEqInfoIndexed, DPNEventRecord, DPNIndexedVarDef},
         state_cmd::{data::DPNStateCmd, types::DPNStateCmdCore},
     },
     vm::def::DPNFunctionCircuitDefinition,
@@ -154,6 +154,17 @@ fn encode_indexed_var_defs(buffer: &mut Vec<u64>, defs: &[DPNIndexedVarDef]) {
     }
 }
 
+fn encode_events(buffer: &mut Vec<u64>, events: &[DPNEventRecord]) {
+    buffer.push(events.len() as u64);
+    for event in events {
+        buffer.push(event.checkpoint_id as u64);
+        buffer.push(event.user_id as u64);
+        buffer.push(event.contract_id as u64);
+        buffer.push(event.data.len() as u64);
+        buffer.extend(event.data.iter());
+    }
+}
+
 fn dpn_function_words(def: &DPNFunctionCircuitDefinition) -> Vec<u64> {
     let mut out = Vec::new();
     out.push(def.method_id as u64);
@@ -164,6 +175,7 @@ fn dpn_function_words(def: &DPNFunctionCircuitDefinition) -> Vec<u64> {
     encode_vec(&mut out, &resolutions);
     encode_assertions(&mut out, &def.assertions);
     encode_indexed_var_defs(&mut out, &def.definitions);
+    encode_events(&mut out, &def.events);
     out
 }
 

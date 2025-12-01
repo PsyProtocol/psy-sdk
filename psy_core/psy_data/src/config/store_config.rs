@@ -6,8 +6,8 @@ use plonky2::{
 };
 use psy_common::data::qhashout::QHashOut;
 use psy_config::network_constants::{
-    CHECKPOINT_TREE_HEIGHT, CONTRACT_FUNCTION_TREE_HEIGHT, GLOBAL_CONTRACT_TREE_HEIGHT, GLOBAL_DEPOSIT_TREE_HEIGHT, GLOBAL_USER_TREE_HEIGHT,
-    GLOBAL_WITHDRAWAL_TREE_HEIGHT,
+    CHECKPOINT_TREE_HEIGHT, CONTRACT_FUNCTION_TREE_HEIGHT, GLOBAL_CONTRACT_TREE_HEIGHT, GLOBAL_DEPOSIT_TREE_HEIGHT, GLOBAL_USER_EVENT_TREE_HEIGHT,
+    GLOBAL_USER_TREE_HEIGHT, GLOBAL_WITHDRAWAL_TREE_HEIGHT,
 };
 use psy_crypto::hash::{
     merkle::core::{DeltaMerkleProofCore, MerkleProofCore},
@@ -15,6 +15,7 @@ use psy_crypto::hash::{
 };
 
 use crate::{
+    dpn::event::PsyUserEventRecord,
     models::{
         checkpoint::{
             block_state::BlockStatesModel, checkpoint_hash::PsyCheckpointHashHelperModel, checkpoint_leaf::PsyCheckpointLeafModel,
@@ -30,7 +31,7 @@ use crate::{
         realm_status::RealmStatusModel,
         snapshot::RealmSnapshotModel,
         staging::{staging_checkpoint_info::StagingCheckpointInfoModel, staging_delta_record::StagingDeltaRecordModelCore},
-        user::user_leaf::UserLeafModel,
+        user::{user_event::UserEventModel, user_leaf::UserLeafModel},
     },
     qdata::{
         checkpoint::{PsyBlockState, PsyCheckpointLeaf},
@@ -38,6 +39,7 @@ use crate::{
         contract::{ContractCodeDefinition, PsyContractLeaf},
         contract_metadata::ContractMetaData,
         contract_uuid::ContractTableIdKey,
+        event_key::EventTableIdKey,
         hash_cache_result::PsyHashHelperResult,
         hash_key::Hash4x64Key,
         hash_key_with_id::Hash4x64KeyWithId,
@@ -62,6 +64,7 @@ pub const WITHDRAWAL_TREE_ID: u8 = 6u8;
 pub const USER_CONTRACT_TREE_ID: u8 = 7u8;
 pub const CONTRACT_STATE_TREE_ID: u8 = 8u8;
 pub const USER_REGISTRATION_TREE_ID: u8 = 9u8;
+pub const USER_EVENT_TREE_ID: u8 = 10u8;
 
 pub const CHECKPOINT_TREE_TABLE_TYPE: u16 = 1;
 pub const USER_TREE_TABLE_TYPE: u16 = 2;
@@ -98,6 +101,9 @@ pub const CONTRACT_METADATA_TABLE_TYPE: u16 = 21;
 
 pub const REALM_SNAPSHOT_TABLE_TYPE: u16 = 22;
 pub const REALM_ROOT_VERSION_TABLE_TYPE: u16 = 23;
+
+pub const USER_EVENT_TABLE_TYPE: u16 = 24;
+pub const USER_EVENT_TREE_TABLE_TYPE: u16 = 25;
 
 // Legacy - kept for backward compatibility, should not be used for new trees
 pub const PROTOCOL_TREE_TABLE_TYPE: u16 = 100;
@@ -181,6 +187,22 @@ pub type UserContractTreeStore<
     QHashOut<F>,
     H,
 >;
+
+pub type UserEventTableStore<S, F = PsyFelt, IDKVA = KVQStandardAdapter<S, EventTableIdKey<USER_EVENT_TABLE_TYPE>, PsyUserEventRecord<F>>> =
+    UserEventModel<USER_EVENT_TABLE_TYPE, S, F, IDKVA>;
+
+pub type UserEventTreeStore<S, F = PsyFelt, H = PsyHasher, IDKVA = KVQStandardAdapter<S, KVQMerkleNodeKey<USER_EVENT_TREE_TABLE_TYPE>, QHashOut<F>>> =
+    KVQSemiFixedConfigMerkleTreeModel<
+        USER_EVENT_TREE_ID,
+        GLOBAL_USER_EVENT_TREE_HEIGHT,
+        0,
+        USER_EVENT_TREE_TABLE_TYPE,
+        false,
+        S,
+        IDKVA,
+        QHashOut<F>,
+        H,
+    >;
 
 pub type BaseContractStateTreeStore<
     S,

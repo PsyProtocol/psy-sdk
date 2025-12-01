@@ -30,6 +30,7 @@ use crate::{
     config::store_config::{PsyHasher, UserContractTreeStore},
     dpn::{
         cfc_context_input::{DapenCFCProvingSessionStartContext, DapenCFCUserTransactionCallStartContext},
+        event::PsyUserEventRecord,
         proving_session::{
             DPNProvingSessionCompactMethodCall, DPNProvingSessionSignableMethodCall, DPNProvingSessionSimpleMethodCall, DPNTransactionDebtItem,
             PsyLocalTransactionRecord,
@@ -100,6 +101,14 @@ pub trait PsyReadLocalProvingSessionStoreMut<F: RichField + PrimeField64>: PsyRe
     async fn finalize_transaction(&mut self) -> anyhow::Result<()>;
 }
 
+pub trait PsyEventsStore<F: RichField> {
+    fn set_start_event_index(&mut self, event_index: F);
+    fn get_event_index(&self) -> F;
+
+    fn write_events(&mut self, events: Vec<PsyUserEventRecord<F>>);
+    fn read_events(&self) -> Vec<PsyUserEventRecord<F>>;
+}
+
 pub struct PsyLocalProvingSessionStore<
     F: RichField + PrimeField64,
     R: PsyReadCommandProcessorSync<F> + QUserIdManager + Send + Sync,
@@ -109,6 +118,9 @@ pub struct PsyLocalProvingSessionStore<
     state_tree_store: KVQSimpleMemoryBackingStore,
     active_tx_session_data_store: KVQSimpleMemoryBackingStore,
     transaction_records: Vec<PsyLocalTransactionRecord<F>>,
+
+    events: Vec<PsyUserEventRecord<F>>,
+    start_event_index: F,
 
     deferred_tx_debt_store: TransactionDebtTreeRef<
         DEFERRED_TRANSACTION_TREE_HEIGHT,
@@ -300,22 +312,25 @@ impl<
 impl<F: RichField, H: MerkleZeroHasherWithMarkedLeaf<QHashOut<F>> + Send, R: PsyReadCommandProcessorSync<F> + QUserIdManager + Send + Sync>
     PsyLocalProvingSessionStore<F, R, H>
 {
-    pub fn new_at(read_store: R, start_checkpoint: F, user_id: F, nonce: F, q_recursion_tree_height: usize) -> Self {
+    pub fn new_at(read_store: R, start_checkpoint: F, user_id: F, nonce: F, start_event_index: F, q_recursion_tree_height: usize) -> Self {
         let cmd_store = PsyCmdStoreWithCache::new(start_checkpoint.to_canonical_u64(), read_store);
 
-        Self::new_at_with_cmd_store(cmd_store, start_checkpoint, user_id, nonce, q_recursion_tree_height)
+        Self::new_at_with_cmd_store(cmd_store, start_checkpoint, user_id, nonce, start_event_index, q_recursion_tree_height)
     }
     pub fn new_at_with_cmd_store(
         cmd_store: PsyCmdStoreWithCache<F, R>,
         start_checkpoint: F,
         user_id: F,
         nonce: F,
+        start_event_index: F,
         q_recursion_tree_height: usize,
     ) -> Self {
         Self {
             cmd_store,
             state_tree_store: KVQSimpleMemoryBackingStore::new(),
             active_tx_session_data_store: KVQSimpleMemoryBackingStore::new(),
+            events: Vec::new(),
+            start_event_index,
             local_state_tracker: PsyLocalStateTracker::new(),
             deferred_tx_debt_store: TransactionDebtTreeRef::new(start_checkpoint.to_canonical_u64()),
             transaction_records: Vec::new(),
@@ -347,8 +362,8 @@ impl<F: RichField, H: MerkleZeroHasherWithMarkedLeaf<QHashOut<F>> + Send, R: Psy
             }))
             .await?;
 
-        let (nonce, is_new_user) = if user_tree_proof.value == QHashOut::ZERO {
-            (F::ONE, true)
+        let (nonce, start_event_index, is_new_user) = if user_tree_proof.value == QHashOut::ZERO {
+            (F::ONE, F::ZERO, true)
         } else {
             let user_leaf = self
                 .cmd_store
@@ -357,19 +372,19 @@ impl<F: RichField, H: MerkleZeroHasherWithMarkedLeaf<QHashOut<F>> + Send, R: Psy
                     user_id: user_id.to_canonical_u64(),
                 })
                 .await?;
-            (user_leaf.nonce + F::ONE, false)
+            (user_leaf.nonce + F::ONE, user_leaf.event_index, false)
         };
 
-        let mut result = self.into_clean_for_user_at_checkpoint(user_id, nonce, start_checkpoint);
+        let mut result = self.into_clean_for_user_at_checkpoint(user_id, nonce, start_event_index, start_checkpoint);
         result.set_is_new_user(is_new_user);
         Ok(result)
     }
-    pub fn into_clean_for_user_at_checkpoint(self, user_id: F, nonce: F, start_checkpoint: F) -> Self {
+    pub fn into_clean_for_user_at_checkpoint(self, user_id: F, nonce: F, start_event_index: F, start_checkpoint: F) -> Self {
         let q_recursion_tree_height = self.session_proof_tree_height;
         let mut cmd_store = self.into_cmd_store();
         cmd_store.set_user_id(user_id.to_canonical_u64());
 
-        Self::new_at_with_cmd_store(cmd_store, start_checkpoint, user_id, nonce, q_recursion_tree_height)
+        Self::new_at_with_cmd_store(cmd_store, start_checkpoint, user_id, nonce, start_event_index, q_recursion_tree_height)
     }
 
     pub fn set_is_new_user(&mut self, is_new_user: bool) {
@@ -382,7 +397,7 @@ impl<F: RichField, H: MerkleZeroHasherWithMarkedLeaf<QHashOut<F>> + Send, R: Psy
     pub fn set_proof_tree_root(&mut self, session_proof_tree_root: QHashOut<F>) {
         self.session_proof_tree_root = session_proof_tree_root;
     }
-    pub async fn new_at_head(read_store: R, user_id: F, nonce: F, q_recursion_tree_height: usize) -> anyhow::Result<Self> {
+    pub async fn new_at_head(read_store: R, user_id: F, nonce: F, start_event_index: F, q_recursion_tree_height: usize) -> anyhow::Result<Self> {
         let start_checkpoint = read_store.resolve_get_latest_block_state().await?;
 
         Ok(Self::new_at(
@@ -390,6 +405,7 @@ impl<F: RichField, H: MerkleZeroHasherWithMarkedLeaf<QHashOut<F>> + Send, R: Psy
             F::from_noncanonical_u64(start_checkpoint.checkpoint_id),
             user_id,
             nonce,
+            start_event_index,
             q_recursion_tree_height,
         ))
     }
@@ -511,7 +527,7 @@ impl<
 
         let start_deferred_tx_debt_tree_root = self.get_latest_deferred_tx_leaf()?.root;
         let start_user_balance = F::ZERO;
-        let start_user_event_index = F::ZERO;
+        let start_user_event_index = self.get_event_index();
 
         Ok(DapenCFCUserTransactionCallStartContext {
             start_user_contract_tree_root,
@@ -988,5 +1004,31 @@ impl<
             }
         }
         Ok(())
+    }
+}
+
+#[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
+#[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
+impl<
+        F: RichField,
+        H: MerkleZeroHasherWithMarkedLeaf<QHashOut<F>> + FieldQHasher<F> + Send,
+        R: PsyReadCommandProcessorSync<F> + QUserIdManager + Send + Sync,
+    > PsyEventsStore<F> for PsyLocalProvingSessionStore<F, R, H>
+{
+    fn set_start_event_index(&mut self, event_index: F) {
+        self.start_event_index = event_index;
+    }
+
+    fn write_events(&mut self, events: Vec<PsyUserEventRecord<F>>) {
+        self.start_event_index += F::from_canonical_usize(events.len());
+        self.events.extend(events);
+    }
+
+    fn read_events(&self) -> Vec<PsyUserEventRecord<F>> {
+        self.events.clone()
+    }
+
+    fn get_event_index(&self) -> F {
+        self.start_event_index
     }
 }

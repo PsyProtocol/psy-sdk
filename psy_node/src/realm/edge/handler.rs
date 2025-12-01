@@ -34,6 +34,7 @@ use psy_crypto::hash::{
 };
 use psy_data::{
     config::store_config::{PsyFelt, PsyHash, PsyHasher, PsyProof},
+    dpn::event::PsyUserEventRecord,
     guta::{
         api::{PsyContractStateUpdateHistory, SimpleContractHeightCache, UserEndCapNonProofCoreInputQueueItem},
         end_cap_input::SubmitUserEndCapNonProofInput,
@@ -506,6 +507,46 @@ where
         })?;
         let graphviz_content = graph.get_graphviz();
         Ok(graphviz_content)
+    }
+
+    async fn get_user_event_tree_root(&self, checkpoint_id: u64, user_id: u64) -> RpcResult<QHashOut<F>> {
+        let user_event_tree_root = self
+            .ctx
+            .store_reader
+            .get_user_event_tree_root(checkpoint_id, user_id)
+            .await
+            .map_err(RpcError::Anyhow)?;
+        Ok(user_event_tree_root)
+    }
+
+    async fn get_user_event_tree_leaf_hash(&self, checkpoint_id: u64, user_id: u64, event_index: u64) -> RpcResult<QHashOut<F>> {
+        let user_event_tree_leaf_hash = self
+            .ctx
+            .store_reader
+            .get_user_event_tree_leaf_hash(checkpoint_id, user_id, event_index)
+            .await
+            .map_err(RpcError::Anyhow)?;
+        Ok(user_event_tree_leaf_hash)
+    }
+
+    async fn get_user_event_tree_merkle_proof(&self, checkpoint_id: u64, user_id: u64, event_index: u64) -> RpcResult<MerkleProofCore<QHashOut<F>>> {
+        let user_event_tree_merkle_proof = self
+            .ctx
+            .store_reader
+            .get_user_event_tree_merkle_proof(checkpoint_id, user_id, event_index)
+            .await
+            .map_err(RpcError::Anyhow)?;
+        Ok(user_event_tree_merkle_proof)
+    }
+
+    async fn get_user_event_data(&self, checkpoint_id: u64, user_id: u64, event_index: u64) -> RpcResult<PsyUserEventRecord<F>> {
+        let user_event = self
+            .ctx
+            .store_reader
+            .get_user_event_data(checkpoint_id, user_id, event_index)
+            .await
+            .map_err(RpcError::Anyhow)?;
+        Ok(user_event)
     }
 }
 

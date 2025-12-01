@@ -23,6 +23,7 @@ pub async fn prepare_environment_with_real_contract(
     deploy_contracts: Vec<QBCDeployContract<PsyFelt>>,
     user_id: Option<u64>,
     nonce: Option<PsyFelt>,
+    start_event_index: Option<PsyFelt>,
     session_proof_tree_height: Option<usize>,
 ) -> Result<psy_data::qstore::controllers::proving_session::PsyLocalProvingSessionStore<PsyFelt, KVQSimpleMemoryBackingStore, PsyHasher>> {
     use crate::node::coordinator::PsyCoordinatorStoreWriterAsyncImm;
@@ -37,12 +38,14 @@ pub async fn prepare_environment_with_real_contract(
     let final_nonce = nonce.unwrap_or(PsyFelt::ZERO);
     let final_height = session_proof_tree_height.unwrap_or(GLOBAL_USER_TREE_HEIGHT as usize);
     let final_checkpoint_id = PsyFelt::from_canonical_u64(latest_block_state.checkpoint_id);
+    let final_start_event_index = start_event_index.unwrap_or(PsyFelt::ZERO);
 
     Ok(psy_data::qstore::controllers::proving_session::PsyLocalProvingSessionStore::new_at(
         final_store,
         final_checkpoint_id,
         final_user_id,
         final_nonce,
+        final_start_event_index,
         final_height,
     ))
 }

@@ -650,3 +650,52 @@ impl<F: ContextFelt> ToFelts<F> for DPNAssertEqInfoIndexed {
         DPNAssertEqInfoIndexed { left, right, message }
     }
 }
+
+#[derive(Serialize, Deserialize, Clone, Debug, Eq, PartialEq, TS)]
+pub struct DPNEventRecord {
+    // event_name: String,
+    pub checkpoint_id: u64,
+    pub user_id: u64,
+    pub contract_id: u64,
+    pub data: Vec<u64>,
+}
+
+impl<F: ContextFelt> ToFelts<F> for DPNEventRecord {
+    fn to_felts(&self) -> Vec<F> {
+        let mut out = Vec::with_capacity(4 + self.data.len());
+        out.push(F::cns(self.checkpoint_id));
+        out.push(F::cns(self.user_id));
+        out.push(F::cns(self.contract_id));
+        for b in &self.data {
+            out.push(F::cns(*b));
+        }
+        out
+    }
+
+    fn from_felts(felts: &[F]) -> Self {
+        if felts.len() < 3 {
+            panic!("DPNEventRecord expects at least 3 felts");
+        }
+        let checkpoint_id = felts[0].get_u64();
+        let user_id = felts[1].get_u64();
+        let contract_id = felts[2].get_u64();
+        let data_len = felts.len().saturating_sub(3);
+        if felts.len() != 3 + data_len {
+            panic!(
+                "DPNEventRecord data length mismatch: expected {}, got {}",
+                data_len,
+                felts.len().saturating_sub(3)
+            );
+        }
+        let mut data = Vec::with_capacity(data_len);
+        for felt in &felts[3..] {
+            data.push(felt.get_u64());
+        }
+        DPNEventRecord {
+            checkpoint_id,
+            user_id,
+            contract_id,
+            data,
+        }
+    }
+}

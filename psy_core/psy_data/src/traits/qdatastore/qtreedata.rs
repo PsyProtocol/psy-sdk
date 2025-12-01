@@ -323,6 +323,36 @@ pub trait QTreeDataStoreReaderSync<F: RichField>: Send + Sync {
             user_registration_tree_root,
         })
     }
+
+    async fn get_user_event_tree_root(&self, checkpoint_id: u64, user_id: u64) -> anyhow::Result<QHashOut<F>>;
+    async fn get_user_event_tree_root_f(&self, checkpoint_id: F, user_id: F) -> anyhow::Result<QHashOut<F>> {
+        <Self as QTreeDataStoreReaderSync<F>>::get_user_event_tree_root(self, checkpoint_id.to_canonical_u64(), user_id.to_canonical_u64()).await
+    }
+    async fn get_user_event_tree_leaf_hash(&self, checkpoint_id: u64, user_id: u64, event_index: u64) -> anyhow::Result<QHashOut<F>>;
+    async fn get_user_event_tree_leaf_hash_f(&self, checkpoint_id: F, user_id: F, event_index: F) -> anyhow::Result<QHashOut<F>> {
+        <Self as QTreeDataStoreReaderSync<F>>::get_user_event_tree_leaf_hash(
+            self,
+            checkpoint_id.to_canonical_u64(),
+            user_id.to_canonical_u64(),
+            event_index.to_canonical_u64(),
+        )
+        .await
+    }
+    async fn get_user_event_tree_merkle_proof(
+        &self,
+        checkpoint_id: u64,
+        user_id: u64,
+        event_index: u64,
+    ) -> anyhow::Result<MerkleProofCore<QHashOut<F>>>;
+    async fn get_user_event_tree_merkle_proof_f(&self, checkpoint_id: F, user_id: F, event_index: F) -> anyhow::Result<MerkleProofCore<QHashOut<F>>> {
+        <Self as QTreeDataStoreReaderSync<F>>::get_user_event_tree_merkle_proof(
+            self,
+            checkpoint_id.to_canonical_u64(),
+            user_id.to_canonical_u64(),
+            event_index.to_canonical_u64(),
+        )
+        .await
+    }
 }
 
 pub trait QTreeDataStoreWriterSync<F: RichField> {

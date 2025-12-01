@@ -5,7 +5,7 @@ use plonky2::{
     util::log2_ceil,
 };
 use psy_common::data::qhashout::QHashOut;
-use psy_config::network_constants::GLOBAL_USER_TREE_HEIGHT;
+use psy_config::network_constants::{GLOBAL_USER_EVENT_TREE_HEIGHT, GLOBAL_USER_TREE_HEIGHT};
 use psy_crypto::{
     common::user_id::get_user_id_from_registration_id,
     hash::{
@@ -22,9 +22,10 @@ use psy_crypto::{
 use psy_data::{
     config::store_config::{
         BaseContractStateTreeStore, CheckpointHashHelperTableStore, CheckpointLeafTableStore, CheckpointSyncInfoTableStore, CheckpointTreeStore,
-        PsyHasher, UserContractTreeStore, UserPublicKeyTableStore, UserRegistrationTreeStore, UserTreeStore, CONTRACT_STATE_TREE_ID,
-        USER_CONTRACT_STATE_TREE_TABLE_TYPE,
+        PsyHasher, UserContractTreeStore, UserEventTreeStore, UserPublicKeyTableStore, UserRegistrationTreeStore, UserTreeStore,
+        CONTRACT_STATE_TREE_ID, USER_CONTRACT_STATE_TREE_TABLE_TYPE, USER_EVENT_TREE_TABLE_TYPE,
     },
+    dpn::event::PsyUserEventRecord,
     models::{
         checkpoint::{
             checkpoint_hash::PsyCheckpointHashHelperModelCore, checkpoint_leaf::PsyCheckpointLeafModelCore,
@@ -198,6 +199,46 @@ impl<T: KVQBinaryStore> PsyRealmStoreWriterAsyncImm<F> for T {
             BaseContractStateTreeStore::<Self>::set_nodes(self, &nodes)?;
             UserContractTreeStore::<Self>::set_nodes(self, &uct_nodes)?;
         }
+
+        Ok(())
+    }
+
+    async fn injest_user_contract_events_batch_imm(
+        &self,
+        checkpoint_id: u64,
+        start_event_index: u64,
+        events: &[PsyUserEventRecord<F>],
+    ) -> anyhow::Result<()> {
+        for (i, event) in events.iter().enumerate() {
+            tracing::debug!(
+                "Realm writer user {}  event {}: {} at checkpoint {}",
+                event.user_id,
+                start_event_index,
+                serde_json::to_string_pretty(&event)?,
+                checkpoint_id
+            );
+            self.set_user_event(
+                event.checkpoint_id.to_canonical_u64(),
+                event.user_id.to_canonical_u64(),
+                start_event_index + (i as u64),
+                event,
+            )?;
+        }
+
+        let nodes = events
+            .iter()
+            .enumerate()
+            .map(|(i, event)| KVQPair {
+                key: UserEventTreeStore::<Self>::new_node_key_sfc(
+                    event.checkpoint_id.to_canonical_u64(),
+                    event.user_id.to_canonical_u64(),
+                    GLOBAL_USER_EVENT_TREE_HEIGHT as u8,
+                    start_event_index + (i as u64),
+                ),
+                value: event.qfhash::<PsyHasher>(),
+            })
+            .collect::<Vec<_>>();
+        UserEventTreeStore::<Self>::set_nodes(self, &nodes)?;
 
         Ok(())
     }

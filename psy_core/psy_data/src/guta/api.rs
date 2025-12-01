@@ -22,6 +22,7 @@ use ts_rs::TS;
 
 use super::{end_cap_input::SubmitUserEndCapNonProofInput, proof_input::VerifyEndCapSimpleStandardInput, stats::GUTAStats};
 use crate::{
+    dpn::event::PsyUserEventRecord,
     qblock::cmds::deploy_contract::{PsyContractSlotUpdates, PsySlotUpdate},
     qdata::{ups_end_cap_result::UPSEndCapResultCompact, user::PsyUserLeaf},
     qstore::uct_merkle_nodes::{CSTUserUpdate, CSTUserUpdateStore},
@@ -133,6 +134,7 @@ pub struct UserEndCapNonProofCoreInputQueueItem<F: RichField> {
     pub input: SubmitUserEndCapNonProofCoreInput<F>,
     pub checkpoint_tree_proof: MerkleProofCore<QHashOut<F>>,
     pub cst_user_update: CSTUserUpdate<QHashOut<F>>,
+    pub events: Vec<PsyUserEventRecord<F>>,
     pub proof_id: QProvingJobDataID,
     pub checkpoint_id: u64,
     pub channel_id: u64,

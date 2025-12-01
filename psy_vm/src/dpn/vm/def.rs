@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
 use crate::dpn::ops::{
-    op_types::{DPNAssertEqInfoIndexed, DPNIndexedVarDef},
+    op_types::{DPNAssertEqInfoIndexed, DPNEventRecord, DPNIndexedVarDef},
     state_cmd::data::DPNStateCmd,
 };
 
@@ -48,4 +48,6 @@ pub struct DPNFunctionCircuitDefinition {
     pub state_command_resolution_indices: Vec<usize>,
     pub assertions: Vec<DPNAssertEqInfoIndexed>,
     pub definitions: Vec<DPNIndexedVarDef>,
+    #[serde(default)]
+    pub events: Vec<DPNEventRecord>,
 }

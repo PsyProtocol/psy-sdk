@@ -90,7 +90,7 @@ impl RpcProvider {
     }
 
     pub fn new_with_config(config: &psy_config::NetworkConfigGoldilocks) -> anyhow::Result<Self> {
-        tracing::info!("start rpc provider with config: {}", serde_json::to_string_pretty(&config)?);
+        tracing::trace!("start rpc provider with config: {}", serde_json::to_string_pretty(&config)?);
         assert!(config.realm_configs.len() > 0);
         assert!(config.coordinator_configs.len() > 0);
         let mut realm_configs = HashMap::new();

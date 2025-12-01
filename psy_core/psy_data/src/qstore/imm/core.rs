@@ -9,9 +9,10 @@ use psy_crypto::hash::merkle::{
 use crate::{
     config::store_config::{
         BlockStateTableStore, CheckpointLeafTableStore, CheckpointTreeStore, ContractCodeTableStore, ContractFunctionTreeStore,
-        ContractLeafTableStore, ContractTreeStore, DepositTreeStore, PsyFelt, UserContractTreeStore, UserLeafTableStore, UserRegistrationTreeStore,
-        UserTreeStore, WithdrawalTreeStore, MAX_CHECKPOINT,
+        ContractLeafTableStore, ContractTreeStore, DepositTreeStore, PsyFelt, UserContractTreeStore, UserEventTableStore, UserEventTreeStore,
+        UserLeafTableStore, UserRegistrationTreeStore, UserTreeStore, WithdrawalTreeStore, MAX_CHECKPOINT,
     },
+    dpn::event::PsyUserEventRecord,
     models::{
         checkpoint::{
             block_state::{BlockStatesModelCore, BlockStatesModelReaderCore},
@@ -27,6 +28,7 @@ use crate::{
         },
         user::{
             contract_state_tree::UserContractStateTreeId,
+            user_event::{UserEventModelCore, UserEventModelReaderCore},
             user_leaf::{UserLeafModelCore, UserLeafModelReaderCore},
         },
     },
@@ -72,6 +74,10 @@ impl<T: KVQBinaryStore> QMetaDataStoreReaderSync<F> for T {
     async fn get_latest_block_state(&self) -> anyhow::Result<PsyBlockState> {
         BlockStateTableStore::<T>::get_latest_block_state(self)
     }
+
+    async fn get_user_event_data(&self, checkpoint_id: u64, user_id: u64, event_index: u64) -> anyhow::Result<PsyUserEventRecord<F>> {
+        UserEventTableStore::<T>::get_event_by_index(self, checkpoint_id, user_id, event_index)
+    }
 }
 
 impl<T: KVQBinaryStore> QMetaDataStoreWriterSync<F> for T {
@@ -93,6 +99,10 @@ impl<T: KVQBinaryStore> QMetaDataStoreWriterSync<F> for T {
 
     fn set_block_state(&self, block_state: &PsyBlockState) -> anyhow::Result<()> {
         BlockStateTableStore::<T>::set_block_state_ref(self, block_state)
+    }
+
+    fn set_user_event(&self, checkpoint_id: u64, user_id: u64, event_index: u64, event: &PsyUserEventRecord<F>) -> anyhow::Result<()> {
+        UserEventTableStore::<T>::set_event_ref(self, checkpoint_id, user_id, event_index, event)
     }
 }
 
@@ -244,6 +254,22 @@ impl<T: KVQBinaryStore> QTreeDataStoreReaderSync<F> for T {
 
     async fn get_user_registration_tree_merkle_proof(&self, checkpoint_id: u64, leaf_index: u64) -> anyhow::Result<MerkleProofCore<QHashOut<F>>> {
         UserRegistrationTreeStore::<T>::get_leaf_fc(self, checkpoint_id, leaf_index)
+    }
+
+    async fn get_user_event_tree_root(&self, checkpoint_id: u64, user_id: u64) -> anyhow::Result<QHashOut<F>> {
+        UserEventTreeStore::<T>::get_root_fc(self, checkpoint_id, user_id)
+    }
+    async fn get_user_event_tree_leaf_hash(&self, checkpoint_id: u64, user_id: u64, event_index: u64) -> anyhow::Result<QHashOut<F>> {
+        UserEventTreeStore::<T>::get_leaf_value_fc(self, checkpoint_id, user_id, event_index)
+    }
+
+    async fn get_user_event_tree_merkle_proof(
+        &self,
+        checkpoint_id: u64,
+        user_id: u64,
+        event_index: u64,
+    ) -> anyhow::Result<MerkleProofCore<QHashOut<F>>> {
+        UserEventTreeStore::<T>::get_leaf_sfc(self, checkpoint_id, user_id, event_index)
     }
 }
 

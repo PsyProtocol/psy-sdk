@@ -43,6 +43,7 @@ use psy_crypto::{
 };
 use psy_data::{
     config::store_config::{PsyFelt, PsyHasher, QCheckpointSyncInfoCompact},
+    dpn::event_bloom::{BloomConfig, EventBloomFilter, EXPECTED_FALSE_POSITIVE_RATE},
     guta::{
         api::{GUTARealmCheckpointResult, UserEndCapNonProofCoreInputQueueItem},
         header::GlobalUserTreeAggregatorHeader,
@@ -589,6 +590,20 @@ impl<
 
         // Process updates with error handling
         self.store.injest_checked_cst_nodes_imm(&cst_user_update).await?;
+
+        let config = BloomConfig::new_with_events_capacity(1 << 8, EXPECTED_FALSE_POSITIVE_RATE);
+        let mut bloom_filter = EventBloomFilter::new(config);
+        for guta_queue_item in filtered_items.iter() {
+            if guta_queue_item.events.len() != 0 {
+                let user_id = guta_queue_item.input.new_user_leaf.user_id.to_canonical_u64();
+                let user_leaf_data = self.store.get_user_leaf_data(checkpoint_id, user_id).await?;
+                let user_start_event_index = user_leaf_data.event_index.to_canonical_u64();
+                self.store
+                    .injest_user_contract_events_batch_imm(checkpoint_id, user_start_event_index, &guta_queue_item.events)
+                    .await?;
+                bloom_filter.add_events(&guta_queue_item.events)?;
+            }
+        }
 
         let guta_queue_items = filtered_items;
 

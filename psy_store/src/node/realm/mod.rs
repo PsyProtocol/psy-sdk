@@ -6,6 +6,7 @@ use psy_crypto::hash::merkle::{
     utils::{common::QMerkleNode, sub_tree_nca::UpdateNCAProofsWithDependencies},
 };
 use psy_data::{
+    dpn::event::PsyUserEventRecord,
     qdata::{
         checkpoint::{PsyBlockState, PsyCheckpointGlobalStateRoots, PsyCheckpointLeaf},
         contract::{ContractCodeDefinition, PsyContractLeaf},
@@ -200,10 +201,52 @@ pub trait PsyRealmStoreReaderAsync<F: RichField> {
         leaf_index: u64,
     ) -> anyhow::Result<MerkleProofCore<QHashOut<F>>>;
 
+    async fn get_user_event_tree_merkle_proof(
+        &self,
+        checkpoint_id: u64,
+        user_id: u64,
+        event_index: u64,
+    ) -> anyhow::Result<MerkleProofCore<QHashOut<F>>>;
+    async fn get_user_event_tree_merkle_proof_f(&self, checkpoint_id: F, user_id: F, event_index: F) -> anyhow::Result<MerkleProofCore<QHashOut<F>>> {
+        <Self as PsyRealmStoreReaderAsync<F>>::get_user_event_tree_merkle_proof(
+            self,
+            checkpoint_id.to_canonical_u64(),
+            user_id.to_canonical_u64(),
+            event_index.to_canonical_u64(),
+        )
+        .await
+    }
+
+    async fn get_user_event_tree_root(&self, checkpoint_id: u64, user_id: u64) -> anyhow::Result<QHashOut<F>>;
+    async fn get_user_event_tree_root_f(&self, checkpoint_id: F, user_id: F) -> anyhow::Result<QHashOut<F>> {
+        <Self as PsyRealmStoreReaderAsync<F>>::get_user_event_tree_root(self, checkpoint_id.to_canonical_u64(), user_id.to_canonical_u64()).await
+    }
+    async fn get_user_event_tree_leaf_hash(&self, checkpoint_id: u64, user_id: u64, event_index: u64) -> anyhow::Result<QHashOut<F>>;
+    async fn get_user_event_tree_leaf_hash_f(&self, checkpoint_id: F, user_id: F, event_index: F) -> anyhow::Result<QHashOut<F>> {
+        <Self as PsyRealmStoreReaderAsync<F>>::get_user_event_tree_leaf_hash(
+            self,
+            checkpoint_id.to_canonical_u64(),
+            user_id.to_canonical_u64(),
+            event_index.to_canonical_u64(),
+        )
+        .await
+    }
+
     async fn get_user_tree_merkle_proof(&self, checkpoint_id: u64, user_id: u64) -> anyhow::Result<MerkleProofCore<QHashOut<F>>>;
 
     async fn get_user_tree_merkle_proof_f(&self, checkpoint_id: F, user_id: F) -> anyhow::Result<MerkleProofCore<QHashOut<F>>> {
         <Self as PsyRealmStoreReaderAsync<F>>::get_user_tree_merkle_proof(self, checkpoint_id.to_canonical_u64(), user_id.to_canonical_u64()).await
+    }
+
+    async fn get_user_event_data(&self, checkpoint_id: u64, user_id: u64, event_index: u64) -> anyhow::Result<PsyUserEventRecord<F>>;
+    async fn get_user_event_data_f(&self, checkpoint_id: F, user_id: F, event_index: F) -> anyhow::Result<PsyUserEventRecord<F>> {
+        <Self as PsyRealmStoreReaderAsync<F>>::get_user_event_data(
+            self,
+            checkpoint_id.to_canonical_u64(),
+            user_id.to_canonical_u64(),
+            event_index.to_canonical_u64(),
+        )
+        .await
     }
 }
 
@@ -224,6 +267,13 @@ pub trait PsyRealmStoreWriterAsyncImm<F: RichField> {
     async fn injest_user_leaves_batch_imm(&self, checkpoint_id: u64, leaves: &[PsyUserLeaf<F>]) -> anyhow::Result<()>;
     async fn injest_checked_cst_nodes_imm(&self, user_updates: &[CSTUserUpdate<QHashOut<F>>]) -> anyhow::Result<()>;
     async fn injest_checkpoint_sync_data_imm(&self, sync_info: PsyCheckpointSyncInfo<F>) -> anyhow::Result<()>;
+
+    async fn injest_user_contract_events_batch_imm(
+        &self,
+        checkpoint_id: u64,
+        start_event_index: u64,
+        events: &[PsyUserEventRecord<F>],
+    ) -> anyhow::Result<()>;
 
     async fn set_contract_leaf_data_imm(&self, checkpoint_id: u64, contract_id: u64, leaf_data: &PsyContractLeaf<F>) -> anyhow::Result<()>;
     async fn set_contract_leaf_data_f_imm(&self, checkpoint_id: F, contract_id: F, leaf_data: &PsyContractLeaf<F>) -> anyhow::Result<()> {
