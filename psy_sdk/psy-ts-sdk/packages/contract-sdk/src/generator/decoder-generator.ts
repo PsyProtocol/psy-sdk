@@ -1,7 +1,7 @@
 export class DecoderGenerator {
     generate(): string {
         return `// Auto-generated decoder - Do not edit manually
-import { GUint, Decodable } from './types';
+import { Felt, Decodable } from './types';
 
 export class RecursiveDecoder {
   private decoders: Map<string, (data: any) => any> = new Map();

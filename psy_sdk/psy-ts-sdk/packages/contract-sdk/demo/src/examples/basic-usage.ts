@@ -1,5 +1,5 @@
 // src/examples/basic-usage.ts
-import { Contract, Signer } from "../../../generated";
+import { PsyTokenContract as Contract, Signer, PsyFixedArray, Felt } from "../../../generated";
 import { createMemoryWalletProvider } from "../providers";
 import { PsyNetworkConfig, networkConfig } from "../config";
 import { SignType } from "@psy/psy-sdk";
@@ -89,8 +89,11 @@ async function basicUsageExample() {
     // Step 6: Execute a function (signer required)
     console.log("6️⃣ Executing Contract Function...");
     try {
-        await contract.simple_mint(1000n);
-        console.log(`   ✅ Successfully minted 1000 tokens\n`);
+        const recipients = [1, 1, 1, 1, 1] as PsyFixedArray<Felt, 5>;
+        const amounts = [10, 10, 10, 10, 10] as PsyFixedArray<Felt, 5>;
+
+        await contract.batch_simple_transfer(recipients, amounts);
+        console.log(`   ✅ Successfully transferred 10 tokens to each recipient\n`);
     } catch (error) {
         console.error(`   ❌ Error executing function:`, error instanceof Error ? error.message : String(error));
     }
@@ -112,7 +115,10 @@ async function basicUsageExample() {
 
         // But state-changing functions will fail
         try {
-            await readOnlyContract.simple_mint(100n);
+            const recipients = [1, 1, 1, 1, 1] as PsyFixedArray<Felt, 5>;
+            const amounts = [10, 10, 10, 10, 10] as PsyFixedArray<Felt, 5>;
+
+            await contract.batch_simple_transfer(recipients, amounts);
         } catch (error) {
             console.log(
                 `   ✅ Expected error for write operation without signer:`,

@@ -88,9 +88,14 @@ export class AbiConverter {
             return typeId;
         } else if (type.type === "Array") {
             const arrayTypeName = `${type.inner_type}[]`;
-            const typeId = this.typeRegistry.get(arrayTypeName);
+            let typeId = this.typeRegistry.get(arrayTypeName);
+            // If array type is not registered, automatically register it
             if (typeId === undefined) {
-                throw new Error(`Unknown array type: ${arrayTypeName}`);
+                // First ensure the inner type is registered
+                this.getTypeId(type.inner_type);
+                // Then register the array type
+                typeId = this.typeIdCounter++;
+                this.typeRegistry.set(arrayTypeName, typeId);
             }
             return typeId;
         }
@@ -254,11 +259,13 @@ export class AbiConverter {
         const fieldPaths: FieldPath[] = fn.params.map((param: any) => ({
             path: [param.name],
             typeId: this.getTypeId(param.type),
+            type: param.type,
         }));
 
         const returnPaths: FieldPath[] = fn.return.map((ret: any) => ({
             path: ret.name ? [ret.name] : [],
             typeId: this.getTypeId(ret.type),
+            type: ret.type,
         }));
 
         return {
@@ -277,6 +284,7 @@ export class AbiConverter {
             fields: struct.fields.map((field) => ({
                 name: field.name,
                 typeId: this.getTypeId(field.type),
+                type: field.type,
             })),
         };
     }

@@ -3,9 +3,43 @@ export class TypesGenerator {
         return `// Auto-generated type definitions - Do not edit manually
 
 // Common types used throughout the SDK
-export type BigNumberish = bigint | string | number;
-export type GUint = bigint | number;;
-export type GHash = [GUint, GUint, GUint, GUint];
+export type Felt = bigint | number;
+export type GHash = [Felt, Felt, Felt, Felt];
+export type PsyFixedArray<T, L extends number> = ReadonlyArray<T> & { length: L };
+
+export interface ToFelts {
+  toFelts(): Felt[];
+}
+
+export class FeltValue implements ToFelts {
+  constructor(private value: Felt) {}
+
+  toFelts(): Felt[] {
+    return [this.value];
+  }
+
+  getValue(): Felt {
+    return this.value;
+  }
+}
+
+Array.prototype.toFelts = function <T>(): Felt[] {
+  const felts: Felt[] = [];
+  
+  (this as T[]).forEach(item => {
+    if (item && typeof (item as ToFelts).toFelts === "function") {
+      felts.push(...(item as ToFelts).toFelts());
+    } 
+    else if (Array.isArray(item)) {
+      felts.push(...(item as PsyFixedArray<any, any>).toFelts());
+    } 
+    else {
+      felts.push(item as Felt);
+    }
+  });
+
+  return felts;
+};
 
 // Signer interface - holds public key for transaction signing
 export interface ISigner {
@@ -16,14 +50,14 @@ export interface ISigner {
 // Contract provider interface
 export interface IContractProvider {
   getContractState(
-    checkpointId: GUint,
-    contractId: GUint,
-    userId: GUint,
-    slots: GUint[]
-  ): Promise<GUint[]>;
+    checkpointId: Felt,
+    contractId: Felt,
+    userId: Felt,
+    slots: Felt[]
+  ): Promise<Felt[]>;
   
   sendTransaction(
-    contractId: GUint,
+    contractId: Felt,
     functionName: string,
     args: any[],
     publicKey: string
@@ -32,7 +66,7 @@ export interface IContractProvider {
 
 // Decodable interface for recursive decoding
 export interface Decodable<T> {
-  decode(data: GUint[]): T;
+  decode(data: Felt[]): T;
 }
 
 // Standard Signer implementation
@@ -47,14 +81,9 @@ export class Signer implements ISigner {
   }
 
   // Convenience method to attach to a contract
-  attachTo<T>(ContractClass: new (checkpointId: GUint, userId: GUint, contractId: GUint, signer: ISigner) => T, checkpointId: GUint, userId: GUint, contractId: GUint): T {
+  attachTo<T>(ContractClass: new (checkpointId: Felt, userId: Felt, contractId: Felt, signer: ISigner) => T, checkpointId: Felt, userId: Felt, contractId: Felt): T {
     return new ContractClass(checkpointId, userId, contractId, this);
   }
-}
-
-export interface OtherUserInfo {
-  amount_sent: GUint;
-  amount_claimed: GUint;
 }`;
     }
 }

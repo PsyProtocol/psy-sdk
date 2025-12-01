@@ -8,20 +8,22 @@ export class OriginalFormatContractGenerator {
         const functions = this.generateFunctions();
         const helpers = this.generateHelpers();
         const variablePositionsConstant = this.generateVariablePositionsConstant();
+        const structDefinitions = this.generateStructDefinitions();
 
         return `${imports}
+${structDefinitions}
 
 export class ${className} {
   private _provider: IContractProvider;
   private _signer?: ISigner;
   private _checkpointId: Felt;
-  private _contractId: GUint;
-  private _userId: GUint;
+  private _contractId: Felt;
+  private _userId: Felt;
   private _merkleHelper: IMerkleProxyHelper;
   private _decoder: RecursiveDecoder;
   private _stateProxies: Map<string, any> = new Map();
 
-  constructor(checkpointId: GUint, userId: GUint, contractId: GUint, signerOrProvider: ISigner | IContractProvider) {
+  constructor(checkpointId: Felt, userId: Felt, contractId: Felt, signerOrProvider: ISigner | IContractProvider) {
     this._checkpointId = checkpointId;
     this._userId = userId;
     this._contractId = contractId;
@@ -85,7 +87,7 @@ ${variablePositionsConstant}
     private generateImports(): string {
         return `// Auto-generated from ABI - Do not edit manually
 import { RecursiveDecoder } from './decoder';
-import { GUint, BigNumberish, IContractProvider, ISigner } from './types';
+import { Felt, IContractProvider, ISigner, PsyFixedArray } from './types';
 import { keccak256, toBeHex, zeroPadValue } from 'ethers';
 
 // Inline Merkle proxy types and implementation
@@ -93,9 +95,9 @@ interface IMerkleProxyHelper {
   add: (a: any, b: any) => any;
   mul: (a: any, b: any) => any;
   simplify: (x: any) => any;
-  getHashGUint: (index: any) => any;
-  setHashGUint: (index: any, value: any) => any;
-  resolveGUint: (value: any) => any;
+  getHashFelt: (index: any) => any;
+  setHashFelt: (index: any, value: any) => any;
+  resolveFelt: (value: any) => any;
 }
 
 interface IFlatVariablePosition {
@@ -173,7 +175,7 @@ function createVariableProxy(
 ): any {
   // For primitive variables, the baseIndex already includes all necessary offsets
   if (isPrimitiveVariable(position)) {
-    return helper.getHashGUint(baseIndex);
+    return helper.getHashFelt(baseIndex);
   }
   
   // Special handling for array elements marked with '[]'
@@ -184,7 +186,7 @@ function createVariableProxy(
     // Check if it has children (struct) or not (primitive)
     if (position.children.length === 0) {
       // Primitive array element
-      return helper.getHashGUint(baseIndex);
+      return helper.getHashFelt(baseIndex);
     } else {
       // Struct array element - create struct proxy
       return new Proxy({ helper, position, newOffsetIndex: baseIndex }, structVariableProxy);
@@ -234,10 +236,10 @@ function wrapMerkleProxyHelperBasicSimplifier(
     else return helper.simplify(x);
   };
 
-  const resolveGUint = (value: any) => {
+  const resolveFelt = (value: any) => {
     if (typeof value === 'bigint') return value;
     else if (isNumeric(value)) return BigInt(value);
-    else if (typeof value === 'string') return helper.resolveGUint(value);
+    else if (typeof value === 'string') return helper.resolveFelt(value);
     else return value;
   };
 
@@ -246,7 +248,7 @@ function wrapMerkleProxyHelperBasicSimplifier(
     else if (isZero(b)) return simplify(a);
     else if (typeof a === 'bigint' && typeof b === 'bigint') return a + b;
     else if (isNumeric(a) && isNumeric(b)) return BigInt(a) + BigInt(b);
-    else return helper.add(resolveGUint(a), resolveGUint(b));
+    else return helper.add(resolveFelt(a), resolveFelt(b));
   };
 
   const mul = (a: any, b: any) => {
@@ -255,10 +257,10 @@ function wrapMerkleProxyHelperBasicSimplifier(
     else if (isOne(b)) return simplify(a);
     else if (typeof a === 'bigint' && typeof b === 'bigint') return a * b;
     else if (isNumeric(a) && isNumeric(b)) return BigInt(a) * BigInt(b);
-    else return helper.mul(resolveGUint(a), resolveGUint(b));
+    else return helper.mul(resolveFelt(a), resolveFelt(b));
   };
 
-  return { add, mul, simplify, getHashGUint: helper.getHashGUint, setHashGUint: helper.setHashGUint, resolveGUint };
+  return { add, mul, simplify, getHashFelt: helper.getHashFelt, setHashFelt: helper.setHashFelt, resolveFelt };
 }`;
     }
 
@@ -269,7 +271,7 @@ function wrapMerkleProxyHelperBasicSimplifier(
 
                 if (!varPos.children || varPos.children.length === 0) {
                     // Simple variable
-                    return `  get ${getterName}(): Promise<GUint> {
+                    return `  get ${getterName}(): Promise<Felt> {
     const proxy = this._stateProxies.get('${getterName}');
     return proxy;
   }`;
@@ -293,6 +295,17 @@ function wrapMerkleProxyHelperBasicSimplifier(
                 const params = this.generateFunctionParams(fn);
                 const hasReturn = fn.return_size > 0;
                 const returnType = hasReturn ? "Promise<any>" : "Promise<void>";
+        
+        const argNames = this.getFunctionArgNames(fn);
+        const serializeCode = argNames.length > 0 ? `
+          const serializedArgs: Felt[] = [];
+          ${argNames.map(name => `
+          if (typeof ${name} === 'object' && ${name} !== null && typeof ${name}.toFelts === 'function') {
+            serializedArgs.push(...${name}.toFelts());
+          } else {
+            serializedArgs.push(${name} as Felt);
+          }`).join('\n    ')}
+          ` : "const serializedArgs: Felt[] = [];";
 
                 return `  async ${fn.name}(${params}): ${returnType} {
     // Check if we have a signer for state-changing functions
@@ -300,11 +313,11 @@ function wrapMerkleProxyHelperBasicSimplifier(
     if (!isViewFunction && !this._signer) {
       throw new Error('Signer required for state-changing functions. Use contract.attach(signer)');
     }
-
+    ${serializeCode}
     const result = await this._provider.sendTransaction(
       this._contractId,
       '${fn.name}',
-      [${this.getFunctionArgNames(fn).join(", ")}],
+      serializedArgs,
       this._signer?.publicKey
     );${hasReturn ? "\n    return this._decoder.decodeReturnValue(result);" : ""}
   }`;
@@ -331,10 +344,36 @@ function wrapMerkleProxyHelperBasicSimplifier(
         return fn.field_flat_paths
             .map((field: any) => {
                 const paramName = field.path[0] || "value";
-                return `${paramName}: BigNumberish`;
+                const tsType = this.getTypeScriptType(field.type);
+                return `${paramName}: ${tsType}`;
             })
             .join(", ");
     }
+  
+  private getTypeScriptType(type: any): string {
+    if (typeof type === 'string') {
+      // Handle basic types and struct references
+      switch (type) {
+        case 'Felt':
+        case 'felt':
+        case 'u32':
+          return 'Felt';
+        case 'Bool':
+        case 'bool':
+          return 'boolean';
+        default:
+          // Assume it's a struct reference
+          return type;
+      }
+    } else if (typeof type === 'object' && type.type === 'Array') {
+      const innerType = this.getTypeScriptType(type.inner_type);
+      // For fixed size arrays, use the PsyFixedArray type
+      return `PsyFixedArray<${innerType}, ${type.length}>`;
+    }
+    
+    // Default fallback
+    return 'Felt';
+  }
 
     private getFunctionArgNames(fn: any): string[] {
         if (!fn.field_flat_paths || fn.field_flat_paths.length === 0) {
@@ -355,7 +394,7 @@ function wrapMerkleProxyHelperBasicSimplifier(
         if (typeof x === 'string' && /^\\d+$/.test(x)) return BigInt(x);
         return x;
       },
-      getHashGUint: async (index: any) => {
+      getHashFelt: async (index: any) => {
         // IMPORTANT: Pass the raw offset to the provider
         // The provider will convert offset -> slot
         const offset = this._calculateOffset(index);
@@ -367,16 +406,16 @@ function wrapMerkleProxyHelperBasicSimplifier(
         );
         return data[0] || BigInt(0);
       },
-      setHashGUint: async (index: any, value: any) => {
+      setHashFelt: async (index: any, value: any) => {
         throw new Error('Direct state writes not supported');
       },
-      resolveGUint: (value: any) => BigInt(value)
+      resolveFelt: (value: any) => BigInt(value)
     };
     
     return wrapMerkleProxyHelperBasicSimplifier(baseHelper);
   }
 
-  private _calculateOffset(index: any): GUint {
+  private _calculateOffset(index: any): Felt {
     // This returns the raw offset without any conversion
     if (typeof index === 'bigint') return index;
     if (typeof index === 'number') return BigInt(index);
@@ -386,7 +425,7 @@ function wrapMerkleProxyHelperBasicSimplifier(
     return BigInt(index);
   }
 
-  private _keccak256(key: GUint, base: GUint): GUint {
+  private _keccak256(key: Felt, base: Felt): Felt {
     const keyBytes = zeroPadValue(toBeHex(key), 32);
     const baseBytes = zeroPadValue(toBeHex(base), 32);
     const encoded = keyBytes + baseBytes.slice(2); // Remove '0x' from second value
@@ -420,5 +459,82 @@ function wrapMerkleProxyHelperBasicSimplifier(
         2
     ).replace(/"(\d+)n"/g, "$1n")}; // Convert back to bigint literals
   }`;
+  }
+
+  private generateStructDefinitions(): string {
+    let structDefinitions = '';
+    const structs = this.contract.structs;
+    console.log(structs[0]);
+
+    for (const struct of structs) {
+      if (!struct.is_contract) {
+        if (structDefinitions) {
+          structDefinitions += '\n\n';
+        }
+        structDefinitions += this.generateStructDefinition(struct);
+      }
     }
+
+    return structDefinitions;
+  }
+
+  private generateStructDefinition(struct: any): string {
+  const structName = struct.name;
+
+  const fieldDefinitions = struct.fields
+    .map((field: any) => {
+      const fieldName = field.name;
+      const fieldType = this.getTypeScriptType(field.type);
+      return `  ${fieldName}: ${fieldType};`;
+    })
+    .join('\n');
+
+  const constructorParams = struct.fields
+    .map((field: any) => `${field.name}: ${this.getTypeScriptType(field.type)}`)
+    .join(', ');
+  const constructorAssignments = struct.fields
+    .map((field: any) => `this.${field.name} = ${field.name};`)
+    .join('\n    ');
+  const constructor = `
+  constructor(${constructorParams}) {
+    ${constructorAssignments}
+  }`;
+
+  const toFeltsBody = this.generateToFeltsBody(struct);
+  const toFeltsMethod = `
+  toFelts(): Felt[] {
+    const felts: Felt[] = [];
+    ${toFeltsBody}
+    return felts;
+  }`;
+
+  return `export class ${structName} {
+${fieldDefinitions}
+${constructor}
+${toFeltsMethod}
+}`;
+}
+
+private generateToFeltsBody(struct: any): string {
+  return struct.fields.map(field => {
+    const fieldName = field.name;
+    const fieldType = field.type;
+
+    if (fieldType.type === 'Array') {
+      const innerType = fieldType.inner_type;
+      const isStruct = this.contract.structs.some(s => s.name === innerType);
+      if (isStruct) {
+        return `this.${fieldName}.forEach(item => { felts.push(...item.toFelts()); });`;
+      } else {
+        return `this.${fieldName}.forEach(item => { felts.push(item); });`;
+      }
+    }
+
+    if (this.contract.structs.some(s => s.name === fieldType)) {
+      return `felts.push(...this.${fieldName}.toFelts());`;
+    }
+
+    return `felts.push(this.${fieldName});`;
+  }).join('\n    ');
+}
 }
