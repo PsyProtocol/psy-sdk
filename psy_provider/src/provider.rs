@@ -313,7 +313,7 @@ macro_rules! psy_rpc_call_back {
 #[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
 #[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
 pub trait QUserRpcProvider {
-    async fn register_user<F: RichField>(&self, req: QRegisterUserRPCRequest<F>) -> anyhow::Result<()>;
+    async fn register_user<F: RichField>(&self, req: QRegisterUserRPCRequest<F>) -> anyhow::Result<String>;
     async fn produce_block<F: RichField>(&self) -> anyhow::Result<()>;
     async fn add_withdrawal<F: RichField>(&self, req: QAddWithdrawalRPCRequest) -> anyhow::Result<()>;
 
@@ -329,10 +329,21 @@ pub trait QUserRpcProvider {
 #[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
 #[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
 impl QUserRpcProvider for RpcProvider {
-    async fn register_user<F: RichField>(&self, req: QRegisterUserRPCRequest<F>) -> anyhow::Result<()> {
+    async fn register_user<F: RichField>(&self, req: QRegisterUserRPCRequest<F>) -> anyhow::Result<String> {
         tracing::info!("register user: {:?}", req);
         let url = self.get_coordinator_url()?;
-        psy_rpc_call!(self, url, RequestParams::<F>::RegisterUser(req))
+
+        let response = psy_rpc_call_back!(self, url, RequestParams::<F>::RegisterUser(req), String);
+        match response.result {
+            ResponseResult::Success(regisiter_user_uuid) => {
+                tracing::debug!("registered user {}", regisiter_user_uuid);
+                Ok(regisiter_user_uuid)
+            }
+            ResponseResult::Error(e) => {
+                tracing::error!("RPC call failed: {:?}", e);
+                Err(anyhow::format_err!("deploy_contract rpc call failed `{:?}`", e))
+            }
+        }
     }
     async fn produce_block<F: RichField>(&self) -> anyhow::Result<()> {
         tracing::info!("produce block");

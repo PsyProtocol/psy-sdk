@@ -13,7 +13,7 @@ use psy_crypto::{hash::traits::qhashable::QFieldHashable, signature::zk::wallet:
 use psy_data::{
     config::store_config::{PsyHasher, C, D, F},
     qblock::cmds::deploy_contract::QBCDeployContract,
-    qdata::{contract::ContractCodeDefinition, contract_uuid::ContractUUID},
+    qdata::{contract::ContractCodeDefinition, uuid::ContractUUID},
 };
 use psy_dpn_circuit::circuits::cfc::DapenContractFunctionCircuit;
 use psy_prover::{

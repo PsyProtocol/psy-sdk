@@ -5,19 +5,24 @@ use psy_common::data::qhashout::QHashOut;
 use psy_config::network_constants::GLOBAL_USER_TREE_HEIGHT;
 use psy_crypto::hash::merkle::core::MerkleProofCore;
 use psy_data::{
-    config::store_config::{CheckpointSyncInfoTableStore, ContractMetaDataTableStore, RealmStatusTableStore, UserPublicKeyTableStore, UserTreeStore},
+    config::store_config::{
+        CheckpointSyncInfoTableStore, ContractMetaDataTableStore, RealmStatusTableStore, RegisterUserMetaDataTableStore, UserPublicKeyTableStore,
+        UserTreeStore,
+    },
     models::{
         checkpoint::{sync_info::PsyCheckpointSyncInfoModelReaderCore, user_public_keys::PsyUserPublicKeyHelperModelReaderCore},
         contract_metadata::ContractMetaDataModelReaderCore,
         kvq_merkle::model::{KVQFixedConfigMerkleTreeModelReaderCore, KVQMerkleTreeModelReaderCore},
         realm_status::RealmStatusModelReaderCore,
+        register_user_metadata::RegisterUserMetaDataModelReaderCore,
     },
     qdata::{
         checkpoint::{PsyBlockState, PsyCheckpointGlobalStateRoots, PsyCheckpointLeaf},
         contract::{ContractCodeDefinition, PsyContractLeaf},
         contract_metadata::ContractMetaData,
-        contract_uuid::ContractUUID,
         realm_status::BasicRealmStatus,
+        register_user_metadata::RegisterUserMetaData,
+        uuid::{ContractUUID, RegisterUserUUID},
     },
     qsync::coordinator::PsyCheckpointSyncInfoCompact,
     traits::qdatastore::{qmetadata::QMetaDataStoreReaderSync, qtreedata::QTreeDataStoreReaderSync},
@@ -183,5 +188,12 @@ impl<T: KVQBinaryStore> PsyCoordinatorStoreReaderAsync<F> for T {
 
     async fn get_contract_metadatas(&self, contract_uuids: &[ContractUUID]) -> anyhow::Result<Vec<ContractMetaData<F>>> {
         Ok(ContractMetaDataTableStore::<Self, F>::get_contract_metadatas_by_id(self, contract_uuids)?)
+    }
+
+    async fn get_register_user_metadatas(&self, register_user_uuids: &[RegisterUserUUID]) -> anyhow::Result<Vec<RegisterUserMetaData<F>>> {
+        Ok(RegisterUserMetaDataTableStore::<Self, F>::get_register_user_metadatas_by_id(
+            self,
+            register_user_uuids,
+        )?)
     }
 }

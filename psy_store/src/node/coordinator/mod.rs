@@ -1,7 +1,12 @@
 use async_trait::async_trait;
 use plonky2::hash::hash_types::{HashOut, RichField};
 use psy_common::data::qhashout::QHashOut;
-use psy_data::qdata::{contract_metadata::ContractMetaData, contract_uuid::ContractUUID, realm_status::BasicRealmStatus};
+use psy_data::qdata::{
+    contract_metadata::ContractMetaData,
+    realm_status::BasicRealmStatus,
+    register_user_metadata::RegisterUserMetaData,
+    uuid::{ContractUUID, RegisterUserUUID},
+};
 
 #[derive(Debug, Clone)]
 pub struct InitializeParams<F: RichField> {
@@ -272,6 +277,18 @@ pub trait PsyCoordinatorStoreReaderAsync<F: RichField>: Send + Sync {
         Ok(contract_metadatas[0])
     }
     async fn get_contract_metadatas(&self, contract_uuids: &[ContractUUID]) -> anyhow::Result<Vec<ContractMetaData<F>>>;
+
+    async fn get_register_user_metadata(&self, register_user_uuid: RegisterUserUUID) -> anyhow::Result<RegisterUserMetaData<F>> {
+        let register_user_metadatas = self.get_register_user_metadatas(&[register_user_uuid]).await?;
+        if register_user_metadatas.len() != 1 {
+            return Err(anyhow::anyhow!(
+                "get_register_user_metadata should return only 1, but return {} register user metadata",
+                register_user_metadatas.len()
+            ));
+        }
+        Ok(register_user_metadatas[0])
+    }
+    async fn get_register_user_metadatas(&self, register_user_uuids: &[RegisterUserUUID]) -> anyhow::Result<Vec<RegisterUserMetaData<F>>>;
 }
 #[async_trait]
 pub trait PsyCoordinatorStoreWriterAsyncImm<F: RichField> {
@@ -446,4 +463,19 @@ pub trait PsyCoordinatorStoreWriterAsyncImm<F: RichField> {
     }
 
     async fn set_contract_metadatas(&self, contract_uuids: &[ContractUUID], contract_metadatas: &[ContractMetaData<F>]) -> anyhow::Result<()>;
+
+    async fn set_register_user_metadata(
+        &self,
+        register_user_uuid: RegisterUserUUID,
+        register_user_metadata: &RegisterUserMetaData<F>,
+    ) -> anyhow::Result<()> {
+        self.set_register_user_metadatas(&[register_user_uuid], &[register_user_metadata.clone()])
+            .await
+    }
+
+    async fn set_register_user_metadatas(
+        &self,
+        register_user_uuids: &[RegisterUserUUID],
+        register_user_metadatas: &[RegisterUserMetaData<F>],
+    ) -> anyhow::Result<()>;
 }

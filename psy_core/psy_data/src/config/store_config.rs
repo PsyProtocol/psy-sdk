@@ -29,6 +29,7 @@ use crate::{
         },
         realm_root_version::RealmRootVersionModel,
         realm_status::RealmStatusModel,
+        register_user_metadata::RegisterUserMetaDataModel,
         snapshot::RealmSnapshotModel,
         staging::{staging_checkpoint_info::StagingCheckpointInfoModel, staging_delta_record::StagingDeltaRecordModelCore},
         user::{user_event::UserEventModel, user_leaf::UserLeafModel},
@@ -38,13 +39,13 @@ use crate::{
         checkpoint_id_key::CheckpointTableIdKey,
         contract::{ContractCodeDefinition, PsyContractLeaf},
         contract_metadata::ContractMetaData,
-        contract_uuid::ContractTableIdKey,
         event_key::EventTableIdKey,
         hash_cache_result::PsyHashHelperResult,
         hash_key::Hash4x64Key,
         hash_key_with_id::Hash4x64KeyWithId,
         realm_id_key::RealmTableIdKey,
         realm_status::BasicRealmStatus,
+        register_user_metadata::RegisterUserMetaData,
         staging_checkpoint_info::StagingCheckpointInfo,
         staging_checkpoint_key::StagingCheckpointKey,
         staging_delta_record_key::StagingDeltaRecordKey,
@@ -105,6 +106,9 @@ pub const REALM_ROOT_VERSION_TABLE_TYPE: u16 = 23;
 pub const USER_EVENT_TABLE_TYPE: u16 = 24;
 pub const USER_EVENT_TREE_TABLE_TYPE: u16 = 25;
 
+// User registration id table type
+pub const USER_REGISTRATION_METADATA_TABLE_TYPE: u16 = 26;
+
 // Legacy - kept for backward compatibility, should not be used for new trees
 pub const PROTOCOL_TREE_TABLE_TYPE: u16 = 100;
 
@@ -157,8 +161,14 @@ pub type RealmStatusTableStore<S, F = PsyFelt, IDKVA = KVQStandardAdapter<S, Rea
 pub type ContractMetaDataTableStore<
     S,
     F = PsyFelt,
-    IDKVA = KVQStandardAdapter<S, ContractTableIdKey<CONTRACT_METADATA_TABLE_TYPE>, ContractMetaData<F>>,
+    IDKVA = KVQStandardAdapter<S, CheckpointTableIdKey<CONTRACT_METADATA_TABLE_TYPE>, ContractMetaData<F>>,
 > = ContractMetaDataModel<CONTRACT_METADATA_TABLE_TYPE, S, F, IDKVA>;
+
+pub type RegisterUserMetaDataTableStore<
+    S,
+    F = PsyFelt,
+    IDKVA = KVQStandardAdapter<S, CheckpointTableIdKey<USER_REGISTRATION_METADATA_TABLE_TYPE>, RegisterUserMetaData<F>>,
+> = RegisterUserMetaDataModel<USER_REGISTRATION_METADATA_TABLE_TYPE, S, F, IDKVA>;
 
 // Generic protocol tree template - no longer used directly
 pub type ProtocolTreeStore<
