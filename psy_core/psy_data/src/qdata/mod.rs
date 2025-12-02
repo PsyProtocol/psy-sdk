@@ -21,5 +21,6 @@ pub mod ups_end_cap_result;
 pub mod ups_signature;
 pub mod user;
 pub mod user_contract_state;
+pub mod user_endcap_metadata;
 pub mod user_public_key;
 pub mod uuid;

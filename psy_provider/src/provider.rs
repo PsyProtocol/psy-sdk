@@ -31,7 +31,7 @@ use psy_crypto::{
 };
 use psy_data::{
     config::store_config::{PsyFelt, PsyHasher},
-    qdata::{checkpoint::PsyBlockState, contract::ContractCodeDefinition, user},
+    qdata::{checkpoint::PsyBlockState, contract::ContractCodeDefinition, user, uuid::UserEndCapUUID},
     qstore::controllers::session_info::SessionCircuitInfoStore,
     traits::qdatastore::{qmetadata::QMetaDataStoreReaderSync, qtreedata::QTreeDataStoreReaderSync},
     ups::{
@@ -323,7 +323,7 @@ pub trait QUserRpcProvider {
 
     async fn deploy_contract<F: RichField>(&self, req: QDeployContractRPCRequest<F>) -> anyhow::Result<String>;
 
-    async fn submit_end_cap_proof<F: RichField>(&self, req: QSubmitEndCapRPCRequest<F>) -> anyhow::Result<()>;
+    async fn submit_end_cap_proof<F: RichField>(&self, req: QSubmitEndCapRPCRequest<F>) -> anyhow::Result<UserEndCapUUID>;
 }
 
 #[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
@@ -377,9 +377,19 @@ impl QUserRpcProvider for RpcProvider {
         }
     }
 
-    async fn submit_end_cap_proof<F: RichField>(&self, req: QSubmitEndCapRPCRequest<F>) -> anyhow::Result<()> {
+    async fn submit_end_cap_proof<F: RichField>(&self, req: QSubmitEndCapRPCRequest<F>) -> anyhow::Result<UserEndCapUUID> {
         let rpc_url = self.get_realm_url(self.current_user_id)?;
-        psy_rpc_call!(self, rpc_url, RequestParams::<F>::SubmitEndCap(req))
+        let response = psy_rpc_call_back!(self, rpc_url, RequestParams::<F>::SubmitEndCap(req), UserEndCapUUID);
+        match response.result {
+            ResponseResult::Success(end_cap_uuid) => {
+                tracing::debug!("submitted end cap {}", end_cap_uuid.to_string());
+                Ok(end_cap_uuid)
+            }
+            ResponseResult::Error(e) => {
+                tracing::error!("RPC call failed: {:?}", e);
+                Err(anyhow::format_err!("submit_end_cap_proof rpc call failed `{:?}`", e))
+            }
+        }
     }
 }
 

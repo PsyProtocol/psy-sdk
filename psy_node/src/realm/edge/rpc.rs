@@ -11,6 +11,8 @@ use psy_data::{
     qdata::{
         checkpoint::{PsyBlockState, PsyCheckpointGlobalStateRoots, PsyCheckpointLeaf},
         user::PsyUserLeaf,
+        user_endcap_metadata::UserEndCapMetaData,
+        uuid::UserEndCapUUID,
     },
 };
 use psy_prover::session::TxStatus;
@@ -25,7 +27,11 @@ pub trait RealmEdgeRpc {
 
     /// Submit user end cap proof
     #[method(name = "submit_user_end_cap")]
-    async fn submit_user_end_cap(&self, user_ec_input: SubmitUserEndCapNonProofInput<F>, proof: ProofWithPublicInputs<F, C, D>) -> RpcResult<String>;
+    async fn submit_user_end_cap(
+        &self,
+        user_ec_input: SubmitUserEndCapNonProofInput<F>,
+        proof: ProofWithPublicInputs<F, C, D>,
+    ) -> RpcResult<UserEndCapUUID>;
 
     #[method(name = "get_tx_status")]
     async fn get_tx_status(&self, user_id: u64, nonce: u64) -> RpcResult<TxStatus>;
@@ -307,4 +313,7 @@ pub trait RealmEdgeRpc {
 
     #[method(name = "get_user_event_data")]
     async fn get_user_event_data(&self, checkpoint_id: u64, user_id: u64, event_index: u64) -> RpcResult<PsyUserEventRecord<F>>;
+
+    #[method(name = "get_user_endcap_metadata")]
+    async fn get_user_endcap_metadata(&self, user_endcap_uuid: String) -> RpcResult<UserEndCapMetaData<F>>;
 }

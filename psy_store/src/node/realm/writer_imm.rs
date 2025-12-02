@@ -22,8 +22,8 @@ use psy_crypto::{
 use psy_data::{
     config::store_config::{
         BaseContractStateTreeStore, CheckpointHashHelperTableStore, CheckpointLeafTableStore, CheckpointSyncInfoTableStore, CheckpointTreeStore,
-        PsyHasher, UserContractTreeStore, UserEventTreeStore, UserPublicKeyTableStore, UserRegistrationTreeStore, UserTreeStore,
-        CONTRACT_STATE_TREE_ID, USER_CONTRACT_STATE_TREE_TABLE_TYPE, USER_EVENT_TREE_TABLE_TYPE,
+        PsyHasher, UserContractTreeStore, UserEndcapMetaDataTableStore, UserEventTreeStore, UserPublicKeyTableStore, UserRegistrationTreeStore,
+        UserTreeStore, CONTRACT_STATE_TREE_ID, USER_CONTRACT_STATE_TREE_TABLE_TYPE, USER_EVENT_TREE_TABLE_TYPE,
     },
     dpn::event::PsyUserEventRecord,
     models::{
@@ -38,11 +38,14 @@ use psy_data::{
                 KVQSemiFixedConfigMerkleTreeModelReaderCore,
             },
         },
+        user_endcap_metadata::UserEndcapMetaDataModelCore,
     },
     qdata::{
         contract::{ContractCodeDefinition, PsyContractLeaf},
         user::PsyUserLeaf,
+        user_endcap_metadata::UserEndCapMetaData,
         user_public_key::PsyUserPublicKeyRecord,
+        uuid::UserEndCapUUID,
     },
     qstore::uct_merkle_nodes::CSTUserUpdate,
     qsync::coordinator::{PsyCheckpointSyncInfo, PsyCheckpointSyncInfoCompact},
@@ -241,5 +244,13 @@ impl<T: KVQBinaryStore> PsyRealmStoreWriterAsyncImm<F> for T {
         UserEventTreeStore::<Self>::set_nodes(self, &nodes)?;
 
         Ok(())
+    }
+
+    async fn set_user_endcap_metadatas(
+        &self,
+        user_endcap_uuids: &[UserEndCapUUID],
+        user_endcap_metadatas: &[UserEndCapMetaData<F>],
+    ) -> anyhow::Result<()> {
+        UserEndcapMetaDataTableStore::<Self>::set_user_endcap_metadatas(self, user_endcap_uuids, user_endcap_metadatas)
     }
 }

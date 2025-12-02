@@ -34,6 +34,7 @@ use psy_data::{
         api::{SimpleContractHeightCache, UserEndCapNonProofCoreInputQueueItem},
         end_cap_input::SubmitUserEndCapNonProofInput,
     },
+    qdata::uuid::UserEndCapUUID,
     qstore::controllers::register_helpers::get_new_empty_user_leaf,
 };
 use psy_prover::session::TxStatus;
@@ -91,7 +92,7 @@ impl<SR: PsyRealmStoreReaderAsync<F> + Sync, DQ: CheckpointDrainQueueEmitterAsyn
         &self,
         input: SubmitUserEndCapNonProofInput<F>,
         proof: &ProofWithPublicInputs<F, C, D>,
-    ) -> anyhow::Result<()> {
+    ) -> anyhow::Result<UserEndCapUUID> {
         debug!("Processing user end cap input: {}", serde_json::to_string_pretty(&input)?);
         // start validation
         if proof.public_inputs.len() != 4 {
@@ -268,13 +269,19 @@ impl<SR: PsyRealmStoreReaderAsync<F> + Sync, DQ: CheckpointDrainQueueEmitterAsyn
             channel_id: self.realm_config.guta_channel_id,
         };
 
+        let user_endcap_uuid = UserEndCapUUID {
+            checkpoint_id: queue_item.checkpoint_id,
+            uuid: queue_item.input.state_transition.end_user_leaf_hash.0.elements[0].to_noncanonical_u64(),
+        };
+        tracing::debug!("user_endcap_uuid: {}", user_endcap_uuid.to_string());
+
         tracing::info!("queue item pretty: {}", serde_json::to_string_pretty(&queue_item).unwrap());
 
         self.checkpoint_queue.cdq_push_imm(queue_item).await?;
 
         debug!("enqueued queue item successfully");
 
-        Ok(())
+        Ok(user_endcap_uuid)
     }
 
     pub async fn get_tx_status(&self, user_id: u64, nonce: u64) -> anyhow::Result<TxStatus> {

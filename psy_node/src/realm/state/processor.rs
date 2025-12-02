@@ -54,7 +54,7 @@ use psy_data::{
         },
         stats::GUTAStats,
     },
-    qdata::{checkpoint::PsyCheckpointLeafCompactWithStateRoots, user::PsyUserLeaf},
+    qdata::{checkpoint::PsyCheckpointLeafCompactWithStateRoots, user::PsyUserLeaf, user_endcap_metadata::UserEndCapMetaData, uuid::UserEndCapUUID},
     qstore::uct_merkle_nodes::CSTUserUpdate,
 };
 use psy_store::{
@@ -517,7 +517,9 @@ impl<
                 checkpoint_id,
             )
             .await?;
+        debug!("_consumption_state: {:?}", _consumption_state);
         consumption_state.push(_consumption_state);
+
         debug!(guta_queue_items = %serde_json::to_string_pretty(&guta_queue_items)?, "GUTA queue items for aggregation");
 
         let real_checkpoint_id = checkpoint_id.saturating_sub(1);
@@ -606,6 +608,26 @@ impl<
         }
 
         let guta_queue_items = filtered_items;
+
+        // Process user endcap metadata
+        for guta_queue_item in guta_queue_items.iter() {
+            let user_endcap_uuid = UserEndCapUUID {
+                checkpoint_id: guta_queue_item.checkpoint_id,
+                uuid: guta_queue_item.input.state_transition.end_user_leaf_hash.0.elements[0].to_noncanonical_u64(),
+            };
+
+            tracing::debug!("user_endcap_uuid: {}", user_endcap_uuid.to_string());
+
+            let user_endcap_metadata = UserEndCapMetaData {
+                checkpoint_id,
+                realm_id: self.realm_config.realm_id,
+                user_id: guta_queue_item.input.new_user_leaf.user_id.to_canonical_u64(),
+                start_user_leaf_hash: guta_queue_item.input.state_transition.start_user_leaf_hash,
+                end_user_leaf_hash: guta_queue_item.input.state_transition.end_user_leaf_hash,
+            };
+
+            self.store.set_user_endcap_metadata(user_endcap_uuid, &user_endcap_metadata).await?;
+        }
 
         if guta_queue_items.len() == 0 {
             debug!("No GUTA queue items to aggregate");
@@ -995,6 +1017,7 @@ impl<
     }
 
     async fn commit_offset(&self, checkpoint_id: u64, queue_offset_state: Vec<QueueOffsetState>) -> anyhow::Result<()> {
+        debug!("commit_offset for queue_offset_state: {:?}", queue_offset_state);
         if let Some(state) = self.sync_queue.get_last_peek_offset().await? {
             self.sync_queue.commit_offset(&state).await?;
         }

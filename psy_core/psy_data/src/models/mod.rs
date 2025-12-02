@@ -8,3 +8,4 @@ pub mod register_user_metadata;
 pub mod snapshot;
 pub mod staging;
 pub mod user;
+pub mod user_endcap_metadata;

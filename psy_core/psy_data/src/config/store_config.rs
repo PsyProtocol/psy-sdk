@@ -33,6 +33,7 @@ use crate::{
         snapshot::RealmSnapshotModel,
         staging::{staging_checkpoint_info::StagingCheckpointInfoModel, staging_delta_record::StagingDeltaRecordModelCore},
         user::{user_event::UserEventModel, user_leaf::UserLeafModel},
+        user_endcap_metadata::UserEndcapMetaDataModel,
     },
     qdata::{
         checkpoint::{PsyBlockState, PsyCheckpointLeaf},
@@ -51,6 +52,7 @@ use crate::{
         staging_delta_record_key::StagingDeltaRecordKey,
         u64_key::U64TableKey,
         user::PsyUserLeaf,
+        user_endcap_metadata::UserEndCapMetaData,
         user_public_key::PsyUserPublicKeyRecord,
     },
     qsync::coordinator::PsyCheckpointSyncInfoCompact,
@@ -108,6 +110,9 @@ pub const USER_EVENT_TREE_TABLE_TYPE: u16 = 25;
 
 // User registration id table type
 pub const USER_REGISTRATION_METADATA_TABLE_TYPE: u16 = 26;
+
+// User endcap id table type
+pub const USER_ENDCAP_METADATA_TABLE_TYPE: u16 = 27;
 
 // Legacy - kept for backward compatibility, should not be used for new trees
 pub const PROTOCOL_TREE_TABLE_TYPE: u16 = 100;
@@ -169,6 +174,12 @@ pub type RegisterUserMetaDataTableStore<
     F = PsyFelt,
     IDKVA = KVQStandardAdapter<S, CheckpointTableIdKey<USER_REGISTRATION_METADATA_TABLE_TYPE>, RegisterUserMetaData<F>>,
 > = RegisterUserMetaDataModel<USER_REGISTRATION_METADATA_TABLE_TYPE, S, F, IDKVA>;
+
+pub type UserEndcapMetaDataTableStore<
+    S,
+    F = PsyFelt,
+    IDKVA = KVQStandardAdapter<S, CheckpointTableIdKey<USER_ENDCAP_METADATA_TABLE_TYPE>, UserEndCapMetaData<F>>,
+> = UserEndcapMetaDataModel<USER_ENDCAP_METADATA_TABLE_TYPE, S, F, IDKVA>;
 
 // Generic protocol tree template - no longer used directly
 pub type ProtocolTreeStore<

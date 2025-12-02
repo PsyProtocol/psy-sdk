@@ -7,6 +7,7 @@ use crate::qdata::checkpoint_id_key::CheckpointTableIdKey;
 
 pub type ContractUUID = CheckpointUUID;
 pub type RegisterUserUUID = CheckpointUUID;
+pub type UserEndCapUUID = CheckpointUUID;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct CheckpointUUID {

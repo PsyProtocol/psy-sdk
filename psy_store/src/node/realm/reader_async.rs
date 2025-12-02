@@ -5,15 +5,18 @@ use psy_common::data::qhashout::QHashOut;
 use psy_config::network_constants::GLOBAL_USER_TREE_HEIGHT;
 use psy_crypto::hash::merkle::core::MerkleProofCore;
 use psy_data::{
-    config::store_config::{CheckpointSyncInfoTableStore, UserPublicKeyTableStore, UserTreeStore},
+    config::store_config::{CheckpointSyncInfoTableStore, UserEndcapMetaDataTableStore, UserPublicKeyTableStore, UserTreeStore},
     dpn::event::PsyUserEventRecord,
     models::{
         checkpoint::{sync_info::PsyCheckpointSyncInfoModelReaderCore, user_public_keys::PsyUserPublicKeyHelperModelReaderCore},
         kvq_merkle::model::KVQFixedConfigMerkleTreeModelReaderCore,
+        user_endcap_metadata::UserEndcapMetaDataModelReaderCore,
     },
     qdata::{
         checkpoint::{PsyBlockState, PsyCheckpointGlobalStateRoots, PsyCheckpointLeaf},
         user::PsyUserLeaf,
+        user_endcap_metadata::UserEndCapMetaData,
+        uuid::UserEndCapUUID,
     },
     traits::qdatastore::{qmetadata::QMetaDataStoreReaderSync, qtreedata::QTreeDataStoreReaderSync},
 };
@@ -158,5 +161,12 @@ impl<T: KVQBinaryStore> PsyRealmStoreReaderAsync<F> for T {
 
     async fn get_user_event_data(&self, checkpoint_id: u64, user_id: u64, event_index: u64) -> anyhow::Result<PsyUserEventRecord<F>> {
         <Self as QMetaDataStoreReaderSync<F>>::get_user_event_data(self, checkpoint_id, user_id, event_index).await
+    }
+
+    async fn get_user_endcap_metadatas(&self, user_endcap_uuids: &[UserEndCapUUID]) -> anyhow::Result<Vec<UserEndCapMetaData<F>>> {
+        Ok(UserEndcapMetaDataTableStore::<Self, F>::get_user_endcap_metadatas_by_id(
+            self,
+            user_endcap_uuids,
+        )?)
     }
 }

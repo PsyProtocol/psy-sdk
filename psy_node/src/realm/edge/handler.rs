@@ -1,4 +1,4 @@
-use std::{sync::Arc, time::Duration};
+use std::{str::FromStr, sync::Arc, time::Duration};
 
 use anyhow::{anyhow, bail, ensure};
 use async_trait::async_trait;
@@ -43,6 +43,8 @@ use psy_data::{
     qdata::{
         checkpoint::{PsyBlockState, PsyCheckpointGlobalStateRoots, PsyCheckpointLeaf},
         user::PsyUserLeaf,
+        user_endcap_metadata::UserEndCapMetaData,
+        uuid::UserEndCapUUID,
     },
 };
 use psy_network_circuit::verify_witness::verify_witness_and_proof;
@@ -127,7 +129,11 @@ where
         Ok(self.ctx.includes_user_id(user_id))
     }
 
-    async fn submit_user_end_cap(&self, user_ec_input: SubmitUserEndCapNonProofInput<F>, proof: ProofWithPublicInputs<F, C, D>) -> RpcResult<String> {
+    async fn submit_user_end_cap(
+        &self,
+        user_ec_input: SubmitUserEndCapNonProofInput<F>,
+        proof: ProofWithPublicInputs<F, C, D>,
+    ) -> RpcResult<UserEndCapUUID> {
         let checkpoint_id = self
             .ctx
             .store_reader
@@ -136,11 +142,18 @@ where
             .map_err(RpcError::Anyhow)?
             .checkpoint_id;
         let slot_updates = user_ec_input.get_slot_updates().map_err(RpcError::Anyhow)?;
+        let user_endcap_uuid = self
+            .ctx
+            .handle_recv_end_cap_from_user(user_ec_input.clone(), &proof)
+            .await
+            .map_err(RpcError::Anyhow)?;
+
         let endcap_event = UserEndcapSubmissionEvent {
             realm_id: self.ctx.realm_config.realm_id as u64,
             user_id: user_ec_input.core.state_transition.user_id.to_canonical_u64(),
             metadata: UserEndcapSubmissionMetadata {
                 checkpoint_id,
+                user_endcap_uuid,
                 state_transition: user_ec_input.core.state_transition,
                 new_user_leaf: user_ec_input.core.new_user_leaf,
                 endcap_proof_public_inputs: proof.public_inputs.clone(),
@@ -150,16 +163,12 @@ where
             },
             timestamp: current_datetime(),
         };
-        self.ctx
-            .handle_recv_end_cap_from_user(user_ec_input, &proof)
-            .await
-            .map_err(RpcError::Anyhow)?;
 
         if let Err(e) = self.watcher_client.send_event(WatcherMessage::EndcapSubmission(endcap_event)).await {
             warn!("⚠️ Failed to report endcap submission event to watcher: {}", e);
         }
 
-        Ok("ok".to_string())
+        Ok(user_endcap_uuid)
     }
 
     async fn get_tx_status(&self, user_id: u64, nonce: u64) -> RpcResult<TxStatus> {
@@ -547,6 +556,24 @@ where
             .await
             .map_err(RpcError::Anyhow)?;
         Ok(user_event)
+    }
+
+    async fn get_user_endcap_metadata(&self, user_endcap_uuid: String) -> RpcResult<UserEndCapMetaData<F>> {
+        let user_endcap_uuid = UserEndCapUUID::from_str(&user_endcap_uuid).map_err(|e| {
+            ErrorObject::owned(
+                jsonrpsee::types::ErrorCode::InvalidParams.code(),
+                format!("Failed to parse user endcap uuid: {}", e),
+                None::<()>,
+            )
+        })?;
+        tracing::debug!("get_user_endcap_metadata: {:?}", user_endcap_uuid);
+        let user_endcap_metadata: UserEndCapMetaData<GoldilocksField> = self
+            .ctx
+            .store_reader
+            .get_user_endcap_metadata(user_endcap_uuid)
+            .await
+            .map_err(RpcError::Anyhow)?;
+        Ok(user_endcap_metadata)
     }
 }
 

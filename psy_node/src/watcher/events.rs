@@ -6,7 +6,7 @@ use psy_data::{
     qdata::{
         ups_end_cap_result::UPSEndCapResultCompact,
         user::PsyUserLeaf,
-        uuid::{ContractUUID, RegisterUserUUID},
+        uuid::{ContractUUID, RegisterUserUUID, UserEndCapUUID},
     },
 };
 use psy_services::models::UserEventTxType;
@@ -128,6 +128,7 @@ pub struct UserEndcapSubmissionEvent {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UserEndcapSubmissionMetadata {
     pub checkpoint_id: u64,
+    pub user_endcap_uuid: UserEndCapUUID,
     pub state_transition: UPSEndCapResultCompact<PsyFelt>,
     pub new_user_leaf: PsyUserLeaf<PsyFelt>,
     pub endcap_proof_public_inputs: Vec<PsyFelt>,
