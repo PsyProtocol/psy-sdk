@@ -75,6 +75,7 @@ export interface InternalFunction {
 export interface FieldPath {
     path: string[];
     typeId: number;
+    type?: string | ArrayType;
 }
 
 export interface TypeDefinition {
@@ -87,5 +88,6 @@ export interface InternalStruct {
     fields: Array<{
         name: string;
         typeId: number;
+        type?: string | ArrayType; // Added type field to support complete type information
     }>;
 }

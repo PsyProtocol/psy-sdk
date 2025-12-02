@@ -8,7 +8,7 @@ use anyhow::ensure;
 use chrono::Utc;
 use kvq::traits::KVQPair;
 use plonky2::{
-    field::types::Field,
+    field::types::{Field, PrimeField64},
     plonk::{config::PoseidonGoldilocksConfig, proof::ProofWithPublicInputs},
 };
 use psy_common::{
@@ -73,11 +73,12 @@ use psy_data::{
         },
         contract::PsyContractLeaf,
         contract_metadata::ContractMetaData,
-        contract_uuid::ContractUUID,
         pm_jobs_completed_stats::PMJobsCompletedStats,
         pm_reward_commitment::PMRewardCommitment,
         realm_status::BasicRealmStatus,
+        register_user_metadata::RegisterUserMetaData,
         user_public_key::PsyUserPublicKeyRecord,
+        uuid::{ContractUUID, RegisterUserUUID},
     },
 };
 use psy_network_circuit::guta::gadgets::guta_header;
@@ -422,6 +423,24 @@ impl<
             new_user_records.len(),
         );
         self.store.set_user_public_key_records(&new_user_records).await?;
+
+        for (i, user_record) in new_user_records.iter().enumerate() {
+            let registration_id = start_registration_user_id + (i as u64);
+
+            let register_user_uuid = RegisterUserUUID {
+                checkpoint_id: user_record.public_key.0.elements[0].to_noncanonical_u64(),
+                uuid: user_record.public_key.0.elements[1].to_noncanonical_u64(),
+            };
+
+            let register_user_metadata = RegisterUserMetaData {
+                checkpoint_id,
+                registration_id,
+                user_id: user_record.user_id,
+                public_key_param: user_record.public_key_param,
+                fingerprint: user_record.fingerprint,
+            };
+            self.store.set_register_user_metadata(register_user_uuid, &register_user_metadata).await?;
+        }
 
         let new_public_keys = user_registrations.iter().map(|x| x.to_hash::<PsyHasher>()).collect::<Vec<_>>();
 

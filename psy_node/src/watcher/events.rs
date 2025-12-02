@@ -3,7 +3,11 @@ use psy_common::job::id::{LayerId, ProvingJobCircuitType, QProvingJobDataID};
 use psy_data::{
     config::store_config::PsyFelt,
     qblock::cmds::deploy_contract::{PsyContractSlotUpdates, QContractABI, QFunctionMetadata},
-    qdata::{contract_uuid::ContractUUID, ups_end_cap_result::UPSEndCapResultCompact, user::PsyUserLeaf},
+    qdata::{
+        ups_end_cap_result::UPSEndCapResultCompact,
+        user::PsyUserLeaf,
+        uuid::{ContractUUID, RegisterUserUUID, UserEndCapUUID},
+    },
 };
 use psy_services::models::UserEventTxType;
 use serde::{Deserialize, Serialize};
@@ -34,6 +38,7 @@ pub struct UserRegistrationEvent {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UserRegistrationMetadata {
     pub public_key: String,
+    pub uuid: RegisterUserUUID,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -123,6 +128,7 @@ pub struct UserEndcapSubmissionEvent {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UserEndcapSubmissionMetadata {
     pub checkpoint_id: u64,
+    pub user_endcap_uuid: UserEndCapUUID,
     pub state_transition: UPSEndCapResultCompact<PsyFelt>,
     pub new_user_leaf: PsyUserLeaf<PsyFelt>,
     pub endcap_proof_public_inputs: Vec<PsyFelt>,

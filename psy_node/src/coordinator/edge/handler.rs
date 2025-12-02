@@ -6,7 +6,7 @@ use chrono::Utc;
 use jsonrpsee::types::ErrorObject;
 use kvq::traits::KVQSerializable;
 use plonky2::{
-    field::types::Field,
+    field::types::{Field, PrimeField64},
     plonk::{config::PoseidonGoldilocksConfig, proof::ProofWithPublicInputs},
 };
 use psy_common::{
@@ -42,8 +42,9 @@ use psy_data::{
         checkpoint::{CheckpointSyncInfo, PsyBlockState, PsyCheckpointGlobalStateRoots, PsyCheckpointLeaf},
         contract::{ContractCodeDefinition, PsyContractLeaf},
         contract_metadata::ContractMetaData,
-        contract_uuid::ContractUUID,
+        register_user_metadata::RegisterUserMetaData,
         user::PsyUserLeaf,
+        uuid::{ContractUUID, RegisterUserUUID},
     },
     qsync::coordinator::{PsyCheckpointSyncInfo, PsyCheckpointSyncInfoCompact},
     traits::qdatastore::{qmetadata::QMetaDataStoreReaderSync, qtreedata::QTreeDataStoreReaderSync},
@@ -70,6 +71,7 @@ use crate::{
         error::CoordinatorError,
         state::edge::CoordinatorEdgeContext,
     },
+    watcher::events::UserRegistrationMetadata,
 };
 
 type F = PsyFelt;
@@ -147,13 +149,20 @@ impl CoordinatorEdgeHandler {
         Ok(block_state.checkpoint_id)
     }
 
-    pub async fn register_user(&self, zk_user_info: ZKPublicKeyInfo<PsyFelt>) -> Result<(), CoordinatorError> {
+    pub async fn register_user(&self, zk_user_info: ZKPublicKeyInfo<PsyFelt>) -> Result<RegisterUserUUID, CoordinatorError> {
         let public_key_hash = zk_user_info.qfhash::<PsyHasher>();
+
+        let register_uuid = RegisterUserUUID {
+            checkpoint_id: public_key_hash.0.elements[0].to_noncanonical_u64(),
+            uuid: public_key_hash.0.elements[1].to_noncanonical_u64(),
+        };
+
+        tracing::debug!("register user: {}", register_uuid.to_string());
 
         // Check if user is already registered using the store reader
         if let Ok(user_id) = self.store.get_first_user_id(public_key_hash).await {
             info!("🛑 User already registered, user_id = {}", user_id);
-            return Ok(()); // Already registered is not an error
+            return Ok(register_uuid); // Already registered is not an error
         }
 
         info!("🆕 User not found. Starting new registration.");
@@ -168,15 +177,20 @@ impl CoordinatorEdgeHandler {
         // Convert public key to string representation
         let public_key_str = format!("{}", public_key_hash.to_string());
 
+        let metadata = UserRegistrationMetadata {
+            public_key: public_key_str.clone(),
+            uuid: register_uuid,
+        };
+
         // Report to watcher
-        if let Err(e) = self.watcher_client.register_user(&public_key_str).await {
+        if let Err(e) = self.watcher_client.register_user(metadata).await {
             // Log the error but don't fail the registration
             warn!("❌ Failed to report user registration to watcher: {}", e);
         } else {
             info!("📊 User registration reported to watcher: {}", public_key_str);
         }
 
-        Ok(())
+        Ok(register_uuid)
     }
 
     pub async fn get_user_id(&self, public_key: QHashOut<PsyFelt>) -> Result<u64, CoordinatorError> {
@@ -572,6 +586,21 @@ impl CoordinatorEdgeHandler {
         let contract_metadatas = self.store.get_contract_metadatas(&contract_uuids).await?;
         Ok(contract_metadatas)
     }
+
+    pub async fn get_register_user_metadata(&self, register_user_uuid: &str) -> anyhow::Result<RegisterUserMetaData<F>> {
+        let register_user_uuid = RegisterUserUUID::from_str(register_user_uuid)?;
+        let register_user_meta = self.store.get_register_user_metadata(register_user_uuid).await?;
+        Ok(register_user_meta)
+    }
+
+    pub async fn get_register_user_metadatas(&self, register_user_uuids: &[&str]) -> anyhow::Result<Vec<RegisterUserMetaData<F>>> {
+        let register_user_uuids = register_user_uuids
+            .iter()
+            .map(|s| RegisterUserUUID::from_str(s))
+            .collect::<anyhow::Result<Vec<_>>>()?;
+        let register_user_metadatas = self.store.get_register_user_metadatas(&register_user_uuids).await?;
+        Ok(register_user_metadatas)
+    }
 }
 
 use async_trait::async_trait;
@@ -606,7 +635,7 @@ impl CoordinatorEdgeRpcServer for CoordinatorEdgeHandler {
     async fn register_user(&self, public_key: ZKPublicKeyInfo<F>) -> RpcResult<String> {
         self.register_user(public_key)
             .await
-            .map(|_| "ok".to_string())
+            .map(|register_user_uuid| register_user_uuid.to_string())
             .map_err(|e| RpcError::Anyhow(e.into()))
     }
 
@@ -975,6 +1004,10 @@ impl CoordinatorEdgeRpcServer for CoordinatorEdgeHandler {
 
     async fn get_contract_metadata(&self, contract_uuid: &str) -> RpcResult<ContractMetaData<F>> {
         self.get_contract_metadata(contract_uuid).await.map_err(RpcError::Anyhow)
+    }
+
+    async fn get_register_user_metadata(&self, register_user_uuid: &str) -> RpcResult<RegisterUserMetaData<F>> {
+        self.get_register_user_metadata(register_user_uuid).await.map_err(RpcError::Anyhow)
     }
 
     async fn get_current_checkpoint_id(&self) -> RpcResult<u64> {

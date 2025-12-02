@@ -56,8 +56,8 @@ pub async fn run(args: WalletSessionArgs) -> anyhow::Result<()> {
     };
     let user_pk_hash = wallet_session.add_user(info.private_key, info.fingerprint).await?;
     let contract_call_data = args.to_contract_call_data()?;
-    let tx_hash = wallet_session.exec_contract_call(user_pk_hash, contract_call_data).await?;
+    let user_endcap_uuid = wallet_session.exec_contract_call(user_pk_hash, contract_call_data).await?;
 
-    tracing::info!("Contract call completed with tx hash: {}", tx_hash);
+    tracing::info!("Contract call completed with user_endcap_uuid: {}", user_endcap_uuid.to_string());
     Ok(())
 }

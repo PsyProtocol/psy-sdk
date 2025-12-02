@@ -32,7 +32,9 @@ use psy_crypto::{
 use psy_data::{
     config::store_config::{PsyHash, PsyHasher},
     qblock::cmds::deploy_contract::{QBCDeployContract, QContractABI},
-    qdata::{checkpoint::PsyBlockState, contract::ContractCodeDefinition, user::PsyUserLeaf, user_contract_state::UserContractState},
+    qdata::{
+        checkpoint::PsyBlockState, contract::ContractCodeDefinition, user::PsyUserLeaf, user_contract_state::UserContractState, uuid::UserEndCapUUID,
+    },
     qstore::{
         controllers::{
             proving_session::{PsyLocalProvingSessionStore, PsyReadLocalProvingSessionStore},
@@ -318,7 +320,7 @@ impl WalletSession {
         Ok(())
     }
 
-    pub async fn exec_contract_call(&self, public_key: QHashOut<F>, call_data: ContractCallData) -> anyhow::Result<QHashOut<F>> {
+    pub async fn exec_contract_call(&self, public_key: QHashOut<F>, call_data: ContractCallData) -> anyhow::Result<UserEndCapUUID> {
         if call_data.contract_calls.is_empty() {
             anyhow::bail!("No contract calls to execute");
         }
@@ -336,8 +338,8 @@ impl WalletSession {
         tracing::info!("prove contract calls");
         self.prove_contract_call(public_key, call_data.contract_calls).await?;
         tracing::info!("sign and submit on global checkpoint: {}", result.checkpoint_id);
-        let end_user_leaf_hash = self.sign_and_submit(public_key, call_data.software_defined_call).await?;
-        Ok(end_user_leaf_hash)
+        let user_end_cap_uuid = self.sign_and_submit(public_key, call_data.software_defined_call).await?;
+        Ok(user_end_cap_uuid)
     }
 
     pub async fn start_session(&self, public_key: QHashOut<F>) -> anyhow::Result<()> {
@@ -422,7 +424,7 @@ impl WalletSession {
         &self,
         public_key: QHashOut<F>,
         software_defined_call: Option<DPNSoftwareDefinedCallData>,
-    ) -> anyhow::Result<QHashOut<F>> {
+    ) -> anyhow::Result<UserEndCapUUID> {
         let pk_info = self.wallet.get_public_key_info(&public_key).await?;
         let mut user_session_mgr = self
             .user_session_mgrs
@@ -509,9 +511,9 @@ impl WalletSession {
             proof: end_cap_proof,
         };
 
-        user_session_mgr.lps.get_read_store().submit_end_cap_proof::<F>(req).await?;
+        let end_cap_uuid = user_session_mgr.lps.get_read_store().submit_end_cap_proof::<F>(req).await?;
 
-        Ok(end_user_leaf_hash)
+        Ok(end_cap_uuid)
     }
 
     async fn build_psy_software_defined_context(

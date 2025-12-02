@@ -12,6 +12,7 @@ use psy_crypto::{hash::traits::qhashable::QFieldHashable, signature::zk::wallet:
 use psy_data::{
     config::store_config::{PsyHasher, C, D},
     qblock::cmds::deploy_contract::QContractABI,
+    qdata::uuid::UserEndCapUUID,
 };
 use psy_prover::session::{gen_contract_deploy_and_circuits_for_functions, WalletSession};
 use psy_rust_sdk::{
@@ -94,7 +95,7 @@ impl Multicast {
         &self,
         public_key: QHashOut<GoldilocksField>,
         contract_call_args: Vec<ContractCallArgs>,
-    ) -> Result<QHashOut<GoldilocksField>> {
+    ) -> Result<UserEndCapUUID> {
         self.wallet_session
             .exec_contract_call(public_key, ContractCallData::new(contract_call_args))
             .await

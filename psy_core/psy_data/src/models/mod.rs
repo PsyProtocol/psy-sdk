@@ -4,6 +4,8 @@ pub mod contract_metadata;
 pub mod kvq_merkle;
 pub mod realm_root_version;
 pub mod realm_status;
+pub mod register_user_metadata;
 pub mod snapshot;
 pub mod staging;
 pub mod user;
+pub mod user_endcap_metadata;

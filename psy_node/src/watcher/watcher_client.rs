@@ -49,14 +49,12 @@ impl WatcherClient {
     }
 
     // Convenience methods
-    pub async fn register_user(&self, public_key: &str) -> Result<()> {
+    pub async fn register_user(&self, metadata: UserRegistrationMetadata) -> Result<()> {
         self.send_event(WatcherMessage::UserRegistration(UserRegistrationEvent {
             timestamp: current_datetime(),
             node_id: self.node_id.clone().unwrap_or_default(),
             node_type: WatcherSourceNodeType::Coordinator,
-            metadata: UserRegistrationMetadata {
-                public_key: public_key.to_string(),
-            },
+            metadata,
         }))
         .await
     }

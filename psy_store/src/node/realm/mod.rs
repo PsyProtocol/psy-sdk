@@ -11,6 +11,8 @@ use psy_data::{
         checkpoint::{PsyBlockState, PsyCheckpointGlobalStateRoots, PsyCheckpointLeaf},
         contract::{ContractCodeDefinition, PsyContractLeaf},
         user::PsyUserLeaf,
+        user_endcap_metadata::UserEndCapMetaData,
+        uuid::UserEndCapUUID,
     },
     qstore::uct_merkle_nodes::CSTUserUpdate,
     qsync::coordinator::PsyCheckpointSyncInfo,
@@ -248,6 +250,19 @@ pub trait PsyRealmStoreReaderAsync<F: RichField> {
         )
         .await
     }
+
+    async fn get_user_endcap_metadata(&self, user_endcap_uuid: UserEndCapUUID) -> anyhow::Result<UserEndCapMetaData<F>> {
+        let user_endcap_metadatas = self.get_user_endcap_metadatas(&[user_endcap_uuid]).await?;
+        if user_endcap_metadatas.len() != 1 {
+            return Err(anyhow::anyhow!(
+                "get_user_endcap_metadata should return only 1, but return {} user endcap metadata",
+                user_endcap_metadatas.len()
+            ));
+        }
+        Ok(user_endcap_metadatas[0])
+    }
+
+    async fn get_user_endcap_metadatas(&self, user_endcap_uuids: &[UserEndCapUUID]) -> anyhow::Result<Vec<UserEndCapMetaData<F>>>;
 }
 
 #[async_trait]
@@ -297,4 +312,14 @@ pub trait PsyRealmStoreWriterAsyncImm<F: RichField> {
         )
         .await
     }
+
+    async fn set_user_endcap_metadata(&self, user_endcap_uuid: UserEndCapUUID, user_endcap_metadata: &UserEndCapMetaData<F>) -> anyhow::Result<()> {
+        self.set_user_endcap_metadatas(&[user_endcap_uuid], &[user_endcap_metadata.clone()]).await
+    }
+
+    async fn set_user_endcap_metadatas(
+        &self,
+        user_endcap_uuids: &[UserEndCapUUID],
+        user_endcap_metadatas: &[UserEndCapMetaData<F>],
+    ) -> anyhow::Result<()>;
 }

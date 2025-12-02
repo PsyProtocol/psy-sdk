@@ -12,20 +12,23 @@ use psy_crypto::hash::{
 };
 use psy_data::{
     config::store_config::{
-        CheckpointSyncInfoTableStore, ContractMetaDataTableStore, PsyHasher, RealmStatusTableStore, UserPublicKeyTableStore, UserTreeStore,
+        CheckpointSyncInfoTableStore, ContractMetaDataTableStore, PsyHasher, RealmStatusTableStore, RegisterUserMetaDataTableStore,
+        UserPublicKeyTableStore, UserTreeStore,
     },
     models::{
         checkpoint::{sync_info::PsyCheckpointSyncInfoModelCore, user_public_keys::PsyUserPublicKeyHelperModelCore},
         contract_metadata::ContractMetaDataModelCore,
         kvq_merkle::model::KVQFixedConfigMerkleTreeModelCore,
         realm_status::RealmStatusModelCore,
+        register_user_metadata::RegisterUserMetaDataModelCore,
     },
     qdata::{
         checkpoint::{PsyBlockState, PsyCheckpointLeaf, PsyCheckpointLeafStats},
         contract::{ContractCodeDefinition, PsyContractLeaf},
         contract_metadata::ContractMetaData,
-        contract_uuid::ContractUUID,
         realm_status::BasicRealmStatus,
+        register_user_metadata::RegisterUserMetaData,
+        uuid::{ContractUUID, RegisterUserUUID},
     },
     qsync::coordinator::PsyCheckpointSyncInfoCompact,
     traits::qdatastore::{qmetadata::QMetaDataStoreWriterSync, qtreedata::QTreeDataStoreWriterSync},
@@ -200,5 +203,13 @@ impl<T: KVQBinaryStore + PsyCoordinatorStoreReaderAsync<F>> PsyCoordinatorStoreW
 
     async fn set_contract_metadatas(&self, contract_uuids: &[ContractUUID], contract_metadatas: &[ContractMetaData<F>]) -> anyhow::Result<()> {
         ContractMetaDataTableStore::<Self>::set_contract_metadatas(self, contract_uuids, contract_metadatas)
+    }
+
+    async fn set_register_user_metadatas(
+        &self,
+        register_user_uuids: &[RegisterUserUUID],
+        register_user_metadatas: &[RegisterUserMetaData<F>],
+    ) -> anyhow::Result<()> {
+        RegisterUserMetaDataTableStore::<Self>::set_register_user_metadatas(self, register_user_uuids, register_user_metadatas)
     }
 }

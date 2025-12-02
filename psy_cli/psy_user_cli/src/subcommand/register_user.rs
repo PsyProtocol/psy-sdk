@@ -44,7 +44,8 @@ pub async fn run(args: RegisterUserArgs) -> Result<()> {
         fingerprint,
         public_key_param: info.public_key_param,
     };
-    provider.register_user(QRegisterUserRPCRequest { public_key: public_key_info }).await?;
+    let register_user_uuid = provider.register_user(QRegisterUserRPCRequest { public_key: public_key_info }).await?;
+    println!("registered user uuid: {}", register_user_uuid);
 
     let public_key_hash = public_key_info.qfhash::<PsyHasher>();
     println!("{{");

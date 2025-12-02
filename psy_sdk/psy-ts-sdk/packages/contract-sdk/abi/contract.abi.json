@@ -2,11 +2,19 @@
   "version": "1.0.0",
   "structs": [
     {
-      "name": "Contract",
+      "name": "PsyTokenContract",
       "is_contract": true,
       "fields": [
         {
           "name": "balance",
+          "type": "Felt"
+        },
+        {
+          "name": "last_claimed_pow_rewards_checkpoint_id",
+          "type": "Felt"
+        },
+        {
+          "name": "claimed_rewards",
           "type": "Felt"
         },
         {
@@ -21,6 +29,16 @@
       "functions": [
         {
           "name": "simple_mint",
+          "params": [
+            {
+              "name": "amount",
+              "type": "Felt"
+            }
+          ],
+          "return": []
+        },
+        {
+          "name": "simple_burn",
           "params": [
             {
               "name": "amount",
@@ -54,13 +72,36 @@
           "return": []
         },
         {
-          "name": "get_balance",
-          "params": [],
-          "return": [
+          "name": "simple_claim_pow_rewards",
+          "params": [
             {
+              "name": "checkpoint_id",
               "type": "Felt"
             }
-          ]
+          ],
+          "return": []
+        },
+        {
+          "name": "batch_simple_transfer",
+          "params": [
+            {
+              "name": "recipients",
+              "type": {
+                "type": "Array",
+                "inner_type": "Felt",
+                "length": 5
+              }
+            },
+            {
+              "name": "amounts",
+              "type": {
+                "type": "Array",
+                "inner_type": "Felt",
+                "length": 5
+              }
+            }
+          ],
+          "return": []
         }
       ]
     },

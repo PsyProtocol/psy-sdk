@@ -19,6 +19,7 @@ use psy_data::{
         checkpoint::{CheckpointSyncInfo, PsyBlockState, PsyCheckpointGlobalStateRoots, PsyCheckpointLeaf},
         contract::{ContractCodeDefinition, PsyContractLeaf},
         contract_metadata::ContractMetaData,
+        register_user_metadata::RegisterUserMetaData,
         user::PsyUserLeaf,
     },
 };
@@ -360,6 +361,9 @@ pub trait CoordinatorEdgeRpc {
 
     #[method(name = "get_contract_metadata")]
     async fn get_contract_metadata(&self, contract_uuid: &str) -> RpcResult<ContractMetaData<F>>;
+
+    #[method(name = "get_register_user_metadata")]
+    async fn get_register_user_metadata(&self, register_user_uuid: &str) -> RpcResult<RegisterUserMetaData<F>>;
 
     #[method(name = "get_current_checkpoint_id")]
     async fn get_current_checkpoint_id(&self) -> RpcResult<u64>;
