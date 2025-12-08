@@ -1169,6 +1169,15 @@ impl<F: RichField + PrimeField64> PsyEvalSessionResult<F> {
             + PsyReadLocalProvingSessionStoreMut<F>
             + PsyCmdInputWitnessResolver<F, <S as PsyReadLocalProvingSessionStoreMut<F>>::Hasher>,
     {
+        if fn_def.circuit_inputs.len() != inputs.len() {
+            return Err(anyhow::anyhow!(
+                "Contract {} method {} expect {} number of inputs, but got {}",
+                contract_id.to_canonical_u64(),
+                fn_def.name,
+                fn_def.circuit_inputs.len(),
+                inputs.len()
+            ));
+        }
         sesh.init_transaction(DPNProvingSessionSimpleMethodCall {
             caller_contract_id,
             contract_id,
