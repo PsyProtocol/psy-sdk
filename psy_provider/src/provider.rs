@@ -31,7 +31,7 @@ use psy_crypto::{
 };
 use psy_data::{
     config::store_config::{PsyFelt, PsyHasher},
-    qdata::{checkpoint::PsyBlockState, contract::ContractCodeDefinition, user, uuid::UserEndCapUUID},
+    qdata::{checkpoint::PsyBlockState, contract::ContractCodeDefinition},
     qstore::controllers::session_info::SessionCircuitInfoStore,
     traits::qdatastore::{qmetadata::QMetaDataStoreReaderSync, qtreedata::QTreeDataStoreReaderSync},
     ups::{
@@ -57,7 +57,7 @@ use serde::{Deserialize, Serialize};
 use serde_json;
 
 use super::request::{
-    Id, QAddWithdrawalRPCRequest, QClaimDepositRPCRequest, QDeployContractRPCRequest, QGetUserIdRPCRequest, QRegisterUserRPCRequest,
+    Id, QAddWithdrawalRPCRequest, QClaimDepositRPCRequest, QDeployContractRPCRequest, QGetUserIdsRPCRequest, QRegisterUserRPCRequest,
     QSubmitEndCapRPCRequest, QSubmitGutaRPCRequest, QTokenTransferRPCRequest, RequestParams, ResponseResult, RpcRequest, RpcResponse, Version,
 };
 use crate::{
@@ -72,6 +72,8 @@ use crate::{
     },
     session::TxStatus,
 };
+
+type UserEndCapUUID = String;
 
 #[derive(Debug, Clone)]
 pub struct RpcProvider {
@@ -396,14 +398,23 @@ impl QUserRpcProvider for RpcProvider {
 #[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
 #[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
 impl RpcProvider {
-    pub async fn get_user_id<F: RichField>(&self, public_key: QHashOut<F>) -> anyhow::Result<u64> {
+    pub async fn get_user_ids_for_public_key<F: RichField>(&self, public_key: QHashOut<F>) -> anyhow::Result<Vec<u64>> {
         tracing::info!("user: {}", public_key);
         let url = self.get_coordinator_url()?;
-        let response = psy_rpc_call_back!(self, url, RequestParams::<F>::GetUserId(QGetUserIdRPCRequest { public_key }), u64);
+        let response = psy_rpc_call_back!(
+            self,
+            url,
+            RequestParams::<F>::GetUserIds(QGetUserIdsRPCRequest {
+                public_key,
+                start_user_id: 0,
+                count: 1
+            }),
+            Vec<u64>
+        );
         match response.result {
-            ResponseResult::Success(user_id) => {
-                tracing::info!("get user id: {:?}", user_id);
-                Ok(user_id)
+            ResponseResult::Success(user_ids) => {
+                tracing::info!("get user ids: {:?}", user_ids);
+                Ok(user_ids)
             }
             ResponseResult::Error(e) => Err(anyhow::format_err!("rpc call failed `{:?}`", e)),
         }
@@ -646,25 +657,27 @@ impl RpcProvider {
 
     pub async fn get_tx_status(&self, user_id: u64, nonce: u64) -> anyhow::Result<TxStatus> {
         tracing::info!("Fetching tx status user_id: {}, nonce: {}", user_id, nonce);
-        let rpc_url = self.get_realm_url(user_id)?;
+        return Ok(TxStatus::Submittable);
+        // let rpc_url = self.get_realm_url(user_id)?;
 
-        let input = QGetTxStatusRPCRequest { user_id, nonce };
-        let response = psy_rpc_call_back!(self, rpc_url, RequestParams::<PsyFelt>::GetTxStatus(input), TxStatus);
-        match response.result {
-            ResponseResult::Success(status) => {
-                tracing::info!(
-                    "Successfully fetched tx status user_id: {}, nonce: {}, status: {:?}",
-                    user_id,
-                    nonce,
-                    status
-                );
-                Ok(status)
-            }
-            ResponseResult::Error(e) => {
-                tracing::error!("RPC call failed: {:?}", e);
-                Err(anyhow::format_err!("get_tx_status rpc call failed `{:?}`", e))
-            }
-        }
+        // let input = QGetTxStatusRPCRequest { user_id, nonce };
+        // let response = psy_rpc_call_back!(self, rpc_url,
+        // RequestParams::<PsyFelt>::GetTxStatus(input), TxStatus);
+        // match response.result {
+        //     ResponseResult::Success(status) => {
+        //         tracing::info!(
+        //             "Successfully fetched tx status user_id: {}, nonce: {},
+        // status: {:?}",             user_id,
+        //             nonce,
+        //             status
+        //         );
+        //         Ok(status)
+        //     }
+        //     ResponseResult::Error(e) => {
+        //         tracing::error!("RPC call failed: {:?}", e);
+        //         Err(anyhow::format_err!("get_tx_status rpc call failed
+        // `{:?}`", e))     }
+        // }
     }
 
     pub const fn get_realm_id(&self, user_id: u64) -> u64 {

@@ -99,13 +99,13 @@ pub async fn run(
             exponential_backoff: false, // Keep constant delay like original
         };
         retry_with_backoff(&retry_config, &format!("get user ID for {}", worker_public_key), || async {
-            rpc_provider.get_user_id(worker_public_key).await
+            rpc_provider.get_user_ids_for_public_key(worker_public_key).await
         })
         .await
         .map_err(|e| {
             error!("Failed to get user ID after all retries");
             anyhow::anyhow!("Failed to retrieve user ID: {}", e)
-        })?
+        })?[0]
     };
     info!("user_id: {}", recipient_user_id);
 

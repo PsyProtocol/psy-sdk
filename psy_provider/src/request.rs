@@ -77,8 +77,8 @@ pub enum RequestParams<F: RichField> {
     RegisterUser(QRegisterUserRPCRequest<F>),
     #[serde(rename = "psy_build_block")]
     ProduceBlock,
-    #[serde(rename = "psy_get_user_id")]
-    GetUserId(QGetUserIdRPCRequest<F>),
+    #[serde(rename = "psy_get_user_ids_for_public_key")]
+    GetUserIds(QGetUserIdsRPCRequest<F>),
     #[serde(rename = "psy_submit_guta")]
     SubmitGuta(QSubmitGutaRPCRequest<F>),
     #[serde(rename = "psy_get_latest_checkpoint")]
@@ -258,9 +258,9 @@ pub enum RequestParams<F: RichField> {
     GetContractCodeDefinition(QContractCodeDefinitionRPCRequest),
     #[serde(rename = "psy_get_contract_code_definition_f")]
     GetContractCodeDefinitionF(QContractCodeDefinitionFRPCRequest<F>),
-    #[serde(rename = "psy_get_latest_block_state")]
+    #[serde(rename = "psy_get_latest_l2_block_state")]
     GetLatestBlockState(QLatestBlockStateRPCRequest),
-    #[serde(rename = "psy_get_block_state")]
+    #[serde(rename = "psy_get_l2_block_state")]
     GetBlockState(QBlockStateRPCRequest),
     #[serde(rename = "psy_get_block_state_f")]
     GetBlockStateF(QBlockStateFRPCRequest<F>),
@@ -575,7 +575,6 @@ impl<F: RichField> QRegisterUserRPCRequest<F> {
 #[serde(bound = "")]
 pub struct QDeployContractRPCRequest<F: RichField> {
     pub deploy_contract: QBCDeployContract<F>,
-    pub abi: QContractABI,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
@@ -584,7 +583,8 @@ pub struct QDeployContractRPCRequest<F: RichField> {
 pub struct QSubmitEndCapRPCRequest<F: RichField> {
     pub user_ec_input: SubmitUserEndCapNonProofInput<F>,
     #[ts(type = "any")]
-    pub proof: ProofWithPublicInputs<GoldilocksField, C, D>,
+    // pub proof: ProofWithPublicInputs<GoldilocksField, C, D>,
+    pub proof: Vec<u8>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
@@ -607,8 +607,10 @@ pub struct QSubmitGutaRPCRequest<F: RichField> {
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export, concrete(F = GoldilocksField))]
 #[serde(bound = "")]
-pub struct QGetUserIdRPCRequest<F: RichField> {
+pub struct QGetUserIdsRPCRequest<F: RichField> {
     pub public_key: QHashOut<F>,
+    pub start_user_id: u64,
+    pub count: u64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]

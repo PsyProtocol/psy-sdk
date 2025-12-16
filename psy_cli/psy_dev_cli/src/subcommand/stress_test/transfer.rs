@@ -352,11 +352,11 @@ async fn execute_transfer_transaction_sync(wallet_session: &mut WalletSession, t
     let pk_info_from = wallet_session.wallet.get_secp_pk_info(private_key_from).await?;
     let pk_hash_from = pk_info_from.qfhash::<PsyHasher>();
     // println!("pk_hash_from: {}", pk_hash_from);
-    let user_id_from = wallet_session.st_provider.get_user_id(pk_hash_from).await?;
+    let user_id_from = wallet_session.st_provider.get_user_ids_for_public_key(pk_hash_from).await?[0];
     info!("👥 Task {} - User_id_from: {}", task_id, user_id_from);
     let pk_info_to = wallet_session.wallet.get_secp_pk_info(private_key_to).await?;
     let pk_hash_to = pk_info_to.qfhash::<PsyHasher>();
-    let user_id_to = wallet_session.st_provider.get_user_id(pk_hash_to).await?;
+    let user_id_to = wallet_session.st_provider.get_user_ids_for_public_key(pk_hash_to).await?[0];
     info!("👥 Task {} - User_id_to: {}", task_id, user_id_to);
 
     let mint_amount = 1000u64;

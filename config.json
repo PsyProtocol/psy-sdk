@@ -3,32 +3,32 @@
         "localhost": {
             "magic": "0x1337CF514544CF69",
             "users_per_realm": 1048576,
-            "global_user_tree_height": 24,
+            "global_user_tree_height": 32,
             "realm_user_tree_height": 20,
-            "group_realm_height": 2,
+            "group_realm_height": 1,
             "realm_configs": [
                 {
                     "id": 0,
                     "rpc_url": [
-                        "http://127.0.0.1:8546"
+                        "http://127.0.0.1:1338"
                     ]
                 },
                 {
                     "id": 1,
                     "rpc_url": [
-                        "http://127.0.0.1:8547"
+                        "http://127.0.0.1:1339"
                     ]
                 },
                 {
                     "id": 2,
                     "rpc_url": [
-                        "http://127.0.0.1:8548"
+                        "http://127.0.0.1:1340"
                     ]
                 },
                 {
                     "id": 3,
                     "rpc_url": [
-                        "http://127.0.0.1:8549"
+                        "http://127.0.0.1:1341"
                     ]
                 }
             ],
@@ -36,7 +36,7 @@
                 {
                     "id": 0,
                     "rpc_url": [
-                        "http://127.0.0.1:8545"
+                        "http://127.0.0.1:1337"
                     ]
                 }
             ],

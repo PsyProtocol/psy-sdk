@@ -36,7 +36,7 @@ async fn main() -> anyhow::Result<()> {
 
             use crate::subcommand::args::UserIdArgs;
             let provider = RpcProvider::new_with_config_path(&user_id_args.rpc_config)?;
-            let user_id = provider.get_user_id(user_id_args.pub_key).await?;
+            let user_id = provider.get_user_ids_for_public_key(user_id_args.pub_key).await?[0];
             println!("user_id: {}", user_id);
         }
         Commands::GetUserLeaf(user_leaf_args) => {
@@ -51,7 +51,7 @@ async fn main() -> anyhow::Result<()> {
             let (user_id, query_method) = match (&user_leaf_args.pub_key, &user_leaf_args.user_id) {
                 (Some(pub_key), None) => {
                     // Query by public key - get user_id from coordinator first
-                    let user_id = provider.get_user_id(*pub_key).await?;
+                    let user_id = provider.get_user_ids_for_public_key(*pub_key).await?[0];
                     (user_id, "public_key")
                 }
                 (None, Some(user_id)) => {

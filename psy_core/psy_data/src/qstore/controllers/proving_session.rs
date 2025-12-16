@@ -904,7 +904,7 @@ impl<
                 QSRMerkleCmdGetContractFunctionTreeMerkleProof {
                     checkpoint_id: self.start_checkpoint_u64,
                     contract_id,
-                    function_id,
+                    function_id: function_id * 4,
                 },
             ))
             .await?;

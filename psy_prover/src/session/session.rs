@@ -32,9 +32,7 @@ use psy_crypto::{
 use psy_data::{
     config::store_config::{PsyHash, PsyHasher},
     qblock::cmds::deploy_contract::{QBCDeployContract, QContractABI},
-    qdata::{
-        checkpoint::PsyBlockState, contract::ContractCodeDefinition, user::PsyUserLeaf, user_contract_state::UserContractState, uuid::UserEndCapUUID,
-    },
+    qdata::{checkpoint::PsyBlockState, contract::ContractCodeDefinition, user::PsyUserLeaf, user_contract_state::UserContractState},
     qstore::{
         controllers::{
             proving_session::{PsyLocalProvingSessionStore, PsyReadLocalProvingSessionStore},
@@ -77,6 +75,8 @@ use psy_vm::{
 };
 use serde::{Deserialize, Serialize};
 use tracing::warn;
+
+type UserEndCapUUID = String;
 
 use crate::{
     session::{build_claim_calls_for_multi_checkpoints, ProofWithCheckpoint},
@@ -262,8 +262,8 @@ impl WalletSession {
         let pk_info = self.wallet.get_or_create_user(private_key, fingerprint).await?;
         let public_key = pk_info.qfhash::<PsyHasher>();
 
-        if let Ok(user_id) = self.st_provider.get_user_id(public_key).await {
-            tracing::info!("user `{}` already registered with id {}", public_key, user_id);
+        if let Ok(user_ids) = self.st_provider.get_user_ids_for_public_key(public_key).await {
+            tracing::info!("user `{}` already registered with id {}", public_key, user_ids[0]);
             return Ok(public_key);
         }
 
@@ -280,9 +280,9 @@ impl WalletSession {
 
         let user_id = self
             .st_provider
-            .get_user_id(public_key)
+            .get_user_ids_for_public_key(public_key)
             .await
-            .map_err(|e| anyhow::format_err!("User {} not registered. Please register first: {}", public_key, e))?;
+            .map_err(|e| anyhow::format_err!("User {} not registered. Please register first: {}", public_key, e))?[0];
         self.update_circuit_mgr(public_key).await?;
         tracing::info!("user {} with id {} added", public_key.to_string(), user_id);
         Ok(public_key)
@@ -291,9 +291,9 @@ impl WalletSession {
     pub async fn update_circuit_mgr(&self, public_key: QHashOut<F>) -> anyhow::Result<()> {
         let user_id = self
             .st_provider
-            .get_user_id(public_key)
+            .get_user_ids_for_public_key(public_key)
             .await
-            .map_err(|e| anyhow::format_err!("User {} not registered. Please register first: {}", public_key, e))?;
+            .map_err(|e| anyhow::format_err!("User {} not registered. Please register first: {}", public_key, e))?[0];
         if let Some((_, existing_mgr)) = self.user_session_mgrs.remove(&public_key) {
             let cleaned_mgr = existing_mgr.into_clean_for_user(F::from_canonical_u64(user_id)).await?;
             self.user_session_mgrs.insert(public_key, cleaned_mgr);
@@ -508,7 +508,7 @@ impl WalletSession {
 
         let req = QSubmitEndCapRPCRequest {
             user_ec_input,
-            proof: end_cap_proof,
+            proof: bincode::serialize(&end_cap_proof)?,
         };
 
         let end_cap_uuid = user_session_mgr.lps.get_read_store().submit_end_cap_proof::<F>(req).await?;
@@ -613,20 +613,12 @@ impl WalletSession {
         Ok(deploy_cmd)
     }
 
-    pub async fn deploy_contract(
-        &self,
-        deployer: QHashOut<F>,
-        circuit_defs: Vec<DPNFunctionCircuitDefinition>,
-        abi: QContractABI,
-    ) -> anyhow::Result<String> {
+    pub async fn deploy_contract(&self, deployer: QHashOut<F>, circuit_defs: Vec<DPNFunctionCircuitDefinition>) -> anyhow::Result<String> {
         let deploy_cmd = self.get_deploy_contract_cmd(deployer, circuit_defs)?;
 
         let contract_uuid = self
             .st_provider
-            .deploy_contract::<F>(QDeployContractRPCRequest {
-                deploy_contract: deploy_cmd,
-                abi,
-            })
+            .deploy_contract::<F>(QDeployContractRPCRequest { deploy_contract: deploy_cmd })
             .await?;
         Ok(contract_uuid)
     }

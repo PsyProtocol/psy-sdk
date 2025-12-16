@@ -365,15 +365,15 @@ async fn execute_transfer_multi_transaction_sync(wallet_session: &mut WalletSess
     let pk_info_from = wallet_session.wallet.get_secp_pk_info(private_key_from).await?;
     let pk_hash_from = pk_info_from.qfhash::<PsyHasher>();
     // println!("pk_hash_from: {}", pk_hash_from);
-    let user_id_from = wallet_session.st_provider.get_user_id(pk_hash_from).await?;
+    let user_id_from = wallet_session.st_provider.get_user_ids_for_public_key(pk_hash_from).await?[0];
     info!("👥 Task {} - User_id_from: {}", task_id, user_id_from);
     let pk_info_to1 = wallet_session.wallet.get_secp_pk_info(private_key_to1).await?;
     let pk_hash_to1 = pk_info_to1.qfhash::<PsyHasher>();
-    let user_id_to1 = wallet_session.st_provider.get_user_id(pk_hash_to1).await?;
+    let user_id_to1 = wallet_session.st_provider.get_user_ids_for_public_key(pk_hash_to1).await?[0];
     info!("👥 Task {} - User_id_to1: {}", task_id, user_id_to1);
     let pk_info_to2 = wallet_session.wallet.get_secp_pk_info(private_key_to2).await?;
     let pk_hash_to2 = pk_info_to2.qfhash::<PsyHasher>();
-    let user_id_to2 = wallet_session.st_provider.get_user_id(pk_hash_to2).await?;
+    let user_id_to2 = wallet_session.st_provider.get_user_ids_for_public_key(pk_hash_to2).await?[0];
     info!("👥 Task {} - User_id_to2: {}", task_id, user_id_to2);
     // let pk_info_to3 = wallet_session.wallet.get_zk_pk_info(private_key_to3)?;
     // let pk_hash_to3 = pk_info_to3.qfhash::<PsyHasher>();

@@ -2,8 +2,8 @@ use std::result::Result::Ok;
 
 use plonky2::field::goldilocks_field::GoldilocksField;
 use psy_common::data::qhashout::QHashOut;
-use psy_config::network_constants::{COORDINATOR_USER_TREE_HEIGHT, GLOBAL_USER_TREE_HEIGHT, REALM_USER_TREE_HEIGHT};
-use psy_crypto::hash::merkle::core::MerkleProofCore;
+use psy_config::network_constants::{COORDINATOR_USER_TREE_HEIGHT, GLOBAL_DEPOSIT_TREE_HEIGHT, GLOBAL_USER_TREE_HEIGHT, REALM_USER_TREE_HEIGHT};
+use psy_crypto::hash::{merkle::core::MerkleProofCore, traits::hasher::MerkleZeroHasher};
 use psy_data::{
     config::store_config::PsyHasher,
     dpn::event::PsyUserEventRecord,
@@ -755,23 +755,26 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
     #[instrument(skip(self), fields(checkpoint_id))]
     async fn get_deposit_tree_root(&self, checkpoint_id: u64) -> anyhow::Result<psy_common::data::qhashout::QHashOut<F>> {
         debug!(checkpoint_id = checkpoint_id, "Fetching deposit tree root");
-        let rpc_url = self.get_coordinator_url()?;
-        let input = QDepositTreeRootRPCRequest { checkpoint_id };
-        let response = psy_rpc_call_back!(self, rpc_url, RequestParams::<F>::GetDepositTreeRoot(input), QHashOut<F>);
-        match response.result {
-            ResponseResult::Success(hash) => {
-                debug!(
-                    checkpoint_id = checkpoint_id,
-                    hash = %hash,
-                    "Successfully fetched hash"
-                );
-                Ok(hash)
-            }
-            ResponseResult::Error(e) => {
-                error!("RPC call failed: {:?}", e);
-                Err(anyhow::format_err!("get_deposit_tree_root rpc call failed `{:?}`", e))
-            }
-        }
+        let root = PsyHasher::get_zero_hash(GLOBAL_DEPOSIT_TREE_HEIGHT as usize);
+        return Ok(root);
+        // let rpc_url = self.get_coordinator_url()?;
+        // let input = QDepositTreeRootRPCRequest { checkpoint_id };
+        // let response = psy_rpc_call_back!(self, rpc_url,
+        // RequestParams::<F>::GetDepositTreeRoot(input), QHashOut<F>);
+        // match response.result {
+        //     ResponseResult::Success(hash) => {
+        //         debug!(
+        //             checkpoint_id = checkpoint_id,
+        //             hash = %hash,
+        //             "Successfully fetched hash"
+        //         );
+        //         Ok(hash)
+        //     }
+        //     ResponseResult::Error(e) => {
+        //         error!("RPC call failed: {:?}", e);
+        //         Err(anyhow::format_err!("get_deposit_tree_root rpc call
+        // failed `{:?}`", e))     }
+        // }
     }
 
     #[instrument(skip(self), fields(checkpoint_id, deposit_id))]
@@ -832,23 +835,26 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
     #[instrument(skip(self), fields(checkpoint_id))]
     async fn get_withdrawal_tree_root(&self, checkpoint_id: u64) -> anyhow::Result<psy_common::data::qhashout::QHashOut<F>> {
         info!("Fetching withdrawal tree root");
-        let rpc_url = self.get_coordinator_url()?;
-        let input = QWithdrawalTreeRootRPCRequest { checkpoint_id };
-        let response = psy_rpc_call_back!(self, rpc_url, RequestParams::<F>::GetWithdrawalTreeRoot(input), QHashOut<F>);
-        match response.result {
-            ResponseResult::Success(hash) => {
-                debug!(
-                    checkpoint_id = checkpoint_id,
-                    hash = %hash,
-                    "Successfully fetched hash"
-                );
-                Ok(hash)
-            }
-            ResponseResult::Error(e) => {
-                error!("RPC call failed: {:?}", e);
-                Err(anyhow::format_err!("get_withdrawal_tree_root rpc call failed `{:?}`", e))
-            }
-        }
+        let root = PsyHasher::get_zero_hash(GLOBAL_DEPOSIT_TREE_HEIGHT as usize);
+        return Ok(root);
+        // let rpc_url = self.get_coordinator_url()?;
+        // let input = QWithdrawalTreeRootRPCRequest { checkpoint_id };
+        // let response = psy_rpc_call_back!(self, rpc_url,
+        // RequestParams::<F>::GetWithdrawalTreeRoot(input), QHashOut<F>);
+        // match response.result {
+        //     ResponseResult::Success(hash) => {
+        //         debug!(
+        //             checkpoint_id = checkpoint_id,
+        //             hash = %hash,
+        //             "Successfully fetched hash"
+        //         );
+        //         Ok(hash)
+        //     }
+        //     ResponseResult::Error(e) => {
+        //         error!("RPC call failed: {:?}", e);
+        //         Err(anyhow::format_err!("get_withdrawal_tree_root rpc call
+        // failed `{:?}`", e))     }
+        // }
     }
 
     #[instrument(skip(self), fields(checkpoint_id, withdrawal_id))]

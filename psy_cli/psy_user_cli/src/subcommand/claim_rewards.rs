@@ -57,7 +57,7 @@ pub async fn run(args: ClaimRewardsArgs) -> Result<()> {
     let provider = RpcProvider::new_with_config(&rpc_config)?;
     let mut wallet_session = WalletSession::new(&rpc_config).await?;
     let user_pk_hash = wallet_session.add_user(info.private_key, info.fingerprint).await?;
-    let user_id = provider.get_user_id(user_pk_hash).await?;
+    let user_id = provider.get_user_ids_for_public_key(user_pk_hash).await?[0];
 
     let latest_block_state = provider.get_latest_block_state().await?;
     let latest_checkpoint_id = latest_block_state.checkpoint_id;

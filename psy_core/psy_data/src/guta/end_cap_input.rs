@@ -18,6 +18,7 @@ use crate::{
 pub struct SubmitUserEndCapNonProofInput<F: RichField> {
     pub core: SubmitUserEndCapNonProofCoreInput<F>,
     pub contract_state_updates: Vec<PsyContractStateUpdateHistory<F>>,
+    #[serde(skip)]
     pub events: Vec<PsyUserEventRecord<F>>,
 }
 impl<F: RichField> SubmitUserEndCapNonProofInput<F> {
