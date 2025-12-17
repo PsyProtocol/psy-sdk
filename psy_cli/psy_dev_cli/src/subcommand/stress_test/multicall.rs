@@ -102,8 +102,10 @@ impl Multicast {
         let user_pk = (0..user_count).map(|_| QHashOut::<GoldilocksField>::rand()).collect::<Vec<_>>();
         let start = Instant::now();
         let fingerprint = psy_prover::wallet::memory_wallet::get_zk_fingerprint();
+        let mut public_keys = Vec::new();
         for pk in &user_pk {
-            self.wallet_session.register_user(pk.clone(), fingerprint).await?;
+            let public_key = self.wallet_session.register_user(pk.clone(), fingerprint).await?;
+            public_keys.push(public_key);
         }
         let duration = start.elapsed().as_millis() as u64;
         info!("register_batch_user: Register batch user duration: {} ms", duration);
@@ -115,25 +117,19 @@ impl Multicast {
                 error!("register_batch_user: Wait for new block error: {}", err);
                 continue;
             }
-            for pk in &user_pk {
-                let ret = self.wallet_session.get_secp_public_key(pk.clone()).await;
+            for (i, public_key) in public_keys.iter().enumerate() {
+                let ret = self.wallet_session.st_provider.get_user_ids_for_public_key(public_key.clone()).await;
                 match ret {
-                    Ok(pk_info) => {
-                        let public_key = pk_info.qfhash::<PsyHasher>();
-                        let ret = self.wallet_session.st_provider.get_user_ids_for_public_key(public_key).await;
-                        match ret {
-                            Ok(user_ids) => {
-                                user_info.push(UserInfo {
-                                    user_id: user_ids[0],
-                                    pk: pk.clone(),
-                                    pub_key: public_key,
-                                });
-                                info!("register_batch_user: User_id: {}, pk_hash: {}", user_ids[0], public_key);
-                            }
-                            Err(err) => error!("register_batch_user: Get user id error: {}", err),
-                        }
+                    Ok(user_ids) => {
+                        let user_id = user_ids[0];
+                        user_info.push(UserInfo {
+                            user_id,
+                            pk: user_pk[i].clone(),
+                            pub_key: public_key.clone(),
+                        });
+                        info!("register_batch_user: User_id: {}, pk_hash: {}", user_id, public_key);
                     }
-                    Err(err) => error!("register_batch_user: Get zk public key error: {}", err),
+                    Err(err) => error!("register_batch_user: Get user id error: {}, for public key: {}", err, public_key),
                 }
             }
             if user_info.len() == user_pk.len() {
