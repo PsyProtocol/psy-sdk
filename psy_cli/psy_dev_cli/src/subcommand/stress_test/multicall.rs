@@ -327,9 +327,9 @@ impl Multicast {
         info!("deploying contract from {}", contract_path.clone());
         let defs_array: Vec<DPNFunctionCircuitDefinition> = serde_json::from_str(&fs::read_to_string(contract_path)?)?;
         for i in 0..count {
-            tracing::info!("deploying contract for user {} public_key {}, user_id {}", i, public_key0, from_user_id);
+            tracing::info!("deploying contract{} for user public_key {}, user_id {}", i, public_key0, from_user_id);
             self.wallet_session.deploy_contract(public_key0, defs_array.clone()).await?;
-            tracing::info!("contract deployed for user {} public_key {}, user_id {}", i, public_key0, from_user_id);
+            tracing::info!("contract{} deployed for user public_key {}, user_id {}", i, public_key0, from_user_id);
         }
         info!("user_deploy_contract: end call");
         Ok(())
