@@ -1,25 +1,17 @@
-use std::{fs, path::Path, str::FromStr, sync::Arc, time::Instant};
+use std::{fs, time::Instant};
 
 use anyhow::Result;
 use plonky2::field::goldilocks_field::GoldilocksField;
 use psy_common::{
-    args::{ContractCallArgs, ContractCallData, DPNSoftwareDefinedCallData},
+    args::{ContractCallArgs, ContractCallData},
     data::qhashout::QHashOut,
 };
-use psy_common_circuit::circuits::zk_signature3::manager::SimplePsyZKSignatureManager;
-use psy_config::network_constants::MAX_CONTRACT_STATE_TREE_HEIGHT;
-use psy_crypto::{hash::traits::qhashable::QFieldHashable, signature::zk::wallet::SimplePsyPrivateKey};
+use psy_crypto::{hash::traits::qhashable::QFieldHashable};
 use psy_data::{
-    config::store_config::{PsyHasher, C, D},
-    qblock::cmds::deploy_contract::QContractABI,
+    config::store_config::{PsyHasher},
 };
-use psy_prover::session::{gen_contract_deploy_and_circuits_for_functions, WalletSession};
-use psy_rust_sdk::{
-    provider::{QUserRpcProvider, RpcProvider},
-    request::QDeployContractRPCRequest,
-};
+use psy_prover::session::{WalletSession};
 use psy_vm::dpn::vm::def::DPNFunctionCircuitDefinition;
-use scheduled_thread_pool::ScheduledThreadPool;
 use tracing::log::{error, info};
 
 use crate::subcommand::{
@@ -39,28 +31,33 @@ const USER1_SECP_ZK_PUBLIC_KEY: &str = "ac85e11f5c8a53241502c4519567aa3f02d30b16
 
 pub async fn run(args: StressTestArgs) -> Result<()> {
     let rpc_config = load_rpc_config(&args.config)?;
-    let mut multicall = Multicast::new(rpc_config).await?;
+    let mut m = Multicast::new(rpc_config).await?;
     let handle = tokio::spawn(async move {
         for repeat in 0..args.repeat {
-            info!("🎯 Registering batch user - User count: {}, repeat: {}", args.concurrent_tasks, repeat);
             if args.only_user {
-                let _ = multicall.register_batch_user(args.concurrent_tasks as u64).await.unwrap();
+               info!("🎯 register_batch_user - concurrent_tasks: {}, repeat: {}", args.concurrent_tasks, repeat);
+               let _ = m.register_batch_user(args.concurrent_tasks as u64).await.unwrap();
             }
             if args.only_flow {
-                let user_info = multicall.register_batch_user(args.concurrent_tasks as u64).await.unwrap();
-                multicall.batch_flow(user_info).await.unwrap();
+                info!("🎯 batch_flow - concurrent_tasks: {}, repeat: {}", args.concurrent_tasks, repeat);
+                let user_info = m.register_batch_user(args.concurrent_tasks as u64).await.unwrap();
+                m.batch_flow(user_info).await.unwrap();
             }
             if args.only_multi_transfer {
-                multicall.batch_multi_transfer(args.concurrent_tasks as u64).await.unwrap();
+                info!("🎯 batch_multi_transfer - concurrent_tasks: {}, repeat: {}", args.concurrent_tasks, repeat);
+                m.batch_multi_transfer(args.concurrent_tasks as u64).await.unwrap();
             }
             if args.only_multi_user_transfer {
-                multicall.multi_user_transfer(args.concurrent_tasks as u64).await.unwrap();
+                info!("🎯 multi_user_transfer - concurrent_tasks: {}, repeat: {}", args.concurrent_tasks, repeat);
+                m.multi_user_transfer(args.concurrent_tasks as u64).await.unwrap();
             }
             if args.only_mint {
-                multicall.multi_user_mint(args.concurrent_tasks as u64).await.unwrap();
+                info!("🎯 batch_mint - concurrent_tasks: {}, repeat: {}", args.concurrent_tasks, repeat);
+                m.multi_user_mint(args.concurrent_tasks as u64).await.unwrap();
             }
             if args.only_deploy_contract {
-                multicall
+                info!("🎯 deploy_contract - concurrent_tasks: {}, repeat: {}", args.concurrent_tasks, repeat);
+                m
                     .deploy_contract(args.concurrent_tasks as u64, args.contract_path.clone())
                     .await
                     .unwrap();
@@ -83,13 +80,12 @@ struct UserInfo {
 
 pub struct Multicast {
     wallet_session: WalletSession,
-    rpc_config: NetworkConfig<GoldilocksField>,
 }
 
 impl Multicast {
     pub async fn new(rpc_config: NetworkConfig<GoldilocksField>) -> Result<Self> {
         let wallet_session = WalletSession::new(&rpc_config).await?;
-        Ok(Self { wallet_session, rpc_config })
+        Ok(Self { wallet_session })
     }
 
     pub async fn exec_contract_call(
@@ -326,7 +322,7 @@ impl Multicast {
         let mint_amount = 250000000000u64;
         let (from_user_id, public_key0) = self.init_user0(mint_amount).await?;
         if contract_path.is_empty() {
-            contract_path = "../psy-compiler/psy-precompiles/token/target/token.json".to_string();
+            contract_path = "../token.json".to_string();
         }
         info!("deploying contract from {}", contract_path.clone());
         let defs_array: Vec<DPNFunctionCircuitDefinition> = serde_json::from_str(&fs::read_to_string(contract_path)?)?;

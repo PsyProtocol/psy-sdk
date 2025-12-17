@@ -4,16 +4,13 @@ mod transfer_multi;
 
 use std::{
     path::Path,
-    thread,
     time::{Duration, Instant},
 };
 
 use anyhow::Result;
 use plonky2::field::goldilocks_field::GoldilocksField;
 use psy_data::traits::qdatastore::qmetadata::QMetaDataStoreReaderSync;
-use psy_node::common::slot::{LocalClock, Slot, SLOT_SIZE};
-use psy_prover::session::WalletSession;
-use psy_rust_sdk::provider::{NetworkConfig, QUserRpcProvider, RpcProvider};
+use psy_rust_sdk::provider::{NetworkConfig, RpcProvider};
 use tracing::{error, info};
 
 use crate::subcommand::StressTestArgs;
@@ -59,16 +56,14 @@ pub(crate) fn load_rpc_config(config_path: &str) -> Result<NetworkConfig<Goldilo
 }
 
 pub(crate) async fn wait_for_new_block(st_provider: &RpcProvider, offset: u64) -> Result<bool> {
+    const SLOT_SIZE: u64 = 1000;
     let mut start_checkpoint = st_provider.get_latest_block_state().await?.checkpoint_id;
     info!("current checkpoint: {}", start_checkpoint);
-    let local_clock = LocalClock {};
     let timeout_duration = Duration::from_millis(10 * offset * SLOT_SIZE);
-    let interval = Duration::from_millis(2 * SLOT_SIZE);
     let start_time = Instant::now();
     let mut pre_checkpoint = start_checkpoint;
     loop {
-        let slot = local_clock.get_current_slot();
-        thread::sleep(interval);
+        tokio::time::sleep(Duration::from_millis(SLOT_SIZE)).await;
         let last_checkpoint = st_provider.get_latest_block_state().await?.checkpoint_id;
         info!("get latest checkpoint: {}", last_checkpoint);
         let duration = start_time.elapsed();
@@ -76,13 +71,11 @@ pub(crate) async fn wait_for_new_block(st_provider: &RpcProvider, offset: u64) -
             info!("🔄 Wait {} seconds for finalizing block", duration.as_secs());
             return Ok(true);
         }
-        let latest_slot = local_clock.get_current_slot();
-        if pre_checkpoint == last_checkpoint && latest_slot > slot {
-            st_provider.produce_block::<F>().await?;
-        }
         pre_checkpoint = last_checkpoint;
         if duration > timeout_duration {
             return Ok(false);
         }
     }
+    // tokio::time::sleep(Duration::from_secs(6)).await;
+    // Ok(true)
 }
