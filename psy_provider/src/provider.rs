@@ -19,9 +19,12 @@ use psy_common::{
 use psy_common_circuit::circuits::zk_signature3::core::PsyBasicZKSignatureInnerCircuit;
 use psy_config::network_constants::REALM_USER_TREE_HEIGHT;
 use psy_crypto::{
-    common::witnesses::qrecursion::{
-        header::QRecursionAggStandardHeader,
-        proof_data::{AggProofRecord, QStandardBinaryTreeCircuitType, SimpleQTreeRecursionManagerInclusionProofs},
+    common::{
+        user_id::get_user_id_from_registration_id,
+        witnesses::qrecursion::{
+            header::QRecursionAggStandardHeader,
+            proof_data::{AggProofRecord, QStandardBinaryTreeCircuitType, SimpleQTreeRecursionManagerInclusionProofs},
+        },
     },
     hash::{
         merkle::core::{DeltaMerkleProofCore, MerkleProofCore},
@@ -407,14 +410,17 @@ impl RpcProvider {
             RequestParams::<F>::GetUserIds(QGetUserIdsRPCRequest {
                 public_key,
                 start_user_id: 0,
-                count: 1
+                count: 1,
             }),
             Vec<u64>
         );
         match response.result {
             ResponseResult::Success(user_ids) => {
                 tracing::info!("get user ids: {:?}", user_ids);
-                Ok(user_ids)
+                match user_ids.is_empty() {
+                    true => Err(anyhow::format_err!("no user ids found")),
+                    false => Ok(user_ids.iter().map(|x| get_user_id_from_registration_id(*x)).collect()),
+                }
             }
             ResponseResult::Error(e) => Err(anyhow::format_err!("rpc call failed `{:?}`", e)),
         }
