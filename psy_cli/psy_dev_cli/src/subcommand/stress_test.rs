@@ -59,7 +59,7 @@ pub(crate) async fn wait_for_new_block(st_provider: &RpcProvider, offset: u64) -
     const SLOT_SIZE: u64 = 1000;
     let mut start_checkpoint = st_provider.get_latest_block_state().await?.checkpoint_id;
     info!("current checkpoint: {}", start_checkpoint);
-    let timeout_duration = Duration::from_millis(10 * offset * SLOT_SIZE);
+    let timeout_duration = Duration::from_millis(20 * offset * SLOT_SIZE);
     let start_time = Instant::now();
     let mut pre_checkpoint = start_checkpoint;
     loop {
