@@ -639,21 +639,21 @@ run-benchmark:
 	@./scripts/run_benchmark.sh
 
 run-benchmark-user:
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_dev_cli stress-test --task-type multicall --only-user --concurrent-tasks 1000
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_dev_cli stress-test --task-type multicall --only-user --concurrent-tasks 100000
 
-run-benchmark-mint:
+run-benchmark-mint: register-user
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_dev_cli stress-test --task-type multicall --only-mint --concurrent-tasks 100
 
-run-benchmark-transfer:
+run-benchmark-transfer: register-user
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_dev_cli stress-test --task-type multicall --only-multi-user-transfer --concurrent-tasks 20
 
-run-benchmark-flow:
+run-benchmark-flow: register-user
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_dev_cli stress-test --task-type multicall --only-flow --concurrent-tasks 100
 
-run-benchmark-flow-repeat:
+run-benchmark-flow-repeat: register-user
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_dev_cli stress-test --task-type multicall --only-flow --repeat 100
 
-run-benchmark-deploy:
+run-benchmark-deploy: register-user
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_user_cli deploy-contract --private-key=${USER0_PRIVATE_KEY} --contract-path ${PWD}/token.json --is-deploy
 	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_dev_cli stress-test --task-type multicall --only-deploy-contract  --concurrent-tasks 100  --contract-path ${PWD}/token.json
 
@@ -682,7 +682,8 @@ register-user:
 	@RUST_LOG=error ./target/${PROFILE}/psy_user_cli register-user --private-key=${USER1_PRIVATE_KEY} --sign-type secp256k1 | tail -5 | jq .
 	@sleep 0.5
 	@RUST_LOG=error ./target/${PROFILE}/psy_user_cli register-user --private-key=${USER2_PRIVATE_KEY} --sign-type secp256k1 | tail -5 | jq .
-	@sleep 0.5
+	@echo "Waiting 6s for users to be registered..."
+	@sleep 6
 	# @RUST_LOG=error ./target/${PROFILE}/psy_user_cli register-user --private-key=${USER2_PRIVATE_KEY} | tail -5 | jq .
 	# @sleep 0.5
 	# @RUST_LOG=error ./target/${PROFILE}/psy_user_cli register-user --private-key=${USER3_PRIVATE_KEY} | tail -5 | jq .

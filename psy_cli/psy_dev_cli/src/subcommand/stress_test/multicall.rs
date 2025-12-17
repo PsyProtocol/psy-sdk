@@ -1,14 +1,9 @@
 use std::{fs, time::Instant};
-
 use anyhow::Result;
 use plonky2::field::goldilocks_field::GoldilocksField;
 use psy_common::{
     args::{ContractCallArgs, ContractCallData},
     data::qhashout::QHashOut,
-};
-use psy_crypto::{hash::traits::qhashable::QFieldHashable};
-use psy_data::{
-    config::store_config::{PsyHasher},
 };
 use psy_prover::session::{WalletSession};
 use psy_vm::dpn::vm::def::DPNFunctionCircuitDefinition;
