@@ -713,7 +713,9 @@ multi-contract-call:
 
 mint:
 	@echo "All users minting 1000 tokens..."
-	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_user_cli call --keystore-path .wallets/treasury.json --contract-id ${CONTRACT_ID} --method-name simple_mint --inputs "[1000000000000]" --sign-type $(SIGN_TYPE)
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_user_cli call -p ${USER0_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_mint --inputs "[1000000000000]"
+	@RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_user_cli call -p ${USER1_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_mint --inputs "[1000000000000]"
+	# @RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_user_cli call --keystore-path .wallets/treasury.json --contract-id ${CONTRACT_ID} --method-name simple_mint --inputs "[1000000000000]" --sign-type $(SIGN_TYPE)
 	# @RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_user_cli call --keystore-path .wallets/treasury.json --contract-id ${CONTRACT_ID} --method-name simple_mint --inputs "[1000000000000]" --sign-type $(SIGN_TYPE)
 	# @RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_user_cli call -p ${USER2_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_mint --inputs "[1000000000000]"
 	# @RUST_LOG=${LOG_LEVEL} ./target/${PROFILE}/psy_user_cli call -p ${USER3_PRIVATE_KEY} --contract-id ${CONTRACT_ID} --method-name simple_mint --inputs "[1000000000000]"
