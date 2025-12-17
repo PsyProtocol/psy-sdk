@@ -1246,45 +1246,12 @@ impl QMetaDataStoreReaderSync<F> for RpcProvider {
 
     #[instrument(skip(self))]
     async fn get_latest_block_state(&self) -> anyhow::Result<psy_data::qdata::checkpoint::PsyBlockState> {
-        info!("Fetching latest block state");
-        let rpc_url = self.get_coordinator_url()?;
-        let input = QLatestBlockStateRPCRequest {};
-        let response = psy_rpc_call_back!(self, rpc_url, RequestParams::<F>::GetLatestBlockState(input), PsyBlockState);
-        match response.result {
-            ResponseResult::Success(block_state) => {
-                debug!(
-                    block_state = %serde_json::to_string_pretty(&block_state).unwrap(),
-                    "Successfully fetched block state"
-                );
-                Ok(block_state)
-            }
-            ResponseResult::Error(e) => {
-                error!("RPC call failed: {:?}", e);
-                Err(anyhow::format_err!("get_latest_block_state rpc call failed `{:?}`", e))
-            }
-        }
+        self.get_realm_latest_block_state().await
     }
 
     #[instrument(skip(self), fields(checkpoint_id))]
     async fn get_block_state(&self, checkpoint_id: u64) -> anyhow::Result<psy_data::qdata::checkpoint::PsyBlockState> {
-        info!("Fetching block state checkpoint_id: {}", checkpoint_id);
-        let rpc_url = self.get_coordinator_url()?;
-        let input = QBlockStateRPCRequest { checkpoint_id };
-        let response = psy_rpc_call_back!(self, rpc_url, RequestParams::<F>::GetBlockState(input), PsyBlockState);
-        match response.result {
-            ResponseResult::Success(block_state) => {
-                debug!(
-                    checkpoint_id = checkpoint_id,
-                    block_state = %serde_json::to_string_pretty(&block_state).unwrap(),
-                    "Successfully fetched block state"
-                );
-                Ok(block_state)
-            }
-            ResponseResult::Error(e) => {
-                error!("RPC call failed: {:?}", e);
-                Err(anyhow::format_err!("get_block_state rpc call failed `{:?}`", e))
-            }
-        }
+        self.get_realm_block_state(checkpoint_id).await
     }
 }
 

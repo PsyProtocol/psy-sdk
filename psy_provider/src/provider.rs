@@ -509,6 +509,46 @@ impl RpcProvider {
         }
     }
 
+    pub async fn get_coordinator_latest_block_state(&self) -> anyhow::Result<psy_data::qdata::checkpoint::PsyBlockState> {
+        tracing::info!("Fetching latest coordinator block state");
+        let rpc_url = self.get_coordinator_url()?;
+        let input = QLatestBlockStateRPCRequest {};
+        let response = psy_rpc_call_back!(self, rpc_url, RequestParams::<GoldilocksField>::GetLatestBlockState(input), PsyBlockState);
+        match response.result {
+            ResponseResult::Success(block_state) => {
+                tracing::debug!(
+                    block_state = %serde_json::to_string_pretty(&block_state).unwrap(),
+                    "Successfully fetched block state"
+                );
+                Ok(block_state)
+            }
+            ResponseResult::Error(e) => {
+                tracing::error!("RPC call failed: {:?}", e);
+                Err(anyhow::format_err!("get_coordinator_latest_block_state rpc call failed `{:?}`", e))
+            }
+        }
+    }
+
+    pub async fn get_coordinator_block_state(&self, checkpoint_id: u64) -> anyhow::Result<psy_data::qdata::checkpoint::PsyBlockState> {
+        tracing::info!("Fetching coordinator block state at checkpoint {}", checkpoint_id);
+        let rpc_url = self.get_coordinator_url()?;
+        let input = QBlockStateRPCRequest { checkpoint_id };
+        let response = psy_rpc_call_back!(self, rpc_url, RequestParams::<GoldilocksField>::GetBlockState(input), PsyBlockState);
+        match response.result {
+            ResponseResult::Success(block_state) => {
+                tracing::debug!(
+                    block_state = %serde_json::to_string_pretty(&block_state).unwrap(),
+                    "Successfully fetched block state"
+                );
+                Ok(block_state)
+            }
+            ResponseResult::Error(e) => {
+                tracing::error!("RPC call failed: {:?}", e);
+                Err(anyhow::format_err!("get_coordinator_block_state rpc call failed `{:?}`", e))
+            }
+        }
+    }
+
     pub async fn get_user_sub_tree_merkle_proof_inner(
         &self,
         rpc_url: &str,

@@ -349,8 +349,8 @@ impl WalletSession {
             .get_mut(&public_key)
             .ok_or_else(|| anyhow::format_err!("user {} not found", public_key.to_string()))?;
 
-        let latest_block_state = user_session_mgr.lps.get_read_store().get_realm_latest_block_state().await?;
-        let global_latest_block_state = self.st_provider.get_latest_block_state().await?;
+        let latest_block_state = user_session_mgr.lps.get_read_store().get_latest_block_state().await?;
+        let global_latest_block_state = self.st_provider.get_coordinator_latest_block_state().await?;
 
         if latest_block_state.checkpoint_id <= global_latest_block_state.checkpoint_id {
             tracing::info!(
