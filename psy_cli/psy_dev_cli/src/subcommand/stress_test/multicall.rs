@@ -88,9 +88,18 @@ impl Multicast {
         public_key: QHashOut<GoldilocksField>,
         contract_call_args: Vec<ContractCallArgs>,
     ) -> Result<UserEndCapUUID> {
-        self.wallet_session
+        match self.wallet_session
             .exec_contract_call(public_key, ContractCallData::new(contract_call_args))
-            .await
+            .await {
+            Ok(uuid) => Ok(uuid),
+            Err(err) => {
+                error!("exec_contract_call: Error: {}", err);
+                if err.to_string().contains("has already been submitted") {
+                    return Ok(UserEndCapUUID::default());
+                }
+                Err(err)
+            }
+        }
     }
 
     pub async fn register_batch_user(&mut self, user_count: u64) -> Result<Vec<UserInfo>> {
