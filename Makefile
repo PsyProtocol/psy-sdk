@@ -84,7 +84,9 @@ REALM_RPC_URL            := $(shell jq -r '.networks.localhost.realm_configs[${R
 GLOBAL_USER_TREE_HEIGHT  := $(shell jq -r '.networks.localhost.global_user_tree_height' config.json)
 REALM_USER_TREE_HEIGHT   := $(shell jq -r '.networks.localhost.realm_user_tree_height' config.json)
 REALM_TREE_LEAF_LEVEL    := $(shell echo $$(($(GLOBAL_USER_TREE_HEIGHT) - $(REALM_USER_TREE_HEIGHT))))
-USER1_ID                 := $(shell ./target/${PROFILE}/psy_dev_cli get-user-id-from-registration-id ${REGISTRATION_ID} --strategy ${STRATEGY} | awk '{for(i=1;i<=NF;i++) if($$i=="ID:") print $$(i+1)}' | tail -1)
+USER1_ID                 := $(shell ./target/${PROFILE}/psy_dev_cli get-user-id-from-registration-id 1 --strategy ${STRATEGY} | awk '{for(i=1;i<=NF;i++) if($$i=="ID:") print $$(i+1)}' | tail -1)
+USER2_ID                 := $(shell ./target/${PROFILE}/psy_dev_cli get-user-id-from-registration-id 2 --strategy ${STRATEGY} | awk '{for(i=1;i<=NF;i++) if($$i=="ID:") print $$(i+1)}' | tail -1)
+USER3_ID                 := $(shell ./target/${PROFILE}/psy_dev_cli get-user-id-from-registration-id 3 --strategy ${STRATEGY} | awk '{for(i=1;i<=NF;i++) if($$i=="ID:") print $$(i+1)}' | tail -1)
 
 init:
 	@mkdir -p $(PWD)/db
@@ -824,6 +826,12 @@ get-user-sub-tree-merkle-proof:
 get-user-registration-tree-root:
 	@./target/${PROFILE}/psy_user_cli get-user-registration-tree-root --checkpoint-id ${CHECKPOINT_ID}
 
+get-user-registration-tree-leaf-hash:
+	@./target/${PROFILE}/psy_user_cli get-user-registration-tree-leaf-hash --checkpoint-id ${CHECKPOINT_ID} --registration-id ${REGISTRATION_ID}
+
+get-user-registration-tree-merkle-proof:
+	@./target/${PROFILE}/psy_user_cli get-user-registration-tree-merkle-proof --checkpoint-id ${CHECKPOINT_ID} --registration-id ${REGISTRATION_ID}
+
 # User contract tree RPC commands
 get-user-contract-tree-root:
 	@./target/${PROFILE}/psy_user_cli get-user-contract-tree-root --checkpoint-id ${CHECKPOINT_ID} --user-id ${USER_ID}
@@ -864,6 +872,9 @@ get-graphviz-realm:
 
 get-user-id-from-registration-id:
 	@./target/${PROFILE}/psy_dev_cli get-user-id-from-registration-id ${REGISTRATION_ID} --strategy ${STRATEGY}
+
+get-registration-id-from-user-id:
+	@./target/${PROFILE}/psy_dev_cli get-registration-id-from-user-id ${USER_ID} --strategy ${STRATEGY}
 
 image:
 	docker build \

@@ -1,11 +1,12 @@
 use clap::{command, Parser, Subcommand};
+pub use get_registration_id_from_user_id::GetRegistrationIdFromUserIdArgs;
 pub use get_user_id_from_registration_id::GetUserIdFromRegistrationIdArgs;
 pub use job::JobArgs;
-
 pub mod check_registered_users;
 pub mod generate;
 pub mod generate_token;
 pub mod get_job_proof;
+pub mod get_registration_id_from_user_id;
 pub mod get_user_id_from_registration_id;
 pub mod job;
 pub mod launch;
@@ -34,6 +35,9 @@ pub enum Commands {
 
     #[command(about = "Register random users in batch")]
     RandomRegisterUserBatch(RandomArgs),
+
+    #[command(about = "Get registration ID from user ID")]
+    GetRegistrationIdFromUserId(GetRegistrationIdFromUserIdArgs),
 
     #[command(about = "Get user ID and realm from registration ID")]
     GetUserIdFromRegistrationId(GetUserIdFromRegistrationIdArgs),

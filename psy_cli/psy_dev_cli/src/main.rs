@@ -23,6 +23,9 @@ async fn main() -> anyhow::Result<()> {
         Commands::RandomRegisterUserBatch(args) => {
             subcommand::register_user::run_random(args).await?;
         }
+        Commands::GetRegistrationIdFromUserId(args) => {
+            subcommand::get_registration_id_from_user_id::run(args).await?;
+        }
         Commands::GetUserIdFromRegistrationId(args) => {
             subcommand::get_user_id_from_registration_id::run(args).await?;
         }

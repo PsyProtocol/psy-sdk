@@ -205,7 +205,7 @@ pub struct UserRegistrationTreeLeafHashArgs {
     #[arg(long, env)]
     pub checkpoint_id: u64,
     #[arg(long, env)]
-    pub leaf_index: u64,
+    pub registration_id: u64,
 }
 
 #[derive(Clone, Args)]
@@ -215,7 +215,7 @@ pub struct UserRegistrationTreeMerkleProofArgs {
     #[arg(long, env)]
     pub checkpoint_id: u64,
     #[arg(long, env)]
-    pub leaf_index: u64,
+    pub registration_id: u64,
 }
 
 #[derive(Clone, Args)]

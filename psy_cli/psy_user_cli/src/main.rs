@@ -137,7 +137,9 @@ async fn main() -> anyhow::Result<()> {
             use psy_data::traits::qdatastore::qtreedata::QTreeDataStoreReaderSync;
             use psy_rust_sdk::provider::RpcProvider;
             let provider = RpcProvider::new_with_config_path(&args.rpc_config)?;
-            let hash = provider.get_user_registration_tree_leaf_hash(args.checkpoint_id, args.leaf_index).await?;
+            let hash = provider
+                .get_user_registration_tree_leaf_hash(args.checkpoint_id, args.registration_id)
+                .await?;
             println!("{}", serde_json::to_string_pretty(&hash)?);
         }
         Commands::GetUserRegistrationTreeMerkleProof(args) => {
@@ -145,7 +147,7 @@ async fn main() -> anyhow::Result<()> {
             use psy_rust_sdk::provider::RpcProvider;
             let provider = RpcProvider::new_with_config_path(&args.rpc_config)?;
             let proof = provider
-                .get_user_registration_tree_merkle_proof(args.checkpoint_id, args.leaf_index)
+                .get_user_registration_tree_merkle_proof(args.checkpoint_id, args.registration_id)
                 .await?;
             println!("{}", serde_json::to_string_pretty(&proof)?);
         }
