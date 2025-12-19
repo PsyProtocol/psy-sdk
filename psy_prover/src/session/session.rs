@@ -23,6 +23,7 @@ use psy_config::{
     MINING_REWARDS_CONTRACT_ID, PSY_NETWORK_MAGIC,
 };
 use psy_crypto::{
+    common::user_id::get_registration_id_from_user_id,
     hash::traits::{
         hasher::{MerkleZeroHasher, MerkleZeroHasherWithMarkedLeaf},
         qhashable::QFieldHashable,
@@ -377,6 +378,32 @@ impl WalletSession {
         user_session_mgr.prove_ups_start(self.wallet.random_circuit_manager().as_ref()).await?;
 
         let user_id = user_session_mgr.lps.get_current_user_id_64();
+        let registration_id = get_registration_id_from_user_id(user_id);
+        let checkpoint = user_session_mgr.lps.get_current_start_checkpoint_id_u64();
+
+        tracing::info!(
+            "check if user {}: {} is registered at checkpoint {}, registration_id: {}",
+            user_id,
+            public_key.to_string(),
+            checkpoint,
+            registration_id
+        );
+        let registration_leaf_hash = self
+            .st_provider
+            .with_user_id_owned(user_id)
+            .get_user_registration_tree_leaf_hash(checkpoint, registration_id)
+            .await?;
+
+        if registration_leaf_hash == QHashOut::ZERO {
+            anyhow::bail!(
+                "user {}: {} of registration id {} is not registered at checkpoint {}, please check it first",
+                user_id,
+                public_key.to_string(),
+                registration_id,
+                checkpoint
+            );
+        }
+
         let nonce = user_session_mgr.lps.get_nonce();
         self.check_user_state(user_id, nonce).await?;
 
