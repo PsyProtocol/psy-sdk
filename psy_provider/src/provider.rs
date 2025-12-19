@@ -703,7 +703,19 @@ impl RpcProvider {
 
     pub async fn get_tx_status(&self, user_id: u64, nonce: u64) -> anyhow::Result<TxStatus> {
         tracing::info!("Fetching tx status user_id: {}, nonce: {}", user_id, nonce);
-        return Ok(TxStatus::Submittable);
+        let latest_checkpoint_id = self.get_latest_block_state().await?.checkpoint_id;
+        let expected_nonce = match self.get_user_leaf_data(latest_checkpoint_id, user_id).await {
+            Ok(user_leaf) => user_leaf.nonce.to_canonical_u64() + 1,
+            Err(_) => 1,
+        };
+        tracing::debug!("get user {} tx status at nonce {}, expected_nonce {}", user_id, nonce, expected_nonce);
+
+        if nonce != expected_nonce {
+            tracing::warn!("nonce {} != expected_nonce {}", nonce, expected_nonce);
+            Ok(TxStatus::Confirmed)
+        } else {
+            Ok(TxStatus::Submittable)
+        }
         // let rpc_url = self.get_realm_url(user_id)?;
 
         // let input = QGetTxStatusRPCRequest { user_id, nonce };
