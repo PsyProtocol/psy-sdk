@@ -1,4 +1,4 @@
-use std::{collections::HashMap, marker::PhantomData, sync::Arc};
+use std::{collections::HashMap, fs, marker::PhantomData, result::Result::Ok, sync::Arc};
 
 use plonky2::{
     field::{goldilocks_field::GoldilocksField, types::PrimeField64},
@@ -17,6 +17,7 @@ use psy_common::{
     JobInfo, JobLocation,
 };
 use psy_common_circuit::circuits::zk_signature3::core::PsyBasicZKSignatureInnerCircuit;
+use psy_config::network_constants::REALM_USER_TREE_HEIGHT;
 use psy_crypto::{
     common::{
         user_id::get_user_id_from_registration_id,
@@ -32,7 +33,7 @@ use psy_crypto::{
     signature::secp256k1::core::PsyCompressedSecp256K1Signature,
 };
 use psy_data::{
-    config::store_config::PsyHasher,
+    config::store_config::{PsyFelt, PsyHasher},
     qdata::{checkpoint::PsyBlockState, contract::ContractCodeDefinition},
     qstore::controllers::session_info::SessionCircuitInfoStore,
     traits::qdatastore::{qmetadata::QMetaDataStoreReaderSync, qtreedata::QTreeDataStoreReaderSync},
@@ -48,24 +49,29 @@ use psy_vm::{
     ups::circuit_manager::{PortableQTreeRecursion, PortableQTreeRecursionCircuitsData, PortableQTreeRecursionCircuitsProve, UPSCircuitManager},
     vm::cfc_input::DapenContractFunctionCircuitInput,
 };
+// #[cfg(not(target_arch = "wasm32"))]
 use rand::Rng;
+// #[cfg(not(target_arch = "wasm32"))]
+// use reqwest::blocking::Client;
+
+// #[cfg(target_arch = "wasm32")]
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use serde_json;
 
 use super::request::{
     Id, QAddWithdrawalRPCRequest, QClaimDepositRPCRequest, QDeployContractRPCRequest, QGetUserIdsRPCRequest, QRegisterUserRPCRequest,
-    QSubmitEndCapRPCRequest, QTokenTransferRPCRequest, RequestParams, ResponseResult, RpcRequest, RpcResponse, Version,
+    QSubmitEndCapRPCRequest, QSubmitGutaRPCRequest, QTokenTransferRPCRequest, RequestParams, ResponseResult, RpcRequest, RpcResponse, Version,
 };
 use crate::{
     request::{
-        DPNSoftwareDefinedSignatureProofRPCRequest, QBlockStateRPCRequest, QGetContractMethodCommonDataRPCRequest, QGetFnIdRPCRequest,
-        QLatestBlockStateRPCRequest, QLeftAggRightLeafRpcRequestV2, QLeftLeafRightAggRpcRequestV2, QProveContractCallRPCRequest,
-        QProveUpsStartRPCRequest, QProveUpsStartRegisterUserRPCRequest, QRegisterCircuitsRPCRequest, QRegisterDPNSoftwareDefinedCircuitRPCRequest,
-        QRegisterPlonky2SoftwareDefinedCircuitRPCRequest, QResolveContractFunctionByMethodIdRPCRequest,
-        QResolveContractFunctionByMethodNameRPCRequest, QSecpSignatureProofRPCRequest, QSignatureMinifierProofRPCRequest, QSingleLeafRpcRequestV2,
-        QTwoAggRpcRequsetV2, QTwoLeafRpcRequestV2, QUpsCfcDeferredTxRPCRequest, QUpsCfcStandardTxRPCRequest, QUpsEndCapRPCRequestV2,
-        QUserSubTreeMerkleProofRPCRequest, RequestParamsV2,
+        DPNSoftwareDefinedSignatureInput, DPNSoftwareDefinedSignatureProofRPCRequest, QBlockStateRPCRequest, QGetContractMethodCommonDataRPCRequest,
+        QGetFnIdRPCRequest, QGetTxStatusRPCRequest, QLatestBlockStateRPCRequest, QLeftAggRightLeafRpcRequestV2, QLeftLeafRightAggRpcRequestV2,
+        QProveContractCallRPCRequest, QProveUpsStartRPCRequest, QProveUpsStartRegisterUserRPCRequest, QRegisterCircuitsRPCRequest,
+        QRegisterDPNSoftwareDefinedCircuitRPCRequest, QRegisterPlonky2SoftwareDefinedCircuitRPCRequest, QResolveContractFunctionByMethodIdRPCRequest,
+        QResolveContractFunctionByMethodNameRPCRequest, QSecpSignatureProofRPCRequest, QSignatureMinifierProofRPCRequest, QSignatureProofRPCRequest,
+        QSingleLeafRpcRequestV2, QTwoAggRpcRequsetV2, QTwoLeafRpcRequestV2, QUpsCfcDeferredTxRPCRequest, QUpsCfcStandardTxRPCRequest,
+        QUpsEndCapRPCRequestV2, QUserSubTreeMerkleProofRPCRequest, RequestParamsV2,
     },
     session::TxStatus,
 };
@@ -573,10 +579,7 @@ impl RpcProvider {
                     merkle_proof = %serde_json::to_string_pretty(&merkle_proof).unwrap(),
                     "Successfully fetched merkle proof"
                 );
-                match merkle_proof.verify::<PsyHasher>() {
-                    true => Ok(merkle_proof),
-                    false => Err(anyhow::format_err!("user tree merkle proof verify failed")),
-                }
+                Ok(merkle_proof)
             }
             ResponseResult::Error(e) => {
                 tracing::error!("RPC call failed: {:?}", e);

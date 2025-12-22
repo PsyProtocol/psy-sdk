@@ -418,12 +418,42 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
             MerkleProofCore<QHashOut<F>>
         );
         match response.result {
-            ResponseResult::Success(merkle_proof) => {
+            ResponseResult::Success(mut merkle_proof) => {
                 debug!(
                     checkpoint_id = checkpoint_id,
                     user_id = user_id,
                     merkle_proof = %serde_json::to_string_pretty(&merkle_proof).unwrap(),
                     "Successfully fetched merkle proof"
+                );
+                debug!("Retrieved bottom merkle proof: {}", serde_json::to_string_pretty(&merkle_proof).unwrap());
+                info!("Merkle proof root: {:?}", merkle_proof.root.to_string());
+                info!("Merkle proof value: {:?}", merkle_proof.value.to_string());
+                debug!(
+                    checkpoint_id = checkpoint_id,
+                    user_id = user_id,
+                    verify_result = %merkle_proof.verify::<PsyHasher>(),
+                    "Before verify"
+                );
+
+                let top_proof = self
+                    .get_user_sub_tree_merkle_proof(checkpoint_id, 0, COORDINATOR_USER_TREE_HEIGHT, self.get_realm_id(user_id))
+                    .await?;
+                debug!("Retrieved top proof: {}", serde_json::to_string_pretty(&top_proof).unwrap());
+                let mut new_siblings = vec![];
+                new_siblings.extend_from_slice(&merkle_proof.siblings[0..(REALM_USER_TREE_HEIGHT as usize)]);
+                new_siblings.extend_from_slice(&top_proof.siblings);
+                merkle_proof.root = top_proof.root;
+                merkle_proof.siblings = new_siblings;
+                debug!(
+                    "Modified merkle proof with top proof: {}",
+                    serde_json::to_string_pretty(&merkle_proof).unwrap()
+                );
+
+                debug!(
+                    checkpoint_id = checkpoint_id,
+                    user_id = user_id,
+                    verify_result = %merkle_proof.verify::<PsyHasher>(),
+                    "After verify"
                 );
                 match merkle_proof.verify::<PsyHasher>() {
                     true => Ok(merkle_proof),
@@ -465,8 +495,70 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         let real_user_id = leaf_index << (GLOBAL_USER_TREE_HEIGHT - leaf_level);
         let realm_rpc_url = self.get_realm_url(real_user_id)?;
 
-        self.get_user_sub_tree_merkle_proof_inner(realm_rpc_url, checkpoint_id, root_level, leaf_level, leaf_index)
-            .await
+        let coordinator_rpc_url = self.get_coordinator_url()?;
+
+        if root_level >= COORDINATOR_USER_TREE_HEIGHT {
+            self.get_user_sub_tree_merkle_proof_inner(realm_rpc_url, checkpoint_id, root_level, leaf_level, leaf_index)
+                .await
+        } else if leaf_level <= COORDINATOR_USER_TREE_HEIGHT {
+            self.get_user_sub_tree_merkle_proof_inner(&coordinator_rpc_url, checkpoint_id, root_level, leaf_level, leaf_index)
+                .await
+        } else {
+            tracing::info!("you need to get both sub tree of coordinator and realm");
+            let top_tree_leaf_index = leaf_index >> (leaf_level - COORDINATOR_USER_TREE_HEIGHT);
+            let top_tree_proof = self
+                .get_user_sub_tree_merkle_proof_inner(
+                    &coordinator_rpc_url,
+                    checkpoint_id,
+                    root_level,
+                    COORDINATOR_USER_TREE_HEIGHT,
+                    top_tree_leaf_index,
+                )
+                .await?;
+            debug!("top tree proof:{}", serde_json::to_string_pretty(&top_tree_proof)?);
+            let bottom_tree_proof = self
+                .get_user_sub_tree_merkle_proof_inner(&realm_rpc_url, checkpoint_id, COORDINATOR_USER_TREE_HEIGHT, leaf_level, leaf_index)
+                .await?;
+            debug!("bottom tree proof:{}", serde_json::to_string_pretty(&bottom_tree_proof)?);
+
+            if top_tree_proof.value != bottom_tree_proof.root {
+                tracing::error!(
+                    "coordinator sub tree proof's value {} should be equal to realm sub tree proof's root {}",
+                    top_tree_proof.value,
+                    bottom_tree_proof.root
+                );
+                anyhow::bail!(
+                    "coordinator sub tree proof's value {} should be equal to realm sub tree proof's root {}",
+                    top_tree_proof.value,
+                    bottom_tree_proof.root
+                );
+            }
+
+            let mut new_siblings = bottom_tree_proof.siblings;
+            new_siblings.extend_from_slice(&top_tree_proof.siblings);
+
+            let combine_tree_proof = MerkleProofCore {
+                root: top_tree_proof.root,
+                value: bottom_tree_proof.value,
+                index: leaf_index,
+                siblings: new_siblings,
+            };
+
+            debug!("combine_tree_proof: {}", serde_json::to_string_pretty(&combine_tree_proof)?);
+
+            debug!(
+                checkpoint_id = checkpoint_id,
+                root_level = root_level,
+                leaf_level = leaf_level,
+                leaf_index = leaf_index,
+                verify_result = %combine_tree_proof.verify::<PsyHasher>(),
+                "After verify"
+            );
+            match combine_tree_proof.verify::<PsyHasher>() {
+                true => Ok(combine_tree_proof),
+                false => Err(anyhow::format_err!("user sub tree merkle proof verify failed")),
+            }
+        }
     }
 
     #[instrument(skip(self), fields(checkpoint_id, contract_id))]
