@@ -18,7 +18,7 @@ use psy_data::{
 use psy_dpn_circuit::circuits::cfc::DapenContractFunctionCircuit;
 use psy_prover::{
     session::{gen_contract_deploy_and_circuits_for_functions, WalletSession},
-    wallet::memory_wallet::get_zk_fingerprint,
+    wallet::memory_wallet::{get_public_key_info, get_zk_fingerprint},
 };
 use psy_rust_sdk::{
     provider::{QUserRpcProvider, RpcProvider},
@@ -34,8 +34,7 @@ pub async fn run(args: DeployContractArgs) -> anyhow::Result<()> {
 
     let psy_config = psy_config::PsyConfigGoldilocks::from_file(&args.rpc_config)?;
     let rpc_config = psy_config.get_current_network()?.clone();
-
-    let mut wallet_session = WalletSession::new(&rpc_config).await?;
+    let rpc_provider = RpcProvider::new_with_config(&rpc_config)?;
 
     let private_key = QHashOut::<F>::from_str(&args.private_key)?;
     let fingerprint = args
@@ -45,7 +44,7 @@ pub async fn run(args: DeployContractArgs) -> anyhow::Result<()> {
         .transpose()?;
 
     let fingerprint = fingerprint.unwrap_or_else(|| get_zk_fingerprint());
-    let deployer = wallet_session.add_user(private_key, fingerprint).await?;
+    let deployer = get_public_key_info::<F>(private_key, fingerprint)?.qfhash::<PsyHasher>();
 
     let defs_array: Vec<DPNFunctionCircuitDefinition> = serde_json::from_str(&fs::read_to_string(args.contract_path)?)?;
 
@@ -64,20 +63,11 @@ pub async fn run(args: DeployContractArgs) -> anyhow::Result<()> {
         .collect::<Vec<_>>();
     let sig_hash = QHashOut::<F>::from(hash_n_to_hash_no_pad::<GoldilocksField, PoseidonPermutation<GoldilocksField>>(&sign_data));
 
-    let sign_proof = match args.sign_type.clone() {
-        SignType::ZKSign => wallet_session.wallet.zk_sign_for_public_key(deployer, sig_hash).await?,
-        SignType::SECP256K1Sign => wallet_session.wallet.zk_sign_secp256k1(deployer, sig_hash).await?,
-        SignType::SoftwareDefinedDPNSign => unimplemented!("software defined dpn sign not supported"),
-        SignType::SoftwareDefinedPlonky2Sign => unimplemented!("software defined plonky2 sign not supported"),
-    };
-
     match args.output_path {
         Some(output_path) => {
             tracing::debug!("deploy cmd save to {}", output_path);
-            let deploy_cmd_path = Path::new(&output_path).join("deploy.json");
+            let deploy_cmd_path = Path::new(&output_path);
             fs::write(deploy_cmd_path, serde_json::to_string_pretty(&deploy_cmd)?)?;
-            let sign_proof_path = Path::new(&output_path).join("sign_proof.json");
-            fs::write(sign_proof_path, serde_json::to_string_pretty(&sign_proof)?)?;
         }
         None => {
             tracing::debug!("deploy cmd: {}", serde_json::to_string_pretty(&deploy_cmd)?);
@@ -88,8 +78,7 @@ pub async fn run(args: DeployContractArgs) -> anyhow::Result<()> {
         tracing::info!("user cli deploying contract");
         // let abi = serde_json::from_str(&fs::read_to_string(args.abi_path)?)?;
 
-        let contract_uuid = wallet_session
-            .st_provider
+        let contract_uuid = rpc_provider
             .deploy_contract(QDeployContractRPCRequest {
                 deploy_contract: deploy_cmd,
                 // abi,

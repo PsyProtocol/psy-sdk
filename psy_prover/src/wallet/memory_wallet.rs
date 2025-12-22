@@ -22,7 +22,10 @@ use psy_config::network_constants::{MAX_CONTRACT_STATE_TREE_HEIGHT, UPS_SESSION_
 use psy_crypto::{
     hash::traits::{hasher::MerkleZeroHasher, qhashable::QFieldHashable},
     signature::{
-        secp256k1::core::PsyCompressedSecp256K1Signature,
+        secp256k1::{
+            core::PsyCompressedSecp256K1Signature,
+            wallet::{get_secp_public_key, hash_no_pad_compressed_public_key},
+        },
         zk::{data::ZKPublicKeyInfo, wallet::SimplePsyPrivateKey},
     },
 };
@@ -73,6 +76,20 @@ pub fn get_secp256k1_fingerprint<F: RichField>() -> QHashOut<F> {
     })
 }
 
+pub fn get_public_key_info<F: RichField>(private_key: QHashOut<F>, fingerprint: QHashOut<F>) -> anyhow::Result<ZKPublicKeyInfo<F>> {
+    let public_key_param = if fingerprint == get_zk_fingerprint() {
+        SimplePsyPrivateKey::new(private_key).get_public_key_param::<PsyHasher>()
+    } else if fingerprint == get_secp256k1_fingerprint() {
+        let public_key = get_secp_public_key::<F>(private_key)?;
+        hash_no_pad_compressed_public_key::<F, PoseidonPermutation<F>>(public_key)
+    } else {
+        unimplemented!("fingerprint {} is not supported", fingerprint)
+    };
+    Ok(ZKPublicKeyInfo {
+        public_key_param,
+        fingerprint,
+    })
+}
 pub struct PsyMemoryWallet {
     signature_users: DashMap<QHashOut<F>, Arc<dyn SignatureUser>>,
     psy_software_defined_circuits: DashMap<QHashOut<F>, DPNSoftwareDefinedSignatureGadget>,
