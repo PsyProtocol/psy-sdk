@@ -413,7 +413,7 @@ impl RpcProvider {
                 tracing::info!("get user ids: {:?}", user_ids);
                 match user_ids.is_empty() {
                     true => Err(anyhow::format_err!("no user ids found")),
-                    false => Ok(user_ids.iter().map(|x| get_user_id_from_registration_id(*x)).collect()),
+                    false => Ok(user_ids),
                 }
             }
             ResponseResult::Error(e) => Err(anyhow::format_err!("rpc call failed `{:?}`", e)),
