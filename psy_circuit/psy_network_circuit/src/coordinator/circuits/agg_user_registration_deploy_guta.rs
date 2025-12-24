@@ -7,7 +7,6 @@ use plonky2::{
         circuit_data::{CircuitConfig, CircuitData, CommonCircuitData, VerifierOnlyCircuitData},
         config::{AlgebraicHasher, GenericConfig},
         proof::ProofWithPublicInputs,
-        verifier_v2::verify_standard_proof,
     },
 };
 use psy_common::{
