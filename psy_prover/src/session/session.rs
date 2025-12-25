@@ -7,7 +7,10 @@ use plonky2::{
         types::{Field, PrimeField64},
     },
     hash::{hash_types::HashOut, poseidon::PoseidonHash},
-    plonk::config::{AlgebraicHasher, GenericConfig, PoseidonGoldilocksConfig},
+    plonk::{
+        config::{AlgebraicHasher, GenericConfig, PoseidonGoldilocksConfig},
+        proof::ProofWithPublicInputs,
+    },
 };
 use psy_common::{
     args::{ContractCallArgs, ContractCallData, DPNSoftwareDefinedCallData, SignType, WalletSessionArgs},
@@ -32,6 +35,7 @@ use psy_crypto::{
 };
 use psy_data::{
     config::store_config::{PsyHash, PsyHasher},
+    guta::end_cap_input::SubmitUserEndCapNonProofInput,
     qblock::cmds::deploy_contract::{QBCDeployContract, QContractABI},
     qdata::{checkpoint::PsyBlockState, contract::ContractCodeDefinition, user::PsyUserLeaf, user_contract_state::UserContractState},
     qstore::{
@@ -447,11 +451,11 @@ impl WalletSession {
         Ok(())
     }
 
-    pub async fn sign_and_submit(
+    pub async fn sign(
         &self,
         public_key: QHashOut<F>,
         software_defined_call: Option<DPNSoftwareDefinedCallData>,
-    ) -> anyhow::Result<UserEndCapUUID> {
+    ) -> anyhow::Result<(SubmitUserEndCapNonProofInput<F>, ProofWithPublicInputs<F, C, D>)> {
         let pk_info = self.wallet.get_public_key_info(&public_key).await?;
         let mut user_session_mgr = self
             .user_session_mgrs
@@ -533,12 +537,22 @@ impl WalletSession {
         let user_id = user_session_mgr.lps.get_current_user_id_64();
         self.check_user_state(user_id, nonce).await?;
 
+        Ok((user_ec_input, end_cap_proof))
+    }
+
+    pub async fn sign_and_submit(
+        &self,
+        public_key: QHashOut<F>,
+        software_defined_call: Option<DPNSoftwareDefinedCallData>,
+    ) -> anyhow::Result<UserEndCapUUID> {
+        let (user_ec_input, end_cap_proof) = self.sign(public_key, software_defined_call).await?;
+        let user_id = user_ec_input.core.new_user_leaf.user_id.to_noncanonical_u64();
         let req = QSubmitEndCapRPCRequest {
             user_ec_input,
             proof: bincode::serialize(&end_cap_proof)?,
         };
 
-        let end_cap_uuid = user_session_mgr.lps.get_read_store().submit_end_cap_proof::<F>(req).await?;
+        let end_cap_uuid = self.st_provider.with_user_id_owned(user_id).submit_end_cap_proof::<F>(req).await?;
 
         Ok(end_cap_uuid)
     }
