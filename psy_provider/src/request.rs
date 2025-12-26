@@ -100,6 +100,10 @@ pub enum RequestParams<F: RichField> {
     AddWithdrawal(QAddWithdrawalRPCRequest),
     #[serde(rename = "psy_submit_user_end_cap")]
     SubmitEndCap(QSubmitEndCapRPCRequest<F>),
+
+    #[serde(rename = "psy_submit_user_end_cap_proofs")]
+    SubmitEndCapProofs(Vec<QSubmitEndCapRPCRequest<F>>),
+    
     #[serde(rename = "psy_get_tx_status")]
     GetTxStatus(QGetTxStatusRPCRequest),
 

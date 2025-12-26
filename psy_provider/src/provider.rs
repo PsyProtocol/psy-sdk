@@ -336,6 +336,7 @@ pub trait QUserRpcProvider {
     async fn deploy_contract<F: RichField>(&self, req: QDeployContractRPCRequest<F>) -> anyhow::Result<String>;
 
     async fn submit_end_cap_proof<F: RichField>(&self, req: QSubmitEndCapRPCRequest<F>) -> anyhow::Result<UserEndCapUUID>;
+    async fn submit_end_cap_proofs<F: RichField>(&self, reqs: Vec<QSubmitEndCapRPCRequest<F>>) -> anyhow::Result<(Vec<u64>,Vec<u64>)>;
 }
 
 #[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
@@ -401,6 +402,16 @@ impl QUserRpcProvider for RpcProvider {
                 tracing::error!("RPC call failed: {:?}", e);
                 Err(anyhow::format_err!("submit_end_cap_proof rpc call failed `{:?}`", e))
             }
+        }
+    }
+    async fn submit_end_cap_proofs<F: RichField>(&self, reqs: Vec<QSubmitEndCapRPCRequest<F>>) -> anyhow::Result<(Vec<u64>,Vec<u64>)>{
+        let rpc_url = self.get_realm_url(self.current_user_id)?;
+        let response = psy_rpc_call_back!(self, rpc_url, RequestParams::<F>::SubmitEndCapProofs(reqs), (Vec<u64>,Vec<u64>));
+        match response.result {
+            ResponseResult::Success((success_user_ids, error_user_ids)) => {
+                Ok((success_user_ids, error_user_ids))
+            }
+            ResponseResult::Error(e) => Err(anyhow::format_err!("submit_end_cap_proofs rpc call failed `{:?}`", e)),
         }
     }
 }
