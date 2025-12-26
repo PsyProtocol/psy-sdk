@@ -5542,6 +5542,7 @@ dependencies = [
  "clap",
  "dotenv",
  "fred",
+ "futures",
  "hex",
  "hyper 1.8.1",
  "jsonrpsee",
