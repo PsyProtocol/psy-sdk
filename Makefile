@@ -75,7 +75,7 @@ SLOT_ID                  := 0
 CONTRACT_STATE_HEIGHT    := 32
 REALM_ID                 := 0
 REGISTRATION_ID          := 1
-STRATEGY                 := 4
+STRATEGY                 := 5
 SIGN_TYPE                := zk
 
 COORDINATOR_RPC_URL      := $(shell jq -r '.networks.localhost.coordinator_configs[].rpc_url[]' config.json)

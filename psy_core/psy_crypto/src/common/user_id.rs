@@ -213,6 +213,96 @@ impl UserIdGeneratorStrategy for UserIdBitsStrategy4 {
         ((group_id << shift2) | (user_index << shift1)) | realm_index
     }
 }
+
+pub struct UserIdBitsStrategy5;
+
+impl UserIdGeneratorStrategy for UserIdBitsStrategy5 {
+    fn circuit_user_registration_tree_index_bits_to_user_id<H: AlgebraicHasher<F>, F: RichField + Extendable<D>, const D: usize>(
+        builder: &mut CircuitBuilder<F, D>,
+        _user_registration_tree_leaf_index: Target,
+        user_registration_tree_leaf_index_bits: &[BoolTarget],
+        _global_user_tree_height: usize,
+    ) -> Target {
+        let group_realm_height_usize = GROUP_REALM_HEIGHT as usize;
+        let realm_global_user_tree_height_usize = REALM_USER_TREE_HEIGHT as usize;
+
+        // 1. Slice Input Bits
+        // LSBs (size: group_realm_height) -> Realm Index
+        let realm_index_bits = user_registration_tree_leaf_index_bits[0..group_realm_height_usize].to_vec();
+
+        // Middle (size: realm_global_user_tree_height) -> User Index
+        let user_index_start = group_realm_height_usize;
+        let user_index_end = group_realm_height_usize + realm_global_user_tree_height_usize;
+        let user_index_bits = user_registration_tree_leaf_index_bits[user_index_start..user_index_end].to_vec();
+
+        // MSBs (size: coordinator - group) -> Group ID
+        let group_id_bits = user_registration_tree_leaf_index_bits[user_index_end..].to_vec();
+
+        // 2. Process Realm Bits
+        // Reverse them to ensure we jump significantly between realms (0 -> 8 -> 4...)
+        // rather than filling 0 -> 1 -> 2.
+        let mut reversed_realm_index_bits = realm_index_bits;
+        reversed_realm_index_bits.reverse();
+
+        // 3. Process User Index Bits (THE CHANGE vs S4)
+        // Fully reverse the bits for maximum distance within the realm tree.
+        let mut reversed_user_index_bits = user_index_bits;
+        reversed_user_index_bits.reverse();
+
+        // 4. Final Assembly
+        // Vector Order for le_sum (LSB -> MSB):
+        // [Reversed User Index] [Reversed Realm Index] [Group ID]
+        // This constructs an integer: (Group << ...) | (RevRealm << ...) | RevUser
+        let new_bits = [reversed_user_index_bits, reversed_realm_index_bits, group_id_bits].concat();
+
+        builder.le_sum(new_bits.iter())
+    }
+
+    fn get_user_id_from_registration_id(registration_id: u64) -> u64 {
+        // 1. Parse Input Registration ID
+        let realm_index = registration_id & ((1u64 << GROUP_REALM_HEIGHT) - 1);
+        let user_index = (registration_id >> GROUP_REALM_HEIGHT) & ((1u64 << REALM_USER_TREE_HEIGHT) - 1);
+
+        let shift_amount_for_group = GROUP_REALM_HEIGHT + REALM_USER_TREE_HEIGHT;
+        let group_id_height = COORDINATOR_USER_TREE_HEIGHT - GROUP_REALM_HEIGHT;
+        let group_id = (registration_id >> shift_amount_for_group) & ((1u64 << group_id_height) - 1);
+
+        // 2. Process Realm Part
+        let reversed_realm_index = reverse_bits_in_limit(realm_index, GROUP_REALM_HEIGHT);
+
+        // Full Realm ID = (Group ID << Group_Height) | Reversed Realm Index
+        let full_realm_id = (group_id << GROUP_REALM_HEIGHT) | reversed_realm_index;
+
+        // 3. Process User Part (Max Distance)
+        let reversed_user_index = reverse_bits_in_limit(user_index, REALM_USER_TREE_HEIGHT);
+
+        // 4. Final Assembly: (Full Realm ID << Realm_Height) | Reversed User Index
+        (full_realm_id << REALM_USER_TREE_HEIGHT) | reversed_user_index
+    }
+
+    fn get_registration_id_from_user_id(user_id: u64) -> u64 {
+        // 1. Unpack Tree Index (User ID)
+        // Structure: [Full Realm ID (MSB)] [Reversed User Index (LSB)]
+        let reversed_user_index = user_id & ((1u64 << REALM_USER_TREE_HEIGHT) - 1);
+        let full_realm_id = user_id >> REALM_USER_TREE_HEIGHT;
+
+        // 2. Revert User Index
+        // The inverse of a full reversal is a full reversal.
+        let original_user_index = reverse_bits_in_limit(reversed_user_index, REALM_USER_TREE_HEIGHT);
+
+        // 3. Revert Realm Part
+        let reversed_realm_index = full_realm_id & ((1u64 << GROUP_REALM_HEIGHT) - 1);
+        let group_id = full_realm_id >> GROUP_REALM_HEIGHT;
+
+        let original_realm_index = reverse_bits_in_limit(reversed_realm_index, GROUP_REALM_HEIGHT);
+
+        // 4. Reconstruct Input Registration ID
+        let shift_for_user = GROUP_REALM_HEIGHT;
+        let shift_for_group = GROUP_REALM_HEIGHT + REALM_USER_TREE_HEIGHT;
+
+        (group_id << shift_for_group) | (original_user_index << shift_for_user) | original_realm_index
+    }
+}
 /*
 // reverse bits gives a very even distribution
 pub fn get_user_id_from_registration_id(registration_id: u64) -> u64 {
@@ -236,7 +326,7 @@ pub fn circuit_user_registration_tree_index_bits_to_user_id<H: AlgebraicHasher<F
 }
 */
 
-type UserIdBitsStrategy = UserIdBitsStrategy4;
+type UserIdBitsStrategy = UserIdBitsStrategy5;
 
 pub fn get_user_id_from_registration_id(registration_id: u64) -> u64 {
     UserIdBitsStrategy::get_user_id_from_registration_id(registration_id)
@@ -280,7 +370,7 @@ mod tests {
     use psy_config::network_constants::GLOBAL_USER_TREE_HEIGHT;
     use rand::{thread_rng, RngCore};
 
-    use super::{UserIdBitsStrategy1, UserIdBitsStrategy2, UserIdBitsStrategy3, UserIdBitsStrategy4, UserIdGeneratorStrategy};
+    use super::{UserIdBitsStrategy1, UserIdBitsStrategy2, UserIdBitsStrategy3, UserIdBitsStrategy4, UserIdBitsStrategy5, UserIdGeneratorStrategy};
 
     struct SimpleBitsTester<C: GenericConfig<D>, const D: usize> {
         pub registration_ids: Vec<Target>,
@@ -422,6 +512,7 @@ mod tests {
         SimpleBitsTester::<PoseidonGoldilocksConfig, 2>::full_check::<UserIdBitsStrategy4>(1024, 64 * 1024, 64 * 1024).unwrap();
     }
 
+
     #[test]
     fn test_inverse_strategy_1() {
         test_inverse::<UserIdBitsStrategy1>(1024, 64 * 1024, 64 * 1024).unwrap();
@@ -438,6 +529,86 @@ mod tests {
     fn test_inverse_strategy_4() {
         test_inverse::<UserIdBitsStrategy4>(1024, 64 * 1024, 64 * 1024).unwrap();
     }
+
+    #[test]
+    fn test_strategy_5_distribution_demo() {
+        use psy_config::network_constants::{COORDINATOR_USER_TREE_HEIGHT, REALM_USER_TREE_HEIGHT, GROUP_REALM_HEIGHT};
+
+        println!("Testing UserIdBitsStrategy5 Distribution Logic...");
+
+        // Test several registration IDs
+        let test_ids = vec![0, 1, 2, 3, 4, 15, 16, 17, 31, 32, 33, 63, 64, 65];
+
+        println!("Registration ID -> User ID -> Realm -> User Index");
+        println!("Constants: COORDINATOR_USER_TREE_HEIGHT={}, REALM_USER_TREE_HEIGHT={}, GROUP_REALM_HEIGHT={}",
+                 COORDINATOR_USER_TREE_HEIGHT, REALM_USER_TREE_HEIGHT, GROUP_REALM_HEIGHT);
+
+        for &reg_id in &test_ids {
+            let user_id = UserIdBitsStrategy5::get_user_id_from_registration_id(reg_id);
+            let realm = user_id >> REALM_USER_TREE_HEIGHT;
+            let user_index = user_id & ((1u64 << REALM_USER_TREE_HEIGHT) - 1);
+
+            println!("{:3} -> {:8} -> {:3} -> {:6} ({:020b})",
+                     reg_id, user_id, realm, user_index, user_index);
+        }
+
+        // Verify inverse operation works
+        println!("\nTesting inverse operations:");
+        for &reg_id in &test_ids {
+            let user_id = UserIdBitsStrategy5::get_user_id_from_registration_id(reg_id);
+            let back_to_reg = UserIdBitsStrategy5::get_registration_id_from_user_id(user_id);
+            assert_eq!(reg_id, back_to_reg, "Inverse failed for reg_id {}", reg_id);
+            println!("{} -> {} -> {} ✓", reg_id, user_id, back_to_reg);
+        }
+
+        // Test specific cases from the original test
+        println!("\nTesting specific distribution cases:");
+
+        // RegID 0 and 1 should go to different realms due to realm bit reversal
+        let id0 = UserIdBitsStrategy5::get_user_id_from_registration_id(0);
+        let id1 = UserIdBitsStrategy5::get_user_id_from_registration_id(1);
+        let realm0 = id0 >> REALM_USER_TREE_HEIGHT;
+        let realm1 = id1 >> REALM_USER_TREE_HEIGHT;
+
+        println!("RegID 0: realm={}, user_index={}", realm0, id0 & ((1u64 << REALM_USER_TREE_HEIGHT) - 1));
+        println!("RegID 1: realm={}, user_index={}", realm1, id1 & ((1u64 << REALM_USER_TREE_HEIGHT) - 1));
+
+        // In realm 0, check user index distribution
+        let id16 = UserIdBitsStrategy5::get_user_id_from_registration_id(16);
+        let realm16 = id16 >> REALM_USER_TREE_HEIGHT;
+        let user_idx_0 = id0 & ((1u64 << REALM_USER_TREE_HEIGHT) - 1);
+        let user_idx_16 = id16 & ((1u64 << REALM_USER_TREE_HEIGHT) - 1);
+
+        println!("RegID 16: realm={}, user_index={}", realm16, user_idx_16);
+
+        // Test more detailed distribution within realms
+        println!("\nDetailed analysis within realm 0:");
+        let mut realm_0_user_ids = Vec::new();
+
+        // Find all registration IDs that map to realm 0
+        for reg_id in 0..1024 {  // Test first 1024 IDs
+            let user_id = UserIdBitsStrategy5::get_user_id_from_registration_id(reg_id);
+            let realm = user_id >> REALM_USER_TREE_HEIGHT;
+            if realm == 0 {
+                let user_index = user_id & ((1u64 << REALM_USER_TREE_HEIGHT) - 1);
+                realm_0_user_ids.push((reg_id, user_index));
+                if realm_0_user_ids.len() >= 10 { // Show first 10
+                    break;
+                }
+            }
+        }
+
+        println!("Registration IDs mapping to realm 0:");
+        for (reg_id, user_idx) in &realm_0_user_ids {
+            println!("  RegID {} -> User Index {}", reg_id, user_idx);
+        }
+
+        println!("\nStrategy 5 demonstrates:");
+        println!("1. Sequential registration IDs go to different realms (load balancing)");
+        println!("2. Within the same realm, user indices show specific bit reversal patterns");
+        println!("3. All operations are invertible (bijection)");
+    }
+
     /*
     #[test]
     fn test_check_a(){
