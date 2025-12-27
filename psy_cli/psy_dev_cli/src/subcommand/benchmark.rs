@@ -1,8 +1,6 @@
 use std::{
     collections::{HashMap, HashSet},
-    fs::{read_dir, read_to_string, File},
-    io::{BufReader, BufWriter},
-    path::{Path, PathBuf},
+    path::PathBuf,
 };
 
 use clap::Parser;
@@ -23,6 +21,7 @@ use psy_rust_sdk::{
 };
 use rand::{seq::SliceRandom, thread_rng};
 use serde::{Deserialize, Serialize};
+use tokio::fs;
 use tracing::info;
 
 type F = GoldilocksField;
@@ -95,21 +94,17 @@ impl EndcapRecord {
         }
     }
 
-    fn load_from_file(file_path: &str) -> anyhow::Result<Self> {
-        let path = Path::new(file_path);
-        if path.exists() {
-            let file = File::open(path)?;
-            let reader = BufReader::new(file);
-            serde_json::from_reader(reader).map_err(Into::into)
-        } else {
-            Ok(Self::new())
+    async fn load_from_file(file_path: &str) -> anyhow::Result<Self> {
+        match fs::read_to_string(file_path).await {
+            Ok(content) => serde_json::from_str(&content).map_err(Into::into),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(Self::new()),
+            Err(e) => Err(e.into()),
         }
     }
 
-    fn save_to_file(&self, file_path: &str) -> anyhow::Result<()> {
-        let file = File::create(file_path)?;
-        let writer = BufWriter::new(file);
-        serde_json::to_writer_pretty(writer, self)?;
+    async fn save_to_file(&self, file_path: &str) -> anyhow::Result<()> {
+        let content = serde_json::to_string_pretty(self)?;
+        fs::write(file_path, content).await?;
         Ok(())
     }
 
@@ -140,11 +135,11 @@ struct Benchmark {
 }
 
 impl Benchmark {
-    fn new(args: BenchmarkEndCapArgs) -> anyhow::Result<Self> {
+    async fn new(args: BenchmarkEndCapArgs) -> anyhow::Result<Self> {
         let psy_config = PsyConfigGoldilocks::from_file(&args.rpc_config)?;
         let rpc_config = psy_config.get_current_network()?.clone();
         let rpc_provider = RpcProvider::new_with_config(&rpc_config)?;
-        let record = EndcapRecord::load_from_file(&args.record_file)?;
+        let record = EndcapRecord::load_from_file(&args.record_file).await?;
         let recorded_user_ids = record.all_recorded_user_ids();
         let output_path = PathBuf::from(&args.output_path);
 
@@ -166,11 +161,11 @@ impl Benchmark {
         filename.strip_prefix("user")?.strip_suffix(".json")?.parse::<u64>().ok()
     }
 
-    fn get_files_only(&self) -> anyhow::Result<Vec<String>> {
+    async fn get_files_only(&self) -> anyhow::Result<Vec<String>> {
         let mut files = Vec::new();
-        for entry in read_dir(&self.output_path)? {
-            let entry = entry?;
-            if entry.metadata()?.is_file() {
+        let mut entries = fs::read_dir(&self.output_path).await?;
+        while let Some(entry) = entries.next_entry().await? {
+            if entry.metadata().await?.is_file() {
                 let file_name = entry.file_name();
                 files.push(file_name.to_string_lossy().to_string());
             }
@@ -178,14 +173,14 @@ impl Benchmark {
         Ok(files)
     }
 
-    fn load_endcap_from_file(&self, filename: &str) -> anyhow::Result<Option<QSubmitEndCapRPCRequest<F>>> {
+    async fn load_endcap_from_file(&self, filename: &str) -> anyhow::Result<Option<QSubmitEndCapRPCRequest<F>>> {
         let user_id = match self.extract_user_id_from_filename(filename) {
             Some(id) => id,
             None => return Ok(None),
         };
 
         let file_path = self.output_path.join(filename);
-        let content = read_to_string(&file_path)?;
+        let content = fs::read_to_string(&file_path).await?;
         let req: QSubmitEndCapRPCRequest<F> = serde_json::from_str(&content)?;
 
         // Verify user_id matches
@@ -218,8 +213,8 @@ impl Benchmark {
         self.rpc_provider.get_realm_url(user_id).is_ok()
     }
 
-    fn load_endcaps_from_dir(&self) -> anyhow::Result<Vec<QSubmitEndCapRPCRequest<F>>> {
-        let files = self.get_files_only()?;
+    async fn load_endcaps_from_dir(&self) -> anyhow::Result<Vec<QSubmitEndCapRPCRequest<F>>> {
+        let files = self.get_files_only().await?;
         let mut endcaps = Vec::new();
 
         for file in files.iter() {
@@ -228,7 +223,7 @@ impl Benchmark {
                     continue;
                 }
 
-                if let Some(req) = self.load_endcap_from_file(file)? {
+                if let Some(req) = self.load_endcap_from_file(file).await? {
                     endcaps.push(req);
                 }
             }
@@ -238,8 +233,10 @@ impl Benchmark {
     }
 
     async fn generate_endcaps(&self) -> anyhow::Result<Vec<QSubmitEndCapRPCRequest<F>>> {
-        let contract_call_args = serde_json::from_str::<Vec<ContractCallArgs>>(&read_to_string(&self.args.contract_call_args_path)?)?;
-        let private_keys = serde_json::from_str::<Vec<QHashOut<F>>>(&read_to_string(&self.args.private_key_path)?)?;
+        let contract_call_args_content = fs::read_to_string(&self.args.contract_call_args_path).await?;
+        let contract_call_args = serde_json::from_str::<Vec<ContractCallArgs>>(&contract_call_args_content)?;
+        let private_keys_content = fs::read_to_string(&self.args.private_key_path).await?;
+        let private_keys = serde_json::from_str::<Vec<QHashOut<F>>>(&private_keys_content)?;
 
         let mut wallet_session = WalletSession::new(&self.rpc_config).await?;
         let fingerprint = match self.args.sign_type {
@@ -265,10 +262,9 @@ impl Benchmark {
             };
 
             let user_id = req.user_ec_input.core.new_user_leaf.user_id.to_noncanonical_u64();
-            std::fs::write(
-                self.output_path.join(format!("user{}.json", user_id)),
-                serde_json::to_string_pretty(&req)?,
-            )?;
+            let file_path = self.output_path.join(format!("user{}.json", user_id));
+            let content = serde_json::to_string_pretty(&req)?;
+            fs::write(&file_path, content).await?;
 
             endcaps.push(req);
         }
@@ -399,7 +395,7 @@ impl Benchmark {
 
             let (round_success, round_failed) = self.execute_single_round(&batches).await;
 
-            self.record.save_to_file(&self.args.record_file)?;
+            self.record.save_to_file(&self.args.record_file).await?;
             info!("Round {} completed: {} success, {} failed", round, round_success, round_failed);
         }
         Ok(())
@@ -407,13 +403,11 @@ impl Benchmark {
 
     async fn run(&mut self) -> anyhow::Result<()> {
         // Ensure output directory exists
-        if !self.output_path.exists() {
-            std::fs::create_dir_all(&self.output_path)?;
-        }
+        fs::create_dir_all(&self.output_path).await?;
 
         // Load endcaps
         let endcaps = if self.args.is_use_generated {
-            self.load_endcaps_from_dir()?
+            self.load_endcaps_from_dir().await?
         } else {
             self.generate_endcaps().await?
         };
@@ -444,6 +438,6 @@ impl Benchmark {
 }
 
 pub async fn run(args: BenchmarkEndCapArgs) -> anyhow::Result<()> {
-    let mut benchmark = Benchmark::new(args)?;
+    let mut benchmark = Benchmark::new(args).await?;
     benchmark.run().await
 }
