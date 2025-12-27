@@ -6,6 +6,7 @@ use std::{
 };
 
 use clap::Parser;
+use futures::future;
 use plonky2::field::{goldilocks_field::GoldilocksField, types::PrimeField64};
 use psy_common::{
     args::{ContractCallArgs, SignType},
@@ -20,8 +21,7 @@ use psy_rust_sdk::{
     provider::{QUserRpcProvider, RpcProvider},
     request::QSubmitEndCapRPCRequest,
 };
-use rand::seq::SliceRandom;
-use rand::thread_rng;
+use rand::{seq::SliceRandom, thread_rng};
 use serde::{Deserialize, Serialize};
 use tracing::info;
 
@@ -81,6 +81,12 @@ struct EndcapRecord {
     failed: Vec<u64>,
 }
 
+impl Default for EndcapRecord {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl EndcapRecord {
     fn new() -> Self {
         Self {
@@ -94,8 +100,7 @@ impl EndcapRecord {
         if path.exists() {
             let file = File::open(path)?;
             let reader = BufReader::new(file);
-            let record: EndcapRecord = serde_json::from_reader(reader)?;
-            Ok(record)
+            serde_json::from_reader(reader).map_err(Into::into)
         } else {
             Ok(Self::new())
         }
@@ -109,10 +114,7 @@ impl EndcapRecord {
     }
 
     fn all_recorded_user_ids(&self) -> HashSet<u64> {
-        let mut set = HashSet::new();
-        set.extend(self.success.iter());
-        set.extend(self.failed.iter());
-        set
+        self.success.iter().chain(self.failed.iter()).copied().collect()
     }
 
     fn add_success(&mut self, user_id: u64) {
@@ -197,21 +199,16 @@ fn load_endcaps_from_dir(
     Ok(endcaps)
 }
 
-
-
 fn group_endcaps_by_realm(
     endcaps: Vec<QSubmitEndCapRPCRequest<F>>,
     rpc_provider: &RpcProvider,
 ) -> HashMap<u64, Vec<QSubmitEndCapRPCRequest<F>>> {
-    let mut grouped: HashMap<u64, Vec<QSubmitEndCapRPCRequest<F>>> = HashMap::new();
-
-    for endcap in endcaps {
+    endcaps.into_iter().fold(HashMap::new(), |mut acc, endcap| {
         let user_id = endcap.user_ec_input.core.new_user_leaf.user_id.to_noncanonical_u64();
         let realm_id = rpc_provider.get_realm_id(user_id);
-        grouped.entry(realm_id).or_insert_with(Vec::new).push(endcap);
-    }
-
-    grouped
+        acc.entry(realm_id).or_insert_with(Vec::new).push(endcap);
+        acc
+    })
 }
 
 async fn submit_endcaps_batch(
@@ -224,8 +221,60 @@ async fn submit_endcaps_batch(
 
     let first_user_id = endcaps[0].user_ec_input.core.new_user_leaf.user_id.to_noncanonical_u64();
     let provider = rpc_provider.clone().with_user_id_owned(first_user_id);
-
     provider.submit_end_cap_proofs::<F>(endcaps).await
+}
+
+fn create_batches_by_realm(
+    grouped: &HashMap<u64, Vec<QSubmitEndCapRPCRequest<F>>>,
+    batch_size: usize,
+) -> Vec<(u64, Vec<QSubmitEndCapRPCRequest<F>>)> {
+    grouped
+        .iter()
+        .flat_map(|(realm_id, endcaps)| {
+            endcaps.chunks(batch_size).map(|batch| (*realm_id, batch.to_vec()))
+        })
+        .collect()
+}
+
+fn process_batch_results(
+    results: Vec<(u64, Vec<QSubmitEndCapRPCRequest<F>>, anyhow::Result<(Vec<u64>, Vec<u64>)>)>,
+    record: &mut EndcapRecord,
+    recorded_user_ids: &mut HashSet<u64>,
+) -> (u64, u64) {
+    let mut total_success = 0;
+    let mut total_failed = 0;
+
+    for (realm_id, batch, result) in results {
+        match result {
+            Ok((success_ids, failed_ids)) => {
+                let success_count = success_ids.len();
+                let failed_count = failed_ids.len();
+                for user_id in success_ids {
+                    record.add_success(user_id);
+                    recorded_user_ids.insert(user_id);
+                    total_success += 1;
+                }
+                for user_id in failed_ids {
+                    record.add_failed(user_id);
+                    recorded_user_ids.insert(user_id);
+                    total_failed += 1;
+                }
+                info!("Realm {} batch: {} success, {} failed", realm_id, success_count, failed_count);
+            }
+            Err(e) => {
+                // If batch fails, mark all as failed
+                for endcap in batch {
+                    let user_id = endcap.user_ec_input.core.new_user_leaf.user_id.to_noncanonical_u64();
+                    record.add_failed(user_id);
+                    recorded_user_ids.insert(user_id);
+                    total_failed += 1;
+                }
+                info!("Realm {} batch failed: {}", realm_id, e);
+            }
+        }
+    }
+
+    (total_success, total_failed)
 }
 
 pub async fn run(args: BenchmarkEndCapArgs) -> anyhow::Result<()> {
@@ -302,8 +351,7 @@ pub async fn run(args: BenchmarkEndCapArgs) -> anyhow::Result<()> {
 
     // Apply send mode (random or sequential)
     if args.send_mode == "random" {
-        let mut rng = thread_rng();
-        endcaps.shuffle(&mut rng);
+        endcaps.shuffle(&mut thread_rng());
         info!("Shuffled endcaps for random mode");
     } else {
         info!("Using sequential mode");
@@ -325,56 +373,43 @@ pub async fn run(args: BenchmarkEndCapArgs) -> anyhow::Result<()> {
 
     info!("Total endcaps to send: {}", endcaps_to_send.len());
 
-    // Group endcaps by realm
+    // Group endcaps by realm and create batches
     let grouped = group_endcaps_by_realm(endcaps_to_send, &rpc_provider);
     info!("Grouped into {} realms", grouped.len());
+
+    let batch_size = args.concurrency_number as usize;
+    let batches = create_batches_by_realm(&grouped, batch_size);
+    info!("Created {} batches for parallel sending", batches.len());
 
     // Execute multiple rounds (for performance testing, same endcaps are sent multiple times)
     for round in 1..=args.send_count {
         info!("\n=== Round {}/{} ===", round, args.send_count);
 
-        let mut round_success = 0;
-        let mut round_failed = 0;
-
-        // Process each realm's endcaps
-        for (realm_id, realm_endcaps) in &grouped {
-            // Process in batches based on concurrency
-            let batch_size = args.concurrency_number as usize;
-
-            for batch in realm_endcaps.chunks(batch_size) {
-                match submit_endcaps_batch(batch.to_vec(), &rpc_provider).await {
-                    Ok((success_ids, failed_ids)) => {
-                        let success_count = success_ids.len();
-                        let failed_count = failed_ids.len();
-                        for user_id in success_ids {
-                            record.add_success(user_id);
-                            recorded_user_ids.insert(user_id);
-                            round_success += 1;
-                        }
-                        for user_id in failed_ids {
-                            record.add_failed(user_id);
-                            recorded_user_ids.insert(user_id);
-                            round_failed += 1;
-                        }
-                        info!("Realm {} batch: {} success, {} failed", realm_id, success_count, failed_count);
-                    }
-                    Err(e) => {
-                        // If batch fails, mark all as failed
-                        for endcap in batch {
-                            let user_id = endcap.user_ec_input.core.new_user_leaf.user_id.to_noncanonical_u64();
-                            record.add_failed(user_id);
-                            recorded_user_ids.insert(user_id);
-                            round_failed += 1;
-                        }
-                        info!("Realm {} batch failed: {}", realm_id, e);
-                    }
+        // Create parallel futures for all batches
+        let futures: Vec<_> = batches
+            .iter()
+            .map(|(realm_id, batch)| {
+                let batch = batch.clone();
+                let rpc_provider = rpc_provider.clone();
+                let realm_id = *realm_id;
+                async move {
+                    let result = submit_endcaps_batch(batch.clone(), &rpc_provider).await;
+                    (realm_id, batch, result)
                 }
+            })
+            .collect();
 
-                // Save record after each batch
-                record.save_to_file(&args.record_file)?;
-            }
-        }
+        // Execute all batches in parallel
+        let results = future::join_all(futures).await;
 
+        // Process results and update records
+        let (round_success, round_failed) = process_batch_results(
+            results,
+            &mut record,
+            &mut recorded_user_ids,
+        );
+
+        record.save_to_file(&args.record_file)?;
         info!("Round {} completed: {} success, {} failed", round, round_success, round_failed);
     }
 
