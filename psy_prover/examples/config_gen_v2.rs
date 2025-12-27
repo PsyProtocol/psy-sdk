@@ -40,7 +40,10 @@ fn run_gen_config() -> anyhow::Result<(String, String)> {
 
     let main_circuits = PsyUPSStepCircuitManager::<C, D>::new_with_config(PSY_NETWORK_MAGIC);
 
-    gcv.register_circuit_triplet(ProvingJobCircuitType::UserEndCap, main_circuits.ups_end_cap.get_verifier_triplet());
+    let end_cap_verifier_data = main_circuits.ups_end_cap.get_verifier_triplet();
+    println!("end_cap_verifier_data_serialized: {}", serde_json::to_string(&end_cap_verifier_data)?);
+
+    gcv.register_circuit_triplet(ProvingJobCircuitType::UserEndCap, end_cap_verifier_data);
 
     use psy_config::get_default_worker_public_key;
     let guta_circuits = PsyGUTACircuitManager::<C, D>::new_with_config(
