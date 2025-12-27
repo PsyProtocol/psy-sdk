@@ -17,6 +17,8 @@ pub mod register_user;
 pub mod store;
 pub mod stress_test;
 pub mod multi_end_cap;
+pub mod benchmark;
+
 #[derive(Parser)]
 pub struct Cli {
     #[command(subcommand)]
@@ -74,6 +76,9 @@ pub enum Commands {
 
     #[command(about = "Multi-end-cap utility commands")]
     MultiEndCap(multi_end_cap::MultiEndCapArgs),
+
+    #[command(about = "Benchmark utility commands")]
+    Benchmark(benchmark::BenchmarkEndCapArgs),
 }
 
 #[derive(Parser)]
