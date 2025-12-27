@@ -12,6 +12,7 @@ use psy_common::{
     data::qhashout::QHashOut,
 };
 use psy_config::PsyConfigGoldilocks;
+use psy_data::qstore::controllers::proving_session::PsyReadLocalProvingSessionStore;
 use psy_prover::{
     session::WalletSession,
     wallet::memory_wallet::{get_secp256k1_fingerprint, get_zk_fingerprint},
@@ -37,6 +38,21 @@ pub struct MultiEndCapArgs {
     #[clap(long, default_value = "zk")]
     pub sign_type: SignType,
 
+    #[clap(long, help = "User ID start from", default_value = "0")]
+    pub start_user_id: u64,
+
+    #[clap(long, help = "User ID end at", default_value = "4294967296")]
+    pub end_user_id: u64,
+
+    #[clap(long, help = "Realm ID start from", default_value = "0")]
+    pub start_realm_id: u64,
+
+    #[clap(long, help = "Realm ID end at", default_value = "128")]
+    pub end_realm_id: u64,
+
+    #[clap(long, help = "Total end caps", default_value = "4096")]
+    pub total_end_caps: u64,
+
     #[clap(long, help = "Contract call args path", default_value = "contract_call.json")]
     pub contract_call_args_path: String,
 
@@ -51,7 +67,13 @@ pub struct MultiEndCapArgs {
 }
 
 fn extract_user_id_from_filename(filename: &str) -> Option<u64> {
-    filename.strip_prefix("user")?.strip_suffix(".json")?.parse::<u64>().ok()
+    filename.strip_prefix("user")?.strip_suffix(".bin")?.parse::<u64>().ok()
+}
+
+fn user_id_in_range(start_realm_id: u64, end_realm_id: u64, start_user_id: u64, end_user_id: u64, users_per_realm: u64, user_id: u64) -> bool {
+    let realm_start_user_id = start_realm_id * users_per_realm;
+    let realm_end_user_id = end_realm_id * users_per_realm;
+    (realm_start_user_id <= user_id && user_id < realm_end_user_id) && (start_user_id <= user_id && user_id < end_user_id)
 }
 
 fn get_files_only(dir: &str) -> anyhow::Result<Vec<String>> {
@@ -73,8 +95,8 @@ pub async fn run(args: MultiEndCapArgs) -> anyhow::Result<()> {
     let psy_config = PsyConfigGoldilocks::from_file(&args.rpc_config)?;
     let rpc_config = psy_config.get_current_network()?.clone();
 
-    println!("coordinator config: {}", serde_json::to_string_pretty(&rpc_config.coordinator_configs)?);
-    println!("realm config: {}", serde_json::to_string_pretty(&rpc_config.realm_configs)?);
+    tracing::info!("coordinator config: {}", serde_json::to_string_pretty(&rpc_config.coordinator_configs)?);
+    tracing::info!("realm config: {}", serde_json::to_string_pretty(&rpc_config.realm_configs)?);
 
     let rpc_provider = RpcProvider::new_with_config(&rpc_config)?;
 
@@ -86,7 +108,7 @@ pub async fn run(args: MultiEndCapArgs) -> anyhow::Result<()> {
     let mut endcaps = Vec::new();
     if args.is_use_generated {
         let files = get_files_only(&args.output_path)?;
-        println!("files: {:?}", files);
+        tracing::info!("files: {:?}", files);
 
         for file in files.iter() {
             let (user_id, req): (u64, Option<QSubmitEndCapRPCRequest<F>>) = match extract_user_id_from_filename(file) {
@@ -98,16 +120,32 @@ pub async fn run(args: MultiEndCapArgs) -> anyhow::Result<()> {
                 }
             };
 
+            if !user_id_in_range(
+                args.start_realm_id,
+                args.end_realm_id,
+                args.start_user_id,
+                args.end_user_id,
+                rpc_config.users_per_realm,
+                user_id,
+            ) {
+                tracing::info!("user {} of realm {} is not in range", user_id, rpc_provider.get_realm_id(user_id));
+                continue;
+            }
+
             if rpc_provider.get_realm_url(user_id).is_ok() {
                 let endcap_req = if let Some(req) = req {
                     req
                 } else {
-                    serde_json::from_str::<QSubmitEndCapRPCRequest<F>>(&std::fs::read_to_string(path.join(file))?)?
+                    bincode::deserialize::<QSubmitEndCapRPCRequest<F>>(&std::fs::read(path.join(file))?)?
                 };
-                println!("push user {} end cap of realm {}", user_id, rpc_provider.get_realm_id(user_id));
+                tracing::info!("push user {} end cap of realm {}", user_id, rpc_provider.get_realm_id(user_id));
                 endcaps.push(endcap_req);
             } else {
-                println!("user {} not supported", user_id);
+                tracing::info!("user {} not supported", user_id);
+            }
+
+            if endcaps.len() >= args.total_end_caps as usize {
+                break;
             }
         }
     } else {
@@ -131,6 +169,24 @@ pub async fn run(args: MultiEndCapArgs) -> anyhow::Result<()> {
         }
 
         for public_key in public_keys.into_iter() {
+            let user_id = wallet_session
+                .user_session_mgrs
+                .get(&public_key)
+                .ok_or_else(|| anyhow::format_err!("user {} not found", public_key.to_string()))?
+                .lps
+                .get_current_user_id_64();
+            if !user_id_in_range(
+                args.start_realm_id,
+                args.end_realm_id,
+                args.start_user_id,
+                args.end_user_id,
+                rpc_config.users_per_realm,
+                user_id,
+            ) {
+                tracing::info!("user {} of realm {} is not in range", user_id, rpc_provider.get_realm_id(user_id));
+                continue;
+            }
+            tracing::info!("process user {} end cap of realm {}", user_id, rpc_provider.get_realm_id(user_id));
             wallet_session.start_session(public_key).await?;
             wallet_session.prove_contract_call(public_key, contract_call_args.clone()).await?;
             let (user_ec_input, end_cap_proof) = wallet_session.sign(public_key, None).await?;
@@ -141,27 +197,31 @@ pub async fn run(args: MultiEndCapArgs) -> anyhow::Result<()> {
 
             std::fs::write(
                 format!(
-                    "{}/user{}.json",
+                    "{}/user{}.bin",
                     args.output_path,
                     req.user_ec_input.core.new_user_leaf.user_id.to_noncanonical_u64()
                 ),
-                serde_json::to_string_pretty(&req)?,
+                bincode::serialize(&req)?,
             )?;
 
             endcaps.push(req);
+
+            if endcaps.len() >= args.total_end_caps as usize {
+                break;
+            }
         }
     }
 
-    println!("total endcap avaliable: {}", endcaps.len());
+    tracing::info!("total endcap avaliable: {}", endcaps.len());
 
     if args.is_submit_at_end {
-        let mut errors = submit_end_cap_proofs(endcaps, rpc_provider).await;
+        let errors = submit_end_cap_proofs(endcaps, rpc_provider).await;
 
         if !errors.is_empty() {
-            println!("total errors: {}", errors.len());
-            println!("errors: {}", serde_json::to_string_pretty(&errors)?);
+            tracing::info!("total errors: {}", errors.len());
+            tracing::info!("errors: {}", serde_json::to_string_pretty(&errors)?);
         } else {
-            println!("All end caps generate successfully!");
+            tracing::info!("All end caps generate successfully!");
         }
     }
 
