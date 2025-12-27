@@ -1,9 +1,20 @@
 use std::result::Result::Ok;
 
-use plonky2::field::goldilocks_field::GoldilocksField;
+use plonky2::{
+    field::{goldilocks_field::GoldilocksField, packed::PackedField, types::Field},
+    hash::hash_types::RichField,
+};
 use psy_common::data::qhashout::QHashOut;
-use psy_config::network_constants::{COORDINATOR_USER_TREE_HEIGHT, GLOBAL_DEPOSIT_TREE_HEIGHT, GLOBAL_USER_TREE_HEIGHT, REALM_USER_TREE_HEIGHT};
-use psy_crypto::hash::{merkle::core::MerkleProofCore, traits::hasher::MerkleZeroHasher};
+use psy_config::{
+    network_constants::{
+        COORDINATOR_USER_TREE_HEIGHT, GLOBAL_CONTRACT_TREE_HEIGHT, GLOBAL_DEPOSIT_TREE_HEIGHT, GLOBAL_USER_TREE_HEIGHT, REALM_USER_TREE_HEIGHT,
+    },
+    DEFAULT_USER_STATE_TREE_ROOT_U64,
+};
+use psy_crypto::hash::{
+    merkle::{core::MerkleProofCore, utils::common::SimpleMerkleNodeKey},
+    traits::hasher::MerkleZeroHasher,
+};
 use psy_data::{
     config::store_config::PsyHasher,
     dpn::event::PsyUserEventRecord,
@@ -21,9 +32,16 @@ use psy_data::{
 use tracing::{debug, error, info, instrument};
 
 use super::{provider::RpcProvider, request::*};
-use crate::psy_rpc_call_back;
+use crate::{
+    gesis_data::{CONTRACT0_FUNCTION_TREE_STORE, GENESIS_DATA, USER_REGISTRATION_TREE_STORE},
+    psy_rpc_call_back,
+};
 
 type F = GoldilocksField;
+
+fn hash_goldilocks_to_hash_f<F: RichField>(hash: QHashOut<GoldilocksField>) -> anyhow::Result<QHashOut<F>> {
+    Ok(serde_json::from_str::<QHashOut<F>>(&serde_json::to_string(&hash)?)?)
+}
 
 #[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
 #[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
@@ -41,29 +59,36 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
             contract_id = contract_id,
             "Fetching user contract state tree root"
         );
-        let rpc_url = self.get_realm_url(user_id)?;
-        let input = QUserContractStateTreeRootRPCRequest {
-            checkpoint_id,
-            user_id,
-            contract_id,
-        };
-        let response = psy_rpc_call_back!(self, rpc_url, RequestParams::<F>::GetUserContractStateTreeRoot(input), QHashOut<F>);
-        match response.result {
-            ResponseResult::Success(hash) => {
-                debug!(
-                    checkpoint_id = checkpoint_id,
-                    user_id = user_id,
-                    contract_id = contract_id,
-                    hash = %hash,
-                    "Successfully fetched hash"
-                );
-                Ok(hash)
-            }
-            ResponseResult::Error(e) => {
-                error!("RPC call failed: {:?}", e);
-                Err(anyhow::format_err!("get_user_contract_state_tree_root rpc call failed `{:?}`", e))
-            }
-        }
+        Ok(QHashOut::from_values(
+            DEFAULT_USER_STATE_TREE_ROOT_U64[0],
+            DEFAULT_USER_STATE_TREE_ROOT_U64[1],
+            DEFAULT_USER_STATE_TREE_ROOT_U64[2],
+            DEFAULT_USER_STATE_TREE_ROOT_U64[3],
+        ))
+        // let rpc_url = self.get_realm_url(user_id)?;
+        // let input = QUserContractStateTreeRootRPCRequest {
+        //     checkpoint_id,
+        //     user_id,
+        //     contract_id,
+        // };
+        // let response = psy_rpc_call_back!(self, rpc_url,
+        // RequestParams::<F>::GetUserContractStateTreeRoot(input),
+        // QHashOut<F>); match response.result {
+        //     ResponseResult::Success(hash) => {
+        //         debug!(
+        //             checkpoint_id = checkpoint_id,
+        //             user_id = user_id,
+        //             contract_id = contract_id,
+        //             hash = %hash,
+        //             "Successfully fetched hash"
+        //         );
+        //         Ok(hash)
+        //     }
+        //     ResponseResult::Error(e) => {
+        //         error!("RPC call failed: {:?}", e);
+        //         Err(anyhow::format_err!("get_user_contract_state_tree_root
+        // rpc call failed `{:?}`", e))     }
+        // }
     }
 
     #[instrument(skip(self), fields(checkpoint_id, user_id, contract_id, height, leaf_id))]
@@ -83,33 +108,35 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
             leaf_id = leaf_id,
             "Fetching user contract state tree leaf hash"
         );
-        let rpc_url = self.get_realm_url(user_id)?;
-        let input = QUserContractStateTreeLeafHashRPCRequest {
-            checkpoint_id,
-            user_id,
-            contract_id,
-            height,
-            leaf_id,
-        };
-        let response = psy_rpc_call_back!(self, rpc_url, RequestParams::<F>::GetUserContractStateTreeLeafHash(input), QHashOut<F>);
-        match response.result {
-            ResponseResult::Success(hash) => {
-                debug!(
-                    checkpoint_id = checkpoint_id,
-                    user_id = user_id,
-                    contract_id = contract_id,
-                    height = height,
-                    leaf_id = leaf_id,
-                    hash = %hash,
-                    "Successfully fetched hash"
-                );
-                Ok(hash)
-            }
-            ResponseResult::Error(e) => {
-                error!("RPC call failed: {:?}", e);
-                Err(anyhow::format_err!("get_user_contract_state_tree_leaf_hash rpc call failed `{:?}`", e))
-            }
-        }
+        Ok(QHashOut::<F>::ZERO)
+        // let rpc_url = self.get_realm_url(user_id)?;
+        // let input = QUserContractStateTreeLeafHashRPCRequest {
+        //     checkpoint_id,
+        //     user_id,
+        //     contract_id,
+        //     height,
+        //     leaf_id,
+        // };
+        // let response = psy_rpc_call_back!(self, rpc_url,
+        // RequestParams::<F>::GetUserContractStateTreeLeafHash(input),
+        // QHashOut<F>); match response.result {
+        //     ResponseResult::Success(hash) => {
+        //         debug!(
+        //             checkpoint_id = checkpoint_id,
+        //             user_id = user_id,
+        //             contract_id = contract_id,
+        //             height = height,
+        //             leaf_id = leaf_id,
+        //             hash = %hash,
+        //             "Successfully fetched hash"
+        //         );
+        //         Ok(hash)
+        //     }
+        //     ResponseResult::Error(e) => {
+        //         error!("RPC call failed: {:?}", e);
+        //         Err(anyhow::format_err!("get_user_contract_state_tree_leaf_hash rpc call failed `{:?}`", e))
+        //     }
+        // }
     }
 
     #[instrument(skip(self), fields(checkpoint_id, user_id, contract_id, height, leaf_id))]
@@ -129,61 +156,67 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
             leaf_id = leaf_id,
             "Fetching user contract state tree merkle proof"
         );
-        let rpc_url = self.get_realm_url(user_id)?;
-        let input = QUserContractStateTreeMerkleProofRPCRequest {
-            checkpoint_id,
-            user_id,
-            contract_id,
-            height,
-            leaf_id,
-        };
-        let response = psy_rpc_call_back!(
-            self,
-            rpc_url,
-            RequestParams::<F>::GetUserContractStateTreeMerkleProof(input),
-            MerkleProofCore<QHashOut<F>>
-        );
-        match response.result {
-            ResponseResult::Success(merkle_proof) => {
-                debug!(
-                    checkpoint_id = checkpoint_id,
-                    user_id = user_id,
-                    contract_id = contract_id,
-                    height = height,
-                    leaf_id = leaf_id,
-                    merkle_proof = %serde_json::to_string_pretty(&merkle_proof).unwrap(),
-                    "Successfully fetched merkle proof"
-                );
-                Ok(merkle_proof)
-            }
-            ResponseResult::Error(e) => {
-                error!("RPC call failed: {:?}", e);
-                Err(anyhow::format_err!("get_user_contract_state_tree_merkle_proof rpc call failed `{:?}`", e))
-            }
-        }
+        Ok(self.zero_merkle_tree.get_leaf(leaf_id))
+        // let rpc_url = self.get_realm_url(user_id)?;
+        // let input = QUserContractStateTreeMerkleProofRPCRequest {
+        //     checkpoint_id,
+        //     user_id,
+        //     contract_id,
+        //     height,
+        //     leaf_id,
+        // };
+        // let response = psy_rpc_call_back!(
+        //     self,
+        //     rpc_url,
+        //     RequestParams::<F>::GetUserContractStateTreeMerkleProof(input),
+        //     MerkleProofCore<QHashOut<F>>
+        // );
+        // match response.result {
+        //     ResponseResult::Success(merkle_proof) => {
+        //         debug!(
+        //             checkpoint_id = checkpoint_id,
+        //             user_id = user_id,
+        //             contract_id = contract_id,
+        //             height = height,
+        //             leaf_id = leaf_id,
+        //             merkle_proof =
+        // %serde_json::to_string_pretty(&merkle_proof).unwrap(),
+        //             "Successfully fetched merkle proof"
+        //         );
+        //         Ok(merkle_proof)
+        //     }
+        //     ResponseResult::Error(e) => {
+        //         error!("RPC call failed: {:?}", e);
+        //         Err(anyhow::format_err!("
+        // get_user_contract_state_tree_merkle_proof rpc call failed `{:?}`",
+        // e))     }
+        // }
     }
 
     #[instrument(skip(self), fields(checkpoint_id, user_id))]
     async fn get_user_contract_tree_root(&self, checkpoint_id: u64, user_id: u64) -> anyhow::Result<psy_common::data::qhashout::QHashOut<F>> {
         debug!(checkpoint_id = checkpoint_id, user_id = user_id, "Fetching user contract tree root");
         let rpc_url = self.get_realm_url(user_id)?;
-        let input = QUserContractTreeRootRPCRequest { checkpoint_id, user_id };
-        let response = psy_rpc_call_back!(self, rpc_url, RequestParams::<F>::GetUserContractTreeRoot(input), QHashOut<F>);
-        match response.result {
-            ResponseResult::Success(hash) => {
-                debug!(
-                    checkpoint_id = checkpoint_id,
-                    user_id = user_id,
-                    hash = %hash,
-                    "Successfully fetched hash"
-                );
-                Ok(hash)
-            }
-            ResponseResult::Error(e) => {
-                error!("RPC call failed: {:?}", e);
-                Err(anyhow::format_err!("get_user_contract_tree_root rpc call failed `{:?}`", e))
-            }
-        }
+        let root = PsyHasher::get_zero_hash(GLOBAL_CONTRACT_TREE_HEIGHT as usize);
+        Ok(root)
+        // let input = QUserContractTreeRootRPCRequest { checkpoint_id, user_id
+        // }; let response = psy_rpc_call_back!(self, rpc_url,
+        // RequestParams::<F>::GetUserContractTreeRoot(input), QHashOut<F>);
+        // match response.result {
+        //     ResponseResult::Success(hash) => {
+        //         debug!(
+        //             checkpoint_id = checkpoint_id,
+        //             user_id = user_id,
+        //             hash = %hash,
+        //             "Successfully fetched hash"
+        //         );
+        //         Ok(hash)
+        //     }
+        //     ResponseResult::Error(e) => {
+        //         error!("RPC call failed: {:?}", e);
+        //         Err(anyhow::format_err!("get_user_contract_tree_root rpc call
+        // failed `{:?}`", e))     }
+        // }
     }
 
     #[instrument(skip(self), fields(checkpoint_id, user_id, contract_id))]
@@ -200,28 +233,30 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
             "Fetching user contract tree leaf hash"
         );
         let rpc_url = self.get_realm_url(user_id)?;
-        let input = QUserContractTreeLeafHashRPCRequest {
-            checkpoint_id,
-            user_id,
-            contract_id,
-        };
-        let response = psy_rpc_call_back!(self, rpc_url, RequestParams::<F>::GetUserContractTreeLeafHash(input), QHashOut<F>);
-        match response.result {
-            ResponseResult::Success(hash) => {
-                debug!(
-                    checkpoint_id = checkpoint_id,
-                    user_id = user_id,
-                    contract_id = contract_id,
-                    hash = %hash,
-                    "Successfully fetched hash"
-                );
-                Ok(hash)
-            }
-            ResponseResult::Error(e) => {
-                error!("RPC call failed: {:?}", e);
-                Err(anyhow::format_err!("get_user_contract_tree_root_f rpc call failed `{:?}`", e))
-            }
-        }
+        Ok(QHashOut::<F>::ZERO)
+        // let input = QUserContractTreeLeafHashRPCRequest {
+        //     checkpoint_id,
+        //     user_id,
+        //     contract_id,
+        // };
+        // let response = psy_rpc_call_back!(self, rpc_url,
+        // RequestParams::<F>::GetUserContractTreeLeafHash(input), QHashOut<F>);
+        // match response.result {
+        //     ResponseResult::Success(hash) => {
+        //         debug!(
+        //             checkpoint_id = checkpoint_id,
+        //             user_id = user_id,
+        //             contract_id = contract_id,
+        //             hash = %hash,
+        //             "Successfully fetched hash"
+        //         );
+        //         Ok(hash)
+        //     }
+        //     ResponseResult::Error(e) => {
+        //         error!("RPC call failed: {:?}", e);
+        //         Err(anyhow::format_err!("get_user_contract_tree_root_f rpc
+        // call failed `{:?}`", e))     }
+        // }
     }
 
     #[instrument(skip(self), fields(checkpoint_id, user_id, contract_id))]
@@ -237,57 +272,69 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
             contract_id = contract_id,
             "Fetching user contract tree merkle proof"
         );
-        let rpc_url = self.get_realm_url(user_id)?;
-        let input = QUserContractTreeMerkleProofRPCRequest {
-            checkpoint_id,
-            user_id,
-            contract_id,
-        };
-        let response = psy_rpc_call_back!(
-            self,
-            rpc_url,
-            RequestParams::<F>::GetUserContractTreeMerkleProof(input),
-            MerkleProofCore<QHashOut<F>>
-        );
-        match response.result {
-            ResponseResult::Success(merkle_proof) => {
-                debug!(
-                    checkpoint_id = checkpoint_id,
-                    user_id = user_id,
-                    contract_id = contract_id,
-                    merkle_proof = %serde_json::to_string_pretty(&merkle_proof).unwrap(),
-                    "Successfully fetched merkle proof"
-                );
-                debug!("Merkle proof verification result: {}", merkle_proof.verify::<PsyHasher>());
-                Ok(merkle_proof)
-            }
-            ResponseResult::Error(e) => {
-                error!("RPC call failed: {:?}", e);
-                Err(anyhow::format_err!("get_user_contract_tree_merkle_proof rpc call failed `{:?}`", e))
-            }
-        }
+        let height = GLOBAL_CONTRACT_TREE_HEIGHT as u64;
+        Ok(self.zero_merkle_tree.get_subtree_merkle_proof(
+            GLOBAL_USER_TREE_HEIGHT - GLOBAL_CONTRACT_TREE_HEIGHT,
+            SimpleMerkleNodeKey {
+                level: GLOBAL_USER_TREE_HEIGHT,
+                index: contract_id as u64,
+            },
+        ))
+        // let rpc_url = self.get_realm_url(user_id)?;
+        // let input = QUserContractTreeMerkleProofRPCRequest {
+        //     checkpoint_id,
+        //     user_id,
+        //     contract_id,
+        // };
+        // let response = psy_rpc_call_back!(
+        //     self,
+        //     rpc_url,
+        //     RequestParams::<F>::GetUserContractTreeMerkleProof(input),
+        //     MerkleProofCore<QHashOut<F>>
+        // );
+        // match response.result {
+        //     ResponseResult::Success(merkle_proof) => {
+        //         debug!(
+        //             checkpoint_id = checkpoint_id,
+        //             user_id = user_id,
+        //             contract_id = contract_id,
+        //             merkle_proof =
+        // %serde_json::to_string_pretty(&merkle_proof).unwrap(),
+        //             "Successfully fetched merkle proof"
+        //         );
+        //         debug!("Merkle proof verification result: {}",
+        // merkle_proof.verify::<PsyHasher>());         Ok(merkle_proof)
+        //     }
+        //     ResponseResult::Error(e) => {
+        //         error!("RPC call failed: {:?}", e);
+        //         Err(anyhow::format_err!("get_user_contract_tree_merkle_proof
+        // rpc call failed `{:?}`", e))     }
+        // }
     }
 
     #[instrument(skip(self), fields(checkpoint_id))]
     async fn get_user_registration_tree_root(&self, checkpoint_id: u64) -> anyhow::Result<psy_common::data::qhashout::QHashOut<F>> {
         debug!(checkpoint_id = checkpoint_id, "Fetching user registration tree root");
-        let rpc_url = self.get_coordinator_url()?;
-        let input = QUserRegistrationTreeRootRPCRequest { checkpoint_id };
-        let response = psy_rpc_call_back!(self, rpc_url, RequestParams::<F>::GetUserRegistrationTreeRoot(input), QHashOut<F>);
-        match response.result {
-            ResponseResult::Success(hash) => {
-                debug!(
-                    checkpoint_id = checkpoint_id,
-                    hash = %hash,
-                    "Successfully fetched hash"
-                );
-                Ok(hash)
-            }
-            ResponseResult::Error(e) => {
-                error!("RPC call failed: {:?}", e);
-                Err(anyhow::format_err!("get_user_registration_tree_root rpc call failed `{:?}`", e))
-            }
-        }
+        Ok(GENESIS_DATA.user_registration_tree_root)
+
+        // let rpc_url = self.get_coordinator_url()?;
+        // let input = QUserRegistrationTreeRootRPCRequest { checkpoint_id };
+        // let response = psy_rpc_call_back!(self, rpc_url,
+        // RequestParams::<F>::GetUserRegistrationTreeRoot(input), QHashOut<F>);
+        // match response.result {
+        //     ResponseResult::Success(hash) => {
+        //         debug!(
+        //             checkpoint_id = checkpoint_id,
+        //             hash = %hash,
+        //             "Successfully fetched hash"
+        //         );
+        //         Ok(hash)
+        //     }
+        //     ResponseResult::Error(e) => {
+        //         error!("RPC call failed: {:?}", e);
+        //         Err(anyhow::format_err!("get_user_registration_tree_root rpc
+        // call failed `{:?}`", e))     }
+        // }
     }
 
     #[instrument(skip(self), fields(checkpoint_id, leaf_index))]
@@ -301,24 +348,28 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
             leaf_index = leaf_index,
             "Fetching user registration tree leaf hash"
         );
-        let rpc_url = self.get_coordinator_url()?;
-        let input = QUserRegistrationTreeLeafHashRPCRequest { checkpoint_id, leaf_index };
-        let response = psy_rpc_call_back!(self, rpc_url, RequestParams::<F>::GetUserRegistrationTreeLeafHash(input), QHashOut<F>);
-        match response.result {
-            ResponseResult::Success(hash) => {
-                debug!(
-                    checkpoint_id = checkpoint_id,
-                    leaf_index = leaf_index,
-                    hash = %hash,
-                    "Successfully fetched hash"
-                );
-                Ok(hash)
-            }
-            ResponseResult::Error(e) => {
-                error!("RPC call failed: {:?}", e);
-                Err(anyhow::format_err!("get_user_registration_tree_leaf_hash rpc call failed `{:?}`", e))
-            }
-        }
+        let hash = USER_REGISTRATION_TREE_STORE.get_leaf_value(leaf_index);
+        Ok(hash)
+
+        // let rpc_url = self.get_coordinator_url()?;
+        // let input = QUserRegistrationTreeLeafHashRPCRequest { checkpoint_id,
+        // leaf_index }; let response = psy_rpc_call_back!(self,
+        // rpc_url, RequestParams::<F>::GetUserRegistrationTreeLeafHash(input),
+        // QHashOut<F>); match response.result {
+        //     ResponseResult::Success(hash) => {
+        //         debug!(
+        //             checkpoint_id = checkpoint_id,
+        //             leaf_index = leaf_index,
+        //             hash = %hash,
+        //             "Successfully fetched hash"
+        //         );
+        //         Ok(hash)
+        //     }
+        //     ResponseResult::Error(e) => {
+        //         error!("RPC call failed: {:?}", e);
+        //         Err(anyhow::format_err!("get_user_registration_tree_leaf_hash
+        // rpc call failed `{:?}`", e))     }
+        // }
     }
 
     #[instrument(skip(self), fields(checkpoint_id, leaf_index))]
@@ -332,74 +383,82 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
             leaf_index = leaf_index,
             "Fetching user registration tree merkle proof"
         );
-        let rpc_url = self.get_coordinator_url()?;
-        let input = QUserRegistrationTreeMerkleProofRPCRequest { checkpoint_id, leaf_index };
-        let response = psy_rpc_call_back!(
-            self,
-            rpc_url,
-            RequestParams::<F>::GetUserRegistrationTreeMerkleProof(input),
-            MerkleProofCore<QHashOut<F>>
-        );
-        match response.result {
-            ResponseResult::Success(merkle_proof) => {
-                debug!(
-                    checkpoint_id = checkpoint_id,
-                    leaf_index = leaf_index,
-                    merkle_proof = %serde_json::to_string_pretty(&merkle_proof).unwrap(),
-                    "Successfully fetched merkle proof"
-                );
-                Ok(merkle_proof)
-            }
-            ResponseResult::Error(e) => {
-                error!("RPC call failed: {:?}", e);
-                Err(anyhow::format_err!("get_user_registration_tree_merkle_proof rpc call failed `{:?}`", e))
-            }
-        }
+        let merkle_proof = USER_REGISTRATION_TREE_STORE.get_leaf(leaf_index);
+        Ok(merkle_proof)
+
+        // let rpc_url = self.get_coordinator_url()?;
+        // let input = QUserRegistrationTreeMerkleProofRPCRequest {
+        // checkpoint_id, leaf_index }; let response =
+        // psy_rpc_call_back!(     self,
+        //     rpc_url,
+        //     RequestParams::<F>::GetUserRegistrationTreeMerkleProof(input),
+        //     MerkleProofCore<QHashOut<F>>
+        // );
+        // match response.result {
+        //     ResponseResult::Success(merkle_proof) => {
+        //         debug!(
+        //             checkpoint_id = checkpoint_id,
+        //             leaf_index = leaf_index,
+        //             merkle_proof =
+        // %serde_json::to_string_pretty(&merkle_proof).unwrap(),
+        //             "Successfully fetched merkle proof"
+        //         );
+        //         Ok(merkle_proof)
+        //     }
+        //     ResponseResult::Error(e) => {
+        //         error!("RPC call failed: {:?}", e);
+        //         Err(anyhow::format_err!("get_user_registration_tree_merkle_proof rpc call failed `{:?}`", e))
+        //     }
+        // }
     }
 
     #[instrument(skip(self), fields(checkpoint_id))]
     async fn get_user_tree_root(&self, checkpoint_id: u64) -> anyhow::Result<psy_common::data::qhashout::QHashOut<F>> {
         debug!(checkpoint_id = checkpoint_id, "Fetching user tree root");
-        let rpc_url = self.get_coordinator_url()?;
-        let input = QUserTreeRootRPCRequest { checkpoint_id };
-        let response = psy_rpc_call_back!(self, rpc_url, RequestParams::<F>::GetUserTreeRoot(input), QHashOut<F>);
-        match response.result {
-            ResponseResult::Success(hash) => {
-                debug!(
-                    checkpoint_id = checkpoint_id,
-                    hash = %hash,
-                    "Successfully fetched hash"
-                );
-                Ok(hash)
-            }
-            ResponseResult::Error(e) => {
-                error!("RPC call failed: {:?}", e);
-                Err(anyhow::format_err!("get_user_tree_root rpc call failed `{:?}`", e))
-            }
-        }
+        Ok(self.zero_merkle_tree.get_root())
+        // let rpc_url = self.get_coordinator_url()?;
+        // let input = QUserTreeRootRPCRequest { checkpoint_id };
+        // let response = psy_rpc_call_back!(self, rpc_url,
+        // RequestParams::<F>::GetUserTreeRoot(input), QHashOut<F>);
+        // match response.result {
+        //     ResponseResult::Success(hash) => {
+        //         debug!(
+        //             checkpoint_id = checkpoint_id,
+        //             hash = %hash,
+        //             "Successfully fetched hash"
+        //         );
+        //         Ok(hash)
+        //     }
+        //     ResponseResult::Error(e) => {
+        //         error!("RPC call failed: {:?}", e);
+        //         Err(anyhow::format_err!("get_user_tree_root rpc call failed
+        // `{:?}`", e))     }
+        // }
     }
 
     #[instrument(skip(self), fields(checkpoint_id, user_id))]
     async fn get_user_tree_leaf_hash(&self, checkpoint_id: u64, user_id: u64) -> anyhow::Result<psy_common::data::qhashout::QHashOut<F>> {
         info!("Fetching user tree leaf hash checkpoint_id: {}, user_id: {}", checkpoint_id, user_id);
-        let rpc_url = self.get_realm_url(user_id)?;
-        let input = QUserTreeLeafHashRPCRequest { checkpoint_id, user_id };
-        let response = psy_rpc_call_back!(self, rpc_url, RequestParams::<F>::GetUserTreeLeafHash(input), QHashOut<F>);
-        match response.result {
-            ResponseResult::Success(hash) => {
-                debug!(
-                    checkpoint_id = checkpoint_id,
-                    user_id = user_id,
-                    hash = %hash,
-                    "Successfully fetched hash"
-                );
-                Ok(hash)
-            }
-            ResponseResult::Error(e) => {
-                error!("RPC call failed: {:?}", e);
-                Err(anyhow::format_err!("get_user_tree_leaf_hash rpc call failed `{:?}`", e))
-            }
-        }
+        Ok(QHashOut::<F>::ZERO)
+        // let rpc_url = self.get_realm_url(user_id)?;
+        // let input = QUserTreeLeafHashRPCRequest { checkpoint_id, user_id };
+        // let response = psy_rpc_call_back!(self, rpc_url,
+        // RequestParams::<F>::GetUserTreeLeafHash(input), QHashOut<F>);
+        // match response.result {
+        //     ResponseResult::Success(hash) => {
+        //         debug!(
+        //             checkpoint_id = checkpoint_id,
+        //             user_id = user_id,
+        //             hash = %hash,
+        //             "Successfully fetched hash"
+        //         );
+        //         Ok(hash)
+        //     }
+        //     ResponseResult::Error(e) => {
+        //         error!("RPC call failed: {:?}", e);
+        //         Err(anyhow::format_err!("get_user_tree_leaf_hash rpc call
+        // failed `{:?}`", e))     }
+        // }
     }
 
     #[instrument(skip(self), fields(checkpoint_id, user_id))]
@@ -409,62 +468,67 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         user_id: u64,
     ) -> anyhow::Result<psy_crypto::hash::merkle::core::MerkleProofCore<psy_common::data::qhashout::QHashOut<F>>> {
         info!("Fetching user tree merkle proof checkpoint_id: {}, user_id: {}", checkpoint_id, user_id);
-        let rpc_url = self.get_realm_url(user_id)?;
-        let input = QUserTreeMerkleProofRPCRequest { checkpoint_id, user_id };
-        let response = psy_rpc_call_back!(
-            self,
-            rpc_url,
-            RequestParams::<F>::GetUserTreeMerkleProof(input),
-            MerkleProofCore<QHashOut<F>>
-        );
-        match response.result {
-            ResponseResult::Success(mut merkle_proof) => {
-                debug!(
-                    checkpoint_id = checkpoint_id,
-                    user_id = user_id,
-                    merkle_proof = %serde_json::to_string_pretty(&merkle_proof).unwrap(),
-                    "Successfully fetched merkle proof"
-                );
-                debug!("Retrieved bottom merkle proof: {}", serde_json::to_string_pretty(&merkle_proof).unwrap());
-                info!("Merkle proof root: {:?}", merkle_proof.root.to_string());
-                info!("Merkle proof value: {:?}", merkle_proof.value.to_string());
-                debug!(
-                    checkpoint_id = checkpoint_id,
-                    user_id = user_id,
-                    verify_result = %merkle_proof.verify::<PsyHasher>(),
-                    "Before verify"
-                );
+        Ok(self.zero_merkle_tree.get_leaf(user_id))
+        // let rpc_url = self.get_realm_url(user_id)?;
+        // let input = QUserTreeMerkleProofRPCRequest { checkpoint_id, user_id
+        // }; let response = psy_rpc_call_back!(
+        //     self,
+        //     rpc_url,
+        //     RequestParams::<F>::GetUserTreeMerkleProof(input),
+        //     MerkleProofCore<QHashOut<F>>
+        // );
+        // match response.result {
+        //     ResponseResult::Success(mut merkle_proof) => {
+        //         debug!(
+        //             checkpoint_id = checkpoint_id,
+        //             user_id = user_id,
+        //             merkle_proof =
+        // %serde_json::to_string_pretty(&merkle_proof).unwrap(),
+        //             "Successfully fetched merkle proof"
+        //         );
+        //         debug!("Retrieved bottom merkle proof: {}",
+        // serde_json::to_string_pretty(&merkle_proof).unwrap());
+        //         info!("Merkle proof root: {:?}",
+        // merkle_proof.root.to_string());         info!("Merkle proof
+        // value: {:?}", merkle_proof.value.to_string());         debug!
+        // (             checkpoint_id = checkpoint_id,
+        //             user_id = user_id,
+        //             verify_result = %merkle_proof.verify::<PsyHasher>(),
+        //             "Before verify"
+        //         );
 
-                let top_proof = self
-                    .get_user_sub_tree_merkle_proof(checkpoint_id, 0, COORDINATOR_USER_TREE_HEIGHT, self.get_realm_id(user_id))
-                    .await?;
-                debug!("Retrieved top proof: {}", serde_json::to_string_pretty(&top_proof).unwrap());
-                let mut new_siblings = vec![];
-                new_siblings.extend_from_slice(&merkle_proof.siblings[0..(REALM_USER_TREE_HEIGHT as usize)]);
-                new_siblings.extend_from_slice(&top_proof.siblings);
-                merkle_proof.root = top_proof.root;
-                merkle_proof.siblings = new_siblings;
-                debug!(
-                    "Modified merkle proof with top proof: {}",
-                    serde_json::to_string_pretty(&merkle_proof).unwrap()
-                );
+        //         let top_proof = self
+        //             .get_user_sub_tree_merkle_proof(checkpoint_id, 0,
+        // COORDINATOR_USER_TREE_HEIGHT, self.get_realm_id(user_id))
+        //             .await?;
+        //         debug!("Retrieved top proof: {}",
+        // serde_json::to_string_pretty(&top_proof).unwrap());
+        //         let mut new_siblings = vec![];
+        //         new_siblings.extend_from_slice(&merkle_proof.siblings[0..
+        // (REALM_USER_TREE_HEIGHT as usize)]);         new_siblings.
+        // extend_from_slice(&top_proof.siblings);         merkle_proof.
+        // root = top_proof.root;         merkle_proof.siblings =
+        // new_siblings;         debug!(
+        //             "Modified merkle proof with top proof: {}",
+        //             serde_json::to_string_pretty(&merkle_proof).unwrap()
+        //         );
 
-                debug!(
-                    checkpoint_id = checkpoint_id,
-                    user_id = user_id,
-                    verify_result = %merkle_proof.verify::<PsyHasher>(),
-                    "After verify"
-                );
-                match merkle_proof.verify::<PsyHasher>() {
-                    true => Ok(merkle_proof),
-                    false => Err(anyhow::format_err!("user tree merkle proof verify failed")),
-                }
-            }
-            ResponseResult::Error(e) => {
-                error!("RPC call failed: {:?}", e);
-                Err(anyhow::format_err!("get_user_tree_merkle_proof rpc call failed `{:?}`", e))
-            }
-        }
+        //         debug!(
+        //             checkpoint_id = checkpoint_id,
+        //             user_id = user_id,
+        //             verify_result = %merkle_proof.verify::<PsyHasher>(),
+        //             "After verify"
+        //         );
+        //         match merkle_proof.verify::<PsyHasher>() {
+        //             true => Ok(merkle_proof),
+        //             false => Err(anyhow::format_err!("user tree merkle proof
+        // verify failed")),         }
+        //     }
+        //     ResponseResult::Error(e) => {
+        //         error!("RPC call failed: {:?}", e);
+        //         Err(anyhow::format_err!("get_user_tree_merkle_proof rpc call
+        // failed `{:?}`", e))     }
+        // }
     }
 
     #[instrument(skip(self), fields(checkpoint_id, root_level, leaf_level, leaf_index))]
@@ -479,6 +543,8 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
             "Fetching user sub tree merkle proof checkpoint_id: {}, root_level: {}, leaf_level: {}, leaf_index: {}",
             checkpoint_id, root_level, leaf_level, leaf_index
         );
+
+        unimplemented!("get_user_sub_tree_merkle_proof");
 
         if root_level > leaf_level {
             anyhow::bail!("root level {} must be less than leaf level {}", root_level, leaf_level);
@@ -568,24 +634,27 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
             contract_id = contract_id,
             "Fetching contract function tree root"
         );
-        let rpc_url = self.get_coordinator_url()?;
-        let input = QContractFunctionTreeRootRPCRequest { checkpoint_id, contract_id };
-        let response = psy_rpc_call_back!(self, rpc_url, RequestParams::<F>::GetContractFunctionTreeRoot(input), QHashOut<F>);
-        match response.result {
-            ResponseResult::Success(hash) => {
-                debug!(
-                    checkpoint_id = checkpoint_id,
-                    contract_id = contract_id,
-                    hash = %hash,
-                    "Successfully fetched hash"
-                );
-                Ok(hash)
-            }
-            ResponseResult::Error(e) => {
-                error!("RPC call failed: {:?}", e);
-                Err(anyhow::format_err!("get_contract_function_tree_root rpc call failed `{:?}`", e))
-            }
-        }
+        let root = CONTRACT0_FUNCTION_TREE_STORE.get_root();
+        Ok(root)
+        // let rpc_url = self.get_coordinator_url()?;
+        // let input = QContractFunctionTreeRootRPCRequest { checkpoint_id,
+        // contract_id }; let response = psy_rpc_call_back!(self,
+        // rpc_url, RequestParams::<F>::GetContractFunctionTreeRoot(input),
+        // QHashOut<F>); match response.result {
+        //     ResponseResult::Success(hash) => {
+        //         debug!(
+        //             checkpoint_id = checkpoint_id,
+        //             contract_id = contract_id,
+        //             hash = %hash,
+        //             "Successfully fetched hash"
+        //         );
+        //         Ok(hash)
+        //     }
+        //     ResponseResult::Error(e) => {
+        //         error!("RPC call failed: {:?}", e);
+        //         Err(anyhow::format_err!("get_contract_function_tree_root rpc
+        // call failed `{:?}`", e))     }
+        // }
     }
 
     #[instrument(skip(self), fields(checkpoint_id, contract_id, function_id))]
@@ -601,29 +670,32 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
             function_id = function_id,
             "Fetching contract function tree leaf hash"
         );
-        let rpc_url = self.get_coordinator_url()?;
-        let input = QContractFunctionTreeLeafHashRPCRequest {
-            checkpoint_id,
-            contract_id,
-            function_id,
-        };
-        let response = psy_rpc_call_back!(self, rpc_url, RequestParams::<F>::GetContractFunctionTreeLeafHash(input), QHashOut<F>);
-        match response.result {
-            ResponseResult::Success(hash) => {
-                debug!(
-                    checkpoint_id = checkpoint_id,
-                    contract_id = contract_id,
-                    function_id = function_id,
-                    hash = %hash,
-                    "Successfully fetched hash"
-                );
-                Ok(hash)
-            }
-            ResponseResult::Error(e) => {
-                error!("RPC call failed: {:?}", e);
-                Err(anyhow::format_err!("get_contract_function_tree_leaf_hash rpc call failed `{:?}`", e))
-            }
-        }
+        let value = CONTRACT0_FUNCTION_TREE_STORE.get_leaf_value(function_id as u64);
+        Ok(value)
+        // let rpc_url = self.get_coordinator_url()?;
+        // let input = QContractFunctionTreeLeafHashRPCRequest {
+        //     checkpoint_id,
+        //     contract_id,
+        //     function_id,
+        // };
+        // let response = psy_rpc_call_back!(self, rpc_url,
+        // RequestParams::<F>::GetContractFunctionTreeLeafHash(input),
+        // QHashOut<F>); match response.result {
+        //     ResponseResult::Success(hash) => {
+        //         debug!(
+        //             checkpoint_id = checkpoint_id,
+        //             contract_id = contract_id,
+        //             function_id = function_id,
+        //             hash = %hash,
+        //             "Successfully fetched hash"
+        //         );
+        //         Ok(hash)
+        //     }
+        //     ResponseResult::Error(e) => {
+        //         error!("RPC call failed: {:?}", e);
+        //         Err(anyhow::format_err!("get_contract_function_tree_leaf_hash
+        // rpc call failed `{:?}`", e))     }
+        // }
     }
 
     #[instrument(skip(self), fields(checkpoint_id, contract_id, function_id))]
@@ -639,56 +711,61 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
             function_id = function_id,
             "Fetching contract function tree merkle proof"
         );
-        let rpc_url = self.get_coordinator_url()?;
-        let input = QContractFunctionTreeMerkleProofRPCRequest {
-            checkpoint_id,
-            contract_id,
-            function_id,
-        };
-        let response = psy_rpc_call_back!(
-            self,
-            rpc_url,
-            RequestParams::<F>::GetContractFunctionTreeMerkleProof(input),
-            MerkleProofCore<QHashOut<F>>
-        );
-        match response.result {
-            ResponseResult::Success(merkle_proof) => {
-                debug!(
-                    checkpoint_id = checkpoint_id,
-                    contract_id = contract_id,
-                    function_id = function_id,
-                    merkle_proof = %serde_json::to_string_pretty(&merkle_proof).unwrap(),
-                    "Successfully fetched merkle proof"
-                );
-                Ok(merkle_proof)
-            }
-            ResponseResult::Error(e) => {
-                error!("RPC call failed: {:?}", e);
-                Err(anyhow::format_err!("get_contract_function_tree_merkle_proof rpc call failed `{:?}`", e))
-            }
-        }
+        let proof = CONTRACT0_FUNCTION_TREE_STORE.get_leaf(function_id as u64);
+        Ok(proof)
+        // let rpc_url = self.get_coordinator_url()?;
+        // let input = QContractFunctionTreeMerkleProofRPCRequest {
+        //     checkpoint_id,
+        //     contract_id,
+        //     function_id,
+        // };
+        // let response = psy_rpc_call_back!(
+        //     self,
+        //     rpc_url,
+        //     RequestParams::<F>::GetContractFunctionTreeMerkleProof(input),
+        //     MerkleProofCore<QHashOut<F>>
+        // );
+        // match response.result {
+        //     ResponseResult::Success(merkle_proof) => {
+        //         debug!(
+        //             checkpoint_id = checkpoint_id,
+        //             contract_id = contract_id,
+        //             function_id = function_id,
+        //             merkle_proof =
+        // %serde_json::to_string_pretty(&merkle_proof).unwrap(),
+        //             "Successfully fetched merkle proof"
+        //         );
+        //         Ok(merkle_proof)
+        //     }
+        //     ResponseResult::Error(e) => {
+        //         error!("RPC call failed: {:?}", e);
+        //         Err(anyhow::format_err!("get_contract_function_tree_merkle_proof rpc call failed `{:?}`", e))
+        //     }
+        // }
     }
 
     #[instrument(skip(self), fields(checkpoint_id))]
     async fn get_contract_tree_root(&self, checkpoint_id: u64) -> anyhow::Result<psy_common::data::qhashout::QHashOut<F>> {
         debug!(checkpoint_id = checkpoint_id, "Fetching contract tree root");
-        let rpc_url = self.get_coordinator_url()?;
-        let input = QContractTreeRootRPCRequest { checkpoint_id };
-        let response = psy_rpc_call_back!(self, rpc_url, RequestParams::<F>::GetContractTreeRoot(input), QHashOut<F>);
-        match response.result {
-            ResponseResult::Success(hash) => {
-                debug!(
-                    checkpoint_id = checkpoint_id,
-                    hash = %hash,
-                    "Successfully fetched hash"
-                );
-                Ok(hash)
-            }
-            ResponseResult::Error(e) => {
-                error!("RPC call failed: {:?}", e);
-                Err(anyhow::format_err!("get_contract_tree_root rpc call failed `{:?}`", e))
-            }
-        }
+        Ok(GENESIS_DATA.contract_tree_proof.root.clone())
+        // let rpc_url = self.get_coordinator_url()?;
+        // let input = QContractTreeRootRPCRequest { checkpoint_id };
+        // let response = psy_rpc_call_back!(self, rpc_url,
+        // RequestParams::<F>::GetContractTreeRoot(input), QHashOut<F>);
+        // match response.result {
+        //     ResponseResult::Success(hash) => {
+        //         debug!(
+        //             checkpoint_id = checkpoint_id,
+        //             hash = %hash,
+        //             "Successfully fetched hash"
+        //         );
+        //         Ok(hash)
+        //     }
+        //     ResponseResult::Error(e) => {
+        //         error!("RPC call failed: {:?}", e);
+        //         Err(anyhow::format_err!("get_contract_tree_root rpc call
+        // failed `{:?}`", e))     }
+        // }
     }
 
     #[instrument(skip(self), fields(checkpoint_id, contract_id))]
@@ -697,24 +774,26 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
             "Fetching contract tree leaf hash checkpoint_id: {}, contract_id: {}",
             checkpoint_id, contract_id
         );
-        let rpc_url = self.get_coordinator_url()?;
-        let input = QContractTreeLeafHashRPCRequest { checkpoint_id, contract_id };
-        let response = psy_rpc_call_back!(self, rpc_url, RequestParams::<F>::GetContractTreeLeafHash(input), QHashOut<F>);
-        match response.result {
-            ResponseResult::Success(hash) => {
-                debug!(
-                    checkpoint_id = checkpoint_id,
-                    contract_id = contract_id,
-                    hash = %hash,
-                    "Successfully fetched hash"
-                );
-                Ok(hash)
-            }
-            ResponseResult::Error(e) => {
-                error!("RPC call failed: {:?}", e);
-                Err(anyhow::format_err!("get_contract_tree_leaf_hash rpc call failed `{:?}`", e))
-            }
-        }
+        Ok(GENESIS_DATA.contract_tree_proof.value.clone())
+        // let rpc_url = self.get_coordinator_url()?;
+        // let input = QContractTreeLeafHashRPCRequest { checkpoint_id,
+        // contract_id }; let response = psy_rpc_call_back!(self,
+        // rpc_url, RequestParams::<F>::GetContractTreeLeafHash(input),
+        // QHashOut<F>); match response.result {
+        //     ResponseResult::Success(hash) => {
+        //         debug!(
+        //             checkpoint_id = checkpoint_id,
+        //             contract_id = contract_id,
+        //             hash = %hash,
+        //             "Successfully fetched hash"
+        //         );
+        //         Ok(hash)
+        //     }
+        //     ResponseResult::Error(e) => {
+        //         error!("RPC call failed: {:?}", e);
+        //         Err(anyhow::format_err!("get_contract_tree_leaf_hash rpc call
+        // failed `{:?}`", e))     }
+        // }
     }
 
     #[instrument(skip(self), fields(checkpoint_id, contract_id))]
@@ -727,29 +806,31 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
             "Fetching contract tree merkle proof checkpoint_id: {}, contract_id: {}",
             checkpoint_id, contract_id
         );
-        let rpc_url = self.get_coordinator_url()?;
-        let input = QContractTreeMerkleProofRPCRequest { checkpoint_id, contract_id };
-        let response = psy_rpc_call_back!(
-            self,
-            rpc_url,
-            RequestParams::<F>::GetContractTreeMerkleProof(input),
-            MerkleProofCore<QHashOut<F>>
-        );
-        match response.result {
-            ResponseResult::Success(merkle_proof) => {
-                debug!(
-                    checkpoint_id = checkpoint_id,
-                    contract_id = contract_id,
-                    merkle_proof = %serde_json::to_string_pretty(&merkle_proof).unwrap(),
-                    "Successfully fetched merkle proof"
-                );
-                Ok(merkle_proof)
-            }
-            ResponseResult::Error(e) => {
-                error!("RPC call failed: {:?}", e);
-                Err(anyhow::format_err!("get_contract_tree_merkle_proof rpc call failed `{:?}`", e))
-            }
-        }
+        Ok(GENESIS_DATA.contract_tree_proof.clone())
+        // let rpc_url = self.get_coordinator_url()?;
+        // let input = QContractTreeMerkleProofRPCRequest { checkpoint_id,
+        // contract_id }; let response = psy_rpc_call_back!(
+        //     self,
+        //     rpc_url,
+        //     RequestParams::<F>::GetContractTreeMerkleProof(input),
+        //     MerkleProofCore<QHashOut<F>>
+        // );
+        // match response.result {
+        //     ResponseResult::Success(merkle_proof) => {
+        //         debug!(
+        //             checkpoint_id = checkpoint_id,
+        //             contract_id = contract_id,
+        //             merkle_proof =
+        // %serde_json::to_string_pretty(&merkle_proof).unwrap(),
+        //             "Successfully fetched merkle proof"
+        //         );
+        //         Ok(merkle_proof)
+        //     }
+        //     ResponseResult::Error(e) => {
+        //         error!("RPC call failed: {:?}", e);
+        //         Err(anyhow::format_err!("get_contract_tree_merkle_proof rpc
+        // call failed `{:?}`", e))     }
+        // }
     }
 
     #[instrument(skip(self), fields(checkpoint_id))]
@@ -781,6 +862,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
     async fn get_deposit_tree_leaf_hash(&self, checkpoint_id: u64, deposit_id: u32) -> anyhow::Result<psy_common::data::qhashout::QHashOut<F>> {
         debug!(checkpoint_id = checkpoint_id, deposit_id = deposit_id, "Fetching deposit tree leaf hash");
         let rpc_url = self.get_coordinator_url()?;
+        unimplemented!("get_deposit_tree_leaf_hash");
         let input = QDepositTreeLeafHashRPCRequest { checkpoint_id, deposit_id };
         let response = psy_rpc_call_back!(self, rpc_url, RequestParams::<F>::GetDepositTreeLeafHash(input), QHashOut<F>);
         match response.result {
@@ -808,6 +890,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
     ) -> anyhow::Result<psy_crypto::hash::merkle::core::MerkleProofCore<psy_common::data::qhashout::QHashOut<F>>> {
         info!("Fetching deposit tree merkle proof");
         let rpc_url = self.get_coordinator_url()?;
+        unimplemented!("get_deposit_tree_merkle_proof");
         let input = QDepositTreeMerkleProofRPCRequest { checkpoint_id, deposit_id };
         let response = psy_rpc_call_back!(
             self,
@@ -861,6 +944,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
     async fn get_withdrawal_tree_leaf_hash(&self, checkpoint_id: u64, withdrawal_id: u32) -> anyhow::Result<psy_common::data::qhashout::QHashOut<F>> {
         info!("Fetching withdrawal tree leaf hash");
         let rpc_url = self.get_coordinator_url()?;
+        unimplemented!("get_withdrawal_tree_leaf_hash");
         let input = QWithdrawalTreeLeafHashRPCRequest {
             checkpoint_id,
             withdrawal_id,
@@ -891,6 +975,7 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
     ) -> anyhow::Result<psy_crypto::hash::merkle::core::MerkleProofCore<psy_common::data::qhashout::QHashOut<F>>> {
         info!("Fetching withdrawal tree merkle proof");
         let rpc_url = self.get_coordinator_url()?;
+        unimplemented!("get_withdrawal_tree_merkle_proof");
         let input = QWithdrawalTreeMerkleProofRPCRequest {
             checkpoint_id,
             withdrawal_id,
@@ -922,43 +1007,47 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
     async fn get_latest_checkpoint_tree_root(&self) -> anyhow::Result<psy_common::data::qhashout::QHashOut<F>> {
         info!("Fetching latest checkpoint tree root");
         let rpc_url = self.get_coordinator_url()?;
-        let input = QLatestCheckpointTreeRootRPCRequest {};
-        let response = psy_rpc_call_back!(self, rpc_url, RequestParams::<F>::GetLatestCheckpointTreeRoot(input), QHashOut<F>);
-        match response.result {
-            ResponseResult::Success(hash) => {
-                debug!(
-                    hash = %hash,
-                    "Successfully fetched hash"
-                );
-                Ok(hash)
-            }
-            ResponseResult::Error(e) => {
-                error!("RPC call failed: {:?}", e);
-                Err(anyhow::format_err!("get_latest_checkpoint_tree_root rpc call failed `{:?}`", e))
-            }
-        }
+        Ok(GENESIS_DATA.checkpoint_tree_proof.root)
+        // let input = QLatestCheckpointTreeRootRPCRequest {};
+        // let response = psy_rpc_call_back!(self, rpc_url,
+        // RequestParams::<F>::GetLatestCheckpointTreeRoot(input), QHashOut<F>);
+        // match response.result {
+        //     ResponseResult::Success(hash) => {
+        //         debug!(
+        //             hash = %hash,
+        //             "Successfully fetched hash"
+        //         );
+        //         Ok(hash)
+        //     }
+        //     ResponseResult::Error(e) => {
+        //         error!("RPC call failed: {:?}", e);
+        //         Err(anyhow::format_err!("get_latest_checkpoint_tree_root rpc
+        // call failed `{:?}`", e))     }
+        // }
     }
 
     #[instrument(skip(self), fields(checkpoint_id))]
     async fn get_checkpoint_tree_root(&self, checkpoint_id: u64) -> anyhow::Result<psy_common::data::qhashout::QHashOut<F>> {
         info!("Fetching checkpoint tree root");
-        let rpc_url = self.get_coordinator_url()?;
-        let input = QCheckpointTreeRootRPCRequest { checkpoint_id };
-        let response = psy_rpc_call_back!(self, rpc_url, RequestParams::<F>::GetCheckpointTreeRoot(input), QHashOut<F>);
-        match response.result {
-            ResponseResult::Success(hash) => {
-                debug!(
-                    checkpoint_id = checkpoint_id,
-                    hash = %hash,
-                    "Successfully fetched hash"
-                );
-                Ok(hash)
-            }
-            ResponseResult::Error(e) => {
-                error!("RPC call failed: {:?}", e);
-                Err(anyhow::format_err!("get_checkpoint_tree_root rpc call failed `{:?}`", e))
-            }
-        }
+        Ok(GENESIS_DATA.checkpoint_tree_proof.root.clone())
+        // let rpc_url = self.get_coordinator_url()?;
+        // let input = QCheckpointTreeRootRPCRequest { checkpoint_id };
+        // let response = psy_rpc_call_back!(self, rpc_url,
+        // RequestParams::<F>::GetCheckpointTreeRoot(input), QHashOut<F>);
+        // match response.result {
+        //     ResponseResult::Success(hash) => {
+        //         debug!(
+        //             checkpoint_id = checkpoint_id,
+        //             hash = %hash,
+        //             "Successfully fetched hash"
+        //         );
+        //         Ok(hash)
+        //     }
+        //     ResponseResult::Error(e) => {
+        //         error!("RPC call failed: {:?}", e);
+        //         Err(anyhow::format_err!("get_checkpoint_tree_root rpc call
+        // failed `{:?}`", e))     }
+        // }
     }
 
     #[instrument(skip(self), fields(checkpoint_id, leaf_checkpoint_id))]
@@ -968,27 +1057,29 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         leaf_checkpoint_id: u64,
     ) -> anyhow::Result<psy_common::data::qhashout::QHashOut<F>> {
         info!("Fetching checkpoint tree leaf hash");
-        let rpc_url = self.get_coordinator_url()?;
-        let input = QCheckpointTreeLeafHashRPCRequest {
-            checkpoint_id,
-            leaf_checkpoint_id,
-        };
-        let response = psy_rpc_call_back!(self, rpc_url, RequestParams::<F>::GetCheckpointTreeLeafHash(input), QHashOut<F>);
-        match response.result {
-            ResponseResult::Success(hash) => {
-                debug!(
-                    checkpoint_id = checkpoint_id,
-                    leaf_checkpoint_id = leaf_checkpoint_id,
-                    hash = %hash,
-                    "Successfully fetched hash"
-                );
-                Ok(hash)
-            }
-            ResponseResult::Error(e) => {
-                error!("RPC call failed: {:?}", e);
-                Err(anyhow::format_err!("get_checkpoint_tree_leaf_hash rpc call failed `{:?}`", e))
-            }
-        }
+        Ok(GENESIS_DATA.checkpoint_tree_proof.value.clone())
+        // let rpc_url = self.get_coordinator_url()?;
+        // let input = QCheckpointTreeLeafHashRPCRequest {
+        //     checkpoint_id,
+        //     leaf_checkpoint_id,
+        // };
+        // let response = psy_rpc_call_back!(self, rpc_url,
+        // RequestParams::<F>::GetCheckpointTreeLeafHash(input), QHashOut<F>);
+        // match response.result {
+        //     ResponseResult::Success(hash) => {
+        //         debug!(
+        //             checkpoint_id = checkpoint_id,
+        //             leaf_checkpoint_id = leaf_checkpoint_id,
+        //             hash = %hash,
+        //             "Successfully fetched hash"
+        //         );
+        //         Ok(hash)
+        //     }
+        //     ResponseResult::Error(e) => {
+        //         error!("RPC call failed: {:?}", e);
+        //         Err(anyhow::format_err!("get_checkpoint_tree_leaf_hash rpc
+        // call failed `{:?}`", e))     }
+        // }
     }
 
     #[instrument(skip(self), fields(checkpoint_id, leaf_checkpoint_id))]
@@ -998,32 +1089,35 @@ impl QTreeDataStoreReaderSync<F> for RpcProvider {
         leaf_checkpoint_id: u64,
     ) -> anyhow::Result<psy_crypto::hash::merkle::core::MerkleProofCore<psy_common::data::qhashout::QHashOut<F>>> {
         info!("Fetching checkpoint tree merkle proof");
-        let rpc_url = self.get_coordinator_url()?;
-        let input = QCheckpointTreeMerkleProofRPCRequest {
-            checkpoint_id,
-            leaf_checkpoint_id,
-        };
-        let response = psy_rpc_call_back!(
-            self,
-            rpc_url,
-            RequestParams::<F>::GetCheckpointTreeMerkleProof(input),
-            MerkleProofCore<QHashOut<F>>
-        );
-        match response.result {
-            ResponseResult::Success(merkle_proof) => {
-                debug!(
-                    checkpoint_id = checkpoint_id,
-                    leaf_checkpoint_id = leaf_checkpoint_id,
-                    merkle_proof = %serde_json::to_string_pretty(&merkle_proof).unwrap(),
-                    "Successfully fetched merkle proof"
-                );
-                Ok(merkle_proof)
-            }
-            ResponseResult::Error(e) => {
-                error!("RPC call failed: {:?}", e);
-                Err(anyhow::format_err!("get_checkpoint_tree_merkle_proof rpc call failed `{:?}`", e))
-            }
-        }
+        Ok(GENESIS_DATA.checkpoint_tree_proof.clone())
+
+        // let rpc_url = self.get_coordinator_url()?;
+        // let input = QCheckpointTreeMerkleProofRPCRequest {
+        //     checkpoint_id,
+        //     leaf_checkpoint_id,
+        // };
+        // let response = psy_rpc_call_back!(
+        //     self,
+        //     rpc_url,
+        //     RequestParams::<F>::GetCheckpointTreeMerkleProof(input),
+        //     MerkleProofCore<QHashOut<F>>
+        // );
+        // match response.result {
+        //     ResponseResult::Success(merkle_proof) => {
+        //         debug!(
+        //             checkpoint_id = checkpoint_id,
+        //             leaf_checkpoint_id = leaf_checkpoint_id,
+        //             merkle_proof =
+        // %serde_json::to_string_pretty(&merkle_proof).unwrap(),
+        //             "Successfully fetched merkle proof"
+        //         );
+        //         Ok(merkle_proof)
+        //     }
+        //     ResponseResult::Error(e) => {
+        //         error!("RPC call failed: {:?}", e);
+        //         Err(anyhow::format_err!("get_checkpoint_tree_merkle_proof rpc
+        // call failed `{:?}`", e))     }
+        // }
     }
 
     #[instrument(skip(self), fields(checkpoint_id, user_id))]
@@ -1122,26 +1216,42 @@ impl QMetaDataStoreReaderSync<F> for RpcProvider {
     #[instrument(skip(self), fields(checkpoint_id, user_id))]
     async fn get_user_leaf_data(&self, checkpoint_id: u64, user_id: u64) -> anyhow::Result<user::PsyUserLeaf<F>> {
         info!("Fetching user leaf data checkpoint_id: {}, user_id: {}", checkpoint_id, user_id);
-        let rpc_url = self.get_realm_url(user_id)?;
-        let input = QUserLeafDataRPCRequest { checkpoint_id, user_id };
-        let response = psy_rpc_call_back!(self, rpc_url, RequestParams::<F>::GetUserLeafData(input), PsyUserLeaf<F>);
-        use psy_crypto::hash::traits::qhashable::QFieldHashable;
-        match response.result {
-            ResponseResult::Success(leaf) => {
-                info!(
-                    "Successfully fetched user leaf data checkpoint_id: {}, user_id: {}, leaf: {}, hash: {}",
-                    checkpoint_id,
-                    user_id,
-                    serde_json::to_string_pretty(&leaf).unwrap(),
-                    leaf.qfhash::<PsyHasher>().to_string()
-                );
-                Ok(leaf)
-            }
-            ResponseResult::Error(e) => {
-                error!("RPC call failed: {:?}", e);
-                Err(anyhow::format_err!("get_user_leaf_data rpc call failed `{:?}`", e))
-            }
-        }
+        let public_key: QHashOut<F> = self.get_user_public_key(checkpoint_id, user_id).await?;
+        Ok(PsyUserLeaf {
+            public_key,
+            user_state_tree_root: QHashOut::from_values(
+                DEFAULT_USER_STATE_TREE_ROOT_U64[0],
+                DEFAULT_USER_STATE_TREE_ROOT_U64[1],
+                DEFAULT_USER_STATE_TREE_ROOT_U64[2],
+                DEFAULT_USER_STATE_TREE_ROOT_U64[3],
+            ),
+            balance: F::ZERO,
+            nonce: F::ZEROS,
+            last_checkpoint_id: F::ZERO,
+            event_index: F::ZERO,
+            user_id: F::from_canonical_u64(user_id),
+        })
+        // let rpc_url = self.get_realm_url(user_id)?;
+        // let input = QUserLeafDataRPCRequest { checkpoint_id, user_id };
+        // let response = psy_rpc_call_back!(self, rpc_url,
+        // RequestParams::<F>::GetUserLeafData(input), PsyUserLeaf<F>);
+        // use psy_crypto::hash::traits::qhashable::QFieldHashable;
+        // match response.result {
+        //     ResponseResult::Success(leaf) => {
+        //         info!(
+        //             "Successfully fetched user leaf data checkpoint_id: {},
+        // user_id: {}, leaf: {}, hash: {}",             checkpoint_id,
+        //             user_id,
+        //             serde_json::to_string_pretty(&leaf).unwrap(),
+        //             leaf.qfhash::<PsyHasher>().to_string()
+        //         );
+        //         Ok(leaf)
+        //     }
+        //     ResponseResult::Error(e) => {
+        //         error!("RPC call failed: {:?}", e);
+        //         Err(anyhow::format_err!("get_user_leaf_data rpc call failed
+        // `{:?}`", e))     }
+        // }
     }
 
     #[instrument(skip(self), fields(checkpoint_id, user_id))]
@@ -1176,82 +1286,91 @@ impl QMetaDataStoreReaderSync<F> for RpcProvider {
     #[instrument(skip(self), fields(contract_id))]
     async fn get_contract_leaf_data(&self, contract_id: u64) -> anyhow::Result<psy_data::qdata::contract::PsyContractLeaf<F>> {
         info!("Fetching contract leaf data contract_id: {}", contract_id);
-        let rpc_url = self.get_coordinator_url()?;
-        let input = QContractLeafDataRPCRequest { contract_id };
-        let response = psy_rpc_call_back!(self, rpc_url, RequestParams::<F>::GetContractLeafData(input), PsyContractLeaf<F>);
-        match response.result {
-            ResponseResult::Success(leaf) => {
-                debug!(
-                    contract_id = contract_id,
-                    leaf = %serde_json::to_string_pretty(&leaf).unwrap(),
-                    "Successfully fetched contract leaf"
-                );
-                Ok(leaf)
-            }
-            ResponseResult::Error(e) => {
-                error!("RPC call failed: {:?}", e);
-                Err(anyhow::format_err!("get_contract_leaf_data rpc call failed `{:?}`", e))
-            }
-        }
+        Ok(GENESIS_DATA.contract0_leaf_data.clone())
+
+        // let rpc_url = self.get_coordinator_url()?;
+        // let input = QContractLeafDataRPCRequest { contract_id };
+        // let response = psy_rpc_call_back!(self, rpc_url,
+        // RequestParams::<F>::GetContractLeafData(input), PsyContractLeaf<F>);
+        // match response.result {
+        //     ResponseResult::Success(leaf) => {
+        //         debug!(
+        //             contract_id = contract_id,
+        //             leaf = %serde_json::to_string_pretty(&leaf).unwrap(),
+        //             "Successfully fetched contract leaf"
+        //         );
+        //         Ok(leaf)
+        //     }
+        //     ResponseResult::Error(e) => {
+        //         error!("RPC call failed: {:?}", e);
+        //         Err(anyhow::format_err!("get_contract_leaf_data rpc call
+        // failed `{:?}`", e))     }
+        // }
     }
 
     #[instrument(skip(self), fields(checkpoint_id))]
     async fn get_checkpoint_leaf_data(&self, checkpoint_id: u64) -> anyhow::Result<psy_data::qdata::checkpoint::PsyCheckpointLeaf<F>> {
         info!("Fetching checkpoint leaf data checkpoint_id: {}", checkpoint_id);
-        let rpc_url = self.get_coordinator_url()?;
-        let input = QCheckpointLeafDataRPCRequest { checkpoint_id };
-        let response = psy_rpc_call_back!(self, rpc_url, RequestParams::<F>::GetCheckpointLeafData(input), PsyCheckpointLeaf<F>);
-        match response.result {
-            ResponseResult::Success(leaf) => {
-                debug!(
-                    checkpoint_id = checkpoint_id,
-                    leaf = %serde_json::to_string_pretty(&leaf).unwrap(),
-                    "Successfully fetched checkpoint leaf"
-                );
-                Ok(leaf)
-            }
-            ResponseResult::Error(e) => {
-                error!("RPC call failed: {:?}", e);
-                Err(anyhow::format_err!("get_checkpoint_leaf_data rpc call failed `{:?}`", e))
-            }
-        }
+        Ok(GENESIS_DATA.checkpoint_leaf_data.clone())
+        // let rpc_url = self.get_coordinator_url()?;
+        // let input = QCheckpointLeafDataRPCRequest { checkpoint_id };
+        // let response = psy_rpc_call_back!(self, rpc_url,
+        // RequestParams::<F>::GetCheckpointLeafData(input),
+        // PsyCheckpointLeaf<F>); match response.result {
+        //     ResponseResult::Success(leaf) => {
+        //         debug!(
+        //             checkpoint_id = checkpoint_id,
+        //             leaf = %serde_json::to_string_pretty(&leaf).unwrap(),
+        //             "Successfully fetched checkpoint leaf"
+        //         );
+        //         Ok(leaf)
+        //     }
+        //     ResponseResult::Error(e) => {
+        //         error!("RPC call failed: {:?}", e);
+        //         Err(anyhow::format_err!("get_checkpoint_leaf_data rpc call
+        // failed `{:?}`", e))     }
+        // }
     }
 
     #[instrument(skip(self), fields(contract_id))]
     async fn get_contract_code_definition(&self, contract_id: u64) -> anyhow::Result<psy_data::qdata::contract::ContractCodeDefinition> {
         info!("Fetching contract code definition contract_id: {}", contract_id);
-        let rpc_url = self.get_coordinator_url()?;
-        let input = QContractCodeDefinitionRPCRequest { contract_id };
-        let response = psy_rpc_call_back!(
-            self,
-            rpc_url,
-            RequestParams::<F>::GetContractCodeDefinition(input),
-            ContractCodeDefinition
-        );
-        match response.result {
-            ResponseResult::Success(contract_code) => {
-                debug!(
-                    "Successfully fetched contract {} code definition: {}",
-                    contract_id,
-                    serde_json::to_string_pretty(&SimpleContractCodeDefinition::from(&contract_code))?
-                );
-                Ok(contract_code)
-            }
-            ResponseResult::Error(e) => {
-                error!("RPC call failed: {:?}", e);
-                Err(anyhow::format_err!("get_contract_code_definition rpc call failed `{:?}`", e))
-            }
-        }
+        Ok(GENESIS_DATA.contract0_code.clone())
+        // let rpc_url = self.get_coordinator_url()?;
+        // let input = QContractCodeDefinitionRPCRequest { contract_id };
+        // let response = psy_rpc_call_back!(
+        //     self,
+        //     rpc_url,
+        //     RequestParams::<F>::GetContractCodeDefinition(input),
+        //     ContractCodeDefinition
+        // );
+        // match response.result {
+        //     ResponseResult::Success(contract_code) => {
+        //         debug!(
+        //             "Successfully fetched contract {} code definition: {}",
+        //             contract_id,
+        //
+        // serde_json::to_string_pretty(&SimpleContractCodeDefinition::from(&
+        // contract_code))?         );
+        //         Ok(contract_code)
+        //     }
+        //     ResponseResult::Error(e) => {
+        //         error!("RPC call failed: {:?}", e);
+        //         Err(anyhow::format_err!("get_contract_code_definition rpc
+        // call failed `{:?}`", e))     }
+        // }
     }
 
     #[instrument(skip(self))]
     async fn get_latest_block_state(&self) -> anyhow::Result<psy_data::qdata::checkpoint::PsyBlockState> {
-        self.get_realm_latest_block_state().await
+        // self.get_coordinator_latest_block_state().await
+        Ok(GENESIS_DATA.block_state.clone())
     }
 
     #[instrument(skip(self), fields(checkpoint_id))]
     async fn get_block_state(&self, checkpoint_id: u64) -> anyhow::Result<psy_data::qdata::checkpoint::PsyBlockState> {
-        self.get_realm_block_state(checkpoint_id).await
+        // self.get_coordinator_block_state(checkpoint_id).await
+        Ok(GENESIS_DATA.block_state.clone())
     }
 }
 

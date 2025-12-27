@@ -2,7 +2,10 @@ use std::{collections::HashMap, fs, marker::PhantomData, result::Result::Ok, syn
 
 use plonky2::{
     field::{goldilocks_field::GoldilocksField, types::PrimeField64},
-    hash::hash_types::{HashOut, RichField},
+    hash::{
+        hash_types::{HashOut, RichField},
+        poseidon::PoseidonHash,
+    },
     plonk::{
         circuit_data::VerifierOnlyCircuitData,
         config::{AlgebraicHasher, GenericConfig},
@@ -17,17 +20,20 @@ use psy_common::{
     JobInfo, JobLocation,
 };
 use psy_common_circuit::circuits::zk_signature3::core::PsyBasicZKSignatureInnerCircuit;
-use psy_config::network_constants::REALM_USER_TREE_HEIGHT;
+use psy_config::{network_constants::REALM_USER_TREE_HEIGHT, GLOBAL_USER_TREE_HEIGHT};
 use psy_crypto::{
     common::{
-        user_id::get_user_id_from_registration_id,
+        user_id::{get_registration_id_from_user_id, get_user_id_from_registration_id},
         witnesses::qrecursion::{
             header::QRecursionAggStandardHeader,
             proof_data::{AggProofRecord, QStandardBinaryTreeCircuitType, SimpleQTreeRecursionManagerInclusionProofs},
         },
     },
     hash::{
-        merkle::core::{DeltaMerkleProofCore, MerkleProofCore},
+        merkle::{
+            core::{DeltaMerkleProofCore, MerkleProofCore},
+            utils::simple_merkle_tree::SimpleMerkleTree,
+        },
         traits::{hasher::MerkleZeroHasherWithMarkedLeaf, qhashable::QFieldHashable},
     },
     signature::secp256k1::core::PsyCompressedSecp256K1Signature,
@@ -64,7 +70,7 @@ use super::request::{
     QSubmitEndCapRPCRequest, QSubmitGutaRPCRequest, QTokenTransferRPCRequest, RequestParams, ResponseResult, RpcRequest, RpcResponse, Version,
 };
 use crate::{
-    request::{
+    gesis_data::GENESIS_DATA, request::{
         DPNSoftwareDefinedSignatureInput, DPNSoftwareDefinedSignatureProofRPCRequest, QBlockStateRPCRequest, QGetContractMethodCommonDataRPCRequest,
         QGetFnIdRPCRequest, QGetTxStatusRPCRequest, QLatestBlockStateRPCRequest, QLeftAggRightLeafRpcRequestV2, QLeftLeafRightAggRpcRequestV2,
         QProveContractCallRPCRequest, QProveUpsStartRPCRequest, QProveUpsStartRegisterUserRPCRequest, QRegisterCircuitsRPCRequest,
@@ -72,8 +78,7 @@ use crate::{
         QResolveContractFunctionByMethodNameRPCRequest, QSecpSignatureProofRPCRequest, QSignatureMinifierProofRPCRequest, QSignatureProofRPCRequest,
         QSingleLeafRpcRequestV2, QTwoAggRpcRequsetV2, QTwoLeafRpcRequestV2, QUpsCfcDeferredTxRPCRequest, QUpsCfcStandardTxRPCRequest,
         QUpsEndCapRPCRequestV2, QUserSubTreeMerkleProofRPCRequest, RequestParamsV2,
-    },
-    session::TxStatus,
+    }, session::TxStatus
 };
 
 type UserEndCapUUID = String;
@@ -85,6 +90,7 @@ pub struct RpcProvider {
     pub coordinator_configs: HashMap<u64, Vec<String>>,
     pub users_per_realm: u64,
     pub current_user_id: u64,
+    pub zero_merkle_tree: SimpleMerkleTree<PoseidonHash, QHashOut<GoldilocksField>>,
 }
 
 impl RpcProvider {
@@ -116,6 +122,7 @@ impl RpcProvider {
             coordinator_configs,
             users_per_realm: config.users_per_realm,
             current_user_id: 0,
+            zero_merkle_tree: SimpleMerkleTree::new(GLOBAL_USER_TREE_HEIGHT),
         })
     }
 }
@@ -398,11 +405,13 @@ impl QUserRpcProvider for RpcProvider {
     }
 }
 
+type F = GoldilocksField;
 #[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
 #[cfg_attr(target_arch = "wasm32", maybe_async::maybe_async(?Send))]
 impl RpcProvider {
-    pub async fn get_user_ids_for_public_key<F: RichField>(&self, public_key: QHashOut<F>) -> anyhow::Result<Vec<u64>> {
+    pub async fn get_user_ids_for_public_key(&self, public_key: QHashOut<F>) -> anyhow::Result<Vec<u64>> {
         tracing::info!("user: {}", public_key);
+        unimplemented!("get_user_id");
         let url = self.get_coordinator_url()?;
         let response = psy_rpc_call_back!(
             self,
@@ -424,6 +433,11 @@ impl RpcProvider {
             }
             ResponseResult::Error(e) => Err(anyhow::format_err!("rpc call failed `{:?}`", e)),
         }
+    }
+
+    pub async fn get_user_public_key(&self, checkpoint_id: u64, user_id: u64) -> anyhow::Result<QHashOut<F>> {
+        let registration_id = get_registration_id_from_user_id(user_id);
+        self.get_user_registration_tree_leaf_hash(checkpoint_id, registration_id).await
     }
 
     pub async fn with_user_id<T, F, Fut>(&mut self, user_id: u64, f: F) -> T
@@ -448,6 +462,7 @@ impl RpcProvider {
             coordinator_configs: self.coordinator_configs.clone(),
             users_per_realm: self.users_per_realm,
             current_user_id: user_id,
+            zero_merkle_tree: self.zero_merkle_tree.clone(),
         }
     }
 
@@ -512,41 +527,45 @@ impl RpcProvider {
     pub async fn get_coordinator_latest_block_state(&self) -> anyhow::Result<psy_data::qdata::checkpoint::PsyBlockState> {
         tracing::info!("Fetching latest coordinator block state");
         let rpc_url = self.get_coordinator_url()?;
-        let input = QLatestBlockStateRPCRequest {};
-        let response = psy_rpc_call_back!(self, rpc_url, RequestParams::<GoldilocksField>::GetLatestBlockState(input), PsyBlockState);
-        match response.result {
-            ResponseResult::Success(block_state) => {
-                tracing::debug!(
-                    block_state = %serde_json::to_string_pretty(&block_state).unwrap(),
-                    "Successfully fetched block state"
-                );
-                Ok(block_state)
-            }
-            ResponseResult::Error(e) => {
-                tracing::error!("RPC call failed: {:?}", e);
-                Err(anyhow::format_err!("get_coordinator_latest_block_state rpc call failed `{:?}`", e))
-            }
-        }
+        self.get_coordinator_block_state(0).await
+        // let input = QLatestBlockStateRPCRequest {};
+        // let response = psy_rpc_call_back!(self, rpc_url,
+        // RequestParams::<GoldilocksField>::GetLatestBlockState(input),
+        // PsyBlockState); match response.result {
+        //     ResponseResult::Success(block_state) => {
+        //         tracing::debug!(
+        //             block_state =
+        // %serde_json::to_string_pretty(&block_state).unwrap(),
+        //             "Successfully fetched block state"
+        //         );
+        //         Ok(block_state)
+        //     }
+        //     ResponseResult::Error(e) => {
+        //         tracing::error!("RPC call failed: {:?}", e);
+        //         Err(anyhow::format_err!("get_coordinator_latest_block_state
+        // rpc call failed `{:?}`", e))     }
+        // }
     }
 
     pub async fn get_coordinator_block_state(&self, checkpoint_id: u64) -> anyhow::Result<psy_data::qdata::checkpoint::PsyBlockState> {
-        tracing::info!("Fetching coordinator block state at checkpoint {}", checkpoint_id);
+        tracing::info!("Fetching coordinator block state at checkpoint {}", 0);
         let rpc_url = self.get_coordinator_url()?;
-        let input = QBlockStateRPCRequest { checkpoint_id };
-        let response = psy_rpc_call_back!(self, rpc_url, RequestParams::<GoldilocksField>::GetBlockState(input), PsyBlockState);
-        match response.result {
-            ResponseResult::Success(block_state) => {
-                tracing::debug!(
-                    block_state = %serde_json::to_string_pretty(&block_state).unwrap(),
-                    "Successfully fetched block state"
-                );
-                Ok(block_state)
-            }
-            ResponseResult::Error(e) => {
-                tracing::error!("RPC call failed: {:?}", e);
-                Err(anyhow::format_err!("get_coordinator_block_state rpc call failed `{:?}`", e))
-            }
-        }
+        Ok(GENESIS_DATA.block_state)
+        // let input = QBlockStateRPCRequest { checkpoint_id: 0 };
+        // let response = psy_rpc_call_back!(self, rpc_url, RequestParams::<GoldilocksField>::GetBlockState(input), PsyBlockState);
+        // match response.result {
+        //     ResponseResult::Success(block_state) => {
+        //         tracing::debug!(
+        //             block_state = %serde_json::to_string_pretty(&block_state).unwrap(),
+        //             "Successfully fetched block state"
+        //         );
+        //         Ok(block_state)
+        //     }
+        //     ResponseResult::Error(e) => {
+        //         tracing::error!("RPC call failed: {:?}", e);
+        //         Err(anyhow::format_err!("get_coordinator_block_state rpc call failed `{:?}`", e))
+        //     }
+        // }
     }
 
     pub async fn get_user_sub_tree_merkle_proof_inner(
