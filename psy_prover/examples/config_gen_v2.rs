@@ -2,6 +2,7 @@ use std::{fs::File, io::prelude::*, path::PathBuf};
 
 use plonky2::{field::goldilocks_field::GoldilocksField, plonk::config::PoseidonGoldilocksConfig};
 use psy_common::job::id::ProvingJobCircuitType;
+use psy_common::data::alt::AltVerifierOnlyCircuitData;
 use psy_common_circuit::circuits::{
     lookalikes::{
         get_agg_state_transition_type_d_common_data, get_agg_user_registration_deploy_guta_type_f_common_data, get_end_cap_type_e_common_data,
@@ -40,10 +41,10 @@ fn run_gen_config() -> anyhow::Result<(String, String)> {
 
     let main_circuits = PsyUPSStepCircuitManager::<C, D>::new_with_config(PSY_NETWORK_MAGIC);
 
-    let end_cap_verifier_data = main_circuits.ups_end_cap.get_verifier_triplet();
-    println!("end_cap_verifier_data_serialized: {}", serde_json::to_string(&end_cap_verifier_data)?);
+    let alt_end_cap_verifier_data = AltVerifierOnlyCircuitData::new_from_verifier_data(main_circuits.ups_end_cap.get_verifier_triplet().1);
+    println!("end_cap_verifier_data_serialized: {}", serde_json::to_string(&alt_end_cap_verifier_data)?);
 
-    gcv.register_circuit_triplet(ProvingJobCircuitType::UserEndCap, end_cap_verifier_data);
+    gcv.register_circuit_triplet(ProvingJobCircuitType::UserEndCap, main_circuits.ups_end_cap.get_verifier_triplet());
 
     use psy_config::get_default_worker_public_key;
     let guta_circuits = PsyGUTACircuitManager::<C, D>::new_with_config(
