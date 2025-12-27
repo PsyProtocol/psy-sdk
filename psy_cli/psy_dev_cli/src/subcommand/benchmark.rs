@@ -146,6 +146,54 @@ fn get_files_only(dir: &str) -> anyhow::Result<Vec<String>> {
     Ok(files)
 }
 
+fn load_endcap_from_file(dir: &Path, filename: &str) -> anyhow::Result<Option<QSubmitEndCapRPCRequest<F>>> {
+    let user_id = match extract_user_id_from_filename(filename) {
+        Some(id) => id,
+        None => return Ok(None),
+    };
+
+    let file_path = dir.join(filename);
+    let content = read_to_string(&file_path)?;
+    let req: QSubmitEndCapRPCRequest<F> = serde_json::from_str(&content)?;
+
+    // Verify user_id matches
+    let req_user_id = req.user_ec_input.core.new_user_leaf.user_id.to_noncanonical_u64();
+    if req_user_id != user_id {
+        return Ok(None);
+    }
+
+    Ok(Some(req))
+}
+
+fn should_include_endcap(
+    user_id: u64,
+    rpc_provider: &RpcProvider,
+    start_user_id: u64,
+    end_user_id: u64,
+    start_realm_id: u64,
+    end_realm_id: u64,
+    recorded_user_ids: &HashSet<u64>,
+) -> bool {
+    // Skip if already recorded
+    if recorded_user_ids.contains(&user_id) {
+        return false;
+    }
+
+    // Filter by user_id range
+    if user_id < start_user_id || user_id > end_user_id {
+        return false;
+    }
+
+    // Filter by realm_id range
+    let realm_id = rpc_provider.get_realm_id(user_id);
+    if realm_id < start_realm_id || realm_id > end_realm_id {
+        return false;
+    }
+
+    // Check if realm URL exists
+    rpc_provider.get_realm_url(user_id).is_ok()
+}
+
 fn load_endcaps_from_dir(
     dir: &Path,
     rpc_provider: &RpcProvider,
@@ -160,39 +208,13 @@ fn load_endcaps_from_dir(
 
     for file in files.iter() {
         if let Some(user_id) = extract_user_id_from_filename(file) {
-            // Skip if already recorded
-            if recorded_user_ids.contains(&user_id) {
+            if !should_include_endcap(user_id, rpc_provider, start_user_id, end_user_id, start_realm_id, end_realm_id, recorded_user_ids) {
                 continue;
             }
 
-            // Filter by user_id range
-            if user_id < start_user_id || user_id > end_user_id {
-                continue;
+            if let Some(req) = load_endcap_from_file(dir, file)? {
+                endcaps.push(req);
             }
-
-            // Filter by realm_id range
-            let realm_id = rpc_provider.get_realm_id(user_id);
-            if realm_id < start_realm_id || realm_id > end_realm_id {
-                continue;
-            }
-
-            // Check if realm URL exists
-            if rpc_provider.get_realm_url(user_id).is_err() {
-                continue;
-            }
-
-            // Load endcap file
-            let file_path = dir.join(file);
-            let content = read_to_string(&file_path)?;
-            let req: QSubmitEndCapRPCRequest<F> = serde_json::from_str(&content)?;
-
-            // Verify user_id matches
-            let req_user_id = req.user_ec_input.core.new_user_leaf.user_id.to_noncanonical_u64();
-            if req_user_id != user_id {
-                continue;
-            }
-
-            endcaps.push(req);
         }
     }
 
@@ -236,45 +258,181 @@ fn create_batches_by_realm(
         .collect()
 }
 
+fn update_record_from_batch_result(
+    batch: Vec<QSubmitEndCapRPCRequest<F>>,
+    result: anyhow::Result<(Vec<u64>, Vec<u64>)>,
+    record: &mut EndcapRecord,
+    recorded_user_ids: &mut HashSet<u64>,
+) -> (u64, u64) {
+    match result {
+        Ok((success_ids, failed_ids)) => {
+            let success_count = success_ids.len() as u64;
+            let failed_count = failed_ids.len() as u64;
+            for user_id in success_ids {
+                record.add_success(user_id);
+                recorded_user_ids.insert(user_id);
+            }
+            for user_id in failed_ids {
+                record.add_failed(user_id);
+                recorded_user_ids.insert(user_id);
+            }
+            (success_count, failed_count)
+        }
+        Err(_) => {
+            // If batch fails, mark all as failed
+            let count = batch.len() as u64;
+            for endcap in batch {
+                let user_id = endcap.user_ec_input.core.new_user_leaf.user_id.to_noncanonical_u64();
+                record.add_failed(user_id);
+                recorded_user_ids.insert(user_id);
+            }
+            (0, count)
+        }
+    }
+}
+
+async fn generate_endcaps(
+    args: &BenchmarkEndCapArgs,
+    rpc_config: &psy_config::NetworkConfig<F>,
+    output_path: &Path,
+) -> anyhow::Result<Vec<QSubmitEndCapRPCRequest<F>>> {
+    let contract_call_args = serde_json::from_str::<Vec<ContractCallArgs>>(&read_to_string(&args.contract_call_args_path)?)?;
+    let private_keys = serde_json::from_str::<Vec<QHashOut<F>>>(&read_to_string(&args.private_key_path)?)?;
+
+    let mut wallet_session = WalletSession::new(rpc_config).await?;
+    let fingerprint = match args.sign_type {
+        SignType::ZKSign => get_zk_fingerprint(),
+        SignType::SECP256K1Sign => get_secp256k1_fingerprint(),
+        SignType::SoftwareDefinedDPNSign => unimplemented!("SoftwareDefinedDPNSign is not supported"),
+        SignType::SoftwareDefinedPlonky2Sign => unimplemented!("SoftwareDefinedPlonky2Sign is not supported"),
+    };
+
+    let mut public_keys = Vec::with_capacity(private_keys.len());
+    for private_key in private_keys.iter() {
+        public_keys.push(wallet_session.add_user(*private_key, fingerprint).await?);
+    }
+
+    let mut endcaps = Vec::new();
+    for public_key in public_keys {
+        wallet_session.start_session(public_key).await?;
+        wallet_session.prove_contract_call(public_key, contract_call_args.clone()).await?;
+        let (user_ec_input, end_cap_proof) = wallet_session.sign(public_key, None).await?;
+        let req = QSubmitEndCapRPCRequest {
+            user_ec_input,
+            proof: bincode::serialize(&end_cap_proof)?,
+        };
+
+        let user_id = req.user_ec_input.core.new_user_leaf.user_id.to_noncanonical_u64();
+        std::fs::write(
+            output_path.join(format!("user{}.json", user_id)),
+            serde_json::to_string_pretty(&req)?,
+        )?;
+
+        endcaps.push(req);
+    }
+
+    Ok(endcaps)
+}
+
+fn prepare_endcaps_for_sending(
+    mut endcaps: Vec<QSubmitEndCapRPCRequest<F>>,
+    send_mode: &str,
+    recorded_user_ids: &HashSet<u64>,
+) -> anyhow::Result<Vec<QSubmitEndCapRPCRequest<F>>> {
+    // Apply send mode (random or sequential)
+    if send_mode == "random" {
+        endcaps.shuffle(&mut thread_rng());
+        info!("Shuffled endcaps for random mode");
+    } else {
+        info!("Using sequential mode");
+    }
+
+    // Filter out already recorded endcaps
+    let endcaps_to_send: Vec<QSubmitEndCapRPCRequest<F>> = endcaps
+        .into_iter()
+        .filter(|endcap| {
+            let user_id = endcap.user_ec_input.core.new_user_leaf.user_id.to_noncanonical_u64();
+            !recorded_user_ids.contains(&user_id)
+        })
+        .collect();
+
+    info!("Total endcaps to send: {}", endcaps_to_send.len());
+    Ok(endcaps_to_send)
+}
+
+fn prepare_batches(
+    endcaps: Vec<QSubmitEndCapRPCRequest<F>>,
+    rpc_provider: &RpcProvider,
+    batch_size: usize,
+) -> Vec<(u64, Vec<QSubmitEndCapRPCRequest<F>>)> {
+    let grouped = group_endcaps_by_realm(endcaps, rpc_provider);
+    info!("Grouped into {} realms", grouped.len());
+    let batches = create_batches_by_realm(&grouped, batch_size);
+    info!("Created {} batches for parallel sending", batches.len());
+    batches
+}
+
+async fn execute_single_round(
+    batches: &[(u64, Vec<QSubmitEndCapRPCRequest<F>>)],
+    rpc_provider: &RpcProvider,
+    record: &mut EndcapRecord,
+    recorded_user_ids: &mut HashSet<u64>,
+) -> (u64, u64) {
+    // Create parallel futures for all batches
+    let futures: Vec<_> = batches
+        .iter()
+        .map(|(realm_id, batch)| {
+            let batch = batch.clone();
+            let rpc_provider = rpc_provider.clone();
+            let realm_id = *realm_id;
+            async move { (realm_id, batch.clone(), submit_endcaps_batch(batch, &rpc_provider).await) }
+        })
+        .collect();
+
+    // Execute all batches in parallel
+    let results = future::join_all(futures).await;
+
+    // Process results and update records
+    process_batch_results(results, record, recorded_user_ids)
+}
+
+async fn execute_rounds(
+    batches: Vec<(u64, Vec<QSubmitEndCapRPCRequest<F>>)>,
+    send_count: u64,
+    rpc_provider: &RpcProvider,
+    record: &mut EndcapRecord,
+    recorded_user_ids: &mut HashSet<u64>,
+    record_file: &str,
+) -> anyhow::Result<()> {
+    for round in 1..=send_count {
+        info!("\n=== Round {}/{} ===", round, send_count);
+
+        let (round_success, round_failed) = execute_single_round(
+            &batches,
+            rpc_provider,
+            record,
+            recorded_user_ids,
+        ).await;
+
+        record.save_to_file(record_file)?;
+        info!("Round {} completed: {} success, {} failed", round, round_success, round_failed);
+    }
+    Ok(())
+}
+
 fn process_batch_results(
     results: Vec<(u64, Vec<QSubmitEndCapRPCRequest<F>>, anyhow::Result<(Vec<u64>, Vec<u64>)>)>,
     record: &mut EndcapRecord,
     recorded_user_ids: &mut HashSet<u64>,
 ) -> (u64, u64) {
-    let mut total_success = 0;
-    let mut total_failed = 0;
-
-    for (realm_id, batch, result) in results {
-        match result {
-            Ok((success_ids, failed_ids)) => {
-                let success_count = success_ids.len();
-                let failed_count = failed_ids.len();
-                for user_id in success_ids {
-                    record.add_success(user_id);
-                    recorded_user_ids.insert(user_id);
-                    total_success += 1;
-                }
-                for user_id in failed_ids {
-                    record.add_failed(user_id);
-                    recorded_user_ids.insert(user_id);
-                    total_failed += 1;
-                }
-                info!("Realm {} batch: {} success, {} failed", realm_id, success_count, failed_count);
-            }
-            Err(e) => {
-                // If batch fails, mark all as failed
-                for endcap in batch {
-                    let user_id = endcap.user_ec_input.core.new_user_leaf.user_id.to_noncanonical_u64();
-                    record.add_failed(user_id);
-                    recorded_user_ids.insert(user_id);
-                    total_failed += 1;
-                }
-                info!("Realm {} batch failed: {}", realm_id, e);
-            }
-        }
-    }
-
-    (total_success, total_failed)
+    results
+        .into_iter()
+        .map(|(realm_id, batch, result)| {
+            let (success, failed) = update_record_from_batch_result(batch, result, record, recorded_user_ids);
+            info!("Realm {} batch: {} success, {} failed", realm_id, success, failed);
+            (success, failed)
+        })
+        .fold((0, 0), |(acc_s, acc_f), (s, f)| (acc_s + s, acc_f + f))
 }
 
 pub async fn run(args: BenchmarkEndCapArgs) -> anyhow::Result<()> {
@@ -297,7 +455,7 @@ pub async fn run(args: BenchmarkEndCapArgs) -> anyhow::Result<()> {
         std::fs::create_dir_all(output_path)?;
     }
 
-    let mut endcaps = if args.is_use_generated {
+    let endcaps = if args.is_use_generated {
         load_endcaps_from_dir(
             output_path,
             &rpc_provider,
@@ -308,110 +466,19 @@ pub async fn run(args: BenchmarkEndCapArgs) -> anyhow::Result<()> {
             &recorded_user_ids,
         )?
     } else {
-        // Generate endcaps (existing logic)
-        let contract_call_args = serde_json::from_str::<Vec<ContractCallArgs>>(&read_to_string(&args.contract_call_args_path)?)?;
-        let private_keys = serde_json::from_str::<Vec<QHashOut<F>>>(&read_to_string(&args.private_key_path)?)?;
-        let private_keys_len = private_keys.len();
-
-        let mut wallet_session = WalletSession::new(&rpc_config).await?;
-        let fingerprint = match args.sign_type {
-            SignType::ZKSign => get_zk_fingerprint(),
-            SignType::SECP256K1Sign => get_secp256k1_fingerprint(),
-            SignType::SoftwareDefinedDPNSign => unimplemented!("SoftwareDefinedDPNSign is not supported"),
-            SignType::SoftwareDefinedPlonky2Sign => unimplemented!("SoftwareDefinedPlonky2Sign is not supported"),
-        };
-
-        let mut public_keys = Vec::with_capacity(private_keys_len);
-        for private_key in private_keys.iter() {
-            public_keys.push(wallet_session.add_user(*private_key, fingerprint).await?);
-        }
-
-        let mut endcaps = Vec::new();
-        for public_key in public_keys.into_iter() {
-            wallet_session.start_session(public_key).await?;
-            wallet_session.prove_contract_call(public_key, contract_call_args.clone()).await?;
-            let (user_ec_input, end_cap_proof) = wallet_session.sign(public_key, None).await?;
-            let req = QSubmitEndCapRPCRequest {
-                user_ec_input,
-                proof: bincode::serialize(&end_cap_proof)?,
-            };
-
-            let user_id = req.user_ec_input.core.new_user_leaf.user_id.to_noncanonical_u64();
-            std::fs::write(
-                output_path.join(format!("user{}.json", user_id)),
-                serde_json::to_string_pretty(&req)?,
-            )?;
-
-            endcaps.push(req);
-        }
-        endcaps
+        generate_endcaps(&args, &rpc_config, output_path).await?
     };
 
     info!("Total endcaps available: {}", endcaps.len());
 
-    // Apply send mode (random or sequential)
-    if args.send_mode == "random" {
-        endcaps.shuffle(&mut thread_rng());
-        info!("Shuffled endcaps for random mode");
-    } else {
-        info!("Using sequential mode");
-    }
-
-    // Filter out already recorded endcaps before grouping
-    let endcaps_to_send: Vec<QSubmitEndCapRPCRequest<F>> = endcaps
-        .into_iter()
-        .filter(|endcap| {
-            let user_id = endcap.user_ec_input.core.new_user_leaf.user_id.to_noncanonical_u64();
-            !recorded_user_ids.contains(&user_id)
-        })
-        .collect();
-
+    let endcaps_to_send = prepare_endcaps_for_sending(endcaps, &args.send_mode, &recorded_user_ids)?;
     if endcaps_to_send.is_empty() {
         info!("No endcaps to send (all already recorded)");
         return Ok(());
     }
 
-    info!("Total endcaps to send: {}", endcaps_to_send.len());
-
-    // Group endcaps by realm and create batches
-    let grouped = group_endcaps_by_realm(endcaps_to_send, &rpc_provider);
-    info!("Grouped into {} realms", grouped.len());
-
-    let batch_size = args.concurrency_number as usize;
-    let batches = create_batches_by_realm(&grouped, batch_size);
-    info!("Created {} batches for parallel sending", batches.len());
-
-    // Execute multiple rounds (for performance testing, same endcaps are sent multiple times)
-    for round in 1..=args.send_count {
-        info!("\n=== Round {}/{} ===", round, args.send_count);
-
-        // Create parallel futures for all batches
-        let futures: Vec<_> = batches
-            .iter()
-            .map(|(realm_id, batch)| {
-                let batch = batch.clone();
-                let rpc_provider = rpc_provider.clone();
-                let realm_id = *realm_id;
-                async move {
-                    let result = submit_endcaps_batch(batch.clone(), &rpc_provider).await;
-                    (realm_id, batch, result)
-                }
-            })
-            .collect();
-
-        // Execute all batches in parallel
-        let results = future::join_all(futures).await;
-
-        // Process results and update records
-        let (round_success, round_failed) = process_batch_results(
-            results,
-            &mut record,
-            &mut recorded_user_ids,
-        );
-
-        record.save_to_file(&args.record_file)?;
-        info!("Round {} completed: {} success, {} failed", round, round_success, round_failed);
-    }
+    let batches = prepare_batches(endcaps_to_send, &rpc_provider, args.concurrency_number as usize);
+    execute_rounds(batches, args.send_count, &rpc_provider, &mut record, &mut recorded_user_ids, &args.record_file).await?;
 
     info!("\n=== Final Statistics ===");
     info!("Total success: {}", record.success.len());
