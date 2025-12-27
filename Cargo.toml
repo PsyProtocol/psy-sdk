@@ -176,8 +176,8 @@ strum = { version = "0.27", features = ["derive"] }
 
 # plonky2 = { path = "../plonky2-hwa/plonky2" }
 # plonky2_maybe_rayon = { path = "../plonky2-hwa/maybe_rayon" }
-plonky2 = { git = "https://github.com/zilong-dai/plonky2", rev = "ce26967b52aff26a04997375bb3bdb22c0a1b3a5", features = ["ts-rs"] }
-plonky2_maybe_rayon = { git = "https://github.com/zilong-dai/plonky2", rev = "ce26967b52aff26a04997375bb3bdb22c0a1b3a5" }
+plonky2 = { git = "https://github.com/PsyProtocol/plonky2-hwa", rev = "1dfe6112c3eca3668c15820755371a8a3e75f934", features = ["ts-rs"] }
+plonky2_maybe_rayon = { git = "https://github.com/PsyProtocol/plonky2-hwa", rev = "1dfe6112c3eca3668c15820755371a8a3e75f934" }
 
 tracing-appender = "0.2"
 
