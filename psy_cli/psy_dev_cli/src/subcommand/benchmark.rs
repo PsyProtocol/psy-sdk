@@ -158,7 +158,14 @@ impl Benchmark {
     }
 
     fn extract_user_id_from_filename(&self, filename: &str) -> Option<u64> {
-        filename.strip_prefix("user")?.strip_suffix(".json")?.parse::<u64>().ok()
+        let without_prefix = filename.strip_prefix("user")?;
+        if let Some(id_str) = without_prefix.strip_suffix(".json") {
+            id_str.parse::<u64>().ok()
+        } else if let Some(id_str) = without_prefix.strip_suffix(".bin") {
+            id_str.parse::<u64>().ok()
+        } else {
+            None
+        }
     }
 
     async fn get_files_only(&self) -> anyhow::Result<Vec<String>> {
@@ -180,8 +187,17 @@ impl Benchmark {
         };
 
         let file_path = self.output_path.join(filename);
-        let content = fs::read_to_string(&file_path).await?;
-        let req: QSubmitEndCapRPCRequest<F> = serde_json::from_str(&content)?;
+        let req: QSubmitEndCapRPCRequest<F> = if filename.ends_with(".bin") {
+            // Load as bincode format
+            let bytes = fs::read(&file_path).await?;
+            bincode::deserialize(&bytes).map_err(|e| anyhow::anyhow!("Failed to deserialize bincode: {}", e))?
+        } else if filename.ends_with(".json") {
+            // Load as JSON format
+            let content = fs::read_to_string(&file_path).await?;
+            serde_json::from_str(&content).map_err(|e| anyhow::anyhow!("Failed to deserialize JSON: {}", e))?
+        } else {
+            return Ok(None);
+        };
 
         // Verify user_id matches
         let req_user_id = req.user_ec_input.core.new_user_leaf.user_id.to_noncanonical_u64();
