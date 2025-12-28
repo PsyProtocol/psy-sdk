@@ -61,17 +61,17 @@ pub struct BenchmarkEndCapArgs {
     #[clap(long, help = "concurrency number to send end cap", default_value = "100")]
     pub concurrency_number: u64,
 
-    #[clap(long, help = "Start user ID", default_value = "0")]
-    pub start_user_id: u64,
+    #[clap(long, help = "Start user ID")]
+    pub start_user_id: Option<u64>,
 
-    #[clap(long, help = "End user ID", default_value = "99")]
-    pub end_user_id: u64,
+    #[clap(long, help = "End user ID")]
+    pub end_user_id: Option<u64>,
 
-    #[clap(long, help = "Start realm ID", default_value = "0")]
-    pub start_realm_id: u64,
+    #[clap(long, help = "Start realm ID")]
+    pub start_realm_id: Option<u64>,
 
-    #[clap(long, help = "End realm ID", default_value = "99")]
-    pub end_realm_id: u64,
+    #[clap(long, help = "End realm ID")]
+    pub end_realm_id: Option<u64>,
 
     #[clap(long, help = "Send mode: random, seq", default_value = "random")]
     pub send_mode: String,
@@ -248,15 +248,29 @@ impl Benchmark {
             return false;
         }
 
-        // Filter by user_id range
-        if user_id < self.args.start_user_id || user_id > self.args.end_user_id {
-            return false;
+        // Filter by user_id range (skip if None)
+        if let Some(start) = self.args.start_user_id {
+            if user_id < start {
+                return false;
+            }
+        }
+        if let Some(end) = self.args.end_user_id {
+            if user_id > end {
+                return false;
+            }
         }
 
-        // Filter by realm_id range
+        // Filter by realm_id range (skip if None)
         let realm_id = self.rpc_provider.get_realm_id(user_id);
-        if realm_id < self.args.start_realm_id || realm_id > self.args.end_realm_id {
-            return false;
+        if let Some(start) = self.args.start_realm_id {
+            if realm_id < start {
+                return false;
+            }
+        }
+        if let Some(end) = self.args.end_realm_id {
+            if realm_id > end {
+                return false;
+            }
         }
 
         // Check if realm URL exists
