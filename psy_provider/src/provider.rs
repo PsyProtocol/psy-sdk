@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fs, marker::PhantomData, result::Result::Ok, sync::Arc};
+use std::{collections::HashMap, fs, marker::PhantomData, result::Result::Ok, sync::Arc, time::Duration};
 
 use plonky2::{
     field::{goldilocks_field::GoldilocksField, types::PrimeField64},
@@ -116,8 +116,21 @@ impl RpcProvider {
             coordinator_configs.insert(coordinator_config.id, coordinator_config.rpc_url.clone());
         });
 
+        // Configure HTTP client with connection timeout and connection pool settings
+        // to handle high-concurrency scenarios better
+        let client = Client::builder()
+            .connect_timeout(Duration::from_secs(30))
+            .timeout(Duration::from_secs(360))
+            .pool_idle_timeout(Duration::from_secs(90))
+            .pool_max_idle_per_host(500)
+            .tcp_keepalive(Duration::from_secs(60))
+            .tcp_nodelay(true)
+            .http1_only()  // Force HTTP/1.1 to avoid potential HTTP/2 connection issues
+            .build()
+            .map_err(|e| anyhow::format_err!("Failed to create HTTP client: {}", e))?;
+
         Ok(Self {
-            client: Arc::new(Client::new()),
+            client: Arc::new(client),
             realm_configs,
             coordinator_configs,
             users_per_realm: config.users_per_realm,
@@ -250,10 +263,11 @@ macro_rules! psy_rpc_call {
 macro_rules! psy_rpc_call_back {
     ($instance:ident, $rpc_url:expr, $rpc_params:expr, $ret_ty: ty) => {{
         async move {
-            tracing::info!("psy rpc call: {}", $rpc_url);
-            $instance
+            let url_str = $rpc_url;
+            tracing::info!("psy rpc call: {}", url_str);
+            let result = $instance
                 .client
-                .post($rpc_url)
+                .post(url_str.clone())
                 .timeout(std::time::Duration::from_secs(360))
                 .json(&RpcRequest {
                     jsonrpc: Version::V2,
@@ -261,9 +275,28 @@ macro_rules! psy_rpc_call_back {
                     id: Id::Number(1),
                 })
                 .send()
-                .await?
-                .json::<RpcResponse<$ret_ty>>()
-                .await
+                .await;
+            
+            match result {
+                Ok(response) => {
+                    response.json::<RpcResponse<$ret_ty>>().await.map_err(|e| anyhow::anyhow!("Failed to parse JSON response: {}", e))
+                }
+                Err(e) => {
+                    let error_msg = if e.is_connect() {
+                        format!("Connection error to {}: {}", url_str, e)
+                    } else if e.is_timeout() {
+                        format!("Timeout error to {}: {}", url_str, e)
+                    } else if e.is_request() {
+                        format!("Request error to {}: {}", url_str, e)
+                    } else {
+                        format!("Error sending request to {}: {}", url_str.clone(), e)
+                    };
+                    tracing::error!("{}", error_msg);
+                    tracing::error!("Request error details: is_connect={}, is_timeout={}, is_request={}, is_decode={}", 
+                        e.is_connect(), e.is_timeout(), e.is_request(), e.is_decode());
+                    Err(anyhow::anyhow!("{}", error_msg))
+                }
+            }
         }
         .await?
     }};
@@ -641,13 +674,13 @@ impl RpcProvider {
                 }
 
                 let url = match &location {
-                    JobLocation::Coordinator => self.get_coordinator_url()?,
+                    JobLocation::Coordinator => self.get_coordinator_url()?.clone(),
                     JobLocation::Realm(realm_id) => {
                         let realm_urls = self
                             .realm_configs
                             .get(realm_id)
                             .ok_or(anyhow::format_err!("Realm {} not configured", realm_id))?;
-                        &realm_urls[0]
+                        realm_urls[0].clone()
                     }
                 };
 
@@ -659,7 +692,7 @@ impl RpcProvider {
                     "id": 1
                 });
 
-                let response = match self.client.post(url).json(&request).send().await {
+                let response = match self.client.post(url.clone()).json(&request).send().await {
                     Ok(resp) => resp,
                     Err(e) => {
                         tracing::warn!("Failed to fetch reward proofs for checkpoint {} @ {}: {}", checkpoint_id, url, e);
@@ -775,7 +808,7 @@ impl RpcProvider {
 
     pub fn get_realm_url(&self, user_id: u64) -> anyhow::Result<&String> {
         let realm_id = self.get_realm_id(user_id);
-        tracing::info!("get realm url for user id {}, realm id {}", user_id, realm_id);
+        tracing::trace!("get realm url for user id {}, realm id {}", user_id, realm_id);
 
         let realm_urls = self
             .realm_configs
@@ -786,13 +819,15 @@ impl RpcProvider {
         Ok(&realm_urls[random_index])
     }
 
-    pub fn get_coordinator_url(&self) -> anyhow::Result<&String> {
+    pub fn get_coordinator_url(&self) -> anyhow::Result<String> {
         let coordinator_urls = self
             .coordinator_configs
             .get(&0)
             .ok_or(anyhow::format_err!("coordinator id `{}` not found, please check the config", 0))?;
         let random_index = rand::thread_rng().gen_range(0..coordinator_urls.len());
-        Ok(&coordinator_urls[random_index])
+        // Normalize URL by removing trailing slash to avoid potential issues with reqwest
+        let url = coordinator_urls[random_index].clone();
+        Ok(url)
     }
 }
 
