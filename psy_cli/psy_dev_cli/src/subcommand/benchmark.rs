@@ -58,8 +58,8 @@ pub struct BenchmarkEndCapArgs {
     #[arg(long, default_value = "config.json", help = "Path to config.json file")]
     pub rpc_config: String,
 
-    #[clap(long, help = "concurrency number to send end cap", default_value = "100")]
-    pub concurrency_number: u64,
+    #[clap(long, help = "parallel number to send end cap", default_value = "100")]
+    pub parallel: u64,
 
     #[clap(long, help = "Start user ID")]
     pub start_user_id: Option<u64>,
@@ -76,8 +76,8 @@ pub struct BenchmarkEndCapArgs {
     #[clap(long, help = "Send mode: random, seq", default_value = "random")]
     pub send_mode: String,
 
-    #[clap(long, help = "total send count", default_value = "1")]
-    pub send_count: u64,
+    #[clap(long, help = "try send max round", default_value = "1")]
+    pub max_round: u64,
 
     #[clap(long, help = "Private key path", default_value = "private_key.json")]
     pub private_key_path: String,
@@ -379,7 +379,7 @@ impl Benchmark {
     }
 
     fn create_batches_by_realm(&self, grouped: &HashMap<u64, Vec<QSubmitEndCapRPCRequest<F>>>) -> Vec<(u64, Vec<QSubmitEndCapRPCRequest<F>>)> {
-        let batch_size = self.args.concurrency_number as usize;
+        let batch_size = self.args.parallel as usize;
         grouped
             .iter()
             .flat_map(|(realm_id, endcaps)| {
@@ -628,8 +628,8 @@ impl Benchmark {
     }
 
     async fn execute_rounds(&mut self, mut batches: Vec<(u64, Vec<QSubmitEndCapRPCRequest<F>>)>) -> anyhow::Result<()> {
-        for round in 1..=self.args.send_count {
-            info!("\n=== Round {}/{} ===", round, self.args.send_count);
+        for round in 1..=self.args.max_round {
+            info!("\n=== Round {}/{} ===", round, self.args.max_round);
 
             // Filter out already successful endcaps before each round
             batches = self.filter_batches_by_recorded(batches);
