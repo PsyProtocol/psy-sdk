@@ -101,7 +101,7 @@ pub enum RequestParams<F: RichField> {
     #[serde(rename = "psy_submit_user_end_cap")]
     SubmitEndCap(QSubmitEndCapRPCRequest<F>),
     #[serde(rename = "psy_submit_user_end_cap_batch")]
-    SubmitEndCapProofs(Vec<(SubmitUserEndCapNonProofInput<F>, Vec<u8>)>),
+    SubmitEndCapProofs(Vec<Vec<(SubmitUserEndCapNonProofInput<F>, Vec<u8>)>>),
 
     #[serde(rename = "psy_get_tx_status")]
     GetTxStatus(QGetTxStatusRPCRequest),
