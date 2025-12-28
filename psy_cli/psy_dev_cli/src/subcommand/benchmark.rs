@@ -94,7 +94,7 @@ pub struct BenchmarkEndCapArgs {
     #[clap(long, help = "Record file path to store success/failed endcaps", default_value = "endcap_records.json")]
     pub record_file: String,
 
-    #[clap(long, help = "Total end caps to process (0 means no limit)", default_value = "0")]
+    #[clap(long, help = "Total end caps to process (0 means no limit)", default_value = "1000")]
     pub total_end_caps: u64,
 
     #[clap(long, help = "File format for saving/loading endcaps: json or bin", default_value = "bin", value_parser = clap::value_parser!(String))]
@@ -105,6 +105,9 @@ pub struct BenchmarkEndCapArgs {
 
     #[clap(long, help = "Submit end caps at the end")]
     pub is_submit_at_end: bool,
+
+    #[clap(long, help = "Use batch submission (submit_end_cap_proofs) instead of individual submission (submit_end_cap_proof)", default_value = "false")]
+    pub is_batch: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -279,9 +282,23 @@ impl Benchmark {
 
     async fn load_endcaps_from_dir(&self) -> anyhow::Result<Vec<QSubmitEndCapRPCRequest<F>>> {
         let files = self.get_files_only().await?;
-    let mut endcaps = Vec::new();
+        let mut endcaps = Vec::new();
+        let limit = if self.args.total_end_caps > 0 {
+            self.args.total_end_caps as usize
+        } else {
+            usize::MAX
+        };
+
+        let limit_str = if limit == usize::MAX { "unlimited".to_string() } else { limit.to_string() };
+        info!("Loading endcaps from {} files (limit: {})", files.len(), limit_str);
 
         for file in files.iter() {
+            // Stop loading if we've reached the limit
+            if endcaps.len() >= limit {
+                info!("Reached total_end_caps limit ({}), stopping file loading", limit);
+                break;
+            }
+
             if let Some(user_id) = self.extract_user_id_from_filename(file) {
                 if !self.should_include_endcap(user_id) {
                     continue;
@@ -293,6 +310,7 @@ impl Benchmark {
             }
         }
 
+        info!("Loaded {} endcaps from directory", endcaps.len());
         Ok(endcaps)
     }
 
@@ -429,9 +447,11 @@ impl Benchmark {
         }
 
         // Apply total_end_caps limit if specified
+        // Note: The limit is already applied during file loading to avoid memory issues,
+        // but we apply it here again as a safeguard in case filtering significantly changed the count
         if self.args.total_end_caps > 0 && filtered.len() > self.args.total_end_caps as usize {
             filtered.truncate(self.args.total_end_caps as usize);
-            info!("Limited to {} endcaps", self.args.total_end_caps);
+            info!("Limited to {} endcaps after filtering", self.args.total_end_caps);
         }
 
         filtered
@@ -457,25 +477,64 @@ impl Benchmark {
     }
 
     async fn execute_single_round(&mut self, batches: &[(u64, Vec<QSubmitEndCapRPCRequest<F>>)]) -> (u64, u64) {
-        // Create parallel futures for all batches
-        let futures: Vec<_> = batches
-            .iter()
-            .map(|(realm_id, batch)| {
-                let batch = batch.clone();
-                let rpc_provider = self.rpc_provider.clone();
-                let realm_id = *realm_id;
-                async move {
-                    let result = Self::submit_endcaps_batch_static(&rpc_provider, batch.clone()).await;
-                    (realm_id, batch, result)
+        if self.args.is_batch {
+            // Use batch submission method
+            let futures: Vec<_> = batches
+                .iter()
+                .map(|(realm_id, batch)| {
+                    let batch = batch.clone();
+                    let rpc_provider = self.rpc_provider.clone();
+                    let realm_id = *realm_id;
+                    async move {
+                        let result = Self::submit_endcaps_batch_static(&rpc_provider, batch.clone()).await;
+                        (realm_id, batch, result)
+                    }
+                })
+                .collect();
+
+            let results = future::join_all(futures).await;
+            self.process_batch_results(results)
+        } else {
+            // Use individual submission method
+            // Flatten all batches into a single list of endcaps
+            let all_endcaps: Vec<QSubmitEndCapRPCRequest<F>> = batches
+                .iter()
+                .flat_map(|(_, batch)| batch.iter().cloned())
+                .collect();
+
+            if all_endcaps.is_empty() {
+                return (0, 0);
+            }
+
+            info!("Executing single round with {} endcaps using individual submission", all_endcaps.len());
+            match Self::submit_endcaps_single_static(&self.rpc_provider, all_endcaps).await {
+                Ok((success_ids, failed_ids)) => {
+                    // Convert to batch format for processing
+                    let success_count = success_ids.len() as u64;
+                    let failed_count = failed_ids.len() as u64;
+
+                    // Update records
+                    for user_id in success_ids {
+                        self.record.add_success(user_id);
+                        self.recorded_user_ids.insert(user_id);
+                        self.record.failed.retain(|&id| id != user_id);
+                    }
+                    for user_id in failed_ids {
+                        if !self.record.success.contains(&user_id) {
+                            self.record.add_failed(user_id);
+                        }
+                    }
+
+                    (success_count, failed_count)
                 }
-            })
-            .collect();
-
-        // Execute all batches in parallel
-        let results = future::join_all(futures).await;
-
-        // Process results and update records
-        self.process_batch_results(results)
+                Err(e) => {
+                    // If entire submission fails, mark all as failed
+                    let count = batches.iter().map(|(_, batch)| batch.len()).sum::<usize>() as u64;
+                    info!("Single round submission failed: {}", e);
+                    (0, count)
+                }
+            }
+        }
     }
 
     async fn submit_endcaps_batch_static(rpc_provider: &RpcProvider, endcaps: Vec<QSubmitEndCapRPCRequest<F>>) -> anyhow::Result<(Vec<u64>, Vec<u64>)> {
@@ -501,6 +560,51 @@ impl Benchmark {
                 Err(e)
             }
         }
+    }
+
+    async fn submit_endcaps_single_static(rpc_provider: &RpcProvider, endcaps: Vec<QSubmitEndCapRPCRequest<F>>) -> anyhow::Result<(Vec<u64>, Vec<u64>)> {
+        if endcaps.is_empty() {
+            return Ok((Vec::new(), Vec::new()));
+        }
+
+        info!("Submitting {} endcaps individually in parallel", endcaps.len());
+
+        // Create parallel futures for all individual submissions
+        let futures: Vec<_> = endcaps
+            .iter()
+            .map(|endcap| {
+                let endcap = endcap.clone();
+                let rpc_provider = rpc_provider.clone();
+                let user_id = endcap.user_ec_input.core.new_user_leaf.user_id.to_noncanonical_u64();
+                async move {
+                    let provider = rpc_provider.with_user_id_owned(user_id);
+                    match provider.submit_end_cap_proof::<F>(endcap.clone()).await {
+                        Ok(_uuid) => Ok(user_id),
+                        Err(e) => {
+                            info!("Single submission failed for user_id {}: {}", user_id, e);
+                            Err((user_id, e))
+                        }
+                    }
+                }
+            })
+            .collect();
+
+        // Execute all submissions in parallel
+        let results = future::join_all(futures).await;
+
+        // Collect success and failed user_ids
+        let mut success_ids = Vec::new();
+        let mut failed_ids = Vec::new();
+
+        for result in results {
+            match result {
+                Ok(user_id) => success_ids.push(user_id),
+                Err((user_id, _e)) => failed_ids.push(user_id),
+            }
+        }
+
+        info!("Single submission completed: {} success, {} failed", success_ids.len(), failed_ids.len());
+        Ok((success_ids, failed_ids))
     }
 
     fn filter_batches_by_recorded(&self, batches: Vec<(u64, Vec<QSubmitEndCapRPCRequest<F>>)>) -> Vec<(u64, Vec<QSubmitEndCapRPCRequest<F>>)> {
