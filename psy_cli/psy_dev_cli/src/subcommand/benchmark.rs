@@ -327,6 +327,11 @@ impl Benchmark {
             SignType::SoftwareDefinedDPNSign => unimplemented!("SoftwareDefinedDPNSign is not supported"),
             SignType::SoftwareDefinedPlonky2Sign => unimplemented!("SoftwareDefinedPlonky2Sign is not supported"),
         };
+        let (left, right) = private_keys.split_at(self.args.total_end_caps as usize);
+        if left.is_empty() {
+            return Ok(vec![]);
+        }
+        let private_keys = left;
 
         let mut public_keys = Vec::with_capacity(private_keys.len());
         for private_key in private_keys.iter() {
