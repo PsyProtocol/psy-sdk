@@ -390,9 +390,13 @@ impl Benchmark {
                 }
                 (success_count, failed_count)
             }
-            Err(_) => {
+            Err(e) => {
                 // If batch fails, mark all as failed (but don't mark as recorded for retry)
                 let count = batch.len() as u64;
+                let user_ids: Vec<u64> = batch.iter()
+                    .map(|endcap| endcap.user_ec_input.core.new_user_leaf.user_id.to_noncanonical_u64())
+                    .collect();
+                info!("Batch submission failed with error: {} (user_ids: {:?})", e, user_ids);
                 for endcap in batch {
                     let user_id = endcap.user_ec_input.core.new_user_leaf.user_id.to_noncanonical_u64();
                     // Only add to failed list if not already successful
@@ -480,8 +484,23 @@ impl Benchmark {
         }
 
         let first_user_id = endcaps[0].user_ec_input.core.new_user_leaf.user_id.to_noncanonical_u64();
+        let realm_id = rpc_provider.get_realm_id(first_user_id);
+        info!("Submitting batch of {} endcaps for realm {} (first user_id: {})", endcaps.len(), realm_id, first_user_id);
+        
         let provider = rpc_provider.clone().with_user_id_owned(first_user_id);
-        provider.submit_end_cap_proofs::<F>(endcaps).await
+        match provider.submit_end_cap_proofs::<F>(endcaps.clone()).await {
+            Ok((success_ids, failed_ids)) => {
+                info!("Batch submission completed for realm {}: {} success, {} failed", realm_id, success_ids.len(), failed_ids.len());
+                Ok((success_ids, failed_ids))
+            }
+            Err(e) => {
+                let user_ids: Vec<u64> = endcaps.iter()
+                    .map(|endcap| endcap.user_ec_input.core.new_user_leaf.user_id.to_noncanonical_u64())
+                    .collect();
+                info!("Batch submission error for realm {} (user_ids: {:?}): {}", realm_id, user_ids, e);
+                Err(e)
+            }
+        }
     }
 
     fn filter_batches_by_recorded(&self, batches: Vec<(u64, Vec<QSubmitEndCapRPCRequest<F>>)>) -> Vec<(u64, Vec<QSubmitEndCapRPCRequest<F>>)> {
