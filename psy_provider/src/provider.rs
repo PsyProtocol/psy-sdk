@@ -406,6 +406,7 @@ impl QUserRpcProvider for RpcProvider {
     }
     async fn submit_end_cap_proofs<F: RichField>(&self, reqs: Vec<QSubmitEndCapRPCRequest<F>>) -> anyhow::Result<(Vec<u64>,Vec<u64>)>{
         let rpc_url = self.get_realm_url(self.current_user_id)?;
+        let reqs = reqs.into_iter().map(|req| (req.user_ec_input, req.proof)).collect::<Vec<_>>();
         let response = psy_rpc_call_back!(self, rpc_url, RequestParams::<F>::SubmitEndCapProofs(reqs), (Vec<u64>,Vec<u64>));
         match response.result {
             ResponseResult::Success((success_user_ids, error_user_ids)) => {
@@ -797,6 +798,7 @@ impl RpcProvider {
 
 // Re-export NetworkConfig from psy_config
 pub use psy_config::{CoordinatorConfig, NetworkConfig, RealmConfig};
+use psy_data::guta::end_cap_input::SubmitUserEndCapNonProofInput;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct StoreConfig {
