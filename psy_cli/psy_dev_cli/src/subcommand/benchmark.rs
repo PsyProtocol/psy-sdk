@@ -102,6 +102,9 @@ pub struct BenchmarkEndCapArgs {
 
     #[clap(long, help = "Use generated end caps")]
     pub is_use_generated: bool,
+
+    #[clap(long, help = "Submit end caps at the end")]
+    pub is_submit_at_end: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -530,24 +533,29 @@ impl Benchmark {
 
         info!("Total endcaps available: {}", endcaps.len());
 
-        // Prepare endcaps for sending
-        let endcaps_to_send = self.prepare_endcaps_for_sending(endcaps);
-        if endcaps_to_send.is_empty() {
-            info!("No endcaps to send (all already recorded)");
-            return Ok(());
+        // Only submit if is_submit_at_end is true
+        if self.args.is_submit_at_end {
+            // Prepare endcaps for sending
+            let endcaps_to_send = self.prepare_endcaps_for_sending(endcaps);
+            if endcaps_to_send.is_empty() {
+                info!("No endcaps to send (all already recorded)");
+                return Ok(());
+            }
+
+            info!("Total endcaps to send: {}", endcaps_to_send.len());
+
+            // Prepare batches and execute rounds
+            let batches = self.prepare_batches(endcaps_to_send);
+            self.execute_rounds(batches).await?;
+
+            // Print final statistics
+            info!("\n=== Final Statistics ===");
+            info!("Total success: {}", self.record.success.len());
+            info!("Total failed: {}", self.record.failed.len());
+            info!("Record saved to: {}", self.args.record_file);
+        } else {
+            info!("Skipping submission (is_submit_at_end is false)");
         }
-
-        info!("Total endcaps to send: {}", endcaps_to_send.len());
-
-        // Prepare batches and execute rounds
-        let batches = self.prepare_batches(endcaps_to_send);
-        self.execute_rounds(batches).await?;
-
-        // Print final statistics
-        info!("\n=== Final Statistics ===");
-        info!("Total success: {}", self.record.success.len());
-        info!("Total failed: {}", self.record.failed.len());
-        info!("Record saved to: {}", self.args.record_file);
 
         Ok(())
     }
