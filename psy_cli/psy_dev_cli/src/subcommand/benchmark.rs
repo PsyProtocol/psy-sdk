@@ -31,9 +31,6 @@ pub struct BenchmarkEndCapArgs {
     #[arg(long, default_value = "config.json", help = "Path to config.json file")]
     pub rpc_config: String,
 
-    #[clap(long, help = "Realm RPC URL", default_value = "http://127.0.0.1:1338")]
-    pub realm_rpc_url: String,
-
     #[clap(long, help = "concurrency number to send end cap", default_value = "100")]
     pub concurrency_number: u64,
 
@@ -69,6 +66,9 @@ pub struct BenchmarkEndCapArgs {
 
     #[clap(long, help = "Record file path to store success/failed endcaps", default_value = "endcap_records.json")]
     pub record_file: String,
+
+    #[clap(long, help = "Total end caps to process (0 means no limit)", default_value = "0")]
+    pub total_end_caps: u64,
 
     #[clap(long, help = "Use generated end caps")]
     pub is_use_generated: bool,
@@ -136,9 +136,9 @@ struct Benchmark {
 
 impl Benchmark {
     async fn new(args: BenchmarkEndCapArgs) -> anyhow::Result<Self> {
-        let psy_config = PsyConfigGoldilocks::from_file(&args.rpc_config)?;
-        let rpc_config = psy_config.get_current_network()?.clone();
-        let rpc_provider = RpcProvider::new_with_config(&rpc_config)?;
+    let psy_config = PsyConfigGoldilocks::from_file(&args.rpc_config)?;
+    let rpc_config = psy_config.get_current_network()?.clone();
+    let rpc_provider = RpcProvider::new_with_config(&rpc_config)?;
         let record = EndcapRecord::load_from_file(&args.record_file).await?;
         let recorded_user_ids = record.all_recorded_user_ids();
         let output_path = PathBuf::from(&args.output_path);
@@ -231,7 +231,7 @@ impl Benchmark {
 
     async fn load_endcaps_from_dir(&self) -> anyhow::Result<Vec<QSubmitEndCapRPCRequest<F>>> {
         let files = self.get_files_only().await?;
-        let mut endcaps = Vec::new();
+    let mut endcaps = Vec::new();
 
         for file in files.iter() {
             if let Some(user_id) = self.extract_user_id_from_filename(file) {
@@ -336,22 +336,30 @@ impl Benchmark {
     }
 
     fn prepare_endcaps_for_sending(&self, mut endcaps: Vec<QSubmitEndCapRPCRequest<F>>) -> Vec<QSubmitEndCapRPCRequest<F>> {
-        // Apply send mode (random or sequential)
-        if self.args.send_mode == "random" {
-            endcaps.shuffle(&mut thread_rng());
-            info!("Shuffled endcaps for random mode");
-        } else {
-            info!("Using sequential mode");
-        }
-
-        // Filter out already recorded endcaps
-        endcaps
+        // Filter out already recorded endcaps first
+        let mut filtered: Vec<QSubmitEndCapRPCRequest<F>> = endcaps
             .into_iter()
             .filter(|endcap| {
                 let user_id = endcap.user_ec_input.core.new_user_leaf.user_id.to_noncanonical_u64();
                 !self.recorded_user_ids.contains(&user_id)
             })
-            .collect()
+            .collect();
+
+        // Apply send mode (random or sequential) after filtering
+        if self.args.send_mode == "random" {
+            filtered.shuffle(&mut thread_rng());
+            info!("Shuffled endcaps for random mode");
+        } else {
+            info!("Using sequential mode");
+        }
+
+        // Apply total_end_caps limit if specified
+        if self.args.total_end_caps > 0 && filtered.len() > self.args.total_end_caps as usize {
+            filtered.truncate(self.args.total_end_caps as usize);
+            info!("Limited to {} endcaps", self.args.total_end_caps);
+        }
+
+        filtered
     }
 
     fn prepare_batches(&self, endcaps: Vec<QSubmitEndCapRPCRequest<F>>) -> Vec<(u64, Vec<QSubmitEndCapRPCRequest<F>>)> {
