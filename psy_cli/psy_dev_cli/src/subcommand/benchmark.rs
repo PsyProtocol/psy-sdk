@@ -139,7 +139,8 @@ impl EndcapRecord {
     }
 
     fn all_recorded_user_ids(&self) -> HashSet<u64> {
-        self.success.iter().chain(self.failed.iter()).copied().collect()
+        // Only consider successful ones as recorded (failed ones can be retried)
+        self.success.iter().copied().collect()
     }
 
     fn add_success(&mut self, user_id: u64) {
@@ -360,20 +361,28 @@ impl Benchmark {
                 for user_id in success_ids {
                     self.record.add_success(user_id);
                     self.recorded_user_ids.insert(user_id);
+                    // Remove from failed list if it was previously failed (now succeeded)
+                    self.record.failed.retain(|&id| id != user_id);
                 }
                 for user_id in failed_ids {
-                    self.record.add_failed(user_id);
-                    self.recorded_user_ids.insert(user_id);
+                    // Only add to failed list if not already successful
+                    if !self.record.success.contains(&user_id) {
+                        self.record.add_failed(user_id);
+                    }
+                    // Don't add to recorded_user_ids, so it can be retried in next round
                 }
                 (success_count, failed_count)
             }
             Err(_) => {
-                // If batch fails, mark all as failed
+                // If batch fails, mark all as failed (but don't mark as recorded for retry)
                 let count = batch.len() as u64;
                 for endcap in batch {
                     let user_id = endcap.user_ec_input.core.new_user_leaf.user_id.to_noncanonical_u64();
-                    self.record.add_failed(user_id);
-                    self.recorded_user_ids.insert(user_id);
+                    // Only add to failed list if not already successful
+                    if !self.record.success.contains(&user_id) {
+                        self.record.add_failed(user_id);
+                    }
+                    // Don't add to recorded_user_ids, so it can be retried in next round
                 }
                 (0, count)
             }
@@ -458,11 +467,49 @@ impl Benchmark {
         provider.submit_end_cap_proofs::<F>(endcaps).await
     }
 
-    async fn execute_rounds(&mut self, batches: Vec<(u64, Vec<QSubmitEndCapRPCRequest<F>>)>) -> anyhow::Result<()> {
+    fn filter_batches_by_recorded(&self, batches: Vec<(u64, Vec<QSubmitEndCapRPCRequest<F>>)>) -> Vec<(u64, Vec<QSubmitEndCapRPCRequest<F>>)> {
+        batches
+            .into_iter()
+            .filter_map(|(realm_id, batch)| {
+                let filtered: Vec<QSubmitEndCapRPCRequest<F>> = batch
+                    .into_iter()
+                    .filter(|endcap| {
+                        let user_id = endcap.user_ec_input.core.new_user_leaf.user_id.to_noncanonical_u64();
+                        !self.recorded_user_ids.contains(&user_id)
+                    })
+                    .collect();
+                if filtered.is_empty() {
+                    None
+                } else {
+                    Some((realm_id, filtered))
+                }
+            })
+            .collect()
+    }
+
+    async fn execute_rounds(&mut self, mut batches: Vec<(u64, Vec<QSubmitEndCapRPCRequest<F>>)>) -> anyhow::Result<()> {
         for round in 1..=self.args.send_count {
             info!("\n=== Round {}/{} ===", round, self.args.send_count);
 
+            // Filter out already successful endcaps before each round
+            batches = self.filter_batches_by_recorded(batches);
+            
+            if batches.is_empty() {
+                info!("No more endcaps to send (all succeeded)");
+                break;
+            }
+
+            // Recreate batches with filtered endcaps (regroup by realm if needed)
+            let all_remaining: Vec<QSubmitEndCapRPCRequest<F>> = batches
+                .iter()
+                .flat_map(|(_, batch)| batch.iter().cloned())
+                .collect();
+            batches = self.prepare_batches(all_remaining);
+
             let (round_success, round_failed) = self.execute_single_round(&batches).await;
+
+            // Update recorded_user_ids to reflect newly successful endcaps for next round filtering
+            self.recorded_user_ids = self.record.all_recorded_user_ids();
 
             self.record.save_to_file(&self.args.record_file).await?;
             info!("Round {} completed: {} success, {} failed", round, round_success, round_failed);
