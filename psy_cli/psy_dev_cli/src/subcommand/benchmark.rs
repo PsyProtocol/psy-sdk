@@ -26,6 +26,33 @@ use tracing::info;
 
 type F = GoldilocksField;
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+enum FileFormat {
+    Json,
+    Bin,
+}
+
+impl std::str::FromStr for FileFormat {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "json" => Ok(FileFormat::Json),
+            "bin" => Ok(FileFormat::Bin),
+            _ => Err(format!("Invalid file format: {}. Must be 'json' or 'bin'", s)),
+        }
+    }
+}
+
+impl std::fmt::Display for FileFormat {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            FileFormat::Json => write!(f, "json"),
+            FileFormat::Bin => write!(f, "bin"),
+        }
+    }
+}
+
 #[derive(Parser, Clone, Debug)]
 pub struct BenchmarkEndCapArgs {
     #[arg(long, default_value = "config.json", help = "Path to config.json file")]
@@ -69,6 +96,9 @@ pub struct BenchmarkEndCapArgs {
 
     #[clap(long, help = "Total end caps to process (0 means no limit)", default_value = "0")]
     pub total_end_caps: u64,
+
+    #[clap(long, help = "File format for saving/loading endcaps: json or bin", default_value = "bin", value_parser = clap::value_parser!(String))]
+    pub file_format: String,
 
     #[clap(long, help = "Use generated end caps")]
     pub is_use_generated: bool,
@@ -278,9 +308,24 @@ impl Benchmark {
             };
 
             let user_id = req.user_ec_input.core.new_user_leaf.user_id.to_noncanonical_u64();
-            let file_path = self.output_path.join(format!("user{}.json", user_id));
-            let content = serde_json::to_string_pretty(&req)?;
-            fs::write(&file_path, content).await?;
+            let file_format = self.args.file_format.parse::<FileFormat>()
+                .map_err(|e| anyhow::anyhow!("Invalid file format: {}", e))?;
+            
+            let file_path = match file_format {
+                FileFormat::Json => self.output_path.join(format!("user{}.json", user_id)),
+                FileFormat::Bin => self.output_path.join(format!("user{}.bin", user_id)),
+            };
+
+            match file_format {
+                FileFormat::Json => {
+                    let content = serde_json::to_string_pretty(&req)?;
+                    fs::write(&file_path, content).await?;
+                }
+                FileFormat::Bin => {
+                    let content = bincode::serialize(&req)?;
+                    fs::write(&file_path, content).await?;
+                }
+            }
 
             endcaps.push(req);
         }
@@ -335,7 +380,7 @@ impl Benchmark {
         }
     }
 
-    fn prepare_endcaps_for_sending(&self, mut endcaps: Vec<QSubmitEndCapRPCRequest<F>>) -> Vec<QSubmitEndCapRPCRequest<F>> {
+    fn prepare_endcaps_for_sending(&self, endcaps: Vec<QSubmitEndCapRPCRequest<F>>) -> Vec<QSubmitEndCapRPCRequest<F>> {
         // Filter out already recorded endcaps first
         let mut filtered: Vec<QSubmitEndCapRPCRequest<F>> = endcaps
             .into_iter()
