@@ -327,11 +327,24 @@ impl Benchmark {
             SignType::SoftwareDefinedDPNSign => unimplemented!("SoftwareDefinedDPNSign is not supported"),
             SignType::SoftwareDefinedPlonky2Sign => unimplemented!("SoftwareDefinedPlonky2Sign is not supported"),
         };
-        let (left, right) = private_keys.split_at(self.args.total_end_caps as usize);
-        if left.is_empty() {
+        // Randomly select private keys up to total_end_caps
+        let total_count = private_keys.len();
+        let count = (self.args.total_end_caps as usize).min(total_count);
+        if count == 0 {
             return Ok(vec![]);
         }
-        let private_keys = left;
+        
+        let mut rng = thread_rng();
+        let mut selected_indices: Vec<usize> = (0..total_count).collect();
+        selected_indices.shuffle(&mut rng);
+        selected_indices.truncate(count);
+        
+        let private_keys: Vec<QHashOut<F>> = selected_indices
+            .into_iter()
+            .map(|idx| private_keys[idx])
+            .collect();
+        
+        info!("Randomly selected {} private keys from {} total", count, total_count);
 
         let mut public_keys = Vec::with_capacity(private_keys.len());
         for private_key in private_keys.iter() {
