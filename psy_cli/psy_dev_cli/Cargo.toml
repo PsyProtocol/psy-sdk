@@ -42,6 +42,7 @@ bincode = { workspace = true }
 minijinja = { workspace = true }
 jsonrpsee = { workspace = true }
 hex = { workspace = true }
+rand = { workspace = true }
 
 
 # Plonky2

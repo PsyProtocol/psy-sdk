@@ -62,6 +62,9 @@ async fn main() -> anyhow::Result<()> {
         Commands::MultiEndCap(args) => {
             subcommand::multi_end_cap::run(args).await?;
         }
+        Commands::Benchmark(args) => {
+            subcommand::benchmark::run(args).await?;
+        }
     }
 
     Ok(())
