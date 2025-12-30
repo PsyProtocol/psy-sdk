@@ -70,7 +70,8 @@ use super::request::{
     QSubmitEndCapRPCRequest, QSubmitGutaRPCRequest, QTokenTransferRPCRequest, RequestParams, ResponseResult, RpcRequest, RpcResponse, Version,
 };
 use crate::{
-    gesis_data::GENESIS_DATA, request::{
+    gesis_data::GENESIS_DATA,
+    request::{
         DPNSoftwareDefinedSignatureInput, DPNSoftwareDefinedSignatureProofRPCRequest, QBlockStateRPCRequest, QGetContractMethodCommonDataRPCRequest,
         QGetFnIdRPCRequest, QGetTxStatusRPCRequest, QLatestBlockStateRPCRequest, QLeftAggRightLeafRpcRequestV2, QLeftLeafRightAggRpcRequestV2,
         QProveContractCallRPCRequest, QProveUpsStartRPCRequest, QProveUpsStartRegisterUserRPCRequest, QRegisterCircuitsRPCRequest,
@@ -78,7 +79,8 @@ use crate::{
         QResolveContractFunctionByMethodNameRPCRequest, QSecpSignatureProofRPCRequest, QSignatureMinifierProofRPCRequest, QSignatureProofRPCRequest,
         QSingleLeafRpcRequestV2, QTwoAggRpcRequsetV2, QTwoLeafRpcRequestV2, QUpsCfcDeferredTxRPCRequest, QUpsCfcStandardTxRPCRequest,
         QUpsEndCapRPCRequestV2, QUserSubTreeMerkleProofRPCRequest, RequestParamsV2,
-    }, session::TxStatus
+    },
+    session::TxStatus,
 };
 
 type UserEndCapUUID = String;
@@ -125,7 +127,7 @@ impl RpcProvider {
             .pool_max_idle_per_host(500)
             .tcp_keepalive(Duration::from_secs(60))
             .tcp_nodelay(true)
-            .http1_only()  // Force HTTP/1.1 to avoid potential HTTP/2 connection issues
+            .http1_only() // Force HTTP/1.1 to avoid potential HTTP/2 connection issues
             .build()
             .map_err(|e| anyhow::format_err!("Failed to create HTTP client: {}", e))?;
 
@@ -276,11 +278,12 @@ macro_rules! psy_rpc_call_back {
                 })
                 .send()
                 .await;
-            
+
             match result {
-                Ok(response) => {
-                    response.json::<RpcResponse<$ret_ty>>().await.map_err(|e| anyhow::anyhow!("Failed to parse JSON response: {}", e))
-                }
+                Ok(response) => response
+                    .json::<RpcResponse<$ret_ty>>()
+                    .await
+                    .map_err(|e| anyhow::anyhow!("Failed to parse JSON response: {}", e)),
                 Err(e) => {
                     let error_msg = if e.is_connect() {
                         format!("Connection error to {}: {}", url_str, e)
@@ -292,8 +295,13 @@ macro_rules! psy_rpc_call_back {
                         format!("Error sending request to {}: {}", url_str.clone(), e)
                     };
                     tracing::error!("{}", error_msg);
-                    tracing::error!("Request error details: is_connect={}, is_timeout={}, is_request={}, is_decode={}", 
-                        e.is_connect(), e.is_timeout(), e.is_request(), e.is_decode());
+                    tracing::error!(
+                        "Request error details: is_connect={}, is_timeout={}, is_request={}, is_decode={}",
+                        e.is_connect(),
+                        e.is_timeout(),
+                        e.is_request(),
+                        e.is_decode()
+                    );
                     Err(anyhow::anyhow!("{}", error_msg))
                 }
             }
@@ -369,7 +377,7 @@ pub trait QUserRpcProvider {
     async fn deploy_contract<F: RichField>(&self, req: QDeployContractRPCRequest<F>) -> anyhow::Result<String>;
 
     async fn submit_end_cap_proof<F: RichField>(&self, req: QSubmitEndCapRPCRequest<F>) -> anyhow::Result<UserEndCapUUID>;
-    async fn submit_end_cap_proofs<F: RichField>(&self, reqs: Vec<QSubmitEndCapRPCRequest<F>>) -> anyhow::Result<(Vec<u64>,Vec<u64>)>;
+    async fn submit_end_cap_proofs<F: RichField>(&self, reqs: Vec<QSubmitEndCapRPCRequest<F>>) -> anyhow::Result<(Vec<u64>, Vec<u64>)>;
 }
 
 #[cfg_attr(not(target_arch = "wasm32"), maybe_async::maybe_async)]
@@ -437,14 +445,12 @@ impl QUserRpcProvider for RpcProvider {
             }
         }
     }
-    async fn submit_end_cap_proofs<F: RichField>(&self, reqs: Vec<QSubmitEndCapRPCRequest<F>>) -> anyhow::Result<(Vec<u64>,Vec<u64>)>{
+    async fn submit_end_cap_proofs<F: RichField>(&self, reqs: Vec<QSubmitEndCapRPCRequest<F>>) -> anyhow::Result<(Vec<u64>, Vec<u64>)> {
         let rpc_url = self.get_realm_url(self.current_user_id)?;
         let reqs = reqs.into_iter().map(|req| (req.user_ec_input, req.proof)).collect::<Vec<_>>();
-        let response = psy_rpc_call_back!(self, rpc_url, RequestParams::<F>::SubmitEndCapProofs(vec![reqs]), (Vec<u64>,Vec<u64>));
+        let response = psy_rpc_call_back!(self, rpc_url, RequestParams::<F>::SubmitEndCapProofs(vec![reqs]), (Vec<u64>, Vec<u64>));
         match response.result {
-            ResponseResult::Success((success_user_ids, error_user_ids)) => {
-                Ok((success_user_ids, error_user_ids))
-            }
+            ResponseResult::Success((success_user_ids, error_user_ids)) => Ok((success_user_ids, error_user_ids)),
             ResponseResult::Error(e) => Err(anyhow::format_err!("submit_end_cap_proofs rpc call failed `{:?}`", e)),
         }
     }
@@ -513,6 +519,20 @@ impl RpcProvider {
 
     pub fn set_user_id(&mut self, user_id: u64) {
         self.current_user_id = user_id;
+    }
+
+    pub async fn submit_end_cap_proofs_by_edge_id<F: RichField>(
+        &self,
+        reqs: Vec<QSubmitEndCapRPCRequest<F>>,
+        edge_id: u64,
+    ) -> anyhow::Result<(Vec<u64>, Vec<u64>)> {
+        let rpc_url = self.get_realm_url_by_edge_id(self.current_user_id, edge_id)?;
+        let reqs = reqs.into_iter().map(|req| (req.user_ec_input, req.proof)).collect::<Vec<_>>();
+        let response = psy_rpc_call_back!(self, rpc_url, RequestParams::<F>::SubmitEndCapProofs(vec![reqs]), (Vec<u64>, Vec<u64>));
+        match response.result {
+            ResponseResult::Success((success_user_ids, error_user_ids)) => Ok((success_user_ids, error_user_ids)),
+            ResponseResult::Error(e) => Err(anyhow::format_err!("submit_end_cap_proofs rpc call failed `{:?}`", e)),
+        }
     }
 }
 
@@ -597,19 +617,21 @@ impl RpcProvider {
         let rpc_url = self.get_coordinator_url()?;
         Ok(GENESIS_DATA.block_state)
         // let input = QBlockStateRPCRequest { checkpoint_id: 0 };
-        // let response = psy_rpc_call_back!(self, rpc_url, RequestParams::<GoldilocksField>::GetBlockState(input), PsyBlockState);
-        // match response.result {
+        // let response = psy_rpc_call_back!(self, rpc_url,
+        // RequestParams::<GoldilocksField>::GetBlockState(input),
+        // PsyBlockState); match response.result {
         //     ResponseResult::Success(block_state) => {
         //         tracing::debug!(
-        //             block_state = %serde_json::to_string_pretty(&block_state).unwrap(),
+        //             block_state =
+        // %serde_json::to_string_pretty(&block_state).unwrap(),
         //             "Successfully fetched block state"
         //         );
         //         Ok(block_state)
         //     }
         //     ResponseResult::Error(e) => {
         //         tracing::error!("RPC call failed: {:?}", e);
-        //         Err(anyhow::format_err!("get_coordinator_block_state rpc call failed `{:?}`", e))
-        //     }
+        //         Err(anyhow::format_err!("get_coordinator_block_state rpc call
+        // failed `{:?}`", e))     }
         // }
     }
 
@@ -819,13 +841,26 @@ impl RpcProvider {
         Ok(&realm_urls[random_index])
     }
 
+    pub fn get_realm_url_by_edge_id(&self, user_id: u64, edge_id: u64) -> anyhow::Result<&String> {
+        let realm_id = self.get_realm_id(user_id);
+        tracing::trace!("get realm url for user id {}, realm id {}", user_id, realm_id);
+
+        let realm_urls = self
+            .realm_configs
+            .get(&realm_id)
+            .ok_or(anyhow::format_err!("realm id `{}` not found, please check the config", realm_id))?;
+
+        Ok(realm_urls.get(edge_id as usize).unwrap_or_else(|| &realm_urls[0]))
+    }
+
     pub fn get_coordinator_url(&self) -> anyhow::Result<String> {
         let coordinator_urls = self
             .coordinator_configs
             .get(&0)
             .ok_or(anyhow::format_err!("coordinator id `{}` not found, please check the config", 0))?;
         let random_index = rand::thread_rng().gen_range(0..coordinator_urls.len());
-        // Normalize URL by removing trailing slash to avoid potential issues with reqwest
+        // Normalize URL by removing trailing slash to avoid potential issues with
+        // reqwest
         let url = coordinator_urls[random_index].clone();
         Ok(url)
     }

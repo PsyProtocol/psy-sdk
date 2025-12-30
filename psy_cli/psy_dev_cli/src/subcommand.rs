@@ -2,6 +2,7 @@ use clap::{command, Parser, Subcommand};
 pub use get_registration_id_from_user_id::GetRegistrationIdFromUserIdArgs;
 pub use get_user_id_from_registration_id::GetUserIdFromRegistrationIdArgs;
 pub use job::JobArgs;
+pub mod benchmark;
 pub mod check_registered_users;
 pub mod generate;
 pub mod generate_token;
@@ -10,14 +11,13 @@ pub mod get_registration_id_from_user_id;
 pub mod get_user_id_from_registration_id;
 pub mod job;
 pub mod launch;
+pub mod end_cap_submission;
 pub mod produce_block;
 pub mod qhash;
 pub mod realm_status;
 pub mod register_user;
 pub mod store;
 pub mod stress_test;
-pub mod multi_end_cap;
-pub mod benchmark;
 
 #[derive(Parser)]
 pub struct Cli {
@@ -74,8 +74,8 @@ pub enum Commands {
     #[command(about = "Store utility commands")]
     Store(store::StoreConfig),
 
-    #[command(about = "Multi-end-cap utility commands")]
-    MultiEndCap(multi_end_cap::MultiEndCapArgs),
+    #[command(about = "End-cap submission utility commands")]
+    EndCapSubmission(end_cap_submission::EndCapSubmissionArgs),
 
     #[command(about = "Benchmark utility commands")]
     Benchmark(benchmark::BenchmarkEndCapArgs),
