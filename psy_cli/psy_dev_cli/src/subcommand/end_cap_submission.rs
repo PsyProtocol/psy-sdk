@@ -96,7 +96,7 @@ pub async fn run(args: EndCapSubmissionArgs) -> anyhow::Result<()> {
     let first_user_id = user_ids[0];
 
     for user_id in user_ids.iter() {
-        if record.success.contains(user_id) || record.failed.contains(user_id) {
+        if record.success.contains(user_id) {
             tracing::debug!("user {} has been submitted", user_id);
             continue;
         }
