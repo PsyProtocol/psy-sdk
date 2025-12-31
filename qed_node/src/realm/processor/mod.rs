@@ -10,31 +10,31 @@ use crate::common_v2::traits::realm::CoordinatorClient;
 use crate::coordinator::client_v2::ConcreteCoordinatorClient;
 use crate::realm::config::RealmNodeConfig;
 use crate::realm::state::processor::{RealmConfig, RealmProcessorContext};
-use crate::realm::{edge, C, D, F};
+use crate::realm::{C, D, F};
 use qed_core::config::network_constants::{COORDINATOR_USER_TREE_HEIGHT, GLOBAL_USER_TREE_HEIGHT};
-use qed_core::job::id::{ProvingJobDataId, QProvingJobDataID};
+use qed_core::job::id::ProvingJobDataId;
 use qed_crypto::common::generic_circuit_verifier::GenericCircuitVerifier;
 use qed_crypto::hash::merkle::utils::common::{QMerkleNode, SimpleMerkleNodeKey};
 use qed_crypto::hash::traits::hasher::MerkleZeroHasher;
 use qed_data::config::genesis_config::GenesisConfig;
 use qed_store::queue::QPendingUserStoreAsyncImm;
-use qed_store::queue::task_queue::{QProvingTaskStore, QProvingTaskStoreImpl};
+use qed_store::queue::task_queue::QProvingTaskStoreImpl;
 use qed_store::store::QEDStore;
-use std::sync::{Arc};
-use std::sync::atomic::{AtomicBool, AtomicI64, AtomicU64, Ordering};
+use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
 use tokio::time::Instant;
 use anyhow::{anyhow, bail};
-use tracing::{debug, error, info, trace, warn};
+use tracing::{error, info, trace, warn};
 use qed_core::data::qhashout::QHashOut;
 use qed_data::qdata::checkpoint::CheckpointSyncInfo;
 use qed_store::node::realm::QEDRealmStoreReaderAsync;
 use qed_store::queue::ProofStoreRedisAsync;
-use qed_store::store::journal::{Journal, JournalStore};
+use qed_store::store::journal::{Journal, JournalStore, BackupJournalStore, BackupRequest};
 use crate::common::clock::SlotTimer;
-use crate::common::slot::{Clock, LocalClock, Slot};
+use crate::common::slot::{LocalClock, Slot};
 use crate::common::retry::Retryable;
-use qed_core::config::network_constants::{REALM_USER_TREE_HEIGHT, USERS_PER_REALM};
+use qed_core::config::network_constants::USERS_PER_REALM;
 use qed_data::config::store_config::QEDHasher;
 use qed_core::config::network_constants::{MAX_CONTRACT_STATE_TREE_HEIGHT, GLOBAL_CONTRACT_TREE_HEIGHT};
 use qed_data::qdata::user::QEDUserLeaf;
@@ -43,9 +43,8 @@ use qed_store::node::realm::QEDRealmStoreWriterAsyncImm;
 use qed_crypto::common::user_id::get_user_id_from_registration_id;
 use plonky2::field::types::Field;
 use qed_data::traits::qdatastore::{qtreedata::QTreeDataStoreWriterSync, qmetadata::QMetaDataStoreWriterSync};
-use std::{str::FromStr, collections::HashMap};
+use std::collections::HashMap;
 use plonky2::field::goldilocks_field::GoldilocksField;
-use plonky2::plonk::config::GenericHashOut;
 use super::backup::RealmS3BackupClient;
 use tokio::sync::mpsc;
 use kvq::traits::{KVQBinaryStoreAsync, KVQPair};
@@ -58,12 +57,6 @@ use qed_data::config::store_config::{REALM_SNAPSHOT_TABLE_TYPE, REALM_ROOT_VERSI
 use kvq::traits::KVQSerializable;
 
 
-struct RealmBackupRequest {
-    checkpoint_id: u64,
-    pair_to_set: Vec<(Vec<u8>, Vec<u8>)>,
-    removed_keys: Vec<Vec<u8>>,
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Snapshot {
     pub version: u64,
@@ -75,7 +68,7 @@ pub struct Snapshot {
 }
 
 type ConcreteRealmProcessorContext = RealmProcessorContext<
-    JournalStore<QEDStore>,
+    BackupJournalStore<JournalStore<QEDStore>>,
     ProofStoreRedisAsync,
     ProofStoreRedisAsync,
     ProofStoreRedisAsync,
@@ -94,9 +87,9 @@ pub struct RealmProcessor {
     pub slot_timer: SlotTimer<LocalClock>,
     pub remote_latest_slot: AtomicU64,
     pub config_path: String,
-    pub backup_tx: Option<mpsc::UnboundedSender<RealmBackupRequest>>,
     pub queue_helper: Arc<RealmEdgeQueueHelper<F>>,
     pub coordinator_client: Arc<ConcreteCoordinatorClient>,
+    pub backup_tx: Option<mpsc::UnboundedSender<BackupRequest>>,
 }
 
 pub async fn run_realm_processor(config: RealmNodeConfig) -> anyhow::Result<()> {
@@ -123,13 +116,14 @@ impl RealmProcessor {
         let realm_config = RealmConfig::get_standard(config.realm.realm_id);
         let sync_checkpoint = Arc::new(realm_qps.clone());
 
-        // Initialize backup client
+        // Initialize backup channel and task
         let backup_tx = match RealmS3BackupClient::new_from_env(config.realm.realm_id).await {
             Ok(client) => {
                 info!("✅ S3 backup client initialized");
                 let (tx, rx) = mpsc::unbounded_channel();
+                let realm_id = config.realm.realm_id;
                 tokio::spawn(async move {
-                    RealmProcessor::backup_task(rx, client, config.realm.realm_id).await;
+                    Self::backup_task(rx, client, realm_id).await;
                 });
                 info!("Started realm backup task");
                 Some(tx)
@@ -159,9 +153,9 @@ impl RealmProcessor {
             slot_timer: SlotTimer::new(LocalClock),
             remote_latest_slot: AtomicU64::new(0),
             config_path: config.config_path.clone(),
-            backup_tx,
             queue_helper: Arc::new(queue_helper),
             coordinator_client,
+            backup_tx,
         };
         Ok(processor)
     }
@@ -170,8 +164,17 @@ impl RealmProcessor {
         &self,
     ) -> anyhow::Result<ConcreteRealmProcessorContext> {
         let realm_qps = Arc::new(self.sync_proof.clone());
+        let journal_store = JournalStore::new(self.store.clone());
+        
+        // Wrap journal store with backup functionality if backup is enabled
+        let backup_journal_store = if let Some(ref backup_tx) = self.backup_tx {
+            BackupJournalStore::new_with_backup(journal_store, backup_tx.clone())
+        } else {
+            BackupJournalStore::new(journal_store)
+        };
+        
         RealmProcessorContext::<
-            JournalStore<QEDStore>,
+            BackupJournalStore<JournalStore<QEDStore>>,
             ProofStoreRedisAsync,
             ProofStoreRedisAsync,
             ProofStoreRedisAsync,
@@ -180,7 +183,7 @@ impl RealmProcessor {
         >::new(
             self.realm_config,
             self.max_processed_end_caps_per_block,
-            JournalStore::new(self.store.clone()),
+            backup_journal_store,
             realm_qps.clone(),
             realm_qps.clone(),
             realm_qps.clone(),
@@ -245,21 +248,8 @@ impl RealmProcessor {
         let build_ctx = self.context().await?;
         build_ctx.store.restore_cache(snapshot.cache)?;
         trace!("synced checkpoint id: {}, latest checkpoint id: {}, realm root: {}", ret.checkpoint_id, ret.latest_checkpoint_id, ret.realm_root);
-        let (pair_to_set, remove_keys) = build_ctx.commit(ret.checkpoint_id, snapshot.queue_offset_state).await.map_err(|e| anyhow!("Failed to commit checkpoint {}: {}", ret.checkpoint_id, e))?;
+        build_ctx.commit(ret.checkpoint_id, snapshot.queue_offset_state).await.map_err(|e| anyhow!("Failed to commit checkpoint {}: {}", ret.checkpoint_id, e))?;
         info!("Commit checkpoint {}, latest_checkpoint_id: {}", ret.checkpoint_id, ret.latest_checkpoint_id);
-
-        // Auto backup after successful commit
-        if let Some(backup_tx) = &self.backup_tx {
-            let pair_to_set = pair_to_set.into_iter().map(|pair| (pair.key, pair.value)).collect();
-            let request = RealmBackupRequest {
-                checkpoint_id: ret.checkpoint_id,
-                pair_to_set,
-                removed_keys: remove_keys,
-            };
-            if let Err(e) = backup_tx.send(request) {
-                error!("❌ Failed to send realm backup request for checkpoint {}: {}", ret.checkpoint_id, e);
-            }
-        }
         Ok(())
     }
 
@@ -459,19 +449,7 @@ impl RealmProcessor {
         match sync_ctx.handle_checkpoint_sync(block.compact.clone()).await {
             Ok(_) => {
                 info!("Checkpoint {} sync reg users len: {}", sync_checkpoint_id, block.compact.registered_users.len());
-                let (pair_to_set, remove_keys) = sync_ctx.store.commit(None)?;
-                // Auto backup after successful commit
-                if let Some(backup_tx) = &self.backup_tx {
-                    let pair_to_set = pair_to_set.into_iter().map(|pair| (pair.key, pair.value)).collect();
-                    let request = RealmBackupRequest {
-                        checkpoint_id: sync_checkpoint_id,
-                        pair_to_set,
-                        removed_keys: remove_keys,
-                    };
-                    if let Err(e) = backup_tx.send(request) {
-                        error!("❌ Failed to send realm backup request for checkpoint {}: {}", sync_checkpoint_id, e);
-                    }
-                }
+                sync_ctx.store.commit(None)?;
 
                 let pending_users_count = sync_ctx.sync_queue.get_pending_users_count().await?;
                 trace!("Pending users count after checkpoint sync: {}", pending_users_count);
@@ -617,10 +595,10 @@ impl RealmProcessor {
         Self::initialize_store(&self.store, genesis_config, self.realm_config.realm_id).await
     }
 
-    async fn backup_task(mut rx: mpsc::UnboundedReceiver<RealmBackupRequest>, backup_client: RealmS3BackupClient , realm_id: u32) {
+    async fn backup_task(mut rx: mpsc::UnboundedReceiver<BackupRequest>, backup_client: RealmS3BackupClient, realm_id: u32) {
         info!("🚀 Realm backup task started");
         while let Some(request) = rx.recv().await {
-            let RealmBackupRequest { checkpoint_id, pair_to_set, removed_keys } = request;
+            let BackupRequest { checkpoint_id, pair_to_set, removed_keys } = request;
             // Retry up to 3 times with 1 second delay
             for retry_count in 0..=3 {
                 match super::backup::create_realm_checkpoint_backup(

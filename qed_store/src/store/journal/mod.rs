@@ -1,3 +1,5 @@
+pub mod backup_journal;
+
 use std::collections::BTreeMap;
 use kvq::traits::{KVQBinaryStoreAsync, KVQPair};
 use std::sync::Arc;
@@ -7,6 +9,8 @@ use auto_impl::auto_impl;
 use kvq::cache::{CacheValueType, KVQBinaryStoreCached, KVQBinaryStoreCachedAsync, KVQBinaryStoreCachedTrait, KVQBinaryStoreCachedTraitAsync};
 use kvq::traits::KVQBinaryStore;
 use kvq::traits::ambassador_impl_KVQBinaryStore;
+
+pub use backup_journal::{BackupJournalStore, BackupJournalStoreAsync, BackupRequest, BackupHandler};
 
 #[auto_impl(&, Box, Arc)]
 pub trait Journal: KVQBinaryStore {
