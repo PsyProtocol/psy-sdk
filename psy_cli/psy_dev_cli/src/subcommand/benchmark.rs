@@ -1,5 +1,5 @@
 use std::{
-    collections::{HashMap, HashSet},
+    collections::{BTreeSet, HashMap},
     path::PathBuf,
 };
 
@@ -112,8 +112,8 @@ pub struct BenchmarkEndCapArgs {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct EndcapRecord {
-    success: Vec<u64>,
-    failed: Vec<u64>,
+    success: BTreeSet<u64>,
+    failed: BTreeSet<u64>,
 }
 
 impl Default for EndcapRecord {
@@ -125,8 +125,8 @@ impl Default for EndcapRecord {
 impl EndcapRecord {
     fn new() -> Self {
         Self {
-            success: Vec::new(),
-            failed: Vec::new(),
+            success: BTreeSet::new(),
+            failed: BTreeSet::new(),
         }
     }
 
@@ -144,21 +144,17 @@ impl EndcapRecord {
         Ok(())
     }
 
-    fn all_recorded_user_ids(&self) -> HashSet<u64> {
+    fn all_recorded_user_ids(&self) -> BTreeSet<u64> {
         // Only consider successful ones as recorded (failed ones can be retried)
-        self.success.iter().copied().collect()
+        self.success.clone()
     }
 
     fn add_success(&mut self, user_id: u64) {
-        if !self.success.contains(&user_id) {
-            self.success.push(user_id);
-        }
+        self.success.insert(user_id);
     }
 
     fn add_failed(&mut self, user_id: u64) {
-        if !self.failed.contains(&user_id) {
-            self.failed.push(user_id);
-        }
+        self.failed.insert(user_id);
     }
 }
 
@@ -166,7 +162,7 @@ struct Benchmark {
     rpc_provider: RpcProvider,
     rpc_config: psy_config::NetworkConfig<F>,
     record: EndcapRecord,
-    recorded_user_ids: HashSet<u64>,
+    recorded_user_ids: BTreeSet<u64>,
     args: BenchmarkEndCapArgs,
     output_path: PathBuf,
 }
@@ -415,7 +411,7 @@ impl Benchmark {
                     self.record.add_success(user_id);
                     self.recorded_user_ids.insert(user_id);
                     // Remove from failed list if it was previously failed (now succeeded)
-                    self.record.failed.retain(|&id| id != user_id);
+                    self.record.failed.remove(&user_id);
                 }
                 for user_id in failed_ids {
                     // Only add to failed list if not already successful
@@ -535,7 +531,7 @@ impl Benchmark {
                     for user_id in success_ids {
                         self.record.add_success(user_id);
                         self.recorded_user_ids.insert(user_id);
-                        self.record.failed.retain(|&id| id != user_id);
+                        self.record.failed.remove(&user_id);
                     }
                     for user_id in failed_ids {
                         if !self.record.success.contains(&user_id) {

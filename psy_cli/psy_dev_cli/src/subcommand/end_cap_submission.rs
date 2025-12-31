@@ -1,4 +1,7 @@
-use std::path::Path;
+use std::{
+    collections::BTreeSet,
+    path::Path,
+};
 
 use clap::Parser;
 use plonky2::field::goldilocks_field::GoldilocksField;
@@ -19,16 +22,16 @@ const END_CAPS_PER_EDGE: u64 = END_CAPS_PER_REALM / EDGES_PER_REALM;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct SimpleEndcapRecord {
-    success: Vec<u64>,
-    failed: Vec<u64>,
+    success: BTreeSet<u64>,
+    failed: BTreeSet<u64>,
     total_end_caps: u64,
 }
 
 impl SimpleEndcapRecord {
     pub fn new() -> Self {
         Self {
-            success: Vec::new(),
-            failed: Vec::new(),
+            success: BTreeSet::new(),
+            failed: BTreeSet::new(),
             total_end_caps: 0,
         }
     }
@@ -114,18 +117,13 @@ pub async fn run(args: EndCapSubmissionArgs) -> anyhow::Result<()> {
         .await?;
 
     for user_id in success_ids.iter() {
-        if !record.success.contains(user_id) {
-            record.success.push(*user_id);
-        }
-        record.failed.retain(|&id| id != *user_id);
+        record.success.insert(*user_id);
+        record.failed.remove(user_id);
     }
 
-    record.success.sort_unstable();
-    record.success.dedup();
-
     for user_id in failed_ids.iter() {
-        if !record.success.contains(user_id) && !record.failed.contains(user_id) {
-            record.failed.push(*user_id);
+        if !record.success.contains(user_id) {
+            record.failed.insert(*user_id);
         }
     }
 
