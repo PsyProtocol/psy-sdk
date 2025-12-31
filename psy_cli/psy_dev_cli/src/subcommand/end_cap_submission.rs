@@ -112,9 +112,24 @@ pub async fn run(args: EndCapSubmissionArgs) -> anyhow::Result<()> {
         .with_user_id_owned(first_user_id)
         .submit_end_cap_proofs_by_edge_id(endcaps, args.edge_id)
         .await?;
-    record.success.extend(success_ids.iter().map(|id| *id));
-    record.failed.extend(failed_ids.iter().map(|id| *id));
-    record.total_end_caps += success_ids.len() as u64;
+
+    for user_id in success_ids.iter() {
+        if !record.success.contains(user_id) {
+            record.success.push(*user_id);
+        }
+        record.failed.retain(|&id| id != *user_id);
+    }
+
+    record.success.sort_unstable();
+    record.success.dedup();
+
+    for user_id in failed_ids.iter() {
+        if !record.success.contains(user_id) && !record.failed.contains(user_id) {
+            record.failed.push(*user_id);
+        }
+    }
+
+    record.total_end_caps = record.success.len() as u64;
 
     record.save_to_file(&args.record_file)?;
 
