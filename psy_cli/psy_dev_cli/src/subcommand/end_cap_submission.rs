@@ -1,15 +1,9 @@
-use std::{
-    collections::BTreeSet,
-    path::Path,
-};
+use std::{collections::BTreeSet, path::Path};
 
 use clap::Parser;
 use plonky2::field::goldilocks_field::GoldilocksField;
 use psy_config::PsyConfigGoldilocks;
-use psy_rust_sdk::{
-    provider::{QUserRpcProvider, RpcProvider},
-    request::QSubmitEndCapRPCRequest,
-};
+use psy_rust_sdk::{provider::RpcProvider, request::QSubmitEndCapRPCRequest};
 use serde::{Deserialize, Serialize};
 
 type F = GoldilocksField;
@@ -24,7 +18,7 @@ const END_CAPS_PER_EDGE: u64 = END_CAPS_PER_REALM / EDGES_PER_REALM;
 struct SimpleEndcapRecord {
     success: BTreeSet<u64>,
     failed: BTreeSet<u64>,
-    total_end_caps: u64,
+    total_success_end_caps: u64,
 }
 
 impl SimpleEndcapRecord {
@@ -32,7 +26,7 @@ impl SimpleEndcapRecord {
         Self {
             success: BTreeSet::new(),
             failed: BTreeSet::new(),
-            total_end_caps: 0,
+            total_success_end_caps: 0,
         }
     }
 
@@ -50,6 +44,10 @@ impl SimpleEndcapRecord {
         let content = serde_json::to_string_pretty(self)?;
         std::fs::write(file_path, content)?;
         Ok(())
+    }
+
+    pub fn check_status(&self) -> bool {
+        self.success.len() as u64 == self.total_success_end_caps
     }
 }
 
@@ -85,6 +83,10 @@ pub async fn run(args: EndCapSubmissionArgs) -> anyhow::Result<()> {
     tracing::info!("realm config: {}", serde_json::to_string_pretty(&rpc_config.realm_configs)?);
 
     let mut record = SimpleEndcapRecord::load_from_file(&args.record_file)?;
+    if !record.check_status() {
+        tracing::warn!("record file error");
+        record = SimpleEndcapRecord::new();
+    }
 
     let rpc_provider = RpcProvider::new_with_config(&rpc_config)?;
 
@@ -127,7 +129,7 @@ pub async fn run(args: EndCapSubmissionArgs) -> anyhow::Result<()> {
         }
     }
 
-    record.total_end_caps = record.success.len() as u64;
+    record.total_success_end_caps = record.success.len() as u64;
 
     record.save_to_file(&args.record_file)?;
 
