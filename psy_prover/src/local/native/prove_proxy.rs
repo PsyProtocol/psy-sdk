@@ -5,7 +5,6 @@ use jsonrpsee::{
     proc_macros::rpc,
     types::{ErrorObject, ErrorObjectOwned},
 };
-use lazy_static::lazy_static;
 use plonky2::plonk::{
     config::{GenericConfig, PoseidonGoldilocksConfig},
     proof::ProofWithPublicInputs,
@@ -25,7 +24,6 @@ use psy_crypto::{
     signature::{secp256k1, secp256k1::core::PsyCompressedSecp256K1Signature},
 };
 use psy_data::{
-    qblock::cmds::deploy_contract::QBCDeployContract,
     qdata::contract::ContractCodeDefinition,
     qstore::{
         controllers::session_info::SessionCircuitInfoStore,
@@ -40,10 +38,7 @@ use psy_data::{
 };
 use psy_provider::{
     provider::{LocalCommonCircuitsData, NetworkConfig, QCommonCircuitData, RpcProvider},
-    request::{
-        DPNSoftwareDefinedSignatureInput, QDeployContractRPCRequest, QRegisterDPNSoftwareDefinedCircuitRPCRequest,
-        QRegisterPlonky2SoftwareDefinedCircuitRPCRequest,
-    },
+    request::{DPNSoftwareDefinedSignatureInput, QRegisterDPNSoftwareDefinedCircuitRPCRequest, QRegisterPlonky2SoftwareDefinedCircuitRPCRequest},
 };
 use psy_ups_circuit::{
     circuit_manager::core::PsyUPSStepCircuitManager,
@@ -61,14 +56,6 @@ use crate::local::native::DPNFunctionCircuitDefinition;
 type C = PoseidonGoldilocksConfig;
 type F = <C as GenericConfig<D>>::F;
 const D: usize = 2;
-
-lazy_static! {
-    pub static ref CONTRACT0_CODE: ContractCodeDefinition = {
-        let deploy_cmd = serde_json::from_str::<QBCDeployContract<F>>(include_str!("../../../../token.deploy.json"))
-            .expect("Failed to parse deploy.token.json (compile time embedded)");
-        deploy_cmd.code_definition
-    };
-}
 
 #[rpc(server, client, namespace = "psy")]
 pub trait ProveProxyRpc {
@@ -393,11 +380,10 @@ impl ProveProxyServerProvider {
             tracing::info!("contract {} is already registered", contract_id);
             return Ok(());
         }
-        // let contract_code = self
-        //     .rpc_provider
-        //     .resolve_get_contract_code(&QSRCmdGetContractCodeDefinition { contract_id
-        // })     .await?;
-        let contract_code = CONTRACT0_CODE.clone();
+        let contract_code = self
+            .rpc_provider
+            .resolve_get_contract_code(&QSRCmdGetContractCodeDefinition { contract_id })
+            .await?;
         self.circuit_manager
             .register_contract_circuits(contract_id, &contract_code)
             .await
