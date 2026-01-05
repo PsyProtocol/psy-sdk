@@ -59,7 +59,6 @@ use psy_data::{
 use psy_dpn_circuit::circuits::cfc::DapenContractFunctionCircuit;
 pub use psy_provider::session::TxStatus;
 use psy_provider::{
-    gesis_data::USER_ID_MAP,
     provider::{NetworkConfig, ProveProxyRpcProvider, QUserRpcProvider, RpcProvider},
     request::{DPNSoftwareDefinedSignatureInput, QDeployContractRPCRequest, QRegisterUserRPCRequest, QSubmitEndCapRPCRequest},
 };
@@ -284,45 +283,36 @@ impl WalletSession {
         let pk_info = self.wallet.get_or_create_user(private_key, fingerprint).await?;
         let public_key = pk_info.qfhash::<PsyHasher>();
 
-        // let user_id = self
-        //     .st_provider
-        //     .get_user_ids_for_public_key(public_key)
-        //     .await
-        //     .map_err(|e| anyhow::format_err!("User {} not registered. Please register
-        // first: {}", public_key, e))?[0]; let registration_id =
-        // private_key.to_qfelts()[0].to_canonical_u64();
-        let user_id = USER_ID_MAP
-            .get(&public_key)
-            .ok_or_else(|| anyhow::format_err!("User {} not registered. Please register first", public_key))?;
+        let user_id = self
+            .st_provider
+            .get_user_ids_for_public_key(public_key)
+            .await
+            .map_err(|e| anyhow::format_err!("User {} not registered. Please register first: {}", public_key, e))?[0];
         self.update_circuit_mgr(public_key).await?;
-        tracing::info!("user {} with id {} added", public_key.to_string(), *user_id);
+        tracing::info!("user {} with id {} added", public_key.to_string(), user_id);
         Ok(public_key)
     }
 
     pub async fn update_circuit_mgr(&self, public_key: QHashOut<F>) -> anyhow::Result<()> {
-        // let user_id = self
-        //     .st_provider
-        //     .get_user_ids_for_public_key(public_key)
-        //     .await
-        //     .map_err(|e| anyhow::format_err!("User {} not registered. Please register
-        // first: {}", public_key, e))?[0];
-        let user_id = USER_ID_MAP
-            .get(&public_key)
-            .ok_or_else(|| anyhow::format_err!("User {} not registered. Please register first", public_key))?;
+        let user_id = self
+            .st_provider
+            .get_user_ids_for_public_key(public_key)
+            .await
+            .map_err(|e| anyhow::format_err!("User {} not registered. Please register first: {}", public_key, e))?[0];
         if let Some((_, existing_mgr)) = self.user_session_mgrs.remove(&public_key) {
-            let cleaned_mgr = existing_mgr.into_clean_for_user(F::from_canonical_u64(*user_id)).await?;
+            let cleaned_mgr = existing_mgr.into_clean_for_user(F::from_canonical_u64(user_id)).await?;
             self.user_session_mgrs.insert(public_key, cleaned_mgr);
         } else {
-            let rpc_provider = self.st_provider.with_user_id_owned(*user_id);
+            let rpc_provider = self.st_provider.with_user_id_owned(user_id);
             let lps = PsyLocalProvingSessionStore::new_at(
                 rpc_provider,
                 F::ZERO,
-                F::from_canonical_u64(*user_id),
+                F::from_canonical_u64(user_id),
                 F::ZERO,
                 F::ZERO,
                 UPS_SESSION_PROOF_TREE_HEIGHT as usize,
             )
-            .into_clean_for_user(F::from_canonical_u64(*user_id))
+            .into_clean_for_user(F::from_canonical_u64(user_id))
             .await?;
 
             let circuit_mgr = self.wallet.random_circuit_manager();

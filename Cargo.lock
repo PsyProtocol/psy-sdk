@@ -5807,7 +5807,6 @@ dependencies = [
  "jsonrpsee",
  "k256",
  "kvq",
- "lazy_static",
  "maybe-async",
  "parking_lot",
  "plonky2",
