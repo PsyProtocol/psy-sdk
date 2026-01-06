@@ -16,9 +16,12 @@ use psy_common::{data::qhashout::QHashOut, ups::circuits::LocalCircuitType, util
 use psy_common_circuit::{
     circuits::traits::qstandard::QStandardCircuit, treeprover::qrecursion::standard::manager::portable::core::PortableQTreeRecursionManager,
 };
-use psy_config::network_constants::{
-    DEFAULT_CALLER_CONTRACT_ID_U64, DEFERRED_TRANSACTION_TREE_HEIGHT, GUTA_FEE, INLINE_TRANSACTION_TREE_HEIGHT, TOKEN_CONTRACT_ID,
-    TOKEN_SIMPLE_BURN_METHOD_ID, UPS_SESSION_PROOF_TREE_HEIGHT,
+use psy_config::{
+    network_constants::{
+        DEFAULT_CALLER_CONTRACT_ID_U64, DEFERRED_TRANSACTION_TREE_HEIGHT, GUTA_FEE, INLINE_TRANSACTION_TREE_HEIGHT, TOKEN_CONTRACT_ID,
+        TOKEN_SIMPLE_BURN_METHOD_ID, UPS_SESSION_PROOF_TREE_HEIGHT,
+    },
+    DA_FEE,
 };
 use psy_crypto::{
     common::{
@@ -611,12 +614,16 @@ impl<
     pub async fn prove_burn_fee<CM: UPSCircuitManager<C, D> + ?Sized>(&mut self, circuit_mgr: &CM) -> anyhow::Result<()> {
         tracing::info!("Adding burn transaction for GUTA fee: {}", GUTA_FEE);
 
+        let total_da_fee = DA_FEE * self.lps.get_total_slots_modified().to_canonical_u64();
+
+        tracing::info!("Adding burn transaction for DA fee: {}", total_da_fee);
+
         let (burn_fn_id, burn_fn_circuit_def) = self
             .resolve_contract_function(TOKEN_CONTRACT_ID as u64, TOKEN_SIMPLE_BURN_METHOD_ID)
             .await?;
 
         let burn_contract_id = F::from_canonical_u64(TOKEN_CONTRACT_ID as u64);
-        let burn_amount = F::from_canonical_u64(GUTA_FEE);
+        let burn_amount = F::from_canonical_u64(GUTA_FEE + total_da_fee);
         let burn_inputs = vec![burn_amount];
 
         tracing::info!("Executing burn transaction: contract_id={}, amount={}", burn_contract_id, burn_amount);
@@ -934,7 +941,7 @@ impl<
         let core = SubmitUserEndCapNonProofCoreInput {
             checkpoint_id,
             stats: GUTAStats {
-                fees_collected: F::from_canonical_u64(GUTA_FEE),
+                fees_collected: F::from_canonical_u64(GUTA_FEE) + F::from_canonical_u64(DA_FEE * updates.total_slots_modified as u64),
                 user_ops_processed: F::from_noncanonical_u64(1),
                 total_transactions: self.current_ups_header.current_state.tx_count,
                 slots_modified: F::from_canonical_u32(updates.total_slots_modified),

@@ -5,9 +5,9 @@ use plonky2::{
     plonk::{circuit_builder::CircuitBuilder, config::AlgebraicHasher},
 };
 use psy_common_circuit::builder::{comparison::CircuitBuilderComparison, core::CircuitBuilderHelpersCore, hash::core::CircuitBuilderHashCore};
-use psy_config::network_constants::{
+use psy_config::{DA_FEE, network_constants::{
     CHECKPOINT_TREE_HEIGHT, DEFAULT_CALLER_CONTRACT_ID_U64, GUTA_FEE, TOKEN_CONTRACT_ID, TOKEN_SIMPLE_BURN_METHOD_ID,
-};
+}};
 
 use super::{ups_end_cap_result::UPSEndCapResultCompactGadget, ups_signature_data::PsyUserProvingSessionSignatureDataCompactGadget};
 use crate::{
@@ -216,7 +216,10 @@ impl UPSEndCapCoreGadget {
 
         let burn_contract_id = builder.constant_u64(TOKEN_CONTRACT_ID as u64);
         let burn_method_id = builder.constant_u64(TOKEN_SIMPLE_BURN_METHOD_ID as u64);
-        let burn_amount = builder.constant_u64(GUTA_FEE);
+        let guta_fee = builder.constant_u64(GUTA_FEE);
+        let da_fee_per_slot = builder.constant_u64(DA_FEE);
+        let da_fee = builder.mul(da_fee_per_slot, slots_modified);
+        let burn_amount = builder.add(guta_fee, da_fee);
 
         let expected_burn_transaction = DPNProvingSessionSimpleMethodCallGadget {
             caller_contract_id: builder.constant_u64(DEFAULT_CALLER_CONTRACT_ID_U64),

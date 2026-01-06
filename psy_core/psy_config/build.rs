@@ -88,6 +88,7 @@ fn main() {
     let register_user_fee = fees["register_user_fee"].as_u64().expect("register_user_fee must be a number");
     let deploy_contract_fee = fees["deploy_contract_fee"].as_u64().expect("deploy_contract_fee must be a number");
     let guta_fee = fees["guta_fee"].as_u64().expect("guta_fee must be a number");
+    let da_fee = fees["da_fee"].as_u64().expect("da_fee must be a number");
 
     let coordinator_rpc_url = network_config["coordinator_configs"][0]["rpc_url"]
         .as_array()
@@ -136,6 +137,7 @@ pub const NATIVE_CURRENCY_NAME: &str = "{}";
 pub const REGISTER_USER_FEE: u64 = {};
 pub const DEPLOY_CONTRACT_FEE: u64 = {};
 pub const GUTA_FEE: u64 = {};
+pub const DA_FEE: u64 = {};
 pub const CURRENT_NETWORK: &str = "{}";
 pub const COORDINATOR_RPC_URL: &str = "{}";
 pub const REALM_RPC_URLS: &[&str] = &{:?};
@@ -154,6 +156,7 @@ pub const REALM_RPC_URLS: &[&str] = &{:?};
         register_user_fee,
         deploy_contract_fee,
         guta_fee,
+        da_fee,
         network,
         coordinator_rpc_url,
         realm_rpc_urls,

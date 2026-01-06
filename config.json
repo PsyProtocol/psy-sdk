@@ -164,7 +164,8 @@
             "fees": {
                 "register_user_fee": 0,
                 "deploy_contract_fee": 0,
-                "guta_fee": 5000000000
+                "guta_fee": 5000000000,
+                "da_fee": 1000
             },
             "genesis": {
                 "precompiles": [
@@ -293,7 +294,8 @@
             "fees": {
                 "register_user_fee": 1000,
                 "deploy_contract_fee": 5000,
-                "guta_fee": 5000000000
+                "guta_fee": 5000000000,
+                "da_fee": 1000
             }
         },
         "mainnet": {
@@ -330,7 +332,8 @@
             "fees": {
                 "register_user_fee": 10000,
                 "deploy_contract_fee": 50000,
-                "guta_fee": 5000000000
+                "guta_fee": 5000000000,
+                "da_fee": 10000
             }
         }
     },

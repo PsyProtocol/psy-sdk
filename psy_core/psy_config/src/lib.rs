@@ -86,6 +86,7 @@ pub struct FeeConfig {
     pub register_user_fee: u64,
     pub deploy_contract_fee: u64,
     pub guta_fee: u64,
+    pub da_fee: u64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -683,6 +684,7 @@ impl Constants {
     pub const REGISTER_USER_FEE: u64 = REGISTER_USER_FEE;
     pub const DEPLOY_CONTRACT_FEE: u64 = DEPLOY_CONTRACT_FEE;
     pub const GUTA_FEE: u64 = GUTA_FEE;
+    pub const DA_FEE: u64 = DA_FEE;
     pub const CURRENT_NETWORK: &'static str = CURRENT_NETWORK;
     pub const COORDINATOR_RPC_URL: &'static str = COORDINATOR_RPC_URL;
     pub const REALM_RPC_URLS: &'static [&'static str] = REALM_RPC_URLS;
