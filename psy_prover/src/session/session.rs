@@ -22,7 +22,7 @@ use psy_common::{
 };
 use psy_common_circuit::circuits::traits::qstandard::QStandardCircuit;
 use psy_config::{
-    network_constants::{MAX_CONTRACT_STATE_TREE_HEIGHT, TOKEN_CONTRACT_ID, UPS_SESSION_PROOF_TREE_HEIGHT},
+    network_constants::{CONTRACT_FUNCTION_TREE_HEIGHT, MAX_CONTRACT_STATE_TREE_HEIGHT, TOKEN_CONTRACT_ID, UPS_SESSION_PROOF_TREE_HEIGHT},
     MINING_REWARDS_CONTRACT_ID, PSY_NETWORK_MAGIC,
 };
 use psy_crypto::{
@@ -36,7 +36,7 @@ use psy_crypto::{
 use psy_data::{
     config::store_config::{PsyHash, PsyHasher},
     guta::end_cap_input::SubmitUserEndCapNonProofInput,
-    qblock::cmds::deploy_contract::{QBCDeployContract, QContractABI},
+    qblock::cmds::deploy_contract::{get_code_root_by_code_hashes, QBCDeployContract, QContractABI},
     qdata::{checkpoint::PsyBlockState, contract::ContractCodeDefinition, user::PsyUserLeaf, user_contract_state::UserContractState},
     qstore::{
         controllers::{
@@ -111,10 +111,11 @@ pub fn gen_contract_deploy_and_circuits_for_functions<C: GenericConfig<D>, const
     defs: &[DPNFunctionCircuitDefinition],
 ) -> anyhow::Result<(Vec<DapenContractFunctionCircuit<C, D>>, QBCDeployContract<C::F>)>
 where
-    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>>,
+    C::Hasher: AlgebraicHasher<C::F> + MerkleZeroHasher<HashOut<C::F>> + MerkleZeroHasherWithMarkedLeaf<QHashOut<C::F>>,
 {
     let code_defs = defs.iter().map(|x| dapen_fc_to_cfc_code_definition(x)).collect::<Vec<_>>();
-    let mut whitelist_leaves = Vec::with_capacity(defs.len() * 4);
+    let mut whitelist_leaves = Vec::with_capacity(defs.len() * 2);
+    let mut code_hashes = Vec::with_capacity(defs.len());
     let circuits = defs
         .iter()
         .map(|x| {
@@ -124,8 +125,7 @@ where
             let inputs_outputs_combo = ((x.circuit_outputs.len() as u64) << 32u64) | (x.circuit_inputs.len() as u64);
             whitelist_leaves.push(QHashOut::from_values(x.method_id as u64, inputs_outputs_combo, 0, 0));
             let code_hash = hash_dpn_function::<C::F>(x);
-            whitelist_leaves.push(code_hash);
-            whitelist_leaves.push(QHashOut::from_values(0, 0, 0, 0));
+            code_hashes.push(code_hash);
             c
         })
         .collect::<Vec<_>>();
@@ -137,6 +137,7 @@ where
             functions: code_defs,
         },
         function_whitelist: whitelist_leaves,
+        code_root: get_code_root_by_code_hashes::<C::F, C::Hasher>(&code_hashes, CONTRACT_FUNCTION_TREE_HEIGHT - 1),
     };
 
     Ok((circuits, deploy))

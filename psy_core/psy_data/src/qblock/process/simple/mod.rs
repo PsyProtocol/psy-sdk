@@ -91,6 +91,7 @@ impl SimpleBlockProcessor {
                 deployer: d.deployer,
                 function_tree_root,
                 state_tree_height: PsyFelt::from_canonical_u16(d.code_definition.state_tree_height),
+                code_root: d.code_root,
             };
             let contract_leaf_hash = contract_leaf.qfhash::<PsyHasher>();
             store.set_contract_leaf_data(new_checkpoint_id, contract_id, &contract_leaf)?;
@@ -200,9 +201,8 @@ impl SimpleBlockProcessor {
         deploy_contracts: Vec<QBCDeployContract<PsyFelt>>,
         store: S,
     ) -> anyhow::Result<S> {
-        let fake_code_hash = QHashOut::rand();
-        let whitelist_items_fake = vec![QHashOut::rand(), QHashOut::rand(), fake_code_hash, QHashOut::from_values(0, 0, 0, 0)];
-        let fake_code_hash_2 = QHashOut::rand();
+        let whitelist_items_fake = vec![QHashOut::rand(), QHashOut::rand()];
+        let whitelist_items_fake2 = vec![QHashOut::rand(), QHashOut::rand()];
 
         // Initialize store with genesis state if not already initialized
         let dummy_fingerprints = PsyWorkerToolboxCoreCircuitFingerprints::default();
@@ -224,6 +224,7 @@ impl SimpleBlockProcessor {
                     functions: vec![ContractFunctionCodeDefinition::default()],
                 },
                 function_whitelist: whitelist_items_fake.clone(),
+                code_root: QHashOut::rand(),
             },
             QBCDeployContract {
                 deployer: QBCRegisterUser::new_from_u64s([1; 4], [13375, 13376, 13377, 13378]).get_public_key::<PsyHasher>(),
@@ -231,7 +232,8 @@ impl SimpleBlockProcessor {
                     state_tree_height: 13 as u16,
                     functions: vec![ContractFunctionCodeDefinition::default()],
                 },
-                function_whitelist: vec![QHashOut::rand(), QHashOut::rand(), fake_code_hash_2, QHashOut::from_values(0, 0, 0, 0)],
+                function_whitelist: whitelist_items_fake2.clone(),
+                code_root: QHashOut::rand(),
             },
         ];
         all_contracts.extend(deploy_contracts);

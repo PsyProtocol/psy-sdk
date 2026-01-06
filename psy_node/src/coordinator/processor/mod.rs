@@ -450,6 +450,7 @@ impl
                     deployer: deploy_cmd.deployer,
                     function_tree_root,
                     state_tree_height: F::from_canonical_u32(deploy_cmd.code_definition.state_tree_height as u32),
+                    code_root: deploy_cmd.code_root,
                 };
 
                 store.set_contract_leaf_data_imm(0, contract_id, &contract_leaf).await?;

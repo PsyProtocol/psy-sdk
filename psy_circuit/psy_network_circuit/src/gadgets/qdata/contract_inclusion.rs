@@ -111,7 +111,7 @@ impl PsyContractFunctionInclusionProofGadget {
         // least significant bits are 0) this is because each function takes up
         // four leaves (fingerprint, metadata, code hash, reserved)
         builder.assert_zero(cf_merkle_proof_index_bits[0].target);
-        builder.assert_zero(cf_merkle_proof_index_bits[1].target);
+        // builder.assert_zero(cf_merkle_proof_index_bits[1].target);
 
         // ensure the function_tree_root in the contract leaf matches our function tree
         // merkle proof's root

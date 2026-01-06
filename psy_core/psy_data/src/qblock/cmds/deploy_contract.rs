@@ -21,19 +21,32 @@ pub struct QBCDeployContract<F: RichField> {
     pub deployer: QHashOut<F>,
     pub code_definition: ContractCodeDefinition,
     pub function_whitelist: Vec<QHashOut<F>>,
+    pub code_root: QHashOut<F>,
 }
 
 impl<F: RichField> QBCDeployContract<F> {
-    pub fn new(deployer: QHashOut<F>, code_definition: ContractCodeDefinition, function_whitelist: Vec<QHashOut<F>>) -> Self {
+    pub fn new(deployer: QHashOut<F>, code_definition: ContractCodeDefinition, function_whitelist: Vec<QHashOut<F>>, code_root: QHashOut<F>) -> Self {
         Self {
             deployer,
             code_definition,
             function_whitelist,
+            code_root,
         }
     }
     pub fn into_with_whitelist_root<H: MerkleZeroHasherWithMarkedLeaf<QHashOut<F>>>(self) -> anyhow::Result<QBCDeployContractWithRoot<F>> {
-        QBCDeployContractWithRoot::<F>::new::<H>(self.deployer, self.code_definition, self.function_whitelist)
+        QBCDeployContractWithRoot::<F>::new::<H>(self.deployer, self.code_definition, self.function_whitelist, self.code_root)
     }
+}
+
+pub fn get_code_root_by_code_hashes<F: RichField, Hasher: MerkleZeroHasherWithMarkedLeaf<QHashOut<F>>>(
+    code_hashes: &[QHashOut<F>],
+    function_code_tree_height: u8,
+) -> QHashOut<F> {
+    let mut t = SimpleMerkleTree::<Hasher, QHashOut<F>>::new(function_code_tree_height);
+    for (i, l) in code_hashes.iter().enumerate() {
+        t.set_leaf(i as u64, *l);
+    }
+    t.get_root()
 }
 
 impl<F: RichField> KVQSerializable for QBCDeployContract<F> {
@@ -53,6 +66,7 @@ pub struct QBCDeployContractWithRoot<F: RichField> {
     pub code_definition: ContractCodeDefinition,
     pub function_whitelist: Vec<QHashOut<F>>,
     pub function_whitelist_root: QHashOut<F>,
+    pub code_root: QHashOut<F>,
 }
 
 impl<F: RichField> QBCDeployContractWithRoot<F> {
@@ -60,16 +74,17 @@ impl<F: RichField> QBCDeployContractWithRoot<F> {
         deployer: QHashOut<F>,
         code_definition: ContractCodeDefinition,
         function_whitelist: Vec<QHashOut<F>>,
+        code_root: QHashOut<F>,
     ) -> anyhow::Result<Self> {
         ensure!(
-            function_whitelist.len() == code_definition.functions.len() * 4,
-            "function_whitelist must contain four entries per function"
+            function_whitelist.len() == code_definition.functions.len() * 2,
+            "function_whitelist must contain two entries per function"
         );
-        let zero = QHashOut::from_values(0, 0, 0, 0);
-        for i in 0..code_definition.functions.len() {
-            let base = i * 4;
-            ensure!(function_whitelist[base + 3] == zero, "function whitelist placeholder must be zero");
-        }
+        // let zero = QHashOut::from_values(0, 0, 0, 0);
+        // for i in 0..code_definition.functions.len() {
+        //     let base = i * 2;
+        //     ensure!(function_whitelist[base + 1] == zero, "function whitelist placeholder must be zero");
+        // }
         let mut whitelist_tree = SimpleMerkleTree::<H, QHashOut<F>>::new(CONTRACT_FUNCTION_TREE_HEIGHT);
         for (i, leaf) in function_whitelist.iter().enumerate() {
             whitelist_tree.set_leaf(i as u64, *leaf);
@@ -81,6 +96,7 @@ impl<F: RichField> QBCDeployContractWithRoot<F> {
             code_definition,
             function_whitelist,
             function_whitelist_root,
+            code_root,
         })
     }
 }

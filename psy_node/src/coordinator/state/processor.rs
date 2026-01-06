@@ -246,6 +246,7 @@ impl<
                 deployer: x.payload.deployer,
                 function_tree_root: x.payload.function_whitelist_root,
                 state_tree_height: F::from_canonical_u16(x.payload.code_definition.state_tree_height),
+                code_root: x.payload.code_root,
             })
             .collect::<Vec<_>>();
 
