@@ -941,7 +941,8 @@ impl<
         let core = SubmitUserEndCapNonProofCoreInput {
             checkpoint_id,
             stats: GUTAStats {
-                fees_collected: F::from_canonical_u64(GUTA_FEE) + F::from_canonical_u64(DA_FEE * updates.total_slots_modified as u64),
+                guta_fees_collected: F::from_canonical_u64(GUTA_FEE),
+                da_fees_collected: F::from_canonical_u64(DA_FEE * updates.total_slots_modified as u64),
                 user_ops_processed: F::from_noncanonical_u64(1),
                 total_transactions: self.current_ups_header.current_state.tx_count,
                 slots_modified: F::from_canonical_u32(updates.total_slots_modified),

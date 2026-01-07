@@ -89,7 +89,8 @@ impl PsyPart1StateDeltaResultGadget {
         let zero = builder.zero();
 
         let new_stats = PsyCheckpointLeafStatsGadget {
-            fees_collected: part_1_header.global_user_tree_delta.stats.fees_collected,
+            guta_fees_collected: part_1_header.global_user_tree_delta.stats.guta_fees_collected,
+            da_fees_collected: part_1_header.global_user_tree_delta.stats.da_fees_collected,
             user_ops_processed: part_1_header.global_user_tree_delta.stats.user_ops_processed,
             total_transactions: part_1_header.global_user_tree_delta.stats.total_transactions,
             slots_modified: part_1_header.global_user_tree_delta.stats.slots_modified,

@@ -15,7 +15,8 @@ use super::{
 
 #[derive(Clone, Debug, PartialEq, Eq, Copy)]
 pub struct PsyCheckpointLeafStatsGadget {
-    pub fees_collected: Target,
+    pub guta_fees_collected: Target,
+    pub da_fees_collected: Target,
 
     pub user_ops_processed: Target,
     pub total_transactions: Target,
@@ -34,7 +35,8 @@ pub struct PsyCheckpointLeafStatsGadget {
 
 impl PsyCheckpointLeafStatsGadget {
     pub fn set_witness<F: RichField>(&self, witness: &mut impl Witness<F>, target: &PsyCheckpointLeafStats<F>) -> anyhow::Result<()> {
-        witness.set_target(self.fees_collected, target.fees_collected)?;
+        witness.set_target(self.guta_fees_collected, target.guta_fees_collected)?;
+        witness.set_target(self.da_fees_collected, target.da_fees_collected)?;
 
         witness.set_target(self.user_ops_processed, target.user_ops_processed)?;
         witness.set_target(self.total_transactions, target.total_transactions)?;
@@ -64,7 +66,8 @@ impl AlgebraicHashableTarget for PsyCheckpointLeafStatsGadget {
 }
 impl CreatableTarget for PsyCheckpointLeafStatsGadget {
     fn create_virtual<F: RichField + Extendable<D>, const D: usize>(builder: &mut CircuitBuilder<F, D>) -> Self {
-        let fees_collected = builder.add_virtual_target();
+        let guta_fees_collected = builder.add_virtual_target();
+        let da_fees_collected = builder.add_virtual_target();
         let user_ops_processed = builder.add_virtual_target();
         let total_transactions = builder.add_virtual_target();
         let slots_modified = builder.add_virtual_target();
@@ -76,7 +79,8 @@ impl CreatableTarget for PsyCheckpointLeafStatsGadget {
         let da_challenges_claimed = builder.add_virtual_target_arr::<DA_CHALLENGE_WINDOW>();
 
         Self {
-            fees_collected,
+            guta_fees_collected,
+            da_fees_collected,
             user_ops_processed,
             total_transactions,
             slots_modified,
@@ -90,7 +94,7 @@ impl CreatableTarget for PsyCheckpointLeafStatsGadget {
 }
 impl ToTargets for PsyCheckpointLeafStatsGadget {
     fn to_targets(&self) -> Vec<Target> {
-        let mut result = vec![self.fees_collected, self.user_ops_processed, self.total_transactions, self.slots_modified];
+        let mut result = vec![self.guta_fees_collected, self.da_fees_collected, self.user_ops_processed, self.total_transactions, self.slots_modified];
         result.extend_from_slice(&self.pm_jobs_completed.to_targets());
         result.extend_from_slice(&[
             self.block_time,
@@ -106,7 +110,7 @@ impl ToTargets for PsyCheckpointLeafStatsGadget {
 }
 impl FromTargets for PsyCheckpointLeafStatsGadget {
     fn from_targets(targets: &[Target]) -> Self {
-        let expected_len = 4 + PM_JOBS_COMPLETED_STATS_TARGET_SIZE + 5 + PM_REWARD_COMMITMENT_TARGET_SIZE + DA_CHALLENGE_WINDOW;
+        let expected_len = 5 + PM_JOBS_COMPLETED_STATS_TARGET_SIZE + 5 + PM_REWARD_COMMITMENT_TARGET_SIZE + DA_CHALLENGE_WINDOW;
         if targets.len() != expected_len {
             panic!(
                 "Invalid number of elements for PsyCheckpointLeafStatsGadget, expected {} got {}",
@@ -116,7 +120,9 @@ impl FromTargets for PsyCheckpointLeafStatsGadget {
         }
 
         let mut offset = 0;
-        let fees_collected = targets[offset];
+        let guta_fees_collected = targets[offset];
+        offset += 1;
+        let da_fees_collected = targets[offset];
         offset += 1;
         let user_ops_processed = targets[offset];
         offset += 1;
@@ -141,7 +147,8 @@ impl FromTargets for PsyCheckpointLeafStatsGadget {
         let da_challenges_claimed = targets[offset..].try_into().unwrap();
 
         PsyCheckpointLeafStatsGadget {
-            fees_collected,
+            guta_fees_collected,
+            da_fees_collected,
             user_ops_processed,
             total_transactions,
             slots_modified,

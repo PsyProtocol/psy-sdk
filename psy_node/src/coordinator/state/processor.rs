@@ -578,7 +578,8 @@ impl<
                     node_level: F::ZERO,
                 },
                 stats: GUTAStats {
-                    fees_collected: F::ZERO,
+                    guta_fees_collected: F::ZERO,
+                    da_fees_collected: F::ZERO,
                     user_ops_processed: F::ZERO,
                     total_transactions: F::ZERO,
                     slots_modified: F::ZERO,

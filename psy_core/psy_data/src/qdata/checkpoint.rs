@@ -19,7 +19,8 @@ use crate::{config::store_config::PsyFelt, qsync::coordinator::PsyCheckpointSync
 #[ts(export, concrete(F = GoldilocksField))]
 #[serde(bound = "for<'de2> F: Deserialize<'de2>")]
 pub struct PsyCheckpointLeafStats<F: RichField> {
-    pub fees_collected: F,
+    pub guta_fees_collected: F,
+    pub da_fees_collected: F,
 
     pub user_ops_processed: F,
     pub total_transactions: F,
@@ -39,7 +40,8 @@ pub struct PsyCheckpointLeafStats<F: RichField> {
 impl<F: RichField> PsyCheckpointLeafStats<F> {
     pub fn new_empty() -> Self {
         Self {
-            fees_collected: F::ZERO,
+            guta_fees_collected: F::ZERO,
+            da_fees_collected: F::ZERO,
             user_ops_processed: F::ZERO,
             total_transactions: F::ZERO,
             slots_modified: F::ZERO,
@@ -52,7 +54,8 @@ impl<F: RichField> PsyCheckpointLeafStats<F> {
     }
     pub fn get_genesis_value() -> Self {
         Self {
-            fees_collected: F::ZERO,
+            guta_fees_collected: F::ZERO,
+            da_fees_collected: F::ZERO,
             user_ops_processed: F::ZERO,
             total_transactions: F::ZERO,
             slots_modified: F::ZERO,
@@ -66,7 +69,13 @@ impl<F: RichField> PsyCheckpointLeafStats<F> {
 }
 impl<F: RichField> ToQFelts<F> for PsyCheckpointLeafStats<F> {
     fn to_qfelts(&self) -> Vec<F> {
-        let mut result = vec![self.fees_collected, self.user_ops_processed, self.total_transactions, self.slots_modified];
+        let mut result = vec![
+            self.guta_fees_collected,
+            self.da_fees_collected,
+            self.user_ops_processed,
+            self.total_transactions,
+            self.slots_modified,
+        ];
         result.extend_from_slice(&self.pm_jobs_completed.to_qfelts());
         result.extend_from_slice(&[
             self.block_time,
@@ -89,21 +98,26 @@ impl<F: RichField> ToQFelts<F> for PsyCheckpointLeafStats<F> {
             );
         }
 
-        let pm_jobs_completed = PMJobsCompletedStats::from_qfelts(&felts[4..7]);
-        let pm_rewards_commitment = PMRewardCommitment::from_qfelts(&felts[12..24]);
+        let pm_jobs_start = 5;
+        let pm_jobs_end = pm_jobs_start + PMJobsCompletedStats::<F>::q_felt_size();
+        let block_time_index = pm_jobs_end;
+        let random_seed_start = block_time_index + 1;
+        let random_seed_end = random_seed_start + 4;
+        let pm_rewards_start = random_seed_end;
+        let pm_rewards_end = pm_rewards_start + PMRewardCommitment::<F>::q_felt_size();
+        let da_challenges_start = pm_rewards_end;
 
-        PsyCheckpointLeafStats {
-            fees_collected: felts[0],
-            user_ops_processed: felts[1],
-            total_transactions: felts[2],
-            slots_modified: felts[3],
-            pm_jobs_completed,
-            block_time: felts[7],
-            random_seed: QHashOut(HashOut {
-                elements: [felts[8], felts[9], felts[10], felts[11]],
-            }),
-            pm_rewards_commitment,
-            da_challenges_claimed: felts[24..].try_into().unwrap(),
+        Self {
+            guta_fees_collected: felts[0],
+            da_fees_collected: felts[1],
+            user_ops_processed: felts[2],
+            total_transactions: felts[3],
+            slots_modified: felts[4],
+            pm_jobs_completed: PMJobsCompletedStats::from_qfelts(&felts[pm_jobs_start..pm_jobs_end]),
+            block_time: felts[block_time_index],
+            random_seed: QHashOut::from_felt_slice(&felts[random_seed_start..random_seed_end]),
+            pm_rewards_commitment: PMRewardCommitment::from_qfelts(&felts[pm_rewards_start..pm_rewards_end]),
+            da_challenges_claimed: felts[da_challenges_start..].try_into().unwrap(),
         }
     }
 }
@@ -119,7 +133,7 @@ impl<F: RichField> KVQSerializable for PsyCheckpointLeafStats<F> {
 
 impl<F: RichField> QFeltSized for PsyCheckpointLeafStats<F> {
     fn q_felt_size() -> usize {
-        4 + PMJobsCompletedStats::<F>::q_felt_size() + 5 + PMRewardCommitment::<F>::q_felt_size() + DA_CHALLENGE_WINDOW
+        5 + PMJobsCompletedStats::<F>::q_felt_size() + 5 + PMRewardCommitment::<F>::q_felt_size() + DA_CHALLENGE_WINDOW
     }
 }
 impl<F: RichField> QFieldHashable<F> for PsyCheckpointLeafStats<F> {

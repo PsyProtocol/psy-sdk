@@ -390,7 +390,7 @@ impl ApiClient {
                     let stats = &leaf.checkpoint_leaf.stats;
                     CheckpointLeafStat {
                         checkpoint_id: leaf.checkpoint_id as i64,
-                        fees_collected: stats.fees_collected.to_canonical_u64() as i64,
+                        fees_collected: stats.guta_fees_collected.to_canonical_u64() as i64,
                         user_ops_processed: stats.user_ops_processed.to_canonical_u64() as i64,
                         total_transactions: stats.total_transactions.to_canonical_u64() as i64,
                         slots_modified: stats.slots_modified.to_canonical_u64() as i64,

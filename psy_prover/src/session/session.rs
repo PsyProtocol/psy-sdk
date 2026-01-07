@@ -706,7 +706,7 @@ impl WalletSession {
             let proofs = checkpoint_jobs.get(&checkpoint_id).unwrap();
 
             let checkpoint_leaf = self.st_provider.get_checkpoint_leaf_data(checkpoint_id).await?;
-            let fees_collected = checkpoint_leaf.stats.fees_collected.to_canonical_u64();
+            let fees_collected = checkpoint_leaf.stats.guta_fees_collected.to_canonical_u64();
             let gutas_completed = checkpoint_leaf.stats.pm_jobs_completed.gutas_completed.to_canonical_u64();
 
             let proposed_reward = if gutas_completed > 0 { fees_collected / gutas_completed } else { 0u64 };

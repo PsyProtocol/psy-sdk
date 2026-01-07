@@ -69,7 +69,8 @@ impl<F: RichField> QCPsyCheckpointStateTransitionInputPartial<F> {
         PsyCheckpointLeaf {
             global_chain_root: new_state_roots.qfhash::<H>(),
             stats: PsyCheckpointLeafStats {
-                fees_collected: self.part_1_header.guta_proof_header.stats.fees_collected,
+                guta_fees_collected: self.part_1_header.guta_proof_header.stats.guta_fees_collected,
+                da_fees_collected: self.part_1_header.guta_proof_header.stats.da_fees_collected,
                 user_ops_processed: self.part_1_header.guta_proof_header.stats.user_ops_processed,
                 total_transactions: self.part_1_header.guta_proof_header.stats.total_transactions,
                 slots_modified: self.part_1_header.guta_proof_header.stats.slots_modified,

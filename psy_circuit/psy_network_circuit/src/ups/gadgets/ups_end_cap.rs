@@ -247,7 +247,8 @@ impl UPSEndCapCoreGadget {
         builder.connect_hashes(reconstructed_current_stack, current_tx_stack);
 
         let guta_stats = GUTAStatsGadget {
-            fees_collected: burn_amount,
+            guta_fees_collected: guta_fee,
+            da_fees_collected: da_fee,
             user_ops_processed: one_target,
             total_transactions: tx_count,
             slots_modified: slots_modified,

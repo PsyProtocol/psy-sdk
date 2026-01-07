@@ -1293,7 +1293,8 @@ impl StateReaderGadget {
 
                     let mut result = Vec::new();
 
-                    result.push(requested_checkpoint_stats.fees_collected);
+                    result.push(requested_checkpoint_stats.guta_fees_collected);
+                    result.push(requested_checkpoint_stats.da_fees_collected);
                     result.push(requested_checkpoint_stats.user_ops_processed);
                     result.push(requested_checkpoint_stats.total_transactions);
                     result.push(requested_checkpoint_stats.slots_modified);
