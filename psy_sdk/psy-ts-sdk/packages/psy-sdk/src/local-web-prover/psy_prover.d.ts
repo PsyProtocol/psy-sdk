@@ -1,7 +1,6 @@
 /* tslint:disable */
 /* eslint-disable */
-export function main(): void;
-export function init_logging(): void;
+
 export class WasmConstants {
   private constructor();
   free(): void;
@@ -26,6 +25,7 @@ export class WasmConstants {
   static readonly coordinator_rpc_url: string;
   static readonly realm_rpc_urls: string[];
 }
+
 export class WasmPsyConfig {
   free(): void;
   [Symbol.dispose](): void;
@@ -40,9 +40,7 @@ export class WasmPsyConfig {
   listNetworks(): string[];
   currentNetworkName(): string;
 }
-/**
- * WASM Builder for flexible configuration in browser/JS environments
- */
+
 export class WasmPsyConfigBuilder {
   free(): void;
   [Symbol.dispose](): void;
@@ -60,6 +58,7 @@ export class WasmPsyConfigBuilder {
    */
   build(): WasmPsyConfig;
 }
+
 export class WasmRpcServer {
   free(): void;
   [Symbol.dispose](): void;
@@ -75,16 +74,19 @@ export class WasmRpcServer {
   add_user(private_key_str: string, sign_type: string): Promise<string>;
   get_zk_public_key_json(private_key_str: string): Promise<string>;
   get_random_keypair_json(): Promise<string>;
-  deploy_contract_json(deployer: string, circuit_defs_json: string, abi_json: string): Promise<string>;
+  deploy_contract_json(deployer: string, circuit_defs_json: string): Promise<string>;
   get_deploy_contract_cmd_json(deployer: string, circuit_defs_json: string): string;
   ping(message: string): string;
   get_result(id_str: string): Uint8Array;
 }
 
+export function init_logging(): void;
+
+export function main(): void;
+
 export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembly.Module;
 
 export interface InitOutput {
-  readonly memory: WebAssembly.Memory;
   readonly main: () => void;
   readonly init_logging: () => void;
   readonly __wbg_wasmpsyconfig_free: (a: number, b: number) => void;
@@ -128,17 +130,18 @@ export interface InitOutput {
   readonly wasmrpcserver_add_user: (a: number, b: number, c: number, d: number, e: number) => any;
   readonly wasmrpcserver_get_zk_public_key_json: (a: number, b: number, c: number) => any;
   readonly wasmrpcserver_get_random_keypair_json: (a: number) => any;
-  readonly wasmrpcserver_deploy_contract_json: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => any;
+  readonly wasmrpcserver_deploy_contract_json: (a: number, b: number, c: number, d: number, e: number) => any;
   readonly wasmrpcserver_get_deploy_contract_cmd_json: (a: number, b: number, c: number, d: number, e: number) => [number, number, number, number];
   readonly wasmrpcserver_ping: (a: number, b: number, c: number) => [number, number, number, number];
   readonly wasmrpcserver_get_result: (a: number, b: number, c: number) => [number, number, number, number];
   readonly wasmpsyconfigbuilder_new: () => number;
   readonly wasmconstants_register_user_fee: () => bigint;
-  readonly wasm_bindgen__convert__closures_____invoke__h30236518c88577af: (a: number, b: number) => void;
-  readonly wasm_bindgen__closure__destroy__h979624f97ac5b7c0: (a: number, b: number) => void;
-  readonly wasm_bindgen__convert__closures_____invoke__hc345c402c63d97b0: (a: number, b: number, c: any) => void;
-  readonly wasm_bindgen__closure__destroy__h20d5455138ea9235: (a: number, b: number) => void;
-  readonly wasm_bindgen__convert__closures_____invoke__hd7e7aa7eb37f872a: (a: number, b: number, c: any, d: any) => void;
+  readonly wasm_bindgen__convert__closures_____invoke__h9adef32405569d93: (a: number, b: number) => void;
+  readonly wasm_bindgen__closure__destroy__h1c0ba36b9ad9b94b: (a: number, b: number) => void;
+  readonly wasm_bindgen__convert__closures_____invoke__h2c2f1a4471ab6362: (a: number, b: number, c: any) => void;
+  readonly wasm_bindgen__closure__destroy__h2db72ff56bc85308: (a: number, b: number) => void;
+  readonly wasm_bindgen__convert__closures_____invoke__h01611f6b72c1e5a8: (a: number, b: number, c: any, d: any) => void;
+  readonly memory: WebAssembly.Memory;
   readonly __wbindgen_malloc: (a: number, b: number) => number;
   readonly __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;
   readonly __wbindgen_exn_store: (a: number) => void;
@@ -147,26 +150,30 @@ export interface InitOutput {
   readonly __wbindgen_free: (a: number, b: number, c: number) => void;
   readonly __externref_table_dealloc: (a: number) => void;
   readonly __externref_drop_slice: (a: number, b: number) => void;
-  readonly __wbindgen_start: () => void;
+  readonly __wbindgen_thread_destroy: (a?: number, b?: number, c?: number) => void;
+  readonly __wbindgen_start: (a: number) => void;
 }
 
 export type SyncInitInput = BufferSource | WebAssembly.Module;
+
 /**
 * Instantiates the given `module`, which can either be bytes or
 * a precompiled `WebAssembly.Module`.
 *
-* @param {{ module: SyncInitInput }} module - Passing `SyncInitInput` directly is deprecated.
+* @param {{ module: SyncInitInput, memory?: WebAssembly.Memory, thread_stack_size?: number }} module - Passing `SyncInitInput` directly is deprecated.
+* @param {WebAssembly.Memory} memory - Deprecated.
 *
 * @returns {InitOutput}
 */
-export function initSync(module: { module: SyncInitInput } | SyncInitInput): InitOutput;
+export function initSync(module: { module: SyncInitInput, memory?: WebAssembly.Memory, thread_stack_size?: number } | SyncInitInput, memory?: WebAssembly.Memory): InitOutput;
 
 /**
 * If `module_or_path` is {RequestInfo} or {URL}, makes a request and
 * for everything else, calls `WebAssembly.instantiate` directly.
 *
-* @param {{ module_or_path: InitInput | Promise<InitInput> }} module_or_path - Passing `InitInput` directly is deprecated.
+* @param {{ module_or_path: InitInput | Promise<InitInput>, memory?: WebAssembly.Memory, thread_stack_size?: number }} module_or_path - Passing `InitInput` directly is deprecated.
+* @param {WebAssembly.Memory} memory - Deprecated.
 *
 * @returns {Promise<InitOutput>}
 */
-export default function __wbg_init (module_or_path?: { module_or_path: InitInput | Promise<InitInput> } | InitInput | Promise<InitInput>): Promise<InitOutput>;
+export default function __wbg_init (module_or_path?: { module_or_path: InitInput | Promise<InitInput>, memory?: WebAssembly.Memory, thread_stack_size?: number } | InitInput | Promise<InitInput>, memory?: WebAssembly.Memory): Promise<InitOutput>;

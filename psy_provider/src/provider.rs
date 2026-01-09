@@ -112,6 +112,7 @@ impl RpcProvider {
 
         // Configure HTTP client with connection timeout and connection pool settings
         // to handle high-concurrency scenarios better
+        #[cfg(not(target_arch = "wasm32"))]
         let client = Client::builder()
             .connect_timeout(Duration::from_secs(30))
             .timeout(Duration::from_secs(360))
@@ -120,6 +121,11 @@ impl RpcProvider {
             .tcp_keepalive(Duration::from_secs(60))
             .tcp_nodelay(true)
             .http1_only() // Force HTTP/1.1 to avoid potential HTTP/2 connection issues
+            .build()
+            .map_err(|e| anyhow::format_err!("Failed to create HTTP client: {}", e))?;
+
+        #[cfg(target_arch = "wasm32")]
+        let client = Client::builder()
             .build()
             .map_err(|e| anyhow::format_err!("Failed to create HTTP client: {}", e))?;
 
@@ -276,6 +282,7 @@ macro_rules! psy_rpc_call_back {
                     .await
                     .map_err(|e| anyhow::anyhow!("Failed to parse JSON response: {}", e)),
                 Err(e) => {
+                    #[cfg(not(target_arch = "wasm32"))]
                     let error_msg = if e.is_connect() {
                         format!("Connection error to {}: {}", url_str, e)
                     } else if e.is_timeout() {
@@ -285,12 +292,29 @@ macro_rules! psy_rpc_call_back {
                     } else {
                         format!("Error sending request to {}: {}", url_str.clone(), e)
                     };
+                    #[cfg(target_arch = "wasm32")]
+                    let error_msg = if e.is_timeout() {
+                        format!("Timeout error to {}: {}", url_str, e)
+                    } else if e.is_request() {
+                        format!("Request error to {}: {}", url_str, e)
+                    } else {
+                        format!("Error sending request to {}: {}", url_str.clone(), e)
+                    };
                     tracing::error!("{}", error_msg);
+                    #[cfg(not(target_arch = "wasm32"))]
                     tracing::error!(
                         "Request error details: is_connect={}, is_timeout={}, is_request={}, is_decode={}",
                         e.is_connect(),
                         e.is_timeout(),
                         e.is_request(),
+                        e.is_decode()
+                    );
+                    #[cfg(target_arch = "wasm32")]
+                    tracing::error!(
+                        "Request error details: is_timeout={}, is_request={}, is_body={}, is_decode={}",
+                        e.is_timeout(),
+                        e.is_request(),
+                        e.is_body(),
                         e.is_decode()
                     );
                     Err(anyhow::anyhow!("{}", error_msg))
