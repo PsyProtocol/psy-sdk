@@ -20,7 +20,7 @@ export enum CoordinatorEdgeRPCCommand {
     RegisterUser = "psy_register_user",
     GetUserId = "psy_get_user_ids_for_public_key",
     DeployContract = "psy_deploy_contract",
-    GetLatestCheckpoint = "psy_get_latest_checkpoint",
+    GetLatestCheckpointId = "psy_get_latest_checkpoint_id",
     BuildBlock = "psy_build_block",
     GetCheckpointSyncInfo = "psy_get_checkpoint_sync_info",
     GetContractLeafData = "psy_get_contract_leaf_data",
@@ -90,7 +90,7 @@ export interface ICoordinatorEdgeRpcProvider {
     registerUser(pubKey: ZKPublicKeyInfo): Promise<string>;
     getUserId(publicKey: QHashOut): Promise<number>;
     deployContract(contract: QBCDeployContract): Promise<string>;
-    getLatestCheckpoint(): Promise<LatestCheckpointResponse>;
+    getLatestCheckpointId(): Promise<LatestCheckpointResponse>;
     buildBlock(): Promise<string>;
     getCheckpointSyncInfo(checkpointId: Felt): Promise<CheckpointSyncInfo>;
     getContractLeafData(contractId: Felt): Promise<PsyContractLeaf>;

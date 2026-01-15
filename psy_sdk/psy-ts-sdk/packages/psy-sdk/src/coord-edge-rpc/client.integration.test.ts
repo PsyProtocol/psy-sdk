@@ -218,13 +218,13 @@ describe("CoordinatorEdgeRpcProvider Integration Tests", () => {
 
     // --- Checkpoint Tests ---
 
-    it("getLatestCheckpoint should return LatestCheckpointResponse", async () => {
+    it("getLatestCheckpointId should return LatestCheckpointResponse", async () => {
         try {
-            const result = await client.getLatestCheckpoint();
+            const result = await client.getLatestCheckpointId();
             expectLatestCheckpointResponse(result);
-            console.log("getLatestCheckpoint result:", result);
+            console.log("getLatestCheckpointId result:", result);
         } catch (error) {
-            console.warn("getLatestCheckpoint failed:", error);
+            console.warn("getLatestCheckpointId failed:", error);
         }
     });
 

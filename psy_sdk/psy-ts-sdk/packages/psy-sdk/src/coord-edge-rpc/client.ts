@@ -24,7 +24,7 @@ export class CoordinatorEdgeRpcProvider extends Provider implements ICoordinator
     // Read-only methods that can be cached
     private readonly readOnlyMethods = new Set<string>([
         CoordinatorEdgeRPCCommand.GetUserId,
-        CoordinatorEdgeRPCCommand.GetLatestCheckpoint,
+        CoordinatorEdgeRPCCommand.GetLatestCheckpointId,
         CoordinatorEdgeRPCCommand.GetCheckpointSyncInfo,
         CoordinatorEdgeRPCCommand.GetContractLeafData,
         CoordinatorEdgeRPCCommand.GetContractLeafDataF,
@@ -105,7 +105,7 @@ export class CoordinatorEdgeRpcProvider extends Provider implements ICoordinator
      * Get health check method
      */
     protected getHealthCheckMethod(): string {
-        return CoordinatorEdgeRPCCommand.GetLatestCheckpoint;
+        return CoordinatorEdgeRPCCommand.GetLatestCheckpointId;
     }
 
     /**
@@ -140,11 +140,11 @@ export class CoordinatorEdgeRpcProvider extends Provider implements ICoordinator
     }
 
     /**
-     * Get the latest checkpoint information
+     * Get the latest checkpoint Id information
      * @returns The latest checkpoint response
      */
-    async getLatestCheckpoint(): Promise<LatestCheckpointResponse> {
-        return this.rpc<LatestCheckpointResponse>(CoordinatorEdgeRPCCommand.GetLatestCheckpoint, []);
+    async getLatestCheckpointId(): Promise<LatestCheckpointResponse> {
+        return this.rpc<LatestCheckpointResponse>(CoordinatorEdgeRPCCommand.GetLatestCheckpointId, []);
     }
 
     /**
@@ -603,8 +603,8 @@ export class MultiCoordinatorRpcProvider implements ICoordinatorEdgeRpcProvider 
     deployContract(contract: QBCDeployContract): Promise<string> {
         return this.rpcs.get(this.getCurrentCoordinatorId())!.deployContract(contract);
     }
-    getLatestCheckpoint(): Promise<LatestCheckpointResponse> {
-        return this.rpcs.get(this.getCurrentCoordinatorId())!.getLatestCheckpoint();
+    getLatestCheckpointId(): Promise<LatestCheckpointResponse> {
+        return this.rpcs.get(this.getCurrentCoordinatorId())!.getLatestCheckpointId();
     }
     buildBlock(): Promise<string> {
         return this.rpcs.get(this.getCurrentCoordinatorId())!.buildBlock();

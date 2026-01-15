@@ -9,7 +9,7 @@ export async function basicUsageExample() {
     const client = new CoordinatorEdgeRpcProvider("http://localhost:8545");
 
     try {
-        const checkpoint = await client.getLatestCheckpoint();
+        const checkpoint = await client.getLatestCheckpointId();
         console.log("Latest checkpoint:", checkpoint);
     } catch (error) {
         console.error("Error:", error);
@@ -69,7 +69,7 @@ export async function retryExample() {
 
     try {
         // This will retry up to 5 times with exponential backoff
-        const checkpoint = await client.getLatestCheckpoint();
+        const checkpoint = await client.getLatestCheckpointId();
         console.log("Checkpoint retrieved after retries:", checkpoint);
     } catch (error) {
         console.error("Failed after all retries:", error);
@@ -101,7 +101,7 @@ export async function multiProviderFailoverExample() {
 
     try {
         // Will automatically failover to backup if primary fails
-        const checkpoint = await client.getLatestCheckpoint();
+        const checkpoint = await client.getLatestCheckpointId();
         console.log("Checkpoint from available provider:", checkpoint);
 
         // Check provider health
@@ -132,7 +132,7 @@ export async function multiProviderRoundRobinExample() {
     try {
         // Each call will go to the next provider in rotation
         for (let i = 0; i < 5; i++) {
-            const checkpoint = await client.getLatestCheckpoint();
+            const checkpoint = await client.getLatestCheckpointId();
             console.log(`Call ${i + 1} - Checkpoint:`, checkpoint.checkpoint_id);
         }
     } catch (error) {
@@ -157,7 +157,7 @@ export async function multiProviderFastestExample() {
 
     try {
         // Will automatically use the fastest responding provider
-        const checkpoint = await client.getLatestCheckpoint();
+        const checkpoint = await client.getLatestCheckpointId();
         console.log("Checkpoint from fastest provider:", checkpoint);
     } catch (error) {
         console.error("Error:", error);
@@ -181,7 +181,7 @@ export async function multiProviderParallelExample() {
 
     try {
         // Will send requests to all providers and return the first successful response
-        const checkpoint = await client.getLatestCheckpoint();
+        const checkpoint = await client.getLatestCheckpointId();
         console.log("Checkpoint from first responding provider:", checkpoint);
     } catch (error) {
         console.error("Error:", error);
@@ -234,7 +234,7 @@ export async function productionConfigExample() {
         console.log("=== Production Example ===");
 
         // Get latest checkpoint (cached for 5 seconds)
-        const latestCheckpoint = await client.getLatestCheckpoint();
+        const latestCheckpoint = await client.getLatestCheckpointId();
         console.log("Latest checkpoint:", latestCheckpoint.checkpoint_id);
 
         // Get checkpoint data (cached for 5 minutes)
