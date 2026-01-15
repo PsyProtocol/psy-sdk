@@ -18,7 +18,7 @@ import {
  */
 export enum CoordinatorEdgeRPCCommand {
     RegisterUser = "psy_register_user",
-    GetUserId = "psy_get_user_id",
+    GetUserId = "psy_get_user_ids_for_public_key",
     DeployContract = "psy_deploy_contract",
     GetLatestCheckpoint = "psy_get_latest_checkpoint",
     BuildBlock = "psy_build_block",
@@ -29,9 +29,9 @@ export enum CoordinatorEdgeRPCCommand {
     GetCheckpointLeafDataF = "psy_get_checkpoint_leaf_data_f",
     GetContractCodeDefinition = "psy_get_contract_code_definition",
     GetContractCodeDefinitionF = "psy_get_contract_code_definition_f",
-    GetLatestBlockState = "psy_get_latest_block_state",
-    GetBlockState = "psy_get_block_state",
-    GetBlockStateF = "psy_get_block_state_f",
+    GetLatestBlockState = "psy_get_latest_l2_block_state",
+    GetBlockState = "psy_get_l2_block_state",
+    GetBlockStateF = "psy_get_l2_block_state_f",
     GetUserRegistrationTreeRoot = "psy_get_user_registration_tree_root",
     GetUserRegistrationTreeRootF = "psy_get_user_registration_tree_root_f",
     GetUserRegistrationTreeLeafHash = "psy_get_user_registration_tree_leaf_hash",
