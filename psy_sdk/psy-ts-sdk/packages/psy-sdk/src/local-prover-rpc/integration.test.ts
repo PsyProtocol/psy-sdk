@@ -420,9 +420,9 @@ describe("Psy User Prover RPC Integration Tests", () => {
                     const circuitDefs = PsyJSON.parse(
                         fs.readFileSync(path.resolve(__dirname, "../../../../../examples/target/examples.json"), "utf8")
                     );
-                    const abi_json = fs.readFileSync(path.resolve(__dirname, "../../../../../examples/target/examples_abi.json"), "utf8");
+                    // const abi_json = fs.readFileSync(path.resolve(__dirname, "../../../../../examples/target/examples_abi.json"), "utf8");
                     console.log("circuitDefs: ", circuitDefs);
-                    const contractId = await provider.deployContract(deployer, circuitDefs, abi_json);
+                    const contractId = await provider.deployContract(deployer, circuitDefs);
                     expect(contractId).toBeDefined();
                     expect(typeof contractId).toBe("string");
                     expect(contractId.length).toBeGreaterThan(0);
@@ -472,8 +472,8 @@ describe("Psy User Prover RPC Integration Tests", () => {
                         fs.readFileSync(path.resolve(__dirname, "../../../../../examples/target/examples.json"), "utf8")
                     );
                     console.log("circuitDefs: ", circuitDefs);
-                    const abi_json = fs.readFileSync(path.resolve(__dirname, "../../../../../examples/target/examples_abi.json"), "utf8");
-                    const contractId = await provider.deployContract(deployer, circuitDefs, abi_json);
+                    // const abi_json = fs.readFileSync(path.resolve(__dirname, "../../../../../examples/target/examples_abi.json"), "utf8");
+                    const contractId = await provider.deployContract(deployer, circuitDefs);
                     expect(contractId).toBeDefined();
                     expect(typeof contractId).toBe("string");
                     expect(contractId.length).toBeGreaterThan(0);

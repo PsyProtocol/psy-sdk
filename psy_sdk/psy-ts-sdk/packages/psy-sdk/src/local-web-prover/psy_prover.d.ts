@@ -136,10 +136,10 @@ export interface InitOutput {
   readonly wasmrpcserver_get_result: (a: number, b: number, c: number) => [number, number, number, number];
   readonly wasmpsyconfigbuilder_new: () => number;
   readonly wasmconstants_register_user_fee: () => bigint;
-  readonly wasm_bindgen__convert__closures_____invoke__h9adef32405569d93: (a: number, b: number) => void;
-  readonly wasm_bindgen__closure__destroy__h1c0ba36b9ad9b94b: (a: number, b: number) => void;
   readonly wasm_bindgen__convert__closures_____invoke__h2c2f1a4471ab6362: (a: number, b: number, c: any) => void;
   readonly wasm_bindgen__closure__destroy__h2db72ff56bc85308: (a: number, b: number) => void;
+  readonly wasm_bindgen__convert__closures_____invoke__h9adef32405569d93: (a: number, b: number) => void;
+  readonly wasm_bindgen__closure__destroy__h1c0ba36b9ad9b94b: (a: number, b: number) => void;
   readonly wasm_bindgen__convert__closures_____invoke__h01611f6b72c1e5a8: (a: number, b: number, c: any, d: any) => void;
   readonly memory: WebAssembly.Memory;
   readonly __wbindgen_malloc: (a: number, b: number) => number;

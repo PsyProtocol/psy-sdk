@@ -49,10 +49,10 @@ export const wasmrpcserver_ping: (a: number, b: number, c: number) => [number, n
 export const wasmrpcserver_get_result: (a: number, b: number, c: number) => [number, number, number, number];
 export const wasmpsyconfigbuilder_new: () => number;
 export const wasmconstants_register_user_fee: () => bigint;
-export const wasm_bindgen__convert__closures_____invoke__h9adef32405569d93: (a: number, b: number) => void;
-export const wasm_bindgen__closure__destroy__h1c0ba36b9ad9b94b: (a: number, b: number) => void;
 export const wasm_bindgen__convert__closures_____invoke__h2c2f1a4471ab6362: (a: number, b: number, c: any) => void;
 export const wasm_bindgen__closure__destroy__h2db72ff56bc85308: (a: number, b: number) => void;
+export const wasm_bindgen__convert__closures_____invoke__h9adef32405569d93: (a: number, b: number) => void;
+export const wasm_bindgen__closure__destroy__h1c0ba36b9ad9b94b: (a: number, b: number) => void;
 export const wasm_bindgen__convert__closures_____invoke__h01611f6b72c1e5a8: (a: number, b: number, c: any, d: any) => void;
 export const memory: WebAssembly.Memory;
 export const __wbindgen_malloc: (a: number, b: number) => number;

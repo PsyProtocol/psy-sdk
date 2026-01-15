@@ -143,7 +143,7 @@ interface IPsyUserProverProvider {
     getRandomKeypair(): Promise<WalletKeyPair>;
 
     // Contract deployment
-    deployContract(deployer: string, circuitDefs: DPNFunctionCircuitDefinition[], abi_json: string): Promise<string>;
+    deployContract(deployer: string, circuitDefs: DPNFunctionCircuitDefinition[]): Promise<string>;
     getDeployContractCmd(deployer: string, circuitDefs: DPNFunctionCircuitDefinition[]): Promise<QBCDeployContract>;
 
     // Signing and submission
