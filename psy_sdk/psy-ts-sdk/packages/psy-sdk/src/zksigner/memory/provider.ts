@@ -43,9 +43,9 @@ class PsyMemoryTransactionSignerProvider implements IPsyTransactionSignerProvide
     private getFingerprintForSignType(signType: SignType): string {
         switch (signType) {
             case SignType.ZKSign:
-                return "d2f572f1402fa8a92c9af0a2226e05ef8f5f4f34d764c6515b90d2b391fc48c1";
+                return "65e0169bfffd55f1c0ea9f76c111a5b15e652322ee253c1a9604a10d59066b50";
             case SignType.SECP256K1Sign:
-                return "993bbdad2ba78319a70ab7d9ecd84b36eca0affc9f8ec4f9006b39a8fe29672c";
+                return "320d034234f0dab4d02c4b03d69276cbd5c2eb831aca1b11c7e52078ace2e33b";
             default:
                 throw new Error(`Unsupported sign type: ${signType}`);
         }
