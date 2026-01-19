@@ -90,7 +90,7 @@ export interface ICoordinatorEdgeRpcProvider {
     registerUser(pubKey: ZKPublicKeyInfo): Promise<string>;
     getUserId(publicKey: QHashOut): Promise<number>;
     deployContract(contract: QBCDeployContract): Promise<string>;
-    getLatestCheckpointId(): Promise<LatestCheckpointResponse>;
+    getLatestCheckpointId(): Promise<number>;
     buildBlock(): Promise<string>;
     getCheckpointSyncInfo(checkpointId: Felt): Promise<CheckpointSyncInfo>;
     getContractLeafData(contractId: Felt): Promise<PsyContractLeaf>;

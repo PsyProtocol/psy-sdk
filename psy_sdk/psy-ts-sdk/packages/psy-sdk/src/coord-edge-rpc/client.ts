@@ -143,8 +143,8 @@ export class CoordinatorEdgeRpcProvider extends Provider implements ICoordinator
      * Get the latest checkpoint Id information
      * @returns The latest checkpoint response
      */
-    async getLatestCheckpointId(): Promise<LatestCheckpointResponse> {
-        return this.rpc<LatestCheckpointResponse>(CoordinatorEdgeRPCCommand.GetLatestCheckpointId, []);
+    async getLatestCheckpointId(): Promise<number> {
+        return this.rpc<number>(CoordinatorEdgeRPCCommand.GetLatestCheckpointId, []);
     }
 
     /**
@@ -603,7 +603,7 @@ export class MultiCoordinatorRpcProvider implements ICoordinatorEdgeRpcProvider 
     deployContract(contract: QBCDeployContract): Promise<string> {
         return this.rpcs.get(this.getCurrentCoordinatorId())!.deployContract(contract);
     }
-    getLatestCheckpointId(): Promise<LatestCheckpointResponse> {
+    getLatestCheckpointId(): Promise<number> {
         return this.rpcs.get(this.getCurrentCoordinatorId())!.getLatestCheckpointId();
     }
     buildBlock(): Promise<string> {

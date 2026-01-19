@@ -5,7 +5,7 @@ import { calculatePkHash } from "./pkhash";
 describe("calculatePkHash", () => {
     it("should calculate the correct pk hash", () => {
         const zkPublicKeyInfo: ZKPublicKeyInfo = {
-            fingerprint: "d2f572f1402fa8a92c9af0a2226e05ef8f5f4f34d764c6515b90d2b391fc48c1",
+            fingerprint: "65e0169bfffd55f1c0ea9f76c111a5b15e652322ee253c1a9604a10d59066b50",
             public_key_param: "7cdc8b38073d176578f62fcbf9432622272451f773edd472b12a09d81d5b2a91",
         };
         const pkHash = calculatePkHash(zkPublicKeyInfo);

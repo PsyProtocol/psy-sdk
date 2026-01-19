@@ -133,7 +133,7 @@ export async function multiProviderRoundRobinExample() {
         // Each call will go to the next provider in rotation
         for (let i = 0; i < 5; i++) {
             const checkpoint = await client.getLatestCheckpointId();
-            console.log(`Call ${i + 1} - Checkpoint:`, checkpoint.checkpoint_id);
+            console.log(`Call ${i + 1} - Checkpoint:`, checkpoint);
         }
     } catch (error) {
         console.error("Error:", error);
@@ -234,11 +234,11 @@ export async function productionConfigExample() {
         console.log("=== Production Example ===");
 
         // Get latest checkpoint (cached for 5 seconds)
-        const latestCheckpoint = await client.getLatestCheckpointId();
-        console.log("Latest checkpoint:", latestCheckpoint.checkpoint_id);
+        const latestCheckpointId = await client.getLatestCheckpointId();
+        console.log("Latest checkpoint:", latestCheckpointId);
 
         // Get checkpoint data (cached for 5 minutes)
-        const checkpointData = await client.getCheckpointLeafData(Number(latestCheckpoint.checkpoint_id));
+        const checkpointData = await client.getCheckpointLeafData(Number(latestCheckpointId));
         console.log("Checkpoint data:", checkpointData);
 
         // Get contract code (cached for 1 hour)
