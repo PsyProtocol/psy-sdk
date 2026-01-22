@@ -1,7 +1,14 @@
 use kvq::traits::KVQSerializable;
-use plonky2::{field::goldilocks_field::GoldilocksField, hash::hash_types::RichField};
+use plonky2::{
+    field::{goldilocks_field::GoldilocksField, types::PrimeField64},
+    hash::hash_types::RichField,
+};
 use psy_common::data::qhashout::QHashOut;
-use psy_crypto::hash::traits::{hasher::FieldQHasher, qhashable::QFieldHashable};
+use psy_config::GLOBAL_USER_TREE_HEIGHT;
+use psy_crypto::hash::{
+    traits::{hasher::FieldQHasher, qhashable::QFieldHashable},
+    tx_hash::{bytes32_to_felts, compute_user_end_cap_content_hash, hash_to_bytes},
+};
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
@@ -142,5 +149,24 @@ impl<F: RichField> KVQSerializable for SubmitUserEndCapNonProofInput<F> {
 
     fn from_bytes(bytes: &[u8]) -> anyhow::Result<Self> {
         bincode::deserialize(bytes).map_err(|e| anyhow::anyhow!(e))
+    }
+}
+
+impl SubmitUserEndCapNonProofInput<GoldilocksField> {
+    pub fn get_tx_hash(&self) -> anyhow::Result<QHashOut<GoldilocksField>> {
+        let user_id = self.core.new_user_leaf.user_id.to_canonical_u64();
+        let start_user_leaf_hash: [u8; 32] = hash_to_bytes(&self.core.state_transition.start_user_leaf_hash);
+        let end_user_leaf_hash = hash_to_bytes(&self.core.state_transition.end_user_leaf_hash);
+        let checkpoint_tree_root_hash = hash_to_bytes(&self.core.state_transition.checkpoint_tree_root_hash);
+        let global_user_tree_height = GLOBAL_USER_TREE_HEIGHT;
+        let hash_bytes = compute_user_end_cap_content_hash(
+            user_id,
+            &start_user_leaf_hash,
+            &end_user_leaf_hash,
+            &checkpoint_tree_root_hash,
+            global_user_tree_height,
+        )?;
+        let tx_hash = QHashOut::from_felt_slice(&bytes32_to_felts(&hash_bytes));
+        Ok(tx_hash)
     }
 }

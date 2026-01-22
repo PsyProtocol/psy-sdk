@@ -552,9 +552,11 @@ impl WalletSession {
             proof: bincode::serialize(&end_cap_proof)?,
         };
 
-        let end_cap_uuid = self.st_provider.with_user_id_owned(user_id).submit_end_cap_proof::<F>(req).await?;
+        let tx_hash = req.user_ec_input.get_tx_hash()?;
 
-        Ok(end_cap_uuid)
+        let _ = self.st_provider.with_user_id_owned(user_id).submit_end_cap_proof::<F>(req).await?;
+
+        Ok(tx_hash.to_string())
     }
 
     async fn build_psy_software_defined_context(
