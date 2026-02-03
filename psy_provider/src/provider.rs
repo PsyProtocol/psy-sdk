@@ -11,7 +11,7 @@ use plonky2::{
 };
 use psy_common::{
     data::{alt::AltVerifierOnlyCircuitData, qhashout::QHashOut},
-    job::id::{QProvingJobDataID, VariableHeightRewardMerkleProof},
+    job::id::{QProvingJobDataID, QProvingJobDataIDWithRewardPath, VariableHeightRewardMerkleProof},
     traits::to_qfelts::ToQFelts,
     ups::circuits::LocalCircuitType,
     JobInfo, JobLocation,
@@ -33,6 +33,7 @@ use psy_crypto::{
     signature::secp256k1::core::PsyCompressedSecp256K1Signature,
 };
 use psy_data::{
+    api::reward::PsyProoffMinerRewardProof,
     config::store_config::{PsyFelt, PsyHasher},
     qdata::{checkpoint::PsyBlockState, contract::ContractCodeDefinition},
     qstore::controllers::session_info::SessionCircuitInfoStore,
@@ -65,7 +66,8 @@ use super::request::{
 };
 use crate::{
     request::{
-        DPNSoftwareDefinedSignatureInput, DPNSoftwareDefinedSignatureProofRPCRequest, QBlockStateRPCRequest, QGetContractMethodCommonDataRPCRequest,
+        DPNSoftwareDefinedSignatureInput, DPNSoftwareDefinedSignatureProofRPCRequest, QBlockStateRPCRequest,
+        QGenerateBatchProofMinerRewardProofsRPCRequest, QGetCheckpointIdForUniquePendingIdRPCRequest, QGetContractMethodCommonDataRPCRequest,
         QGetFnIdRPCRequest, QGetTxStatusRPCRequest, QLatestBlockStateRPCRequest, QLeftAggRightLeafRpcRequestV2, QLeftLeafRightAggRpcRequestV2,
         QProveContractCallRPCRequest, QProveUpsStartRPCRequest, QProveUpsStartRegisterUserRPCRequest, QRegisterCircuitsRPCRequest,
         QRegisterDPNSoftwareDefinedCircuitRPCRequest, QRegisterPlonky2SoftwareDefinedCircuitRPCRequest, QResolveContractFunctionByMethodIdRPCRequest,
@@ -865,6 +867,70 @@ impl RpcProvider {
         // reqwest
         let url = coordinator_urls[random_index].clone();
         Ok(url)
+    }
+
+    async fn get_checkpoint_id_for_unique_pending_id_inner(&self, url: String, unique_pending_id: u64) -> anyhow::Result<Option<u64>> {
+        tracing::info!("get_checkpoint_id_for_unique_pending_id with url {}: {}", url, unique_pending_id);
+        let response = psy_rpc_call_back!(
+            self,
+            &url,
+            RequestParams::<F>::GetCheckpointIdForUniquePendingId(QGetCheckpointIdForUniquePendingIdRPCRequest { unique_pending_id }),
+            Option<u64>
+        );
+        match response.result {
+            ResponseResult::Success(checkpoint_id) => {
+                tracing::info!("get checkpoint_id: {:?}", checkpoint_id);
+                Ok(checkpoint_id)
+            }
+            ResponseResult::Error(e) => Err(anyhow::format_err!("rpc call failed `{:?}`", e)),
+        }
+    }
+
+    async fn generate_batch_proof_miner_reward_proofs_inner(
+        &self,
+        url: String,
+        unique_pending_id: u64,
+        job_ids: Vec<QProvingJobDataIDWithRewardPath>,
+    ) -> anyhow::Result<Vec<PsyProoffMinerRewardProof<QHashOut<GoldilocksField>>>> {
+        tracing::info!("generate_batch_proof_miner_reward_proofs with url {}: {}", url, unique_pending_id);
+        let response = psy_rpc_call_back!(
+            self,
+            &url,
+            RequestParams::<F>::GenerateBatchProofMinerRewardProofs(QGenerateBatchProofMinerRewardProofsRPCRequest { unique_pending_id, job_ids }),
+            Vec<PsyProoffMinerRewardProof<QHashOut<GoldilocksField>>>
+        );
+        match response.result {
+            ResponseResult::Success(proofs) => Ok(proofs),
+            ResponseResult::Error(e) => Err(anyhow::format_err!("rpc call failed `{:?}`", e)),
+        }
+    }
+
+    pub async fn get_coordinator_checkpoint_id_for_unique_pending_id(&self, unique_pending_id: u64) -> anyhow::Result<Option<u64>> {
+        self.get_checkpoint_id_for_unique_pending_id_inner(self.get_coordinator_url()?, unique_pending_id)
+            .await
+    }
+
+    pub async fn generate_coordinator_batch_proof_miner_reward_proofs(
+        &self,
+        unique_pending_id: u64,
+        job_ids: Vec<QProvingJobDataIDWithRewardPath>,
+    ) -> anyhow::Result<Vec<PsyProoffMinerRewardProof<QHashOut<GoldilocksField>>>> {
+        self.generate_batch_proof_miner_reward_proofs_inner(self.get_coordinator_url()?, unique_pending_id, job_ids)
+            .await
+    }
+
+    pub async fn get_realm_checkpoint_id_for_unique_pending_id(&self, unique_pending_id: u64) -> anyhow::Result<Option<u64>> {
+        self.get_checkpoint_id_for_unique_pending_id_inner(self.get_realm_url(self.current_user_id)?.to_string(), unique_pending_id)
+            .await
+    }
+
+    pub async fn generate_realm_batch_proof_miner_reward_proofs(
+        &self,
+        unique_pending_id: u64,
+        job_ids: Vec<QProvingJobDataIDWithRewardPath>,
+    ) -> anyhow::Result<Vec<PsyProoffMinerRewardProof<QHashOut<GoldilocksField>>>> {
+        self.generate_batch_proof_miner_reward_proofs_inner(self.get_realm_url(self.current_user_id)?.to_string(), unique_pending_id, job_ids)
+            .await
     }
 }
 

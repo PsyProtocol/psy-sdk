@@ -53,6 +53,7 @@ use crate::{
 type F = GoldilocksField;
 
 pub const GUTA_REWARDS_TREE_MAX_HEIGHT: usize = 12;
+pub const GUTA_REWARDS_TREE_V2_MAX_HEIGHT: usize = 21;
 pub const CONTRACT_DEPLOYMENT_REWARDS_MAX_HEIGHT: usize = 20;
 pub const USER_REGISTRATION_REWARDS_MAX_HEIGHT: usize = 20;
 
@@ -751,6 +752,7 @@ impl QProvingTaskGraph {
 pub struct QProvingJobDataID {
     pub topic: QJobTopic,
     pub goal_id: u64,
+    #[serde(skip)]
     pub slot_id: u64,
     pub circuit_type: ProvingJobCircuitType,
     pub group_id: u32,
@@ -811,6 +813,52 @@ impl QProvingJobDataID {
             data_type,
             data_index,
         })
+    }
+
+    /// Parse from 24-byte format (parth-generic-v1 format, without slot_id)
+    /// Format: [0]: topic, [1..9]: goal_id, [9]: circuit_type, [10..14]:
+    /// group_id, [14..18]: sub_group_id, [18..22]: task_index, [22]: data_type,
+    /// [23]: data_index
+    pub fn try_from_byte_vec_without_slot_id(value: &[u8]) -> anyhow::Result<Self> {
+        if value.len() != 24 {
+            anyhow::bail!("invalid byte length for proving job data id (expected 24 bytes without slot_id)");
+        }
+        let topic: QJobTopic = value[0].try_into()?;
+        let goal_id = u64::from_le_bytes(value[1..9].try_into()?);
+        let circuit_type = ProvingJobCircuitType::try_from(value[9])?;
+        let group_id = u32::from_le_bytes(value[10..14].try_into()?);
+        let sub_group_id = u32::from_le_bytes(value[14..18].try_into()?);
+        let task_index = u32::from_le_bytes(value[18..22].try_into()?);
+        let data_type = ProvingJobDataType::try_from(value[22])?;
+        let data_index = value[23];
+        Ok(QProvingJobDataID {
+            topic,
+            goal_id,
+            slot_id: 0, // 24-byte format has no slot_id, default to 0
+            circuit_type,
+            group_id,
+            sub_group_id,
+            task_index,
+            data_type,
+            data_index,
+        })
+    }
+
+    /// Serialize to 24-byte format (parth-generic-v1 format, without slot_id)
+    /// Format: [0]: topic, [1..9]: goal_id, [9]: circuit_type, [10..14]:
+    /// group_id, [14..18]: sub_group_id, [18..22]: task_index, [22]: data_type,
+    /// [23]: data_index
+    pub fn to_bytes_without_slot_id(&self) -> [u8; 24] {
+        let mut result = [0u8; 24];
+        result[0] = self.topic.to_u8();
+        result[1..9].copy_from_slice(&self.goal_id.to_le_bytes());
+        result[9] = self.circuit_type.to_u8();
+        result[10..14].copy_from_slice(&self.group_id.to_le_bytes());
+        result[14..18].copy_from_slice(&self.sub_group_id.to_le_bytes());
+        result[18..22].copy_from_slice(&self.task_index.to_le_bytes());
+        result[22] = self.data_type.to_u8();
+        result[23] = self.data_index;
+        result
     }
 }
 
@@ -1291,6 +1339,76 @@ impl HistoryQueueMetadataTagged for QProvingJobDataID {
             channel_id: REALM_PROCESSOR_TO_EDGE_CHANNEL,
             checkpoint_id: self.goal_id,
             item_id: self.task_index as u64, // Use task_index as item_id
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone, Copy, Eq, Hash, PartialOrd, Ord)]
+pub struct QProvingJobDataIDWithRewardPath {
+    pub job_data_id: QProvingJobDataID,
+    pub reward_path_info: u64,
+}
+
+impl QProvingJobDataIDWithRewardPath {
+    pub fn new(job_data_id: QProvingJobDataID, reward_path_info: u64) -> Self {
+        Self {
+            job_data_id,
+            reward_path_info,
+        }
+    }
+}
+
+impl Default for QProvingJobDataIDWithRewardPath {
+    fn default() -> Self {
+        let default_job_id = QProvingJobDataID::new(
+            QJobTopic::GenerateStandardProof,
+            0,
+            0,
+            0,
+            0,
+            0,
+            ProvingJobCircuitType::AppendUserRegistrationTree,
+            ProvingJobDataType::InputWitness,
+            0,
+        );
+        Self::new(default_job_id, 0)
+    }
+}
+
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone, Eq, Hash)]
+pub struct QClaimRewardJobs {
+    pub realm_jobs: Vec<QProvingJobDataIDWithRewardPreimage>,
+    pub coordinator_jobs: Vec<QProvingJobDataIDWithRewardPreimage>,
+}
+
+impl QClaimRewardJobs {
+    pub fn new(realm_jobs: Vec<QProvingJobDataIDWithRewardPreimage>, coordinator_jobs: Vec<QProvingJobDataIDWithRewardPreimage>) -> Self {
+        Self {
+            realm_jobs,
+            coordinator_jobs,
+        }
+    }
+
+    pub fn new_empty() -> Self {
+        Self::new(vec![], vec![])
+    }
+
+    pub fn jobs_len(&self) -> usize {
+        self.realm_jobs.len() + self.coordinator_jobs.len()
+    }
+}
+
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone, Eq, Hash)]
+pub struct QProvingJobDataIDWithRewardPreimage {
+    pub inner: QProvingJobDataIDWithRewardPath,
+    pub reward_tree_tag_preimage: QHashOut<GoldilocksField>,
+}
+
+impl QProvingJobDataIDWithRewardPreimage {
+    pub fn new(job_id: QProvingJobDataID, reward_path_info: u64, reward_tree_tag_preimage: QHashOut<GoldilocksField>) -> Self {
+        Self {
+            inner: QProvingJobDataIDWithRewardPath::new(job_id, reward_path_info),
+            reward_tree_tag_preimage,
         }
     }
 }

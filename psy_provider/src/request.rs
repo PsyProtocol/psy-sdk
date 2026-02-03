@@ -9,10 +9,13 @@ use plonky2::{
         proof::ProofWithPublicInputs,
     },
 };
-use psy_common::data::{
-    alt::AltVerifierOnlyCircuitData,
-    base_types::{hash160::Hash160, hash256::Hash256},
-    qhashout::QHashOut,
+use psy_common::{
+    data::{
+        alt::AltVerifierOnlyCircuitData,
+        base_types::{hash160::Hash160, hash256::Hash256},
+        qhashout::QHashOut,
+    },
+    job::id::QProvingJobDataIDWithRewardPath,
 };
 use psy_crypto::{
     common::witnesses::qrecursion::{header::QRecursionAggStandardHeader, proof_data::QStandardBinaryTreeCircuitType},
@@ -327,6 +330,11 @@ pub enum RequestParams<F: RichField> {
     // LeftLeafRightAgg(QLeftLeafRightAggRpcRequest<F>),
     // #[serde(rename = "psy_prove_left_agg_right_leaf_circuit")]
     // LeftAggRightLeaf(QLeftAggRightLeafRpcRequest<F>),
+    #[serde(rename = "psy_get_checkpoint_id_for_unique_pending_id")]
+    GetCheckpointIdForUniquePendingId(QGetCheckpointIdForUniquePendingIdRPCRequest),
+
+    #[serde(rename = "psy_generate_batch_proof_miner_reward_proofs")]
+    GenerateBatchProofMinerRewardProofs(QGenerateBatchProofMinerRewardProofsRPCRequest),
 }
 
 #[serde_as]
@@ -1517,6 +1525,19 @@ pub struct QLeftAggRightLeafRpcRequestV2<C: GenericConfig<D>, const D: usize> {
     pub right_insert_leaf_proof: DeltaMerkleProofCore<QHashOut<C::F>>,
     pub right_proof: ProofWithPublicInputs<C::F, C, D>,
     pub right_verifier_data: AltVerifierOnlyCircuitData<C::F>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[serde(bound = "")]
+pub struct QGetCheckpointIdForUniquePendingIdRPCRequest {
+    pub unique_pending_id: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(bound = "")]
+pub struct QGenerateBatchProofMinerRewardProofsRPCRequest {
+    pub unique_pending_id: u64,
+    pub job_ids: Vec<QProvingJobDataIDWithRewardPath>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]

@@ -15,6 +15,9 @@ cfg_if::cfg_if! {
         pub mod claim_amount;
         pub mod check_tx;
         pub mod key_utils;
+        pub mod get_checkpoint_id_for_unique_pending_id;
+        pub mod generate_batch_proof_miner_reward_proofs;
+        pub mod claim_reward_v2;
     }
 }
 
@@ -91,4 +94,9 @@ pub enum Commands {
     GetClaimAmount(crate::subcommand::args::ClaimAmountArgs),
     // check tx is onchain
     CheckTx(crate::subcommand::args::CheckTxArgs),
+    // batch proof miner rewards
+    GetCheckpointIdForUniquePendingId(crate::subcommand::args::GetCheckpointIdForUniquePendingIdArgs),
+    GenerateBatchProofMinerRewardProofs(crate::subcommand::args::GenerateBatchProofMinerRewardProofsArgs),
+    // v2 rewards claiming
+    ClaimRewardV2(crate::subcommand::args::ClaimRewardV2Args),
 }

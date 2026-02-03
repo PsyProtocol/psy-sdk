@@ -2,7 +2,6 @@
 mod error;
 mod subcommand;
 
-use psy_prover::{local::native::prove_proxy, session};
 #[cfg(not(target_arch = "wasm32"))]
 use shadow_rs::shadow;
 
@@ -10,9 +9,11 @@ use shadow_rs::shadow;
 shadow!(build);
 
 use clap::Parser;
-use error::Result;
 
-use crate::subcommand::{check_tx, claim_amount, claim_rewards, deploy_contract, register_user, submit_end_cap_proof, wallet, Cli, Commands};
+use crate::subcommand::{
+    check_tx, claim_amount, claim_rewards, claim_reward_v2, deploy_contract, generate_batch_proof_miner_reward_proofs, get_checkpoint_id_for_unique_pending_id,
+    register_user, submit_end_cap_proof, wallet, Cli, Commands,
+};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -29,6 +30,11 @@ async fn main() -> anyhow::Result<()> {
         Commands::ClaimRewards(args) => claim_rewards::run(args).await?,
         Commands::GetClaimAmount(args) => claim_amount::run(args).await?,
         Commands::CheckTx(args) => check_tx::run(args).await?,
+
+        // batch proof miner rewards
+        Commands::GetCheckpointIdForUniquePendingId(args) => get_checkpoint_id_for_unique_pending_id::run(args).await?,
+        Commands::GenerateBatchProofMinerRewardProofs(args) => generate_batch_proof_miner_reward_proofs::run(args).await?,
+        Commands::ClaimRewardV2(args) => claim_reward_v2::run(args).await?,
 
         // get block data
         Commands::GetUserId(user_id_args) => {

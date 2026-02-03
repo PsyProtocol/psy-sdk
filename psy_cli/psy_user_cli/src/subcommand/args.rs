@@ -505,3 +505,46 @@ pub struct CheckTxArgs {
     #[clap(long)]
     pub tx_hash: String,
 }
+
+#[derive(Clone, Copy, Debug, clap::ValueEnum, Serialize, Deserialize)]
+pub enum RpcProviderType {
+    Coordinator,
+    Realm,
+}
+
+#[derive(Clone, Args, Serialize, Deserialize)]
+pub struct GetCheckpointIdForUniquePendingIdArgs {
+    #[clap(env, long, default_value = "config.json", env)]
+    pub rpc_config: String,
+    #[clap(long)]
+    pub unique_pending_id: u64,
+    #[clap(long, value_enum, default_value = "coordinator")]
+    pub provider_type: RpcProviderType,
+}
+
+#[derive(Clone, Args, Serialize, Deserialize)]
+pub struct GenerateBatchProofMinerRewardProofsArgs {
+    #[clap(env, long, default_value = "config.json", env)]
+    pub rpc_config: String,
+    #[clap(long)]
+    pub unique_pending_id: u64,
+    #[clap(long, value_enum, default_value = "coordinator")]
+    pub provider_type: RpcProviderType,
+    /// Path to JSON file containing job IDs
+    #[clap(long, default_value = "reward_jobs.json")]
+    pub jobs_file: String,
+    /// Path to output file for proofs
+    #[clap(long, default_value = "reward_proofs.json")]
+    pub output_file: String,
+}
+
+#[derive(Clone, Args, Serialize, Deserialize)]
+pub struct ClaimRewardV2Args {
+    #[clap(env, long, default_value = "config.json", env)]
+    pub rpc_config: String,
+    #[command(flatten)]
+    pub wallet: WalletSourceArgs,
+    /// Path to JSON file containing job IDs
+    #[clap(long, default_value = "worker.backup")]
+    pub jobs_file: String,
+}
