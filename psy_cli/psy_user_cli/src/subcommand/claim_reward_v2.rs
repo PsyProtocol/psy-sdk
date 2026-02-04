@@ -197,7 +197,7 @@ pub async fn build_claim_calls_from_proofs(
         tracing::debug!("Checkpoint {} - Proofs: {}", checkpoint_id, serde_json::to_string_pretty(&proofs)?);
 
         let checkpoint_leaf = provider.get_checkpoint_leaf_data(checkpoint_id).await?;
-        let fees_collected = checkpoint_leaf.stats.fees_collected.to_canonical_u64();
+        let fees_collected = checkpoint_leaf.stats.guta_fees_collected.to_canonical_u64();
         let gutas_completed = checkpoint_leaf.stats.pm_jobs_completed.gutas_completed.to_canonical_u64();
         tracing::info!(
             "Checkpoint {} - Fees collected: {}, Gutas completed: {}",
