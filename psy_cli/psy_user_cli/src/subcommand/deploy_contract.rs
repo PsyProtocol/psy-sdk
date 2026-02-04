@@ -67,10 +67,10 @@ pub async fn run(args: DeployContractArgs) -> anyhow::Result<()> {
         Some(output_path) => {
             tracing::debug!("deploy cmd save to {}", output_path);
             let deploy_cmd_path = Path::new(&output_path);
-            fs::write(deploy_cmd_path, serde_json::to_string_pretty(&deploy_cmd)?)?;
+            fs::write(deploy_cmd_path, serde_json::to_string(&deploy_cmd)?)?;
         }
         None => {
-            tracing::debug!("deploy cmd: {}", serde_json::to_string_pretty(&deploy_cmd)?);
+            tracing::debug!("deploy cmd: {}", serde_json::to_string(&deploy_cmd)?);
         }
     }
 

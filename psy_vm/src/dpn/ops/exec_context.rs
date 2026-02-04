@@ -853,52 +853,57 @@ impl DPNContext<SymFeltRef> for QExecContext {
 
     fn get_register_users_root(&mut self, checkpoint_id: SymFeltRef) -> [SymFeltRef; 4] {
         let stats = self.get_checkpoint_stats(checkpoint_id);
-        [stats[12].clone(), stats[13].clone(), stats[14].clone(), stats[15].clone()]
+        [stats[13].clone(), stats[14].clone(), stats[15].clone(), stats[16].clone()]
     }
 
     fn get_gutas_root(&mut self, checkpoint_id: SymFeltRef) -> [SymFeltRef; 4] {
         let stats = self.get_checkpoint_stats(checkpoint_id);
-        [stats[16].clone(), stats[17].clone(), stats[18].clone(), stats[19].clone()]
+        [stats[17].clone(), stats[18].clone(), stats[19].clone(), stats[20].clone()]
     }
 
     fn get_deploy_contracts_root(&mut self, checkpoint_id: SymFeltRef) -> [SymFeltRef; 4] {
         let stats = self.get_checkpoint_stats(checkpoint_id);
-        [stats[20].clone(), stats[21].clone(), stats[22].clone(), stats[23].clone()]
+        [stats[21].clone(), stats[22].clone(), stats[23].clone(), stats[24].clone()]
     }
 
-    fn get_fees_collected(&mut self, checkpoint_id: SymFeltRef) -> SymFeltRef {
+    fn get_guta_fees_collected(&mut self, checkpoint_id: SymFeltRef) -> SymFeltRef {
         let stats = self.get_checkpoint_stats(checkpoint_id);
         stats[0].clone()
     }
 
-    fn get_user_ops_processed(&mut self, checkpoint_id: SymFeltRef) -> SymFeltRef {
+    fn get_da_fees_collected(&mut self, checkpoint_id: SymFeltRef) -> SymFeltRef {
         let stats = self.get_checkpoint_stats(checkpoint_id);
         stats[1].clone()
     }
 
-    fn get_total_transactions(&mut self, checkpoint_id: SymFeltRef) -> SymFeltRef {
+    fn get_user_ops_processed(&mut self, checkpoint_id: SymFeltRef) -> SymFeltRef {
         let stats = self.get_checkpoint_stats(checkpoint_id);
         stats[2].clone()
     }
 
-    fn get_slots_modified(&mut self, checkpoint_id: SymFeltRef) -> SymFeltRef {
+    fn get_total_transactions(&mut self, checkpoint_id: SymFeltRef) -> SymFeltRef {
         let stats = self.get_checkpoint_stats(checkpoint_id);
         stats[3].clone()
     }
 
-    fn get_deploy_contracts_completed(&mut self, checkpoint_id: SymFeltRef) -> SymFeltRef {
+    fn get_slots_modified(&mut self, checkpoint_id: SymFeltRef) -> SymFeltRef {
         let stats = self.get_checkpoint_stats(checkpoint_id);
         stats[4].clone()
     }
 
-    fn get_register_users_completed(&mut self, checkpoint_id: SymFeltRef) -> SymFeltRef {
+    fn get_deploy_contracts_completed(&mut self, checkpoint_id: SymFeltRef) -> SymFeltRef {
         let stats = self.get_checkpoint_stats(checkpoint_id);
         stats[5].clone()
     }
 
-    fn get_gutas_completed(&mut self, checkpoint_id: SymFeltRef) -> SymFeltRef {
+    fn get_register_users_completed(&mut self, checkpoint_id: SymFeltRef) -> SymFeltRef {
         let stats = self.get_checkpoint_stats(checkpoint_id);
         stats[6].clone()
+    }
+
+    fn get_gutas_completed(&mut self, checkpoint_id: SymFeltRef) -> SymFeltRef {
+        let stats = self.get_checkpoint_stats(checkpoint_id);
+        stats[7].clone()
     }
 
     fn op_get_state_felt(&mut self, contract_state_tree_height: u16, contract_id: SymFeltRef, user_id: SymFeltRef, index: SymFeltRef) -> SymFeltRef {

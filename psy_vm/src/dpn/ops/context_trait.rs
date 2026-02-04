@@ -386,7 +386,8 @@ pub trait DPNContext<F: ContextFelt>: Debug + Clone {
     fn get_deploy_contracts_root(&mut self, checkpoint_id: F) -> [F; 4];
 
     // New checkpoint stats intrinsics
-    fn get_fees_collected(&mut self, checkpoint_id: F) -> F;
+    fn get_guta_fees_collected(&mut self, checkpoint_id: F) -> F;
+    fn get_da_fees_collected(&mut self, checkpoint_id: F) -> F;
     fn get_user_ops_processed(&mut self, checkpoint_id: F) -> F;
     fn get_total_transactions(&mut self, checkpoint_id: F) -> F;
     fn get_slots_modified(&mut self, checkpoint_id: F) -> F;
