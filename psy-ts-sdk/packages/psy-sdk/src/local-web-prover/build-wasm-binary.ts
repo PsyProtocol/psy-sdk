@@ -54,8 +54,6 @@ const moduleContent = `
 // DO NOT EDIT MANUALLY
 
 export const wasmBinary = new Uint8Array([${arrayString}]);
-
-export default wasmBinary;
 `;
 
 // Write to output file

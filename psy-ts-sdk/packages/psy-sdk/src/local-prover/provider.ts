@@ -29,13 +29,15 @@ export class PsyWasmUserProverProvider implements IPsyUserProverProvider {
 
     async getClaimRewardsCallArgs(jobInfos: string): Promise<ContractCallArgs[]> {
         // const json = PsyJSON.stringify(jobInfos);
-        const contractCallArgs = await this.wasmServer.get_claim_rewards_call_args_json(jobInfos);
-        return PsyJSON.parse(contractCallArgs) as ContractCallArgs[];
+        // const contractCallArgs = await this.wasmServer.get_claim_rewards_call_args_json(jobInfos);
+        // return PsyJSON.parse(contractCallArgs) as ContractCallArgs[];
+        throw new Error("getClaimRewardsCallArgs Method not implemented.");
     }
 
     async claimRewards(pkHash: PublicKey, jobInfos: string): Promise<string> {
         // const json = PsyJSON.stringify(jobInfos);
-        return this.wasmServer.claim_rewards_json(pkHash, jobInfos);
+        // return this.wasmServer.claim_rewards_json(pkHash, jobInfos);
+        throw new Error("claimRewards Method not implemented.");
     }
 
     // Local proving operations

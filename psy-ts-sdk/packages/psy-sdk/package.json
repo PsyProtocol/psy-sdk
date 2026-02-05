@@ -28,7 +28,7 @@
   "scripts": {
     "build:wasm": "node --import 'data:text/javascript,import { register } from \"node:module\"; import { pathToFileURL } from \"node:url\"; register(\"ts-node/esm\", pathToFileURL(\"./\"));' src/local-web-prover/build-wasm-binary.ts",
     "build": "pnpm run precompile && pnpm run compile",
-    "precompile": "cpx ../../../../config.json src/config && pnpm run clean && pnpm run build:wasm",
+    "precompile": "cpx ../../../config.json src/config && pnpm run clean && pnpm run build:wasm",
     "clean": "rimraf dist",
     "compile": "rollup -c && cpx 'src/local-prover/psy_prover_bg.*' dist/local-prover",
     "lint": "eslint 'src/**/*.{ts,tsx}' --max-warnings 100",

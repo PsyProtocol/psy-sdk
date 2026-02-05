@@ -53,19 +53,25 @@ impl WasmPsyConfig {
     pub fn new(json: &str) -> Result<WasmPsyConfig, JsValue> {
         console_error_panic_hook::set_once();
 
-        let inner = psy_config::PsyConfigGoldilocks::from_json(json).map_err(|e| JsValue::from_str(&e.to_string()))?;
+        let inner = psy_config::PsyConfigGoldilocks::from_json(json)
+            .map_err(|e| JsValue::from_str(&e.to_string()))?;
 
         Ok(WasmPsyConfig { inner })
     }
 
     #[wasm_bindgen(js_name = useNetwork)]
     pub fn use_network(&mut self, network_name: &str) -> Result<(), JsValue> {
-        self.inner.use_network(network_name).map_err(|e| JsValue::from_str(&e.to_string()))
+        self.inner
+            .use_network(network_name)
+            .map_err(|e| JsValue::from_str(&e.to_string()))
     }
 
     #[wasm_bindgen(js_name = getCurrentNetwork)]
     pub fn get_current_network(&self) -> Result<String, JsValue> {
-        let network = self.inner.get_current_network().map_err(|e| JsValue::from_str(&e.to_string()))?;
+        let network = self
+            .inner
+            .get_current_network()
+            .map_err(|e| JsValue::from_str(&e.to_string()))?;
 
         serde_json::to_string(network).map_err(|e| JsValue::from_str(&e.to_string()))
     }
@@ -78,7 +84,10 @@ impl WasmPsyConfig {
 
     #[wasm_bindgen(js_name = getNetworkJson)]
     pub fn get_network_json(&self, network_name: &str) -> Result<String, JsValue> {
-        let network = self.inner.get_network(network_name).map_err(|e| JsValue::from_str(&e.to_string()))?;
+        let network = self
+            .inner
+            .get_network(network_name)
+            .map_err(|e| JsValue::from_str(&e.to_string()))?;
 
         serde_json::to_string(network).map_err(|e| JsValue::from_str(&e.to_string()))
     }
@@ -126,7 +135,10 @@ impl WasmPsyConfigBuilder {
     /// Build the configuration
     #[wasm_bindgen(js_name = build)]
     pub fn build(self) -> Result<WasmPsyConfig, JsValue> {
-        let inner = self.inner.build().map_err(|e| JsValue::from_str(&e.to_string()))?;
+        let inner = self
+            .inner
+            .build()
+            .map_err(|e| JsValue::from_str(&e.to_string()))?;
 
         Ok(WasmPsyConfig { inner })
     }
@@ -210,7 +222,10 @@ impl WasmConstants {
 
     #[wasm_bindgen(getter)]
     pub fn realm_rpc_urls() -> Vec<String> {
-        psy_config::network_constants::REALM_RPC_URLS.iter().map(|s| s.to_string()).collect()
+        psy_config::network_constants::REALM_RPC_URLS
+            .iter()
+            .map(|s| s.to_string())
+            .collect()
     }
 
     /// Get all constants as a JSON string for easier JS consumption
@@ -246,7 +261,7 @@ use plonky2::{
     plonk::{config::PoseidonGoldilocksConfig, proof::ProofWithPublicInputs},
 };
 use psy_common::{
-    args::{ContractCallArgs, ContractCallData, DPNSoftwareDefinedCallData, JobInfo, SignType},
+    args::{ContractCallArgs, ContractCallData, DPNSoftwareDefinedCallData, SignType},
     data::{base_types::hash256::Hash256, qhashout::QHashOut, u8bytes::U8Bytes},
 };
 use psy_crypto::signature::zk::data::ZKPublicKeyInfo;
@@ -275,7 +290,8 @@ pub struct WasmRpcServer {
 impl WasmRpcServer {
     #[wasm_bindgen(constructor)]
     pub async fn new(rpc_config_json: &str) -> Result<WasmRpcServer, JsError> {
-        let rpc_config: RpcConfig<F> = serde_json::from_str(rpc_config_json).map_err(|e| JsError::new(&format!("Parse RPC config error: {}", e)))?;
+        let rpc_config: RpcConfig<F> = serde_json::from_str(rpc_config_json)
+            .map_err(|e| JsError::new(&format!("Parse RPC config error: {}", e)))?;
 
         let wallet_session = WalletSession::new(&rpc_config)
             .await
@@ -288,11 +304,16 @@ impl WasmRpcServer {
     }
 
     #[wasm_bindgen]
-    pub async fn exec_contract_call_json(&mut self, pk_hash: &str, call_data_json: &str) -> Result<String, JsError> {
-        let call_data: ContractCallData =
-            serde_json::from_str(call_data_json).map_err(|e| JsError::new(&format!("Parse call data JSON error: {}", e)))?;
+    pub async fn exec_contract_call_json(
+        &mut self,
+        pk_hash: &str,
+        call_data_json: &str,
+    ) -> Result<String, JsError> {
+        let call_data: ContractCallData = serde_json::from_str(call_data_json)
+            .map_err(|e| JsError::new(&format!("Parse call data JSON error: {}", e)))?;
 
-        let pk_hash = QHashOut::<F>::from_str(pk_hash).map_err(|e| JsError::new(&format!("Parse public key hash error: {}", e)))?;
+        let pk_hash = QHashOut::<F>::from_str(pk_hash)
+            .map_err(|e| JsError::new(&format!("Parse public key hash error: {}", e)))?;
 
         let end_user_leaf_hash = self
             .wallet_session
@@ -302,37 +323,11 @@ impl WasmRpcServer {
         Ok(end_user_leaf_hash.to_string())
     }
 
-    #[wasm_bindgen]
-    pub async fn get_claim_rewards_call_args_json(&self, job_infos_json: &str) -> Result<String, JsError> {
-        let job_infos: Vec<JobInfo> =
-            serde_json::from_str(job_infos_json).map_err(|e| JsError::new(&format!("Parse job infos JSON error: {}", e)))?;
-
-        let contract_call_args = self
-            .wallet_session
-            .get_claim_rewards_call_args(job_infos)
-            .await
-            .map_err(|e| JsError::new(&format!("Error get claim rewards call args error: {}", e)))?;
-        Ok(serde_json::to_string(&contract_call_args)?)
-    }
-
-    #[wasm_bindgen]
-    pub async fn claim_rewards_json(&mut self, pk_hash: &str, job_infos_json: &str) -> Result<String, JsError> {
-        let pk_hash = QHashOut::<F>::from_str(pk_hash).map_err(|e| JsError::new(&format!("Parse public key hash error: {}", e)))?;
-
-        let job_infos: Vec<JobInfo> =
-            serde_json::from_str(job_infos_json).map_err(|e| JsError::new(&format!("Parse job infos JSON error: {}", e)))?;
-
-        self.wallet_session
-            .claim_rewards(pk_hash, job_infos)
-            .await
-            .map_err(|e| JsError::new(&format!("Error exec calls error: {}", e)))?;
-        Ok("claim_rewards".to_string())
-    }
-
     // Local proving operations
     #[wasm_bindgen]
     pub async fn start_session(&self, pk_hash: &str) -> Result<String, JsError> {
-        let pk_hash = QHashOut::<F>::from_str(pk_hash).map_err(|e| JsError::new(&format!("Parse public key hash error: {}", e)))?;
+        let pk_hash = QHashOut::<F>::from_str(pk_hash)
+            .map_err(|e| JsError::new(&format!("Parse public key hash error: {}", e)))?;
         self.wallet_session
             .start_session(pk_hash)
             .await
@@ -341,11 +336,16 @@ impl WasmRpcServer {
     }
 
     #[wasm_bindgen]
-    pub async fn prove_contract_call_json(&mut self, pk_hash: &str, contract_call_json: &str) -> Result<String, JsError> {
-        let contract_call_arg: ContractCallArgs =
-            serde_json::from_str(contract_call_json).map_err(|e| JsError::new(&format!("Parse contract call JSON error: {}", e)))?;
+    pub async fn prove_contract_call_json(
+        &mut self,
+        pk_hash: &str,
+        contract_call_json: &str,
+    ) -> Result<String, JsError> {
+        let contract_call_arg: ContractCallArgs = serde_json::from_str(contract_call_json)
+            .map_err(|e| JsError::new(&format!("Parse contract call JSON error: {}", e)))?;
 
-        let pk_hash = QHashOut::<F>::from_str(pk_hash).map_err(|e| JsError::new(&format!("Parse public key hash error: {}", e)))?;
+        let pk_hash = QHashOut::<F>::from_str(pk_hash)
+            .map_err(|e| JsError::new(&format!("Parse public key hash error: {}", e)))?;
 
         self.wallet_session
             .prove_contract_call(pk_hash, vec![contract_call_arg])
@@ -355,11 +355,17 @@ impl WasmRpcServer {
     }
 
     #[wasm_bindgen]
-    pub async fn prove_contract_calls_json(&mut self, pk_hash: &str, contract_calls_json: &str) -> Result<String, JsError> {
+    pub async fn prove_contract_calls_json(
+        &mut self,
+        pk_hash: &str,
+        contract_calls_json: &str,
+    ) -> Result<String, JsError> {
         let contract_call_args: Vec<ContractCallArgs> =
-            serde_json::from_str(contract_calls_json).map_err(|e| JsError::new(&format!("Parse contract calls JSON error: {}", e)))?;
+            serde_json::from_str(contract_calls_json)
+                .map_err(|e| JsError::new(&format!("Parse contract calls JSON error: {}", e)))?;
 
-        let pk_hash = QHashOut::<F>::from_str(pk_hash).map_err(|e| JsError::new(&format!("Parse public key hash error: {}", e)))?;
+        let pk_hash = QHashOut::<F>::from_str(pk_hash)
+            .map_err(|e| JsError::new(&format!("Parse public key hash error: {}", e)))?;
 
         self.wallet_session
             .prove_contract_call(pk_hash, contract_call_args)
@@ -369,8 +375,13 @@ impl WasmRpcServer {
     }
 
     #[wasm_bindgen]
-    pub async fn sign_and_submit(&self, pk_hash: &str, sign_data: Option<String>) -> Result<String, JsError> {
-        let pk_hash = QHashOut::<F>::from_str(pk_hash).map_err(|e| JsError::new(&format!("Parse public key hash error: {}", e)))?;
+    pub async fn sign_and_submit(
+        &self,
+        pk_hash: &str,
+        sign_data: Option<String>,
+    ) -> Result<String, JsError> {
+        let pk_hash = QHashOut::<F>::from_str(pk_hash)
+            .map_err(|e| JsError::new(&format!("Parse public key hash error: {}", e)))?;
 
         let software_defined_call = sign_data
             .map(|data| serde_json::from_str::<psy_common::args::DPNSoftwareDefinedCallData>(&data))
@@ -387,13 +398,23 @@ impl WasmRpcServer {
 
     // User operations
     #[wasm_bindgen]
-    pub async fn register_user(&mut self, private_key_str: &str, sign_type: &str) -> Result<String, JsError> {
-        let private_key = QHashOut::<F>::from_str(private_key_str).map_err(|e| JsError::new(&format!("Parse private key error: {}", e)))?;
+    pub async fn register_user(
+        &mut self,
+        private_key_str: &str,
+        sign_type: &str,
+    ) -> Result<String, JsError> {
+        let private_key = QHashOut::<F>::from_str(private_key_str)
+            .map_err(|e| JsError::new(&format!("Parse private key error: {}", e)))?;
 
         let fingerprint = match sign_type {
             "zk" => psy_prover::wallet::memory_wallet::get_zk_fingerprint(),
             "secp256k1" => psy_prover::wallet::memory_wallet::get_secp256k1_fingerprint(),
-            _ => return Err(JsError::new(&format!("Unsupported sign type: {}", sign_type))),
+            _ => {
+                return Err(JsError::new(&format!(
+                    "Unsupported sign type: {}",
+                    sign_type
+                )))
+            }
         };
 
         let pk_hash = self
@@ -405,13 +426,23 @@ impl WasmRpcServer {
     }
 
     #[wasm_bindgen]
-    pub async fn add_user(&mut self, private_key_str: &str, sign_type: &str) -> Result<String, JsError> {
-        let private_key = QHashOut::<F>::from_str(private_key_str).map_err(|e| JsError::new(&format!("Parse private key error: {}", e)))?;
+    pub async fn add_user(
+        &mut self,
+        private_key_str: &str,
+        sign_type: &str,
+    ) -> Result<String, JsError> {
+        let private_key = QHashOut::<F>::from_str(private_key_str)
+            .map_err(|e| JsError::new(&format!("Parse private key error: {}", e)))?;
 
         let fingerprint = match sign_type {
             "zk" => psy_prover::wallet::memory_wallet::get_zk_fingerprint(),
             "secp256k1" => psy_prover::wallet::memory_wallet::get_secp256k1_fingerprint(),
-            _ => return Err(JsError::new(&format!("Unsupported sign type: {}", sign_type))),
+            _ => {
+                return Err(JsError::new(&format!(
+                    "Unsupported sign type: {}",
+                    sign_type
+                )))
+            }
         };
 
         let pk_hash = self
@@ -424,13 +455,15 @@ impl WasmRpcServer {
 
     #[wasm_bindgen]
     pub async fn get_zk_public_key_json(&self, private_key_str: &str) -> Result<String, JsError> {
-        let private_key = QHashOut::<F>::from_str(private_key_str).map_err(|e| JsError::new(&format!("Parse private key error: {}", e)))?;
+        let private_key = QHashOut::<F>::from_str(private_key_str)
+            .map_err(|e| JsError::new(&format!("Parse private key error: {}", e)))?;
         let public_key = self
             .wallet_session
             .get_zk_public_key(private_key)
             .await
             .map_err(|e| JsError::new(&format!("Get ZK public key error: {}", e)))?;
-        serde_json::to_string(&public_key).map_err(|e| JsError::new(&format!("Serialize public key error: {}", e)))
+        serde_json::to_string(&public_key)
+            .map_err(|e| JsError::new(&format!("Serialize public key error: {}", e)))
     }
 
     #[wasm_bindgen]
@@ -440,14 +473,21 @@ impl WasmRpcServer {
             .get_random_keypair()
             .await
             .map_err(|e| JsError::new(&format!("Get random keypair error: {}", e)))?;
-        serde_json::to_string(&keypair).map_err(|e| JsError::new(&format!("Serialize keypair error: {}", e)))
+        serde_json::to_string(&keypair)
+            .map_err(|e| JsError::new(&format!("Serialize keypair error: {}", e)))
     }
 
     #[wasm_bindgen]
-    pub async fn deploy_contract_json(&self, deployer: &str, circuit_defs_json: &str) -> Result<String, JsError> {
-        let deployer = QHashOut::<F>::from_str(deployer).map_err(|e| JsError::new(&format!("Parse deployer error: {}", e)))?;
+    pub async fn deploy_contract_json(
+        &self,
+        deployer: &str,
+        circuit_defs_json: &str,
+    ) -> Result<String, JsError> {
+        let deployer = QHashOut::<F>::from_str(deployer)
+            .map_err(|e| JsError::new(&format!("Parse deployer error: {}", e)))?;
         let circuit_defs: Vec<DPNFunctionCircuitDefinition> =
-            serde_json::from_str(circuit_defs_json).map_err(|e| JsError::new(&format!("Parse circuit defs JSON error: {}", e)))?;
+            serde_json::from_str(circuit_defs_json)
+                .map_err(|e| JsError::new(&format!("Parse circuit defs JSON error: {}", e)))?;
 
         let contract_uuid = self
             .wallet_session
@@ -458,16 +498,23 @@ impl WasmRpcServer {
     }
 
     #[wasm_bindgen]
-    pub fn get_deploy_contract_cmd_json(&self, deployer: &str, circuit_defs_json: &str) -> Result<String, JsError> {
-        let deployer = QHashOut::<F>::from_str(deployer).map_err(|e| JsError::new(&format!("Parse deployer error: {}", e)))?;
+    pub fn get_deploy_contract_cmd_json(
+        &self,
+        deployer: &str,
+        circuit_defs_json: &str,
+    ) -> Result<String, JsError> {
+        let deployer = QHashOut::<F>::from_str(deployer)
+            .map_err(|e| JsError::new(&format!("Parse deployer error: {}", e)))?;
         let circuit_defs: Vec<DPNFunctionCircuitDefinition> =
-            serde_json::from_str(circuit_defs_json).map_err(|e| JsError::new(&format!("Parse circuit defs JSON error: {}", e)))?;
+            serde_json::from_str(circuit_defs_json)
+                .map_err(|e| JsError::new(&format!("Parse circuit defs JSON error: {}", e)))?;
 
         let cmd = self
             .wallet_session
             .get_deploy_contract_cmd(deployer, circuit_defs)
             .map_err(|e| JsError::new(&format!("Get deploy contract cmd error: {}", e)))?;
-        serde_json::to_string(&cmd).map_err(|e| JsError::new(&format!("Serialize deploy contract cmd error: {}", e)))
+        serde_json::to_string(&cmd)
+            .map_err(|e| JsError::new(&format!("Serialize deploy contract cmd error: {}", e)))
     }
 
     // Test function
@@ -478,7 +525,8 @@ impl WasmRpcServer {
 
     #[wasm_bindgen]
     pub fn get_result(&self, id_str: &str) -> Result<Vec<u8>, JsError> {
-        let id = Hash256::from_hex_string(id_str).map_err(|e| JsError::new(&format!("Invalid ID format: {:?}", e)))?;
+        let id = Hash256::from_hex_string(id_str)
+            .map_err(|e| JsError::new(&format!("Invalid ID format: {:?}", e)))?;
 
         match self.store.get_result(&id) {
             Some(proof) => Ok(proof.clone()),

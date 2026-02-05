@@ -60,20 +60,22 @@ export class PsyWasmWebProverProvider implements IPsyUserProverProvider {
 
 
     async getClaimRewardsCallArgs(jobInfos: string): Promise<ContractCallArgs[]> {
-        const now = new Date().getTime();
+        // const now = new Date().getTime();
         // const json = PsyJSON.stringify(jobInfos);
-        const result = await PsyWasmWebProverProvider.wasmServer.get_claim_rewards_call_args_json(jobInfos);
-        console.log(`claimRewards in ${(new Date().getTime() - now) / 1000} seconds`);
-        const contractCallArgs = PsyJSON.parse(result) as ContractCallArgs[];
-        return contractCallArgs;
+        // const result = await PsyWasmWebProverProvider.wasmServer.get_claim_rewards_call_args_json(jobInfos);
+        // console.log(`claimRewards in ${(new Date().getTime() - now) / 1000} seconds`);
+        // const contractCallArgs = PsyJSON.parse(result) as ContractCallArgs[];
+        // return contractCallArgs;
+        throw new Error("Method not implemented.");
     }
 
     async claimRewards(pkHash: string, jobInfos: string): Promise<string> {
-        const now = new Date().getTime();
+        // const now = new Date().getTime();
         // const json = PsyJSON.stringify(jobInfos);
-        const result = await PsyWasmWebProverProvider.wasmServer.claim_rewards_json(pkHash, jobInfos);
-        console.log(`claimRewards in ${(new Date().getTime() - now) / 1000} seconds`);
-        return result;
+        // const result = await PsyWasmWebProverProvider.wasmServer.claim_rewards_json(pkHash, jobInfos);
+        // console.log(`claimRewards in ${(new Date().getTime() - now) / 1000} seconds`);
+        // return result;
+        throw new Error("Method not implemented.");
     }
 
     // Local proving operations
