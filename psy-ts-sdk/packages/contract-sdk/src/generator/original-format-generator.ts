@@ -60,6 +60,50 @@ export class ${className} {
     return new ${className}(this._checkpointId, this._userId, this._contractId, signerOrProvider);
   }
 
+  // Update checkpoint in-place
+  updateCheckpoint(newCheckpointId: Felt): void {
+    this._checkpointId = newCheckpointId;
+    // Recreate merkleHelper (getHashFelt closure captures _checkpointId)
+    this._merkleHelper = this._createMerkleHelper();
+    // Reinitialize state proxies
+    this._stateProxies.clear();
+    this._initializeStateVariables();
+  }
+
+  // Get a new contract instance with updated checkpoint (immutable pattern)
+  withCheckpoint(newCheckpointId: Felt): ${className} {
+    return new ${className}(
+      newCheckpointId,
+      this._userId,
+      this._contractId,
+      this._signer || this._provider
+    );
+  }
+
+  // Automatically update to the latest checkpoint
+  async updateToLatest(): Promise<void> {
+    // First try the direct method on provider
+    if (this._provider.getLatestCheckpointId) {
+      const latestCheckpointId = await this._provider.getLatestCheckpointId();
+      this.updateCheckpoint(latestCheckpointId);
+      return;
+    }
+
+    // Fallback: try to access coordinatorEdgeRpcProvider if available
+    if ((this._provider as any).coordinatorEdgeRpcProvider?.getLatestBlockState) {
+      const latestState = await (this._provider as any).coordinatorEdgeRpcProvider.getLatestBlockState();
+      this.updateCheckpoint(latestState.checkpoint_id);
+      return;
+    }
+
+    throw new Error('Provider does not support getLatestCheckpointId(). Please use updateCheckpoint() with an explicit checkpoint ID.');
+  }
+
+  // Get the current checkpoint ID
+  get checkpointId(): Felt {
+    return this._checkpointId;
+  }
+
   // Get the current signer
   get signer(): ISigner | undefined {
     return this._signer;
@@ -87,7 +131,8 @@ ${variablePositionsConstant}
     private generateImports(): string {
         return `// Auto-generated from ABI - Do not edit manually
 import { RecursiveDecoder } from './decoder';
-import { Felt, IContractProvider, ISigner, PsyFixedArray } from './types';
+import { IContractProvider } from '@psy/psy-sdk';
+import { Felt, ISigner, PsyFixedArray } from './types';
 import { keccak256, toBeHex, zeroPadValue } from 'ethers';
 
 // Inline Merkle proxy types and implementation

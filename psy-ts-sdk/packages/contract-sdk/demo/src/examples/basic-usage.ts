@@ -37,10 +37,7 @@ async function basicUsageExample() {
 
     // Step 3: Create contract instance with signer
     console.log("3️⃣ Creating Contract Instance...");
-    const singer = {
-        publicKey,
-        provider,
-    }
+    const singer: Signer = new Signer(publicKey, provider);
     const contract = new Contract(
         checkpointId,
         userId,
@@ -98,15 +95,31 @@ async function basicUsageExample() {
 
         // Wait for balance to increase
         let attempts = 0;
-        const checkAmounts = 9000000000000n;
-        let mintAfterAmount = await contract.balance;
-        while (Number(mintAfterAmount) < checkAmounts && attempts < 10) {
+        const currentBalance = BigInt(await contract.balance);
+        // guta fee and da fee
+        const checkAmounts = currentBalance + mintAmounts - 5000000000000n - 1000n * 100n;
+        let mintAfterAmount = BigInt(await contract.balance);
+
+        while (mintAfterAmount < checkAmounts && attempts < 100) {
+            // ✨ NEW API: Automatically update to the latest checkpoint
+            try {
+                await contract.updateToLatest();
+                console.log(`   📍 Updated to checkpoint: ${contract.checkpointId}`);
+            } catch (updateError) {
+                // Fallback: manual update if updateToLatest fails
+                const latestCheckpoint = (await provider.coordinatorEdgeRpcProvider.getLatestBlockState()).checkpoint_id;
+                contract.updateCheckpoint(latestCheckpoint);
+                console.log(`   📍 Fallback: Manually updated to checkpoint: ${contract.checkpointId}`);
+            }
+
             await new Promise(resolve => setTimeout(resolve, 1000));
-            mintAfterAmount = await contract.balance;
+            mintAfterAmount = BigInt(await contract.balance);
+            console.log(`   ✅ Balance: ${mintAfterAmount}`);
             attempts++;
         }
-        if (Number(mintAfterAmount) <= checkAmounts) {
-            throw new Error(`Balance ${mintAfterAmount} is still not greater than ${checkAmounts} after 10 attempts`);
+
+        if (mintAfterAmount <= checkAmounts) {
+            throw new Error(`Balance ${mintAfterAmount} is still not greater than ${checkAmounts} after 100 attempts`);
         }
         console.log(`   ✅ Balance confirmed: ${mintAfterAmount}\n`);
     } catch (error) {
@@ -144,7 +157,33 @@ async function basicUsageExample() {
         console.error(`   ❌ Unexpected error:`, error instanceof Error ? error.message : String(error));
     }
 
-    console.log("\n✨ Basic example complete!\n");
+    // Step 8: Demonstrate checkpoint update methods
+    console.log("8️⃣ Checkpoint Update Methods...");
+    try {
+        console.log("   Current checkpoint:", contract.checkpointId);
+
+        // Method 1: Update to latest checkpoint automatically (recommended)
+        console.log("   Method 1: Automatic update with updateToLatest()");
+        await contract.updateToLatest();
+        console.log(`   ✅ Updated to latest checkpoint: ${contract.checkpointId}\n`);
+
+        // Method 2: Create new instance with specific checkpoint (immutable pattern)
+        console.log("   Method 2: Create new instance with withCheckpoint()");
+        const latestCheckpointId = (await provider.coordinatorEdgeRpcProvider.getLatestBlockState()).checkpoint_id;
+        const newContractInstance = contract.withCheckpoint(latestCheckpointId);
+        console.log(`   ✅ Created new contract with checkpoint: ${newContractInstance.checkpointId}`);
+        console.log(`   📌 Original contract checkpoint unchanged: ${contract.checkpointId}\n`);
+
+        // Method 3: Manually update to a specific checkpoint
+        console.log("   Method 3: Manual update with updateCheckpoint()");
+        const specificCheckpoint = (await provider.coordinatorEdgeRpcProvider.getLatestBlockState()).checkpoint_id;
+        contract.updateCheckpoint(specificCheckpoint);
+        console.log(`   ✅ Updated original contract to checkpoint: ${contract.checkpointId}\n`);
+    } catch (error) {
+        console.error(`   ❌ Error updating checkpoint:`, error instanceof Error ? error.message : String(error));
+    }
+
+    console.log("✨ Basic example complete!\n");
 }
 
 // Run the example

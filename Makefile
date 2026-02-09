@@ -5,5 +5,3 @@ check:
 wasm-build:
 	@cd psy-rust-sdk && wasm-pack build --target web --out-dir ../psy-ts-sdk/packages/psy-sdk/src/local-web-prover --out-name psy_prover --no-pack --release
 	@cp .github/templates/.gitignore.wasm ./psy-ts-sdk/packages/psy-sdk/src/local-web-prover/.gitignore
-	@cd psy-rust-sdk && wasm-pack build --target nodejs --out-dir ../psy-ts-sdk/packages/psy-sdk/src/local-prover --out-name psy_prover --no-pack --release
-	@cp .github/templates/.gitignore.wasm ./psy-ts-sdk/packages/psy-sdk/src/local-prover/.gitignore

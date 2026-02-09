@@ -19,6 +19,8 @@ export interface IContractProvider {
         args: any[],
         publicKey: string
     ): Promise<any>;
+
+    getLatestCheckpointId?(): Promise<Felt>;
 }
 
 class PsyUserWalletProvider implements IPsyUserWalletProvider, IContractProvider {
@@ -101,6 +103,11 @@ class PsyUserWalletProvider implements IPsyUserWalletProvider, IContractProvider
             ]
         };
         return signer.signAndSubmit(publicKey, contractCallData);
+    }
+
+    async getLatestCheckpointId(): Promise<Felt> {
+        const latestState = await this.coordinatorEdgeRpcProvider.getLatestBlockState();
+        return latestState.checkpoint_id;
     }
 }
 
