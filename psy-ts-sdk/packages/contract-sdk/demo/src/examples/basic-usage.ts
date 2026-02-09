@@ -4,7 +4,7 @@ import { createMemoryWalletProvider } from "../providers";
 import { PsyNetworkConfig, networkConfig } from "../config";
 import { SignType } from "@psy/psy-sdk";
 
-const privateKey = "17c975c2668ebe0ca7c87f67c6414ebb7fd664f46370a0af2a3b204c8824ac5a";
+const privateKey = "c71603f33a1144ca7953db0ab48808f4c4055e3364a246c33c18a9786cb0b359";
 const signType = "zk" as SignType;
 const zkFingerprint = "65e0169bfffd55f1c0ea9f76c111a5b15e652322ee253c1a9604a10d59066b50";
 const contractId = 0;
@@ -89,11 +89,26 @@ async function basicUsageExample() {
     // Step 6: Execute a function (signer required)
     console.log("6️⃣ Executing Contract Function...");
     try {
-        const recipients = [1, 1, 1, 1, 1] as PsyFixedArray<Felt, 5>;
-        const amounts = [10, 10, 10, 10, 10] as PsyFixedArray<Felt, 5>;
+        const mintBeforeAmount = await contract.balance;
+        console.log(`   ✅ Minting ${mintBeforeAmount} tokens before minting...`);
+        const mintAmounts = 10000000000000n;
 
-        await contract.batch_simple_transfer(recipients, amounts);
-        console.log(`   ✅ Successfully transferred 10 tokens to each recipient\n`);
+        await contract.simple_mint(mintAmounts);
+        console.log(`   ✅ Successfully mint 1000000000 tokens to each recipient\n`);
+
+        // Wait for balance to increase
+        let attempts = 0;
+        const checkAmounts = 9000000000000n;
+        let mintAfterAmount = await contract.balance;
+        while (Number(mintAfterAmount) < checkAmounts && attempts < 10) {
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            mintAfterAmount = await contract.balance;
+            attempts++;
+        }
+        if (Number(mintAfterAmount) <= checkAmounts) {
+            throw new Error(`Balance ${mintAfterAmount} is still not greater than ${checkAmounts} after 10 attempts`);
+        }
+        console.log(`   ✅ Balance confirmed: ${mintAfterAmount}\n`);
     } catch (error) {
         console.error(`   ❌ Error executing function:`, error instanceof Error ? error.message : String(error));
     }
@@ -115,10 +130,10 @@ async function basicUsageExample() {
 
         // But state-changing functions will fail
         try {
-            const recipients = [1, 1, 1, 1, 1] as PsyFixedArray<Felt, 5>;
-            const amounts = [10, 10, 10, 10, 10] as PsyFixedArray<Felt, 5>;
+            const recipients = 1;
+            const amounts = 1000000;
 
-            await contract.batch_simple_transfer(recipients, amounts);
+            await contract.simple_transfer(recipients, amounts);
         } catch (error) {
             console.log(
                 `   ✅ Expected error for write operation without signer:`,

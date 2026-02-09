@@ -1,3 +1,2 @@
-// Export new types and implementations
+// Export types and interfaces
 export * from "./types";
-export * from "./client";

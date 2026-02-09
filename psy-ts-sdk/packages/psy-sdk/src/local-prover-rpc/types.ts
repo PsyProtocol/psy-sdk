@@ -102,28 +102,6 @@ export enum SignType {
     SoftwareDefinedPlonky2Sign = "software-defined-plonky2"
 }
 
-// Namespace corresponds to "psy" in Rust
-enum PsyUserProverRPCCommand {
-    ExecContractCall = "psy_exec_contract_call",
-    StartSession = "psy_start_session",
-    ProveContractCall = "psy_prove_contract_call",
-    ProveContractCalls = "psy_prove_contract_calls",
-    SignAndSubmit = "psy_sign_and_submit",
-    RegisterUser = "psy_register_user",
-    AddUser = "psy_add_user",
-    SwitchUser = "psy_switch_user",
-    GetZKPublicKey = "psy_get_zk_public_key",
-    GetRandomKeypair = "psy_get_random_keypair",
-    DeployContract = "psy_deploy_contract",
-    GetDeployContractCmd = "psy_get_deploy_contract_cmd",
-    GetSigHash = "psy_get_sighash",
-    GetZKSignature = "psy_get_zk_signature",
-    GetEndCapProof = "psy_get_end_cap_proof",
-    GetUserECInput = "psy_get_user_ec_input",
-    Ping = "psy_ping",
-    GetResult = "psy_get_result",
-}
-
 interface IPsyUserProverProvider {
     // Local proving operations
     execContractCall(pk_hash: string, callData: ContractCallData): Promise<string>;
@@ -174,5 +152,3 @@ export type {
     SubmitUserEndCapNonProofInput,
     IPsyUserProverProvider,
 };
-
-export { PsyUserProverRPCCommand };

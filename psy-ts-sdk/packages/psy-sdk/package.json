@@ -30,7 +30,7 @@
     "build": "pnpm run precompile && pnpm run compile",
     "precompile": "cpx ../../../config.json src/config && pnpm run clean && pnpm run build:wasm",
     "clean": "rimraf dist",
-    "compile": "rollup -c && cpx 'src/local-prover/psy_prover_bg.*' dist/local-prover",
+    "compile": "rollup -c",
     "lint": "eslint 'src/**/*.{ts,tsx}' --max-warnings 100",
     "lint:fix": "eslint 'src/**/*.{ts,tsx}' --fix",
     "type-check": "pnpm run precompile && tsc --noEmit",
