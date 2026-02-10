@@ -2742,7 +2742,7 @@ dependencies = [
 [[package]]
 name = "kvq"
 version = "0.1.0"
-source = "git+https://github.com/QEDProtocol/qedlang-rust?rev=3ae6453c5269029bf2b6b36442ee1531a7e7d209#3ae6453c5269029bf2b6b36442ee1531a7e7d209"
+source = "git+https://github.com/PsyProtocol/psy-prover?rev=621a33a75c031fbe06f4ce84ea8da00eb595aa60#621a33a75c031fbe06f4ce84ea8da00eb595aa60"
 dependencies = [
  "ambassador",
  "anyhow",
@@ -3346,7 +3346,7 @@ dependencies = [
 [[package]]
 name = "psy_common"
 version = "0.1.0"
-source = "git+https://github.com/QEDProtocol/qedlang-rust?rev=3ae6453c5269029bf2b6b36442ee1531a7e7d209#3ae6453c5269029bf2b6b36442ee1531a7e7d209"
+source = "git+https://github.com/PsyProtocol/psy-prover?rev=621a33a75c031fbe06f4ce84ea8da00eb595aa60#621a33a75c031fbe06f4ce84ea8da00eb595aa60"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3377,7 +3377,7 @@ dependencies = [
 [[package]]
 name = "psy_common_circuit"
 version = "0.1.0"
-source = "git+https://github.com/QEDProtocol/qedlang-rust?rev=3ae6453c5269029bf2b6b36442ee1531a7e7d209#3ae6453c5269029bf2b6b36442ee1531a7e7d209"
+source = "git+https://github.com/PsyProtocol/psy-prover?rev=621a33a75c031fbe06f4ce84ea8da00eb595aa60#621a33a75c031fbe06f4ce84ea8da00eb595aa60"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3407,7 +3407,7 @@ dependencies = [
 [[package]]
 name = "psy_config"
 version = "0.1.0"
-source = "git+https://github.com/QEDProtocol/qedlang-rust?rev=3ae6453c5269029bf2b6b36442ee1531a7e7d209#3ae6453c5269029bf2b6b36442ee1531a7e7d209"
+source = "git+https://github.com/PsyProtocol/psy-prover?rev=621a33a75c031fbe06f4ce84ea8da00eb595aa60#621a33a75c031fbe06f4ce84ea8da00eb595aa60"
 dependencies = [
  "anyhow",
  "indexmap 2.13.0",
@@ -3421,7 +3421,7 @@ dependencies = [
 [[package]]
 name = "psy_crypto"
 version = "0.1.0"
-source = "git+https://github.com/QEDProtocol/qedlang-rust?rev=3ae6453c5269029bf2b6b36442ee1531a7e7d209#3ae6453c5269029bf2b6b36442ee1531a7e7d209"
+source = "git+https://github.com/PsyProtocol/psy-prover?rev=621a33a75c031fbe06f4ce84ea8da00eb595aa60#621a33a75c031fbe06f4ce84ea8da00eb595aa60"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3451,7 +3451,7 @@ dependencies = [
 [[package]]
 name = "psy_data"
 version = "0.1.0"
-source = "git+https://github.com/QEDProtocol/qedlang-rust?rev=3ae6453c5269029bf2b6b36442ee1531a7e7d209#3ae6453c5269029bf2b6b36442ee1531a7e7d209"
+source = "git+https://github.com/PsyProtocol/psy-prover?rev=621a33a75c031fbe06f4ce84ea8da00eb595aa60#621a33a75c031fbe06f4ce84ea8da00eb595aa60"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3478,7 +3478,7 @@ dependencies = [
 [[package]]
 name = "psy_dpn_circuit"
 version = "0.1.0"
-source = "git+https://github.com/QEDProtocol/qedlang-rust?rev=3ae6453c5269029bf2b6b36442ee1531a7e7d209#3ae6453c5269029bf2b6b36442ee1531a7e7d209"
+source = "git+https://github.com/PsyProtocol/psy-prover?rev=621a33a75c031fbe06f4ce84ea8da00eb595aa60#621a33a75c031fbe06f4ce84ea8da00eb595aa60"
 dependencies = [
  "alloy-primitives",
  "alloy-signer",
@@ -3530,7 +3530,7 @@ dependencies = [
 [[package]]
 name = "psy_network_circuit"
 version = "0.1.0"
-source = "git+https://github.com/QEDProtocol/qedlang-rust?rev=3ae6453c5269029bf2b6b36442ee1531a7e7d209#3ae6453c5269029bf2b6b36442ee1531a7e7d209"
+source = "git+https://github.com/PsyProtocol/psy-prover?rev=621a33a75c031fbe06f4ce84ea8da00eb595aa60#621a33a75c031fbe06f4ce84ea8da00eb595aa60"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3548,7 +3548,7 @@ dependencies = [
 [[package]]
 name = "psy_prover"
 version = "0.1.0"
-source = "git+https://github.com/QEDProtocol/qedlang-rust?rev=3ae6453c5269029bf2b6b36442ee1531a7e7d209#3ae6453c5269029bf2b6b36442ee1531a7e7d209"
+source = "git+https://github.com/PsyProtocol/psy-prover?rev=621a33a75c031fbe06f4ce84ea8da00eb595aa60#621a33a75c031fbe06f4ce84ea8da00eb595aa60"
 dependencies = [
  "alloy-primitives",
  "alloy-signer",
@@ -3608,7 +3608,7 @@ dependencies = [
 [[package]]
 name = "psy_provider"
 version = "0.1.0"
-source = "git+https://github.com/QEDProtocol/qedlang-rust?rev=3ae6453c5269029bf2b6b36442ee1531a7e7d209#3ae6453c5269029bf2b6b36442ee1531a7e7d209"
+source = "git+https://github.com/PsyProtocol/psy-prover?rev=621a33a75c031fbe06f4ce84ea8da00eb595aa60#621a33a75c031fbe06f4ce84ea8da00eb595aa60"
 dependencies = [
  "alloy-primitives",
  "alloy-signer",
@@ -3687,7 +3687,7 @@ dependencies = [
 [[package]]
 name = "psy_ups_circuit"
 version = "0.1.0"
-source = "git+https://github.com/QEDProtocol/qedlang-rust?rev=3ae6453c5269029bf2b6b36442ee1531a7e7d209#3ae6453c5269029bf2b6b36442ee1531a7e7d209"
+source = "git+https://github.com/PsyProtocol/psy-prover?rev=621a33a75c031fbe06f4ce84ea8da00eb595aa60#621a33a75c031fbe06f4ce84ea8da00eb595aa60"
 dependencies = [
  "alloy-primitives",
  "alloy-signer",
@@ -3741,7 +3741,7 @@ dependencies = [
 [[package]]
 name = "psy_vm"
 version = "0.1.0"
-source = "git+https://github.com/QEDProtocol/qedlang-rust?rev=3ae6453c5269029bf2b6b36442ee1531a7e7d209#3ae6453c5269029bf2b6b36442ee1531a7e7d209"
+source = "git+https://github.com/PsyProtocol/psy-prover?rev=621a33a75c031fbe06f4ce84ea8da00eb595aa60#621a33a75c031fbe06f4ce84ea8da00eb595aa60"
 dependencies = [
  "anyhow",
  "async-trait",
