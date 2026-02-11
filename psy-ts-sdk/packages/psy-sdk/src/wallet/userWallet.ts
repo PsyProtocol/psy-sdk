@@ -139,7 +139,7 @@ class PsyUserWallet implements IPsyUserWallet {
     async execContractCall(pk_hash: string, contractCallArgs: ContractCallArgs | ContractCallArgs[]): Promise<string> {
         const callData = {
             contract_calls: Array.isArray(contractCallArgs) ? contractCallArgs : [contractCallArgs],
-            software_defined_call: undefined
+            software_defined_call: { "inputs": [] }
         };
         return this.signer.signAndSubmit(pk_hash, callData);
     }

@@ -86,13 +86,12 @@ interface SubmitUserEndCapNonProofInput {
 }
 
 export interface SignData {
-    contract_id: number;
     inputs: number[];
 }
 
 export interface ContractCallData {
     contract_calls: ContractCallArgs[];
-    software_defined_call?: SignData;
+    software_defined_call: SignData;
 }
 
 export enum SignType {

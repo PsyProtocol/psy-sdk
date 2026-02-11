@@ -100,7 +100,10 @@ class PsyUserWalletProvider implements IPsyUserWalletProvider, IContractProvider
                     method_name: functionName,
                     inputs: args.map((arg) => BigInt(arg))
                 }
-            ]
+            ],
+            software_defined_call: {
+                "inputs": []
+            }
         };
         return signer.signAndSubmit(publicKey, contractCallData);
     }
