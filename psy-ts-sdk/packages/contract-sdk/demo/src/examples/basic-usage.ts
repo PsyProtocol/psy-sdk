@@ -25,11 +25,28 @@ async function basicUsageExample() {
     console.log("2️⃣ Adding User...");
     console.log(`   Provider:`, provider.signerProvider);
     const publicKey = await provider.signerProvider.registerUser(privateKey, signType);
+
+    let userId: number | undefined;
+    for (let i = 0; i < 20; i++) {
+        try {
+            userId = await provider.coordinatorEdgeRpcProvider.getUserId(publicKey);
+            if (userId != null) {
+                console.log(`   Found User ID: ${userId}`);
+                break;
+            }
+        } catch (e) {
+            console.warn(`Failed to find user ID error: ${e}`);
+        }
+        console.log(`   Waiting for user registration... (${i + 1}/20)`);
+        await sleep(1000);
+    }
+    if (userId == null) {
+        throw new Error(`Failed to find user ID after 20 attempts`);
+    }
+
     await provider.signerProvider.importPrivateKey?.(privateKey, signType, zkFingerprint);
     console.log(`   Public Key: ${publicKey}`);
 
-    const userId = await provider.coordinatorEdgeRpcProvider.getUserId(publicKey);
-    console.log(`   User ID: ${userId}`);
 
     const userLeafData = await provider.realmEdgeRpcProvider.getRpcProviderByUserId(userId).getUserLeafData(checkpointId, userId);
     console.log(`   User data: ${userLeafData}\n`);
@@ -194,6 +211,11 @@ if (require.main === module) {
             console.error("Fatal error:", error);
             process.exit(1);
         });
+}
+
+function sleep(ms: number): Promise<void> {
+    console.log(`Sleeping for ${ms} milliseconds...`);
+    return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 export { basicUsageExample };
