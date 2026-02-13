@@ -21,13 +21,13 @@ plonky2 = { git = "https://github.com/PsyProtocol/plonky2-hwa", rev = "1dfe6112c
 ] }
 plonky2_maybe_rayon = { git = "https://github.com/PsyProtocol/plonky2-hwa", rev = "1dfe6112c3eca3668c15820755371a8a3e75f934" }
 
-psy_vm = { git = "https://github.com/PsyProtocol/psy-prover", rev = "621a33a75c031fbe06f4ce84ea8da00eb595aa60", default-features = false }
-psy_crypto = { git = "https://github.com/PsyProtocol/psy-prover", rev = "621a33a75c031fbe06f4ce84ea8da00eb595aa60" }
-psy_data = { git = "https://github.com/PsyProtocol/psy-prover", rev = "621a33a75c031fbe06f4ce84ea8da00eb595aa60", default-features = false }
-psy_common = { git = "https://github.com/PsyProtocol/psy-prover", rev = "621a33a75c031fbe06f4ce84ea8da00eb595aa60" }
-psy_config = { git = "https://github.com/PsyProtocol/psy-prover", rev = "621a33a75c031fbe06f4ce84ea8da00eb595aa60" }
-psy_prover = { git = "https://github.com/PsyProtocol/psy-prover", rev = "621a33a75c031fbe06f4ce84ea8da00eb595aa60", default-features = false }
-psy_provider = { git = "https://github.com/PsyProtocol/psy-prover", rev = "621a33a75c031fbe06f4ce84ea8da00eb595aa60" }
+psy_vm = { git = "https://github.com/PsyProtocol/psy-prover", rev = "434a3392359d64276007d26ef7e1c4f5c19a7139", default-features = false }
+psy_crypto = { git = "https://github.com/PsyProtocol/psy-prover", rev = "434a3392359d64276007d26ef7e1c4f5c19a7139" }
+psy_data = { git = "https://github.com/PsyProtocol/psy-prover", rev = "434a3392359d64276007d26ef7e1c4f5c19a7139", default-features = false }
+psy_common = { git = "https://github.com/PsyProtocol/psy-prover", rev = "434a3392359d64276007d26ef7e1c4f5c19a7139" }
+psy_config = { git = "https://github.com/PsyProtocol/psy-prover", rev = "434a3392359d64276007d26ef7e1c4f5c19a7139" }
+psy_prover = { git = "https://github.com/PsyProtocol/psy-prover", rev = "434a3392359d64276007d26ef7e1c4f5c19a7139", default-features = false }
+psy_provider = { git = "https://github.com/PsyProtocol/psy-prover", rev = "434a3392359d64276007d26ef7e1c4f5c19a7139" }
 
 wasm-bindgen = "0.2"
 wasm-bindgen-futures = "0.4"
