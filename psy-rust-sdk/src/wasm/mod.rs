@@ -386,7 +386,8 @@ impl WasmRpcServer {
         let software_defined_call = sign_data
             .map(|data| serde_json::from_str::<psy_common::args::DPNSoftwareDefinedCallData>(&data))
             .transpose()
-            .map_err(|e| JsError::new(&format!("Parse sign data error: {}", e)))?;
+            .map_err(|e| JsError::new(&format!("Parse sign data error: {}", e)))?
+            .unwrap_or_default();
 
         let end_user_leaf_hash = self
             .wallet_session
