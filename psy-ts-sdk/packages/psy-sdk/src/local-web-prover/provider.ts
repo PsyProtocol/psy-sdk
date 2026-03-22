@@ -59,7 +59,7 @@ export class PsyWasmWebProverProvider implements IPsyUserProverProvider {
     }
 
 
-    async getClaimRewardsCallArgs(jobInfos: string): Promise<ContractCallArgs[]> {
+    async getClaimRewardsCallArgs(_jobInfos: string): Promise<ContractCallArgs[]> {
         // const now = new Date().getTime();
         // const json = PsyJSON.stringify(jobInfos);
         // const result = await PsyWasmWebProverProvider.wasmServer.get_claim_rewards_call_args_json(jobInfos);
@@ -69,7 +69,7 @@ export class PsyWasmWebProverProvider implements IPsyUserProverProvider {
         throw new Error("Method not implemented.");
     }
 
-    async claimRewards(pkHash: string, jobInfos: string): Promise<string> {
+    async claimRewards(_pkHash: string, _jobInfos: string): Promise<string> {
         // const now = new Date().getTime();
         // const json = PsyJSON.stringify(jobInfos);
         // const result = await PsyWasmWebProverProvider.wasmServer.claim_rewards_json(pkHash, jobInfos);

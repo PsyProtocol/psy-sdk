@@ -13,13 +13,13 @@
   "dependencies": {
     "@psy/psy-sdk": "workspace:*",
     "@psy/utils": "workspace:*",
-    "commander": "^11.0.0",
-    "ethers": "^6.9.0"
+    "commander": "^11.1.0",
+    "ethers": "^6.16.0"
   },
   "devDependencies": {
-    "@types/node": "^18.11.18",
-    "tsx": "^4.7.0",
-    "typescript": "~4.9.0",
-    "prettier": "^3.5.3"
+    "@types/node": "^18.19.130",
+    "prettier": "^3.8.1",
+    "tsx": "^4.21.0",
+    "typescript": "~4.9.5"
   }
 }

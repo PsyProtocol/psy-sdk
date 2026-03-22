@@ -21,13 +21,21 @@ plonky2 = { git = "https://github.com/PsyProtocol/plonky2-hwa", rev = "1dfe6112c
 ] }
 plonky2_maybe_rayon = { git = "https://github.com/PsyProtocol/plonky2-hwa", rev = "1dfe6112c3eca3668c15820755371a8a3e75f934" }
 
-psy_vm = { git = "https://github.com/PsyProtocol/psy-prover", rev = "621a33a75c031fbe06f4ce84ea8da00eb595aa60", default-features = false }
-psy_crypto = { git = "https://github.com/PsyProtocol/psy-prover", rev = "621a33a75c031fbe06f4ce84ea8da00eb595aa60" }
-psy_data = { git = "https://github.com/PsyProtocol/psy-prover", rev = "621a33a75c031fbe06f4ce84ea8da00eb595aa60", default-features = false }
-psy_common = { git = "https://github.com/PsyProtocol/psy-prover", rev = "621a33a75c031fbe06f4ce84ea8da00eb595aa60" }
-psy_config = { git = "https://github.com/PsyProtocol/psy-prover", rev = "621a33a75c031fbe06f4ce84ea8da00eb595aa60" }
-psy_prover = { git = "https://github.com/PsyProtocol/psy-prover", rev = "621a33a75c031fbe06f4ce84ea8da00eb595aa60", default-features = false }
-psy_provider = { git = "https://github.com/PsyProtocol/psy-prover", rev = "621a33a75c031fbe06f4ce84ea8da00eb595aa60" }
+# psy_vm = { git = "https://github.com/PsyProtocol/psy-prover", rev = "621a33a75c031fbe06f4ce84ea8da00eb595aa60", default-features = false }
+# psy_crypto = { git = "https://github.com/PsyProtocol/psy-prover", rev = "621a33a75c031fbe06f4ce84ea8da00eb595aa60" }
+# psy_data = { git = "https://github.com/PsyProtocol/psy-prover", rev = "621a33a75c031fbe06f4ce84ea8da00eb595aa60", default-features = false }
+# psy_common = { git = "https://github.com/PsyProtocol/psy-prover", rev = "621a33a75c031fbe06f4ce84ea8da00eb595aa60" }
+# psy_config = { git = "https://github.com/PsyProtocol/psy-prover", rev = "621a33a75c031fbe06f4ce84ea8da00eb595aa60" }
+# psy_prover = { git = "https://github.com/PsyProtocol/psy-prover", rev = "621a33a75c031fbe06f4ce84ea8da00eb595aa60", default-features = false }
+# psy_provider = { git = "https://github.com/PsyProtocol/psy-prover", rev = "621a33a75c031fbe06f4ce84ea8da00eb595aa60" }
+
+psy_vm = { path = "../parth-generic-v1/client_prover/psy_vm", default-features = false }
+psy_crypto = { path = "../parth-generic-v1/client_prover/psy_core/psy_crypto" }
+psy_data = { path = "../parth-generic-v1/client_prover/psy_core/psy_data", package = "psy_client_data", default-features = false }
+psy_common = { path = "../parth-generic-v1/client_prover/psy_core/psy_common", package = "psy_client_common" }
+psy_config = { path = "../parth-generic-v1/client_prover/psy_core/psy_config" }
+psy_prover = { path = "../parth-generic-v1/client_prover/psy_prover", default-features = false }
+psy_provider = { path = "../parth-generic-v1/client_prover/psy_provider" }
 
 wasm-bindgen = "0.2"
 wasm-bindgen-futures = "0.4"

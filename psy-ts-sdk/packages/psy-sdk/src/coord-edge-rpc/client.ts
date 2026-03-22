@@ -6,7 +6,6 @@ import { Provider, ClientConfig, RpcConfig } from "../provider";
 import {
     CheckpointSyncInfo,
     ContractCodeDefinition,
-    LatestCheckpointResponse,
     QBCDeployContract,
     PsyCheckpointGlobalStateRoots,
     PsyCheckpointLeaf,

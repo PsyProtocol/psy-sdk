@@ -2,7 +2,6 @@ import { MerkleProofCore, QHashOut, Felt } from "../core";
 import {
     CheckpointSyncInfo,
     ContractCodeDefinition,
-    LatestCheckpointResponse,
     QBCDeployContract,
     PsyCheckpointGlobalStateRoots,
     PsyCheckpointLeaf,

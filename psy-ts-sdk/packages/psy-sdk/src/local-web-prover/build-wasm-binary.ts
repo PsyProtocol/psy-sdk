@@ -35,6 +35,12 @@ function ensureWasmArtifacts() {
     runWasmPack("web", webOutDir, rustSdkDir);
     runWasmPack("nodejs", nodeOutDir, rustSdkDir);
 
+    const gitignoreTemplate = path.resolve(__dirname, "../../../../../.github/templates/.gitignore.wasm");
+    if (fs.existsSync(gitignoreTemplate)) {
+        fs.copyFileSync(gitignoreTemplate, path.join(webOutDir, ".gitignore"));
+        fs.copyFileSync(gitignoreTemplate, path.join(nodeOutDir, ".gitignore"));
+    }
+
     if (!fs.existsSync(wasmPath)) {
         throw new Error(`Expected wasm artifact at ${wasmPath}, but it was not generated`);
     }
