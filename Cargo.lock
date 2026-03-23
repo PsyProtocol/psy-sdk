@@ -3607,6 +3607,7 @@ dependencies = [
  "alloy-signer-local",
  "anyhow",
  "async-trait",
+ "base64 0.22.1",
  "bincode",
  "clap",
  "console_error_panic_hook",
@@ -3713,14 +3714,18 @@ dependencies = [
 name = "psy_rust_sdk"
 version = "0.1.0"
 dependencies = [
+ "base64 0.22.1",
+ "bincode",
  "console_error_panic_hook",
  "getrandom 0.3.4",
  "js-sys",
  "plonky2",
  "psy_client_common",
  "psy_client_data",
+ "psy_common_circuit",
  "psy_config",
  "psy_crypto",
+ "psy_dpn_circuit",
  "psy_prover",
  "psy_provider",
  "psy_vm",

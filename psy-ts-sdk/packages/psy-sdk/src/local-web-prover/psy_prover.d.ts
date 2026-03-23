@@ -65,6 +65,11 @@ export class WasmPsyConfigBuilder {
 export class WasmRpcServer {
     free(): void;
     [Symbol.dispose](): void;
+    /**
+     * Inject an external PrivateNoteInclusion proof into the current session tree.
+     * Returns JSON: { "leaf_index": u64, "siblings": [[u64;4]] }
+     */
+    add_external_proof_json(pk_hash: string, note_proof_bincode_b64: string): Promise<string>;
     add_user(private_key_str: string, sign_type: string): Promise<string>;
     deploy_contract_json(deployer: string, circuit_defs_json: string): Promise<string>;
     exec_contract_call_json(pk_hash: string, call_data_json: string): Promise<string>;
@@ -76,6 +81,22 @@ export class WasmRpcServer {
     ping(message: string): string;
     prove_contract_call_json(pk_hash: string, contract_call_json: string): Promise<string>;
     prove_contract_calls_json(pk_hash: string, contract_calls_json: string): Promise<string>;
+    /**
+     * Generate a PrivateNoteInclusion ZK proof and return the full NoteProofOutput as JSON.
+     *
+     * Inputs (all u64 arrays as JSON arrays of decimal strings to avoid JS precision loss):
+     *   pk_hash            - sender's ZK public key (hex QHashOut)
+     *   owner_json         - receiver's shield address as JSON array of 4 decimal strings
+     *   amount             - transfer amount (u64 as decimal string)
+     *   note_secret_hash_json - randomness used in commitment, JSON array of 4 decimal strings
+     *   nullifier_secret_json - nullifier secret, JSON array of 4 decimal strings
+     *   contract_id        - contract ID (u64 as decimal string)
+     *   note_root_slot     - note root slot index (u64 as decimal string)
+     *   checkpoint_id      - pre-submit checkpoint ID (u64 as decimal string, "0" = latest)
+     *
+     * Returns JSON matching NoteProofOutput.
+     */
+    prove_private_note_inclusion_json(pk_hash: string, owner_json: string, amount: string, note_secret_hash_json: string, nullifier_secret_json: string, contract_id: string, note_root_slot: string, checkpoint_id: string): Promise<string>;
     register_user(private_key_str: string, sign_type: string): Promise<string>;
     sign_and_submit(pk_hash: string, sign_data?: string | null): Promise<string>;
     start_session(pk_hash: string): Promise<string>;
@@ -123,6 +144,8 @@ export interface InitOutput {
     readonly wasmrpcserver_new: (a: number, b: number) => any;
     readonly wasmrpcserver_exec_contract_call_json: (a: number, b: number, c: number, d: number, e: number) => any;
     readonly wasmrpcserver_start_session: (a: number, b: number, c: number) => any;
+    readonly wasmrpcserver_add_external_proof_json: (a: number, b: number, c: number, d: number, e: number) => any;
+    readonly wasmrpcserver_prove_private_note_inclusion_json: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number, l: number, m: number, n: number, o: number, p: number, q: number) => any;
     readonly wasmrpcserver_prove_contract_call_json: (a: number, b: number, c: number, d: number, e: number) => any;
     readonly wasmrpcserver_prove_contract_calls_json: (a: number, b: number, c: number, d: number, e: number) => any;
     readonly wasmrpcserver_sign_and_submit: (a: number, b: number, c: number, d: number, e: number) => any;

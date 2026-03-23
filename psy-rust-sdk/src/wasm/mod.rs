@@ -13,6 +13,57 @@ macro_rules! console_log {
     ($($t:tt)*) => (log(&format_args!($($t)*).to_string()))
 }
 
+async fn async_sleep_ms(ms: i32) {
+    #[cfg(target_arch = "wasm32")]
+    {
+        use js_sys::{global, Reflect};
+        use js_sys::{Function, Promise};
+        use wasm_bindgen::{closure::Closure, JsCast, JsValue};
+
+        let promise = Promise::new(&mut |resolve: Function, _reject: Function| {
+            let global_obj = global();
+            let resolve_for_cb = resolve.clone();
+            let cb = Closure::<dyn FnMut()>::once(move || {
+                let _ = resolve_for_cb.call0(&JsValue::NULL);
+            });
+            if let Some(set_timeout) = Reflect::get(&global_obj, &JsValue::from_str("setTimeout"))
+                .ok()
+                .and_then(|v| v.dyn_into::<Function>().ok())
+            {
+                let _ = set_timeout.call2(
+                    &global_obj,
+                    cb.as_ref().unchecked_ref(),
+                    &JsValue::from_f64(ms as f64),
+                );
+            } else {
+                let _ = resolve.call0(&JsValue::NULL);
+            }
+            cb.forget();
+        });
+        let _ = wasm_bindgen_futures::JsFuture::from(promise).await;
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        std::thread::sleep(std::time::Duration::from_millis(ms as u64));
+    }
+}
+
+fn now_ms() -> u64 {
+    #[cfg(target_arch = "wasm32")]
+    {
+        js_sys::Date::now() as u64
+    }
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        use std::time::{SystemTime, UNIX_EPOCH};
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis() as u64
+    }
+}
+
 // Initialize panic hook for better error messages in WASM
 #[wasm_bindgen(start)]
 pub fn main() {
@@ -333,6 +384,426 @@ impl WasmRpcServer {
             .await
             .map_err(|e| JsError::new(&format!("Start session error: {}", e)))?;
         Ok("start session".to_string())
+    }
+
+    /// Inject an external PrivateNoteInclusion proof into the current session tree.
+    /// Returns JSON: { "leaf_index": u64, "siblings": [[u64;4]] }
+    #[wasm_bindgen]
+    pub async fn add_external_proof_json(
+        &self,
+        pk_hash: &str,
+        note_proof_bincode_b64: &str,
+    ) -> Result<String, JsError> {
+        use base64::engine::general_purpose::STANDARD as BASE64;
+        use base64::Engine;
+        use psy_common_circuit::circuits::traits::qstandard::QStandardCircuit;
+        use psy_dpn_circuit::circuits::privacy::private_note_inclusion::PrivateNoteInclusionCircuit;
+        use psy_config::network_constants::{
+            GLOBAL_USER_TREE_HEIGHT, GLOBAL_CONTRACT_TREE_HEIGHT, MAX_CONTRACT_STATE_TREE_HEIGHT,
+        };
+
+        const NOTE_TREE_HEIGHT: usize = 20;
+        type C = PoseidonGoldilocksConfig;
+        const D: usize = 2;
+
+        let pk_hash = QHashOut::<F>::from_str(pk_hash)
+            .map_err(|e| JsError::new(&format!("Parse pk_hash error: {}", e)))?;
+
+        let proof_bytes = BASE64
+            .decode(note_proof_bincode_b64.as_bytes())
+            .map_err(|e| JsError::new(&format!("base64 decode error: {}", e)))?;
+        let proof: ProofWithPublicInputs<F, C, D> = bincode::deserialize(&proof_bytes)
+            .map_err(|e| JsError::new(&format!("bincode deserialize error: {}", e)))?;
+
+        let circuit = PrivateNoteInclusionCircuit::<C, D>::new(
+            GLOBAL_USER_TREE_HEIGHT as usize,
+            GLOBAL_CONTRACT_TREE_HEIGHT as usize,
+            MAX_CONTRACT_STATE_TREE_HEIGHT as usize,
+            NOTE_TREE_HEIGHT,
+        );
+        let fingerprint = circuit.get_fingerprint();
+        let verifier_data = circuit.get_verifier_config_ref().clone();
+
+        let (leaf_index, siblings) = self
+            .wallet_session
+            .add_external_proof_with_siblings(pk_hash, fingerprint, proof, verifier_data)
+            .await
+            .map_err(|e| JsError::new(&format!("add_external_proof error: {}", e)))?;
+
+        // Encode as decimal strings to avoid JS precision loss for large u64 values
+        let siblings_str: Vec<[String; 4]> = siblings
+            .iter()
+            .map(|s| {
+                [
+                    s[0].to_string(),
+                    s[1].to_string(),
+                    s[2].to_string(),
+                    s[3].to_string(),
+                ]
+            })
+            .collect();
+
+        let result = serde_json::json!({
+            "leaf_index": leaf_index,
+            "siblings": siblings_str,
+        });
+        Ok(result.to_string())
+    }
+
+    /// Generate a PrivateNoteInclusion ZK proof and return the full NoteProofOutput as JSON.
+    ///
+    /// Inputs (all u64 arrays as JSON arrays of decimal strings to avoid JS precision loss):
+    ///   pk_hash            - sender's ZK public key (hex QHashOut)
+    ///   owner_json         - receiver's shield address as JSON array of 4 decimal strings
+    ///   amount             - transfer amount (u64 as decimal string)
+    ///   note_secret_hash_json - randomness used in commitment, JSON array of 4 decimal strings
+    ///   nullifier_secret_json - nullifier secret, JSON array of 4 decimal strings
+    ///   contract_id        - contract ID (u64 as decimal string)
+    ///   note_root_slot     - note root slot index (u64 as decimal string)
+    ///   checkpoint_id      - pre-submit checkpoint ID (u64 as decimal string, "0" = latest)
+    ///
+    /// Returns JSON matching NoteProofOutput.
+    #[wasm_bindgen]
+    pub async fn prove_private_note_inclusion_json(
+        &self,
+        pk_hash: &str,
+        owner_json: &str,
+        amount: &str,
+        note_secret_hash_json: &str,
+        nullifier_secret_json: &str,
+        contract_id: &str,
+        note_root_slot: &str,
+        checkpoint_id: &str,
+    ) -> Result<String, JsError> {
+        use base64::engine::general_purpose::STANDARD as BASE64;
+        use base64::Engine;
+        use plonky2::field::types::{Field, PrimeField64};
+        use psy_common_circuit::circuits::traits::qstandard::QStandardCircuit;
+        use psy_dpn_circuit::circuits::privacy::private_note_inclusion::PrivateNoteInclusionCircuit;
+        use psy_config::network_constants::{
+            GLOBAL_USER_TREE_HEIGHT, GLOBAL_CONTRACT_TREE_HEIGHT, MAX_CONTRACT_STATE_TREE_HEIGHT,
+        };
+        use psy_crypto::hash::traits::{
+            hasher::{FieldQHasher, PoseidonHasher},
+            qhashable::QFieldHashable,
+        };
+        use psy_crypto::hash::merkle::core::MerkleProofCore;
+        use psy_data::privacy::private_note_inclusion::PrivateNoteInclusionInput;
+        use psy_data::traits::qdatastore::qtreedata::QTreeDataStoreReaderSync;
+        use psy_data::traits::qdatastore::qmetadata::QMetaDataStoreReaderSync;
+
+        const NOTE_TREE_HEIGHT: usize = 20;
+        type C = PoseidonGoldilocksConfig;
+        const D: usize = 2;
+
+        // Helper: parse a JSON array of 4 decimal strings into [u64;4]
+        let parse_u64x4 = |json: &str| -> Result<[u64; 4], JsError> {
+            let arr: [String; 4] = serde_json::from_str(json)
+                .map_err(|e| JsError::new(&format!("parse array error: {}", e)))?;
+            Ok([
+                arr[0].parse::<u64>().map_err(|e| JsError::new(&e.to_string()))?,
+                arr[1].parse::<u64>().map_err(|e| JsError::new(&e.to_string()))?,
+                arr[2].parse::<u64>().map_err(|e| JsError::new(&e.to_string()))?,
+                arr[3].parse::<u64>().map_err(|e| JsError::new(&e.to_string()))?,
+            ])
+        };
+
+        let pk_hash = QHashOut::<F>::from_str(pk_hash)
+            .map_err(|e| JsError::new(&format!("parse pk_hash: {}", e)))?;
+        let owner_u64 = parse_u64x4(owner_json)?;
+        let amount_val: u64 = amount.parse().map_err(|e: std::num::ParseIntError| JsError::new(&e.to_string()))?;
+        let note_secret_hash_u64 = parse_u64x4(note_secret_hash_json)?;
+        let nullifier_secret_u64 = parse_u64x4(nullifier_secret_json)?;
+        let contract_id_val: u64 = contract_id.parse().map_err(|e: std::num::ParseIntError| JsError::new(&e.to_string()))?;
+        let note_root_slot_val: u64 = note_root_slot.parse().map_err(|e: std::num::ParseIntError| JsError::new(&e.to_string()))?;
+        let checkpoint_before_raw: u64 = checkpoint_id.parse().map_err(|e: std::num::ParseIntError| JsError::new(&e.to_string()))?;
+
+        let owner = QHashOut::<F>::from_values(owner_u64[0], owner_u64[1], owner_u64[2], owner_u64[3]);
+        let note_secret_hash = QHashOut::<F>::from_values(
+            note_secret_hash_u64[0], note_secret_hash_u64[1],
+            note_secret_hash_u64[2], note_secret_hash_u64[3],
+        );
+        let nullifier_secret = QHashOut::<F>::from_values(
+            nullifier_secret_u64[0], nullifier_secret_u64[1],
+            nullifier_secret_u64[2], nullifier_secret_u64[3],
+        );
+
+        let provider = self.wallet_session.st_provider.clone();
+
+        // Resolve checkpoint_before (0 = latest).
+        let checkpoint_before = if checkpoint_before_raw == 0 {
+            provider.get_latest_block_state().await
+                .map_err(|e| JsError::new(&format!("get_latest_block_state: {}", e)))?
+                .checkpoint_id
+        } else {
+            checkpoint_before_raw
+        };
+
+        // Get sender's user_id from public key
+        let user_ids = provider.get_user_ids_for_public_key(pk_hash).await
+            .map_err(|e| JsError::new(&format!("get_user_ids_for_public_key: {}", e)))?;
+        let sender_user_id = *user_ids.first()
+            .ok_or_else(|| JsError::new("No user ID found for public key"))?;
+
+        let user_provider = provider.with_user_id_owned(sender_user_id);
+
+        // Build note membership proof from the pre-submit checkpoint.
+        // note_count is at slot note_root_slot - 1, elements[3] is the note index.
+        let note_count_slot = note_root_slot_val.saturating_sub(1);
+        let note_count_proof = user_provider.get_user_contract_state_tree_merkle_proof(
+            checkpoint_before, sender_user_id, contract_id_val as u32,
+            MAX_CONTRACT_STATE_TREE_HEIGHT as u8, note_count_slot,
+        ).await
+            .map_err(|e| JsError::new(&format!("note_count_proof: {}", e)))?;
+        let note_index = note_count_proof.value.0.elements[3].to_canonical_u64();
+
+        // Collect last_path (levels 0..NOTE_TREE_HEIGHT) from slots note_root_slot+1..
+        let mut last_path: Vec<QHashOut<F>> = Vec::with_capacity(NOTE_TREE_HEIGHT);
+        for level in 0..NOTE_TREE_HEIGHT as u64 {
+            let slot = note_root_slot_val + 1 + level;
+            let proof = user_provider.get_user_contract_state_tree_merkle_proof(
+                checkpoint_before, sender_user_id, contract_id_val as u32,
+                MAX_CONTRACT_STATE_TREE_HEIGHT as u8, slot,
+            ).await
+                .map_err(|e| JsError::new(&format!("last_path[{}]: {}", level, e)))?;
+            last_path.push(proof.value);
+        }
+
+        // Build commitment and Merkle siblings
+        let value_hash = QHashOut::<F>::from_values(amount_val, 0, 0, 0);
+        let inner = PoseidonHasher::q_two_to_one(owner, value_hash);
+        let commitment = PoseidonHasher::q_two_to_one(inner, note_secret_hash);
+
+        let mut siblings: Vec<QHashOut<F>> = Vec::with_capacity(NOTE_TREE_HEIGHT);
+        let mut zero = QHashOut::<F>::from_values(0, 0, 0, 0);
+        for level in 0..NOTE_TREE_HEIGHT {
+            let bit = (note_index >> level) & 1;
+            if bit == 0 {
+                siblings.push(zero);
+            } else {
+                siblings.push(last_path[level]);
+            }
+            zero = PoseidonHasher::q_two_to_one(zero, zero);
+        }
+        let note_membership_proof = MerkleProofCore::new_from_params::<PoseidonHasher>(
+            note_index, commitment, siblings,
+        );
+
+        // Align with CLI private_transfer:
+        // 1) wait user nonce change after checkpoint_before
+        // 2) wait note_count / note_root slot value change
+        // 3) prove against selected checkpoint_after
+        let baseline_user_leaf = provider
+            .get_user_leaf_data(checkpoint_before, sender_user_id)
+            .await
+            .map_err(|e| JsError::new(&format!("get_user_leaf_data(baseline): {}", e)))?;
+        let baseline_nonce = baseline_user_leaf.nonce.to_canonical_u64();
+        let baseline_note_count = user_provider
+            .get_user_contract_state_tree_merkle_proof(
+                checkpoint_before,
+                sender_user_id,
+                contract_id_val as u32,
+                MAX_CONTRACT_STATE_TREE_HEIGHT as u8,
+                note_count_slot,
+            )
+            .await
+            .map_err(|e| JsError::new(&format!("baseline note_count proof: {}", e)))?
+            .value;
+        let baseline_note_root = user_provider
+            .get_user_contract_state_tree_merkle_proof(
+                checkpoint_before,
+                sender_user_id,
+                contract_id_val as u32,
+                MAX_CONTRACT_STATE_TREE_HEIGHT as u8,
+                note_root_slot_val,
+            )
+            .await
+            .map_err(|e| JsError::new(&format!("baseline note_root proof: {}", e)))?
+            .value;
+
+        let wait_deadline_ms = now_ms().saturating_add(180_000);
+        let mut latest_coordinator_seen = checkpoint_before;
+        let mut latest_realm_seen = checkpoint_before;
+
+        let mut checkpoint_after_nonce: Option<u64> = None;
+        let mut next_checkpoint_to_check = checkpoint_before.saturating_add(1);
+        while now_ms() < wait_deadline_ms {
+            let latest_coordinator = provider
+                .get_coordinator_latest_block_state()
+                .await
+                .map_err(|e| JsError::new(&format!("get_coordinator_latest_block_state: {}", e)))?
+                .checkpoint_id;
+            latest_coordinator_seen = latest_coordinator_seen.max(latest_coordinator);
+            if let Ok(realm_state) = provider.get_realm_latest_block_state().await {
+                latest_realm_seen = latest_realm_seen.max(realm_state.checkpoint_id);
+            }
+
+            while next_checkpoint_to_check <= latest_coordinator {
+                let leaf = match provider
+                    .get_user_leaf_data(next_checkpoint_to_check, sender_user_id)
+                    .await
+                {
+                    Ok(v) => v,
+                    Err(_) => break,
+                };
+                if leaf.nonce.to_canonical_u64() > baseline_nonce {
+                    checkpoint_after_nonce = Some(next_checkpoint_to_check);
+                    break;
+                }
+                next_checkpoint_to_check = next_checkpoint_to_check.saturating_add(1);
+            }
+            if checkpoint_after_nonce.is_some() {
+                break;
+            }
+            async_sleep_ms(1000).await;
+        }
+        let checkpoint_after_nonce = checkpoint_after_nonce.ok_or_else(|| {
+            JsError::new(&format!(
+                "[wallet-wasm-v2] timeout waiting nonce change (checkpoint_before={}, baseline_nonce={}, latestCoordinator={}, latestRealm={})",
+                checkpoint_before, baseline_nonce, latest_coordinator_seen, latest_realm_seen
+            ))
+        })?;
+
+        let mut checkpoint_after: Option<u64> = None;
+        let mut next_slot_checkpoint = checkpoint_after_nonce.saturating_sub(1).saturating_add(1);
+        let mut last_error = String::new();
+        while now_ms() < wait_deadline_ms {
+            let latest_coordinator = provider
+                .get_coordinator_latest_block_state()
+                .await
+                .map_err(|e| JsError::new(&format!("get_coordinator_latest_block_state: {}", e)))?
+                .checkpoint_id;
+            latest_coordinator_seen = latest_coordinator_seen.max(latest_coordinator);
+            if let Ok(realm_state) = provider.get_realm_latest_block_state().await {
+                latest_realm_seen = latest_realm_seen.max(realm_state.checkpoint_id);
+            }
+
+            while next_slot_checkpoint <= latest_coordinator {
+                let note_count = match user_provider
+                    .get_user_contract_state_tree_merkle_proof(
+                        next_slot_checkpoint,
+                        sender_user_id,
+                        contract_id_val as u32,
+                        MAX_CONTRACT_STATE_TREE_HEIGHT as u8,
+                        note_count_slot,
+                    )
+                    .await
+                {
+                    Ok(v) => v.value,
+                    Err(_) => break,
+                };
+                let note_root = match user_provider
+                    .get_user_contract_state_tree_merkle_proof(
+                        next_slot_checkpoint,
+                        sender_user_id,
+                        contract_id_val as u32,
+                        MAX_CONTRACT_STATE_TREE_HEIGHT as u8,
+                        note_root_slot_val,
+                    )
+                    .await
+                {
+                    Ok(v) => v.value,
+                    Err(_) => break,
+                };
+
+                if note_count != baseline_note_count || note_root != baseline_note_root {
+                    checkpoint_after = Some(next_slot_checkpoint);
+                    break;
+                }
+                last_error = format!(
+                    "slots unchanged at checkpoint {}: note_count={} note_root={}",
+                    next_slot_checkpoint, note_count, note_root
+                );
+                next_slot_checkpoint = next_slot_checkpoint.saturating_add(1);
+            }
+            if checkpoint_after.is_some() {
+                break;
+            }
+            async_sleep_ms(1000).await;
+        }
+        let checkpoint_after = checkpoint_after.ok_or_else(|| {
+            JsError::new(&format!(
+                "[wallet-wasm-v2] timeout waiting note slots change (checkpoint_before={}, nonceCheckpoint={}, latestCoordinator={}, latestRealm={}, lastError={})",
+                checkpoint_before, checkpoint_after_nonce, latest_coordinator_seen, latest_realm_seen, last_error
+            ))
+        })?;
+
+        // Fetch post-submit proofs and leaf at the selected checkpoint.
+        let user_leaf = user_provider.get_user_leaf_data(checkpoint_after, sender_user_id).await
+            .map_err(|e| JsError::new(&format!("get_user_leaf_data: {}", e)))?;
+        let note_root_slot_proof = user_provider.get_user_contract_state_tree_merkle_proof(
+            checkpoint_after, sender_user_id, contract_id_val as u32,
+            MAX_CONTRACT_STATE_TREE_HEIGHT as u8, note_root_slot_val,
+        ).await
+            .map_err(|e| JsError::new(&format!("note_root_slot_proof: {}", e)))?;
+        // Fetch contract_proof and user_tree_proof
+        let contract_proof = user_provider.get_user_contract_tree_merkle_proof(
+            checkpoint_after, sender_user_id, contract_id_val as u32,
+        ).await
+            .map_err(|e| JsError::new(&format!("contract_proof: {}", e)))?;
+        let user_tree_proof = user_provider.get_user_tree_merkle_proof(
+            checkpoint_after, sender_user_id,
+        ).await
+            .map_err(|e| JsError::new(&format!("user_tree_proof: {}", e)))?;
+        let global_user_tree_root = user_tree_proof.root;
+
+        // Build circuit input and prove
+        let circuit_input = PrivateNoteInclusionInput {
+            nullifier_secret,
+            sender_user_id,
+            contract_id: contract_id_val,
+            note_root_slot: note_root_slot_val,
+            user_leaf,
+            owner,
+            amount: F::from_canonical_u64(amount_val),
+            randomness: note_secret_hash,
+            note_membership_proof,
+            note_root_slot_proof,
+            contract_proof,
+            user_tree_proof,
+            checkpoint_id: F::from_canonical_u64(checkpoint_after),
+        };
+
+        let circuit = PrivateNoteInclusionCircuit::<C, D>::new(
+            GLOBAL_USER_TREE_HEIGHT as usize,
+            GLOBAL_CONTRACT_TREE_HEIGHT as usize,
+            MAX_CONTRACT_STATE_TREE_HEIGHT as usize,
+            NOTE_TREE_HEIGHT,
+        );
+        let proof = circuit.prove(&circuit_input)
+            .map_err(|e| JsError::new(&format!("prove error: {}", e)))?;
+        let fingerprint = circuit.get_fingerprint();
+
+        // Compute nullifier
+        let nullifier = PoseidonHasher::q_hash_many(&nullifier_secret.0.elements);
+
+        // Encode proof as bincode + base64
+        let proof_bytes = bincode::serialize(&proof)
+            .map_err(|e| JsError::new(&format!("bincode serialize: {}", e)))?;
+        let proof_b64 = BASE64.encode(&proof_bytes);
+
+        // Build NoteProofOutput as JSON
+        let to_str_arr = |h: QHashOut<F>| -> [String; 4] {
+            let e = h.0.elements;
+            [
+                e[0].to_canonical_u64().to_string(),
+                e[1].to_canonical_u64().to_string(),
+                e[2].to_canonical_u64().to_string(),
+                e[3].to_canonical_u64().to_string(),
+            ]
+        };
+
+        let result = serde_json::json!({
+            "nullifier": to_str_arr(nullifier),
+            "owner": to_str_arr(owner),
+            "amount": amount_val.to_string(),
+            "user_tree_root": to_str_arr(global_user_tree_root),
+            "checkpoint_id": checkpoint_after.to_string(),
+            "note_root_slot": note_root_slot_val.to_string(),
+            "note_proof_fingerprint": to_str_arr(fingerprint),
+            "note_proof_bincode_b64": proof_b64,
+        });
+        Ok(result.to_string())
     }
 
     #[wasm_bindgen]
