@@ -72,6 +72,29 @@ export class WasmRpcServer {
     add_external_proof_json(pk_hash: string, note_proof_bincode_b64: string): Promise<string>;
     add_user(private_key_str: string, sign_type: string): Promise<string>;
     deploy_contract_json(deployer: string, circuit_defs_json: string): Promise<string>;
+    /**
+     * Atomic private_claim: start_session → add_external_proof → prove → sign_and_submit.
+     *
+     * This replaces the broken two-step flow (psy_addExternalProof then sendTransaction)
+     * where sendTransaction's internal start_session call would reset the session tree,
+     * losing the injected external proof.
+     *
+     * Inputs (all u64 values as decimal strings to avoid JS precision loss):
+     *   pk_hash                 - receiver's ZK public key (hex QHashOut)
+     *   note_proof_bincode_b64  - base64-encoded PrivateNoteInclusion proof bytes
+     *   nullifier_json          - JSON array of 4 decimal strings
+     *   owner_json              - JSON array of 4 decimal strings
+     *   amount                  - decimal string
+     *   user_tree_root_json     - JSON array of 4 decimal strings
+     *   checkpoint_id           - decimal string
+     *   note_root_slot          - decimal string
+     *   contract_id             - decimal string
+     *   random0                 - decimal string
+     *   random1                 - decimal string
+     *
+     * Returns the transaction hash string.
+     */
+    exec_claim_with_external_proof_json(pk_hash: string, note_proof_bincode_b64: string, nullifier_json: string, owner_json: string, amount: string, user_tree_root_json: string, checkpoint_id: string, note_root_slot: string, contract_id: string, random0: string, random1: string): Promise<string>;
     exec_contract_call_json(pk_hash: string, call_data_json: string): Promise<string>;
     get_deploy_contract_cmd_json(deployer: string, circuit_defs_json: string): string;
     get_random_keypair_json(): Promise<string>;
@@ -145,6 +168,7 @@ export interface InitOutput {
     readonly wasmrpcserver_exec_contract_call_json: (a: number, b: number, c: number, d: number, e: number) => any;
     readonly wasmrpcserver_start_session: (a: number, b: number, c: number) => any;
     readonly wasmrpcserver_add_external_proof_json: (a: number, b: number, c: number, d: number, e: number) => any;
+    readonly wasmrpcserver_exec_claim_with_external_proof_json: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number, l: number, m: number, n: number, o: number, p: number, q: number, r: number, s: number, t: number, u: number, v: number, w: number) => any;
     readonly wasmrpcserver_prove_private_note_inclusion_json: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number, l: number, m: number, n: number, o: number, p: number, q: number) => any;
     readonly wasmrpcserver_prove_contract_call_json: (a: number, b: number, c: number, d: number, e: number) => any;
     readonly wasmrpcserver_prove_contract_calls_json: (a: number, b: number, c: number, d: number, e: number) => any;
@@ -159,11 +183,11 @@ export interface InitOutput {
     readonly wasmrpcserver_get_result: (a: number, b: number, c: number) => [number, number, number, number];
     readonly wasmpsyconfigbuilder_new: () => number;
     readonly wasmconstants_register_user_fee: () => bigint;
-    readonly wasm_bindgen__closure__destroy__h3304f4ae8de80f90: (a: number, b: number) => void;
-    readonly wasm_bindgen__closure__destroy__h60dac3e0df49c251: (a: number, b: number) => void;
-    readonly wasm_bindgen__convert__closures_____invoke__h5e3d7cace87d2bdc: (a: number, b: number, c: any, d: any) => void;
-    readonly wasm_bindgen__convert__closures_____invoke__hcaac9d9f14c166d9: (a: number, b: number, c: any) => void;
-    readonly wasm_bindgen__convert__closures_____invoke__h6ee44fd040f5c667: (a: number, b: number) => void;
+    readonly wasm_bindgen__closure__destroy__hb0921961ac13fc35: (a: number, b: number) => void;
+    readonly wasm_bindgen__closure__destroy__hb5523c0e2f695e64: (a: number, b: number) => void;
+    readonly wasm_bindgen__convert__closures_____invoke__h29819c8fa199d73f: (a: number, b: number, c: any, d: any) => void;
+    readonly wasm_bindgen__convert__closures_____invoke__h065106c8a2618f9b: (a: number, b: number, c: any) => void;
+    readonly wasm_bindgen__convert__closures_____invoke__h0173c15985775850: (a: number, b: number) => void;
     readonly __wbindgen_malloc: (a: number, b: number) => number;
     readonly __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;
     readonly __wbindgen_exn_store: (a: number) => void;

@@ -409,18 +409,30 @@ impl WasmRpcServer {
         let pk_hash = QHashOut::<F>::from_str(pk_hash)
             .map_err(|e| JsError::new(&format!("Parse pk_hash error: {}", e)))?;
 
-        let proof_bytes = BASE64
-            .decode(note_proof_bincode_b64.as_bytes())
-            .map_err(|e| JsError::new(&format!("base64 decode error: {}", e)))?;
-        let proof: ProofWithPublicInputs<F, C, D> = bincode::deserialize(&proof_bytes)
-            .map_err(|e| JsError::new(&format!("bincode deserialize error: {}", e)))?;
-
         let circuit = PrivateNoteInclusionCircuit::<C, D>::new(
             GLOBAL_USER_TREE_HEIGHT as usize,
             GLOBAL_CONTRACT_TREE_HEIGHT as usize,
             MAX_CONTRACT_STATE_TREE_HEIGHT as usize,
             NOTE_TREE_HEIGHT,
         );
+        let proof_bytes = BASE64
+            .decode(note_proof_bincode_b64.as_bytes())
+            .map_err(|e| JsError::new(&format!("base64 decode error: {}", e)))?;
+        // Compatibility: accept both modern plonky2 native proof bytes and legacy
+        // bincode-serialized proofs to avoid cross-version serialization breakage.
+        let proof: ProofWithPublicInputs<F, C, D> =
+            match ProofWithPublicInputs::<F, C, D>::from_bytes(
+                proof_bytes.clone(),
+                circuit.get_common_circuit_data_ref(),
+            ) {
+                Ok(p) => p,
+                Err(native_err) => bincode::deserialize(&proof_bytes).map_err(|bin_err| {
+                    JsError::new(&format!(
+                        "proof deserialize error: native={} ; bincode={}",
+                        native_err, bin_err
+                    ))
+                })?,
+            };
         let fingerprint = circuit.get_fingerprint();
         let verifier_data = circuit.get_verifier_config_ref().clone();
 
@@ -448,6 +460,160 @@ impl WasmRpcServer {
             "siblings": siblings_str,
         });
         Ok(result.to_string())
+    }
+
+    /// Atomic private_claim: start_session → add_external_proof → prove → sign_and_submit.
+    ///
+    /// This replaces the broken two-step flow (psy_addExternalProof then sendTransaction)
+    /// where sendTransaction's internal start_session call would reset the session tree,
+    /// losing the injected external proof.
+    ///
+    /// Inputs (all u64 values as decimal strings to avoid JS precision loss):
+    ///   pk_hash                 - receiver's ZK public key (hex QHashOut)
+    ///   note_proof_bincode_b64  - base64-encoded PrivateNoteInclusion proof bytes
+    ///   nullifier_json          - JSON array of 4 decimal strings
+    ///   owner_json              - JSON array of 4 decimal strings
+    ///   amount                  - decimal string
+    ///   user_tree_root_json     - JSON array of 4 decimal strings
+    ///   checkpoint_id           - decimal string
+    ///   note_root_slot          - decimal string
+    ///   contract_id             - decimal string
+    ///   random0                 - decimal string
+    ///   random1                 - decimal string
+    ///
+    /// Returns the transaction hash string.
+    #[wasm_bindgen]
+    pub async fn exec_claim_with_external_proof_json(
+        &mut self,
+        pk_hash: &str,
+        note_proof_bincode_b64: &str,
+        nullifier_json: &str,
+        owner_json: &str,
+        amount: &str,
+        user_tree_root_json: &str,
+        checkpoint_id: &str,
+        note_root_slot: &str,
+        contract_id: &str,
+        random0: &str,
+        random1: &str,
+    ) -> Result<String, JsError> {
+        use base64::engine::general_purpose::STANDARD as BASE64;
+        use base64::Engine;
+        use psy_common_circuit::circuits::traits::qstandard::QStandardCircuit;
+        use psy_dpn_circuit::circuits::privacy::private_note_inclusion::PrivateNoteInclusionCircuit;
+        use psy_config::network_constants::{
+            GLOBAL_USER_TREE_HEIGHT, GLOBAL_CONTRACT_TREE_HEIGHT, MAX_CONTRACT_STATE_TREE_HEIGHT,
+        };
+
+        const NOTE_TREE_HEIGHT: usize = 20;
+        type C = PoseidonGoldilocksConfig;
+        const D: usize = 2;
+
+        // Helper: parse JSON array of 4 decimal strings → [u64; 4]
+        let parse_u64x4 = |json: &str| -> Result<[u64; 4], JsError> {
+            let arr: [String; 4] = serde_json::from_str(json)
+                .map_err(|e| JsError::new(&format!("parse u64x4: {}", e)))?;
+            Ok([
+                arr[0].parse::<u64>().map_err(|e| JsError::new(&e.to_string()))?,
+                arr[1].parse::<u64>().map_err(|e| JsError::new(&e.to_string()))?,
+                arr[2].parse::<u64>().map_err(|e| JsError::new(&e.to_string()))?,
+                arr[3].parse::<u64>().map_err(|e| JsError::new(&e.to_string()))?,
+            ])
+        };
+
+        let pk_hash = QHashOut::<F>::from_str(pk_hash)
+            .map_err(|e| JsError::new(&format!("parse pk_hash: {}", e)))?;
+        let nullifier = parse_u64x4(nullifier_json)?;
+        let owner = parse_u64x4(owner_json)?;
+        let amount_val: u64 = amount.parse()
+            .map_err(|e: std::num::ParseIntError| JsError::new(&e.to_string()))?;
+        let user_tree_root = parse_u64x4(user_tree_root_json)?;
+        let checkpoint_id_val: u64 = checkpoint_id.parse()
+            .map_err(|e: std::num::ParseIntError| JsError::new(&e.to_string()))?;
+        let note_root_slot_val: u64 = note_root_slot.parse()
+            .map_err(|e: std::num::ParseIntError| JsError::new(&e.to_string()))?;
+        let contract_id_val: u64 = contract_id.parse()
+            .map_err(|e: std::num::ParseIntError| JsError::new(&e.to_string()))?;
+        let random0_val: u64 = random0.parse()
+            .map_err(|e: std::num::ParseIntError| JsError::new(&e.to_string()))?;
+        let random1_val: u64 = random1.parse()
+            .map_err(|e: std::num::ParseIntError| JsError::new(&e.to_string()))?;
+
+        // Decode and deserialize the proof
+        let proof_bytes = BASE64.decode(note_proof_bincode_b64.as_bytes())
+            .map_err(|e| JsError::new(&format!("base64 decode: {}", e)))?;
+        let circuit = PrivateNoteInclusionCircuit::<C, D>::new(
+            GLOBAL_USER_TREE_HEIGHT as usize,
+            GLOBAL_CONTRACT_TREE_HEIGHT as usize,
+            MAX_CONTRACT_STATE_TREE_HEIGHT as usize,
+            NOTE_TREE_HEIGHT,
+        );
+        let proof: ProofWithPublicInputs<F, C, D> =
+            match ProofWithPublicInputs::<F, C, D>::from_bytes(
+                proof_bytes.clone(),
+                circuit.get_common_circuit_data_ref(),
+            ) {
+                Ok(p) => p,
+                Err(native_err) => bincode::deserialize(&proof_bytes).map_err(|bin_err| {
+                    JsError::new(&format!(
+                        "proof deserialize: native={} ; bincode={}",
+                        native_err, bin_err
+                    ))
+                })?,
+            };
+        let fingerprint = circuit.get_fingerprint();
+        let verifier_data = circuit.get_verifier_config_ref().clone();
+
+        // Step 1: reset session (must happen before add_external_proof)
+        self.wallet_session
+            .start_session(pk_hash)
+            .await
+            .map_err(|e| JsError::new(&format!("start_session: {}", e)))?;
+
+        // Step 2: inject external proof AFTER reset → get leaf_index + siblings
+        let (leaf_index, siblings) = self
+            .wallet_session
+            .add_external_proof_with_siblings(pk_hash, fingerprint, proof, verifier_data)
+            .await
+            .map_err(|e| JsError::new(&format!("add_external_proof: {}", e)))?;
+
+        // Step 3: build private_claim inputs
+        // [nullifier(4), owner(4), amount, user_tree_root(4), checkpoint_id,
+        //  note_root_slot, random0, random1, ...siblings.flat(), leaf_index]
+        let mut inputs: Vec<u64> = Vec::new();
+        inputs.extend_from_slice(&nullifier);
+        inputs.extend_from_slice(&owner);
+        inputs.push(amount_val);
+        inputs.extend_from_slice(&user_tree_root);
+        inputs.push(checkpoint_id_val);
+        inputs.push(note_root_slot_val);
+        inputs.push(random0_val);
+        inputs.push(random1_val);
+        for s in &siblings {
+            inputs.extend_from_slice(s);
+        }
+        inputs.push(leaf_index);
+
+        let contract_call = ContractCallArgs {
+            contract_id: contract_id_val,
+            method_name: "private_claim".to_string(),
+            inputs,
+        };
+
+        // Step 4: prove (session already has the external proof — no reset)
+        self.wallet_session
+            .prove_contract_call(pk_hash, vec![contract_call])
+            .await
+            .map_err(|e| JsError::new(&format!("prove_contract_call: {}", e)))?;
+
+        // Step 5: sign and submit
+        let tx_hash = self
+            .wallet_session
+            .sign_and_submit(pk_hash, DPNSoftwareDefinedCallData::default())
+            .await
+            .map_err(|e| JsError::new(&format!("sign_and_submit: {}", e)))?;
+
+        Ok(tx_hash.to_string())
     }
 
     /// Generate a PrivateNoteInclusion ZK proof and return the full NoteProofOutput as JSON.
@@ -589,10 +755,13 @@ impl WasmRpcServer {
             note_index, commitment, siblings,
         );
 
-        // Align with CLI private_transfer:
-        // 1) wait user nonce change after checkpoint_before
-        // 2) wait note_count / note_root slot value change
-        // 3) prove against selected checkpoint_after
+        // Wait state update after checkpoint_before and prove against the first
+        // checkpoint where note_count or note_root slot changes.
+        //
+        // NOTE:
+        // We intentionally do not require nonce bump here. Some transaction
+        // paths may not mutate nonce in a way that's observable at this stage,
+        // while note slots are the actual source of truth for note inclusion.
         let baseline_user_leaf = provider
             .get_user_leaf_data(checkpoint_before, sender_user_id)
             .await
@@ -625,47 +794,8 @@ impl WasmRpcServer {
         let mut latest_coordinator_seen = checkpoint_before;
         let mut latest_realm_seen = checkpoint_before;
 
-        let mut checkpoint_after_nonce: Option<u64> = None;
-        let mut next_checkpoint_to_check = checkpoint_before.saturating_add(1);
-        while now_ms() < wait_deadline_ms {
-            let latest_coordinator = provider
-                .get_coordinator_latest_block_state()
-                .await
-                .map_err(|e| JsError::new(&format!("get_coordinator_latest_block_state: {}", e)))?
-                .checkpoint_id;
-            latest_coordinator_seen = latest_coordinator_seen.max(latest_coordinator);
-            if let Ok(realm_state) = provider.get_realm_latest_block_state().await {
-                latest_realm_seen = latest_realm_seen.max(realm_state.checkpoint_id);
-            }
-
-            while next_checkpoint_to_check <= latest_coordinator {
-                let leaf = match provider
-                    .get_user_leaf_data(next_checkpoint_to_check, sender_user_id)
-                    .await
-                {
-                    Ok(v) => v,
-                    Err(_) => break,
-                };
-                if leaf.nonce.to_canonical_u64() > baseline_nonce {
-                    checkpoint_after_nonce = Some(next_checkpoint_to_check);
-                    break;
-                }
-                next_checkpoint_to_check = next_checkpoint_to_check.saturating_add(1);
-            }
-            if checkpoint_after_nonce.is_some() {
-                break;
-            }
-            async_sleep_ms(1000).await;
-        }
-        let checkpoint_after_nonce = checkpoint_after_nonce.ok_or_else(|| {
-            JsError::new(&format!(
-                "[wallet-wasm-v2] timeout waiting nonce change (checkpoint_before={}, baseline_nonce={}, latestCoordinator={}, latestRealm={})",
-                checkpoint_before, baseline_nonce, latest_coordinator_seen, latest_realm_seen
-            ))
-        })?;
-
         let mut checkpoint_after: Option<u64> = None;
-        let mut next_slot_checkpoint = checkpoint_after_nonce.saturating_sub(1).saturating_add(1);
+        let mut next_slot_checkpoint = checkpoint_before.saturating_add(1);
         let mut last_error = String::new();
         while now_ms() < wait_deadline_ms {
             let latest_coordinator = provider
@@ -711,8 +841,8 @@ impl WasmRpcServer {
                     break;
                 }
                 last_error = format!(
-                    "slots unchanged at checkpoint {}: note_count={} note_root={}",
-                    next_slot_checkpoint, note_count, note_root
+                    "slots unchanged at checkpoint {}: note_count={} note_root={} baseline_nonce={}",
+                    next_slot_checkpoint, note_count, note_root, baseline_nonce
                 );
                 next_slot_checkpoint = next_slot_checkpoint.saturating_add(1);
             }
@@ -723,8 +853,8 @@ impl WasmRpcServer {
         }
         let checkpoint_after = checkpoint_after.ok_or_else(|| {
             JsError::new(&format!(
-                "[wallet-wasm-v2] timeout waiting note slots change (checkpoint_before={}, nonceCheckpoint={}, latestCoordinator={}, latestRealm={}, lastError={})",
-                checkpoint_before, checkpoint_after_nonce, latest_coordinator_seen, latest_realm_seen, last_error
+                "[wallet-wasm-v2] timeout waiting note slots change (checkpoint_before={}, baseline_nonce={}, latestCoordinator={}, latestRealm={}, lastError={})",
+                checkpoint_before, baseline_nonce, latest_coordinator_seen, latest_realm_seen, last_error
             ))
         })?;
 
@@ -777,9 +907,8 @@ impl WasmRpcServer {
         // Compute nullifier
         let nullifier = PoseidonHasher::q_hash_many(&nullifier_secret.0.elements);
 
-        // Encode proof as bincode + base64
-        let proof_bytes = bincode::serialize(&proof)
-            .map_err(|e| JsError::new(&format!("bincode serialize: {}", e)))?;
+        // Encode proof as plonky2 native bytes + base64 for stable cross-version decoding.
+        let proof_bytes = proof.to_bytes();
         let proof_b64 = BASE64.encode(&proof_bytes);
 
         // Build NoteProofOutput as JSON
