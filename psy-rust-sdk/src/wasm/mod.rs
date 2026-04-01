@@ -499,6 +499,8 @@ impl WasmRpcServer {
     ) -> Result<String, JsError> {
         use base64::engine::general_purpose::STANDARD as BASE64;
         use base64::Engine;
+        use plonky2::field::types::PrimeField64;
+        use psy_data::traits::qdatastore::qmetadata::QMetaDataStoreReaderSync;
         use psy_common_circuit::circuits::traits::qstandard::QStandardCircuit;
         use psy_dpn_circuit::circuits::privacy::private_note_inclusion::PrivateNoteInclusionCircuit;
         use psy_config::network_constants::{
@@ -606,12 +608,106 @@ impl WasmRpcServer {
             .await
             .map_err(|e| JsError::new(&format!("prove_contract_call: {}", e)))?;
 
+        // Baseline receiver nonce before submit; wait for it to change after submit.
+        let provider = self.wallet_session.st_provider.clone();
+        let user_ids = provider
+            .get_user_ids_for_public_key(pk_hash)
+            .await
+            .map_err(|e| JsError::new(&format!("get_user_ids_for_public_key: {}", e)))?;
+        let receiver_user_id = *user_ids
+            .first()
+            .ok_or_else(|| JsError::new("No user ID found for public key"))?;
+
+        let baseline_snapshot = provider
+            .get_latest_block_state()
+            .await
+            .map_err(|e| JsError::new(&format!("get_latest_block_state: {}", e)))?;
+        let checkpoint_before = baseline_snapshot.checkpoint_id;
+        let baseline_nonce = provider
+            .get_user_leaf_data(checkpoint_before, receiver_user_id)
+            .await
+            .map_err(|e| JsError::new(&format!("get_user_leaf_data(baseline): {}", e)))?
+            .nonce
+            .to_canonical_u64();
+
         // Step 5: sign and submit
         let tx_hash = self
             .wallet_session
             .sign_and_submit(pk_hash, DPNSoftwareDefinedCallData::default())
             .await
             .map_err(|e| JsError::new(&format!("sign_and_submit: {}", e)))?;
+
+        // Step 6: wait nonce change on observable checkpoint stream.
+        let wait_deadline_ms = now_ms().saturating_add(180_000);
+        let mut latest_coordinator_seen = checkpoint_before;
+        let mut latest_realm_seen = checkpoint_before;
+        let mut latest_observable_seen = checkpoint_before;
+        let mut last_error = String::new();
+        let mut next_checkpoint = checkpoint_before.saturating_add(1);
+        let mut nonce_changed = false;
+
+        while now_ms() < wait_deadline_ms {
+            let latest_coordinator = provider
+                .get_coordinator_latest_block_state()
+                .await
+                .map_err(|e| JsError::new(&format!("get_coordinator_latest_block_state: {}", e)))?
+                .checkpoint_id;
+            latest_coordinator_seen = latest_coordinator_seen.max(latest_coordinator);
+
+            let latest_realm = match provider.get_realm_latest_block_state().await {
+                Ok(realm_state) => {
+                    latest_realm_seen = latest_realm_seen.max(realm_state.checkpoint_id);
+                    realm_state.checkpoint_id
+                }
+                Err(_) => latest_coordinator,
+            };
+
+            let latest_observable = latest_realm.min(latest_coordinator);
+            latest_observable_seen = latest_observable_seen.max(latest_observable);
+
+            while next_checkpoint <= latest_observable {
+                let nonce = match provider
+                    .get_user_leaf_data(next_checkpoint, receiver_user_id)
+                    .await
+                {
+                    Ok(leaf) => leaf.nonce.to_canonical_u64(),
+                    Err(e) => {
+                        last_error = format!(
+                            "get_user_leaf_data failed at checkpoint {}: {}",
+                            next_checkpoint, e
+                        );
+                        break;
+                    }
+                };
+
+                if nonce != baseline_nonce {
+                    nonce_changed = true;
+                    break;
+                }
+                last_error = format!(
+                    "nonce unchanged at checkpoint {}: nonce={} baseline={}",
+                    next_checkpoint, nonce, baseline_nonce
+                );
+                next_checkpoint = next_checkpoint.saturating_add(1);
+            }
+
+            if nonce_changed {
+                break;
+            }
+            async_sleep_ms(1000).await;
+        }
+
+        if !nonce_changed {
+            return Err(JsError::new(&format!(
+                "[wallet-wasm-v2] timeout waiting private_claim nonce change (checkpoint_before={}, baseline_nonce={}, latestCoordinator={}, latestRealm={}, latestObservable={}, lastError={})",
+                checkpoint_before,
+                baseline_nonce,
+                latest_coordinator_seen,
+                latest_realm_seen,
+                latest_observable_seen,
+                last_error
+            )));
+        }
 
         Ok(tx_hash.to_string())
     }
@@ -682,7 +778,7 @@ impl WasmRpcServer {
         let nullifier_secret_u64 = parse_u64x4(nullifier_secret_json)?;
         let contract_id_val: u64 = contract_id.parse().map_err(|e: std::num::ParseIntError| JsError::new(&e.to_string()))?;
         let note_root_slot_val: u64 = note_root_slot.parse().map_err(|e: std::num::ParseIntError| JsError::new(&e.to_string()))?;
-        let checkpoint_before_raw: u64 = checkpoint_id.parse().map_err(|e: std::num::ParseIntError| JsError::new(&e.to_string()))?;
+        let _checkpoint_before_raw: u64 = checkpoint_id.parse().map_err(|e: std::num::ParseIntError| JsError::new(&e.to_string()))?;
 
         let owner = QHashOut::<F>::from_values(owner_u64[0], owner_u64[1], owner_u64[2], owner_u64[3]);
         let note_secret_hash = QHashOut::<F>::from_values(
@@ -696,14 +792,20 @@ impl WasmRpcServer {
 
         let provider = self.wallet_session.st_provider.clone();
 
-        // Resolve checkpoint_before (0 = latest).
-        let checkpoint_before = if checkpoint_before_raw == 0 {
-            provider.get_latest_block_state().await
-                .map_err(|e| JsError::new(&format!("get_latest_block_state: {}", e)))?
-                .checkpoint_id
-        } else {
-            checkpoint_before_raw
-        };
+        // Resolve checkpoint_before from observable chain head only.
+        // Do NOT trust external checkpoint hints here; stale hints can cause
+        // baselines that already include (or miss) the target transfer.
+        let latest_coordinator_before = provider
+            .get_coordinator_latest_block_state()
+            .await
+            .map_err(|e| JsError::new(&format!("get_coordinator_latest_block_state: {}", e)))?
+            .checkpoint_id;
+        let latest_realm_before = provider
+            .get_realm_latest_block_state()
+            .await
+            .map_err(|e| JsError::new(&format!("get_realm_latest_block_state: {}", e)))?
+            .checkpoint_id;
+        let checkpoint_before = latest_coordinator_before.min(latest_realm_before);
 
         // Get sender's user_id from public key
         let user_ids = provider.get_user_ids_for_public_key(pk_hash).await
@@ -793,9 +895,9 @@ impl WasmRpcServer {
         let wait_deadline_ms = now_ms().saturating_add(180_000);
         let mut latest_coordinator_seen = checkpoint_before;
         let mut latest_realm_seen = checkpoint_before;
+        let mut latest_observable_seen = checkpoint_before;
 
         let mut checkpoint_after: Option<u64> = None;
-        let mut next_slot_checkpoint = checkpoint_before.saturating_add(1);
         let mut last_error = String::new();
         while now_ms() < wait_deadline_ms {
             let latest_coordinator = provider
@@ -804,14 +906,24 @@ impl WasmRpcServer {
                 .map_err(|e| JsError::new(&format!("get_coordinator_latest_block_state: {}", e)))?
                 .checkpoint_id;
             latest_coordinator_seen = latest_coordinator_seen.max(latest_coordinator);
-            if let Ok(realm_state) = provider.get_realm_latest_block_state().await {
-                latest_realm_seen = latest_realm_seen.max(realm_state.checkpoint_id);
-            }
 
-            while next_slot_checkpoint <= latest_coordinator {
+            let latest_realm = match provider.get_realm_latest_block_state().await {
+                Ok(realm_state) => {
+                    latest_realm_seen = latest_realm_seen.max(realm_state.checkpoint_id);
+                    Some(realm_state.checkpoint_id)
+                }
+                Err(_) => None,
+            };
+
+            let latest_observable = latest_realm
+                .map(|realm_checkpoint| realm_checkpoint.min(latest_coordinator))
+                .unwrap_or(latest_coordinator);
+            latest_observable_seen = latest_observable_seen.max(latest_observable);
+
+            if latest_observable > checkpoint_before {
                 let note_count = match user_provider
                     .get_user_contract_state_tree_merkle_proof(
-                        next_slot_checkpoint,
+                        latest_observable,
                         sender_user_id,
                         contract_id_val as u32,
                         MAX_CONTRACT_STATE_TREE_HEIGHT as u8,
@@ -820,11 +932,19 @@ impl WasmRpcServer {
                     .await
                 {
                     Ok(v) => v.value,
-                    Err(_) => break,
+                    Err(e) => {
+                        last_error = format!(
+                            "note_count proof rpc failed at checkpoint {}: {}",
+                            latest_observable,
+                            e
+                        );
+                        async_sleep_ms(1000).await;
+                        continue;
+                    }
                 };
                 let note_root = match user_provider
                     .get_user_contract_state_tree_merkle_proof(
-                        next_slot_checkpoint,
+                        latest_observable,
                         sender_user_id,
                         contract_id_val as u32,
                         MAX_CONTRACT_STATE_TREE_HEIGHT as u8,
@@ -833,18 +953,25 @@ impl WasmRpcServer {
                     .await
                 {
                     Ok(v) => v.value,
-                    Err(_) => break,
+                    Err(e) => {
+                        last_error = format!(
+                            "note_root proof rpc failed at checkpoint {}: {}",
+                            latest_observable,
+                            e
+                        );
+                        async_sleep_ms(1000).await;
+                        continue;
+                    }
                 };
 
                 if note_count != baseline_note_count || note_root != baseline_note_root {
-                    checkpoint_after = Some(next_slot_checkpoint);
+                    checkpoint_after = Some(latest_observable);
                     break;
                 }
                 last_error = format!(
                     "slots unchanged at checkpoint {}: note_count={} note_root={} baseline_nonce={}",
-                    next_slot_checkpoint, note_count, note_root, baseline_nonce
+                    latest_observable, note_count, note_root, baseline_nonce
                 );
-                next_slot_checkpoint = next_slot_checkpoint.saturating_add(1);
             }
             if checkpoint_after.is_some() {
                 break;
@@ -853,8 +980,13 @@ impl WasmRpcServer {
         }
         let checkpoint_after = checkpoint_after.ok_or_else(|| {
             JsError::new(&format!(
-                "[wallet-wasm-v2] timeout waiting note slots change (checkpoint_before={}, baseline_nonce={}, latestCoordinator={}, latestRealm={}, lastError={})",
-                checkpoint_before, baseline_nonce, latest_coordinator_seen, latest_realm_seen, last_error
+                "[wallet-wasm-v2] timeout waiting note slots change (checkpoint_before={}, baseline_nonce={}, latestCoordinator={}, latestRealm={}, latestObservable={}, lastError={})",
+                checkpoint_before,
+                baseline_nonce,
+                latest_coordinator_seen,
+                latest_realm_seen,
+                latest_observable_seen,
+                last_error
             ))
         })?;
 
