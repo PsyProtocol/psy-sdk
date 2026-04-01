@@ -778,7 +778,7 @@ impl WasmRpcServer {
         let nullifier_secret_u64 = parse_u64x4(nullifier_secret_json)?;
         let contract_id_val: u64 = contract_id.parse().map_err(|e: std::num::ParseIntError| JsError::new(&e.to_string()))?;
         let note_root_slot_val: u64 = note_root_slot.parse().map_err(|e: std::num::ParseIntError| JsError::new(&e.to_string()))?;
-        let _checkpoint_before_raw: u64 = checkpoint_id.parse().map_err(|e: std::num::ParseIntError| JsError::new(&e.to_string()))?;
+        let checkpoint_before_raw: u64 = checkpoint_id.parse().map_err(|e: std::num::ParseIntError| JsError::new(&e.to_string()))?;
 
         let owner = QHashOut::<F>::from_values(owner_u64[0], owner_u64[1], owner_u64[2], owner_u64[3]);
         let note_secret_hash = QHashOut::<F>::from_values(
@@ -792,9 +792,6 @@ impl WasmRpcServer {
 
         let provider = self.wallet_session.st_provider.clone();
 
-        // Resolve checkpoint_before from observable chain head only.
-        // Do NOT trust external checkpoint hints here; stale hints can cause
-        // baselines that already include (or miss) the target transfer.
         let latest_coordinator_before = provider
             .get_coordinator_latest_block_state()
             .await
@@ -805,7 +802,20 @@ impl WasmRpcServer {
             .await
             .map_err(|e| JsError::new(&format!("get_realm_latest_block_state: {}", e)))?
             .checkpoint_id;
-        let checkpoint_before = latest_coordinator_before.min(latest_realm_before);
+        let latest_observable_before = latest_coordinator_before.min(latest_realm_before);
+        let checkpoint_before = if checkpoint_before_raw == 0 {
+            latest_observable_before
+        } else if checkpoint_before_raw > latest_observable_before {
+            return Err(JsError::new(&format!(
+                "checkpoint_id {} is ahead of latest observable checkpoint {} (coordinator={}, realm={})",
+                checkpoint_before_raw,
+                latest_observable_before,
+                latest_coordinator_before,
+                latest_realm_before
+            )));
+        } else {
+            checkpoint_before_raw
+        };
 
         // Get sender's user_id from public key
         let user_ids = provider.get_user_ids_for_public_key(pk_hash).await
