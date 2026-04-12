@@ -4,24 +4,44 @@ import { IPsyClaimDepositRequest, IPsySigAction, IPsyTransferRequest, IPsyWithdr
 import { SCNumberLike } from "../core";
 import { getDecodedAddress } from "../utils/address";
 import { readBigIntU48FromBytesLE, readBigIntU56FromBytesLE } from "../utils/data";
-import { psyFelt, hash256ToHashOut224 } from "../utils/felt";
+import { hash256ToHashOut224, psyFelt } from "../utils/felt";
 
-function getWithdrawalHashFromPublicKeyHash(
-    value: bigint,
-    publicKeyHash: Uint8Array,
-    scriptTypeFlag: SCNumberLike
-): IHashOut {
-    const last48BitsWithFlag = readBigIntU48FromBytesLE(publicKeyHash, 14) | (BigInt(scriptTypeFlag) << BigInt(48));
+function u256ToU32x8(value: SCNumberLike): bigint[] {
+    const x = BigInt(value);
+    if (x < 0n) {
+        throw new Error("amount must be non-negative");
+    }
 
+    const mask = 0xffffffffn;
     return [
-        psyFelt(value),
-        psyFelt(readBigIntU56FromBytesLE(publicKeyHash, 0)),
-        psyFelt(readBigIntU56FromBytesLE(publicKeyHash, 7)),
-        psyFelt(last48BitsWithFlag),
+        (x >> 224n) & mask,
+        (x >> 192n) & mask,
+        (x >> 160n) & mask,
+        (x >> 128n) & mask,
+        (x >> 96n) & mask,
+        (x >> 64n) & mask,
+        (x >> 32n) & mask,
+        x & mask,
     ];
 }
 
-function getWithdrawalHashFromAddress(value: bigint, address: string) {
+function getWithdrawalHashFromPublicKeyHash(
+    value: SCNumberLike,
+    publicKeyHash: Uint8Array,
+    scriptTypeFlag: SCNumberLike
+): IHashOut {
+    const amountWords = u256ToU32x8(value);
+    const last48BitsWithFlag = readBigIntU48FromBytesLE(publicKeyHash, 14) | (BigInt(scriptTypeFlag) << BigInt(48));
+
+    return hashNoPad([
+        ...amountWords.map((x) => psyFelt(x)),
+        psyFelt(readBigIntU56FromBytesLE(publicKeyHash, 0)),
+        psyFelt(readBigIntU56FromBytesLE(publicKeyHash, 7)),
+        psyFelt(last48BitsWithFlag),
+    ]);
+}
+
+function getWithdrawalHashFromAddress(value: SCNumberLike, address: string) {
     const dAddress = getDecodedAddress(address);
     return getWithdrawalHashFromPublicKeyHash(value, dAddress.publicKeyHash, dAddress.scriptTypeFlag);
 }
@@ -34,7 +54,7 @@ function getClaimDepositSigAction(request: IPsyClaimDepositRequest): IPsySigActi
         nonce: "0",
         action_arguments: [
             ...hash256ToHashOut224(request.transaction_id).map((x) => x.toString()),
-            request.amount + "",
+            ...u256ToU32x8(request.amount).map((x) => x.toString()),
             request.deposit_fee + "",
         ],
     };
@@ -51,7 +71,7 @@ function getTransferSigAction(request: IPsyTransferRequest): IPsySigAction {
 }
 
 function getWithdrawalSigAction(request: IPsyWithdrawalRequest): IPsySigAction {
-    const withdrawalHash = getWithdrawalHashFromAddress(psyFelt(BigInt(request.amount)), request.address);
+    const withdrawalHash = getWithdrawalHashFromAddress(request.amount, request.address);
 
     return {
         network_magic: request.network_magic + "",
