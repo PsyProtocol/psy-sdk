@@ -254,7 +254,7 @@ dependencies = [
  "cfg-if",
  "const-hex",
  "derive_more",
- "foldhash 0.2.0",
+ "foldhash",
  "getrandom 0.3.4",
  "hashbrown 0.16.1",
  "indexmap 2.13.0",
@@ -769,15 +769,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "atomic-polyfill"
-version = "1.0.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8cf2bce30dfe09ef0bfaef228b9d414faaf7e563035494d7fe092dba54b300f4"
-dependencies = [
- "critical-section",
-]
-
-[[package]]
 name = "atomic-waker"
 version = "1.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -829,12 +820,6 @@ name = "bech32"
 version = "0.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d86b93f97252c47b41663388e6d155714a9d0c398b99f1005cbc5f978b29f445"
-
-[[package]]
-name = "beef"
-version = "0.5.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3a8241f3ebb85c056b509d4327ad0358fbbba6ffb340bf388f26350aeda225b1"
 
 [[package]]
 name = "bincode"
@@ -982,49 +967,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7575182f7272186991736b70173b0ea045398f984bf5ebbb3804736ce1330c9d"
 
 [[package]]
-name = "bytecheck"
-version = "0.8.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0caa33a2c0edca0419d15ac723dff03f1956f7978329b1e3b5fdaaaed9d3ca8b"
-dependencies = [
- "bytecheck_derive",
- "ptr_meta",
- "rancor",
- "simdutf8",
-]
-
-[[package]]
-name = "bytecheck_derive"
-version = "0.8.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "89385e82b5d1821d2219e0b095efa2cc1f246cbf99080f3be46a1a85c0d392d9"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 2.0.114",
-]
-
-[[package]]
-name = "bytemuck"
-version = "1.25.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c8efb64bd706a16a1bdde310ae86b351e4d21550d98d056f22f8a7f7a2183fec"
-dependencies = [
- "bytemuck_derive",
-]
-
-[[package]]
-name = "bytemuck_derive"
-version = "1.10.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f9abbd1bc6865053c427f7198e6af43bfdedc55ab791faed4fbd361d789575ff"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 2.0.114",
-]
-
-[[package]]
 name = "byteorder"
 version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1071,19 +1013,6 @@ name = "cesu8"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6d43a04d8753f35258c91f8ec639f792891f748a1edbd759cf1dcea3382ad83c"
-
-[[package]]
-name = "cf_utils"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "async-trait",
- "hex",
- "hex-literal",
- "rand 0.8.5",
- "tracing",
- "tracing-subscriber",
-]
 
 [[package]]
 name = "cfg-if"
@@ -1160,15 +1089,6 @@ name = "clap_lex"
 version = "0.7.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c3e64b0cc0439b12df2fa678eae89a1c56a529fd067a9115f7827f1fffd22b32"
-
-[[package]]
-name = "cobs"
-version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0fa961b519f0b462e3a3b4a34b64d119eeaca1d59af726fe450bbba07a9fc0a1"
-dependencies = [
- "thiserror 2.0.18",
-]
 
 [[package]]
 name = "coins-bip32"
@@ -1382,12 +1302,6 @@ checksum = "9481c1c90cbf2ac953f07c8d4a58aa3945c425b7185c9154d67a65e4230da511"
 dependencies = [
  "cfg-if",
 ]
-
-[[package]]
-name = "critical-section"
-version = "1.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "790eea4361631c5e7d22598ecd5723ff611904e3344ce8720784c93e3d83d40b"
 
 [[package]]
 name = "crossbeam-deque"
@@ -1722,33 +1636,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "embedded-io"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ef1a6892d9eef45c8fa6b9e0086428a2cca8491aca8f787c534a3d6d0bcb3ced"
-
-[[package]]
-name = "embedded-io"
-version = "0.6.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "edd0f118536f44f5ccd48bcb8b111bdc3de888b58c74639dfb034a357d0f206d"
-
-[[package]]
-name = "embedded-io"
-version = "0.7.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9eb1aa714776b75c7e67e1da744b81a129b3ff919c8712b5e1b32252c1f07cc7"
-
-[[package]]
-name = "embedded-io-async"
-version = "0.7.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2564b9f813c544241430e147d8bc454815ef9ac998878d30cc3055449f7fd4c0"
-dependencies = [
- "embedded-io 0.7.1",
-]
-
-[[package]]
 name = "enum-ordinalize"
 version = "4.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1905,12 +1792,6 @@ name = "fnv"
 version = "1.0.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3f9eec918d3f24069decb9af1554cad7c880e2da24a9afd88aca000531ab82c1"
-
-[[package]]
-name = "foldhash"
-version = "0.1.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d9c4f5dac5e15c24eb999c26181a6ca40b39fe946cbe4c263c7209467bc83af2"
 
 [[package]]
 name = "foldhash"
@@ -2176,15 +2057,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1b43ede17f21864e81be2fa654110bf1e793774238d86ef8555c37e6519c0403"
 
 [[package]]
-name = "hash32"
-version = "0.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b0c35f58762feb77d74ebe43bdbc3210f09be9fe6742234d573bacc26ed92b67"
-dependencies = [
- "byteorder",
-]
-
-[[package]]
 name = "hashbrown"
 version = "0.12.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2204,22 +2076,11 @@ dependencies = [
 
 [[package]]
 name = "hashbrown"
-version = "0.15.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9229cfe53dfd69f0609a49f65461bd93001ea1ef889cd5529dd176593f5338a1"
-dependencies = [
- "allocator-api2",
- "equivalent",
- "foldhash 0.1.5",
-]
-
-[[package]]
-name = "hashbrown"
 version = "0.16.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "841d1cc9bed7f9236f321df977030373f4a4163ae1a7dbfe1a51a2c1a51d9100"
 dependencies = [
- "foldhash 0.2.0",
+ "foldhash",
  "serde",
  "serde_core",
 ]
@@ -2232,20 +2093,6 @@ checksum = "765c9198f173dd59ce26ff9f95ef0aafd0a0fe01fb9d72841bc5066a4c06511d"
 dependencies = [
  "byteorder",
  "num-traits",
-]
-
-[[package]]
-name = "heapless"
-version = "0.7.17"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cdc6457c0eb62c71aac4bc17216026d8410337c4126773b9c5daba343f17964f"
-dependencies = [
- "atomic-polyfill",
- "hash32",
- "rustc_version 0.4.1",
- "serde",
- "spin",
- "stable_deref_trait",
 ]
 
 [[package]]
@@ -2274,12 +2121,6 @@ checksum = "fda06d18ac606267c40c04e41b9947729bf8b9efe74bd4e82b61a5f26a510b9f"
 dependencies = [
  "arrayvec",
 ]
-
-[[package]]
-name = "hex-literal"
-version = "0.4.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6fe2267d4ed49bc07b63801559be28c718ea06c4738b7a03c94df7386d2cde46"
 
 [[package]]
 name = "hmac"
@@ -2934,6 +2775,7 @@ dependencies = [
 [[package]]
 name = "kvq"
 version = "0.1.0"
+source = "git+https://github.com/PsyProtocol/psy-prover?rev=1ead48d99d40c3344dca6c7becdd1fbf9498d221#1ead48d99d40c3344dca6c7becdd1fbf9498d221"
 dependencies = [
  "ambassador",
  "anyhow",
@@ -3001,49 +2843,6 @@ name = "log"
 version = "0.4.29"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5e5032e24019045c762d3c0f28f5b6b8bbf38563a65908389bf7978758920897"
-
-[[package]]
-name = "logos"
-version = "0.15.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ff472f899b4ec2d99161c51f60ff7075eeb3097069a36050d8037a6325eb8154"
-dependencies = [
- "logos-derive",
-]
-
-[[package]]
-name = "logos-codegen"
-version = "0.15.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "192a3a2b90b0c05b27a0b2c43eecdb7c415e29243acc3f89cc8247a5b693045c"
-dependencies = [
- "beef",
- "fnv",
- "lazy_static",
- "proc-macro2",
- "quote",
- "regex-syntax",
- "rustc_version 0.4.1",
- "syn 2.0.114",
-]
-
-[[package]]
-name = "logos-derive"
-version = "0.15.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "605d9697bcd5ef3a42d38efc51541aa3d6a4a25f7ab6d1ed0da5ac632a26b470"
-dependencies = [
- "logos-codegen",
-]
-
-[[package]]
-name = "lru"
-version = "0.12.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "234cf4f4a04dc1f57e24b96cc0cd600cf2af460d4161ac5ecdd0af8e1f3b2a38"
-dependencies = [
- "hashbrown 0.15.5",
-]
 
 [[package]]
 name = "macro-string"
@@ -3126,26 +2925,6 @@ dependencies = [
  "libc",
  "wasi 0.11.1+wasi-snapshot-preview1",
  "windows-sys 0.61.2",
-]
-
-[[package]]
-name = "munge"
-version = "0.4.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5e17401f259eba956ca16491461b6e8f72913a0a114e39736ce404410f915a0c"
-dependencies = [
- "munge_macro",
-]
-
-[[package]]
-name = "munge_macro"
-version = "0.4.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4568f25ccbd45ab5d5603dc34318c1ec56b117531781260002151b8530a9f931"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 2.0.114",
 ]
 
 [[package]]
@@ -3339,77 +3118,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "parth_common"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "async-trait",
- "auto_impl",
- "bincode",
- "cf_utils",
- "dashmap",
- "futures",
- "hashbrown 0.14.5",
- "hex",
- "hex-literal",
- "k256",
- "parth_core",
- "pser",
- "serde",
- "serde_json",
- "serde_repr",
- "serde_with",
- "ts-rs",
-]
-
-[[package]]
-name = "parth_core"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "async-trait",
- "auto_impl",
- "bincode",
- "bytemuck",
- "cf_utils",
- "chrono",
- "const_format",
- "hex",
- "hex-literal",
- "num-traits",
- "pderive",
- "plonky2",
- "plonky2_field",
- "postcard",
- "pser",
- "psy_io",
- "psy_serialize",
- "rand 0.8.5",
- "rkyv",
- "serde",
- "serde_json",
- "serde_repr",
- "serde_with",
- "speedy",
- "strum",
- "strum_macros",
- "ts-rs",
-]
-
-[[package]]
-name = "parth_crypto"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "parth_core",
- "pser",
- "rand 0.8.5",
- "rand_chacha 0.3.1",
- "sha2",
- "tiny-keccak",
-]
-
-[[package]]
 name = "paste"
 version = "1.0.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3432,15 +3140,6 @@ checksum = "f8ed6a7761f76e3b9f92dfb0a60a6a6477c61024b775147ff0973a02653abaf2"
 dependencies = [
  "digest 0.10.7",
  "hmac",
-]
-
-[[package]]
-name = "pderive"
-version = "0.1.0"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 2.0.114",
 ]
 
 [[package]]
@@ -3524,7 +3223,6 @@ source = "git+https://github.com/PsyProtocol/plonky2-hwa?rev=1dfe6112c3eca3668c1
 dependencies = [
  "ahash",
  "anyhow",
- "bytemuck",
  "getrandom 0.2.17",
  "hashbrown 0.14.5",
  "itertools 0.11.0",
@@ -3536,7 +3234,6 @@ dependencies = [
  "plonky2_util",
  "rand 0.8.5",
  "rand_chacha 0.3.1",
- "rkyv",
  "serde",
  "speedy",
  "static_assertions",
@@ -3551,12 +3248,10 @@ version = "1.0.0"
 source = "git+https://github.com/PsyProtocol/plonky2-hwa?rev=1dfe6112c3eca3668c15820755371a8a3e75f934#1dfe6112c3eca3668c15820755371a8a3e75f934"
 dependencies = [
  "anyhow",
- "bytemuck",
  "itertools 0.11.0",
  "num",
  "plonky2_util",
  "rand 0.8.5",
- "rkyv",
  "serde",
  "speedy",
  "static_assertions",
@@ -3576,19 +3271,6 @@ dependencies = [
 name = "plonky2_util"
 version = "1.0.0"
 source = "git+https://github.com/PsyProtocol/plonky2-hwa?rev=1dfe6112c3eca3668c15820755371a8a3e75f934#1dfe6112c3eca3668c15820755371a8a3e75f934"
-
-[[package]]
-name = "postcard"
-version = "1.1.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6764c3b5dd454e283a30e6dfe78e9b31096d9e32036b5d1eaac7a6119ccb9a24"
-dependencies = [
- "cobs",
- "embedded-io 0.4.0",
- "embedded-io 0.6.1",
- "heapless",
- "serde",
-]
 
 [[package]]
 name = "potential_utf"
@@ -3695,24 +3377,9 @@ dependencies = [
 ]
 
 [[package]]
-name = "pser"
+name = "psy_common"
 version = "0.1.0"
-dependencies = [
- "anyhow",
- "bincode",
- "bytemuck",
- "postcard",
- "rkyv",
- "serde",
- "serde_json",
- "serde_repr",
- "serde_with",
- "speedy",
-]
-
-[[package]]
-name = "psy_client_common"
-version = "0.1.0"
+source = "git+https://github.com/PsyProtocol/psy-prover?rev=1ead48d99d40c3344dca6c7becdd1fbf9498d221#1ead48d99d40c3344dca6c7becdd1fbf9498d221"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3741,34 +3408,9 @@ dependencies = [
 ]
 
 [[package]]
-name = "psy_client_data"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "async-trait",
- "bincode",
- "fastbloom-rs",
- "hashbrown 0.14.5",
- "hex",
- "indexmap 2.13.0",
- "kvq",
- "maybe-async",
- "plonky2",
- "psy_client_common",
- "psy_config",
- "psy_crypto",
- "serde",
- "serde_json",
- "serde_repr",
- "thiserror 2.0.18",
- "tracing",
- "ts-rs",
- "zstd",
-]
-
-[[package]]
 name = "psy_common_circuit"
 version = "0.1.0"
+source = "git+https://github.com/PsyProtocol/psy-prover?rev=1ead48d99d40c3344dca6c7becdd1fbf9498d221#1ead48d99d40c3344dca6c7becdd1fbf9498d221"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3783,84 +3425,36 @@ dependencies = [
  "num",
  "plonky2",
  "plonky2_maybe_rayon",
- "psy_client_common",
- "psy_client_data",
+ "psy_common",
  "psy_config",
  "psy_crypto",
+ "psy_data",
  "psy_vm",
  "rand 0.8.5",
  "serde",
  "serde_json",
  "tokio",
  "tracing",
-]
-
-[[package]]
-name = "psy_compiler"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "bincode",
- "hashbrown 0.14.5",
- "logos",
- "plonky2",
- "psy_client_common",
- "psy_client_data",
- "psy_config",
- "psy_crypto",
- "psy_vm",
- "serde",
- "serde_cbor",
- "serde_json",
- "sha2",
- "thiserror 2.0.18",
 ]
 
 [[package]]
 name = "psy_config"
 version = "0.1.0"
+source = "git+https://github.com/PsyProtocol/psy-prover?rev=1ead48d99d40c3344dca6c7becdd1fbf9498d221#1ead48d99d40c3344dca6c7becdd1fbf9498d221"
 dependencies = [
  "anyhow",
  "indexmap 2.13.0",
  "plonky2",
- "psy_client_common",
+ "psy_common",
  "serde",
  "serde_json",
  "thiserror 2.0.18",
 ]
 
 [[package]]
-name = "psy_core"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "async-trait",
- "auto_impl",
- "bincode",
- "bytemuck",
- "cf_utils",
- "hex",
- "hex-literal",
- "parth_core",
- "pderive",
- "pser",
- "rand 0.8.5",
- "rkyv",
- "serde",
- "serde_json",
- "serde_repr",
- "serde_with",
- "speedy",
- "strum",
- "strum_macros",
- "tokio",
- "tracing",
- "ts-rs",
-]
-
-[[package]]
 name = "psy_crypto"
 version = "0.1.0"
+source = "git+https://github.com/PsyProtocol/psy-prover?rev=1ead48d99d40c3344dca6c7becdd1fbf9498d221#1ead48d99d40c3344dca6c7becdd1fbf9498d221"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3874,7 +3468,7 @@ dependencies = [
  "num",
  "plonky2",
  "plonky2_maybe_rayon",
- "psy_client_common",
+ "psy_common",
  "psy_config",
  "rand 0.8.5",
  "ripemd",
@@ -3890,42 +3484,34 @@ dependencies = [
 [[package]]
 name = "psy_data"
 version = "0.1.0"
+source = "git+https://github.com/PsyProtocol/psy-prover?rev=1ead48d99d40c3344dca6c7becdd1fbf9498d221#1ead48d99d40c3344dca6c7becdd1fbf9498d221"
 dependencies = [
  "anyhow",
  "async-trait",
- "auto_impl",
  "bincode",
- "bytemuck",
- "dashmap",
  "fastbloom-rs",
+ "hashbrown 0.14.5",
  "hex",
- "hex-literal",
- "lru",
- "parth_common",
- "parth_core",
- "pderive",
- "postcard",
- "pser",
- "psy_core",
- "psy_io",
- "psy_serialize",
- "rand 0.8.5",
- "rkyv",
+ "indexmap 2.13.0",
+ "kvq",
+ "maybe-async",
+ "plonky2",
+ "psy_common",
+ "psy_config",
+ "psy_crypto",
  "serde",
  "serde_json",
  "serde_repr",
- "serde_with",
- "speedy",
- "strum",
- "strum_macros",
- "tokio",
+ "thiserror 2.0.18",
  "tracing",
  "ts-rs",
+ "zstd",
 ]
 
 [[package]]
 name = "psy_dpn_circuit"
 version = "0.1.0"
+source = "git+https://github.com/PsyProtocol/psy-prover?rev=1ead48d99d40c3344dca6c7becdd1fbf9498d221#1ead48d99d40c3344dca6c7becdd1fbf9498d221"
 dependencies = [
  "alloy-primitives",
  "alloy-signer",
@@ -3948,13 +3534,12 @@ dependencies = [
  "maybe-async",
  "parking_lot",
  "plonky2",
- "psy_client_common",
- "psy_client_data",
+ "psy_common",
  "psy_common_circuit",
  "psy_config",
  "psy_crypto",
+ "psy_data",
  "psy_network_circuit",
- "psy_plonky2_common_circuits",
  "psy_vm",
  "rand 0.8.5",
  "rayon",
@@ -3978,97 +3563,27 @@ dependencies = [
 ]
 
 [[package]]
-name = "psy_io"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "async-trait",
- "embedded-io 0.7.1",
- "embedded-io-async",
- "hex",
- "hex-literal",
- "tokio",
-]
-
-[[package]]
 name = "psy_network_circuit"
 version = "0.1.0"
+source = "git+https://github.com/PsyProtocol/psy-prover?rev=1ead48d99d40c3344dca6c7becdd1fbf9498d221#1ead48d99d40c3344dca6c7becdd1fbf9498d221"
 dependencies = [
  "anyhow",
  "async-trait",
  "bincode",
  "plonky2",
- "psy_client_common",
- "psy_client_data",
+ "psy_common",
  "psy_common_circuit",
  "psy_config",
  "psy_crypto",
- "serde_json",
- "tracing",
-]
-
-[[package]]
-name = "psy_plonky2_basic_helpers"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "async-trait",
- "auto_impl",
- "bincode",
- "hashbrown 0.14.5",
- "hex",
- "hex-literal",
- "itertools 0.14.0",
- "parth_core",
- "parth_crypto",
- "plonky2",
- "pser",
- "psy_core",
  "psy_data",
- "rand 0.8.5",
- "serde",
  "serde_json",
- "serde_repr",
- "serde_with",
- "strum",
- "strum_macros",
- "tokio",
- "tracing",
- "ts-rs",
-]
-
-[[package]]
-name = "psy_plonky2_common_circuits"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "async-trait",
- "auto_impl",
- "bincode",
- "bitflags",
- "cf_utils",
- "hashbrown 0.14.5",
- "hex",
- "hex-literal",
- "parth_common",
- "parth_core",
- "plonky2",
- "pser",
- "psy_plonky2_basic_helpers",
- "rand 0.8.5",
- "serde",
- "serde_json",
- "serde_repr",
- "serde_with",
- "strum",
- "strum_macros",
- "tokio",
  "tracing",
 ]
 
 [[package]]
 name = "psy_prover"
 version = "0.1.0"
+source = "git+https://github.com/PsyProtocol/psy-prover?rev=1ead48d99d40c3344dca6c7becdd1fbf9498d221#1ead48d99d40c3344dca6c7becdd1fbf9498d221"
 dependencies = [
  "alloy-primitives",
  "alloy-signer",
@@ -4093,12 +3608,11 @@ dependencies = [
  "maybe-async",
  "parking_lot",
  "plonky2",
- "psy_client_common",
- "psy_client_data",
+ "psy_common",
  "psy_common_circuit",
- "psy_compiler",
  "psy_config",
  "psy_crypto",
+ "psy_data",
  "psy_dpn_circuit",
  "psy_network_circuit",
  "psy_provider",
@@ -4130,6 +3644,7 @@ dependencies = [
 [[package]]
 name = "psy_provider"
 version = "0.1.0"
+source = "git+https://github.com/PsyProtocol/psy-prover?rev=1ead48d99d40c3344dca6c7becdd1fbf9498d221#1ead48d99d40c3344dca6c7becdd1fbf9498d221"
 dependencies = [
  "alloy-primitives",
  "alloy-signer",
@@ -4151,11 +3666,11 @@ dependencies = [
  "maybe-async",
  "parking_lot",
  "plonky2",
- "psy_client_common",
- "psy_client_data",
+ "psy_common",
  "psy_common_circuit",
  "psy_config",
  "psy_crypto",
+ "psy_data",
  "psy_network_circuit",
  "psy_vm",
  "rand 0.8.5",
@@ -4188,11 +3703,11 @@ dependencies = [
  "getrandom 0.3.4",
  "js-sys",
  "plonky2",
- "psy_client_common",
- "psy_client_data",
+ "psy_common",
  "psy_common_circuit",
  "psy_config",
  "psy_crypto",
+ "psy_data",
  "psy_dpn_circuit",
  "psy_prover",
  "psy_provider",
@@ -4210,18 +3725,9 @@ dependencies = [
 ]
 
 [[package]]
-name = "psy_serialize"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "bytemuck",
- "paste",
- "psy_io",
-]
-
-[[package]]
 name = "psy_ups_circuit"
 version = "0.1.0"
+source = "git+https://github.com/PsyProtocol/psy-prover?rev=1ead48d99d40c3344dca6c7becdd1fbf9498d221#1ead48d99d40c3344dca6c7becdd1fbf9498d221"
 dependencies = [
  "alloy-primitives",
  "alloy-signer",
@@ -4243,11 +3749,11 @@ dependencies = [
  "maybe-async",
  "parking_lot",
  "plonky2",
- "psy_client_common",
- "psy_client_data",
+ "psy_common",
  "psy_common_circuit",
  "psy_config",
  "psy_crypto",
+ "psy_data",
  "psy_dpn_circuit",
  "psy_network_circuit",
  "psy_vm",
@@ -4275,6 +3781,7 @@ dependencies = [
 [[package]]
 name = "psy_vm"
 version = "0.1.0"
+source = "git+https://github.com/PsyProtocol/psy-prover?rev=1ead48d99d40c3344dca6c7becdd1fbf9498d221#1ead48d99d40c3344dca6c7becdd1fbf9498d221"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4284,10 +3791,10 @@ dependencies = [
  "kvq",
  "maybe-async",
  "plonky2",
- "psy_client_common",
- "psy_client_data",
+ "psy_common",
  "psy_config",
  "psy_crypto",
+ "psy_data",
  "serde",
  "serde_cbor",
  "serde_json",
@@ -4296,26 +3803,6 @@ dependencies = [
  "tracing",
  "ts-rs",
  "twox-hash",
-]
-
-[[package]]
-name = "ptr_meta"
-version = "0.3.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0b9a0cf95a1196af61d4f1cbdab967179516d9a4a4312af1f31948f8f6224a79"
-dependencies = [
- "ptr_meta_derive",
-]
-
-[[package]]
-name = "ptr_meta_derive"
-version = "0.3.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7347867d0a7e1208d93b46767be83e2b8f978c3dad35f775ac8d8847551d6fe1"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 2.0.114",
 ]
 
 [[package]]
@@ -4356,15 +3843,6 @@ name = "radium"
 version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dc33ff2d4973d518d823d61aa239014831e521c75da58e3df4840d3f47749d09"
-
-[[package]]
-name = "rancor"
-version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a063ea72381527c2a0561da9c80000ef822bdd7c3241b1cc1b12100e3df081ee"
-dependencies = [
- "ptr_meta",
-]
 
 [[package]]
 name = "rand"
@@ -4566,15 +4044,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a96887878f22d7bad8a3b6dc5b7440e0ada9a245242924394987b21cf2210a4c"
 
 [[package]]
-name = "rend"
-version = "0.5.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cadadef317c2f20755a64d7fdc48f9e7178ee6b0e1f7fce33fa60f1d68a276e6"
-dependencies = [
- "bytecheck",
-]
-
-[[package]]
 name = "reqwest"
 version = "0.12.28"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4639,36 +4108,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bd124222d17ad93a644ed9d011a40f4fb64aa54275c08cc216524a9ea82fb09f"
 dependencies = [
  "digest 0.10.7",
-]
-
-[[package]]
-name = "rkyv"
-version = "0.8.15"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1a30e631b7f4a03dee9056b8ef6982e8ba371dd5bedb74d3ec86df4499132c70"
-dependencies = [
- "bytecheck",
- "bytes",
- "hashbrown 0.16.1",
- "indexmap 2.13.0",
- "munge",
- "ptr_meta",
- "rancor",
- "rend",
- "rkyv_derive",
- "tinyvec",
- "uuid 1.20.0",
-]
-
-[[package]]
-name = "rkyv_derive"
-version = "0.8.15"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8100bb34c0a1d0f907143db3149e6b4eea3c33b9ee8b189720168e818303986f"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 2.0.114",
 ]
 
 [[package]]
@@ -5276,12 +4715,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e320a6c5ad31d271ad523dcf3ad13e2767ad8b1cb8f047f75a8aeaf8da139da2"
 
 [[package]]
-name = "simdutf8"
-version = "0.1.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e3a9fe34e3e7a50316060351f37187a3f546bce95496156754b601a5fa71b76e"
-
-[[package]]
 name = "simple_asn1"
 version = "0.6.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5365,15 +4798,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "spin"
-version = "0.9.8"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6980e8d7511241f8acf4aebddbb1ff938df5eebe98691418c4468d0b72a96a67"
-dependencies = [
- "lock_api",
-]
-
-[[package]]
 name = "spki"
 version = "0.7.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5400,15 +4824,6 @@ name = "strsim"
 version = "0.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7da8b5736845d9f2fcb837ea5d9e2628564b3b043a70948a3f0b778838c5fb4f"
-
-[[package]]
-name = "strum"
-version = "0.27.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "af23d6f6c1a224baef9d3f61e287d2761385a5b88fdab4eb4c6f11aeb54c4bcf"
-dependencies = [
- "strum_macros",
-]
 
 [[package]]
 name = "strum_macros"
