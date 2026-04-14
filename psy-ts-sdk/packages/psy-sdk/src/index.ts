@@ -22,3 +22,5 @@ export * from "./wallet";
 export * from "./zksigner";
 
 export * from "./rpc-provider";
+
+export * from "./bridge";

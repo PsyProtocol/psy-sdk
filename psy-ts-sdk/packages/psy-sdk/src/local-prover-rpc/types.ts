@@ -89,6 +89,45 @@ export interface SignData {
     inputs: number[];
 }
 
+export interface BridgeWithdrawalWitnessInput {
+    withdrawal_root: string;
+    recipient: number[];
+    token: number[];
+    amount: number[];
+    nonce: number;
+    dest_chain_id: number;
+    leaf_index: number;
+    bridge_user_id: number;
+    siblings: string[];
+}
+
+export interface BridgeWithdrawalGroth16Proof {
+    solidity_proof: string[];
+    public_inputs: number[];
+}
+
+export interface BridgeDepositLeafInput {
+    depositor: number[];
+    l2_recipient: number[];
+    token: number[];
+    l2_token_contract_id: number[];
+    amount: number[];
+    chain_index: number;
+    nonce: number;
+}
+
+export interface BridgeDepositBatchWitnessInput {
+    from_index: number;
+    bridge_user_id: number;
+    old_frontier: string[];
+    deposits: BridgeDepositLeafInput[];
+}
+
+export interface BridgeDepositBatchGroth16Proof {
+    solidity_proof: string[];
+    public_inputs: number[];
+}
+
 export interface ContractCallData {
     contract_calls: ContractCallArgs[];
     software_defined_call: SignData;
