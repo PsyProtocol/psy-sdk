@@ -157,7 +157,6 @@ export interface InitOutput {
     readonly wasmconstants_native_currency: () => [number, number];
     readonly wasmconstants_native_currency_name: () => [number, number];
     readonly wasmconstants_deploy_contract_fee: () => bigint;
-    readonly wasmconstants_guta_fee: () => bigint;
     readonly wasmconstants_current_network: () => [number, number];
     readonly wasmconstants_config_path: () => [number, number];
     readonly wasmconstants_coordinator_rpc_url: () => [number, number];
@@ -183,6 +182,7 @@ export interface InitOutput {
     readonly wasmrpcserver_get_result: (a: number, b: number, c: number) => [number, number, number, number];
     readonly wasmpsyconfigbuilder_new: () => number;
     readonly wasmconstants_register_user_fee: () => bigint;
+    readonly wasmconstants_guta_fee: () => bigint;
     readonly wasm_bindgen__closure__destroy__hb0921961ac13fc35: (a: number, b: number) => void;
     readonly wasm_bindgen__closure__destroy__hb5523c0e2f695e64: (a: number, b: number) => void;
     readonly wasm_bindgen__convert__closures_____invoke__h29819c8fa199d73f: (a: number, b: number, c: any, d: any) => void;
