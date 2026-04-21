@@ -183,11 +183,11 @@ export interface InitOutput {
     readonly wasmpsyconfigbuilder_new: () => number;
     readonly wasmconstants_register_user_fee: () => bigint;
     readonly wasmconstants_guta_fee: () => bigint;
-    readonly wasm_bindgen__closure__destroy__hb0921961ac13fc35: (a: number, b: number) => void;
-    readonly wasm_bindgen__closure__destroy__hb5523c0e2f695e64: (a: number, b: number) => void;
-    readonly wasm_bindgen__convert__closures_____invoke__h29819c8fa199d73f: (a: number, b: number, c: any, d: any) => void;
-    readonly wasm_bindgen__convert__closures_____invoke__h065106c8a2618f9b: (a: number, b: number, c: any) => void;
-    readonly wasm_bindgen__convert__closures_____invoke__h0173c15985775850: (a: number, b: number) => void;
+    readonly wasm_bindgen__closure__destroy__h3ce62ddb0433d1cc: (a: number, b: number) => void;
+    readonly wasm_bindgen__closure__destroy__hc7b19a8babc9e085: (a: number, b: number) => void;
+    readonly wasm_bindgen__convert__closures_____invoke__h1cddf65df1637093: (a: number, b: number, c: any, d: any) => void;
+    readonly wasm_bindgen__convert__closures_____invoke__hc6d71c549dd0ed85: (a: number, b: number, c: any) => void;
+    readonly wasm_bindgen__convert__closures_____invoke__h928a7a747030452e: (a: number, b: number) => void;
     readonly __wbindgen_malloc: (a: number, b: number) => number;
     readonly __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;
     readonly __wbindgen_exn_store: (a: number) => void;
