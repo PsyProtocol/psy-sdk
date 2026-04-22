@@ -5774,6 +5774,7 @@ dependencies = [
  "hex",
  "http 1.4.0",
  "hyper 1.8.1",
+ "js-sys",
  "jsonrpsee",
  "k256",
  "kvq",
@@ -5805,6 +5806,9 @@ dependencies = [
  "tower-http",
  "tracing",
  "ts-rs",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
 ]
 
 [[package]]
