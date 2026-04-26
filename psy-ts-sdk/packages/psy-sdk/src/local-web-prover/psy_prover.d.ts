@@ -95,12 +95,29 @@ export class WasmRpcServer {
      * Returns the transaction hash string.
      */
     exec_claim_with_external_proof_json(pk_hash: string, note_proof_bincode_b64: string, nullifier_json: string, owner_json: string, amount: string, user_tree_root_json: string, checkpoint_id: string, note_root_slot: string, contract_id: string, random0: string, random1: string): Promise<string>;
+    exec_contract_call_json(pk_hash: string, call_data_json: string): Promise<string>;
     /**
      * Atomic shield claim_deposit:
      * build ShieldDepositClaim proof -> start_session -> add_external_proof -> prove -> sign_and_submit.
+     *
+     * Inputs:
+     *   pk_hash                    - receiver's ZK public key (hex QHashOut)
+     *   nullifier_json             - JSON array of 4 decimal strings
+     *   note_secret_hash_json      - JSON array of 4 decimal strings
+     *   token_address_u32x8_json   - JSON array of 8 decimal strings (bytes32 BE words)
+     *   l2_token_contract_id_json  - JSON array of 8 decimal strings (bytes32 BE words)
+     *   amount_u32x8_json          - JSON array of 8 decimal strings (bytes32 BE words)
+     *   source_chain_index         - decimal string
+     *   deposit_index              - decimal string
+     *   deposit_root_json          - JSON array of 4 decimal strings (QHashOut limbs)
+     *   deposit_siblings_json      - JSON array of arrays of 4 decimal strings
+     *   random0                    - decimal string
+     *   random1                    - decimal string
+     *   contract_id                - decimal string
+     *
+     * Returns the transaction hash string.
      */
     exec_shield_claim_deposit_json(pk_hash: string, nullifier_json: string, note_secret_hash_json: string, token_address_u32x8_json: string, l2_token_contract_id_json: string, amount_u32x8_json: string, source_chain_index: string, deposit_index: string, deposit_root_json: string, deposit_siblings_json: string, random0: string, random1: string, contract_id: string): Promise<string>;
-    exec_contract_call_json(pk_hash: string, call_data_json: string): Promise<string>;
     get_deploy_contract_cmd_json(deployer: string, circuit_defs_json: string): string;
     get_random_keypair_json(): Promise<string>;
     get_result(id_str: string): Uint8Array;
@@ -173,7 +190,7 @@ export interface InitOutput {
     readonly wasmrpcserver_start_session: (a: number, b: number, c: number) => any;
     readonly wasmrpcserver_add_external_proof_json: (a: number, b: number, c: number, d: number, e: number) => any;
     readonly wasmrpcserver_exec_claim_with_external_proof_json: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number, l: number, m: number, n: number, o: number, p: number, q: number, r: number, s: number, t: number, u: number, v: number, w: number) => any;
-    readonly wasmrpcserver_exec_shield_claim_deposit_json: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number, l: number, m: number, n: number, o: number, p: number, q: number, r: number, s: number, t: number, u: number, v: number, w: number, x: number, y: number, z: number) => any;
+    readonly wasmrpcserver_exec_shield_claim_deposit_json: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number, l: number, m: number, n: number, o: number, p: number, q: number, r: number, s: number, t: number, u: number, v: number, w: number, x: number, y: number, z: number, a1: number) => any;
     readonly wasmrpcserver_prove_private_note_inclusion_json: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number, l: number, m: number, n: number, o: number, p: number, q: number) => any;
     readonly wasmrpcserver_prove_contract_call_json: (a: number, b: number, c: number, d: number, e: number) => any;
     readonly wasmrpcserver_prove_contract_calls_json: (a: number, b: number, c: number, d: number, e: number) => any;

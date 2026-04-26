@@ -1,4 +1,5 @@
 // WASM-specific bindings and exports
+use plonky2::field::types::Field;
 use wasm_bindgen::prelude::*;
 
 // Import the console.log function from the web console
@@ -62,6 +63,13 @@ fn now_ms() -> u64 {
             .unwrap_or_default()
             .as_millis() as u64
     }
+}
+
+fn parse_int_string(value: &str) -> Result<u64, JsError> {
+    let normalized = value.strip_prefix("n:").unwrap_or(value);
+    normalized
+        .parse::<u64>()
+        .map_err(|e| JsError::new(&e.to_string()))
 }
 
 // Initialize panic hook for better error messages in WASM
@@ -516,10 +524,10 @@ impl WasmRpcServer {
             let arr: [String; 4] = serde_json::from_str(json)
                 .map_err(|e| JsError::new(&format!("parse u64x4: {}", e)))?;
             Ok([
-                arr[0].parse::<u64>().map_err(|e| JsError::new(&e.to_string()))?,
-                arr[1].parse::<u64>().map_err(|e| JsError::new(&e.to_string()))?,
-                arr[2].parse::<u64>().map_err(|e| JsError::new(&e.to_string()))?,
-                arr[3].parse::<u64>().map_err(|e| JsError::new(&e.to_string()))?,
+                parse_int_string(&arr[0])?,
+                parse_int_string(&arr[1])?,
+                parse_int_string(&arr[2])?,
+                parse_int_string(&arr[3])?,
             ])
         };
 
@@ -749,7 +757,7 @@ impl WasmRpcServer {
         contract_id: &str,
     ) -> Result<String, JsError> {
         use plonky2::field::types::PrimeField64;
-        use psy_client_data::privacy::shield_deposit_claim::ShieldDepositClaimInput;
+        use psy_data::privacy::shield_deposit_claim::ShieldDepositClaimInput;
         use psy_common_circuit::circuits::traits::qstandard::QStandardCircuit;
         use psy_crypto::hash::merkle::core::MerkleProofCore;
         use psy_crypto::shield_address::{derive_deposit_commitment, derive_nullifier_hash, derive_shield_address};
@@ -759,10 +767,10 @@ impl WasmRpcServer {
             let arr: [String; 4] = serde_json::from_str(json)
                 .map_err(|e| JsError::new(&format!("parse u64x4: {}", e)))?;
             Ok([
-                arr[0].parse::<u64>().map_err(|e| JsError::new(&e.to_string()))?,
-                arr[1].parse::<u64>().map_err(|e| JsError::new(&e.to_string()))?,
-                arr[2].parse::<u64>().map_err(|e| JsError::new(&e.to_string()))?,
-                arr[3].parse::<u64>().map_err(|e| JsError::new(&e.to_string()))?,
+                parse_int_string(&arr[0])?,
+                parse_int_string(&arr[1])?,
+                parse_int_string(&arr[2])?,
+                parse_int_string(&arr[3])?,
             ])
         };
 
@@ -770,14 +778,14 @@ impl WasmRpcServer {
             let arr: [String; 8] = serde_json::from_str(json)
                 .map_err(|e| JsError::new(&format!("parse u32x8: {}", e)))?;
             Ok([
-                arr[0].parse::<u32>().map_err(|e| JsError::new(&e.to_string()))?,
-                arr[1].parse::<u32>().map_err(|e| JsError::new(&e.to_string()))?,
-                arr[2].parse::<u32>().map_err(|e| JsError::new(&e.to_string()))?,
-                arr[3].parse::<u32>().map_err(|e| JsError::new(&e.to_string()))?,
-                arr[4].parse::<u32>().map_err(|e| JsError::new(&e.to_string()))?,
-                arr[5].parse::<u32>().map_err(|e| JsError::new(&e.to_string()))?,
-                arr[6].parse::<u32>().map_err(|e| JsError::new(&e.to_string()))?,
-                arr[7].parse::<u32>().map_err(|e| JsError::new(&e.to_string()))?,
+                parse_int_string(&arr[0])? as u32,
+                parse_int_string(&arr[1])? as u32,
+                parse_int_string(&arr[2])? as u32,
+                parse_int_string(&arr[3])? as u32,
+                parse_int_string(&arr[4])? as u32,
+                parse_int_string(&arr[5])? as u32,
+                parse_int_string(&arr[6])? as u32,
+                parse_int_string(&arr[7])? as u32,
             ])
         };
 
@@ -792,10 +800,10 @@ impl WasmRpcServer {
             arr.into_iter()
                 .map(|item| {
                     Ok(QHashOut::from_values(
-                        item[0].parse::<u64>().map_err(|e| JsError::new(&e.to_string()))?,
-                        item[1].parse::<u64>().map_err(|e| JsError::new(&e.to_string()))?,
-                        item[2].parse::<u64>().map_err(|e| JsError::new(&e.to_string()))?,
-                        item[3].parse::<u64>().map_err(|e| JsError::new(&e.to_string()))?,
+                        parse_int_string(&item[0])?,
+                        parse_int_string(&item[1])?,
+                        parse_int_string(&item[2])?,
+                        parse_int_string(&item[3])?,
                     ))
                 })
                 .collect()
@@ -870,10 +878,10 @@ impl WasmRpcServer {
 
         let circuit = ShieldDepositClaimCircuit::<C, D>::new();
         let input = ShieldDepositClaimInput::<F> {
-            nullifier_secret: std::array::from_fn(|i| F::from_canonical_u64(nullifier_secret[i])),
-            note_secret_hash: std::array::from_fn(|i| F::from_canonical_u64(note_secret_hash[i])),
-            r0: F::from_canonical_u64(random0_val),
-            r1: F::from_canonical_u64(random1_val),
+            nullifier_secret: std::array::from_fn(|i| <F as plonky2::field::types::Field>::from_canonical_u64(nullifier_secret[i])),
+            note_secret_hash: std::array::from_fn(|i| <F as plonky2::field::types::Field>::from_canonical_u64(note_secret_hash[i])),
+            r0: <F as plonky2::field::types::Field>::from_canonical_u64(random0_val),
+            r1: <F as plonky2::field::types::Field>::from_canonical_u64(random1_val),
             user_id,
             deposit_index: deposit_index_val,
             token_address,
@@ -1003,10 +1011,10 @@ impl WasmRpcServer {
             let arr: [String; 4] = serde_json::from_str(json)
                 .map_err(|e| JsError::new(&format!("parse array error: {}", e)))?;
             Ok([
-                arr[0].parse::<u64>().map_err(|e| JsError::new(&e.to_string()))?,
-                arr[1].parse::<u64>().map_err(|e| JsError::new(&e.to_string()))?,
-                arr[2].parse::<u64>().map_err(|e| JsError::new(&e.to_string()))?,
-                arr[3].parse::<u64>().map_err(|e| JsError::new(&e.to_string()))?,
+                parse_int_string(&arr[0])?,
+                parse_int_string(&arr[1])?,
+                parse_int_string(&arr[2])?,
+                parse_int_string(&arr[3])?,
             ])
         };
 
@@ -1267,13 +1275,13 @@ impl WasmRpcServer {
             note_root_slot: note_root_slot_val,
             user_leaf,
             owner,
-            amount: F::from_canonical_u64(amount_val),
+            amount: <F as plonky2::field::types::Field>::from_canonical_u64(amount_val),
             randomness: note_secret_hash,
             note_membership_proof,
             note_root_slot_proof,
             contract_proof,
             user_tree_proof,
-            checkpoint_id: F::from_canonical_u64(checkpoint_after),
+            checkpoint_id: <F as plonky2::field::types::Field>::from_canonical_u64(checkpoint_after),
         };
 
         let circuit = PrivateNoteInclusionCircuit::<C, D>::new(

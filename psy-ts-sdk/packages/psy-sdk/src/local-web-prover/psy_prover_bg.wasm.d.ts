@@ -36,6 +36,7 @@ export const wasmrpcserver_exec_contract_call_json: (a: number, b: number, c: nu
 export const wasmrpcserver_start_session: (a: number, b: number, c: number) => any;
 export const wasmrpcserver_add_external_proof_json: (a: number, b: number, c: number, d: number, e: number) => any;
 export const wasmrpcserver_exec_claim_with_external_proof_json: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number, l: number, m: number, n: number, o: number, p: number, q: number, r: number, s: number, t: number, u: number, v: number, w: number) => any;
+export const wasmrpcserver_exec_shield_claim_deposit_json: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number, l: number, m: number, n: number, o: number, p: number, q: number, r: number, s: number, t: number, u: number, v: number, w: number, x: number, y: number, z: number, a1: number) => any;
 export const wasmrpcserver_prove_private_note_inclusion_json: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number, l: number, m: number, n: number, o: number, p: number, q: number) => any;
 export const wasmrpcserver_prove_contract_call_json: (a: number, b: number, c: number, d: number, e: number) => any;
 export const wasmrpcserver_prove_contract_calls_json: (a: number, b: number, c: number, d: number, e: number) => any;
