@@ -15,6 +15,34 @@ import { ZKPublicKeyInfo } from "../types";
 import { PsyJSON } from "../utils";
 import { PsyNetworkConfig } from "../config";
 
+function stringifyValue(value: unknown): string {
+    try {
+        return typeof value === "bigint" ? value.toString() : String(value);
+    } catch (_) {
+        return "[unprintable]";
+    }
+}
+
+function summarizeContractCallData(callData: ContractCallData) {
+    return {
+        contract_calls: callData.contract_calls.map((call) => ({
+            contract_id: stringifyValue(call.contract_id),
+            method_name: stringifyValue(call.method_name),
+            inputs_len: call.inputs.length,
+            inputs: call.inputs.map(stringifyValue),
+            private_transfer:
+                call.method_name === "private_transfer"
+                    ? {
+                        owner: call.inputs.slice(0, 4).map(stringifyValue),
+                        amount: stringifyValue(call.inputs[4]),
+                        note_secret_hash: call.inputs.slice(5, 9).map(stringifyValue),
+                    }
+                    : undefined,
+        })),
+        software_defined_call_inputs_len: callData.software_defined_call.inputs.length,
+    };
+}
+
 // Synchronous WASM initialization function
 export function initWasmSync(): void {
     try {
@@ -53,9 +81,27 @@ export class PsyWasmWebProverProvider implements IPsyUserProverProvider {
     async execContractCall(pkHash: string, callData: ContractCallData): Promise<string> {
         const now = new Date().getTime();
         const json = PsyJSON.stringify(callData);
-        const result = await PsyWasmWebProverProvider.wasmServer.exec_contract_call_json(pkHash, json);
-        console.log(`execContractCall in ${(new Date().getTime() - now) / 1000} seconds`);
-        return result;
+        console.info("[psy-sdk-web-prover] execContractCall start", {
+            pkHash,
+            callData: summarizeContractCallData(callData),
+        });
+        try {
+            const result = await PsyWasmWebProverProvider.wasmServer.exec_contract_call_json(pkHash, json);
+            console.info("[psy-sdk-web-prover] execContractCall result", {
+                pkHash,
+                elapsedSeconds: (new Date().getTime() - now) / 1000,
+                result,
+            });
+            return result;
+        } catch (error) {
+            console.error("[psy-sdk-web-prover] execContractCall error", {
+                pkHash,
+                elapsedSeconds: (new Date().getTime() - now) / 1000,
+                callData: summarizeContractCallData(callData),
+                error,
+            });
+            throw error;
+        }
     }
 
 
