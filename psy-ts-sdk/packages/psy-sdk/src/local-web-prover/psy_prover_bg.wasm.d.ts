@@ -1,6 +1,5 @@
 /* tslint:disable */
 /* eslint-disable */
-export const memory: WebAssembly.Memory;
 export const main: () => void;
 export const init_logging: () => void;
 export const __wbg_wasmpsyconfig_free: (a: number, b: number) => void;
@@ -52,11 +51,12 @@ export const wasmrpcserver_get_result: (a: number, b: number, c: number) => [num
 export const wasmpsyconfigbuilder_new: () => number;
 export const wasmconstants_register_user_fee: () => bigint;
 export const wasmconstants_guta_fee: () => bigint;
-export const wasm_bindgen__closure__destroy__h3ce62ddb0433d1cc: (a: number, b: number) => void;
-export const wasm_bindgen__closure__destroy__hc7b19a8babc9e085: (a: number, b: number) => void;
-export const wasm_bindgen__convert__closures_____invoke__h1cddf65df1637093: (a: number, b: number, c: any, d: any) => void;
-export const wasm_bindgen__convert__closures_____invoke__hc6d71c549dd0ed85: (a: number, b: number, c: any) => void;
-export const wasm_bindgen__convert__closures_____invoke__h928a7a747030452e: (a: number, b: number) => void;
+export const wasm_bindgen__closure__destroy__h369f52a0603b46bb: (a: number, b: number) => void;
+export const wasm_bindgen__closure__destroy__h8e0bb3a2c633abbd: (a: number, b: number) => void;
+export const wasm_bindgen__convert__closures_____invoke__h2444273eac5a6b81: (a: number, b: number, c: any, d: any) => void;
+export const wasm_bindgen__convert__closures_____invoke__h53aaf6b04974e2da: (a: number, b: number, c: any) => void;
+export const wasm_bindgen__convert__closures_____invoke__h280b57fda89857c9: (a: number, b: number) => void;
+export const memory: WebAssembly.Memory;
 export const __wbindgen_malloc: (a: number, b: number) => number;
 export const __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;
 export const __wbindgen_exn_store: (a: number) => void;
@@ -65,4 +65,5 @@ export const __wbindgen_externrefs: WebAssembly.Table;
 export const __wbindgen_free: (a: number, b: number, c: number) => void;
 export const __externref_table_dealloc: (a: number) => void;
 export const __externref_drop_slice: (a: number, b: number) => void;
-export const __wbindgen_start: () => void;
+export const __wbindgen_thread_destroy: (a?: number, b?: number, c?: number) => void;
+export const __wbindgen_start: (a: number) => void;
