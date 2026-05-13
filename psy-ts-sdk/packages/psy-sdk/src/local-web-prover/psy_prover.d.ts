@@ -70,7 +70,7 @@ export class WasmRpcServer {
      * Returns JSON: { "leaf_index": u64, "siblings": [[u64;4]] }
      */
     add_external_proof_json(pk_hash: string, note_proof_bincode_b64: string): Promise<string>;
-    add_user(private_key_str: string, sign_type: string): Promise<string>;
+    add_user(private_key_str: string, sign_type: string, sdk_key_fingerprint?: string | null): Promise<string>;
     deploy_contract_json(deployer: string, circuit_defs_json: string): Promise<string>;
     /**
      * Atomic private_claim: start_session → add_external_proof → prove → sign_and_submit.
@@ -142,7 +142,8 @@ export class WasmRpcServer {
      * Returns JSON matching NoteProofOutput.
      */
     prove_private_note_inclusion_json(pk_hash: string, owner_json: string, amount: string, note_secret_hash_json: string, nullifier_secret_json: string, contract_id: string, note_root_slot: string, checkpoint_id: string): Promise<string>;
-    register_user(private_key_str: string, sign_type: string): Promise<string>;
+    register_sdk_key_circuit(allowed_contract_ids: BigUint64Array, allowed_method_ids: BigUint64Array, expected_tx_count: bigint): Promise<string>;
+    register_user(private_key_str: string, sign_type: string, sdk_key_fingerprint?: string | null): Promise<string>;
     sign_and_submit(pk_hash: string, sign_data?: string | null): Promise<string>;
     start_session(pk_hash: string): Promise<string>;
 }
@@ -194,8 +195,9 @@ export interface InitOutput {
     readonly wasmrpcserver_prove_contract_call_json: (a: number, b: number, c: number, d: number, e: number) => any;
     readonly wasmrpcserver_prove_contract_calls_json: (a: number, b: number, c: number, d: number, e: number) => any;
     readonly wasmrpcserver_sign_and_submit: (a: number, b: number, c: number, d: number, e: number) => any;
-    readonly wasmrpcserver_register_user: (a: number, b: number, c: number, d: number, e: number) => any;
-    readonly wasmrpcserver_add_user: (a: number, b: number, c: number, d: number, e: number) => any;
+    readonly wasmrpcserver_register_user: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => any;
+    readonly wasmrpcserver_add_user: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => any;
+    readonly wasmrpcserver_register_sdk_key_circuit: (a: number, b: number, c: number, d: number, e: number, f: bigint) => any;
     readonly wasmrpcserver_get_zk_public_key_json: (a: number, b: number, c: number) => any;
     readonly wasmrpcserver_get_random_keypair_json: (a: number) => any;
     readonly wasmrpcserver_deploy_contract_json: (a: number, b: number, c: number, d: number, e: number) => any;
@@ -205,11 +207,11 @@ export interface InitOutput {
     readonly wasmpsyconfigbuilder_new: () => number;
     readonly wasmconstants_register_user_fee: () => bigint;
     readonly wasmconstants_guta_fee: () => bigint;
-    readonly wasm_bindgen__closure__destroy__h369f52a0603b46bb: (a: number, b: number) => void;
-    readonly wasm_bindgen__closure__destroy__h8e0bb3a2c633abbd: (a: number, b: number) => void;
-    readonly wasm_bindgen__convert__closures_____invoke__h2444273eac5a6b81: (a: number, b: number, c: any, d: any) => void;
-    readonly wasm_bindgen__convert__closures_____invoke__h53aaf6b04974e2da: (a: number, b: number, c: any) => void;
-    readonly wasm_bindgen__convert__closures_____invoke__h280b57fda89857c9: (a: number, b: number) => void;
+    readonly wasm_bindgen__closure__destroy__ha441362ad99bc74f: (a: number, b: number) => void;
+    readonly wasm_bindgen__closure__destroy__h4cf26375879efcb1: (a: number, b: number) => void;
+    readonly wasm_bindgen__convert__closures_____invoke__h1cddf65df1637093: (a: number, b: number, c: any, d: any) => void;
+    readonly wasm_bindgen__convert__closures_____invoke__h277c8cf710965f6e: (a: number, b: number, c: any) => void;
+    readonly wasm_bindgen__convert__closures_____invoke__h53a9c7b1eb428d9b: (a: number, b: number) => void;
     readonly memory: WebAssembly.Memory;
     readonly __wbindgen_malloc: (a: number, b: number) => number;
     readonly __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;
