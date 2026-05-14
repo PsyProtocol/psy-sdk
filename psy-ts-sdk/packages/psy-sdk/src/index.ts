@@ -26,3 +26,5 @@ export * from "./zksigner";
 export * from "./rpc-provider";
 
 export * from "./bridge";
+
+export * from "./services";
