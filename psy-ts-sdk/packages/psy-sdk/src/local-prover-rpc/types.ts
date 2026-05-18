@@ -155,6 +155,11 @@ interface IPsyUserProverProvider {
     // User operations
     registerUser(privateKey: PrivateKey, signType: SignType, fingerprint?: string): Promise<PublicKey>;
     addUser(privateKey: PrivateKey, signType: SignType, fingerprint?: string): Promise<PublicKey>;
+    registerSdkKeyCircuit?(
+        allowedContractIds: Array<number | bigint>,
+        allowedMethodIds: Array<number | bigint>,
+        expectedTxCount: number | bigint
+    ): Promise<QHashOut>;
     // switchUser(pkHash: PublicKey): Promise<void>;
     getZKPublicKey(privateKey: PrivateKey): Promise<ZKPublicKeyInfo>;
     getRandomKeypair(): Promise<WalletKeyPair>;
@@ -162,6 +167,7 @@ interface IPsyUserProverProvider {
     // Contract deployment
     deployContract(deployer: string, circuitDefs: DPNFunctionCircuitDefinition[]): Promise<string>;
     getDeployContractCmd(deployer: string, circuitDefs: DPNFunctionCircuitDefinition[]): Promise<QBCDeployContract>;
+    submitDeployContractCmd?(deployContract: QBCDeployContract): Promise<string>;
 
     // Signing and submission
     // getSigHash(networkMagic: bigint): Promise<QHashOut>;

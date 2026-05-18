@@ -4,8 +4,10 @@ export { AbiConverter } from "./converters/abi-converter";
 
 // Export runtime module
 export { Contract } from "./runtime/contract";
+export { deployContractWithAbi } from "./runtime/deploy";
 export { Signer } from "./runtime/types";
 export type { Felt, ISigner, PsyFixedArray, ContractOptions } from "./runtime";
+export type { DeployContractWithAbiOptions, DeployContractWithAbiResult } from "./runtime/deploy";
 
 // Only try to export generated files if they exist
 // This allows the package to build even before generation

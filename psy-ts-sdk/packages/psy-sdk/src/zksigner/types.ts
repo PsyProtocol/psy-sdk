@@ -1,5 +1,5 @@
 import { ContractCallData, DPNFunctionCircuitDefinition, SignType } from "../local-prover-rpc/types";
-import { ContractCallArgs } from "../types";
+import { ContractCallArgs, QBCDeployContract } from "../types";
 
 type TPsyTransactionSignerAbility = "sign-hash" | "export-private-key-hex";
 type TPsyTransactionSignerProviderAbility = "import-private-key" | "add-random-private-key";
@@ -11,6 +11,14 @@ interface IPsyTransactionSigner {
     // signHash?(hash: QHashOut): Promise<ProofWithPublicInputs>;
     signAndSubmit(pk_hash: string, callData: ContractCallData): Promise<string>;
     deployContract(pk_hash: string, circuitDefs: DPNFunctionCircuitDefinition[]): Promise<string>;
+    getDeployContractCmd(pk_hash: string, circuitDefs: DPNFunctionCircuitDefinition[]): Promise<QBCDeployContract>;
+    deployContractWithAbi(
+        pk_hash: string,
+        circuitDefs: DPNFunctionCircuitDefinition[],
+        servicesUrl: string,
+        abi: unknown,
+        metadata?: Record<string, unknown>
+    ): Promise<string>;
     getAbilities(): TPsyTransactionSignerAbility[];
     registerUser(privateKeyHex: string, signType: SignType, fingerprint?: string): Promise<string>;
     addUser(privateKeyHex: string, signType: SignType, fingerprint?: string): Promise<string>;

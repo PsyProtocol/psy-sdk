@@ -1,4 +1,6 @@
 export { Contract, ContractOptions } from "./contract";
+export { deployContractWithAbi } from "./deploy";
+export type { DeployContractWithAbiOptions, DeployContractWithAbiResult } from "./deploy";
 export { RecursiveDecoder } from "./decoder";
 export { createMerkleHelper, calculateOffset, keccak256Felt } from "./merkle-helper";
 export {

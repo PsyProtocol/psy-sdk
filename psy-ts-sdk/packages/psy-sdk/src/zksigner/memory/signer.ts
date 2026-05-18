@@ -1,5 +1,7 @@
 import { getPsyNetworkMagicForNetworkId, NetworkId } from "../../action";
 import { ContractCallArgs, ContractCallData, DPNFunctionCircuitDefinition, IPsyUserProverProvider, SignType } from "../../local-prover-rpc";
+import { uploadPendingContractAbi } from "../../services";
+import { QBCDeployContract } from "../../types";
 import { IPsyTransactionSigner, TPsyTransactionSignerAbility } from "../types";
 
 class PsyMemoryTransactionSigner implements IPsyTransactionSigner {
@@ -48,6 +50,30 @@ class PsyMemoryTransactionSigner implements IPsyTransactionSigner {
 
     async deployContract(pk_hash: string, circuitDefs: DPNFunctionCircuitDefinition[]): Promise<string> {
         return this.prover.deployContract(pk_hash, circuitDefs);
+    }
+
+    async getDeployContractCmd(pk_hash: string, circuitDefs: DPNFunctionCircuitDefinition[]): Promise<QBCDeployContract> {
+        return this.prover.getDeployContractCmd(pk_hash, circuitDefs);
+    }
+
+    async deployContractWithAbi(
+        pk_hash: string,
+        circuitDefs: DPNFunctionCircuitDefinition[],
+        servicesUrl: string,
+        abi: unknown,
+        metadata?: Record<string, unknown>
+    ): Promise<string> {
+        const deployContract = await this.getDeployContractCmd(pk_hash, circuitDefs);
+        await uploadPendingContractAbi(servicesUrl, {
+            deployContract,
+            abi,
+            metadata,
+            deployer: pk_hash,
+        });
+        if (this.prover.submitDeployContractCmd) {
+            return this.prover.submitDeployContractCmd(deployContract);
+        }
+        return this.deployContract(pk_hash, circuitDefs);
     }
 
     getAbilities(): TPsyTransactionSignerAbility[] {
