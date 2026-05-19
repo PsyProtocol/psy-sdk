@@ -11,13 +11,53 @@
       "require": "./dist/index.cjs",
       "types": "./dist/index.d.ts"
     },
+    "./local-web-compiler": {
+      "import": "./dist/local-web-compiler/index.mjs",
+      "require": "./dist/local-web-compiler/index.cjs",
+      "types": "./dist/local-web-compiler/index.d.ts"
+    },
+    "./local-web-compiler/compiler": {
+      "import": "./dist/local-web-compiler/compiler.mjs",
+      "require": "./dist/local-web-compiler/compiler.cjs",
+      "types": "./dist/local-web-compiler/compiler.d.ts"
+    },
+    "./local-web-compiler/psy_compiler": {
+      "import": "./dist/local-web-compiler/psy_compiler.mjs",
+      "require": "./dist/local-web-compiler/psy_compiler.cjs",
+      "types": "./dist/local-web-compiler/psy_compiler.d.ts"
+    },
+    "./local-web-compiler/wasm-binary": {
+      "import": "./dist/local-web-compiler/wasm-binary.mjs",
+      "require": "./dist/local-web-compiler/wasm-binary.cjs",
+      "types": "./dist/local-web-compiler/wasm-binary.d.ts"
+    },
+    "./local-web-prover": {
+      "import": "./dist/local-web-prover/index.mjs",
+      "require": "./dist/local-web-prover/index.cjs",
+      "types": "./dist/local-web-prover/index.d.ts"
+    },
+    "./local-web-prover/prover": {
+      "import": "./dist/local-web-prover/prover.mjs",
+      "require": "./dist/local-web-prover/prover.cjs",
+      "types": "./dist/local-web-prover/prover.d.ts"
+    },
+    "./local-web-prover/psy_prover": {
+      "import": "./dist/local-web-prover/psy_prover.mjs",
+      "require": "./dist/local-web-prover/psy_prover.cjs",
+      "types": "./dist/local-web-prover/psy_prover.d.ts"
+    },
+    "./local-web-prover/wasm-binary": {
+      "import": "./dist/local-web-prover/wasm-binary.mjs",
+      "require": "./dist/local-web-prover/wasm-binary.cjs",
+      "types": "./dist/local-web-prover/wasm-binary.d.ts"
+    },
     "./*": {
       "import": "./dist/*/index.mjs",
-      "require": "./dist/*/index.mjs",
+      "require": "./dist/*/index.cjs",
       "types": "./dist/*/index.d.ts"
     },
     "./*/*": {
-      "import": "./dist/*/*.cjs",
+      "import": "./dist/*/*.mjs",
       "require": "./dist/*/*.cjs",
       "types": "./dist/*/*.d.ts"
     }
