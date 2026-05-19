@@ -24,7 +24,15 @@ function runWasmPack(target: "web" | "nodejs", outDir: string, psyCompilerDir: s
 function ensureWasmArtifacts() {
     console.log("Building compiler WASM artifacts via wasm-pack...");
 
-    const psyCompilerDir = path.resolve(__dirname, "../../../../../../psy-compiler");
+    const envCompilerDir = process.env.PSY_COMPILER_DIR?.trim();
+    const defaultParthCompilerDir = path.resolve(
+        __dirname,
+        "../../../../../../../parth-generic-v1/client_prover/psy_compiler",
+    );
+    const legacyCompilerDir = path.resolve(__dirname, "../../../../../../psy-compiler");
+    const psyCompilerDir = envCompilerDir
+        ? path.resolve(envCompilerDir)
+        : (fs.existsSync(defaultParthCompilerDir) ? defaultParthCompilerDir : legacyCompilerDir);
     const webOutDir = path.resolve(__dirname);
 
     runWasmPack("web", webOutDir, psyCompilerDir);
