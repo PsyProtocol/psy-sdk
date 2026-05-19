@@ -8,10 +8,10 @@ const __dirname = path.dirname(__filename);
 
 const wasmPath = path.join(__dirname, "./psy_compiler_bg.wasm");
 
-function runWasmPack(target: "web" | "nodejs", outDir: string, psyCompilerDir: string) {
-    const args = ["build", "psy-wasm", "--target", target, "--out-dir", outDir, "--out-name", "psy_compiler", "--no-pack", "--release"];
+function runWasmPack(target: "web" | "nodejs", outDir: string, psyCompilerWorkspace: string, cratePath: string) {
+    const args = ["build", cratePath, "--target", target, "--out-dir", outDir, "--out-name", "psy_compiler", "--no-pack", "--release"];
     const result = spawnSync("wasm-pack", args, {
-        cwd: psyCompilerDir,
+        cwd: psyCompilerWorkspace,
         stdio: "inherit",
         env: process.env,
     });
@@ -24,18 +24,28 @@ function runWasmPack(target: "web" | "nodejs", outDir: string, psyCompilerDir: s
 function ensureWasmArtifacts() {
     console.log("Building compiler WASM artifacts via wasm-pack...");
 
-    const envCompilerDir = process.env.PSY_COMPILER_DIR?.trim();
-    const defaultParthCompilerDir = path.resolve(
+    const envCompilerDir = process.env.PSY_COMPILER_WASM_WORKSPACE?.trim() || process.env.PSY_COMPILER_DIR?.trim();
+    const defaultParthCompilerWorkspace = path.resolve(
         __dirname,
-        "../../../../../../parth-generic-v1/client_prover/psy_compiler",
+        "../../../../../../parth-generic-v1/client_prover/psy_ide",
     );
     const legacyCompilerDir = path.resolve(__dirname, "../../../../../../psy-compiler");
-    const psyCompilerDir = envCompilerDir
-        ? path.resolve(envCompilerDir)
-        : (fs.existsSync(legacyCompilerDir) ? legacyCompilerDir : defaultParthCompilerDir);
+    const candidates = [
+        envCompilerDir ? path.resolve(envCompilerDir) : null,
+        defaultParthCompilerWorkspace,
+        legacyCompilerDir,
+    ].filter((candidate): candidate is string => Boolean(candidate));
+    const compiler = candidates.flatMap((workspace) => [
+        { workspace, cratePath: "psy_wasm", cargoToml: path.join(workspace, "psy_wasm", "Cargo.toml") },
+        { workspace, cratePath: "psy-wasm", cargoToml: path.join(workspace, "psy-wasm", "Cargo.toml") },
+        { workspace, cratePath: ".", cargoToml: path.join(workspace, "Cargo.toml") },
+    ]).find((candidate) => fs.existsSync(candidate.cargoToml));
+    if (!compiler) {
+        throw new Error(`Could not find compiler WASM crate. Checked: ${candidates.join(", ")}`);
+    }
     const webOutDir = path.resolve(__dirname);
 
-    runWasmPack("web", webOutDir, psyCompilerDir);
+    runWasmPack("web", webOutDir, compiler.workspace, compiler.cratePath);
 
     const gitignoreTemplate = path.resolve(__dirname, "../../../../../.github/templates/.gitignore.wasm");
     if (fs.existsSync(gitignoreTemplate)) {

@@ -1,4 +1,4 @@
-import { initSync, compile_source, compile_project, interpret_source, interpret_project } from "./psy_compiler";
+import { initSync, compile_source, compile_project } from "./psy_compiler";
 import { wasmBinary } from "./wasm-binary";
 import type { DPNFunctionCircuitDefinition } from "../local-prover-rpc/types";
 import { PsyJSON } from "../utils";
@@ -106,11 +106,19 @@ export function compileProject(input: PsyProjectInput): PsyCompileResult {
 }
 
 export function interpretSource(source: string, request: PsyInterpretRequest): PsyInterpretResult {
-    ensureInit();
-    return PsyJSON.parse(interpret_source(source, PsyJSON.stringify(request)));
+    void source;
+    void request;
+    return {
+        success: false,
+        error: "interpretSource is not exposed by the bundled compiler WASM",
+    };
 }
 
 export function interpretProject(input: PsyProjectInput, request: PsyInterpretRequest): PsyInterpretResult {
-    ensureInit();
-    return PsyJSON.parse(interpret_project(PsyJSON.stringify(input), PsyJSON.stringify(request)));
+    void input;
+    void request;
+    return {
+        success: false,
+        error: "interpretProject is not exposed by the bundled compiler WASM",
+    };
 }
