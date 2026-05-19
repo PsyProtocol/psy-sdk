@@ -16,9 +16,9 @@
     "fix": "pnpm run fmt && npx eslint --fix --ext js,ts,tsx .",
     "contract:generate": "pnpm --filter packages/contract-sdk run generate:default",
     "contract:build": "pnpm --filter packages/contract-sdk run build",
-    "contract:demo": "pnpm --filter contract-sdk demo",
-    "publish:check": "pnpm --filter @psy-protocol/utils run build && pnpm --filter @psy-protocol/utils pack --dry-run && NODE_OPTIONS=--max-old-space-size=12288 pnpm --filter @psy-protocol/psy-sdk run build && pnpm --filter @psy-protocol/psy-sdk pack --dry-run && pnpm --filter contract-sdk run build && pnpm --filter contract-sdk pack --dry-run",
-    "publish:all": "pnpm --filter @psy-protocol/utils publish --access public --registry=https://registry.npmjs.org/ && NODE_OPTIONS=--max-old-space-size=12288 pnpm --filter @psy-protocol/psy-sdk publish --access public --registry=https://registry.npmjs.org/ && pnpm --filter contract-sdk publish --access public --registry=https://registry.npmjs.org/"
+    "contract:demo": "pnpm --filter @psy-protocol/contract-sdk demo",
+    "publish:check": "pnpm --filter @psy-protocol/utils run build && pnpm --filter @psy-protocol/utils pack --dry-run && NODE_OPTIONS=--max-old-space-size=12288 pnpm --filter @psy-protocol/psy-sdk run build && pnpm --filter @psy-protocol/psy-sdk pack --dry-run && pnpm --filter @psy-protocol/contract-sdk run build && pnpm --filter @psy-protocol/contract-sdk pack --dry-run",
+    "publish:all": "pnpm --filter @psy-protocol/utils publish --access public --registry=https://registry.npmjs.org/ && NODE_OPTIONS=--max-old-space-size=12288 pnpm --filter @psy-protocol/psy-sdk publish --access public --registry=https://registry.npmjs.org/ && pnpm --filter @psy-protocol/contract-sdk publish --access public --registry=https://registry.npmjs.org/"
   },
   "devDependencies": {
     "@typescript-eslint/eslint-plugin": "^8.57.1",

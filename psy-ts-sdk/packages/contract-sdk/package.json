@@ -1,5 +1,5 @@
 {
-  "name": "contract-sdk",
+  "name": "@psy-protocol/contract-sdk",
   "version": "1.0.0",
   "description": "ZK Contract SDK with generated contracts",
   "main": "dist/index.js",
