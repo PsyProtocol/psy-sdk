@@ -19,7 +19,7 @@ import { PsyNetworkConfig } from "../config";
 export function initWasmSync(): void {
     try {
         // Initialize synchronously with pre-compiled binary data
-        initSync(wasmBinary);
+        initSync({ module: wasmBinary });
 
         console.log("WASM initialized synchronously from binary data");
     } catch (error) {

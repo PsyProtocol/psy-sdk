@@ -81,7 +81,7 @@ let initialized = false;
 
 function ensureInit(): void {
     if (!initialized) {
-        initSync(wasmBinary);
+        initSync({ module: wasmBinary });
         initialized = true;
     }
 }
