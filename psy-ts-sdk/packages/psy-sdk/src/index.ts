@@ -17,6 +17,8 @@ export * from "./local-prover-rpc";
 
 export * from "./local-web-prover";
 
+export * from "./local-web-compiler";
+
 export * from "./wallet";
 
 export * from "./zksigner";

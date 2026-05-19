@@ -27,8 +27,9 @@
   ],
   "scripts": {
     "build:wasm": "node --import 'data:text/javascript,import { register } from \"node:module\"; import { pathToFileURL } from \"node:url\"; register(\"ts-node/esm\", pathToFileURL(\"./\"));' src/local-web-prover/build-wasm-binary.ts",
+    "build:wasm-compiler": "node --import 'data:text/javascript,import { register } from \"node:module\"; import { pathToFileURL } from \"node:url\"; register(\"ts-node/esm\", pathToFileURL(\"./\"));' src/local-web-compiler/build-wasm-binary.ts",
     "build": "pnpm run precompile && pnpm run compile",
-    "precompile": "cpx ../../../config.json src/config && pnpm run clean && pnpm run build:wasm",
+    "precompile": "cpx ../../../config.json src/config && pnpm run clean && pnpm run build:wasm && pnpm run build:wasm-compiler",
     "clean": "rimraf dist",
     "compile": "rollup -c",
     "lint": "eslint 'src/**/*.{ts,tsx}' --max-warnings 100",
@@ -63,7 +64,7 @@
     "typescript": "~4.9.5"
   },
   "publishConfig": {
-    "registry": "https://psy-verdaccio.mcnmeme.fun"
+    "registry": "https://registry.npmjs.org/"
   },
   "dependencies": {
     "doge-sdk": "^0.4.5",
