@@ -5,7 +5,7 @@ The Coordinator Edge RPC Provider is a powerful TypeScript client for interactin
 ## Installation
 
 ```bash
-npm install @psy/sdk
+npm install @psy-protocol/psy-sdk
 ```
 
 ## Quick Start
@@ -13,7 +13,7 @@ npm install @psy/sdk
 ### Basic Usage (Backward Compatible)
 
 ```typescript
-import { CoordinatorEdgeRpcProvider } from "@psy/sdk";
+import { CoordinatorEdgeRpcProvider } from "@psy-protocol/psy-sdk";
 
 // Simple usage - no enhanced features
 const client = new CoordinatorEdgeRpcProvider("http://localhost:8545");
@@ -25,7 +25,7 @@ console.log("Latest checkpoint:", checkpoint);
 ### Enhanced Usage with Caching
 
 ```typescript
-import { CoordinatorEdgeRpcProvider, EnhancedClientConfig } from "@psy/sdk";
+import { CoordinatorEdgeRpcProvider, EnhancedClientConfig } from "@psy-protocol/psy-sdk";
 
 const config: EnhancedClientConfig = {
     cache: {

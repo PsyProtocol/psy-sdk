@@ -1,5 +1,5 @@
 {
-  "name": "@psy/psy-sdk",
+  "name": "@psy-protocol/psy-sdk",
   "version": "1.1.5",
   "main": "dist/index.cjs",
   "module": "dist/index.mjs",

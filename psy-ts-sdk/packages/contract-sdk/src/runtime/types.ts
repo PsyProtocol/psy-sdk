@@ -1,5 +1,5 @@
 // Runtime type definitions
-import { IContractProvider } from "@psy/psy-sdk";
+import { IContractProvider } from "@psy-protocol/psy-sdk";
 
 export type Felt = bigint | number;
 export type GHash = [Felt, Felt, Felt, Felt];

@@ -1,5 +1,5 @@
 {
-  "name": "@psy/utils",
+  "name": "@psy-protocol/utils",
   "version": "1.0.0",
   "type": "module",
   "module": "./dist/index.js",

@@ -1,4 +1,4 @@
-import { PsyNetworkConfig, PsyConfig } from "@psy/psy-sdk";
+import { PsyNetworkConfig, PsyConfig } from "@psy-protocol/psy-sdk";
 
 import * as rootConfig from "../../../../../../config.json";
 const psyConfig = rootConfig as PsyConfig;

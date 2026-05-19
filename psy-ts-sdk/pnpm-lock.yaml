@@ -41,10 +41,10 @@ importers:
 
   packages/contract-sdk:
     dependencies:
-      '@psy/psy-sdk':
+      '@psy-protocol/psy-sdk':
         specifier: workspace:*
         version: link:../psy-sdk
-      '@psy/utils':
+      '@psy-protocol/utils':
         specifier: workspace:*
         version: link:../utils
       commander:
@@ -69,7 +69,7 @@ importers:
 
   packages/contract-sdk/demo:
     dependencies:
-      '@psy/psy-sdk':
+      '@psy-protocol/psy-sdk':
         specifier: workspace:*
         version: link:../../psy-sdk
       dotenv:

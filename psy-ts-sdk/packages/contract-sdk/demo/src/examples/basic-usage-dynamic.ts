@@ -4,7 +4,7 @@ import { Contract, Signer } from "../../../src";
 import abi from "../../../abi/contract.abi.json";
 import { createMemoryWalletProvider } from "../providers";
 import { networkConfig } from "../config";
-import { SignType } from "@psy/psy-sdk";
+import { SignType } from "@psy-protocol/psy-sdk";
 
 const privateKey = "c71603f33a1144ca7953db0ab48808f4c4055e3364a246c33c18a9786cb0b359";
 const signType = "zk" as SignType;

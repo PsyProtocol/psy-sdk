@@ -5,7 +5,7 @@ The **RealmEdgeRpcProvider** is an enhanced RPC client for interacting with Psy 
 ## Installation
 
 ```bash
-npm install @psy/sdk
+npm install @psy-protocol/psy-sdk
 ```
 
 ## Quick Start
@@ -13,7 +13,7 @@ npm install @psy/sdk
 ### Basic Usage
 
 ```typescript
-import { RealmEdgeRpcProvider } from "@psy/sdk";
+import { RealmEdgeRpcProvider } from "@psy-protocol/psy-sdk";
 
 // Simple usage
 const client = new RealmEdgeRpcProvider("http://localhost:8547");
@@ -26,7 +26,7 @@ console.log("Checkpoint tree root:", root);
 ### Enhanced Configuration
 
 ```typescript
-import { RealmEdgeRpcProvider, ClientConfig } from "@psy/sdk";
+import { RealmEdgeRpcProvider, ClientConfig } from "@psy-protocol/psy-sdk";
 
 const config: ClientConfig = {
     cache: {
@@ -338,7 +338,7 @@ import {
     PsyBlockState,
     MerkleProofCore,
     QHashOut,
-} from "@psy/sdk";
+} from "@psy-protocol/psy-sdk";
 ```
 
 ## Architecture Benefits

@@ -131,7 +131,7 @@ ${variablePositionsConstant}
     private generateImports(): string {
         return `// Auto-generated from ABI - Do not edit manually
 import { RecursiveDecoder } from './decoder';
-import { IContractProvider } from '@psy/psy-sdk';
+import { IContractProvider } from '@psy-protocol/psy-sdk';
 import { Felt, ISigner, PsyFixedArray } from './types';
 import { keccak256, toBeHex, zeroPadValue } from 'ethers';
 

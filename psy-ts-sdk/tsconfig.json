@@ -4,7 +4,7 @@
   "compilerOptions": {
     "baseUrl": ".",
     "paths": {
-      "@psy/*": ["packages/*/src"]
+      "@psy-protocol/*": ["packages/*/src"]
     },
     "noEmit": true,
     "noUnusedLocals": true,

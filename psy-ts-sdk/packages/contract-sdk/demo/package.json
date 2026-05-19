@@ -1,5 +1,5 @@
 {
-  "name": "@psy/contract-sdk-demo",
+  "name": "@psy-protocol/contract-sdk-demo",
   "version": "1.0.0",
   "description": "Demo for generated ZK Contract SDK",
   "main": "src/index.js",
@@ -8,7 +8,7 @@
     "example:dynamic": "tsx src/examples/basic-usage-dynamic.ts"
   },
   "dependencies": {
-    "@psy/psy-sdk": "workspace:*",
+    "@psy-protocol/psy-sdk": "workspace:*",
     "dotenv": "^16.6.1"
   },
   "devDependencies": {
