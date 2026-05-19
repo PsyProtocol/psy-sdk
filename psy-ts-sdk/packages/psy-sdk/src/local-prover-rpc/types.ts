@@ -137,7 +137,8 @@ export enum SignType {
     ZKSign = "zk",
     SECP256K1Sign = "secp256k1",
     SoftwareDefinedDPNSign = "software-defined-dpn",
-    SoftwareDefinedPlonky2Sign = "software-defined-plonky2"
+    SoftwareDefinedPlonky2Sign = "software-defined-plonky2",
+    SDKKeySign = "sdk-key"
 }
 
 interface IPsyUserProverProvider {
@@ -152,8 +153,8 @@ interface IPsyUserProverProvider {
     claimRewards(pk_hash: string, jobInfos: string): Promise<string>;
 
     // User operations
-    registerUser(privateKey: PrivateKey, signType: SignType): Promise<PublicKey>;
-    addUser(privateKey: PrivateKey, signType: SignType): Promise<PublicKey>;
+    registerUser(privateKey: PrivateKey, signType: SignType, fingerprint?: string): Promise<PublicKey>;
+    addUser(privateKey: PrivateKey, signType: SignType, fingerprint?: string): Promise<PublicKey>;
     // switchUser(pkHash: PublicKey): Promise<void>;
     getZKPublicKey(privateKey: PrivateKey): Promise<ZKPublicKeyInfo>;
     getRandomKeypair(): Promise<WalletKeyPair>;

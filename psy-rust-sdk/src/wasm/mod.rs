@@ -1393,6 +1393,7 @@ impl WasmRpcServer {
         &mut self,
         private_key_str: &str,
         sign_type: &str,
+        sdk_key_fingerprint: Option<String>,
     ) -> Result<String, JsError> {
         let private_key = QHashOut::<F>::from_str(private_key_str)
             .map_err(|e| JsError::new(&format!("Parse private key error: {}", e)))?;
@@ -1400,6 +1401,14 @@ impl WasmRpcServer {
         let fingerprint = match sign_type {
             "zk" => psy_prover::wallet::memory_wallet::get_zk_fingerprint(),
             "secp256k1" => psy_prover::wallet::memory_wallet::get_secp256k1_fingerprint(),
+            "sdk-key" => {
+                let fingerprint = sdk_key_fingerprint.ok_or_else(|| {
+                    JsError::new("SDK key fingerprint is required for sdk-key sign type")
+                })?;
+                QHashOut::<F>::from_str(&fingerprint).map_err(|e| {
+                    JsError::new(&format!("Parse SDK key fingerprint error: {}", e))
+                })?
+            }
             _ => {
                 return Err(JsError::new(&format!(
                     "Unsupported sign type: {}",
@@ -1421,6 +1430,7 @@ impl WasmRpcServer {
         &mut self,
         private_key_str: &str,
         sign_type: &str,
+        sdk_key_fingerprint: Option<String>,
     ) -> Result<String, JsError> {
         let private_key = QHashOut::<F>::from_str(private_key_str)
             .map_err(|e| JsError::new(&format!("Parse private key error: {}", e)))?;
@@ -1428,6 +1438,14 @@ impl WasmRpcServer {
         let fingerprint = match sign_type {
             "zk" => psy_prover::wallet::memory_wallet::get_zk_fingerprint(),
             "secp256k1" => psy_prover::wallet::memory_wallet::get_secp256k1_fingerprint(),
+            "sdk-key" => {
+                let fingerprint = sdk_key_fingerprint.ok_or_else(|| {
+                    JsError::new("SDK key fingerprint is required for sdk-key sign type")
+                })?;
+                QHashOut::<F>::from_str(&fingerprint).map_err(|e| {
+                    JsError::new(&format!("Parse SDK key fingerprint error: {}", e))
+                })?
+            }
             _ => {
                 return Err(JsError::new(&format!(
                     "Unsupported sign type: {}",
@@ -1442,6 +1460,21 @@ impl WasmRpcServer {
             .await
             .map_err(|e| JsError::new(&format!("Add user error: {}", e)))?;
         Ok(pk_hash.to_string())
+    }
+
+    #[wasm_bindgen]
+    pub async fn register_sdk_key_circuit(
+        &mut self,
+        allowed_contract_ids: &[u64],
+        allowed_method_ids: &[u64],
+        expected_tx_count: u64,
+    ) -> Result<String, JsError> {
+        let fingerprint = self
+            .wallet_session
+            .register_sdk_key_circuit(allowed_contract_ids, allowed_method_ids, expected_tx_count)
+            .await
+            .map_err(|e| JsError::new(&format!("Register sd key circuit error: {}", e)))?;
+        Ok(fingerprint.to_string())
     }
 
     #[wasm_bindgen]

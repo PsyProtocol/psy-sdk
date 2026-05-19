@@ -3,7 +3,8 @@
   "compilerOptions": {
     "declaration": true,
     "declarationMap": true,
-    "sourceMap": true
+    "sourceMap": true,
+    "paths": {}
   },
   "exclude": ["**/*.test.ts", "src/cli.ts", "abi/**"]
 }

@@ -51,12 +51,12 @@ class PsyMemoryTransactionSignerProvider implements IPsyTransactionSignerProvide
         }
     }
 
-    async registerUser(privateKeyHex: string, signType: SignType): Promise<string> {
-        return this.proverProvider.registerUser(privateKeyHex, signType);
+    async registerUser(privateKeyHex: string, signType: SignType, fingerprint?: string): Promise<string> {
+        return this.proverProvider.registerUser(privateKeyHex, signType, fingerprint);
     }
 
-    async addUser(privateKeyHex: string, signType: SignType): Promise<string> {
-        return this.proverProvider.addUser(privateKeyHex, signType);
+    async addUser(privateKeyHex: string, signType: SignType, fingerprint?: string): Promise<string> {
+        return this.proverProvider.addUser(privateKeyHex, signType, fingerprint);
     }
 
     async getClaimRewardsCallArgs(jobInfos: string): Promise<ContractCallArgs[]> {

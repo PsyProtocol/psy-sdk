@@ -122,7 +122,7 @@ export class CoordinatorEdgeRpcProvider extends Provider implements ICoordinator
      * @returns The user ID
      */
     async getUserId(publicKey: QHashOut): Promise<number> {
-        const result = await this.rpc<number[]>(CoordinatorEdgeRPCCommand.GetUserId, { public_key: publicKey, start_user_id: 0, count: 1 });
+        const result = await this.rpc<number[]>(CoordinatorEdgeRPCCommand.GetUserId, { public_key: publicKey, start_user_id: 0, count: 64 });
         if (result.length === 0) {
             throw new Error("No user ID found for the given public key");
         }

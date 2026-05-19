@@ -1,6 +1,5 @@
 /* tslint:disable */
 /* eslint-disable */
-export const memory: WebAssembly.Memory;
 export const main: () => void;
 export const init_logging: () => void;
 export const __wbg_wasmpsyconfig_free: (a: number, b: number) => void;
@@ -41,8 +40,9 @@ export const wasmrpcserver_prove_private_note_inclusion_json: (a: number, b: num
 export const wasmrpcserver_prove_contract_call_json: (a: number, b: number, c: number, d: number, e: number) => any;
 export const wasmrpcserver_prove_contract_calls_json: (a: number, b: number, c: number, d: number, e: number) => any;
 export const wasmrpcserver_sign_and_submit: (a: number, b: number, c: number, d: number, e: number) => any;
-export const wasmrpcserver_register_user: (a: number, b: number, c: number, d: number, e: number) => any;
-export const wasmrpcserver_add_user: (a: number, b: number, c: number, d: number, e: number) => any;
+export const wasmrpcserver_register_user: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => any;
+export const wasmrpcserver_add_user: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => any;
+export const wasmrpcserver_register_sdk_key_circuit: (a: number, b: number, c: number, d: number, e: number, f: bigint) => any;
 export const wasmrpcserver_get_zk_public_key_json: (a: number, b: number, c: number) => any;
 export const wasmrpcserver_get_random_keypair_json: (a: number) => any;
 export const wasmrpcserver_deploy_contract_json: (a: number, b: number, c: number, d: number, e: number) => any;
@@ -52,11 +52,12 @@ export const wasmrpcserver_get_result: (a: number, b: number, c: number) => [num
 export const wasmpsyconfigbuilder_new: () => number;
 export const wasmconstants_register_user_fee: () => bigint;
 export const wasmconstants_guta_fee: () => bigint;
-export const wasm_bindgen__closure__destroy__h3ce62ddb0433d1cc: (a: number, b: number) => void;
-export const wasm_bindgen__closure__destroy__hc7b19a8babc9e085: (a: number, b: number) => void;
+export const wasm_bindgen__closure__destroy__ha441362ad99bc74f: (a: number, b: number) => void;
+export const wasm_bindgen__closure__destroy__h4cf26375879efcb1: (a: number, b: number) => void;
 export const wasm_bindgen__convert__closures_____invoke__h1cddf65df1637093: (a: number, b: number, c: any, d: any) => void;
-export const wasm_bindgen__convert__closures_____invoke__hc6d71c549dd0ed85: (a: number, b: number, c: any) => void;
-export const wasm_bindgen__convert__closures_____invoke__h928a7a747030452e: (a: number, b: number) => void;
+export const wasm_bindgen__convert__closures_____invoke__h277c8cf710965f6e: (a: number, b: number, c: any) => void;
+export const wasm_bindgen__convert__closures_____invoke__h53a9c7b1eb428d9b: (a: number, b: number) => void;
+export const memory: WebAssembly.Memory;
 export const __wbindgen_malloc: (a: number, b: number) => number;
 export const __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;
 export const __wbindgen_exn_store: (a: number) => void;
@@ -65,4 +66,5 @@ export const __wbindgen_externrefs: WebAssembly.Table;
 export const __wbindgen_free: (a: number, b: number, c: number) => void;
 export const __externref_table_dealloc: (a: number) => void;
 export const __externref_drop_slice: (a: number, b: number) => void;
-export const __wbindgen_start: () => void;
+export const __wbindgen_thread_destroy: (a?: number, b?: number, c?: number) => void;
+export const __wbindgen_start: (a: number) => void;

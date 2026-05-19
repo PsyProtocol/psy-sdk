@@ -4,8 +4,8 @@ check:
 
 build:
 	@$(MAKE) wasm-build
-	@cd psy-ts-sdk/packages/psy-sdk && pnpm run build:wasm
-	@cd psy-ts-sdk/packages/psy-sdk && pnpm run build
+	@cd psy-ts-sdk/packages/psy-sdk && pnpm install && pnpm run build:wasm
+	@cd psy-ts-sdk/packages/psy-sdk && pnpm install && pnpm run build
 
 wasm-build:
 	@cd psy-rust-sdk && wasm-pack build --target web --out-dir ../psy-ts-sdk/packages/psy-sdk/src/local-web-prover --out-name psy_prover --no-pack --release

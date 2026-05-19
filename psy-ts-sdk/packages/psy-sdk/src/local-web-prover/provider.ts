@@ -109,12 +109,12 @@ export class PsyWasmWebProverProvider implements IPsyUserProverProvider {
 
 
     // User operations
-    async registerUser(privateKey: PrivateKey, signType: SignType): Promise<PublicKey> {
-        return PsyWasmWebProverProvider.wasmServer.register_user(privateKey.toString(), signType);
+    async registerUser(privateKey: PrivateKey, signType: SignType, fingerprint?: string): Promise<PublicKey> {
+        return PsyWasmWebProverProvider.wasmServer.register_user(privateKey.toString(), signType, fingerprint);
     }
 
-    async addUser(privateKey: PrivateKey, signType: SignType): Promise<PublicKey> {
-        return PsyWasmWebProverProvider.wasmServer.add_user(privateKey.toString(), signType);
+    async addUser(privateKey: PrivateKey, signType: SignType, fingerprint?: string): Promise<PublicKey> {
+        return PsyWasmWebProverProvider.wasmServer.add_user(privateKey.toString(), signType, fingerprint);
     }
 
     async getZKPublicKey(privateKey: PrivateKey): Promise<ZKPublicKeyInfo> {

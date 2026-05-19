@@ -2,6 +2,11 @@
 export { SDKGenerator } from "./generator";
 export { AbiConverter } from "./converters/abi-converter";
 
+// Export runtime module
+export { Contract } from "./runtime/contract";
+export { Signer } from "./runtime/types";
+export type { Felt, ISigner, PsyFixedArray, ContractOptions } from "./runtime";
+
 // Only try to export generated files if they exist
 // This allows the package to build even before generation
 try {

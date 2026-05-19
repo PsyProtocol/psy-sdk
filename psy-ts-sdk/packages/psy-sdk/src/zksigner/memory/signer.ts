@@ -27,7 +27,7 @@ class PsyMemoryTransactionSigner implements IPsyTransactionSigner {
         this.fingerprint = fingerprint;
     }
     static async create(proverProvider: IPsyUserProverProvider, networkId: NetworkId, privateKeyHex: string, signType: SignType, fingerprint: string) {
-        const publicKeyHex = await proverProvider.addUser(privateKeyHex, signType);
+        const publicKeyHex = await proverProvider.addUser(privateKeyHex, signType, fingerprint);
         return new PsyMemoryTransactionSigner(proverProvider, networkId, publicKeyHex, privateKeyHex, signType.toString(), fingerprint);
     }
     getPrivateKeyHex(): Promise<string> {
@@ -58,12 +58,12 @@ class PsyMemoryTransactionSigner implements IPsyTransactionSigner {
         return this.publicKeyHex;
     }
 
-    async registerUser(privateKeyHex: string, signType: SignType): Promise<string> {
-        return this.prover.registerUser(privateKeyHex, signType);
+    async registerUser(privateKeyHex: string, signType: SignType, fingerprint?: string): Promise<string> {
+        return this.prover.registerUser(privateKeyHex, signType, fingerprint);
     }
 
-    async addUser(privateKeyHex: string, signType: SignType): Promise<string> {
-        return this.prover.addUser(privateKeyHex, signType);
+    async addUser(privateKeyHex: string, signType: SignType, fingerprint?: string): Promise<string> {
+        return this.prover.addUser(privateKeyHex, signType, fingerprint);
     }
 
     async getClaimRewardsCallArgs(jobInfos: string): Promise<ContractCallArgs[]> {

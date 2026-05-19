@@ -4,7 +4,8 @@
   "description": "Demo for generated ZK Contract SDK",
   "main": "src/index.js",
   "scripts": {
-    "example:basic": "tsx src/examples/basic-usage.ts"
+    "example:basic": "tsx src/examples/basic-usage.ts",
+    "example:dynamic": "tsx src/examples/basic-usage-dynamic.ts"
   },
   "dependencies": {
     "@psy/psy-sdk": "workspace:*",
