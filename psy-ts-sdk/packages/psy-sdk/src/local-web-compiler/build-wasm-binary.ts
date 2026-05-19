@@ -27,12 +27,12 @@ function ensureWasmArtifacts() {
     const envCompilerDir = process.env.PSY_COMPILER_DIR?.trim();
     const defaultParthCompilerDir = path.resolve(
         __dirname,
-        "../../../../../../../parth-generic-v1/client_prover/psy_compiler",
+        "../../../../../../parth-generic-v1/client_prover/psy_compiler",
     );
     const legacyCompilerDir = path.resolve(__dirname, "../../../../../../psy-compiler");
     const psyCompilerDir = envCompilerDir
         ? path.resolve(envCompilerDir)
-        : (fs.existsSync(defaultParthCompilerDir) ? defaultParthCompilerDir : legacyCompilerDir);
+        : (fs.existsSync(legacyCompilerDir) ? legacyCompilerDir : defaultParthCompilerDir);
     const webOutDir = path.resolve(__dirname);
 
     runWasmPack("web", webOutDir, psyCompilerDir);
