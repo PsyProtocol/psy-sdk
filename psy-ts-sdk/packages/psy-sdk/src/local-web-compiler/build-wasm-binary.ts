@@ -9,7 +9,10 @@ const __dirname = path.dirname(__filename);
 const wasmPath = path.join(__dirname, "./psy_compiler_bg.wasm");
 
 function runWasmPack(target: "web" | "nodejs", outDir: string, psyCompilerDir: string) {
-    const args = ["build", "psy-wasm", "--target", target, "--out-dir", outDir, "--out-name", "psy_compiler", "--no-pack", "--release"];
+    const wasmCrateDir = fs.existsSync(path.join(psyCompilerDir, "psy-wasm", "Cargo.toml"))
+        ? "psy-wasm"
+        : "psy_wasm";
+    const args = ["build", wasmCrateDir, "--target", target, "--out-dir", outDir, "--out-name", "psy_compiler", "--no-pack", "--release"];
     const result = spawnSync("wasm-pack", args, {
         cwd: psyCompilerDir,
         stdio: "inherit",
@@ -27,7 +30,7 @@ function ensureWasmArtifacts() {
     const envCompilerDir = process.env.PSY_COMPILER_DIR?.trim();
     const defaultParthCompilerDir = path.resolve(
         __dirname,
-        "../../../../../../parth-generic-v1/client_prover/psy_compiler",
+        "../../../../../../parth-generic-v1/client_prover/psy_ide",
     );
     const legacyCompilerDir = path.resolve(__dirname, "../../../../../../psy-compiler");
     const psyCompilerDir = envCompilerDir
