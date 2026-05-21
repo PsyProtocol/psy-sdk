@@ -3,7 +3,7 @@
   "compilerOptions": {
     "target": "ES2020",  // Add this to support BigInt literals
     "lib": ["ES2020"],   // Add this too
-    "rootDir": ".",
+    "rootDir": "./src",
     "outDir": "./dist",
     "strict": false,
     "noImplicitAny": false,

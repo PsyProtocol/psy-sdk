@@ -4,6 +4,7 @@
     "declaration": true,
     "declarationMap": true,
     "sourceMap": true,
+    "noEmit": false,
     "paths": {}
   },
   "exclude": ["**/*.test.ts", "src/cli.ts", "abi/**"]
