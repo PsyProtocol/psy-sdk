@@ -67,13 +67,13 @@
         {
           "id": 0,
           "rpc_url": [
-            "https://realm0-stg.devruntime.xyz"
+            "https://realm0-stg.psy-protocol.xyz"
           ]
         },
         {
           "id": 1,
           "rpc_url": [
-            "https://realm1-stg.devruntime.xyz"
+            "https://realm1-stg.psy-protocol.xyz"
           ]
         }
       ],
@@ -81,15 +81,15 @@
         {
           "id": 0,
           "rpc_url": [
-            "https://coordinator-stg.devruntime.xyz"
+            "https://coordinator-stg.psy-protocol.xyz"
           ]
         }
       ],
       "prove_proxy_url": [
-        "https://prove-stg.devruntime.xyz"
+        "https://prove-stg.psy-protocol.xyz"
       ],
       "api_services_url": [
-        "https://psy-services-stg.devruntime.xyz"
+        "https://services-stg.psy-protocol.xyz"
       ],
       "native_currency": "tPSY",
       "native_currency_decimal": 9,
@@ -104,10 +104,10 @@
         "https://ethereum-sepolia-rpc.publicnode.com"
       ],
       "explorer_url": [
-        "https://psy-explorer-stg.pages.dev"
+        "https://explorer-stg.psy-protocol.xyz"
       ],
       "indexer_graphql_url": [
-        "https://indexer-stg.devruntime.xyz/v1/graphql"
+        "https://indexer-stg.psy-protocol.xyz/v1/graphql"
       ],
       "anvilForkSourceUrlEnv": "SEPOLIA_RPC_URL",
       "whitelist": {
