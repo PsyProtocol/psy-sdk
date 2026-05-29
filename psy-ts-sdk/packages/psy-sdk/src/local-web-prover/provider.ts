@@ -4,6 +4,7 @@ import { PrivateKey, PublicKey, QHashOut, U8Bytes } from "../core";
 import {
     ContractCallArgs,
     ContractCallData,
+    ClaimBatchItem,
     DPNFunctionCircuitDefinition,
     IPsyUserProverProvider,
     QBCDeployContract,
@@ -58,6 +59,13 @@ export class PsyWasmWebProverProvider implements IPsyUserProverProvider {
         return result;
     }
 
+    async claimBatch(pkHash: string, claims: ClaimBatchItem[]): Promise<string> {
+        const now = new Date().getTime();
+        const json = PsyJSON.stringify(claims);
+        const result = await PsyWasmWebProverProvider.wasmServer.exec_claim_batch_json(pkHash, json);
+        console.log(`claimBatch in ${(new Date().getTime() - now) / 1000} seconds`);
+        return result;
+    }
 
     async getClaimRewardsCallArgs(_jobInfos: string): Promise<ContractCallArgs[]> {
         // const now = new Date().getTime();

@@ -330,7 +330,9 @@ use psy_data::{
 };
 use psy_prover::{
     local::store::UserProverWorkerStore,
-    session::{WalletKeyPair, WalletSession},
+    session::{
+        ClaimBatchItem, PrivateTransferClaim, ShieldDepositClaim, WalletKeyPair, WalletSession,
+    },
 };
 use psy_provider::provider::NetworkConfig as RpcConfig;
 use psy_vm::dpn::vm::def::DPNFunctionCircuitDefinition;
@@ -380,6 +382,269 @@ impl WasmRpcServer {
             .await
             .map_err(|e| JsError::new(&format!("Error exec calls error: {}", e)))?;
         Ok(end_user_leaf_hash.to_string())
+    }
+
+    #[wasm_bindgen]
+    pub async fn exec_claim_batch_json(
+        &mut self,
+        pk_hash: &str,
+        claims_json: &str,
+    ) -> Result<String, JsError> {
+        use base64::engine::general_purpose::STANDARD as BASE64;
+        use base64::Engine;
+        use psy_common_circuit::circuits::traits::qstandard::QStandardCircuit;
+        use psy_crypto::hash::merkle::core::MerkleProofCore;
+        use psy_config::network_constants::{
+            GLOBAL_CONTRACT_TREE_HEIGHT, GLOBAL_USER_TREE_HEIGHT, MAX_CONTRACT_STATE_TREE_HEIGHT,
+        };
+        use psy_crypto::shield_address::{
+            derive_deposit_commitment, derive_nullifier_hash, derive_shield_address,
+        };
+        use psy_data::privacy::shield_deposit_claim::ShieldDepositClaimInput;
+        use psy_dpn_circuit::circuits::privacy::shield_deposit_claim::ShieldDepositClaimCircuit;
+        use psy_dpn_circuit::circuits::privacy::private_note_inclusion::PrivateNoteInclusionCircuit;
+
+        const NOTE_TREE_HEIGHT: usize = 20;
+
+        let pk_hash = QHashOut::<F>::from_str(pk_hash)
+            .map_err(|e| JsError::new(&format!("Parse public key hash error: {}", e)))?;
+
+        #[derive(serde::Deserialize)]
+        #[serde(tag = "type", content = "data", rename_all = "snake_case")]
+        enum WalletClaimBatchItem {
+            Public(ContractCallArgs),
+            PrivateTransfer {
+                contract_id: String,
+                claim: PrivateTransferClaimInput,
+            },
+            ClaimShieldDeposit(ShieldDepositClaimRaw),
+        }
+
+        #[derive(serde::Deserialize)]
+        struct PrivateTransferClaimInput {
+            note_proof_bincode_b64: String,
+            nullifier: [String; 4],
+            owner: [String; 4],
+            amount: String,
+            user_tree_root: [String; 4],
+            checkpoint_id: String,
+            note_root_slot: String,
+            random0: String,
+            random1: String,
+            #[serde(default)]
+            shield_address: Option<String>,
+        }
+
+        #[derive(serde::Deserialize)]
+        struct ShieldDepositClaimRaw {
+            nullifier: [String; 4],
+            note_secret_hash: [String; 4],
+            token_address_u32x8: [String; 8],
+            l2_token_contract_id: [String; 8],
+            amount_u32x8: [String; 8],
+            source_chain_index: String,
+            deposit_index: String,
+            deposit_root: [String; 4],
+            deposit_siblings: Vec<[String; 4]>,
+            random0: String,
+            random1: String,
+            contract_id: String,
+        }
+
+        let items: Vec<WalletClaimBatchItem> = serde_json::from_str(claims_json)
+            .map_err(|e| JsError::new(&format!("Parse claim batch JSON error: {}", e)))?;
+
+        if items.is_empty() {
+            return Err(JsError::new("No claims to execute"));
+        }
+
+        let circuit = PrivateNoteInclusionCircuit::<C, D>::new(
+            GLOBAL_USER_TREE_HEIGHT as usize,
+            GLOBAL_CONTRACT_TREE_HEIGHT as usize,
+            MAX_CONTRACT_STATE_TREE_HEIGHT as usize,
+            NOTE_TREE_HEIGHT,
+        );
+
+        let parse_u64_arr = |arr: [String; 4]| -> Result<[u64; 4], JsError> {
+            Ok([
+                arr[0].parse().map_err(|e: std::num::ParseIntError| JsError::new(&e.to_string()))?,
+                arr[1].parse().map_err(|e: std::num::ParseIntError| JsError::new(&e.to_string()))?,
+                arr[2].parse().map_err(|e: std::num::ParseIntError| JsError::new(&e.to_string()))?,
+                arr[3].parse().map_err(|e: std::num::ParseIntError| JsError::new(&e.to_string()))?,
+            ])
+        };
+        let parse_u32_arr = |arr: [String; 8]| -> Result<[u32; 8], JsError> {
+            Ok([
+                parse_int_string(&arr[0])? as u32,
+                parse_int_string(&arr[1])? as u32,
+                parse_int_string(&arr[2])? as u32,
+                parse_int_string(&arr[3])? as u32,
+                parse_int_string(&arr[4])? as u32,
+                parse_int_string(&arr[5])? as u32,
+                parse_int_string(&arr[6])? as u32,
+                parse_int_string(&arr[7])? as u32,
+            ])
+        };
+        let qhash_from_u64_arr = |arr: [u64; 4]| -> QHashOut<F> {
+            QHashOut::from_values(arr[0], arr[1], arr[2], arr[3])
+        };
+
+        let mut claims: Vec<ClaimBatchItem> = Vec::new();
+
+        for item in items {
+            match item {
+                WalletClaimBatchItem::Public(call) => {
+                    claims.push(ClaimBatchItem::Public(call));
+                }
+                WalletClaimBatchItem::PrivateTransfer { contract_id, claim: input } => {
+                    let proof_bytes = BASE64.decode(input.note_proof_bincode_b64.as_bytes())
+                        .map_err(|e| JsError::new(&format!("base64 decode: {}", e)))?;
+                    let proof: ProofWithPublicInputs<F, C, D> =
+                        match ProofWithPublicInputs::<F, C, D>::from_bytes(
+                            proof_bytes.clone(),
+                            circuit.get_common_circuit_data_ref(),
+                        ) {
+                            Ok(p) => p,
+                            Err(native_err) => bincode::deserialize(&proof_bytes).map_err(|bin_err| {
+                                JsError::new(&format!(
+                                    "proof deserialize: native={} ; bincode={}",
+                                    native_err, bin_err
+                                ))
+                            })?,
+                        };
+                    let fingerprint = circuit.get_fingerprint();
+                    let verifier_data = circuit.get_verifier_config_ref().clone();
+
+                    let nullifier = parse_u64_arr(input.nullifier)?;
+                    let owner = parse_u64_arr(input.owner)?;
+                    let amount: u64 = input.amount.parse()
+                        .map_err(|e: std::num::ParseIntError| JsError::new(&e.to_string()))?;
+                    let user_tree_root = parse_u64_arr(input.user_tree_root)?;
+                    let checkpoint_id: u64 = input.checkpoint_id.parse()
+                        .map_err(|e: std::num::ParseIntError| JsError::new(&e.to_string()))?;
+                    let note_root_slot: u64 = input.note_root_slot.parse()
+                        .map_err(|e: std::num::ParseIntError| JsError::new(&e.to_string()))?;
+                    let random0: u64 = input.random0.parse()
+                        .map_err(|e: std::num::ParseIntError| JsError::new(&e.to_string()))?;
+                    let random1: u64 = input.random1.parse()
+                        .map_err(|e: std::num::ParseIntError| JsError::new(&e.to_string()))?;
+                    let contract_id: u64 = contract_id.parse()
+                        .map_err(|e: std::num::ParseIntError| JsError::new(&e.to_string()))?;
+
+                    let claim = PrivateTransferClaim {
+                        nullifier,
+                        owner,
+                        amount,
+                        user_tree_root,
+                        checkpoint_id,
+                        note_root_slot,
+                        random0,
+                        random1,
+                        note_proof_fingerprint: fingerprint,
+                        note_proof: proof,
+                        note_verifier_data: verifier_data.into(),
+                    };
+
+                    claims.push(ClaimBatchItem::PrivateTransfer { contract_id, claim });
+                }
+                WalletClaimBatchItem::ClaimShieldDeposit(input) => {
+                    let nullifier_secret = parse_u64_arr(input.nullifier)?;
+                    let note_secret_hash = parse_u64_arr(input.note_secret_hash)?;
+                    let token_address = parse_u32_arr(input.token_address_u32x8)?;
+                    let l2_token_contract_id = parse_u32_arr(input.l2_token_contract_id)?;
+                    let amount = parse_u32_arr(input.amount_u32x8)?;
+                    let source_chain_index: u32 = input.source_chain_index
+                        .parse()
+                        .map_err(|e: std::num::ParseIntError| JsError::new(&e.to_string()))?;
+                    let deposit_index: u64 = input.deposit_index
+                        .parse()
+                        .map_err(|e: std::num::ParseIntError| JsError::new(&e.to_string()))?;
+                    let deposit_root = qhash_from_u64_arr(parse_u64_arr(input.deposit_root)?);
+                    let deposit_siblings: Vec<QHashOut<F>> = input.deposit_siblings
+                        .into_iter()
+                        .map(|sibling| parse_u64_arr(sibling).map(|arr| qhash_from_u64_arr(arr)))
+                        .collect::<Result<Vec<_>, _>>()?;
+                    let random0: u64 = input.random0
+                        .parse()
+                        .map_err(|e: std::num::ParseIntError| JsError::new(&e.to_string()))?;
+                    let random1: u64 = input.random1
+                        .parse()
+                        .map_err(|e: std::num::ParseIntError| JsError::new(&e.to_string()))?;
+                    let contract_id: u64 = input.contract_id
+                        .parse()
+                        .map_err(|e: std::num::ParseIntError| JsError::new(&e.to_string()))?;
+
+                    let provider = self.wallet_session.st_provider.clone();
+                    let user_ids = provider
+                        .get_user_ids_for_public_key(pk_hash)
+                        .await
+                        .map_err(|e| JsError::new(&format!("get_user_ids_for_public_key: {}", e)))?;
+                    let user_id = *user_ids
+                        .first()
+                        .ok_or_else(|| JsError::new("No user ID found for public key"))?;
+
+                    let shield_address = derive_shield_address(user_id, random0, random1);
+                    let nullifier_hash = derive_nullifier_hash(nullifier_secret);
+                    let deposit_leaf = derive_deposit_commitment(
+                        shield_address,
+                        token_address,
+                        l2_token_contract_id,
+                        amount,
+                        source_chain_index,
+                        note_secret_hash,
+                    );
+
+                    let circuit = ShieldDepositClaimCircuit::<C, D>::new();
+                    let claim_input = ShieldDepositClaimInput::<F> {
+                        nullifier_secret: std::array::from_fn(|i| <F as plonky2::field::types::Field>::from_canonical_u64(nullifier_secret[i])),
+                        note_secret_hash: std::array::from_fn(|i| <F as plonky2::field::types::Field>::from_canonical_u64(note_secret_hash[i])),
+                        r0: <F as plonky2::field::types::Field>::from_canonical_u64(random0),
+                        r1: <F as plonky2::field::types::Field>::from_canonical_u64(random1),
+                        user_id,
+                        deposit_index,
+                        token_address,
+                        l2_token_contract_id,
+                        amount,
+                        source_chain_index,
+                        deposit_root,
+                        deposit_proof: MerkleProofCore {
+                            root: deposit_root,
+                            value: deposit_leaf,
+                            index: deposit_index,
+                            siblings: deposit_siblings,
+                        },
+                    };
+                    let proof = circuit
+                        .prove(&claim_input)
+                        .map_err(|e| JsError::new(&format!("shield claim prove: {}", e)))?;
+                    let proof_fingerprint = circuit.get_fingerprint();
+                    let verifier_data = circuit.get_verifier_config_ref().clone();
+
+                    claims.push(ClaimBatchItem::ShieldDeposit(ShieldDepositClaim {
+                        contract_id,
+                        l2_token_contract_id,
+                        nullifier_hash,
+                        shield_address,
+                        token_address,
+                        amount,
+                        source_chain_index,
+                        deposit_root,
+                        r0: random0,
+                        r1: random1,
+                        proof_fingerprint,
+                        proof,
+                        verifier_data: verifier_data.into(),
+                    }));
+                }
+            }
+        }
+
+        let tx_hash = self
+            .wallet_session
+            .claim_batch(pk_hash, claims)
+            .await
+            .map_err(|e| JsError::new(&format!("claim_batch error: {}", e)))?;
+        Ok(tx_hash.to_string())
     }
 
     // Local proving operations
