@@ -65,6 +65,45 @@ interface ProofWithPublicInputs {
     public_inputs: Felt[];
 }
 
+interface AltVerifierOnlyCircuitData {
+    constants_sigmas_cap: QHashOut[];
+    circuit_digest: QHashOut;
+}
+
+export interface PrivateTransferClaimRaw {
+    note_proof_bincode_b64: string;
+    nullifier: [string, string, string, string];
+    owner: [string, string, string, string];
+    amount: string;
+    user_tree_root: [string, string, string, string];
+    checkpoint_id: string;
+    note_root_slot: string;
+    random0: string;
+    random1: string;
+    shield_address?: string;
+}
+
+export interface ShieldDepositClaimRaw {
+    nullifier: [string, string, string, string];
+    note_secret_hash: [string, string, string, string];
+    token_address_u32x8: [string, string, string, string, string, string, string, string];
+    l2_token_contract_id: [string, string, string, string, string, string, string, string];
+    amount_u32x8: [string, string, string, string, string, string, string, string];
+    source_chain_index: string;
+    deposit_index: string;
+    deposit_root: [string, string, string, string];
+    deposit_siblings: [string, string, string, string][];
+    random0: string;
+    random1: string;
+    contract_id: string;
+    shield_address?: string;
+}
+
+export type ClaimBatchItem =
+    | { type: "public"; data: ContractCallArgs }
+    | { type: "private_transfer"; data: { contract_id: string; claim: PrivateTransferClaimRaw } }
+    | { type: "claim_shield_deposit"; data: ShieldDepositClaimRaw };
+
 // Core input for SubmitUserEndCapNonProofInput
 interface SubmitUserEndCapNonProofCoreInput {
     checkpoint_id: bigint;
@@ -148,6 +187,7 @@ interface IPsyUserProverProvider {
     proveContractCall(pk_hash: string, contractCallArg: ContractCallArgs): Promise<string>;
     proveContractCalls(pk_hash: string, contractCallArgs: ContractCallArgs[]): Promise<string>;
     signAndSubmit(pk_hash: string, signData?: SignData): Promise<string>;
+    claimBatch(pk_hash: string, claims: ClaimBatchItem[]): Promise<string>;
 
     getClaimRewardsCallArgs(jobInfos: string): Promise<ContractCallArgs[]>;
     claimRewards(pk_hash: string, jobInfos: string): Promise<string>;
@@ -186,6 +226,7 @@ export type {
     QBCDeployContract,
     Proof,
     ProofWithPublicInputs,
+    AltVerifierOnlyCircuitData,
     SubmitUserEndCapNonProofCoreInput,
     PsyContractStateUpdateHistory,
     SubmitUserEndCapNonProofInput,
