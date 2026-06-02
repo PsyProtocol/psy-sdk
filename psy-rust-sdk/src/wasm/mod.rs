@@ -367,18 +367,15 @@ impl WasmRpcServer {
     #[wasm_bindgen]
     pub async fn exec_contract_call_json(
         &mut self,
-        pk_hash: &str,
+        user_id: u64,
         call_data_json: &str,
     ) -> Result<String, JsError> {
         let call_data: ContractCallData = serde_json::from_str(call_data_json)
             .map_err(|e| JsError::new(&format!("Parse call data JSON error: {}", e)))?;
 
-        let pk_hash = QHashOut::<F>::from_str(pk_hash)
-            .map_err(|e| JsError::new(&format!("Parse public key hash error: {}", e)))?;
-
         let end_user_leaf_hash = self
             .wallet_session
-            .exec_contract_call(pk_hash, call_data)
+            .exec_contract_call(user_id, call_data)
             .await
             .map_err(|e| JsError::new(&format!("Error exec calls error: {}", e)))?;
         Ok(end_user_leaf_hash.to_string())
@@ -387,7 +384,7 @@ impl WasmRpcServer {
     #[wasm_bindgen]
     pub async fn exec_claim_batch_json(
         &mut self,
-        pk_hash: &str,
+        user_id: u64,
         claims_json: &str,
     ) -> Result<String, JsError> {
         use base64::engine::general_purpose::STANDARD as BASE64;
@@ -405,9 +402,6 @@ impl WasmRpcServer {
         use psy_dpn_circuit::circuits::privacy::private_note_inclusion::PrivateNoteInclusionCircuit;
 
         const NOTE_TREE_HEIGHT: usize = 20;
-
-        let pk_hash = QHashOut::<F>::from_str(pk_hash)
-            .map_err(|e| JsError::new(&format!("Parse public key hash error: {}", e)))?;
 
         #[derive(serde::Deserialize)]
         #[serde(tag = "type", content = "data", rename_all = "snake_case")]
@@ -574,15 +568,6 @@ impl WasmRpcServer {
                         .parse()
                         .map_err(|e: std::num::ParseIntError| JsError::new(&e.to_string()))?;
 
-                    let provider = self.wallet_session.st_provider.clone();
-                    let user_ids = provider
-                        .get_user_ids_for_public_key(pk_hash)
-                        .await
-                        .map_err(|e| JsError::new(&format!("get_user_ids_for_public_key: {}", e)))?;
-                    let user_id = *user_ids
-                        .first()
-                        .ok_or_else(|| JsError::new("No user ID found for public key"))?;
-
                     let shield_address = derive_shield_address(user_id, random0, random1);
                     let nullifier_hash = derive_nullifier_hash(nullifier_secret);
                     let deposit_leaf = derive_deposit_commitment(
@@ -641,7 +626,7 @@ impl WasmRpcServer {
 
         let tx_hash = self
             .wallet_session
-            .claim_batch(pk_hash, claims)
+            .claim_batch(user_id, claims)
             .await
             .map_err(|e| JsError::new(&format!("claim_batch error: {}", e)))?;
         Ok(tx_hash.to_string())
@@ -649,11 +634,9 @@ impl WasmRpcServer {
 
     // Local proving operations
     #[wasm_bindgen]
-    pub async fn start_session(&self, pk_hash: &str) -> Result<String, JsError> {
-        let pk_hash = QHashOut::<F>::from_str(pk_hash)
-            .map_err(|e| JsError::new(&format!("Parse public key hash error: {}", e)))?;
+    pub async fn start_session(&self, user_id: u64) -> Result<String, JsError> {
         self.wallet_session
-            .start_session(pk_hash)
+            .start_session(user_id)
             .await
             .map_err(|e| JsError::new(&format!("Start session error: {}", e)))?;
         Ok("start session".to_string())
@@ -664,7 +647,7 @@ impl WasmRpcServer {
     #[wasm_bindgen]
     pub async fn add_external_proof_json(
         &self,
-        pk_hash: &str,
+        user_id: u64,
         note_proof_bincode_b64: &str,
     ) -> Result<String, JsError> {
         use base64::engine::general_purpose::STANDARD as BASE64;
@@ -678,9 +661,6 @@ impl WasmRpcServer {
         const NOTE_TREE_HEIGHT: usize = 20;
         type C = PoseidonGoldilocksConfig;
         const D: usize = 2;
-
-        let pk_hash = QHashOut::<F>::from_str(pk_hash)
-            .map_err(|e| JsError::new(&format!("Parse pk_hash error: {}", e)))?;
 
         let circuit = PrivateNoteInclusionCircuit::<C, D>::new(
             GLOBAL_USER_TREE_HEIGHT as usize,
@@ -711,7 +691,7 @@ impl WasmRpcServer {
 
         let (leaf_index, siblings) = self
             .wallet_session
-            .add_external_proof_with_siblings(pk_hash, fingerprint, proof, verifier_data)
+            .add_external_proof_with_siblings(user_id, fingerprint, proof, verifier_data)
             .await
             .map_err(|e| JsError::new(&format!("add_external_proof error: {}", e)))?;
 
@@ -742,7 +722,7 @@ impl WasmRpcServer {
     /// losing the injected external proof.
     ///
     /// Inputs (all u64 values as decimal strings to avoid JS precision loss):
-    ///   pk_hash                 - receiver's ZK public key (hex QHashOut)
+    ///   user_id                 - receiver's user id
     ///   note_proof_bincode_b64  - base64-encoded PrivateNoteInclusion proof bytes
     ///   nullifier_json          - JSON array of 4 decimal strings
     ///   owner_json              - JSON array of 4 decimal strings
@@ -758,7 +738,7 @@ impl WasmRpcServer {
     #[wasm_bindgen]
     pub async fn exec_claim_with_external_proof_json(
         &mut self,
-        pk_hash: &str,
+        user_id: u64,
         note_proof_bincode_b64: &str,
         nullifier_json: &str,
         owner_json: &str,
@@ -796,8 +776,6 @@ impl WasmRpcServer {
             ])
         };
 
-        let pk_hash = QHashOut::<F>::from_str(pk_hash)
-            .map_err(|e| JsError::new(&format!("parse pk_hash: {}", e)))?;
         let nullifier = parse_u64x4(nullifier_json)?;
         let owner = parse_u64x4(owner_json)?;
         let amount_val: u64 = amount.parse()
@@ -841,14 +819,14 @@ impl WasmRpcServer {
 
         // Step 1: reset session (must happen before add_external_proof)
         self.wallet_session
-            .start_session(pk_hash)
+            .start_session(user_id)
             .await
             .map_err(|e| JsError::new(&format!("start_session: {}", e)))?;
 
         // Step 2: inject external proof AFTER reset → get leaf_index + siblings
         let (leaf_index, siblings) = self
             .wallet_session
-            .add_external_proof_with_siblings(pk_hash, fingerprint, proof, verifier_data)
+            .add_external_proof_with_siblings(user_id, fingerprint, proof, verifier_data)
             .await
             .map_err(|e| JsError::new(&format!("add_external_proof: {}", e)))?;
 
@@ -877,19 +855,13 @@ impl WasmRpcServer {
 
         // Step 4: prove (session already has the external proof — no reset)
         self.wallet_session
-            .prove_contract_call(pk_hash, vec![contract_call])
+            .prove_contract_call(user_id, vec![contract_call])
             .await
             .map_err(|e| JsError::new(&format!("prove_contract_call: {}", e)))?;
 
         // Baseline receiver nonce before submit; wait for it to change after submit.
         let provider = self.wallet_session.st_provider.clone();
-        let user_ids = provider
-            .get_user_ids_for_public_key(pk_hash)
-            .await
-            .map_err(|e| JsError::new(&format!("get_user_ids_for_public_key: {}", e)))?;
-        let receiver_user_id = *user_ids
-            .first()
-            .ok_or_else(|| JsError::new("No user ID found for public key"))?;
+        let receiver_user_id = user_id;
 
         let baseline_snapshot = provider
             .get_latest_block_state()
@@ -906,7 +878,7 @@ impl WasmRpcServer {
         // Step 5: sign and submit
         let tx_hash = self
             .wallet_session
-            .sign_and_submit(pk_hash, DPNSoftwareDefinedCallData::default())
+            .sign_and_submit(user_id, DPNSoftwareDefinedCallData::default())
             .await
             .map_err(|e| JsError::new(&format!("sign_and_submit: {}", e)))?;
 
@@ -989,7 +961,7 @@ impl WasmRpcServer {
     /// build ShieldDepositClaim proof -> start_session -> add_external_proof -> prove -> sign_and_submit.
     ///
     /// Inputs:
-    ///   pk_hash                    - receiver's ZK public key (hex QHashOut)
+    ///   user_id                    - receiver's user id
     ///   nullifier_json             - JSON array of 4 decimal strings
     ///   note_secret_hash_json      - JSON array of 4 decimal strings
     ///   token_address_u32x8_json   - JSON array of 8 decimal strings (bytes32 BE words)
@@ -1007,7 +979,7 @@ impl WasmRpcServer {
     #[wasm_bindgen]
     pub async fn exec_shield_claim_deposit_json(
         &mut self,
-        pk_hash: &str,
+        user_id: u64,
         nullifier_json: &str,
         note_secret_hash_json: &str,
         token_address_u32x8_json: &str,
@@ -1096,8 +1068,6 @@ impl WasmRpcServer {
             ]
         };
 
-        let pk_hash = QHashOut::<F>::from_str(pk_hash)
-            .map_err(|e| JsError::new(&format!("parse pk_hash: {}", e)))?;
         let nullifier_secret = parse_u64x4(nullifier_json)?;
         let note_secret_hash = parse_u64x4(note_secret_hash_json)?;
         let token_address = parse_u32x8(token_address_u32x8_json)?;
@@ -1122,13 +1092,6 @@ impl WasmRpcServer {
             .map_err(|e: std::num::ParseIntError| JsError::new(&e.to_string()))?;
 
         let provider = self.wallet_session.st_provider.clone();
-        let user_ids = provider
-            .get_user_ids_for_public_key(pk_hash)
-            .await
-            .map_err(|e| JsError::new(&format!("get_user_ids_for_public_key: {}", e)))?;
-        let user_id = *user_ids
-            .first()
-            .ok_or_else(|| JsError::new("No user ID found for public key"))?;
 
         let shield_address = derive_shield_address(user_id, random0_val, random1_val);
         let nullifier_hash = derive_nullifier_hash(nullifier_secret);
@@ -1169,13 +1132,13 @@ impl WasmRpcServer {
         let verifier_data = circuit.get_verifier_config_ref().clone();
 
         self.wallet_session
-            .start_session(pk_hash)
+            .start_session(user_id)
             .await
             .map_err(|e| JsError::new(&format!("start_session: {}", e)))?;
 
         let (proof_index, proof_siblings) = self
             .wallet_session
-            .add_external_proof_with_siblings(pk_hash, fingerprint, proof, verifier_data)
+            .add_external_proof_with_siblings(user_id, fingerprint, proof, verifier_data)
             .await
             .map_err(|e| JsError::new(&format!("add_external_proof: {}", e)))?;
 
@@ -1201,7 +1164,7 @@ impl WasmRpcServer {
 
         self.wallet_session
             .prove_contract_call(
-                pk_hash,
+                user_id,
                 vec![ContractCallArgs {
                     contract_id: contract_id_val,
                     method_name: "claim_deposit".to_string(),
@@ -1213,7 +1176,7 @@ impl WasmRpcServer {
 
         let tx_hash = self
             .wallet_session
-            .sign_and_submit(pk_hash, DPNSoftwareDefinedCallData::default())
+            .sign_and_submit(user_id, DPNSoftwareDefinedCallData::default())
             .await
             .map_err(|e| JsError::new(&format!("sign_and_submit: {}", e)))?;
 
@@ -1228,7 +1191,7 @@ impl WasmRpcServer {
     /// Generate a PrivateNoteInclusion ZK proof and return the full NoteProofOutput as JSON.
     ///
     /// Inputs (all u64 arrays as JSON arrays of decimal strings to avoid JS precision loss):
-    ///   pk_hash            - sender's ZK public key (hex QHashOut)
+    ///   user_id            - sender's user id
     ///   owner_json         - receiver's shield address as JSON array of 4 decimal strings
     ///   amount             - transfer amount (u64 as decimal string)
     ///   note_secret_hash_json - randomness used in commitment, JSON array of 4 decimal strings
@@ -1241,7 +1204,7 @@ impl WasmRpcServer {
     #[wasm_bindgen]
     pub async fn prove_private_note_inclusion_json(
         &self,
-        pk_hash: &str,
+        user_id: u64,
         owner_json: &str,
         amount: &str,
         note_secret_hash_json: &str,
@@ -1283,8 +1246,6 @@ impl WasmRpcServer {
             ])
         };
 
-        let pk_hash = QHashOut::<F>::from_str(pk_hash)
-            .map_err(|e| JsError::new(&format!("parse pk_hash: {}", e)))?;
         let owner_u64 = parse_u64x4(owner_json)?;
         let amount_val: u64 = amount.parse().map_err(|e: std::num::ParseIntError| JsError::new(&e.to_string()))?;
         let note_secret_hash_u64 = parse_u64x4(note_secret_hash_json)?;
@@ -1330,11 +1291,7 @@ impl WasmRpcServer {
             checkpoint_before_raw
         };
 
-        // Get sender's user_id from public key
-        let user_ids = provider.get_user_ids_for_public_key(pk_hash).await
-            .map_err(|e| JsError::new(&format!("get_user_ids_for_public_key: {}", e)))?;
-        let sender_user_id = *user_ids.first()
-            .ok_or_else(|| JsError::new("No user ID found for public key"))?;
+        let sender_user_id = user_id;
 
         let user_provider = provider.with_user_id_owned(sender_user_id);
 
@@ -1593,17 +1550,14 @@ impl WasmRpcServer {
     #[wasm_bindgen]
     pub async fn prove_contract_call_json(
         &mut self,
-        pk_hash: &str,
+        user_id: u64,
         contract_call_json: &str,
     ) -> Result<String, JsError> {
         let contract_call_arg: ContractCallArgs = serde_json::from_str(contract_call_json)
             .map_err(|e| JsError::new(&format!("Parse contract call JSON error: {}", e)))?;
 
-        let pk_hash = QHashOut::<F>::from_str(pk_hash)
-            .map_err(|e| JsError::new(&format!("Parse public key hash error: {}", e)))?;
-
         self.wallet_session
-            .prove_contract_call(pk_hash, vec![contract_call_arg])
+            .prove_contract_call(user_id, vec![contract_call_arg])
             .await
             .map_err(|e| JsError::new(&format!("Prove contract call error: {}", e)))?;
         Ok("prove contract call".to_string())
@@ -1612,18 +1566,15 @@ impl WasmRpcServer {
     #[wasm_bindgen]
     pub async fn prove_contract_calls_json(
         &mut self,
-        pk_hash: &str,
+        user_id: u64,
         contract_calls_json: &str,
     ) -> Result<String, JsError> {
         let contract_call_args: Vec<ContractCallArgs> =
             serde_json::from_str(contract_calls_json)
                 .map_err(|e| JsError::new(&format!("Parse contract calls JSON error: {}", e)))?;
 
-        let pk_hash = QHashOut::<F>::from_str(pk_hash)
-            .map_err(|e| JsError::new(&format!("Parse public key hash error: {}", e)))?;
-
         self.wallet_session
-            .prove_contract_call(pk_hash, contract_call_args)
+            .prove_contract_call(user_id, contract_call_args)
             .await
             .map_err(|e| JsError::new(&format!("Prove contract calls error: {}", e)))?;
         Ok("prove contract calls".to_string())
@@ -1632,12 +1583,9 @@ impl WasmRpcServer {
     #[wasm_bindgen]
     pub async fn sign_and_submit(
         &self,
-        pk_hash: &str,
+        user_id: u64,
         sign_data: Option<String>,
     ) -> Result<String, JsError> {
-        let pk_hash = QHashOut::<F>::from_str(pk_hash)
-            .map_err(|e| JsError::new(&format!("Parse public key hash error: {}", e)))?;
-
         let software_defined_call = sign_data
             .map(|data| serde_json::from_str::<psy_common::args::DPNSoftwareDefinedCallData>(&data))
             .transpose()
@@ -1646,7 +1594,7 @@ impl WasmRpcServer {
 
         let end_user_leaf_hash = self
             .wallet_session
-            .sign_and_submit(pk_hash, software_defined_call)
+            .sign_and_submit(user_id, software_defined_call)
             .await
             .map_err(|e| JsError::new(&format!("Sign and submit error: {}", e)))?;
         Ok(end_user_leaf_hash.to_string())
@@ -1682,12 +1630,12 @@ impl WasmRpcServer {
             }
         };
 
-        let pk_hash = self
+        let user_id = self
             .wallet_session
             .register_user(private_key, fingerprint)
             .await
             .map_err(|e| JsError::new(&format!("Register user error: {}", e)))?;
-        Ok(pk_hash.to_string())
+        Ok(user_id.to_string())
     }
 
     #[wasm_bindgen]
@@ -1719,12 +1667,50 @@ impl WasmRpcServer {
             }
         };
 
-        let pk_hash = self
+        let user_id = self
             .wallet_session
             .add_user(private_key, fingerprint)
             .await
             .map_err(|e| JsError::new(&format!("Add user error: {}", e)))?;
-        Ok(pk_hash.to_string())
+        Ok(user_id.to_string())
+    }
+
+    #[wasm_bindgen]
+    pub async fn add_user_with_user_id(
+        &mut self,
+        private_key_str: &str,
+        sign_type: &str,
+        sdk_key_fingerprint: Option<String>,
+        user_id: u64,
+    ) -> Result<String, JsError> {
+        let private_key = QHashOut::<F>::from_str(private_key_str)
+            .map_err(|e| JsError::new(&format!("Parse private key error: {}", e)))?;
+
+        let fingerprint = match sign_type {
+            "zk" => psy_prover::wallet::memory_wallet::get_zk_fingerprint(),
+            "secp256k1" => psy_prover::wallet::memory_wallet::get_secp256k1_fingerprint(),
+            "sdk-key" => {
+                let fingerprint = sdk_key_fingerprint.ok_or_else(|| {
+                    JsError::new("SDK key fingerprint is required for sdk-key sign type")
+                })?;
+                QHashOut::<F>::from_str(&fingerprint).map_err(|e| {
+                    JsError::new(&format!("Parse SDK key fingerprint error: {}", e))
+                })?
+            }
+            _ => {
+                return Err(JsError::new(&format!(
+                    "Unsupported sign type: {}",
+                    sign_type
+                )))
+            }
+        };
+
+        let resolved_user_id = self
+            .wallet_session
+            .add_user_with_user_id(private_key, fingerprint, user_id)
+            .await
+            .map_err(|e| JsError::new(&format!("Add user with user_id error: {}", e)))?;
+        Ok(resolved_user_id.to_string())
     }
 
     #[wasm_bindgen]

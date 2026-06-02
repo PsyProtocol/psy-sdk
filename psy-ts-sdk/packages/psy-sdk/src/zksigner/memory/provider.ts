@@ -1,4 +1,5 @@
 import { getPsyNetworkMagicForNetworkId, NetworkId } from "../../action";
+import { Felt } from "../../core";
 import { ContractCallArgs, IPsyUserProverProvider, SignType } from "../../local-prover-rpc";
 import { cryptoRandomHashOutHex } from "../../utils";
 import { IPsyTransactionSigner, IPsyTransactionSignerProvider, TPsyTransactionSignerProviderAbility } from "../types";
@@ -63,8 +64,8 @@ class PsyMemoryTransactionSignerProvider implements IPsyTransactionSignerProvide
         return this.proverProvider.getClaimRewardsCallArgs(jobInfos);
     }
 
-    async claimRewards(pk_hash: string, jobInfos: string): Promise<string> {
-        return this.proverProvider.claimRewards(pk_hash, jobInfos);
+    async claimRewards(userId: Felt, jobInfos: string): Promise<string> {
+        return this.proverProvider.claimRewards(userId, jobInfos);
     }
 }
 

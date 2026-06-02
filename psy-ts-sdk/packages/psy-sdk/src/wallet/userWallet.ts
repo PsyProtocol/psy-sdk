@@ -1,6 +1,7 @@
 import { userWalletCache } from "./cache";
 import { IPsyUserWallet, IPsyCompleteUserInfo } from "./types";
 import { ICoordinatorEdgeRpcProvider } from "../coord-edge-rpc";
+import { Felt } from "../core";
 import {
     ContractCallArgs,
     DPNFunctionCircuitDefinition,
@@ -18,7 +19,7 @@ class PsyUserWallet implements IPsyUserWallet {
     realm: IRealmEdgeRpcProvider;
     signer: IPsyTransactionSigner;
 
-    userId: number;
+    userId: Felt;
     publicKeyHex: string;
     status: boolean;
 
@@ -27,7 +28,7 @@ class PsyUserWallet implements IPsyUserWallet {
         signer: IPsyTransactionSigner,
         coordinator: ICoordinatorEdgeRpcProvider,
         realm: IRealmEdgeRpcProvider,
-        userId: number,
+        userId: Felt,
         publicKeyHex: string,
         status: boolean,
     ) {
@@ -136,12 +137,12 @@ class PsyUserWallet implements IPsyUserWallet {
     //     return this.prover.getDeployContractCmd(circuitDefs);
     // }
 
-    async execContractCall(pk_hash: string, contractCallArgs: ContractCallArgs | ContractCallArgs[]): Promise<string> {
+    async execContractCall(userId: Felt, contractCallArgs: ContractCallArgs | ContractCallArgs[]): Promise<string> {
         const callData = {
             contract_calls: Array.isArray(contractCallArgs) ? contractCallArgs : [contractCallArgs],
             software_defined_call: { "inputs": [] }
         };
-        return this.signer.signAndSubmit(pk_hash, callData);
+        return this.signer.signAndSubmit(userId, callData);
     }
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars

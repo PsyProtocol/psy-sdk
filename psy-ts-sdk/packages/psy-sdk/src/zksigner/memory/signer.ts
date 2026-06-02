@@ -1,4 +1,5 @@
 import { getPsyNetworkMagicForNetworkId, NetworkId } from "../../action";
+import { Felt } from "../../core";
 import { ContractCallArgs, ContractCallData, DPNFunctionCircuitDefinition, IPsyUserProverProvider, SignType } from "../../local-prover-rpc";
 import { IPsyTransactionSigner, TPsyTransactionSignerAbility } from "../types";
 
@@ -42,8 +43,8 @@ class PsyMemoryTransactionSigner implements IPsyTransactionSigner {
         return Promise.resolve(this.fingerprint);
     }
 
-    async signAndSubmit(pk_hash: string, callData: ContractCallData): Promise<string> {
-        return this.prover.execContractCall(pk_hash, callData);
+    async signAndSubmit(userId: Felt, callData: ContractCallData): Promise<string> {
+        return this.prover.execContractCall(userId, callData);
     }
 
     async deployContract(pk_hash: string, circuitDefs: DPNFunctionCircuitDefinition[]): Promise<string> {
@@ -70,8 +71,8 @@ class PsyMemoryTransactionSigner implements IPsyTransactionSigner {
         return this.prover.getClaimRewardsCallArgs(jobInfos);
     }
 
-    async claimRewards(pk_hash: string, jobInfos: string): Promise<string> {
-        return this.prover.claimRewards(pk_hash, jobInfos);
+    async claimRewards(userId: Felt, jobInfos: string): Promise<string> {
+        return this.prover.claimRewards(userId, jobInfos);
     }
 }
 

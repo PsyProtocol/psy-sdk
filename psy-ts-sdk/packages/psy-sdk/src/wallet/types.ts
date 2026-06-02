@@ -30,7 +30,7 @@ interface IPsyUserWallet {
     // importPrivateKey(privateKey: PrivateKey): Promise<PublicKey>;
     // deployContract(circuitDefs: DPNFunctionCircuitDefinition[]): Promise<string>;
     // getDeployContract(circuitDefs: DPNFunctionCircuitDefinition[]): Promise<QBCDeployContract>;
-    execContractCall(pk_hash: string, contractCallArgs: ContractCallArgs | ContractCallArgs[]): Promise<string>;
+    execContractCall(user_id: Felt, contractCallArgs: ContractCallArgs | ContractCallArgs[]): Promise<string>;
     // transfer(recipient: SCNumberLike, amount: SCNumberLike, nonce?: SCNumberLike): Promise<void>;
 }
 

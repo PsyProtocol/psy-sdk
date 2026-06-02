@@ -182,15 +182,15 @@ export enum SignType {
 
 interface IPsyUserProverProvider {
     // Local proving operations
-    execContractCall(pk_hash: string, callData: ContractCallData): Promise<string>;
-    startSession(pk_hash: string): Promise<string>;
-    proveContractCall(pk_hash: string, contractCallArg: ContractCallArgs): Promise<string>;
-    proveContractCalls(pk_hash: string, contractCallArgs: ContractCallArgs[]): Promise<string>;
-    signAndSubmit(pk_hash: string, signData?: SignData): Promise<string>;
-    claimBatch(pk_hash: string, claims: ClaimBatchItem[]): Promise<string>;
+    execContractCall(user_id: Felt, callData: ContractCallData): Promise<string>;
+    startSession(user_id: Felt): Promise<string>;
+    proveContractCall(user_id: Felt, contractCallArg: ContractCallArgs): Promise<string>;
+    proveContractCalls(user_id: Felt, contractCallArgs: ContractCallArgs[]): Promise<string>;
+    signAndSubmit(user_id: Felt, signData?: SignData): Promise<string>;
+    claimBatch(user_id: Felt, claims: ClaimBatchItem[]): Promise<string>;
 
     getClaimRewardsCallArgs(jobInfos: string): Promise<ContractCallArgs[]>;
-    claimRewards(pk_hash: string, jobInfos: string): Promise<string>;
+    claimRewards(user_id: Felt, jobInfos: string): Promise<string>;
 
     // User operations
     registerUser(privateKey: PrivateKey, signType: SignType, fingerprint?: string): Promise<PublicKey>;

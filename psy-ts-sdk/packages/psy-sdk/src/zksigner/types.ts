@@ -1,4 +1,5 @@
 import { ContractCallData, DPNFunctionCircuitDefinition, SignType } from "../local-prover-rpc/types";
+import { Felt } from "../core";
 import { ContractCallArgs } from "../types";
 
 type TPsyTransactionSignerAbility = "sign-hash" | "export-private-key-hex";
@@ -9,13 +10,13 @@ interface IPsyTransactionSigner {
     getSignType?(): Promise<string>;
     getFingerprint?(): Promise<string|null|undefined>;
     // signHash?(hash: QHashOut): Promise<ProofWithPublicInputs>;
-    signAndSubmit(pk_hash: string, callData: ContractCallData): Promise<string>;
+    signAndSubmit(user_id: Felt, callData: ContractCallData): Promise<string>;
     deployContract(pk_hash: string, circuitDefs: DPNFunctionCircuitDefinition[]): Promise<string>;
     getAbilities(): TPsyTransactionSignerAbility[];
     registerUser(privateKeyHex: string, signType: SignType, fingerprint?: string): Promise<string>;
     addUser(privateKeyHex: string, signType: SignType, fingerprint?: string): Promise<string>;
     getClaimRewardsCallArgs(jobInfos: string): Promise<ContractCallArgs[]>;
-    claimRewards(pk_hash: string, jobInfos: string): Promise<string>;
+    claimRewards(user_id: Felt, jobInfos: string): Promise<string>;
 }
 
 interface IPsyTransactionSignerProvider {
@@ -28,7 +29,7 @@ interface IPsyTransactionSignerProvider {
     registerUser(privateKeyHex: string, signType: SignType, fingerprint?: string): Promise<string>;
     addUser(privateKeyHex: string, signType: SignType, fingerprint?: string): Promise<string>;
     getClaimRewardsCallArgs(jobInfos: string): Promise<ContractCallArgs[]>;
-    claimRewards(pk_hash: string, jobInfos: string): Promise<string>;
+    claimRewards(user_id: Felt, jobInfos: string): Promise<string>;
 }
 
 export type {

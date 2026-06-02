@@ -1,6 +1,6 @@
 import { initSync, WasmRpcServer, WasmPsyConfig, WasmPsyConfigBuilder, WasmConstants } from "./psy_prover";
 import { wasmBinary } from "./wasm-binary";
-import { PrivateKey, PublicKey, QHashOut, U8Bytes } from "../core";
+import { Felt, PrivateKey, PublicKey, QHashOut, U8Bytes } from "../core";
 import {
     ContractCallArgs,
     ContractCallData,
@@ -15,6 +15,10 @@ import {
 import { ZKPublicKeyInfo } from "../types";
 import { PsyJSON } from "../utils";
 import { PsyNetworkConfig } from "../config";
+
+function toWasmUserId(userId: Felt): bigint {
+    return BigInt(userId);
+}
 
 // Synchronous WASM initialization function
 export function initWasmSync(): void {
@@ -43,26 +47,26 @@ export class PsyWasmWebProverProvider implements IPsyUserProverProvider {
         }
     }
 
-    // async execContractCall(pkHash: string, contractCallArg: ContractCallArgs[]): Promise<string> {
+    // async execContractCall(userId: string, contractCallArg: ContractCallArgs[]): Promise<string> {
     //     const now = new Date().getTime();
     //     const json = PsyJSON.stringify(contractCallArg);
-    //     const result = await PsyWasmWebProverProvider.wasmServer.exec_contract_call_json(pkHash, json);
+    //     const result = await PsyWasmWebProverProvider.wasmServer.exec_contract_call_json(toWasmUserId(userId), json);
     //     console.log(`execContractCall in ${(new Date().getTime() - now) / 1000} seconds`);
     //     return result;
     // }
 
-    async execContractCall(pkHash: string, callData: ContractCallData): Promise<string> {
+    async execContractCall(userId: Felt, callData: ContractCallData): Promise<string> {
         const now = new Date().getTime();
         const json = PsyJSON.stringify(callData);
-        const result = await PsyWasmWebProverProvider.wasmServer.exec_contract_call_json(pkHash, json);
+        const result = await PsyWasmWebProverProvider.wasmServer.exec_contract_call_json(toWasmUserId(userId), json);
         console.log(`execContractCall in ${(new Date().getTime() - now) / 1000} seconds`);
         return result;
     }
 
-    async claimBatch(pkHash: string, claims: ClaimBatchItem[]): Promise<string> {
+    async claimBatch(userId: Felt, claims: ClaimBatchItem[]): Promise<string> {
         const now = new Date().getTime();
         const json = PsyJSON.stringify(claims);
-        const result = await PsyWasmWebProverProvider.wasmServer.exec_claim_batch_json(pkHash, json);
+        const result = await PsyWasmWebProverProvider.wasmServer.exec_claim_batch_json(toWasmUserId(userId), json);
         console.log(`claimBatch in ${(new Date().getTime() - now) / 1000} seconds`);
         return result;
     }
@@ -77,40 +81,40 @@ export class PsyWasmWebProverProvider implements IPsyUserProverProvider {
         throw new Error("Method not implemented.");
     }
 
-    async claimRewards(_pkHash: string, _jobInfos: string): Promise<string> {
+    async claimRewards(_userId: Felt, _jobInfos: string): Promise<string> {
         // const now = new Date().getTime();
         // const json = PsyJSON.stringify(jobInfos);
-        // const result = await PsyWasmWebProverProvider.wasmServer.claim_rewards_json(pkHash, jobInfos);
+        // const result = await PsyWasmWebProverProvider.wasmServer.claim_rewards_json(toWasmUserId(userId), jobInfos);
         // console.log(`claimRewards in ${(new Date().getTime() - now) / 1000} seconds`);
         // return result;
         throw new Error("Method not implemented.");
     }
 
     // Local proving operations
-    async startSession(pkHash: PublicKey): Promise<string> {
-        return PsyWasmWebProverProvider.wasmServer.start_session(pkHash);
+    async startSession(userId: Felt): Promise<string> {
+        return PsyWasmWebProverProvider.wasmServer.start_session(toWasmUserId(userId));
     }
 
-    async proveContractCall(pkHash: PublicKey, contractCallArg: ContractCallArgs): Promise<string> {
+    async proveContractCall(userId: Felt, contractCallArg: ContractCallArgs): Promise<string> {
         const now = new Date().getTime();
         const json = PsyJSON.stringify(contractCallArg);
-        const result = await PsyWasmWebProverProvider.wasmServer.prove_contract_call_json(pkHash, json);
+        const result = await PsyWasmWebProverProvider.wasmServer.prove_contract_call_json(toWasmUserId(userId), json);
         console.log(`proveContractCall in ${(new Date().getTime() - now) / 1000} seconds`);
         return result;
     }
 
-    async proveContractCalls(pkHash: PublicKey, contractCallArgs: ContractCallArgs[]): Promise<string> {
+    async proveContractCalls(userId: Felt, contractCallArgs: ContractCallArgs[]): Promise<string> {
         const now = new Date().getTime();
         const json = PsyJSON.stringify(contractCallArgs);
-        const result = await PsyWasmWebProverProvider.wasmServer.prove_contract_calls_json(pkHash, json);
+        const result = await PsyWasmWebProverProvider.wasmServer.prove_contract_calls_json(toWasmUserId(userId), json);
         console.log(`proveContractCalls in ${(new Date().getTime() - now) / 1000} seconds`);
         return result;
     }
 
-    async signAndSubmit(pkHash: PublicKey, signData?: SignData): Promise<string> {
+    async signAndSubmit(userId: Felt, signData?: SignData): Promise<string> {
         const now = new Date().getTime();
         const signDataJson = signData ? PsyJSON.stringify(signData) : null;
-        const result = await PsyWasmWebProverProvider.wasmServer.sign_and_submit(pkHash, signDataJson);
+        const result = await PsyWasmWebProverProvider.wasmServer.sign_and_submit(toWasmUserId(userId), signDataJson);
         console.log(`signAndSubmit in ${(new Date().getTime() - now) / 1000} seconds`);
         return result;
     }
