@@ -1,24 +1,24 @@
 /* tslint:disable */
 /* eslint-disable */
-export function get_transaction_log(): string;
-export function read_imt_state(contract_id: number, user_id: number): string;
-export function interpret_source(source: string, request_json: string): string;
-export function deploy_contract(deployer_id: bigint): string;
-export function read_contract_state(contract_id: bigint, user_id: bigint): string;
-export function compile_project(files_json: string): string;
-export function interpret_project(files_json: string, request_json: string): string;
-export function compile_source(source: string): string;
-export function get_accounts(): string;
 export function init_logging(): void;
-export function create_account(name: string): string;
-export function call_contract(caller_id: bigint, contract_id: bigint, method_name: string, args_json: string): string;
-export function main(): void;
-export function compile_dargo_project(project_json: string): string;
-export function get_contract_abi(contract_id: bigint): string;
-export function reset_chain(): void;
-export function init_psy_ide(): void;
-export function get_contracts(): string;
+export function interpret_source(source: string, request_json: string): string;
+export function read_contract_state(contract_id: bigint, user_id: bigint): string;
+export function compile_source(source: string): string;
 export function init_chain(): void;
+export function get_contract_abi(contract_id: bigint): string;
+export function init_psy_ide(): void;
+export function interpret_project(files_json: string, request_json: string): string;
+export function get_contracts(): string;
+export function get_accounts(): string;
+export function reset_chain(): void;
+export function call_contract(caller_id: bigint, contract_id: bigint, method_name: string, args_json: string): string;
+export function deploy_contract(deployer_id: bigint): string;
+export function compile_dargo_project(project_json: string): string;
+export function get_transaction_log(): string;
+export function create_account(name: string): string;
+export function main(): void;
+export function compile_project(files_json: string): string;
+export function read_imt_state(contract_id: number, user_id: number): string;
 
 export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembly.Module;
 
