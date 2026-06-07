@@ -5377,6 +5377,7 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror 2.0.18",
+ "zstd 0.13.3",
 ]
 
 [[package]]
@@ -5663,6 +5664,7 @@ dependencies = [
  "tiny-keccak",
  "tokio",
  "tracing",
+ "zstd 0.13.3",
 ]
 
 [[package]]
@@ -5728,7 +5730,9 @@ dependencies = [
  "psy_common_circuit",
  "psy_compiler",
  "psy_config",
+ "psy_core",
  "psy_crypto",
+ "psy_data",
  "psy_dpn_circuit",
  "psy_network_circuit",
  "psy_plonky2_circuits",
