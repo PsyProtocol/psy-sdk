@@ -74,10 +74,10 @@ export class WasmRpcServer {
     deploy_contract_json(deployer: string, circuit_defs_json: string): Promise<string>;
     exec_claim_batch_json(pk_hash: string, claims_json: string): Promise<string>;
     /**
-     * Atomic private_claim: start_session → add_external_proof → prove → sign_and_submit.
+     * Atomic private_claim flow.
      *
      * This replaces the broken two-step flow (psy_addExternalProof then sendTransaction)
-     * where sendTransaction's internal start_session call would reset the session tree,
+     * where sendTransaction's internal session reset would reset the session tree,
      * losing the injected external proof.
      *
      * Inputs (all u64 values as decimal strings to avoid JS precision loss):
@@ -99,7 +99,7 @@ export class WasmRpcServer {
     exec_contract_call_json(pk_hash: string, call_data_json: string): Promise<string>;
     /**
      * Atomic shield claim_deposit:
-     * build ShieldDepositClaim proof -> start_session -> add_external_proof -> prove -> sign_and_submit.
+     * Build ShieldDepositClaim proof and submit it atomically.
      *
      * Inputs:
      *   pk_hash                    - receiver's ZK public key (hex QHashOut)
@@ -125,8 +125,6 @@ export class WasmRpcServer {
     get_zk_public_key_json(private_key_str: string): Promise<string>;
     constructor(rpc_config_json: string);
     ping(message: string): string;
-    prove_contract_call_json(pk_hash: string, contract_call_json: string): Promise<string>;
-    prove_contract_calls_json(pk_hash: string, contract_calls_json: string): Promise<string>;
     /**
      * Generate a PrivateNoteInclusion ZK proof and return the full NoteProofOutput as JSON.
      *
@@ -145,8 +143,6 @@ export class WasmRpcServer {
     prove_private_note_inclusion_json(pk_hash: string, owner_json: string, amount: string, note_secret_hash_json: string, nullifier_secret_json: string, contract_id: string, note_root_slot: string, checkpoint_id: string): Promise<string>;
     register_sdk_key_circuit(allowed_contract_ids: BigUint64Array, allowed_method_ids: BigUint64Array, expected_tx_count: bigint): Promise<string>;
     register_user(private_key_str: string, sign_type: string, sdk_key_fingerprint?: string | null): Promise<string>;
-    sign_and_submit(pk_hash: string, sign_data?: string | null): Promise<string>;
-    start_session(pk_hash: string): Promise<string>;
 }
 
 export function init_logging(): void;
@@ -200,13 +196,9 @@ export interface InitOutput {
     readonly wasmrpcserver_get_zk_public_key_json: (a: number, b: number, c: number) => any;
     readonly wasmrpcserver_new: (a: number, b: number) => any;
     readonly wasmrpcserver_ping: (a: number, b: number, c: number) => [number, number, number, number];
-    readonly wasmrpcserver_prove_contract_call_json: (a: number, b: number, c: number, d: number, e: number) => any;
-    readonly wasmrpcserver_prove_contract_calls_json: (a: number, b: number, c: number, d: number, e: number) => any;
     readonly wasmrpcserver_prove_private_note_inclusion_json: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number, l: number, m: number, n: number, o: number, p: number, q: number) => any;
     readonly wasmrpcserver_register_sdk_key_circuit: (a: number, b: number, c: number, d: number, e: number, f: bigint) => any;
     readonly wasmrpcserver_register_user: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => any;
-    readonly wasmrpcserver_sign_and_submit: (a: number, b: number, c: number, d: number, e: number) => any;
-    readonly wasmrpcserver_start_session: (a: number, b: number, c: number) => any;
     readonly wasmpsyconfigbuilder_new: () => number;
     readonly wasmconstants_register_user_fee: () => bigint;
     readonly wasm_bindgen__closure__destroy__h1b5505c935284b57: (a: number, b: number) => void;

@@ -8,7 +8,6 @@ import {
     DPNFunctionCircuitDefinition,
     IPsyUserProverProvider,
     QBCDeployContract,
-    SignData,
     SignType,
     WalletKeyPair,
 } from "../local-prover-rpc/types";
@@ -85,36 +84,6 @@ export class PsyWasmWebProverProvider implements IPsyUserProverProvider {
         // return result;
         throw new Error("Method not implemented.");
     }
-
-    // Local proving operations
-    async startSession(pkHash: PublicKey): Promise<string> {
-        return PsyWasmWebProverProvider.wasmServer.start_session(pkHash);
-    }
-
-    async proveContractCall(pkHash: PublicKey, contractCallArg: ContractCallArgs): Promise<string> {
-        const now = new Date().getTime();
-        const json = PsyJSON.stringify(contractCallArg);
-        const result = await PsyWasmWebProverProvider.wasmServer.prove_contract_call_json(pkHash, json);
-        console.log(`proveContractCall in ${(new Date().getTime() - now) / 1000} seconds`);
-        return result;
-    }
-
-    async proveContractCalls(pkHash: PublicKey, contractCallArgs: ContractCallArgs[]): Promise<string> {
-        const now = new Date().getTime();
-        const json = PsyJSON.stringify(contractCallArgs);
-        const result = await PsyWasmWebProverProvider.wasmServer.prove_contract_calls_json(pkHash, json);
-        console.log(`proveContractCalls in ${(new Date().getTime() - now) / 1000} seconds`);
-        return result;
-    }
-
-    async signAndSubmit(pkHash: PublicKey, signData?: SignData): Promise<string> {
-        const now = new Date().getTime();
-        const signDataJson = signData ? PsyJSON.stringify(signData) : null;
-        const result = await PsyWasmWebProverProvider.wasmServer.sign_and_submit(pkHash, signDataJson);
-        console.log(`signAndSubmit in ${(new Date().getTime() - now) / 1000} seconds`);
-        return result;
-    }
-
 
     // User operations
     async registerUser(privateKey: PrivateKey, signType: SignType, fingerprint?: string): Promise<PublicKey> {

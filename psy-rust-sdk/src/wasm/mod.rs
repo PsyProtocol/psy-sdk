@@ -648,16 +648,6 @@ impl WasmRpcServer {
     }
 
     // Local proving operations
-    #[wasm_bindgen]
-    pub async fn start_session(&self, pk_hash: &str) -> Result<String, JsError> {
-        let pk_hash = QHashOut::<F>::from_str(pk_hash)
-            .map_err(|e| JsError::new(&format!("Parse public key hash error: {}", e)))?;
-        self.wallet_session
-            .start_session(pk_hash)
-            .await
-            .map_err(|e| JsError::new(&format!("Start session error: {}", e)))?;
-        Ok("start session".to_string())
-    }
 
     /// Inject an external PrivateNoteInclusion proof into the current session tree.
     /// Returns JSON: { "leaf_index": u64, "siblings": [[u64;4]] }
@@ -735,7 +725,7 @@ impl WasmRpcServer {
         Ok(result.to_string())
     }
 
-    /// Atomic private_claim: start_session → add_external_proof → prove → sign_and_submit.
+    /// Atomic private_claim flow.
     ///
     /// This replaces the broken two-step flow (psy_addExternalProof then sendTransaction)
     /// where sendTransaction's internal start_session call would reset the session tree,
@@ -986,7 +976,7 @@ impl WasmRpcServer {
     }
 
     /// Atomic shield claim_deposit:
-    /// build ShieldDepositClaim proof -> start_session -> add_external_proof -> prove -> sign_and_submit.
+    /// Build ShieldDepositClaim proof and submit it atomically.
     ///
     /// Inputs:
     ///   pk_hash                    - receiver's ZK public key (hex QHashOut)
@@ -1588,68 +1578,6 @@ impl WasmRpcServer {
             "note_proof_bincode_b64": proof_b64,
         });
         Ok(result.to_string())
-    }
-
-    #[wasm_bindgen]
-    pub async fn prove_contract_call_json(
-        &mut self,
-        pk_hash: &str,
-        contract_call_json: &str,
-    ) -> Result<String, JsError> {
-        let contract_call_arg: ContractCallArgs = serde_json::from_str(contract_call_json)
-            .map_err(|e| JsError::new(&format!("Parse contract call JSON error: {}", e)))?;
-
-        let pk_hash = QHashOut::<F>::from_str(pk_hash)
-            .map_err(|e| JsError::new(&format!("Parse public key hash error: {}", e)))?;
-
-        self.wallet_session
-            .prove_contract_call(pk_hash, vec![contract_call_arg])
-            .await
-            .map_err(|e| JsError::new(&format!("Prove contract call error: {}", e)))?;
-        Ok("prove contract call".to_string())
-    }
-
-    #[wasm_bindgen]
-    pub async fn prove_contract_calls_json(
-        &mut self,
-        pk_hash: &str,
-        contract_calls_json: &str,
-    ) -> Result<String, JsError> {
-        let contract_call_args: Vec<ContractCallArgs> =
-            serde_json::from_str(contract_calls_json)
-                .map_err(|e| JsError::new(&format!("Parse contract calls JSON error: {}", e)))?;
-
-        let pk_hash = QHashOut::<F>::from_str(pk_hash)
-            .map_err(|e| JsError::new(&format!("Parse public key hash error: {}", e)))?;
-
-        self.wallet_session
-            .prove_contract_call(pk_hash, contract_call_args)
-            .await
-            .map_err(|e| JsError::new(&format!("Prove contract calls error: {}", e)))?;
-        Ok("prove contract calls".to_string())
-    }
-
-    #[wasm_bindgen]
-    pub async fn sign_and_submit(
-        &self,
-        pk_hash: &str,
-        sign_data: Option<String>,
-    ) -> Result<String, JsError> {
-        let pk_hash = QHashOut::<F>::from_str(pk_hash)
-            .map_err(|e| JsError::new(&format!("Parse public key hash error: {}", e)))?;
-
-        let software_defined_call = sign_data
-            .map(|data| serde_json::from_str::<psy_common::args::DPNSoftwareDefinedCallData>(&data))
-            .transpose()
-            .map_err(|e| JsError::new(&format!("Parse sign data error: {}", e)))?
-            .unwrap_or_default();
-
-        let end_user_leaf_hash = self
-            .wallet_session
-            .sign_and_submit(pk_hash, software_defined_call)
-            .await
-            .map_err(|e| JsError::new(&format!("Sign and submit error: {}", e)))?;
-        Ok(end_user_leaf_hash.to_string())
     }
 
     // User operations

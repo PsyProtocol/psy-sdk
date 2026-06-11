@@ -9,7 +9,7 @@ interface IPsyTransactionSigner {
     getSignType?(): Promise<string>;
     getFingerprint?(): Promise<string|null|undefined>;
     // signHash?(hash: QHashOut): Promise<ProofWithPublicInputs>;
-    signAndSubmit(pk_hash: string, callData: ContractCallData): Promise<string>;
+    execContractCall(pk_hash: string, callData: ContractCallData): Promise<string>;
     deployContract(pk_hash: string, circuitDefs: DPNFunctionCircuitDefinition[]): Promise<string>;
     getAbilities(): TPsyTransactionSignerAbility[];
     registerUser(privateKeyHex: string, signType: SignType, fingerprint?: string): Promise<string>;

@@ -132,7 +132,6 @@ class PsyUserWallet implements IPsyUserWallet {
 
     // async getDeployContract(circuitDefs: DPNFunctionCircuitDefinition[]): Promise<QBCDeployContract> {
     //     // await this.prover.switchUser(await this.getZKPublicKey());
-    //     // await this.prover.startSession();
     //     return this.prover.getDeployContractCmd(circuitDefs);
     // }
 
@@ -141,7 +140,7 @@ class PsyUserWallet implements IPsyUserWallet {
             contract_calls: Array.isArray(contractCallArgs) ? contractCallArgs : [contractCallArgs],
             software_defined_call: { "inputs": [] }
         };
-        return this.signer.signAndSubmit(pk_hash, callData);
+        return this.signer.execContractCall(pk_hash, callData);
     }
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -155,8 +154,7 @@ class PsyUserWallet implements IPsyUserWallet {
     // }
 
     // async proveSession(contractCallArgs: ContractCallArgs | ContractCallArgs[]): Promise<string> {
-    //     // await this.prover.startSession();
-    //     return this.signer.signAndSubmit(contractCallArgs);
+    //     return this.signer.execContractCall(contractCallArgs);
     // }
 }
 

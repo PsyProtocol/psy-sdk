@@ -42,7 +42,7 @@ class PsyMemoryTransactionSigner implements IPsyTransactionSigner {
         return Promise.resolve(this.fingerprint);
     }
 
-    async signAndSubmit(pk_hash: string, callData: ContractCallData): Promise<string> {
+    async execContractCall(pk_hash: string, callData: ContractCallData): Promise<string> {
         return this.prover.execContractCall(pk_hash, callData);
     }
 
