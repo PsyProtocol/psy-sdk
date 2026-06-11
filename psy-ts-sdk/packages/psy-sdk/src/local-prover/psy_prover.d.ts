@@ -76,10 +76,10 @@ export class WasmRpcServer {
     exec_claim_mixed_batch_json(pk_hash: string, public_claims_json: string, private_claims_json: string): Promise<string>;
     exec_claim_private_transfer_batch_json(pk_hash: string, claims_json: string): Promise<string>;
     /**
-     * Atomic private_claim: start_session → add_external_proof → prove → sign_and_submit.
+     * Atomic private_claim flow.
      *
      * This replaces the broken two-step flow (psy_addExternalProof then sendTransaction)
-     * where sendTransaction's internal start_session call would reset the session tree,
+     * where sendTransaction's internal session reset would reset the session tree,
      * losing the injected external proof.
      *
      * Inputs (all u64 values as decimal strings to avoid JS precision loss):
@@ -101,7 +101,7 @@ export class WasmRpcServer {
     exec_contract_call_json(pk_hash: string, call_data_json: string): Promise<string>;
     /**
      * Atomic shield claim_deposit:
-     * build ShieldDepositClaim proof -> start_session -> add_external_proof -> prove -> sign_and_submit.
+     * Build ShieldDepositClaim proof and submit it atomically.
      *
      * Inputs:
      *   pk_hash                    - receiver's ZK public key (hex QHashOut)
@@ -127,8 +127,6 @@ export class WasmRpcServer {
     get_zk_public_key_json(private_key_str: string): Promise<string>;
     constructor(rpc_config_json: string);
     ping(message: string): string;
-    prove_contract_call_json(pk_hash: string, contract_call_json: string): Promise<string>;
-    prove_contract_calls_json(pk_hash: string, contract_calls_json: string): Promise<string>;
     /**
      * Generate a PrivateNoteInclusion ZK proof and return the full NoteProofOutput as JSON.
      *
@@ -147,8 +145,6 @@ export class WasmRpcServer {
     prove_private_note_inclusion_json(pk_hash: string, owner_json: string, amount: string, note_secret_hash_json: string, nullifier_secret_json: string, contract_id: string, note_root_slot: string, checkpoint_id: string): Promise<string>;
     register_sdk_key_circuit(allowed_contract_ids: BigUint64Array, allowed_method_ids: BigUint64Array, expected_tx_count: bigint): Promise<string>;
     register_user(private_key_str: string, sign_type: string, sdk_key_fingerprint?: string | null): Promise<string>;
-    sign_and_submit(pk_hash: string, sign_data?: string | null): Promise<string>;
-    start_session(pk_hash: string): Promise<string>;
 }
 
 export function init_logging(): void;

@@ -105,7 +105,7 @@ class PsyUserWalletProvider implements IPsyUserWalletProvider, IContractProvider
                 "inputs": []
             }
         };
-        return signer.signAndSubmit(publicKey, contractCallData);
+        return signer.execContractCall(publicKey, contractCallData);
     }
 
     async getLatestCheckpointId(): Promise<Felt> {
