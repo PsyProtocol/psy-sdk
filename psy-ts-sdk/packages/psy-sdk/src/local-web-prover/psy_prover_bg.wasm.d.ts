@@ -54,11 +54,11 @@ export const wasmrpcserver_sign_and_submit: (a: number, b: number, c: number, d:
 export const wasmrpcserver_start_session: (a: number, b: number, c: number) => any;
 export const wasmpsyconfigbuilder_new: () => number;
 export const wasmconstants_register_user_fee: () => bigint;
-export const wasm_bindgen__closure__destroy__h2c4258c8d2b8cc65: (a: number, b: number) => void;
+export const wasm_bindgen__closure__destroy__hfaaa40920e981734: (a: number, b: number) => void;
 export const wasm_bindgen__closure__destroy__h1cdc65468db77e02: (a: number, b: number) => void;
 export const wasm_bindgen__convert__closures_____invoke__h79f41d0599a7a266: (a: number, b: number, c: any, d: any) => void;
 export const wasm_bindgen__convert__closures_____invoke__hf62534bd39865c13: (a: number, b: number, c: any) => void;
-export const wasm_bindgen__convert__closures_____invoke__h9f5ddc1b79728a99: (a: number, b: number) => void;
+export const wasm_bindgen__convert__closures_____invoke__hc70f45b443d6e1aa: (a: number, b: number) => void;
 export const __wbindgen_malloc: (a: number, b: number) => number;
 export const __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;
 export const __wbindgen_exn_store: (a: number) => void;
