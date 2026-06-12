@@ -7,8 +7,7 @@ import { IPsyTransactionSignerProvider, PsyMemoryTransactionSignerProvider } fro
 import { IPsyUserWallet, IPsyUserWalletProvider } from "./types";
 import { PsyUserWallet } from "./userWallet";
 import { PsyNetworkConfig } from "../config";
-import { initWasmSync, PsyWasmWebProverProvider, WasmRpcServer } from "../local-web-prover";
-import { PsyJSON } from "../utils";
+import { PsyWasmWebProverProvider } from "../local-web-prover";
 
 export interface IContractProvider {
     getContractState(checkpointId: Felt, contractId: Felt, userId: Felt, slots: Felt[]): Promise<Felt[]>;
@@ -126,23 +125,8 @@ async function createMemoryWalletProvider(
         config.users_per_realm,
     );
 
-    const initWasmRpcServer = async () => {
-        try {
-            const json = PsyJSON.stringify(config);
-            const now = new Date().getTime();
-            initWasmSync();
-            PsyWasmWebProverProvider.wasmServer = await new WasmRpcServer(json);
-            console.log(`WASM initialized in ${(new Date().getTime() - now) / 1000} seconds`);
-        } catch (error) {
-            console.error('Failed to get prover URL:', error);
-        }
-    };
-    await initWasmRpcServer();
-
-    let userProver: IPsyUserProverProvider = new PsyWasmWebProverProvider(config);
+    const userProver: IPsyUserProverProvider = new PsyWasmWebProverProvider(config);
     console.log("User Prover:", userProver);
-    console.log("User Prover:", PsyWasmWebProverProvider.wasmServer);
-
 
     const transactionSignerProvider = new PsyMemoryTransactionSignerProvider(
         userProver,
