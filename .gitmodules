@@ -1,0 +1,4 @@
+[submodule "psy-genesis"]
+	path = psy-genesis
+	url = git@github.com:PsyProtocol/psy-genesis.git
+	branch = mainnet-beta
