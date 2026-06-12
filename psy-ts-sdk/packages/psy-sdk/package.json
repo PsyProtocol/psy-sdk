@@ -71,7 +71,7 @@
     "build": "NODE_OPTIONS='--max-old-space-size=8192' pnpm run precompile && NODE_OPTIONS='--max-old-space-size=8192' pnpm run compile",
     "precompile": "cpx ../../../config.json src/config && pnpm run clean && pnpm run build:wasm && pnpm run build:wasm-compiler",
     "clean": "rimraf dist",
-    "compile": "rollup -c",
+    "compile": "tsc --noEmit && rollup -c",
     "lint": "eslint 'src/**/*.{ts,tsx}' --max-warnings 100",
     "lint:fix": "eslint 'src/**/*.{ts,tsx}' --fix",
     "type-check": "pnpm run precompile && tsc --noEmit",
