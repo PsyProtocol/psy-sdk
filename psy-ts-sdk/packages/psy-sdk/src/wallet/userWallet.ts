@@ -4,6 +4,7 @@ import { ICoordinatorEdgeRpcProvider } from "../coord-edge-rpc";
 import {
     ContractCallArgs,
     DPNFunctionCircuitDefinition,
+    TxMetadata,
 } from "../local-prover-rpc";
 import { PsyUserLeaf } from "../types";
 import { psyFelt } from "../utils";
@@ -135,7 +136,7 @@ class PsyUserWallet implements IPsyUserWallet {
     //     return this.prover.getDeployContractCmd(circuitDefs);
     // }
 
-    async execContractCall(pk_hash: string, contractCallArgs: ContractCallArgs | ContractCallArgs[]): Promise<string> {
+    async execContractCall(pk_hash: string, contractCallArgs: ContractCallArgs | ContractCallArgs[]): Promise<TxMetadata> {
         const callData = {
             contract_calls: Array.isArray(contractCallArgs) ? contractCallArgs : [contractCallArgs],
             software_defined_call: { "inputs": [] }

@@ -54,7 +54,13 @@ const mockUserLeafInstance: PsyUserLeaf = {
 
 const mockSubmitUserEndCapNonProofCoreInput: SubmitUserEndCapNonProofCoreInput = {
     checkpoint_id: mockCheckpointIdBigInt,
-    stats: { mock_guta_stat: "value" }, // Mock for GUTAStats
+    stats: {
+        guta_fees_collected: 0n,
+        da_fees_collected: 0n,
+        user_ops_processed: 0n,
+        total_transactions: 0n,
+        slots_modified: 0n,
+    },
     state_transition: { mock_ups_result: "compact" }, // Mock for UPSEndCapResultCompact
     new_user_leaf: mockUserLeafInstance,
 };
