@@ -77,7 +77,7 @@ export class WasmRpcServer {
      * Atomic private_claim flow.
      *
      * This replaces the broken two-step flow (psy_addExternalProof then sendTransaction)
-     * where sendTransaction's internal session reset would reset the session tree,
+     * where sendTransaction's internal start_session call would reset the session tree,
      * losing the injected external proof.
      *
      * Inputs (all u64 values as decimal strings to avoid JS precision loss):

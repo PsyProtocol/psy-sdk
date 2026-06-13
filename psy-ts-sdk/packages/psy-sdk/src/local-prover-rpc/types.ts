@@ -1,5 +1,5 @@
 import { Felt, PrivateKey, PublicKey, QHashOut, U8Bytes } from "../core";
-import { QBCDeployContract, ZKPublicKeyInfo, ContractCallArgs, WalletKeyPair } from "../types";
+import { QBCDeployContract, ZKPublicKeyInfo, ContractCallArgs, WalletKeyPair, GUTAStats } from "../types";
 
 // Assertion for DPN function circuits
 interface DPNAssertEqInfoIndexed {
@@ -172,6 +172,66 @@ export interface ContractCallData {
     software_defined_call: SignData;
 }
 
+export interface TxStorageRead {
+    user_id: Felt;
+    contract_id: Felt;
+    slot_index: Felt;
+    value: QHashOut;
+}
+
+export interface TxStorageWrite {
+    user_id: Felt;
+    contract_id: Felt;
+    slot_index: Felt;
+    old_value: QHashOut;
+    new_value: QHashOut;
+}
+
+export interface TxStorageData {
+    reads: TxStorageRead[];
+    writes: TxStorageWrite[];
+}
+
+export interface ContractCallResultArgs {
+    contract_id: Felt;
+    method_name: string;
+    inputs: Felt[];
+    outputs: Felt[];
+}
+
+export interface ContractCallResultData {
+    contract_calls: ContractCallResultArgs[];
+    software_defined_call: SignData;
+}
+
+export interface TxEndCapData {
+    checkpoint_id: Felt;
+    user_id: Felt;
+    global_user_tree_height: number;
+    start_user_leaf_hash: QHashOut;
+    end_user_leaf_hash: QHashOut;
+    checkpoint_tree_root_hash: QHashOut;
+    stats: GUTAStats;
+}
+
+export interface TxProofMetadata {
+    storage_data: TxStorageData;
+    contract_calls: ContractCallResultArgs[];
+}
+
+export interface TxSubmitMetadata {
+    tx_hash: QHashOut;
+    end_cap_data: TxEndCapData;
+    storage_writes: TxStorageWrite[];
+}
+
+export interface TxMetadata {
+    tx_hash: QHashOut;
+    end_cap_data: TxEndCapData;
+    contract_call_data: ContractCallResultData;
+    storage_data: TxStorageData;
+}
+
 export enum SignType {
     ZKSign = "zk",
     SECP256K1Sign = "secp256k1",
@@ -182,8 +242,8 @@ export enum SignType {
 
 interface IPsyUserProverProvider {
     // Local proving operations
-    execContractCall(pk_hash: string, callData: ContractCallData): Promise<string>;
-    claimBatch(pk_hash: string, claims: ClaimBatchItem[]): Promise<string>;
+    execContractCall(pk_hash: string, callData: ContractCallData): Promise<TxMetadata>;
+    claimBatch(pk_hash: string, claims: ClaimBatchItem[]): Promise<TxMetadata>;
 
     getClaimRewardsCallArgs(jobInfos: string): Promise<ContractCallArgs[]>;
     claimRewards(pk_hash: string, jobInfos: string): Promise<string>;

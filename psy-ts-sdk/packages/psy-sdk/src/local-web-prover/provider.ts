@@ -9,6 +9,7 @@ import {
     IPsyUserProverProvider,
     QBCDeployContract,
     SignType,
+    TxMetadata,
     WalletKeyPair,
 } from "../local-prover-rpc/types";
 import { ZKPublicKeyInfo } from "../types";
@@ -42,7 +43,7 @@ export class PsyWasmWebProverProvider implements IPsyUserProverProvider {
         }
     }
 
-    // async execContractCall(pkHash: string, contractCallArg: ContractCallArgs[]): Promise<string> {
+    // async execContractCall(pkHash: string, contractCallArg: ContractCallArgs[]): Promise<TxMetadata> {
     //     const now = new Date().getTime();
     //     const json = PsyJSON.stringify(contractCallArg);
     //     const result = await PsyWasmWebProverProvider.wasmServer.exec_contract_call_json(pkHash, json);
@@ -50,20 +51,20 @@ export class PsyWasmWebProverProvider implements IPsyUserProverProvider {
     //     return result;
     // }
 
-    async execContractCall(pkHash: string, callData: ContractCallData): Promise<string> {
+    async execContractCall(pkHash: string, callData: ContractCallData): Promise<TxMetadata> {
         const now = new Date().getTime();
         const json = PsyJSON.stringify(callData);
         const result = await PsyWasmWebProverProvider.wasmServer.exec_contract_call_json(pkHash, json);
         console.log(`execContractCall in ${(new Date().getTime() - now) / 1000} seconds`);
-        return result;
+        return PsyJSON.parse(result) as TxMetadata;
     }
 
-    async claimBatch(pkHash: string, claims: ClaimBatchItem[]): Promise<string> {
+    async claimBatch(pkHash: string, claims: ClaimBatchItem[]): Promise<TxMetadata> {
         const now = new Date().getTime();
         const json = PsyJSON.stringify(claims);
         const result = await PsyWasmWebProverProvider.wasmServer.exec_claim_batch_json(pkHash, json);
         console.log(`claimBatch in ${(new Date().getTime() - now) / 1000} seconds`);
-        return result;
+        return PsyJSON.parse(result) as TxMetadata;
     }
 
     async getClaimRewardsCallArgs(_jobInfos: string): Promise<ContractCallArgs[]> {
