@@ -243,7 +243,9 @@ export enum SignType {
 interface IPsyUserProverProvider {
     // Local proving operations
     execContractCall(pk_hash: string, callData: ContractCallData): Promise<TxMetadata>;
+    execContractCallWithoutProof(pk_hash: string, callData: ContractCallData): Promise<TxMetadata>;
     claimBatch(pk_hash: string, claims: ClaimBatchItem[]): Promise<TxMetadata>;
+    claimBatchWithoutProof(pk_hash: string, claims: ClaimBatchItem[]): Promise<TxMetadata>;
 
     getClaimRewardsCallArgs(jobInfos: string): Promise<ContractCallArgs[]>;
     claimRewards(pk_hash: string, jobInfos: string): Promise<string>;
