@@ -73,6 +73,7 @@ export class WasmRpcServer {
     add_user(private_key_str: string, sign_type: string, sdk_key_fingerprint?: string | null): Promise<string>;
     deploy_contract_json(deployer: string, circuit_defs_json: string): Promise<string>;
     exec_claim_batch_json(pk_hash: string, claims_json: string): Promise<string>;
+    exec_claim_batch_without_proof_json(pk_hash: string, claims_json: string): Promise<string>;
     exec_claim_mixed_batch_json(pk_hash: string, public_claims_json: string, private_claims_json: string): Promise<string>;
     exec_claim_private_transfer_batch_json(pk_hash: string, claims_json: string): Promise<string>;
     /**
@@ -99,6 +100,7 @@ export class WasmRpcServer {
      */
     exec_claim_with_external_proof_json(pk_hash: string, note_proof_bincode_b64: string, nullifier_json: string, owner_json: string, amount: string, user_tree_root_json: string, checkpoint_id: string, note_root_slot: string, contract_id: string, random0: string, random1: string): Promise<string>;
     exec_contract_call_json(pk_hash: string, call_data_json: string): Promise<string>;
+    exec_contract_call_without_proof_json(pk_hash: string, call_data_json: string): Promise<string>;
     /**
      * Atomic shield claim_deposit:
      * Build ShieldDepositClaim proof and submit it atomically.

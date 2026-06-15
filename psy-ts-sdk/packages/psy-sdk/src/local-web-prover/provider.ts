@@ -95,6 +95,16 @@ export class PsyWasmWebProverProvider implements IPsyUserProverProvider {
         return PsyJSON.parse(result) as TxMetadata;
     }
 
+    async execContractCallWithoutProof(pkHash: string, callData: ContractCallData): Promise<TxMetadata> {
+        const now = new Date().getTime();
+        const json = PsyJSON.stringify(callData);
+        const result = await PsyWasmWebProverProvider.runWasmServerCall((server) =>
+            server.exec_contract_call_without_proof_json(pkHash, json)
+        );
+        console.log(`execContractCallWithoutProof in ${(new Date().getTime() - now) / 1000} seconds`);
+        return PsyJSON.parse(result) as TxMetadata;
+    }
+
     async claimBatch(pkHash: string, claims: ClaimBatchItem[]): Promise<TxMetadata> {
         const now = new Date().getTime();
         const json = PsyJSON.stringify(claims);
@@ -102,6 +112,16 @@ export class PsyWasmWebProverProvider implements IPsyUserProverProvider {
             server.exec_claim_batch_json(pkHash, json)
         );
         console.log(`claimBatch in ${(new Date().getTime() - now) / 1000} seconds`);
+        return PsyJSON.parse(result) as TxMetadata;
+    }
+
+    async claimBatchWithoutProof(pkHash: string, claims: ClaimBatchItem[]): Promise<TxMetadata> {
+        const now = new Date().getTime();
+        const json = PsyJSON.stringify(claims);
+        const result = await PsyWasmWebProverProvider.runWasmServerCall((server) =>
+            server.exec_claim_batch_without_proof_json(pkHash, json)
+        );
+        console.log(`claimBatchWithoutProof in ${(new Date().getTime() - now) / 1000} seconds`);
         return PsyJSON.parse(result) as TxMetadata;
     }
 

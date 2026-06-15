@@ -389,50 +389,12 @@ struct ShieldDepositClaimRaw {
     contract_id: String,
 }
 
-#[wasm_bindgen]
 impl WasmRpcServer {
-    #[wasm_bindgen(constructor)]
-    pub async fn new(rpc_config_json: &str) -> Result<WasmRpcServer, JsError> {
-        let rpc_config: RpcConfig<F> = serde_json::from_str(rpc_config_json)
-            .map_err(|e| JsError::new(&format!("Parse RPC config error: {}", e)))?;
-
-        let wallet_session = WalletSession::new(&rpc_config)
-            .await
-            .map_err(|e| JsError::new(&format!("Create wallet session error: {}", e)))?;
-
-        Ok(WasmRpcServer {
-            store: UserProverWorkerStore::new(),
-            wallet_session,
-        })
-    }
-
-    #[wasm_bindgen]
-    pub async fn exec_contract_call_json(
-        &mut self,
-        pk_hash: &str,
-        call_data_json: &str,
-    ) -> Result<String, JsError> {
-        let call_data: ContractCallData = serde_json::from_str(call_data_json)
-            .map_err(|e| JsError::new(&format!("Parse call data JSON error: {}", e)))?;
-
-        let pk_hash = QHashOut::<F>::from_str(pk_hash)
-            .map_err(|e| JsError::new(&format!("Parse public key hash error: {}", e)))?;
-
-        let tx_metadata = self
-            .wallet_session
-            .exec_contract_call(pk_hash, call_data)
-            .await
-            .map_err(|e| JsError::new(&format!("Error exec calls error: {}", e)))?;
-        serde_json::to_string(&tx_metadata)
-            .map_err(|e| JsError::new(&format!("Serialize tx metadata error: {}", e)))
-    }
-
-    #[wasm_bindgen]
-    pub async fn exec_claim_batch_json(
-        &mut self,
-        pk_hash: &str,
+    async fn parse_claim_batch_items(
+        &self,
+        pk_hash: QHashOut<F>,
         claims_json: &str,
-    ) -> Result<String, JsError> {
+    ) -> Result<Vec<ClaimBatchItem>, JsError> {
         use base64::engine::general_purpose::STANDARD as BASE64;
         use base64::Engine;
         use psy_common_circuit::circuits::traits::qstandard::QStandardCircuit;
@@ -448,9 +410,6 @@ impl WasmRpcServer {
         use psy_dpn_circuit::circuits::privacy::shield_deposit_claim::ShieldDepositClaimCircuit;
 
         const NOTE_TREE_HEIGHT: usize = 20;
-
-        let pk_hash = QHashOut::<F>::from_str(pk_hash)
-            .map_err(|e| JsError::new(&format!("Parse public key hash error: {}", e)))?;
 
         let items: Vec<WalletClaimBatchItem> = serde_json::from_str(claims_json)
             .map_err(|e| JsError::new(&format!("Parse claim batch JSON error: {}", e)))?;
@@ -591,7 +550,7 @@ impl WasmRpcServer {
                     let deposit_siblings: Vec<QHashOut<F>> = input
                         .deposit_siblings
                         .into_iter()
-                        .map(|sibling| parse_u64_arr(sibling).map(|arr| qhash_from_u64_arr(arr)))
+                        .map(|sibling| parse_u64_arr(sibling).map(qhash_from_u64_arr))
                         .collect::<Result<Vec<_>, _>>()?;
                     let random0: u64 = input
                         .random0
@@ -681,11 +640,103 @@ impl WasmRpcServer {
             }
         }
 
+        Ok(claims)
+    }
+}
+
+#[wasm_bindgen]
+impl WasmRpcServer {
+    #[wasm_bindgen(constructor)]
+    pub async fn new(rpc_config_json: &str) -> Result<WasmRpcServer, JsError> {
+        let rpc_config: RpcConfig<F> = serde_json::from_str(rpc_config_json)
+            .map_err(|e| JsError::new(&format!("Parse RPC config error: {}", e)))?;
+
+        let wallet_session = WalletSession::new(&rpc_config)
+            .await
+            .map_err(|e| JsError::new(&format!("Create wallet session error: {}", e)))?;
+
+        Ok(WasmRpcServer {
+            store: UserProverWorkerStore::new(),
+            wallet_session,
+        })
+    }
+
+    #[wasm_bindgen]
+    pub async fn exec_contract_call_json(
+        &mut self,
+        pk_hash: &str,
+        call_data_json: &str,
+    ) -> Result<String, JsError> {
+        let call_data: ContractCallData = serde_json::from_str(call_data_json)
+            .map_err(|e| JsError::new(&format!("Parse call data JSON error: {}", e)))?;
+
+        let pk_hash = QHashOut::<F>::from_str(pk_hash)
+            .map_err(|e| JsError::new(&format!("Parse public key hash error: {}", e)))?;
+
+        let tx_metadata = self
+            .wallet_session
+            .exec_contract_call(pk_hash, call_data)
+            .await
+            .map_err(|e| JsError::new(&format!("Error exec calls error: {}", e)))?;
+        serde_json::to_string(&tx_metadata)
+            .map_err(|e| JsError::new(&format!("Serialize tx metadata error: {}", e)))
+    }
+
+    #[wasm_bindgen]
+    pub async fn exec_contract_call_without_proof_json(
+        &mut self,
+        pk_hash: &str,
+        call_data_json: &str,
+    ) -> Result<String, JsError> {
+        let call_data: ContractCallData = serde_json::from_str(call_data_json)
+            .map_err(|e| JsError::new(&format!("Parse call data JSON error: {}", e)))?;
+
+        let pk_hash = QHashOut::<F>::from_str(pk_hash)
+            .map_err(|e| JsError::new(&format!("Parse public key hash error: {}", e)))?;
+
+        let tx_metadata = self
+            .wallet_session
+            .exec_contract_call_without_proof(pk_hash, call_data)
+            .await
+            .map_err(|e| JsError::new(&format!("Error exec calls without proof error: {}", e)))?;
+        serde_json::to_string(&tx_metadata)
+            .map_err(|e| JsError::new(&format!("Serialize tx metadata error: {}", e)))
+    }
+
+    #[wasm_bindgen]
+    pub async fn exec_claim_batch_json(
+        &mut self,
+        pk_hash: &str,
+        claims_json: &str,
+    ) -> Result<String, JsError> {
+        let pk_hash = QHashOut::<F>::from_str(pk_hash)
+            .map_err(|e| JsError::new(&format!("Parse public key hash error: {}", e)))?;
+        let claims = self.parse_claim_batch_items(pk_hash, claims_json).await?;
+
         let tx_metadata = self
             .wallet_session
             .claim_batch(pk_hash, claims)
             .await
             .map_err(|e| JsError::new(&format!("claim_batch error: {}", e)))?;
+        serde_json::to_string(&tx_metadata)
+            .map_err(|e| JsError::new(&format!("Serialize tx metadata error: {}", e)))
+    }
+
+    #[wasm_bindgen]
+    pub async fn exec_claim_batch_without_proof_json(
+        &mut self,
+        pk_hash: &str,
+        claims_json: &str,
+    ) -> Result<String, JsError> {
+        let pk_hash = QHashOut::<F>::from_str(pk_hash)
+            .map_err(|e| JsError::new(&format!("Parse public key hash error: {}", e)))?;
+        let claims = self.parse_claim_batch_items(pk_hash, claims_json).await?;
+
+        let tx_metadata = self
+            .wallet_session
+            .claim_batch_without_proof(pk_hash, claims)
+            .await
+            .map_err(|e| JsError::new(&format!("claim_batch_without_proof error: {}", e)))?;
         serde_json::to_string(&tx_metadata)
             .map_err(|e| JsError::new(&format!("Serialize tx metadata error: {}", e)))
     }
