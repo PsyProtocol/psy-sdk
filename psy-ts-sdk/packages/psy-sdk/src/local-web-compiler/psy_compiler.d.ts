@@ -1,24 +1,24 @@
 /* tslint:disable */
 /* eslint-disable */
-export function get_transaction_log(): string;
-export function read_imt_state(contract_id: number, user_id: number): string;
-export function interpret_source(source: string, request_json: string): string;
-export function deploy_contract(deployer_id: bigint): string;
-export function read_contract_state(contract_id: bigint, user_id: bigint): string;
+export function compile_dargo_project(project_json: string): string;
+export function get_contracts(): string;
+export function call_contract(caller_id: bigint, contract_id: bigint, method_name: string, args_json: string): string;
+export function get_contract_abi(contract_id: bigint): string;
+export function init_chain(): void;
 export function compile_project(files_json: string): string;
-export function interpret_project(files_json: string, request_json: string): string;
-export function compile_source(source: string): string;
 export function get_accounts(): string;
+export function compile_source(source: string): string;
 export function init_logging(): void;
 export function create_account(name: string): string;
-export function call_contract(caller_id: bigint, contract_id: bigint, method_name: string, args_json: string): string;
 export function main(): void;
-export function compile_dargo_project(project_json: string): string;
-export function get_contract_abi(contract_id: bigint): string;
+export function deploy_contract(deployer_id: bigint): string;
 export function reset_chain(): void;
+export function interpret_source(source: string, request_json: string): string;
+export function get_transaction_log(): string;
 export function init_psy_ide(): void;
-export function get_contracts(): string;
-export function init_chain(): void;
+export function read_imt_state(contract_id: number, user_id: number): string;
+export function interpret_project(files_json: string, request_json: string): string;
+export function read_contract_state(contract_id: bigint, user_id: bigint): string;
 
 export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembly.Module;
 
@@ -34,14 +34,14 @@ export interface InitOutput {
   readonly get_contract_abi: (a: bigint) => [number, number];
   readonly get_contracts: () => [number, number];
   readonly get_transaction_log: () => [number, number];
+  readonly init_chain: () => void;
+  readonly init_logging: () => void;
   readonly interpret_project: (a: number, b: number, c: number, d: number) => [number, number];
   readonly interpret_source: (a: number, b: number, c: number, d: number) => [number, number];
   readonly read_contract_state: (a: bigint, b: bigint) => [number, number];
   readonly read_imt_state: (a: number, b: number) => [number, number];
-  readonly init_logging: () => void;
   readonly init_psy_ide: () => void;
   readonly main: () => void;
-  readonly init_chain: () => void;
   readonly reset_chain: () => void;
   readonly __wbindgen_free: (a: number, b: number, c: number) => void;
   readonly __wbindgen_exn_store: (a: number) => void;
