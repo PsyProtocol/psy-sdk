@@ -347,66 +347,27 @@ pub struct WasmRpcServer {
     wallet_session: WalletSession,
 }
 
-#[wasm_bindgen]
 impl WasmRpcServer {
-    #[wasm_bindgen(constructor)]
-    pub async fn new(rpc_config_json: &str) -> Result<WasmRpcServer, JsError> {
-        let rpc_config: RpcConfig<F> = serde_json::from_str(rpc_config_json)
-            .map_err(|e| JsError::new(&format!("Parse RPC config error: {}", e)))?;
-
-        let wallet_session = WalletSession::new(&rpc_config)
-            .await
-            .map_err(|e| JsError::new(&format!("Create wallet session error: {}", e)))?;
-
-        Ok(WasmRpcServer {
-            store: UserProverWorkerStore::new(),
-            wallet_session,
-        })
-    }
-
-    #[wasm_bindgen]
-    pub async fn exec_contract_call_json(
+    async fn build_claim_batch_trace_envelope(
         &mut self,
-        pk_hash: &str,
-        call_data_json: &str,
-    ) -> Result<String, JsError> {
-        let call_data: ContractCallData = serde_json::from_str(call_data_json)
-            .map_err(|e| JsError::new(&format!("Parse call data JSON error: {}", e)))?;
-
-        let pk_hash = QHashOut::<F>::from_str(pk_hash)
-            .map_err(|e| JsError::new(&format!("Parse public key hash error: {}", e)))?;
-
-        let end_user_leaf_hash = self
-            .wallet_session
-            .exec_contract_call(pk_hash, call_data)
-            .await
-            .map_err(|e| JsError::new(&format!("Error exec calls error: {}", e)))?;
-        Ok(end_user_leaf_hash.to_string())
-    }
-
-    #[wasm_bindgen]
-    pub async fn exec_claim_batch_json(
-        &mut self,
-        pk_hash: &str,
-        claims_json: &str,
-    ) -> Result<String, JsError> {
+        pk_hash_str: &str,
+        items_json: &str,
+    ) -> Result<psy_prover::trace::GeneratedTxTraceJson, JsError> {
         use base64::engine::general_purpose::STANDARD as BASE64;
         use base64::Engine;
+        use plonky2::field::types::PrimeField64;
         use psy_common_circuit::circuits::traits::qstandard::QStandardCircuit;
+        use psy_config::network_constants::{GLOBAL_CONTRACT_TREE_HEIGHT, GLOBAL_USER_TREE_HEIGHT, MAX_CONTRACT_STATE_TREE_HEIGHT};
         use psy_crypto::hash::merkle::core::MerkleProofCore;
-        use psy_config::network_constants::{
-            GLOBAL_CONTRACT_TREE_HEIGHT, GLOBAL_USER_TREE_HEIGHT, MAX_CONTRACT_STATE_TREE_HEIGHT,
-        };
-        use psy_crypto::shield_address::{
-            derive_deposit_commitment, derive_nullifier_hash, derive_shield_address,
-        };
+        use psy_crypto::shield_address::{derive_deposit_commitment, derive_nullifier_hash, derive_shield_address};
         use psy_data::privacy::shield_deposit_claim::ShieldDepositClaimInput;
-        use psy_dpn_circuit::circuits::privacy::shield_deposit_claim::ShieldDepositClaimCircuit;
         use psy_dpn_circuit::circuits::privacy::private_note_inclusion::PrivateNoteInclusionCircuit;
+        use psy_dpn_circuit::circuits::privacy::shield_deposit_claim::ShieldDepositClaimCircuit;
+        use psy_prover::trace::GeneratedTxTraceJson;
 
         const NOTE_TREE_HEIGHT: usize = 20;
 
-        let pk_hash = QHashOut::<F>::from_str(pk_hash)
+        let pk_hash = QHashOut::<F>::from_str(pk_hash_str)
             .map_err(|e| JsError::new(&format!("Parse public key hash error: {}", e)))?;
 
         #[derive(serde::Deserialize)]
@@ -432,6 +393,8 @@ impl WasmRpcServer {
             random0: String,
             random1: String,
             #[serde(default)]
+            note_proof_fingerprint: Option<[String; 4]>,
+            #[serde(default)]
             shield_address: Option<String>,
         }
 
@@ -451,9 +414,8 @@ impl WasmRpcServer {
             contract_id: String,
         }
 
-        let items: Vec<WalletClaimBatchItem> = serde_json::from_str(claims_json)
+        let items: Vec<WalletClaimBatchItem> = serde_json::from_str(items_json)
             .map_err(|e| JsError::new(&format!("Parse claim batch JSON error: {}", e)))?;
-
         if items.is_empty() {
             return Err(JsError::new("No claims to execute"));
         }
@@ -489,47 +451,66 @@ impl WasmRpcServer {
             QHashOut::from_values(arr[0], arr[1], arr[2], arr[3])
         };
 
-        let mut claims: Vec<ClaimBatchItem> = Vec::new();
-
+        let mut builder = self
+            .wallet_session
+            .begin_trace_build(pk_hash)
+            .await
+            .map_err(|e| JsError::new(&format!("begin_trace_build error: {}", e)))?;
+        let mut ordered_calls: Vec<ContractCallArgs> = Vec::new();
         for item in items {
             match item {
                 WalletClaimBatchItem::Public(call) => {
-                    claims.push(ClaimBatchItem::Public(call));
+                    builder
+                        .trace_call(call.clone())
+                        .await
+                        .map_err(|e| JsError::new(&format!("trace public call error: {}", e)))?;
+                    ordered_calls.push(call);
                 }
                 WalletClaimBatchItem::PrivateTransfer { contract_id, claim: input } => {
-                    let proof_bytes = BASE64.decode(input.note_proof_bincode_b64.as_bytes())
+                    let proof_bytes = BASE64
+                        .decode(input.note_proof_bincode_b64.as_bytes())
                         .map_err(|e| JsError::new(&format!("base64 decode: {}", e)))?;
-                    let proof: ProofWithPublicInputs<F, C, D> =
-                        match ProofWithPublicInputs::<F, C, D>::from_bytes(
-                            proof_bytes.clone(),
-                            circuit.get_common_circuit_data_ref(),
-                        ) {
-                            Ok(p) => p,
-                            Err(native_err) => bincode::deserialize(&proof_bytes).map_err(|bin_err| {
-                                JsError::new(&format!(
-                                    "proof deserialize: native={} ; bincode={}",
-                                    native_err, bin_err
-                                ))
-                            })?,
-                        };
-                    let fingerprint = circuit.get_fingerprint();
-                    let verifier_data = circuit.get_verifier_config_ref().clone();
+                    let proof: ProofWithPublicInputs<F, C, D> = match ProofWithPublicInputs::<F, C, D>::from_bytes(
+                        proof_bytes.clone(),
+                        circuit.get_common_circuit_data_ref(),
+                    ) {
+                        Ok(p) => p,
+                        Err(native_err) => bincode::deserialize(&proof_bytes).map_err(|bin_err| {
+                            JsError::new(&format!(
+                                "proof deserialize: native={} ; bincode={}",
+                                native_err, bin_err
+                            ))
+                        })?,
+                    };
+
+                    let proof_fingerprint = if let Some(raw) = input.note_proof_fingerprint.clone() {
+                        qhash_from_u64_arr(parse_u64_arr(raw)?)
+                    } else {
+                        circuit.get_fingerprint()
+                    };
+                    // Use local circuit verifier data directly. The proof was generated by
+                    // the same PrivateNoteInclusionCircuit with the same parameters; fingerprint
+                    // may differ between native/wasm compilation targets due to blinding/padding,
+                    // but the circuit logic is identical.
+                    let verifier_data = if let Ok(info) = self
+                        .wallet_session
+                        .circuit_info
+                        .get_circuit_info_by_fingerprint(proof_fingerprint)
+                    {
+                        info.verifier_data.to_verifier_data::<C, D>()
+                    } else {
+                        circuit.get_verifier_config_ref().clone()
+                    };
 
                     let nullifier = parse_u64_arr(input.nullifier)?;
                     let owner = parse_u64_arr(input.owner)?;
-                    let amount: u64 = input.amount.parse()
-                        .map_err(|e: std::num::ParseIntError| JsError::new(&e.to_string()))?;
+                    let amount: u64 = input.amount.parse().map_err(|e: std::num::ParseIntError| JsError::new(&e.to_string()))?;
                     let user_tree_root = parse_u64_arr(input.user_tree_root)?;
-                    let checkpoint_id: u64 = input.checkpoint_id.parse()
-                        .map_err(|e: std::num::ParseIntError| JsError::new(&e.to_string()))?;
-                    let note_root_slot: u64 = input.note_root_slot.parse()
-                        .map_err(|e: std::num::ParseIntError| JsError::new(&e.to_string()))?;
-                    let random0: u64 = input.random0.parse()
-                        .map_err(|e: std::num::ParseIntError| JsError::new(&e.to_string()))?;
-                    let random1: u64 = input.random1.parse()
-                        .map_err(|e: std::num::ParseIntError| JsError::new(&e.to_string()))?;
-                    let contract_id: u64 = contract_id.parse()
-                        .map_err(|e: std::num::ParseIntError| JsError::new(&e.to_string()))?;
+                    let checkpoint_id: u64 = input.checkpoint_id.parse().map_err(|e: std::num::ParseIntError| JsError::new(&e.to_string()))?;
+                    let note_root_slot: u64 = input.note_root_slot.parse().map_err(|e: std::num::ParseIntError| JsError::new(&e.to_string()))?;
+                    let random0: u64 = input.random0.parse().map_err(|e: std::num::ParseIntError| JsError::new(&e.to_string()))?;
+                    let random1: u64 = input.random1.parse().map_err(|e: std::num::ParseIntError| JsError::new(&e.to_string()))?;
+                    let contract_id: u64 = contract_id.parse().map_err(|e: std::num::ParseIntError| JsError::new(&e.to_string()))?;
 
                     let claim = PrivateTransferClaim {
                         nullifier,
@@ -540,12 +521,21 @@ impl WasmRpcServer {
                         note_root_slot,
                         random0,
                         random1,
-                        note_proof_fingerprint: fingerprint,
-                        note_proof: proof,
-                        note_verifier_data: verifier_data.into(),
+                        note_proof_fingerprint: proof_fingerprint,
+                        note_proof: proof.clone(),
+                        note_verifier_data: verifier_data.clone().into(),
                     };
 
-                    claims.push(ClaimBatchItem::PrivateTransfer { contract_id, claim });
+                    let proof_ref = builder
+                        .add_external_proof(proof_fingerprint, proof, verifier_data)
+                        .await
+                        .map_err(|e| JsError::new(&format!("add_external_proof error: {}", e)))?;
+                    let call = claim.to_contract_call_args(contract_id, &proof_ref);
+                    builder
+                        .trace_call(call.clone())
+                        .await
+                        .map_err(|e| JsError::new(&format!("trace private claim call error: {}", e)))?;
+                    ordered_calls.push(call);
                 }
                 WalletClaimBatchItem::ClaimShieldDeposit(input) => {
                     let nullifier_secret = parse_u64_arr(input.nullifier)?;
@@ -553,35 +543,24 @@ impl WasmRpcServer {
                     let token_address = parse_u32_arr(input.token_address_u32x8)?;
                     let l2_token_contract_id = parse_u32_arr(input.l2_token_contract_id)?;
                     let amount = parse_u32_arr(input.amount_u32x8)?;
-                    let source_chain_index: u32 = input.source_chain_index
-                        .parse()
-                        .map_err(|e: std::num::ParseIntError| JsError::new(&e.to_string()))?;
-                    let deposit_index: u64 = input.deposit_index
-                        .parse()
-                        .map_err(|e: std::num::ParseIntError| JsError::new(&e.to_string()))?;
+                    let source_chain_index: u32 = input.source_chain_index.parse().map_err(|e: std::num::ParseIntError| JsError::new(&e.to_string()))?;
+                    let deposit_index: u64 = input.deposit_index.parse().map_err(|e: std::num::ParseIntError| JsError::new(&e.to_string()))?;
                     let deposit_root = qhash_from_u64_arr(parse_u64_arr(input.deposit_root)?);
-                    let deposit_siblings: Vec<QHashOut<F>> = input.deposit_siblings
+                    let deposit_siblings: Vec<QHashOut<F>> = input
+                        .deposit_siblings
                         .into_iter()
-                        .map(|sibling| parse_u64_arr(sibling).map(|arr| qhash_from_u64_arr(arr)))
+                        .map(|sibling| parse_u64_arr(sibling).map(qhash_from_u64_arr))
                         .collect::<Result<Vec<_>, _>>()?;
-                    let random0: u64 = input.random0
-                        .parse()
-                        .map_err(|e: std::num::ParseIntError| JsError::new(&e.to_string()))?;
-                    let random1: u64 = input.random1
-                        .parse()
-                        .map_err(|e: std::num::ParseIntError| JsError::new(&e.to_string()))?;
-                    let contract_id: u64 = input.contract_id
-                        .parse()
-                        .map_err(|e: std::num::ParseIntError| JsError::new(&e.to_string()))?;
+                    let random0: u64 = input.random0.parse().map_err(|e: std::num::ParseIntError| JsError::new(&e.to_string()))?;
+                    let random1: u64 = input.random1.parse().map_err(|e: std::num::ParseIntError| JsError::new(&e.to_string()))?;
+                    let contract_id: u64 = input.contract_id.parse().map_err(|e: std::num::ParseIntError| JsError::new(&e.to_string()))?;
 
                     let provider = self.wallet_session.st_provider.clone();
                     let user_ids = provider
                         .get_user_ids_for_public_key(pk_hash)
                         .await
                         .map_err(|e| JsError::new(&format!("get_user_ids_for_public_key: {}", e)))?;
-                    let user_id = *user_ids
-                        .first()
-                        .ok_or_else(|| JsError::new("No user ID found for public key"))?;
+                    let user_id = *user_ids.first().ok_or_else(|| JsError::new("No user ID found for public key"))?;
 
                     let shield_address = derive_shield_address(user_id, random0, random1);
                     let nullifier_hash = derive_nullifier_hash(nullifier_secret);
@@ -620,7 +599,7 @@ impl WasmRpcServer {
                     let proof_fingerprint = circuit.get_fingerprint();
                     let verifier_data = circuit.get_verifier_config_ref().clone();
 
-                    claims.push(ClaimBatchItem::ShieldDeposit(ShieldDepositClaim {
+                    let claim = ShieldDepositClaim {
                         contract_id,
                         l2_token_contract_id,
                         nullifier_hash,
@@ -632,19 +611,172 @@ impl WasmRpcServer {
                         r0: random0,
                         r1: random1,
                         proof_fingerprint,
-                        proof,
-                        verifier_data: verifier_data.into(),
-                    }));
+                        proof: proof.clone(),
+                        verifier_data: verifier_data.clone().into(),
+                    };
+                    let proof_ref = builder
+                        .add_external_proof(proof_fingerprint, proof, verifier_data)
+                        .await
+                        .map_err(|e| JsError::new(&format!("add_external_proof error: {}", e)))?;
+                    let call = claim.to_contract_call_args(&proof_ref);
+                    builder
+                        .trace_call(call.clone())
+                        .await
+                        .map_err(|e| JsError::new(&format!("trace shield deposit claim call error: {}", e)))?;
+                    ordered_calls.push(call);
                 }
             }
         }
 
-        let tx_hash = self
-            .wallet_session
-            .claim_batch(pk_hash, claims)
+        let call_data = ContractCallData::new(ordered_calls);
+        let call_data_value = serde_json::to_value(&call_data)
+            .map_err(|e| JsError::new(&format!("Serialize call data error: {}", e)))?;
+        let trace = builder
+            .finalize_tx_trace_with_opts(call_data.software_defined_call.clone())
             .await
-            .map_err(|e| JsError::new(&format!("claim_batch error: {}", e)))?;
-        Ok(tx_hash.to_string())
+            .map_err(|e| JsError::new(&format!("generate batch claim tx trace error: {}", e)))?;
+        GeneratedTxTraceJson::from_trace(&trace, call_data_value)
+            .map_err(|e| JsError::new(&format!("serialize trace envelope: {}", e)))
+    }
+}
+
+#[wasm_bindgen]
+impl WasmRpcServer {
+    #[wasm_bindgen(constructor)]
+    pub async fn new(rpc_config_json: &str) -> Result<WasmRpcServer, JsError> {
+        let rpc_config: RpcConfig<F> = serde_json::from_str(rpc_config_json)
+            .map_err(|e| JsError::new(&format!("Parse RPC config error: {}", e)))?;
+
+        let wallet_session = WalletSession::new(&rpc_config)
+            .await
+            .map_err(|e| JsError::new(&format!("Create wallet session error: {}", e)))?;
+
+        Ok(WasmRpcServer {
+            store: UserProverWorkerStore::new(),
+            wallet_session,
+        })
+    }
+
+    #[wasm_bindgen]
+    pub async fn exec_contract_call_json(
+        &mut self,
+        pk_hash: &str,
+        call_data_json: &str,
+    ) -> Result<String, JsError> {
+        let call_data: ContractCallData = serde_json::from_str(call_data_json)
+            .map_err(|e| JsError::new(&format!("Parse call data JSON error: {}", e)))?;
+
+        let pk_hash = QHashOut::<F>::from_str(pk_hash)
+            .map_err(|e| JsError::new(&format!("Parse public key hash error: {}", e)))?;
+
+        let end_user_leaf_hash = self
+            .wallet_session
+            .exec_contract_call(pk_hash, call_data)
+            .await
+            .map_err(|e| JsError::new(&format!("Error exec calls error: {}", e)))?;
+        Ok(end_user_leaf_hash.to_string())
+    }
+
+    #[wasm_bindgen]
+    pub async fn generate_tx_trace_json(
+        &mut self,
+        pk_hash: &str,
+        call_data_json: &str,
+    ) -> Result<String, JsError> {
+        let pk_hash = QHashOut::<F>::from_str(pk_hash)
+            .map_err(|e| JsError::new(&format!("Parse public key hash error: {}", e)))?;
+        let call_data: ContractCallData = serde_json::from_str(&call_data_json)
+            .map_err(|e| JsError::new(&format!("Invalid call data JSON: {}", e)))?;
+        let call_data_value = serde_json::to_value(&call_data)
+            .map_err(|e| JsError::new(&format!("Serialize call data error: {}", e)))?;
+        let trace = self
+            .wallet_session
+            .generate_tx_trace_with_opts(pk_hash, call_data)
+            .await
+            .map_err(|e| JsError::new(&format!("Error generating tx trace: {}", e)))?;
+        let envelope = psy_prover::trace::GeneratedTxTraceJson::from_trace(&trace, call_data_value)
+            .map_err(|e| JsError::new(&format!("Error serializing tx trace: {}", e)))?;
+        serde_json::to_string(&envelope)
+            .map_err(|e| JsError::new(&format!("Error serializing envelope: {}", e)))
+    }
+
+    #[wasm_bindgen]
+    pub async fn prove_tx_trace_json(
+        &mut self,
+        pk_hash: &str,
+        envelope_json: &str,
+    ) -> Result<String, JsError> {
+        let pk_hash = QHashOut::<F>::from_str(pk_hash)
+            .map_err(|e| JsError::new(&format!("Parse public key hash error: {}", e)))?;
+        let envelope: psy_prover::trace::GeneratedTxTraceJson = serde_json::from_str(envelope_json)
+            .map_err(|e| JsError::new(&format!("Invalid trace envelope JSON: {}", e)))?;
+        let trace: psy_prover::trace::TxTrace = match envelope.trace.encoding.as_str() {
+            "json" => serde_json::from_str(&envelope.trace.payload)
+                .map_err(|e| JsError::new(&format!("Invalid tx trace JSON payload: {}", e)))?,
+            other => {
+                return Err(JsError::new(&format!(
+                    "Unsupported trace encoding: {}",
+                    other
+                )))
+            }
+        };
+        let end_user_leaf_hash = self
+            .wallet_session
+            .prove_tx_trace(pk_hash, &trace)
+            .await
+            .map_err(|e| JsError::new(&format!("Error proving tx trace: {}", e)))?;
+        Ok(end_user_leaf_hash.to_string())
+    }
+
+    #[wasm_bindgen]
+    pub async fn generate_batch_claim_tx_trace_json(
+        &mut self,
+        pk_hash: &str,
+        items_json: &str,
+    ) -> Result<String, JsError> {
+        let envelope = self
+            .build_claim_batch_trace_envelope(pk_hash, items_json)
+            .await?;
+        serde_json::to_string(&envelope)
+            .map_err(|e| JsError::new(&format!("Error serializing batch claim tx trace: {}", e)))
+    }
+
+    #[wasm_bindgen]
+    pub async fn batch_claim_json(
+        &mut self,
+        pk_hash: &str,
+        items_json: &str,
+    ) -> Result<String, JsError> {
+        let envelope = self
+            .build_claim_batch_trace_envelope(pk_hash, items_json)
+            .await?;
+        let pk_hash = QHashOut::<F>::from_str(pk_hash)
+            .map_err(|e| JsError::new(&format!("Parse public key hash error: {}", e)))?;
+        let trace: psy_prover::trace::TxTrace = match envelope.trace.encoding.as_str() {
+            "json" => serde_json::from_str(&envelope.trace.payload)
+                .map_err(|e| JsError::new(&format!("Invalid tx trace JSON payload: {}", e)))?,
+            other => {
+                return Err(JsError::new(&format!(
+                    "Unsupported trace encoding: {}",
+                    other
+                )))
+            }
+        };
+        let end_user_leaf_hash = self
+            .wallet_session
+            .prove_tx_trace(pk_hash, &trace)
+            .await
+            .map_err(|e| JsError::new(&format!("Error batch claiming: {}", e)))?;
+        Ok(end_user_leaf_hash.to_string())
+    }
+
+    #[wasm_bindgen]
+    pub async fn exec_claim_batch_json(
+        &mut self,
+        pk_hash: &str,
+        claims_json: &str,
+    ) -> Result<String, JsError> {
+        self.batch_claim_json(pk_hash, claims_json).await
     }
 
     // Local proving operations
@@ -1734,9 +1866,13 @@ impl WasmRpcServer {
         allowed_method_ids: &[u64],
         expected_tx_count: u64,
     ) -> Result<String, JsError> {
+        let allowed_method_ids_u32: Vec<u32> = allowed_method_ids
+            .iter()
+            .map(|id| u32::try_from(*id).map_err(|_| JsError::new("allowed_method_id exceeds u32")))
+            .collect::<Result<_, _>>()?;
         let fingerprint = self
             .wallet_session
-            .register_sdk_key_circuit(allowed_contract_ids, allowed_method_ids, expected_tx_count)
+            .register_sd_key_circuit(allowed_contract_ids, &allowed_method_ids_u32, expected_tx_count)
             .await
             .map_err(|e| JsError::new(&format!("Register sd key circuit error: {}", e)))?;
         Ok(fingerprint.to_string())

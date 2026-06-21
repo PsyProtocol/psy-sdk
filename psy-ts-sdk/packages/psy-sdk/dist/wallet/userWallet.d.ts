@@ -1,0 +1,26 @@
+import { IPsyUserWallet, IPsyCompleteUserInfo } from "./types";
+import { ICoordinatorEdgeRpcProvider } from "../coord-edge-rpc";
+import { ContractCallArgs, DPNFunctionCircuitDefinition } from "../local-prover-rpc";
+import { PsyUserLeaf } from "../types";
+import { IPsyTransactionSigner } from "../zksigner";
+import { IRealmEdgeRpcProvider } from "../realm-edge-rpc";
+import { NetworkId } from "../action";
+declare class PsyUserWallet implements IPsyUserWallet {
+    networkId: NetworkId;
+    networkMagic: bigint;
+    coordinator: ICoordinatorEdgeRpcProvider;
+    realm: IRealmEdgeRpcProvider;
+    signer: IPsyTransactionSigner;
+    userId: number;
+    publicKeyHex: string;
+    status: boolean;
+    constructor(networkId: NetworkId, signer: IPsyTransactionSigner, coordinator: ICoordinatorEdgeRpcProvider, realm: IRealmEdgeRpcProvider, userId: number, publicKeyHex: string, status: boolean);
+    refresh(): Promise<PsyUserLeaf>;
+    getUserInfo(): Promise<IPsyCompleteUserInfo>;
+    getBalance(): Promise<bigint>;
+    getBalanceString(): Promise<string>;
+    deployContract(pk_hash: string, circuitDefs: DPNFunctionCircuitDefinition[]): Promise<string>;
+    execContractCall(pk_hash: string, contractCallArgs: ContractCallArgs | ContractCallArgs[]): Promise<string>;
+}
+export { PsyUserWallet };
+//# sourceMappingURL=userWallet.d.ts.map

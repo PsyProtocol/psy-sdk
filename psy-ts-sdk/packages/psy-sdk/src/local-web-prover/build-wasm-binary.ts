@@ -22,15 +22,26 @@ function runWasmPack(target: "web" | "nodejs", outDir: string, rustSdkDir: strin
 }
 
 function ensureWasmArtifacts() {
-    if (fs.existsSync(wasmPath)) {
-        return;
-    }
-
-    console.log("WASM binary not found. Building via wasm-pack...");
+    console.log("Building prover WASM artifacts via wasm-pack...");
 
     const rustSdkDir = path.resolve(__dirname, "../../../../../psy-rust-sdk");
     const webOutDir = path.resolve(__dirname);
     const nodeOutDir = path.resolve(__dirname, "../local-prover");
+
+    for (const stalePath of [
+        path.join(webOutDir, "psy_prover.js"),
+        path.join(webOutDir, "psy_prover.d.ts"),
+        path.join(webOutDir, "psy_prover_bg.wasm"),
+        path.join(webOutDir, "psy_prover_bg.wasm.d.ts"),
+        path.join(nodeOutDir, "psy_prover.js"),
+        path.join(nodeOutDir, "psy_prover.d.ts"),
+        path.join(nodeOutDir, "psy_prover_bg.wasm"),
+        path.join(nodeOutDir, "psy_prover_bg.wasm.d.ts"),
+    ]) {
+        if (fs.existsSync(stalePath)) {
+            fs.rmSync(stalePath, { force: true });
+        }
+    }
 
     runWasmPack("web", webOutDir, rustSdkDir);
     runWasmPack("nodejs", nodeOutDir, rustSdkDir);

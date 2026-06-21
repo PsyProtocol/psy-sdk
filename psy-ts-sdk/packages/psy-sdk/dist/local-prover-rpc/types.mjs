@@ -1,0 +1,10 @@
+var SignType;
+(function (SignType) {
+    SignType["ZKSign"] = "zk";
+    SignType["SECP256K1Sign"] = "secp256k1";
+    SignType["SoftwareDefinedDPNSign"] = "software-defined-dpn";
+    SignType["SoftwareDefinedPlonky2Sign"] = "software-defined-plonky2";
+    SignType["SDKKeySign"] = "sdk-key";
+})(SignType || (SignType = {}));
+
+export { SignType };

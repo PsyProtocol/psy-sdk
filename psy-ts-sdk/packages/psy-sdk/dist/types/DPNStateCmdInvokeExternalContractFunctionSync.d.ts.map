@@ -1,0 +1,1 @@
+{"version":3,"file":"DPNStateCmdInvokeExternalContractFunctionSync.d.ts","sourceRoot":"","sources":["../../src/types/DPNStateCmdInvokeExternalContractFunctionSync.ts"],"names":[],"mappings":"AAEA,MAAM,MAAM,6CAA6C,GAAG;IAAE,SAAS,EAAE,MAAM,CAAC;IAAC,WAAW,EAAE,MAAM,CAAC;IAAC,SAAS,EAAE,MAAM,CAAC;IAAC,UAAU,EAAE,KAAK,CAAC,MAAM,CAAC,CAAC;IAAC,WAAW,EAAE,MAAM,CAAC;CAAE,CAAC"}

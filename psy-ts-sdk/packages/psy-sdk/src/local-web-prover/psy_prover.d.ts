@@ -71,6 +71,7 @@ export class WasmRpcServer {
      */
     add_external_proof_json(pk_hash: string, note_proof_bincode_b64: string): Promise<string>;
     add_user(private_key_str: string, sign_type: string, sdk_key_fingerprint?: string | null): Promise<string>;
+    batch_claim_json(pk_hash: string, items_json: string): Promise<string>;
     deploy_contract_json(deployer: string, circuit_defs_json: string): Promise<string>;
     exec_claim_batch_json(pk_hash: string, claims_json: string): Promise<string>;
     /**
@@ -119,6 +120,8 @@ export class WasmRpcServer {
      * Returns the transaction hash string.
      */
     exec_shield_claim_deposit_json(pk_hash: string, nullifier_json: string, note_secret_hash_json: string, token_address_u32x8_json: string, l2_token_contract_id_json: string, amount_u32x8_json: string, source_chain_index: string, deposit_index: string, deposit_root_json: string, deposit_siblings_json: string, random0: string, random1: string, contract_id: string): Promise<string>;
+    generate_batch_claim_tx_trace_json(pk_hash: string, items_json: string): Promise<string>;
+    generate_tx_trace_json(pk_hash: string, call_data_json: string): Promise<string>;
     get_deploy_contract_cmd_json(deployer: string, circuit_defs_json: string): string;
     get_random_keypair_json(): Promise<string>;
     get_result(id_str: string): Uint8Array;
@@ -143,6 +146,7 @@ export class WasmRpcServer {
      * Returns JSON matching NoteProofOutput.
      */
     prove_private_note_inclusion_json(pk_hash: string, owner_json: string, amount: string, note_secret_hash_json: string, nullifier_secret_json: string, contract_id: string, note_root_slot: string, checkpoint_id: string): Promise<string>;
+    prove_tx_trace_json(pk_hash: string, envelope_json: string): Promise<string>;
     register_sdk_key_circuit(allowed_contract_ids: BigUint64Array, allowed_method_ids: BigUint64Array, expected_tx_count: bigint): Promise<string>;
     register_user(private_key_str: string, sign_type: string, sdk_key_fingerprint?: string | null): Promise<string>;
     sign_and_submit(pk_hash: string, sign_data?: string | null): Promise<string>;
@@ -190,11 +194,14 @@ export interface InitOutput {
     readonly wasmpsyconfigbuilder_network: (a: number, b: number, c: number) => number;
     readonly wasmrpcserver_add_external_proof_json: (a: number, b: number, c: number, d: number, e: number) => any;
     readonly wasmrpcserver_add_user: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => any;
+    readonly wasmrpcserver_batch_claim_json: (a: number, b: number, c: number, d: number, e: number) => any;
     readonly wasmrpcserver_deploy_contract_json: (a: number, b: number, c: number, d: number, e: number) => any;
     readonly wasmrpcserver_exec_claim_batch_json: (a: number, b: number, c: number, d: number, e: number) => any;
     readonly wasmrpcserver_exec_claim_with_external_proof_json: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number, l: number, m: number, n: number, o: number, p: number, q: number, r: number, s: number, t: number, u: number, v: number, w: number) => any;
     readonly wasmrpcserver_exec_contract_call_json: (a: number, b: number, c: number, d: number, e: number) => any;
     readonly wasmrpcserver_exec_shield_claim_deposit_json: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number, l: number, m: number, n: number, o: number, p: number, q: number, r: number, s: number, t: number, u: number, v: number, w: number, x: number, y: number, z: number, a1: number) => any;
+    readonly wasmrpcserver_generate_batch_claim_tx_trace_json: (a: number, b: number, c: number, d: number, e: number) => any;
+    readonly wasmrpcserver_generate_tx_trace_json: (a: number, b: number, c: number, d: number, e: number) => any;
     readonly wasmrpcserver_get_deploy_contract_cmd_json: (a: number, b: number, c: number, d: number, e: number) => [number, number, number, number];
     readonly wasmrpcserver_get_random_keypair_json: (a: number) => any;
     readonly wasmrpcserver_get_result: (a: number, b: number, c: number) => [number, number, number, number];
@@ -204,6 +211,7 @@ export interface InitOutput {
     readonly wasmrpcserver_prove_contract_call_json: (a: number, b: number, c: number, d: number, e: number) => any;
     readonly wasmrpcserver_prove_contract_calls_json: (a: number, b: number, c: number, d: number, e: number) => any;
     readonly wasmrpcserver_prove_private_note_inclusion_json: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number, l: number, m: number, n: number, o: number, p: number, q: number) => any;
+    readonly wasmrpcserver_prove_tx_trace_json: (a: number, b: number, c: number, d: number, e: number) => any;
     readonly wasmrpcserver_register_sdk_key_circuit: (a: number, b: number, c: number, d: number, e: number, f: bigint) => any;
     readonly wasmrpcserver_register_user: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => any;
     readonly wasmrpcserver_sign_and_submit: (a: number, b: number, c: number, d: number, e: number) => any;

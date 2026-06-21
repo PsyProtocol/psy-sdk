@@ -80,6 +80,7 @@ export interface PrivateTransferClaimRaw {
     note_root_slot: string;
     random0: string;
     random1: string;
+    note_proof_fingerprint?: [string, string, string, string];
     shield_address?: string;
 }
 
@@ -187,6 +188,11 @@ interface IPsyUserProverProvider {
     proveContractCall(pk_hash: string, contractCallArg: ContractCallArgs): Promise<string>;
     proveContractCalls(pk_hash: string, contractCallArgs: ContractCallArgs[]): Promise<string>;
     signAndSubmit(pk_hash: string, signData?: SignData): Promise<string>;
+    generateTxTrace(pk_hash: string, callData: ContractCallData, localId?: string | null): Promise<string>;
+    simulateContractCall(pk_hash: string, callData: ContractCallData, localId?: string | null): Promise<string>;
+    proveTxTrace(pk_hash: string, envelopeJson: string): Promise<string>;
+    generateBatchClaimTxTrace(pk_hash: string, claims: ClaimBatchItem[], localId?: string | null): Promise<string>;
+    batchClaim(pk_hash: string, claims: ClaimBatchItem[], localId?: string | null): Promise<string>;
     claimBatch(pk_hash: string, claims: ClaimBatchItem[]): Promise<string>;
 
     getClaimRewardsCallArgs(jobInfos: string): Promise<ContractCallArgs[]>;
