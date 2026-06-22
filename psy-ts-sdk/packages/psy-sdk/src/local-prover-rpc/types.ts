@@ -1,5 +1,5 @@
 import { Felt, PrivateKey, PublicKey, QHashOut, U8Bytes } from "../core";
-import { QBCDeployContract, ZKPublicKeyInfo, ContractCallArgs, WalletKeyPair } from "../types";
+import { QBCDeployContract, ZKPublicKeyInfo, ContractCallArgs, WalletKeyPair, GUTAStats } from "../types";
 
 // Assertion for DPN function circuits
 interface DPNAssertEqInfoIndexed {
@@ -173,6 +173,96 @@ export interface ContractCallData {
     software_defined_call: SignData;
 }
 
+export type JsonPrimitive = string | number | boolean | null;
+export type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue };
+
+export interface TracePayload {
+    encoding: string;
+    payload: string;
+}
+
+export interface GeneratedTxTraceJson {
+    user_id: string;
+    pk_hash: string;
+    sig_hash: string;
+    tx_hash: string;
+    call_data: JsonValue;
+    tx_count: number;
+    trace: TracePayload;
+}
+
+export interface ProvedTxResultJson {
+    sig_hash: string;
+    tx_hash: string;
+    checkpoint_id: Felt | null;
+    status: string;
+}
+
+export interface TxStorageRead {
+    user_id: Felt;
+    contract_id: Felt;
+    slot_index: Felt;
+    value: QHashOut;
+}
+
+export interface TxStorageWrite {
+    user_id: Felt;
+    contract_id: Felt;
+    slot_index: Felt;
+    old_value: QHashOut;
+    new_value: QHashOut;
+}
+
+export interface TxStorageData {
+    reads: TxStorageRead[];
+    writes: TxStorageWrite[];
+}
+
+export interface ContractCallResultArgs {
+    contract_id: Felt;
+    method_name: string;
+    inputs: Felt[];
+    outputs: Felt[];
+}
+
+export interface ContractCallResultData {
+    contract_calls: ContractCallResultArgs[];
+    software_defined_call: SignData;
+}
+
+export interface TxEndCapData {
+    checkpoint_id: Felt;
+    user_id: Felt;
+    global_user_tree_height: number;
+    start_user_leaf_hash: QHashOut;
+    end_user_leaf_hash: QHashOut;
+    checkpoint_tree_root_hash: QHashOut;
+    stats: GUTAStats;
+}
+
+export interface TxProofMetadata {
+    storage_data: TxStorageData;
+    contract_calls: ContractCallResultArgs[];
+}
+
+export interface TxSubmitMetadata {
+    tx_hash: QHashOut;
+    end_cap_data: TxEndCapData;
+    storage_writes: TxStorageWrite[];
+}
+
+export interface TxMetadata {
+    tx_hash: QHashOut;
+    end_cap_data: TxEndCapData;
+    contract_call_data: ContractCallResultData;
+    storage_data: TxStorageData;
+}
+
+export interface SimulatedTxJson {
+    generated: GeneratedTxTraceJson;
+    metadata: TxMetadata;
+}
+
 export enum SignType {
     ZKSign = "zk",
     SECP256K1Sign = "secp256k1",
@@ -184,15 +274,17 @@ export enum SignType {
 interface IPsyUserProverProvider {
     // Local proving operations
     execContractCall(pk_hash: string, callData: ContractCallData): Promise<string>;
+    execContractCallWithTrace(pk_hash: string, callData: ContractCallData): Promise<TxMetadata>;
     startSession(pk_hash: string): Promise<string>;
     proveContractCall(pk_hash: string, contractCallArg: ContractCallArgs): Promise<string>;
     proveContractCalls(pk_hash: string, contractCallArgs: ContractCallArgs[]): Promise<string>;
     signAndSubmit(pk_hash: string, signData?: SignData): Promise<string>;
-    generateTxTrace(pk_hash: string, callData: ContractCallData, localId?: string | null): Promise<string>;
-    simulateContractCall(pk_hash: string, callData: ContractCallData, localId?: string | null): Promise<string>;
-    proveTxTrace(pk_hash: string, envelopeJson: string): Promise<string>;
-    generateBatchClaimTxTrace(pk_hash: string, claims: ClaimBatchItem[], localId?: string | null): Promise<string>;
+    generateTxTrace(pk_hash: string, callData: ContractCallData, localId?: string | null): Promise<GeneratedTxTraceJson>;
+    simulateContractCall(pk_hash: string, callData: ContractCallData, localId?: string | null): Promise<GeneratedTxTraceJson>;
+    proveTxTrace(pk_hash: string, envelopeJson: string | GeneratedTxTraceJson): Promise<string>;
+    generateBatchClaimTxTrace(pk_hash: string, claims: ClaimBatchItem[], localId?: string | null): Promise<GeneratedTxTraceJson>;
     batchClaim(pk_hash: string, claims: ClaimBatchItem[], localId?: string | null): Promise<string>;
+    claimBatchWithTrace(pk_hash: string, claims: ClaimBatchItem[]): Promise<TxMetadata>;
     claimBatch(pk_hash: string, claims: ClaimBatchItem[]): Promise<string>;
 
     getClaimRewardsCallArgs(jobInfos: string): Promise<ContractCallArgs[]>;

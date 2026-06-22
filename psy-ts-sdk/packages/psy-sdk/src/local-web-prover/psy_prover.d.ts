@@ -72,6 +72,7 @@ export class WasmRpcServer {
     add_external_proof_json(pk_hash: string, note_proof_bincode_b64: string): Promise<string>;
     add_user(private_key_str: string, sign_type: string, sdk_key_fingerprint?: string | null): Promise<string>;
     batch_claim_json(pk_hash: string, items_json: string): Promise<string>;
+    batch_claim_with_trace_json(pk_hash: string, items_json: string): Promise<string>;
     deploy_contract_json(deployer: string, circuit_defs_json: string): Promise<string>;
     exec_claim_batch_json(pk_hash: string, claims_json: string): Promise<string>;
     /**
@@ -98,6 +99,7 @@ export class WasmRpcServer {
      */
     exec_claim_with_external_proof_json(pk_hash: string, note_proof_bincode_b64: string, nullifier_json: string, owner_json: string, amount: string, user_tree_root_json: string, checkpoint_id: string, note_root_slot: string, contract_id: string, random0: string, random1: string): Promise<string>;
     exec_contract_call_json(pk_hash: string, call_data_json: string): Promise<string>;
+    exec_contract_call_with_trace_json(pk_hash: string, call_data_json: string): Promise<string>;
     /**
      * Atomic shield claim_deposit:
      * build ShieldDepositClaim proof -> start_session -> add_external_proof -> prove -> sign_and_submit.
@@ -194,10 +196,12 @@ export interface InitOutput {
     readonly wasmrpcserver_add_external_proof_json: (a: number, b: number, c: number, d: number, e: number) => any;
     readonly wasmrpcserver_add_user: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => any;
     readonly wasmrpcserver_batch_claim_json: (a: number, b: number, c: number, d: number, e: number) => any;
+    readonly wasmrpcserver_batch_claim_with_trace_json: (a: number, b: number, c: number, d: number, e: number) => any;
     readonly wasmrpcserver_deploy_contract_json: (a: number, b: number, c: number, d: number, e: number) => any;
     readonly wasmrpcserver_exec_claim_batch_json: (a: number, b: number, c: number, d: number, e: number) => any;
     readonly wasmrpcserver_exec_claim_with_external_proof_json: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number, l: number, m: number, n: number, o: number, p: number, q: number, r: number, s: number, t: number, u: number, v: number, w: number) => any;
     readonly wasmrpcserver_exec_contract_call_json: (a: number, b: number, c: number, d: number, e: number) => any;
+    readonly wasmrpcserver_exec_contract_call_with_trace_json: (a: number, b: number, c: number, d: number, e: number) => any;
     readonly wasmrpcserver_exec_shield_claim_deposit_json: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number, l: number, m: number, n: number, o: number, p: number, q: number, r: number, s: number, t: number, u: number, v: number, w: number, x: number, y: number, z: number, a1: number) => any;
     readonly wasmrpcserver_generate_batch_claim_tx_trace_json: (a: number, b: number, c: number, d: number, e: number) => any;
     readonly wasmrpcserver_generate_tx_trace_json: (a: number, b: number, c: number, d: number, e: number) => any;

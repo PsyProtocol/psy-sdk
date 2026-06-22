@@ -1,5 +1,5 @@
 import { getPsyNetworkMagicForNetworkId, NetworkId } from "../../action";
-import { ContractCallArgs, ContractCallData, DPNFunctionCircuitDefinition, IPsyUserProverProvider, SignType } from "../../local-prover-rpc";
+import { ContractCallArgs, ContractCallData, DPNFunctionCircuitDefinition, IPsyUserProverProvider, SignType, TxMetadata } from "../../local-prover-rpc";
 import { IPsyTransactionSigner, TPsyTransactionSignerAbility } from "../types";
 
 class PsyMemoryTransactionSigner implements IPsyTransactionSigner {
@@ -44,6 +44,10 @@ class PsyMemoryTransactionSigner implements IPsyTransactionSigner {
 
     async signAndSubmit(pk_hash: string, callData: ContractCallData): Promise<string> {
         return this.prover.execContractCall(pk_hash, callData);
+    }
+
+    async execContractCallWithTrace(pk_hash: string, callData: ContractCallData): Promise<TxMetadata> {
+        return this.prover.execContractCallWithTrace(pk_hash, callData);
     }
 
     async deployContract(pk_hash: string, circuitDefs: DPNFunctionCircuitDefinition[]): Promise<string> {

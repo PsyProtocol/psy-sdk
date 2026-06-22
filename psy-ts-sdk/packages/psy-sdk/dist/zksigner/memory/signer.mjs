@@ -28,6 +28,9 @@ class PsyMemoryTransactionSigner {
     async signAndSubmit(pk_hash, callData) {
         return this.prover.execContractCall(pk_hash, callData);
     }
+    async execContractCallWithTrace(pk_hash, callData) {
+        return this.prover.execContractCallWithTrace(pk_hash, callData);
+    }
     async deployContract(pk_hash, circuitDefs) {
         return this.prover.deployContract(pk_hash, circuitDefs);
     }

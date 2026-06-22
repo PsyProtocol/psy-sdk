@@ -1,5 +1,5 @@
 import { NetworkId } from "../../action";
-import { ContractCallArgs, ContractCallData, DPNFunctionCircuitDefinition, IPsyUserProverProvider, SignType } from "../../local-prover-rpc";
+import { ContractCallArgs, ContractCallData, DPNFunctionCircuitDefinition, IPsyUserProverProvider, SignType, TxMetadata } from "../../local-prover-rpc";
 import { IPsyTransactionSigner, TPsyTransactionSignerAbility } from "../types";
 declare class PsyMemoryTransactionSigner implements IPsyTransactionSigner {
     networkId: NetworkId;
@@ -15,6 +15,7 @@ declare class PsyMemoryTransactionSigner implements IPsyTransactionSigner {
     getSignType(): Promise<string>;
     getFingerprint(): Promise<string>;
     signAndSubmit(pk_hash: string, callData: ContractCallData): Promise<string>;
+    execContractCallWithTrace(pk_hash: string, callData: ContractCallData): Promise<TxMetadata>;
     deployContract(pk_hash: string, circuitDefs: DPNFunctionCircuitDefinition[]): Promise<string>;
     getAbilities(): TPsyTransactionSignerAbility[];
     getPublicKeyHex(): Promise<string>;

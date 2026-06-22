@@ -106,6 +106,13 @@ class PsyUserWallet {
         };
         return this.signer.signAndSubmit(pk_hash, callData);
     }
+    async execContractCallWithTrace(pk_hash, contractCallArgs) {
+        const callData = {
+            contract_calls: Array.isArray(contractCallArgs) ? contractCallArgs : [contractCallArgs],
+            software_defined_call: { "inputs": [] }
+        };
+        return this.signer.execContractCallWithTrace(pk_hash, callData);
+    }
 }
 
 exports.PsyUserWallet = PsyUserWallet;

@@ -4,6 +4,7 @@ import { ICoordinatorEdgeRpcProvider } from "../coord-edge-rpc";
 import {
     ContractCallArgs,
     DPNFunctionCircuitDefinition,
+    TxMetadata,
 } from "../local-prover-rpc";
 import { PsyUserLeaf } from "../types";
 import { psyFelt } from "../utils";
@@ -142,6 +143,14 @@ class PsyUserWallet implements IPsyUserWallet {
             software_defined_call: { "inputs": [] }
         };
         return this.signer.signAndSubmit(pk_hash, callData);
+    }
+
+    async execContractCallWithTrace(pk_hash: string, contractCallArgs: ContractCallArgs | ContractCallArgs[]): Promise<TxMetadata> {
+        const callData = {
+            contract_calls: Array.isArray(contractCallArgs) ? contractCallArgs : [contractCallArgs],
+            software_defined_call: { "inputs": [] }
+        };
+        return this.signer.execContractCallWithTrace(pk_hash, callData);
     }
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars

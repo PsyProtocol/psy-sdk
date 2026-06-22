@@ -1,6 +1,7 @@
 import { Felt } from "../core";
 import {
     ContractCallArgs,
+    TxMetadata,
 } from "../local-prover-rpc";
 import { IPsyTransactionSigner, IPsyTransactionSignerProvider } from "../zksigner";
 import { NetworkId } from "../action";
@@ -31,6 +32,7 @@ interface IPsyUserWallet {
     // deployContract(circuitDefs: DPNFunctionCircuitDefinition[]): Promise<string>;
     // getDeployContract(circuitDefs: DPNFunctionCircuitDefinition[]): Promise<QBCDeployContract>;
     execContractCall(pk_hash: string, contractCallArgs: ContractCallArgs | ContractCallArgs[]): Promise<string>;
+    execContractCallWithTrace(pk_hash: string, contractCallArgs: ContractCallArgs | ContractCallArgs[]): Promise<TxMetadata>;
     // transfer(recipient: SCNumberLike, amount: SCNumberLike, nonce?: SCNumberLike): Promise<void>;
 }
 

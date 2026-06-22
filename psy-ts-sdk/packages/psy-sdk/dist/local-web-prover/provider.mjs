@@ -52,6 +52,14 @@ class PsyWasmWebProverProvider {
         console.log(`execContractCall in ${(new Date().getTime() - now) / 1000} seconds`);
         return result;
     }
+    async execContractCallWithTrace(pkHash, callData) {
+        const now = new Date().getTime();
+        const json = PsyJSON.stringify(callData);
+        const wasmServer = await PsyWasmWebProverProvider.getWasmServer();
+        const result = await wasmServer.exec_contract_call_with_trace_json(pkHash, json);
+        console.log(`execContractCallWithTrace in ${(new Date().getTime() - now) / 1000} seconds`);
+        return PsyJSON.parse(result);
+    }
     async claimBatch(pkHash, claims) {
         const now = new Date().getTime();
         const json = PsyJSON.stringify(claims);
@@ -60,13 +68,21 @@ class PsyWasmWebProverProvider {
         console.log(`claimBatch in ${(new Date().getTime() - now) / 1000} seconds`);
         return result;
     }
+    async claimBatchWithTrace(pkHash, claims) {
+        const now = new Date().getTime();
+        const json = PsyJSON.stringify(claims);
+        const wasmServer = await PsyWasmWebProverProvider.getWasmServer();
+        const result = await wasmServer.batch_claim_with_trace_json(pkHash, json);
+        console.log(`claimBatchWithTrace in ${(new Date().getTime() - now) / 1000} seconds`);
+        return PsyJSON.parse(result);
+    }
     async generateBatchClaimTxTrace(pkHash, claims) {
         const now = new Date().getTime();
         const json = PsyJSON.stringify(claims);
         const wasmServer = await PsyWasmWebProverProvider.getWasmServer();
         const result = await wasmServer.generate_batch_claim_tx_trace_json(pkHash, json);
         console.log(`generateBatchClaimTxTrace in ${(new Date().getTime() - now) / 1000} seconds`);
-        return result;
+        return PsyJSON.parse(result);
     }
     async batchClaim(pkHash, claims) {
         const now = new Date().getTime();
@@ -128,7 +144,7 @@ class PsyWasmWebProverProvider {
         const wasmServer = await PsyWasmWebProverProvider.getWasmServer();
         const result = await wasmServer.generate_tx_trace_json(pkHash, json);
         console.log(`generateTxTrace in ${(new Date().getTime() - now) / 1000} seconds`);
-        return result;
+        return PsyJSON.parse(result);
     }
     async simulateContractCall(pkHash, callData) {
         const now = new Date().getTime();
@@ -136,12 +152,13 @@ class PsyWasmWebProverProvider {
         const wasmServer = await PsyWasmWebProverProvider.getWasmServer();
         const result = await wasmServer.generate_tx_trace_json(pkHash, json);
         console.log(`simulateContractCall in ${(new Date().getTime() - now) / 1000} seconds`);
-        return result;
+        return PsyJSON.parse(result);
     }
     async proveTxTrace(pkHash, envelopeJson) {
         const now = new Date().getTime();
         const wasmServer = await PsyWasmWebProverProvider.getWasmServer();
-        const result = await wasmServer.prove_tx_trace_json(pkHash, envelopeJson);
+        const envelope = typeof envelopeJson === "string" ? envelopeJson : PsyJSON.stringify(envelopeJson);
+        const result = await wasmServer.prove_tx_trace_json(pkHash, envelope);
         console.log(`proveTxTrace in ${(new Date().getTime() - now) / 1000} seconds`);
         return result;
     }

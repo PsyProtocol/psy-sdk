@@ -1,5 +1,5 @@
 import { Felt } from "../core";
-import { ContractCallArgs } from "../local-prover-rpc";
+import { ContractCallArgs, TxMetadata } from "../local-prover-rpc";
 import { IPsyTransactionSigner, IPsyTransactionSignerProvider } from "../zksigner";
 import { NetworkId } from "../action";
 interface ICorePsyUserInfo {
@@ -19,6 +19,7 @@ interface IPsyUserWallet {
     getBalance(): Promise<bigint>;
     getBalanceString(): Promise<string>;
     execContractCall(pk_hash: string, contractCallArgs: ContractCallArgs | ContractCallArgs[]): Promise<string>;
+    execContractCallWithTrace(pk_hash: string, contractCallArgs: ContractCallArgs | ContractCallArgs[]): Promise<TxMetadata>;
 }
 interface IPsyUserWalletProvider {
     networkId: NetworkId;

@@ -163,6 +163,12 @@ export class WasmRpcServer {
      */
     batch_claim_json(pk_hash: string, items_json: string): Promise<string>;
     /**
+     * @param {string} pk_hash
+     * @param {string} items_json
+     * @returns {Promise<string>}
+     */
+    batch_claim_with_trace_json(pk_hash: string, items_json: string): Promise<string>;
+    /**
      * @param {string} deployer
      * @param {string} circuit_defs_json
      * @returns {Promise<string>}
@@ -215,6 +221,12 @@ export class WasmRpcServer {
      * @returns {Promise<string>}
      */
     exec_contract_call_json(pk_hash: string, call_data_json: string): Promise<string>;
+    /**
+     * @param {string} pk_hash
+     * @param {string} call_data_json
+     * @returns {Promise<string>}
+     */
+    exec_contract_call_with_trace_json(pk_hash: string, call_data_json: string): Promise<string>;
     /**
      * Atomic shield claim_deposit:
      * build ShieldDepositClaim proof -> start_session -> add_external_proof -> prove -> sign_and_submit.

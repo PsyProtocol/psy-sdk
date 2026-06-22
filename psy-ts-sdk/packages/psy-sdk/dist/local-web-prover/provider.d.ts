@@ -1,6 +1,6 @@
 import { WasmRpcServer, WasmPsyConfig, WasmPsyConfigBuilder, WasmConstants } from "./psy_prover";
 import { PrivateKey, PublicKey, QHashOut, U8Bytes } from "../core";
-import { ContractCallArgs, ContractCallData, ClaimBatchItem, DPNFunctionCircuitDefinition, IPsyUserProverProvider, QBCDeployContract, SignData, SignType, WalletKeyPair } from "../local-prover-rpc/types";
+import { ContractCallArgs, ContractCallData, ClaimBatchItem, DPNFunctionCircuitDefinition, GeneratedTxTraceJson, IPsyUserProverProvider, QBCDeployContract, SignData, SignType, TxMetadata, WalletKeyPair } from "../local-prover-rpc/types";
 import { ZKPublicKeyInfo } from "../types";
 import { PsyNetworkConfig } from "../config";
 export declare function initWasmSync(): void;
@@ -9,8 +9,10 @@ export declare class PsyWasmWebProverProvider implements IPsyUserProverProvider 
     private static getWasmServer;
     constructor(rpcConfigJson: PsyNetworkConfig);
     execContractCall(pkHash: string, callData: ContractCallData): Promise<string>;
+    execContractCallWithTrace(pkHash: string, callData: ContractCallData): Promise<TxMetadata>;
     claimBatch(pkHash: string, claims: ClaimBatchItem[]): Promise<string>;
-    generateBatchClaimTxTrace(pkHash: string, claims: ClaimBatchItem[]): Promise<string>;
+    claimBatchWithTrace(pkHash: string, claims: ClaimBatchItem[]): Promise<TxMetadata>;
+    generateBatchClaimTxTrace(pkHash: string, claims: ClaimBatchItem[]): Promise<GeneratedTxTraceJson>;
     batchClaim(pkHash: string, claims: ClaimBatchItem[]): Promise<string>;
     getClaimRewardsCallArgs(_jobInfos: string): Promise<ContractCallArgs[]>;
     claimRewards(_pkHash: string, _jobInfos: string): Promise<string>;
@@ -18,9 +20,9 @@ export declare class PsyWasmWebProverProvider implements IPsyUserProverProvider 
     proveContractCall(pkHash: PublicKey, contractCallArg: ContractCallArgs): Promise<string>;
     proveContractCalls(pkHash: PublicKey, contractCallArgs: ContractCallArgs[]): Promise<string>;
     signAndSubmit(pkHash: PublicKey, signData?: SignData): Promise<string>;
-    generateTxTrace(pkHash: PublicKey, callData: ContractCallData): Promise<string>;
-    simulateContractCall(pkHash: PublicKey, callData: ContractCallData): Promise<string>;
-    proveTxTrace(pkHash: PublicKey, envelopeJson: string): Promise<string>;
+    generateTxTrace(pkHash: PublicKey, callData: ContractCallData): Promise<GeneratedTxTraceJson>;
+    simulateContractCall(pkHash: PublicKey, callData: ContractCallData): Promise<GeneratedTxTraceJson>;
+    proveTxTrace(pkHash: PublicKey, envelopeJson: string | GeneratedTxTraceJson): Promise<string>;
     registerUser(privateKey: PrivateKey, signType: SignType, fingerprint?: string): Promise<PublicKey>;
     addUser(privateKey: PrivateKey, signType: SignType, fingerprint?: string): Promise<PublicKey>;
     getZKPublicKey(privateKey: PrivateKey): Promise<ZKPublicKeyInfo>;

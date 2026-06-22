@@ -658,6 +658,32 @@ impl WasmRpcServer {
     }
 
     #[wasm_bindgen]
+    pub async fn exec_contract_call_with_trace_json(
+        &mut self,
+        pk_hash: &str,
+        call_data_json: &str,
+    ) -> Result<String, JsError> {
+        let call_data: ContractCallData = serde_json::from_str(call_data_json)
+            .map_err(|e| JsError::new(&format!("Parse call data JSON error: {}", e)))?;
+
+        let pk_hash = QHashOut::<F>::from_str(pk_hash)
+            .map_err(|e| JsError::new(&format!("Parse public key hash error: {}", e)))?;
+
+        let trace = self
+            .wallet_session
+            .generate_tx_trace_with_opts(pk_hash, call_data)
+            .await
+            .map_err(|e| JsError::new(&format!("Error generating tx trace: {}", e)))?;
+        let metadata = psy_prover::trace::TxMetadata::from_trace(&trace);
+        self.wallet_session
+            .prove_tx_trace(pk_hash, &trace)
+            .await
+            .map_err(|e| JsError::new(&format!("Error proving tx trace: {}", e)))?;
+        serde_json::to_string(&metadata)
+            .map_err(|e| JsError::new(&format!("Error serializing tx metadata: {}", e)))
+    }
+
+    #[wasm_bindgen]
     pub async fn exec_contract_call_json(
         &mut self,
         pk_hash: &str,
@@ -768,6 +794,36 @@ impl WasmRpcServer {
             .await
             .map_err(|e| JsError::new(&format!("Error batch claiming: {}", e)))?;
         Ok(end_user_leaf_hash.to_string())
+    }
+
+    #[wasm_bindgen]
+    pub async fn batch_claim_with_trace_json(
+        &mut self,
+        pk_hash: &str,
+        items_json: &str,
+    ) -> Result<String, JsError> {
+        let envelope = self
+            .build_claim_batch_trace_envelope(pk_hash, items_json)
+            .await?;
+        let pk_hash = QHashOut::<F>::from_str(pk_hash)
+            .map_err(|e| JsError::new(&format!("Parse public key hash error: {}", e)))?;
+        let trace: psy_prover::trace::TxTrace = match envelope.trace.encoding.as_str() {
+            "json" => serde_json::from_str(&envelope.trace.payload)
+                .map_err(|e| JsError::new(&format!("Invalid tx trace JSON payload: {}", e)))?,
+            other => {
+                return Err(JsError::new(&format!(
+                    "Unsupported trace encoding: {}",
+                    other
+                )))
+            }
+        };
+        let metadata = psy_prover::trace::TxMetadata::from_trace(&trace);
+        self.wallet_session
+            .prove_tx_trace(pk_hash, &trace)
+            .await
+            .map_err(|e| JsError::new(&format!("Error batch claiming: {}", e)))?;
+        serde_json::to_string(&metadata)
+            .map_err(|e| JsError::new(&format!("Error serializing batch claim tx metadata: {}", e)))
     }
 
     #[wasm_bindgen]
