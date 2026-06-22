@@ -22,6 +22,14 @@ function runWasmPack(target: "web" | "nodejs", outDir: string, rustSdkDir: strin
 }
 
 function ensureWasmArtifacts() {
+    if (process.env.SKIP_WASM_PACK) {
+        console.log("SKIP_WASM_PACK set: re-encoding existing prover WASM, skipping wasm-pack...");
+        if (!fs.existsSync(wasmPath)) {
+            throw new Error(`SKIP_WASM_PACK set but no wasm artifact found at ${wasmPath}`);
+        }
+        return;
+    }
+
     console.log("Building prover WASM artifacts via wasm-pack...");
 
     const rustSdkDir = path.resolve(__dirname, "../../../../../psy-rust-sdk");

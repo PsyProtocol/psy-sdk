@@ -25,6 +25,14 @@ function runWasmPack(target: "web" | "nodejs", outDir: string, psyCompilerDir: s
 }
 
 function ensureWasmArtifacts() {
+    if (process.env.SKIP_WASM_PACK) {
+        console.log("SKIP_WASM_PACK set: re-encoding existing compiler WASM, skipping wasm-pack...");
+        if (!fs.existsSync(wasmPath)) {
+            throw new Error(`SKIP_WASM_PACK set but no wasm artifact found at ${wasmPath}`);
+        }
+        return;
+    }
+
     console.log("Building compiler WASM artifacts via wasm-pack...");
 
     const envCompilerDir = process.env.PSY_COMPILER_DIR?.trim();
