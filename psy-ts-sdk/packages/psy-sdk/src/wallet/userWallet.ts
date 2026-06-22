@@ -54,7 +54,12 @@ class PsyUserWallet implements IPsyUserWallet {
             this.status = true;
             return user;
         } catch (e) {
-            console.warn("Error refreshing user wallet:", e);
+            const errorMessage = e instanceof Error ? e.message : String(e);
+            console.warn("Error refreshing user wallet:", {
+                publicKeyHex: this.publicKeyHex,
+                userId: this.userId,
+                error: errorMessage,
+            });
             this.status = false;
             return {
                 public_key: this.publicKeyHex,
@@ -63,7 +68,7 @@ class PsyUserWallet implements IPsyUserWallet {
                 nonce: BigInt(0),
                 last_checkpoint_id: BigInt(0),
                 event_index: BigInt(0),
-                user_id: BigInt(0),
+                user_id: BigInt(this.userId),
             };
         }
     }

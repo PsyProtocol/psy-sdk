@@ -1,6 +1,21 @@
 import { FetchHTTPClient, IHTTPClient } from "../http";
 import { PsyJSON } from "../utils";
 
+function formatRpcError(
+    url: string,
+    method: string,
+    statusCode: number,
+    body: unknown
+): string {
+    const rawBody = typeof body === "string" ? body.trim() : "";
+    const bodyText = rawBody
+        ? rawBody
+        : body == null
+            ? "<empty>"
+            : PsyJSON.stringify(body);
+    return `Error in RPC call ${method} ${url}: HTTP ${statusCode}, body=${bodyText || "<empty>"}`;
+}
+
 export class BaseProvider {
     httpClient: IHTTPClient;
     url: string;
@@ -27,7 +42,7 @@ export class BaseProvider {
         });
 
         if (response.statusCode >= 400) {
-            throw new Error("Error in RPC call: " + PsyJSON.stringify(response.body));
+            throw new Error(formatRpcError(this.url, method, response.statusCode, response.body));
         }
         const result = PsyJSON.parse(response.body);
         if (result.error) {

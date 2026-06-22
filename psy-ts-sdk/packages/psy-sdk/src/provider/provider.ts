@@ -78,6 +78,21 @@ export interface ProviderHealth {
     lastChecked: number;
 }
 
+function formatRpcError(
+    url: string,
+    method: string,
+    statusCode: number,
+    body: unknown
+): string {
+    const rawBody = typeof body === "string" ? body.trim() : "";
+    const bodyText = rawBody
+        ? rawBody
+        : body == null
+            ? "<empty>"
+            : PsyJSON.stringify(body);
+    return `Error in RPC call ${method} ${url}: HTTP ${statusCode}, body=${bodyText || "<empty>"}`;
+}
+
 /**
  * Enhanced RPC Provider base class with caching, retry logic, and multi-provider support
  */
@@ -505,7 +520,7 @@ export abstract class Provider {
         });
 
         if (response.statusCode >= 400) {
-            throw new Error("Error in RPC call: " + PsyJSON.stringify(response.body));
+            throw new Error(formatRpcError(url, method, response.statusCode, response.body));
         }
 
         const result = PsyJSON.parse(response.body);
