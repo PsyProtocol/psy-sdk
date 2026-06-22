@@ -18,6 +18,7 @@ export default {
         {
             dir: 'dist',
             format: 'esm',
+            exports: 'named',
             preserveModules: true,
             preserveModulesRoot: 'src',
             entryFileNames: '[name].mjs',
@@ -25,6 +26,7 @@ export default {
         {
             dir: 'dist',
             format: 'cjs',
+            exports: 'named',
             preserveModules: true,
             preserveModulesRoot: 'src',
             entryFileNames: '[name].cjs',
