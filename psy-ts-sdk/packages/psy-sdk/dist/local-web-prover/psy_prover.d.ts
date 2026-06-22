@@ -357,7 +357,7 @@ export class WasmRpcServer {
      */
     start_session(pk_hash: string): Promise<string>;
 }
-export function initSync(module: any): any;
-declare function __wbg_init(module_or_path: any): Promise<any>;
+export function initSync(module: any, memory: any): any;
+declare function __wbg_init(module_or_path: any, memory: any): Promise<any>;
 export { __wbg_init as default };
 //# sourceMappingURL=psy_prover.d.ts.map

@@ -1,1 +1,1 @@
-{"version":3,"file":"wasm-binary.d.ts","sourceRoot":"","sources":["../../src/local-web-prover/wasm-binary.ts"],"names":[],"mappings":"AAIA,eAAO,MAAM,UAAU,YAAizg3wB,CAAC"}
+{"version":3,"file":"wasm-binary.d.ts","sourceRoot":"","sources":["../../src/local-web-prover/wasm-binary.ts"],"names":[],"mappings":"AAyNA,eAAO,MAAM,UAAU,YAA6B,CAAC"}
