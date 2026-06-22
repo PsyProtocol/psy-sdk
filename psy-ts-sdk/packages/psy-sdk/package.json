@@ -69,7 +69,7 @@
     "build:wasm": "node --import 'data:text/javascript,import { register } from \"node:module\"; import { pathToFileURL } from \"node:url\"; register(\"ts-node/esm\", pathToFileURL(\"./\"));' src/local-web-prover/build-wasm-binary.ts",
     "build:wasm-compiler": "node --import 'data:text/javascript,import { register } from \"node:module\"; import { pathToFileURL } from \"node:url\"; register(\"ts-node/esm\", pathToFileURL(\"./\"));' src/local-web-compiler/build-wasm-binary.ts",
     "build": "NODE_OPTIONS='--max-old-space-size=8192' pnpm run precompile && NODE_OPTIONS='--max-old-space-size=8192' pnpm run compile",
-    "precompile": "cpx ../../../config.json src/config && pnpm run clean && pnpm run build:wasm && pnpm run build:wasm-compiler",
+    "precompile": "cpx ../../../config.json src/config && pnpm run clean",
     "clean": "rimraf dist",
     "compile": "rollup -c",
     "lint": "eslint 'src/**/*.{ts,tsx}' --max-warnings 100",
