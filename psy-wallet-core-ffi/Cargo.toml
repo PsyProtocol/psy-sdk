@@ -1,0 +1,68 @@
+[package]
+name = "psy_wallet_core_ffi"
+version = "0.1.0"
+edition = "2021"
+description = "Native (iOS/Android) FFI binding over the Psy ZK wallet core, via uniffi. The native counterpart to psy-rust-sdk's WASM build — one Rust core, three platforms."
+
+[lib]
+# staticlib -> iOS .a (packed into an .xcframework)
+# cdylib    -> Android .so (via cargo-ndk) + desktop dylib
+# lib       -> so the proving-spike bin and tests can link the crate
+crate-type = ["staticlib", "cdylib", "lib"]
+
+[[bin]]
+# uniffi binding generator: `cargo run --bin uniffi-bindgen -- generate ...`
+name = "uniffi-bindgen"
+path = "src/bin/uniffi-bindgen.rs"
+
+[dependencies]
+# ── Psy ZK core (the SAME crates psy-rust-sdk's WASM build wraps) ──────────────
+# Path deps into parth-generic-v1/client_prover; these compile for native
+# targets today (the native CLI prover works), so they cross-compile to
+# aarch64-apple-ios / aarch64-linux-android.
+psy_common = { workspace = true }
+psy_config = { workspace = true }
+psy_crypto = { workspace = true }
+psy_data = { workspace = true, default-features = false }
+psy_vm = { workspace = true, default-features = false }
+psy_prover = { workspace = true, default-features = false }
+psy_provider = { workspace = true }
+psy_common_circuit = { workspace = true, default-features = false }
+psy_dpn_circuit = { workspace = true }
+plonky2 = { workspace = true }
+
+serde = { workspace = true }
+serde_json = { workspace = true }
+base64 = { workspace = true }
+bincode = { workspace = true }
+tracing = { workspace = true }
+getrandom = { workspace = true }
+
+# ── FFI layer ─────────────────────────────────────────────────────────────────
+# uniffi: one Rust core -> generated Swift + Kotlin bindings.
+# "tokio": async #[uniffi::export] over a tokio runtime (proving is async).
+uniffi = { version = "0.28", features = ["tokio", "cli"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync"] }
+thiserror = "1"
+
+# The native build needs an HTTPS/TLS backend for reqwest. The CLI prover only
+# ever hit localhost (HTTP), so the workspace reqwest is `default-features=false`
+# (no TLS) — which fails against staging's HTTPS coordinator with "error sending
+# request". Pull in rustls-tls (pure-Rust, no system OpenSSL → cross-compiles
+# cleanly to aarch64-apple-ios / aarch64-linux-android). Feature unification
+# applies it to psy_provider's reqwest client too. Native targets only — wasm
+# uses the browser's fetch/TLS.
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+reqwest = { workspace = true, features = ["rustls-tls"] }
+
+[dev-dependencies]
+# For the Mode-A spike: produce a MetaMask `eth_sign`-format signature with k256
+# directly (independent of Psy's signer) to prove an EXTERNAL signature verifies.
+k256 = { version = "0.13", features = ["ecdsa"] }
+hex = "0.4"
+
+[features]
+default = []
+# Mirror the WASM build's `is_sync` toggle if a single-threaded native build is
+# ever needed (e.g. to match wasm proving semantics during A/B perf testing).
+is_sync = ["psy_data/is_sync", "psy_vm/is_sync"]
