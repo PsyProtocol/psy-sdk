@@ -1,6 +1,6 @@
 import { WasmRpcServer, WasmPsyConfig, WasmPsyConfigBuilder, WasmConstants } from "./psy_prover";
 import { PrivateKey, PublicKey, QHashOut, U8Bytes } from "../core";
-import { ContractCallArgs, ContractCallData, ClaimBatchItem, DPNFunctionCircuitDefinition, GeneratedTxTraceJson, IPsyUserProverProvider, QBCDeployContract, SignData, SignType, TxMetadata, WalletKeyPair } from "../local-prover-rpc/types";
+import { ContractCallArgs, ContractCallData, ClaimBatchItem, DPNFunctionCircuitDefinition, GeneratedTxTraceJson, IPsyUserProverProvider, ProveTxTraceResumableJson, QBCDeployContract, SignData, SignType, TxMetadata, WalletKeyPair } from "../local-prover-rpc/types";
 import { ZKPublicKeyInfo } from "../types";
 import { PsyNetworkConfig } from "../config";
 export declare function initWasmSync(): void;
@@ -23,6 +23,7 @@ export declare class PsyWasmWebProverProvider implements IPsyUserProverProvider 
     generateTxTrace(pkHash: PublicKey, callData: ContractCallData): Promise<GeneratedTxTraceJson>;
     simulateContractCall(pkHash: PublicKey, callData: ContractCallData): Promise<GeneratedTxTraceJson>;
     proveTxTrace(pkHash: PublicKey, envelopeJson: string | GeneratedTxTraceJson): Promise<string>;
+    proveTxTraceResumable(pkHash: PublicKey, envelopeJson: string | GeneratedTxTraceJson): Promise<ProveTxTraceResumableJson>;
     registerUser(privateKey: PrivateKey, signType: SignType, fingerprint?: string): Promise<PublicKey>;
     addUser(privateKey: PrivateKey, signType: SignType, fingerprint?: string): Promise<PublicKey>;
     getZKPublicKey(privateKey: PrivateKey): Promise<ZKPublicKeyInfo>;

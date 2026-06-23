@@ -171,6 +171,12 @@ export interface ProvedTxResultJson {
     checkpoint_id: Felt | null;
     status: string;
 }
+export interface ProveTxTraceResumableJson {
+    generated: GeneratedTxTraceJson;
+    proved: ProvedTxResultJson | null;
+    error: string | null;
+    status: "submitted" | "failed";
+}
 export interface TxStorageRead {
     user_id: Felt;
     contract_id: Felt;
@@ -243,6 +249,7 @@ interface IPsyUserProverProvider {
     generateTxTrace(pk_hash: string, callData: ContractCallData, localId?: string | null): Promise<GeneratedTxTraceJson>;
     simulateContractCall(pk_hash: string, callData: ContractCallData, localId?: string | null): Promise<GeneratedTxTraceJson>;
     proveTxTrace(pk_hash: string, envelopeJson: string | GeneratedTxTraceJson): Promise<string>;
+    proveTxTraceResumable(pk_hash: string, envelopeJson: string | GeneratedTxTraceJson): Promise<ProveTxTraceResumableJson>;
     generateBatchClaimTxTrace(pk_hash: string, claims: ClaimBatchItem[], localId?: string | null): Promise<GeneratedTxTraceJson>;
     batchClaim(pk_hash: string, claims: ClaimBatchItem[], localId?: string | null): Promise<string>;
     claimBatchWithTrace(pk_hash: string, claims: ClaimBatchItem[]): Promise<TxMetadata>;

@@ -53,6 +53,7 @@ export const wasmrpcserver_prove_contract_call_json: (a: number, b: number, c: n
 export const wasmrpcserver_prove_contract_calls_json: (a: number, b: number, c: number, d: number, e: number) => any;
 export const wasmrpcserver_prove_private_note_inclusion_json: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number, l: number, m: number, n: number, o: number, p: number, q: number) => any;
 export const wasmrpcserver_prove_tx_trace_json: (a: number, b: number, c: number, d: number, e: number) => any;
+export const wasmrpcserver_prove_tx_trace_resumable_json: (a: number, b: number, c: number, d: number, e: number) => any;
 export const wasmrpcserver_register_sdk_key_circuit: (a: number, b: number, c: number, d: number, e: number, f: bigint) => any;
 export const wasmrpcserver_register_user: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => any;
 export const wasmrpcserver_sign_and_submit: (a: number, b: number, c: number, d: number, e: number) => any;
@@ -61,7 +62,7 @@ export const wasmpsyconfigbuilder_new: () => number;
 export const wasmconstants_register_user_fee: () => bigint;
 export const wasm_bindgen__convert__closures_____invoke__h60a57e826f0fa70e: (a: number, b: number, c: any) => [number, number];
 export const wasm_bindgen__convert__closures_____invoke__h18544ad86c9831de: (a: number, b: number, c: any, d: any) => void;
-export const wasm_bindgen__convert__closures_____invoke__hfad6e35b85c7033f: (a: number, b: number, c: any) => void;
+export const wasm_bindgen__convert__closures_____invoke__h439d67d7733a6e67: (a: number, b: number, c: any) => void;
 export const wasm_bindgen__convert__closures_____invoke__h1506b1d2a44b3513: (a: number, b: number, c: any) => void;
 export const wasm_bindgen__convert__closures_____invoke__h204019b3324ffeea: (a: number, b: number) => void;
 export const memory: WebAssembly.Memory;

@@ -72,6 +72,66 @@ fn parse_int_string(value: &str) -> Result<u64, JsError> {
         .map_err(|e| JsError::new(&e.to_string()))
 }
 
+fn parse_tx_trace_envelope(
+    envelope_json: &str,
+) -> Result<(psy_prover::trace::GeneratedTxTraceJson, psy_prover::trace::TxTrace), JsError> {
+    use base64::engine::general_purpose::STANDARD as BASE64;
+    use base64::Engine;
+
+    let envelope: psy_prover::trace::GeneratedTxTraceJson = serde_json::from_str(envelope_json)
+        .map_err(|e| JsError::new(&format!("Invalid trace envelope JSON: {}", e)))?;
+    let trace = match envelope.trace.encoding.as_str() {
+        "json" => serde_json::from_str(&envelope.trace.payload)
+            .map_err(|e| JsError::new(&format!("Invalid tx trace JSON payload: {}", e)))?,
+        "bincode-base64" => {
+            let payload = BASE64
+                .decode(envelope.trace.payload.as_bytes())
+                .map_err(|e| JsError::new(&format!("Invalid tx trace base64 payload: {}", e)))?;
+            bincode::deserialize(&payload)
+                .map_err(|e| JsError::new(&format!("Invalid tx trace bincode payload: {}", e)))?
+        }
+        other => {
+            return Err(JsError::new(&format!(
+                "Unsupported trace encoding: {}",
+                other
+            )))
+        }
+    };
+    Ok((envelope, trace))
+}
+
+fn update_tx_trace_envelope_payload(
+    envelope: &mut psy_prover::trace::GeneratedTxTraceJson,
+    trace: &psy_prover::trace::TxTrace,
+) -> Result<(), JsError> {
+    use base64::engine::general_purpose::STANDARD as BASE64;
+    use base64::Engine;
+
+    envelope.trace.payload = match envelope.trace.encoding.as_str() {
+        "json" => serde_json::to_string(trace)
+            .map_err(|e| JsError::new(&format!("Error serializing tx trace JSON payload: {}", e)))?,
+        "bincode-base64" => BASE64.encode(
+            bincode::serialize(trace)
+                .map_err(|e| JsError::new(&format!("Error serializing tx trace bincode payload: {}", e)))?,
+        ),
+        other => {
+            return Err(JsError::new(&format!(
+                "Unsupported trace encoding: {}",
+                other
+            )))
+        }
+    };
+    Ok(())
+}
+
+#[derive(serde::Serialize)]
+struct ProveTxTraceResumableJson {
+    generated: psy_prover::trace::GeneratedTxTraceJson,
+    proved: Option<psy_prover::trace::ProvedTxResultJson>,
+    error: Option<String>,
+    status: String,
+}
+
 // Initialize panic hook for better error messages in WASM
 #[wasm_bindgen(start)]
 pub fn main() {
@@ -752,6 +812,49 @@ impl WasmRpcServer {
             .await
             .map_err(|e| JsError::new(&format!("Error proving tx trace: {}", e)))?;
         Ok(end_user_leaf_hash.to_string())
+    }
+
+    #[wasm_bindgen]
+    pub async fn prove_tx_trace_resumable_json(
+        &mut self,
+        pk_hash: &str,
+        envelope_json: &str,
+    ) -> Result<String, JsError> {
+        let pk_hash = QHashOut::<F>::from_str(pk_hash)
+            .map_err(|e| JsError::new(&format!("Parse public key hash error: {}", e)))?;
+        let (mut envelope, mut trace) = parse_tx_trace_envelope(envelope_json)?;
+        let sig_hash = envelope.sig_hash.clone();
+        let result = match self
+            .wallet_session
+            .prove_tx_trace_in_place(pk_hash, &mut trace)
+            .await
+        {
+            Ok(tx_hash) => ProveTxTraceResumableJson {
+                generated: {
+                    update_tx_trace_envelope_payload(&mut envelope, &trace)?;
+                    envelope
+                },
+                proved: Some(psy_prover::trace::ProvedTxResultJson::new(
+                    sig_hash,
+                    tx_hash.to_string(),
+                    None,
+                    "submitted".to_string(),
+                )),
+                error: None,
+                status: "submitted".to_string(),
+            },
+            Err(err) => ProveTxTraceResumableJson {
+                generated: {
+                    update_tx_trace_envelope_payload(&mut envelope, &trace)?;
+                    envelope
+                },
+                proved: None,
+                error: Some(err.to_string()),
+                status: "failed".to_string(),
+            },
+        };
+        serde_json::to_string(&result)
+            .map_err(|e| JsError::new(&format!("Error serializing resumable prove result: {}", e)))
     }
 
     #[wasm_bindgen]

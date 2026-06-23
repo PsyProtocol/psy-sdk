@@ -1,5 +1,5 @@
 import { getPsyNetworkMagicForNetworkId, NetworkId } from "../../action";
-import { ContractCallArgs, ContractCallData, DPNFunctionCircuitDefinition, IPsyUserProverProvider, SignType, TxMetadata } from "../../local-prover-rpc";
+import { ClaimBatchItem, ContractCallArgs, ContractCallData, DPNFunctionCircuitDefinition, GeneratedTxTraceJson, IPsyUserProverProvider, ProveTxTraceResumableJson, SignType, TxMetadata } from "../../local-prover-rpc";
 import { IPsyTransactionSigner, TPsyTransactionSignerAbility } from "../types";
 
 class PsyMemoryTransactionSigner implements IPsyTransactionSigner {
@@ -48,6 +48,18 @@ class PsyMemoryTransactionSigner implements IPsyTransactionSigner {
 
     async execContractCallWithTrace(pk_hash: string, callData: ContractCallData): Promise<TxMetadata> {
         return this.prover.execContractCallWithTrace(pk_hash, callData);
+    }
+
+    async generateTxTrace(pk_hash: string, callData: ContractCallData): Promise<GeneratedTxTraceJson> {
+        return this.prover.generateTxTrace(pk_hash, callData);
+    }
+
+    async generateBatchClaimTxTrace(pk_hash: string, claims: ClaimBatchItem[]): Promise<GeneratedTxTraceJson> {
+        return this.prover.generateBatchClaimTxTrace(pk_hash, claims);
+    }
+
+    async proveTxTraceResumable(pk_hash: string, envelope: string | GeneratedTxTraceJson): Promise<ProveTxTraceResumableJson> {
+        return this.prover.proveTxTraceResumable(pk_hash, envelope);
     }
 
     async deployContract(pk_hash: string, circuitDefs: DPNFunctionCircuitDefinition[]): Promise<string> {

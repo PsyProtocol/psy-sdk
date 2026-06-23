@@ -1,6 +1,6 @@
 import { IPsyUserWallet, IPsyCompleteUserInfo } from "./types";
 import { ICoordinatorEdgeRpcProvider } from "../coord-edge-rpc";
-import { ContractCallArgs, DPNFunctionCircuitDefinition, TxMetadata } from "../local-prover-rpc";
+import { ContractCallArgs, DPNFunctionCircuitDefinition, GeneratedTxTraceJson, ProveTxTraceResumableJson, TxMetadata } from "../local-prover-rpc";
 import { PsyUserLeaf } from "../types";
 import { IPsyTransactionSigner } from "../zksigner";
 import { IRealmEdgeRpcProvider } from "../realm-edge-rpc";
@@ -22,6 +22,9 @@ declare class PsyUserWallet implements IPsyUserWallet {
     deployContract(pk_hash: string, circuitDefs: DPNFunctionCircuitDefinition[]): Promise<string>;
     execContractCall(pk_hash: string, contractCallArgs: ContractCallArgs | ContractCallArgs[]): Promise<string>;
     execContractCallWithTrace(pk_hash: string, contractCallArgs: ContractCallArgs | ContractCallArgs[]): Promise<TxMetadata>;
+    generateTxTrace(pk_hash: string, contractCallArgs: ContractCallArgs | ContractCallArgs[]): Promise<GeneratedTxTraceJson>;
+    proveTxTrace(pk_hash: string, envelope: string | GeneratedTxTraceJson): Promise<string>;
+    proveTxTraceResumable(pk_hash: string, envelope: string | GeneratedTxTraceJson): Promise<ProveTxTraceResumableJson>;
 }
 export { PsyUserWallet };
 //# sourceMappingURL=userWallet.d.ts.map

@@ -2,8 +2,11 @@ import { userWalletCache } from "./cache";
 import { IPsyUserWallet, IPsyCompleteUserInfo } from "./types";
 import { ICoordinatorEdgeRpcProvider } from "../coord-edge-rpc";
 import {
+    ClaimBatchItem,
     ContractCallArgs,
     DPNFunctionCircuitDefinition,
+    GeneratedTxTraceJson,
+    ProveTxTraceResumableJson,
     TxMetadata,
 } from "../local-prover-rpc";
 import { PsyUserLeaf } from "../types";
@@ -151,6 +154,27 @@ class PsyUserWallet implements IPsyUserWallet {
             software_defined_call: { "inputs": [] }
         };
         return this.signer.execContractCallWithTrace(pk_hash, callData);
+    }
+
+    // Produce a savable trace envelope without proving/submitting. The wallet persists the
+    // returned envelope (keyed by `sig_hash`) and later calls proveTxTraceResumable to
+    // generate the proof, submit, and track the lifecycle.
+    async generateTxTrace(pk_hash: string, contractCallArgs: ContractCallArgs | ContractCallArgs[]): Promise<GeneratedTxTraceJson> {
+        const callData = {
+            contract_calls: Array.isArray(contractCallArgs) ? contractCallArgs : [contractCallArgs],
+            software_defined_call: { "inputs": [] }
+        };
+        return this.signer.generateTxTrace(pk_hash, callData);
+    }
+
+    // Batch-claim variant of generateTxTrace: returns the same savable envelope, proven/tracked
+    // via the shared proveTxTraceResumable below.
+    async generateBatchClaimTxTrace(pk_hash: string, claims: ClaimBatchItem[]): Promise<GeneratedTxTraceJson> {
+        return this.signer.generateBatchClaimTxTrace(pk_hash, claims);
+    }
+
+    async proveTxTraceResumable(pk_hash: string, envelope: string | GeneratedTxTraceJson): Promise<ProveTxTraceResumableJson> {
+        return this.signer.proveTxTraceResumable(pk_hash, envelope);
     }
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars

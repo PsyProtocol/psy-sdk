@@ -1,5 +1,5 @@
 import { Felt } from "../core";
-import { ContractCallArgs, TxMetadata } from "../local-prover-rpc";
+import { ContractCallArgs, GeneratedTxTraceJson, ProveTxTraceResumableJson, TxMetadata } from "../local-prover-rpc";
 import { IPsyTransactionSigner, IPsyTransactionSignerProvider } from "../zksigner";
 import { NetworkId } from "../action";
 interface ICorePsyUserInfo {
@@ -20,6 +20,9 @@ interface IPsyUserWallet {
     getBalanceString(): Promise<string>;
     execContractCall(pk_hash: string, contractCallArgs: ContractCallArgs | ContractCallArgs[]): Promise<string>;
     execContractCallWithTrace(pk_hash: string, contractCallArgs: ContractCallArgs | ContractCallArgs[]): Promise<TxMetadata>;
+    generateTxTrace(pk_hash: string, contractCallArgs: ContractCallArgs | ContractCallArgs[]): Promise<GeneratedTxTraceJson>;
+    proveTxTrace(pk_hash: string, envelope: string | GeneratedTxTraceJson): Promise<string>;
+    proveTxTraceResumable(pk_hash: string, envelope: string | GeneratedTxTraceJson): Promise<ProveTxTraceResumableJson>;
 }
 interface IPsyUserWalletProvider {
     networkId: NetworkId;

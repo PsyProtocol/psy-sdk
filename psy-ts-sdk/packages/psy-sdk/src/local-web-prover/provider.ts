@@ -8,6 +8,7 @@ import {
     DPNFunctionCircuitDefinition,
     GeneratedTxTraceJson,
     IPsyUserProverProvider,
+    ProveTxTraceResumableJson,
     QBCDeployContract,
     SignData,
     SignType,
@@ -194,6 +195,15 @@ export class PsyWasmWebProverProvider implements IPsyUserProverProvider {
         const result = await wasmServer.prove_tx_trace_json(pkHash, envelope);
         console.log(`proveTxTrace in ${(new Date().getTime() - now) / 1000} seconds`);
         return result;
+    }
+
+    async proveTxTraceResumable(pkHash: PublicKey, envelopeJson: string | GeneratedTxTraceJson): Promise<ProveTxTraceResumableJson> {
+        const now = new Date().getTime();
+        const wasmServer = await PsyWasmWebProverProvider.getWasmServer();
+        const envelope = typeof envelopeJson === "string" ? envelopeJson : PsyJSON.stringify(envelopeJson);
+        const result = await wasmServer.prove_tx_trace_resumable_json(pkHash, envelope);
+        console.log(`proveTxTraceResumable in ${(new Date().getTime() - now) / 1000} seconds`);
+        return PsyJSON.parse(result) as ProveTxTraceResumableJson;
     }
 
 

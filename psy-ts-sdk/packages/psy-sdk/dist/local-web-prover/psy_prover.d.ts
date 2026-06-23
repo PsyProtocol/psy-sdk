@@ -344,6 +344,12 @@ export class WasmRpcServer {
      */
     prove_tx_trace_json(pk_hash: string, envelope_json: string): Promise<string>;
     /**
+     * @param {string} pk_hash
+     * @param {string} envelope_json
+     * @returns {Promise<string>}
+     */
+    prove_tx_trace_resumable_json(pk_hash: string, envelope_json: string): Promise<string>;
+    /**
      * @param {BigUint64Array} allowed_contract_ids
      * @param {BigUint64Array} allowed_method_ids
      * @param {bigint} expected_tx_count
