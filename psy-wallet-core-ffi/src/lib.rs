@@ -27,8 +27,9 @@ use plonky2::{
 };
 use psy_common::{
     args::{ContractCallArgs, ContractCallData, DPNSoftwareDefinedCallData},
-    data::qhashout::QHashOut,
+    data::{base_types::hash256::Hash256, qhashout::QHashOut},
 };
+use psy_crypto::signature::secp256k1::core::PsyCompressedSecp256K1Signature;
 use psy_prover::{
     local::store::UserProverWorkerStore,
     session::WalletSession,
@@ -43,6 +44,9 @@ use psy_vm::dpn::vm::def::DPNFunctionCircuitDefinition;
 use psy_data::traits::qdatastore::{
     qmetadata::QMetaDataStoreReaderSync, qtreedata::QTreeDataStoreReaderSync,
 };
+// Mode-A: `get_nonce()` on the session's local proving store is a trait method —
+// bring the trait into scope so `get_sig_hash` can read the sighash nonce.
+use psy_data::qstore::controllers::proving_session::PsyReadLocalProvingSessionStore;
 
 type C = PoseidonGoldilocksConfig;
 type F = GoldilocksField;
@@ -968,6 +972,188 @@ impl PsyWalletCore {
         // elements[3]) are NOT scalar slots — callers must use the dedicated note
         // paths for those, not this scalar lens.
         Ok(proof.value.0.elements[0].to_canonical_u64().to_string())
+    }
+
+    // ===================================================================
+    // MODE-A — external-signature (MetaMask) contract-call submit path.
+    //
+    // The web wallet's key never leaves MetaMask. A public contract call is
+    // authorized by an EXTERNAL `eth_sign` signature over the Psy session
+    // sighash, NOT by a held key. Because `eth_sign` is async + user-gated, the
+    // flow is necessarily TWO calls — the exact hand-off shape the WASM/web port
+    // wires to MetaMask:
+    //
+    //   1. `sighash_hex = get_sig_hash(pk_hash, call_data_json)`
+    //        → drives start_session + prove_contract_call, returns the 32-byte
+    //          Psy sighash the user must `eth_sign` (raw, no EIP-191 prefix —
+    //          i.e. `personal_sign` of the raw hash, == k256 sign_prehash).
+    //   2. < web layer: `signature = await ethereum.request(eth_sign, sighash)` >
+    //   3. `tx = exec_contract_call_with_external_signature(pk_hash,
+    //          call_data_json, signature_hex)`
+    //        → re-derives the session to the SAME sighash, swaps in an
+    //          ExternalSecp256K1User carrying that signature, and runs the
+    //          UNCHANGED sign_and_submit. No circuit changes.
+    //
+    // The signing-source substitution is the whole job: the existing
+    // `WalletSession::sign_inner` dispatch routes auth to the registered
+    // signature user; we register an external-signature one for this pk_hash so
+    // `sign()` returns `prove_secp_sign(external_sig)` instead of held-key
+    // signing. The secp circuit accepts a MetaMask `eth_sign` signature
+    // unchanged (proven by `a_mode_spike`).
+    // ===================================================================
+
+    /// MODE-A step 1: drive a public contract call up to (but not through) the
+    /// authorization signature, and return the 32-byte Psy session sighash (hex)
+    /// the external wallet (MetaMask) must `eth_sign`.
+    ///
+    /// This runs `start_session` + `prove_contract_call` (the same prefix
+    /// `exec_contract_call` runs), then reads the deterministic
+    /// `get_sighash(PSY_NETWORK_MAGIC, nonce)` from the session manager — exactly
+    /// the bytes `sign_inner` would sign with a held key. The session is left
+    /// primed; pair this with `exec_contract_call_with_external_signature`, which
+    /// re-derives the same state and asserts the sighash is unchanged before
+    /// submit (a stale-nonce guard).
+    pub async fn get_sig_hash(
+        &self,
+        pk_hash: String,
+        call_data_json: String,
+    ) -> Result<String, PsyError> {
+        use psy_config::network_constants::PSY_NETWORK_MAGIC;
+
+        let call_data: ContractCallData = serde_json::from_str(&call_data_json)
+            .map_err(|e| PsyError::w(format!("Parse call data JSON error: {e}")))?;
+        if call_data.contract_calls.is_empty() {
+            return Err(PsyError::w("No contract calls to execute"));
+        }
+        let pk_hash = QHashOut::<F>::from_str(&pk_hash)
+            .map_err(|e| PsyError::w(format!("Parse public key hash error: {e}")))?;
+
+        let s = self.inner.lock().await;
+
+        // Same prefix exec_contract_call runs (session.rs:519-521), minus sign.
+        s.wallet_session
+            .start_session(pk_hash)
+            .await
+            .map_err(|e| PsyError::w(format!("start_session: {e}")))?;
+        s.wallet_session
+            .prove_contract_call(pk_hash, call_data.contract_calls)
+            .await
+            .map_err(|e| PsyError::w(format!("prove_contract_call: {e}")))?;
+
+        // Read the exact sighash sign_inner derives (session.rs:975-976).
+        let mgr = s
+            .wallet_session
+            .user_session_mgrs
+            .get(&pk_hash)
+            .ok_or_else(|| PsyError::w(format!("user {pk_hash} not found in session")))?;
+        let nonce = mgr.lps.get_nonce();
+        let sighash = mgr.get_sighash(PSY_NETWORK_MAGIC, nonce);
+        drop(mgr);
+
+        Ok(sighash.to_string())
+    }
+
+    /// MODE-A step 3: submit a public contract call authorized SOLELY by an
+    /// external `eth_sign` signature (no held key).
+    ///
+    /// `signature_hex` is the concatenation `compressed_pubkey(33) ‖ r(32) ‖
+    /// s(32)` as hex (66 + 128 = 194 hex chars), i.e. the compressed public key
+    /// followed by the 64-byte `r‖s` an `eth_sign` / `sign_prehash` produces over
+    /// the sighash from `get_sig_hash`. The signed message is the session sighash
+    /// itself (recomputed here and bound into the signature's `message` field).
+    ///
+    /// Re-derives the session to the same point, recomputes the sighash, asserts
+    /// it matches the one the supplied signature was produced over (stale-nonce
+    /// guard), then registers an `ExternalSecp256K1User` for this `pk_hash` and
+    /// runs the UNCHANGED `sign_and_submit`. The held-key signing step in
+    /// `sign_inner` is thereby replaced by re-proving the external signature
+    /// through the unchanged secp256k1 circuit. Returns the tx end-user-leaf hash.
+    pub async fn exec_contract_call_with_external_signature(
+        &self,
+        pk_hash: String,
+        call_data_json: String,
+        signature_hex: String,
+    ) -> Result<String, PsyError> {
+        use psy_config::network_constants::PSY_NETWORK_MAGIC;
+
+        let call_data: ContractCallData = serde_json::from_str(&call_data_json)
+            .map_err(|e| PsyError::w(format!("Parse call data JSON error: {e}")))?;
+        if call_data.contract_calls.is_empty() {
+            return Err(PsyError::w("No contract calls to execute"));
+        }
+        let pk_hash = QHashOut::<F>::from_str(&pk_hash)
+            .map_err(|e| PsyError::w(format!("Parse public key hash error: {e}")))?;
+
+        // Parse compressed_pubkey(33) ‖ r(32) ‖ s(32) = 97 bytes.
+        let sig_bytes = hex::decode(signature_hex.trim_start_matches("0x"))
+            .map_err(|e| PsyError::w(format!("Parse signature hex error: {e}")))?;
+        if sig_bytes.len() != 97 {
+            return Err(PsyError::w(format!(
+                "signature must be 97 bytes (pubkey33 + r32 + s32), got {}",
+                sig_bytes.len()
+            )));
+        }
+        let mut public_key = [0u8; 33];
+        public_key.copy_from_slice(&sig_bytes[..33]);
+        let mut signature = [0u8; 64];
+        signature.copy_from_slice(&sig_bytes[33..]);
+
+        // `mut`: register_external_secp_user takes `&mut wallet`.
+        let mut s = self.inner.lock().await;
+
+        // Re-derive the session to the exact sighash point (idempotent: same
+        // prefix exec_contract_call / get_sig_hash run).
+        s.wallet_session
+            .start_session(pk_hash)
+            .await
+            .map_err(|e| PsyError::w(format!("start_session: {e}")))?;
+        s.wallet_session
+            .prove_contract_call(pk_hash, call_data.contract_calls)
+            .await
+            .map_err(|e| PsyError::w(format!("prove_contract_call: {e}")))?;
+
+        // Recompute the sighash and bind it as the message the circuit verifies.
+        let mgr = s
+            .wallet_session
+            .user_session_mgrs
+            .get(&pk_hash)
+            .ok_or_else(|| PsyError::w(format!("user {pk_hash} not found in session")))?;
+        let nonce = mgr.lps.get_nonce();
+        let sighash = mgr.get_sighash(PSY_NETWORK_MAGIC, nonce);
+        drop(mgr);
+
+        let external_sig = PsyCompressedSecp256K1Signature {
+            public_key,
+            signature,
+            message: Hash256::from(sighash),
+        };
+
+        // Swap in the external-signature signer for this pk_hash. The pk_hash it
+        // derives MUST equal the addressed pk_hash, else the supplied signature
+        // is for a different key than the session user.
+        let ext_pk_info = s
+            .wallet_session
+            .wallet
+            .register_external_secp_user(external_sig)
+            .await
+            .map_err(|e| PsyError::w(format!("register_external_secp_user: {e}")))?;
+        use psy_crypto::hash::traits::qhashable::QFieldHashable;
+        let ext_pk_hash = ext_pk_info.qfhash::<psy_data::config::store_config::PsyHasher>();
+        if ext_pk_hash != pk_hash {
+            return Err(PsyError::w(format!(
+                "external signature public key hash {ext_pk_hash} does not match addressed pk_hash {pk_hash}"
+            )));
+        }
+
+        // Run the UNCHANGED sign_and_submit — sign_inner now dispatches auth to
+        // the ExternalSecp256K1User → prove_secp_sign(external_sig).
+        let end_user_leaf_hash = s
+            .wallet_session
+            .sign_and_submit(pk_hash, call_data.software_defined_call)
+            .await
+            .map_err(|e| PsyError::w(format!("sign_and_submit (external sig): {e}")))?;
+
+        Ok(end_user_leaf_hash.to_string())
     }
 }
 

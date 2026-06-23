@@ -34,6 +34,8 @@ plonky2 = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 base64 = { workspace = true }
+# hex: decode the Mode-A external-signature payload (pubkey ‖ r ‖ s).
+hex = "0.4"
 bincode = { workspace = true }
 tracing = { workspace = true }
 getrandom = { workspace = true }
