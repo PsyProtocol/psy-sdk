@@ -1095,6 +1095,18 @@ impl PsyWalletCore {
         }
         let mut public_key = [0u8; 33];
         public_key.copy_from_slice(&sig_bytes[..33]);
+        // Preflight: reject a non-SEC1-compressed pubkey here with a clear error
+        // rather than letting it surface as an opaque in-circuit "prove_secp_sign
+        // failed". A valid compressed key is 33 bytes with a 0x02/0x03 prefix
+        // (even/odd y). This is a cheap format gate, not full curve-point
+        // validation — the in-circuit ECDSA check still backstops a structurally
+        // valid but off-curve / wrong key.
+        if public_key[0] != 0x02 && public_key[0] != 0x03 {
+            return Err(PsyError::w(format!(
+                "external signature public key is not SEC1-compressed: leading byte 0x{:02x} (expected 0x02 or 0x03)",
+                public_key[0]
+            )));
+        }
         let mut signature = [0u8; 64];
         signature.copy_from_slice(&sig_bytes[33..]);
 
