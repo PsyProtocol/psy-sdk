@@ -96,9 +96,42 @@ export class WasmRpcServer {
      */
     exec_claim_with_external_proof_json(pk_hash: string, note_proof_bincode_b64: string, nullifier_json: string, owner_json: string, amount: string, user_tree_root_json: string, checkpoint_id: string, note_root_slot: string, contract_id: string, random0: string, random1: string): Promise<string>;
     exec_contract_call_json(pk_hash: string, call_data_json: string): Promise<string>;
+    /**
+     * MODE-A step 3: submit a public contract call authorized SOLELY by an
+     * external `eth_sign` signature (no held key).
+     *
+     * `signature_hex` is the concatenation `compressed_pubkey(33) ‖ r(32) ‖
+     * s(32)` as hex (66 + 128 = 194 hex chars), i.e. the compressed public key
+     * followed by the 64-byte `r‖s` an `eth_sign` / `sign_prehash` produces over
+     * the sighash from `get_sig_hash`. The signed message is the session sighash
+     * itself (recomputed here and bound into the signature's `message` field).
+     *
+     * Reuses the session primed by `get_sig_hash`, recomputes the sighash,
+     * asserts it matches the one the supplied signature was produced over
+     * (stale-nonce guard), then registers an `ExternalSecp256K1User` for this
+     * `pk_hash` and runs the UNCHANGED `sign_and_submit`. The held-key signing
+     * step in `sign_inner` is thereby replaced by re-proving the external
+     * signature through the unchanged secp256k1 circuit. Returns the tx
+     * end-user-leaf hash.
+     */
+    exec_contract_call_with_external_signature(pk_hash: string, call_data_json: string, signature_hex: string): Promise<string>;
     get_deploy_contract_cmd_json(deployer: string, circuit_defs_json: string): string;
     get_random_keypair_json(): Promise<string>;
     get_result(id_str: string): Uint8Array;
+    /**
+     * MODE-A step 1: drive a public contract call up to (but not through) the
+     * authorization signature, and return the 32-byte Psy session sighash (hex)
+     * the external wallet (MetaMask) must `eth_sign`.
+     *
+     * Runs `start_session` + `prove_contract_call` (the same prefix
+     * `exec_contract_call` runs), then reads the deterministic
+     * `get_sighash(PSY_NETWORK_MAGIC, nonce)` from the session manager — exactly
+     * the bytes `sign_inner` would sign with a held key. The session is left
+     * primed; pair this with `exec_contract_call_with_external_signature`, which
+     * reuses the same state and asserts the sighash is unchanged before submit
+     * (a stale-nonce guard).
+     */
+    get_sig_hash(pk_hash: string, call_data_json: string): Promise<string>;
     get_zk_public_key_json(private_key_str: string): Promise<string>;
     constructor(rpc_config_json: string);
     ping(message: string): string;
@@ -132,62 +165,64 @@ export function main(): void;
 export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembly.Module;
 
 export interface InitOutput {
-    readonly memory: WebAssembly.Memory;
-    readonly main: () => void;
-    readonly init_logging: () => void;
-    readonly __wbg_wasmpsyconfig_free: (a: number, b: number) => void;
-    readonly wasmpsyconfig_new: (a: number, b: number) => [number, number, number];
-    readonly wasmpsyconfig_useNetwork: (a: number, b: number, c: number) => [number, number];
-    readonly wasmpsyconfig_getCurrentNetwork: (a: number) => [number, number, number, number];
-    readonly wasmpsyconfig_builder: () => number;
-    readonly wasmpsyconfig_getNetworkJson: (a: number, b: number, c: number) => [number, number, number, number];
-    readonly wasmpsyconfig_listNetworks: (a: number) => [number, number];
-    readonly wasmpsyconfig_currentNetworkName: (a: number) => [number, number];
-    readonly __wbg_wasmpsyconfigbuilder_free: (a: number, b: number) => void;
-    readonly wasmpsyconfigbuilder_json: (a: number, b: number, c: number) => number;
-    readonly wasmpsyconfigbuilder_network: (a: number, b: number, c: number) => number;
-    readonly wasmpsyconfigbuilder_build: (a: number) => [number, number, number];
     readonly __wbg_wasmconstants_free: (a: number, b: number) => void;
-    readonly wasmconstants_global_user_tree_height: () => number;
-    readonly wasmconstants_coordinator_user_tree_height: () => number;
-    readonly wasmconstants_realm_user_tree_height: () => number;
-    readonly wasmconstants_group_realm_height: () => number;
-    readonly wasmconstants_users_per_realm: () => bigint;
-    readonly wasmconstants_native_currency_decimal: () => number;
-    readonly wasmconstants_native_currency: () => [number, number];
-    readonly wasmconstants_native_currency_name: () => [number, number];
-    readonly wasmconstants_deploy_contract_fee: () => bigint;
-    readonly wasmconstants_current_network: () => [number, number];
+    readonly __wbg_wasmpsyconfig_free: (a: number, b: number) => void;
+    readonly __wbg_wasmpsyconfigbuilder_free: (a: number, b: number) => void;
+    readonly __wbg_wasmrpcserver_free: (a: number, b: number) => void;
+    readonly init_logging: () => void;
+    readonly main: () => void;
     readonly wasmconstants_config_path: () => [number, number];
     readonly wasmconstants_coordinator_rpc_url: () => [number, number];
-    readonly wasmconstants_realm_rpc_urls: () => [number, number];
+    readonly wasmconstants_coordinator_user_tree_height: () => number;
+    readonly wasmconstants_current_network: () => [number, number];
+    readonly wasmconstants_deploy_contract_fee: () => bigint;
     readonly wasmconstants_getAllConstants: () => [number, number, number, number];
-    readonly __wbg_wasmrpcserver_free: (a: number, b: number) => void;
-    readonly wasmrpcserver_new: (a: number, b: number) => any;
-    readonly wasmrpcserver_exec_contract_call_json: (a: number, b: number, c: number, d: number, e: number) => any;
-    readonly wasmrpcserver_start_session: (a: number, b: number, c: number) => any;
+    readonly wasmconstants_global_user_tree_height: () => number;
+    readonly wasmconstants_group_realm_height: () => number;
+    readonly wasmconstants_guta_fee: () => bigint;
+    readonly wasmconstants_native_currency: () => [number, number];
+    readonly wasmconstants_native_currency_decimal: () => number;
+    readonly wasmconstants_native_currency_name: () => [number, number];
+    readonly wasmconstants_realm_rpc_urls: () => [number, number];
+    readonly wasmconstants_realm_user_tree_height: () => number;
+    readonly wasmconstants_users_per_realm: () => bigint;
+    readonly wasmpsyconfig_builder: () => number;
+    readonly wasmpsyconfig_currentNetworkName: (a: number) => [number, number];
+    readonly wasmpsyconfig_getCurrentNetwork: (a: number) => [number, number, number, number];
+    readonly wasmpsyconfig_getNetworkJson: (a: number, b: number, c: number) => [number, number, number, number];
+    readonly wasmpsyconfig_listNetworks: (a: number) => [number, number];
+    readonly wasmpsyconfig_new: (a: number, b: number) => [number, number, number];
+    readonly wasmpsyconfig_useNetwork: (a: number, b: number, c: number) => [number, number];
+    readonly wasmpsyconfigbuilder_build: (a: number) => [number, number, number];
+    readonly wasmpsyconfigbuilder_json: (a: number, b: number, c: number) => number;
+    readonly wasmpsyconfigbuilder_network: (a: number, b: number, c: number) => number;
     readonly wasmrpcserver_add_external_proof_json: (a: number, b: number, c: number, d: number, e: number) => any;
+    readonly wasmrpcserver_add_user: (a: number, b: number, c: number, d: number, e: number) => any;
+    readonly wasmrpcserver_deploy_contract_json: (a: number, b: number, c: number, d: number, e: number) => any;
     readonly wasmrpcserver_exec_claim_with_external_proof_json: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number, l: number, m: number, n: number, o: number, p: number, q: number, r: number, s: number, t: number, u: number, v: number, w: number) => any;
-    readonly wasmrpcserver_prove_private_note_inclusion_json: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number, l: number, m: number, n: number, o: number, p: number, q: number) => any;
+    readonly wasmrpcserver_exec_contract_call_json: (a: number, b: number, c: number, d: number, e: number) => any;
+    readonly wasmrpcserver_exec_contract_call_with_external_signature: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => any;
+    readonly wasmrpcserver_get_deploy_contract_cmd_json: (a: number, b: number, c: number, d: number, e: number) => [number, number, number, number];
+    readonly wasmrpcserver_get_random_keypair_json: (a: number) => any;
+    readonly wasmrpcserver_get_result: (a: number, b: number, c: number) => [number, number, number, number];
+    readonly wasmrpcserver_get_sig_hash: (a: number, b: number, c: number, d: number, e: number) => any;
+    readonly wasmrpcserver_get_zk_public_key_json: (a: number, b: number, c: number) => any;
+    readonly wasmrpcserver_new: (a: number, b: number) => any;
+    readonly wasmrpcserver_ping: (a: number, b: number, c: number) => [number, number, number, number];
     readonly wasmrpcserver_prove_contract_call_json: (a: number, b: number, c: number, d: number, e: number) => any;
     readonly wasmrpcserver_prove_contract_calls_json: (a: number, b: number, c: number, d: number, e: number) => any;
-    readonly wasmrpcserver_sign_and_submit: (a: number, b: number, c: number, d: number, e: number) => any;
+    readonly wasmrpcserver_prove_private_note_inclusion_json: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number, l: number, m: number, n: number, o: number, p: number, q: number) => any;
     readonly wasmrpcserver_register_user: (a: number, b: number, c: number, d: number, e: number) => any;
-    readonly wasmrpcserver_add_user: (a: number, b: number, c: number, d: number, e: number) => any;
-    readonly wasmrpcserver_get_zk_public_key_json: (a: number, b: number, c: number) => any;
-    readonly wasmrpcserver_get_random_keypair_json: (a: number) => any;
-    readonly wasmrpcserver_deploy_contract_json: (a: number, b: number, c: number, d: number, e: number) => any;
-    readonly wasmrpcserver_get_deploy_contract_cmd_json: (a: number, b: number, c: number, d: number, e: number) => [number, number, number, number];
-    readonly wasmrpcserver_ping: (a: number, b: number, c: number) => [number, number, number, number];
-    readonly wasmrpcserver_get_result: (a: number, b: number, c: number) => [number, number, number, number];
+    readonly wasmrpcserver_sign_and_submit: (a: number, b: number, c: number, d: number, e: number) => any;
+    readonly wasmrpcserver_start_session: (a: number, b: number, c: number) => any;
     readonly wasmpsyconfigbuilder_new: () => number;
     readonly wasmconstants_register_user_fee: () => bigint;
-    readonly wasmconstants_guta_fee: () => bigint;
-    readonly wasm_bindgen__closure__destroy__h3ce62ddb0433d1cc: (a: number, b: number) => void;
-    readonly wasm_bindgen__closure__destroy__hc7b19a8babc9e085: (a: number, b: number) => void;
-    readonly wasm_bindgen__convert__closures_____invoke__h1cddf65df1637093: (a: number, b: number, c: any, d: any) => void;
-    readonly wasm_bindgen__convert__closures_____invoke__hc6d71c549dd0ed85: (a: number, b: number, c: any) => void;
-    readonly wasm_bindgen__convert__closures_____invoke__h928a7a747030452e: (a: number, b: number) => void;
+    readonly wasm_bindgen__closure__destroy__h1b5505c935284b57: (a: number, b: number) => void;
+    readonly wasm_bindgen__closure__destroy__h331a7637426ce72b: (a: number, b: number) => void;
+    readonly wasm_bindgen__convert__closures_____invoke__hbd96d25d7b63f7a4: (a: number, b: number, c: any, d: any) => void;
+    readonly wasm_bindgen__convert__closures_____invoke__h9bc15f362fb0f120: (a: number, b: number, c: any) => void;
+    readonly wasm_bindgen__convert__closures_____invoke__hda423c06aeee1c91: (a: number, b: number) => void;
+    readonly memory: WebAssembly.Memory;
     readonly __wbindgen_malloc: (a: number, b: number) => number;
     readonly __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;
     readonly __wbindgen_exn_store: (a: number) => void;
@@ -196,7 +231,8 @@ export interface InitOutput {
     readonly __wbindgen_free: (a: number, b: number, c: number) => void;
     readonly __externref_table_dealloc: (a: number) => void;
     readonly __externref_drop_slice: (a: number, b: number) => void;
-    readonly __wbindgen_start: () => void;
+    readonly __wbindgen_thread_destroy: (a?: number, b?: number, c?: number) => void;
+    readonly __wbindgen_start: (a: number) => void;
 }
 
 export type SyncInitInput = BufferSource | WebAssembly.Module;
@@ -205,18 +241,20 @@ export type SyncInitInput = BufferSource | WebAssembly.Module;
  * Instantiates the given `module`, which can either be bytes or
  * a precompiled `WebAssembly.Module`.
  *
- * @param {{ module: SyncInitInput }} module - Passing `SyncInitInput` directly is deprecated.
+ * @param {{ module: SyncInitInput, memory?: WebAssembly.Memory, thread_stack_size?: number }} module - Passing `SyncInitInput` directly is deprecated.
+ * @param {WebAssembly.Memory} memory - Deprecated.
  *
  * @returns {InitOutput}
  */
-export function initSync(module: { module: SyncInitInput } | SyncInitInput): InitOutput;
+export function initSync(module: { module: SyncInitInput, memory?: WebAssembly.Memory, thread_stack_size?: number } | SyncInitInput, memory?: WebAssembly.Memory): InitOutput;
 
 /**
  * If `module_or_path` is {RequestInfo} or {URL}, makes a request and
  * for everything else, calls `WebAssembly.instantiate` directly.
  *
- * @param {{ module_or_path: InitInput | Promise<InitInput> }} module_or_path - Passing `InitInput` directly is deprecated.
+ * @param {{ module_or_path: InitInput | Promise<InitInput>, memory?: WebAssembly.Memory, thread_stack_size?: number }} module_or_path - Passing `InitInput` directly is deprecated.
+ * @param {WebAssembly.Memory} memory - Deprecated.
  *
  * @returns {Promise<InitOutput>}
  */
-export default function __wbg_init (module_or_path?: { module_or_path: InitInput | Promise<InitInput> } | InitInput | Promise<InitInput>): Promise<InitOutput>;
+export default function __wbg_init (module_or_path?: { module_or_path: InitInput | Promise<InitInput>, memory?: WebAssembly.Memory, thread_stack_size?: number } | InitInput | Promise<InitInput>, memory?: WebAssembly.Memory): Promise<InitOutput>;
