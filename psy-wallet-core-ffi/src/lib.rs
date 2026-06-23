@@ -1101,27 +1101,33 @@ impl PsyWalletCore {
         // `mut`: register_external_secp_user takes `&mut wallet`.
         let mut s = self.inner.lock().await;
 
-        // Re-derive the session to the exact sighash point (idempotent: same
-        // prefix exec_contract_call / get_sig_hash run).
-        s.wallet_session
-            .start_session(pk_hash)
-            .await
-            .map_err(|e| PsyError::w(format!("start_session: {e}")))?;
-        s.wallet_session
-            .prove_contract_call(pk_hash, call_data.contract_calls)
-            .await
-            .map_err(|e| PsyError::w(format!("prove_contract_call: {e}")))?;
-
-        // Recompute the sighash and bind it as the message the circuit verifies.
+        // CRITICAL — do NOT re-derive the session here. `get_sig_hash` already
+        // ran start_session + prove_contract_call and left the session primed at
+        // the EXACT state the returned sighash commits to. Re-running
+        // start_session would refresh to the latest checkpoint and shift the
+        // nonce/sighash, so the externally-signed message would no longer match
+        // the session's end-cap sighash → the in-circuit ECDSA check fails with a
+        // VirtualTarget partition conflict. Instead, reuse the primed session and
+        // VERIFY its current sighash equals the one the signature was produced
+        // over (the signature's bound message), which is the stale-state guard.
         let mgr = s
             .wallet_session
             .user_session_mgrs
             .get(&pk_hash)
-            .ok_or_else(|| PsyError::w(format!("user {pk_hash} not found in session")))?;
+            .ok_or_else(|| {
+                PsyError::w(format!(
+                    "user {pk_hash} not found in session — call get_sig_hash first (it primes the session)"
+                ))
+            })?;
         let nonce = mgr.lps.get_nonce();
         let sighash = mgr.get_sighash(PSY_NETWORK_MAGIC, nonce);
         drop(mgr);
 
+        // Bind the session's CURRENT sighash as the message the circuit verifies.
+        // The supplied r‖s must be an eth_sign over exactly this hash, or the
+        // proof is rejected. (The session state is unchanged since get_sig_hash,
+        // so this equals the hash the caller signed — barring a concurrent call
+        // on the same pk_hash, which the per-pk session manager serializes.)
         let external_sig = PsyCompressedSecp256K1Signature {
             public_key,
             signature,
@@ -1252,5 +1258,163 @@ mod a_mode_spike {
         println!(
             "MODE-A GO: external MetaMask eth_sign signature ACCEPTED by the existing secp256k1 circuit — no circuit changes. binding={got}"
         );
+    }
+}
+
+#[cfg(test)]
+mod mode_a_staging_spike {
+    //! END-TO-END GO/NO-GO for the Mode-A SUBMIT path against LIVE staging:
+    //! prove that a real public contract call authorized SOLELY by an external
+    //! `eth_sign` signature (no held key in the SDK at submit time) is ACCEPTED
+    //! by the staging chain, with NO circuit changes.
+    //!
+    //! Requires staging access. Skips (passes, no-op) unless `PSY_CONFIG` points
+    //! at a staging RPC config — so plain `cargo test` stays offline.
+    //!
+    //! run:
+    //!   PSY_CONFIG=/tmp/psy-staging-config.json \
+    //!   CARGO_NET_GIT_FETCH_WITH_CLI=true \
+    //!   cargo test -p psy_wallet_core_ffi \
+    //!     mode_a_external_sig_contract_call_accepted_by_staging -- --nocapture
+    use std::str::FromStr;
+    use std::time::{Duration, Instant};
+
+    use k256::ecdsa::{signature::hazmat::PrehashSigner, SigningKey};
+    use plonky2::field::goldilocks_field::GoldilocksField;
+    use psy_common::data::{base_types::hash256::Hash256, qhashout::QHashOut};
+
+    use crate::PsyWalletCore;
+
+    type F = GoldilocksField;
+
+    /// A fresh, deterministic secp256k1 (Ethereum-style) test key — NEVER a
+    /// real-funds key. Overridable via PSY_MODE_A_KEY (bare 64-hex lowercase) so
+    /// reruns can use a not-yet-registered key.
+    fn test_private_key_hex() -> String {
+        std::env::var("PSY_MODE_A_KEY")
+            .unwrap_or_else(|_| "2b7e151628aed2a6abf7158809cf4f3c762e7160f38b4da56a784d9045190cfe".into())
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    async fn mode_a_external_sig_contract_call_accepted_by_staging() {
+        let Ok(config_path) = std::env::var("PSY_CONFIG") else {
+            eprintln!("[mode-a-staging] PSY_CONFIG not set — skipping live staging spike (offline no-op).");
+            return;
+        };
+        let config_json = std::fs::read_to_string(&config_path)
+            .unwrap_or_else(|e| panic!("read PSY_CONFIG ({config_path}): {e}"));
+
+        let private_key_hex = test_private_key_hex();
+
+        eprintln!("[mode-a-staging] building wallet core (RPC bootstrap)…");
+        let core = PsyWalletCore::new(config_json)
+            .await
+            .expect("build PsyWalletCore from staging config");
+
+        // 1) Register the secp256k1 user (the proven register_user path).
+        eprintln!("[mode-a-staging] register_user (secp256k1)…");
+        let pk_hash = core
+            .register_user(private_key_hex.clone(), "secp256k1".to_string())
+            .await
+            .expect("register_user(secp256k1)");
+        eprintln!("[mode-a-staging] registered pkHash={pk_hash}");
+
+        // 2) Wait for the registration to land (≈2 checkpoints), polling add_user
+        //    until it resolves the on-chain user_id.
+        eprintln!("[mode-a-staging] waiting for registration to land (add_user poll)…");
+        let add_deadline = Instant::now() + Duration::from_secs(240);
+        loop {
+            match core
+                .add_user(private_key_hex.clone(), "secp256k1".to_string())
+                .await
+            {
+                Ok(_) => {
+                    eprintln!("[mode-a-staging] user registered + added.");
+                    break;
+                }
+                Err(e) => {
+                    if Instant::now() >= add_deadline {
+                        panic!("timeout waiting for registration to land: {e}");
+                    }
+                    tokio::time::sleep(Duration::from_secs(5)).await;
+                }
+            }
+        }
+
+        // 3) Build a real simple_mint call on contract 0 — the canonical
+        //    self-credit that a zero-balance user can make (it brings PSY in and
+        //    pays its own fee; mirrors Makefile `mint` / contract_call.json).
+        let mint_amount: u64 = 10_000_000_000;
+        let call_data_json = serde_json::json!({
+            "contract_calls": [{
+                "contract_id": 0,
+                "method_name": "simple_mint",
+                "inputs": [mint_amount],
+            }],
+            "software_defined_call": { "inputs": [] }
+        })
+        .to_string();
+
+        // 4) MODE-A step 1: get the sighash the external wallet must eth_sign.
+        eprintln!("[mode-a-staging] get_sig_hash (drives start_session + prove_contract_call)…");
+        let t_sighash = Instant::now();
+        let sighash_hex = core
+            .get_sig_hash(pk_hash.clone(), call_data_json.clone())
+            .await
+            .expect("get_sig_hash");
+        eprintln!(
+            "[mode-a-staging] sighash={sighash_hex} (in {:?})",
+            t_sighash.elapsed()
+        );
+
+        // 5) EXTERNAL signature — EXACTLY MetaMask eth_sign: raw k256
+        //    sign_prehash over the sighash bytes (no EIP-191 prefix). Produced by
+        //    k256 directly, independent of any Psy signing code → an external sig.
+        let priv_qhash = QHashOut::<F>::from_str(&private_key_hex).expect("parse priv key");
+        let signing_key = SigningKey::from_slice(&Hash256::from(priv_qhash).0).expect("k256 key");
+        let sighash_qhash = QHashOut::<F>::from_str(&sighash_hex).expect("parse sighash");
+        let sighash_bytes = Hash256::from(sighash_qhash).0;
+        let sig: k256::ecdsa::Signature = signing_key
+            .sign_prehash(&sighash_bytes)
+            .expect("eth_sign (sign_prehash) over sighash");
+        let mut payload = Vec::with_capacity(97);
+        payload.extend_from_slice(&signing_key.verifying_key().to_encoded_point(true).to_bytes()); // 33
+        payload.extend_from_slice(&sig.r().to_bytes()); // 32
+        payload.extend_from_slice(&sig.s().to_bytes()); // 32
+        assert_eq!(payload.len(), 97, "signature payload must be pubkey33 + r32 + s32");
+        let signature_hex = hex::encode(&payload);
+        eprintln!("[mode-a-staging] external eth_sign signature built ({} hex chars).", signature_hex.len());
+
+        // 6) MODE-A step 3: submit authorized SOLELY by the external signature.
+        eprintln!("[mode-a-staging] exec_contract_call_with_external_signature (submit)…");
+        let t_submit = Instant::now();
+        let tx_result = core
+            .exec_contract_call_with_external_signature(pk_hash.clone(), call_data_json, signature_hex)
+            .await;
+        let submit_dur = t_submit.elapsed();
+
+        match tx_result {
+            Ok(tx_hash) => {
+                eprintln!("[mode-a-staging] submit returned tx/leaf hash={tx_hash} in {submit_dur:?}");
+                assert!(!tx_hash.is_empty(), "tx hash must be non-empty");
+                assert!(
+                    !tx_hash.contains("VirtualTarget"),
+                    "circuit mismatch (VirtualTarget) in result: {tx_hash}"
+                );
+                println!(
+                    "MODE-A SUBMIT GO: contract call authorized SOLELY by an external eth_sign \
+                     signature ACCEPTED on live staging — no circuit changes. tx={tx_hash} ({submit_dur:?})"
+                );
+            }
+            Err(e) => {
+                let msg = format!("{e:?}");
+                assert!(
+                    !msg.contains("VirtualTarget"),
+                    "HARD BLOCKER: circuit/VirtualTarget mismatch on external-sig submit — \
+                     would indicate the circuit verifies a different message than get_sighash. {msg}"
+                );
+                panic!("[mode-a-staging] external-sig submit failed (NOT a circuit mismatch): {msg}");
+            }
+        }
     }
 }
