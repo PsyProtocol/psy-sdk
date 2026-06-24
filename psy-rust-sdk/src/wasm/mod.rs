@@ -1723,4 +1723,725 @@ impl WasmRpcServer {
             None => Err(JsError::new(&format!("Proof not found for ID: {}", id_str))),
         }
     }
+
+    // ===================================================================
+    // MODE-A (web / MetaMask) external-signature authorization.
+    //
+    // The web wallet reuses the EXISTING "Classic Wallet (secp256k1)" account
+    // type — it just supplies the secp256k1 signature from OUTSIDE (a raw
+    // `sign_prehash` over the Psy sighash, byte-identical to MetaMask
+    // `eth_sign`), proven by the UNCHANGED secp256k1 circuit. NO new account
+    // type, NO circuit-logic change. The non-circuit plumbing this relies on
+    // (`PsyMemoryWallet::register_external_secp_user`,
+    // `WalletSession::register_external_secp_user`,
+    // `WalletSession::prove_claim_batch`) was ported into the chain
+    // (parth-ac198474) from the staging-verified parth-generic-v1 reference.
+    //
+    // Signature payload format (shared by every method below): the concatenation
+    // `compressed_pubkey(33) ‖ r(32) ‖ s(32)` = 97 bytes, hex-encoded (with an
+    // optional `0x` prefix) — i.e. the SEC1-compressed public key followed by the
+    // 64-byte `r‖s` an `eth_sign` / `sign_prehash` produces over the relevant
+    // sighash. The leading pubkey byte must be 0x02/0x03 (SEC1 compressed).
+    // ===================================================================
+
+    /// Inline hex → bytes (psy_rust_sdk has no `hex` dep; base64 is its only
+    /// binary-encoding dep), then split into `compressed_pubkey(33) ‖ r‖s(64)`
+    /// with a SEC1-compressed preflight. Returns `(public_key[33], signature[64])`.
+    fn parse_external_sig_bytes(signature_hex: &str) -> Result<([u8; 33], [u8; 64]), JsError> {
+        let sig_bytes = {
+            let h = signature_hex.trim_start_matches("0x");
+            if h.len() % 2 != 0 {
+                return Err(JsError::new("signature hex has odd length"));
+            }
+            let mut out = Vec::with_capacity(h.len() / 2);
+            let bytes = h.as_bytes();
+            let nibble = |c: u8| -> Result<u8, JsError> {
+                match c {
+                    b'0'..=b'9' => Ok(c - b'0'),
+                    b'a'..=b'f' => Ok(c - b'a' + 10),
+                    b'A'..=b'F' => Ok(c - b'A' + 10),
+                    _ => Err(JsError::new(&format!(
+                        "invalid hex character in signature: 0x{:02x}",
+                        c
+                    ))),
+                }
+            };
+            for pair in bytes.chunks(2) {
+                out.push((nibble(pair[0])? << 4) | nibble(pair[1])?);
+            }
+            out
+        };
+        if sig_bytes.len() != 97 {
+            return Err(JsError::new(&format!(
+                "signature must be 97 bytes (pubkey33 + r32 + s32), got {}",
+                sig_bytes.len()
+            )));
+        }
+        let mut public_key = [0u8; 33];
+        public_key.copy_from_slice(&sig_bytes[..33]);
+        // Preflight: reject a non-SEC1-compressed pubkey with a clear error
+        // rather than an opaque in-circuit "prove_secp_sign failed". A valid
+        // compressed key is 33 bytes with a 0x02/0x03 (even/odd y) prefix. This
+        // is a cheap format gate, not full curve-point validation — the
+        // in-circuit ECDSA check backstops a structurally valid but off-curve key.
+        if public_key[0] != 0x02 && public_key[0] != 0x03 {
+            return Err(JsError::new(&format!(
+                "external signature public key is not SEC1-compressed: leading byte 0x{:02x} (expected 0x02 or 0x03)",
+                public_key[0]
+            )));
+        }
+        let mut signature = [0u8; 64];
+        signature.copy_from_slice(&sig_bytes[33..]);
+        Ok((public_key, signature))
+    }
+
+    /// MODE-A step 1 (contract call): drive a public contract call up to (but not
+    /// through) the authorization signature, and return the 32-byte Psy session
+    /// sighash (hex) the external wallet (MetaMask) must `eth_sign`.
+    ///
+    /// Runs `start_session` + `prove_contract_call` (the same prefix
+    /// `exec_contract_call` runs), then reads the deterministic
+    /// `get_sighash(PSY_NETWORK_MAGIC, nonce)` from the session manager. The
+    /// session is left primed; pair this with
+    /// `exec_contract_call_with_external_signature`, which reuses the same state
+    /// and asserts the sighash is unchanged before submit (a stale-nonce guard).
+    #[wasm_bindgen]
+    pub async fn get_sig_hash(
+        &self,
+        pk_hash: &str,
+        call_data_json: &str,
+    ) -> Result<String, JsError> {
+        use psy_config::network_constants::PSY_NETWORK_MAGIC;
+        use psy_data::qstore::controllers::proving_session::PsyReadLocalProvingSessionStore;
+
+        let call_data: ContractCallData = serde_json::from_str(call_data_json)
+            .map_err(|e| JsError::new(&format!("Parse call data JSON error: {}", e)))?;
+        if call_data.contract_calls.is_empty() {
+            return Err(JsError::new("No contract calls to execute"));
+        }
+        let pk_hash = QHashOut::<F>::from_str(pk_hash)
+            .map_err(|e| JsError::new(&format!("Parse public key hash error: {}", e)))?;
+
+        // Same prefix exec_contract_call runs, minus sign.
+        self.wallet_session
+            .start_session(pk_hash)
+            .await
+            .map_err(|e| JsError::new(&format!("start_session: {}", e)))?;
+        self.wallet_session
+            .prove_contract_call(pk_hash, call_data.contract_calls)
+            .await
+            .map_err(|e| JsError::new(&format!("prove_contract_call: {}", e)))?;
+
+        // Read the exact sighash sign_inner derives.
+        let mgr = self
+            .wallet_session
+            .user_session_mgrs
+            .get(&pk_hash)
+            .ok_or_else(|| JsError::new(&format!("user {} not found in session", pk_hash)))?;
+        let nonce = mgr.lps.get_nonce();
+        let sighash = mgr.get_sighash(PSY_NETWORK_MAGIC, nonce);
+        drop(mgr);
+
+        Ok(sighash.to_string())
+    }
+
+    /// MODE-A step 3 (contract call): submit a public contract call authorized
+    /// SOLELY by an external `eth_sign` signature (no held key).
+    ///
+    /// `signature_hex` is the 97-byte `compressed_pubkey(33) ‖ r(32) ‖ s(32)` an
+    /// `eth_sign` / `sign_prehash` produces over the sighash from `get_sig_hash`.
+    /// Reuses the session primed by `get_sig_hash`, recomputes the sighash,
+    /// binds it as the signature's `message`, registers an `ExternalSecp256K1User`
+    /// for this `pk_hash`, and runs the UNCHANGED `sign_and_submit`. Returns the
+    /// tx end-user-leaf hash.
+    #[wasm_bindgen]
+    pub async fn exec_contract_call_with_external_signature(
+        &mut self,
+        pk_hash: &str,
+        call_data_json: &str,
+        signature_hex: &str,
+    ) -> Result<String, JsError> {
+        use psy_config::network_constants::PSY_NETWORK_MAGIC;
+        use psy_crypto::hash::traits::qhashable::QFieldHashable;
+        use psy_crypto::signature::secp256k1::core::PsyCompressedSecp256K1Signature;
+        use psy_data::qstore::controllers::proving_session::PsyReadLocalProvingSessionStore;
+
+        let call_data: ContractCallData = serde_json::from_str(call_data_json)
+            .map_err(|e| JsError::new(&format!("Parse call data JSON error: {}", e)))?;
+        if call_data.contract_calls.is_empty() {
+            return Err(JsError::new("No contract calls to execute"));
+        }
+        let pk_hash = QHashOut::<F>::from_str(pk_hash)
+            .map_err(|e| JsError::new(&format!("Parse public key hash error: {}", e)))?;
+
+        let (public_key, signature) = Self::parse_external_sig_bytes(signature_hex)?;
+
+        // CRITICAL — do NOT re-derive the session here. `get_sig_hash` already
+        // ran start_session + prove_contract_call and left the session primed at
+        // the EXACT state the returned sighash commits to. Re-running
+        // start_session would refresh to the latest checkpoint and shift the
+        // nonce/sighash, so the externally-signed message would no longer match
+        // the session's end-cap sighash. Instead, reuse the primed session and
+        // VERIFY its current sighash equals the one the signature was produced
+        // over (the stale-state guard).
+        let mgr = self
+            .wallet_session
+            .user_session_mgrs
+            .get(&pk_hash)
+            .ok_or_else(|| {
+                JsError::new(&format!(
+                    "user {} not found in session — call get_sig_hash first (it primes the session)",
+                    pk_hash
+                ))
+            })?;
+        let nonce = mgr.lps.get_nonce();
+        let sighash = mgr.get_sighash(PSY_NETWORK_MAGIC, nonce);
+        drop(mgr);
+
+        let external_sig = PsyCompressedSecp256K1Signature {
+            public_key,
+            signature,
+            message: Hash256::from(sighash),
+        };
+
+        // Swap in the external-signature signer for this pk_hash, then assert the
+        // pk_hash it derives equals the addressed pk_hash (else the signature is
+        // for a different key than the session user).
+        let ext_pk_info = self
+            .wallet_session
+            .wallet
+            .register_external_secp_user(external_sig)
+            .await
+            .map_err(|e| JsError::new(&format!("register_external_secp_user: {}", e)))?;
+        let ext_pk_hash = ext_pk_info.qfhash::<psy_data::config::store_config::PsyHasher>();
+        if ext_pk_hash != pk_hash {
+            return Err(JsError::new(&format!(
+                "external signature public key hash {} does not match addressed pk_hash {}",
+                ext_pk_hash, pk_hash
+            )));
+        }
+
+        // Run the UNCHANGED sign_and_submit — sign_inner now dispatches auth to
+        // the ExternalSecp256K1User → prove_secp_sign(external_sig).
+        let submit_metadata = self
+            .wallet_session
+            .sign_and_submit(pk_hash, call_data.software_defined_call)
+            .await
+            .map_err(|e| JsError::new(&format!("sign_and_submit (external sig): {}", e)))?;
+
+        Ok(submit_metadata.tx_hash.to_string())
+    }
+
+    /// MODE-A core primitive: register a secp256k1 PUBLIC key as a Psy account
+    /// WITHOUT a held private key, authorized by an external `eth_sign`.
+    ///
+    /// `public_key_hex` is the SEC1-compressed public key (33 bytes / 66 hex
+    /// chars). `signature_hex` is the 97-byte `compressed_pubkey ‖ r ‖ s` an
+    /// `eth_sign` produced over ANY well-formed Psy sighash — the registration
+    /// itself does not consume a session sighash, but supplying a real signature
+    /// proves possession of the key and keeps the payload format uniform across
+    /// every Mode-A method. `public_key_hex` must equal the first 33 bytes of
+    /// `signature_hex`.
+    ///
+    /// Installs an `ExternalSecp256K1User` for the derived `pk_hash` and submits
+    /// the SAME `register_user` request the held-key secp256k1 path submits, then
+    /// polls `get_user_ids_for_public_key` for the assigned `user_id`. Returns
+    /// JSON `{ "pk_hash": "...", "user_id": "..." | null }` — `user_id` is `null`
+    /// when registration has not yet landed on-chain (the bridge should keep
+    /// polling `get_user_ids_for_public_key`).
+    #[wasm_bindgen]
+    pub async fn register_user_with_external_signature(
+        &mut self,
+        public_key_hex: &str,
+        signature_hex: &str,
+    ) -> Result<String, JsError> {
+        use psy_crypto::signature::secp256k1::core::PsyCompressedSecp256K1Signature;
+
+        let (public_key, signature) = Self::parse_external_sig_bytes(signature_hex)?;
+
+        // Cross-check the standalone public_key arg against the one carried in the
+        // signature, so a caller that passes mismatched values fails loudly here.
+        {
+            let pk_hex = public_key_hex.trim_start_matches("0x");
+            let want: String = public_key.iter().map(|b| format!("{:02x}", b)).collect();
+            if pk_hex.to_ascii_lowercase() != want {
+                return Err(JsError::new(&format!(
+                    "public_key_hex {} does not match the compressed pubkey in signature_hex {}",
+                    pk_hex, want
+                )));
+            }
+        }
+
+        // The register request does not bind a session sighash, so any well-formed
+        // message is acceptable for the carried signature. Bind the all-zero hash
+        // (the wallet signs the real Psy sighash for every spend; registration is
+        // an authenticated install of the public key only).
+        let external_sig = PsyCompressedSecp256K1Signature {
+            public_key,
+            signature,
+            message: Hash256::default(),
+        };
+
+        let pk_hash = self
+            .wallet_session
+            .register_external_secp_user(external_sig)
+            .await
+            .map_err(|e| JsError::new(&format!("register_external_secp_user: {}", e)))?;
+
+        // Resolve the assigned user_id (registration lands after checkpoints —
+        // poll a bounded number of times, then return null so the bridge polls on).
+        let provider = self.wallet_session.st_provider.clone();
+        let mut user_id: Option<u64> = None;
+        for _ in 0..30 {
+            match provider.get_user_ids_for_public_key(pk_hash).await {
+                Ok(ids) => {
+                    if let Some(id) = ids.first() {
+                        user_id = Some(*id);
+                        break;
+                    }
+                }
+                Err(e) => {
+                    return Err(JsError::new(&format!("get_user_ids_for_public_key: {}", e)));
+                }
+            }
+            async_sleep_ms(1000).await;
+        }
+
+        let result = serde_json::json!({
+            "pk_hash": pk_hash.to_string(),
+            "user_id": user_id.map(|id| id.to_string()),
+        });
+        Ok(result.to_string())
+    }
+
+    /// MODE-A step 1 (claim): drive a claim batch up to (but not through) the
+    /// authorization signature, and return the 32-byte Psy session sighash (hex)
+    /// the external wallet must `eth_sign`.
+    ///
+    /// Runs `prove_claim_batch` (start_session + per-item claim proofs + burn fee
+    /// — the same prefix `claim_batch` runs, minus sign), then reads the
+    /// deterministic `get_sighash(PSY_NETWORK_MAGIC, nonce)`. The session is left
+    /// primed; pair this with `claim_batch_with_external_signature`.
+    #[wasm_bindgen]
+    pub async fn get_claim_sig_hash(
+        &mut self,
+        pk_hash: &str,
+        claims_json: &str,
+    ) -> Result<String, JsError> {
+        use psy_config::network_constants::PSY_NETWORK_MAGIC;
+        use psy_data::qstore::controllers::proving_session::PsyReadLocalProvingSessionStore;
+
+        let pk_hash = QHashOut::<F>::from_str(pk_hash)
+            .map_err(|e| JsError::new(&format!("Parse public key hash error: {}", e)))?;
+        let claims = self.parse_claim_batch_items(pk_hash, claims_json).await?;
+
+        // Same prefix claim_batch runs, minus sign_and_submit. Leaves the session
+        // primed at the EXACT state the end-cap sighash commits to.
+        self.wallet_session
+            .prove_claim_batch(pk_hash, claims)
+            .await
+            .map_err(|e| JsError::new(&format!("prove_claim_batch: {}", e)))?;
+
+        let mgr = self
+            .wallet_session
+            .user_session_mgrs
+            .get(&pk_hash)
+            .ok_or_else(|| JsError::new(&format!("user {} not found in session", pk_hash)))?;
+        let nonce = mgr.lps.get_nonce();
+        let sighash = mgr.get_sighash(PSY_NETWORK_MAGIC, nonce);
+        drop(mgr);
+
+        Ok(sighash.to_string())
+    }
+
+    /// MODE-A step 3 (claim): submit a claim batch authorized SOLELY by an
+    /// external `eth_sign` signature (no held key).
+    ///
+    /// `signature_hex` is the 97-byte `compressed_pubkey ‖ r ‖ s` an `eth_sign`
+    /// produced over the sighash from `get_claim_sig_hash`. Reuses the session
+    /// primed by `get_claim_sig_hash`, recomputes the sighash, binds it as the
+    /// signature's `message`, registers an `ExternalSecp256K1User` for this
+    /// `pk_hash`, and runs the UNCHANGED `sign_and_submit` (the same end-cap
+    /// `claim_batch` itself runs). Returns the tx end-user-leaf hash.
+    #[wasm_bindgen]
+    pub async fn claim_batch_with_external_signature(
+        &mut self,
+        pk_hash: &str,
+        _claims_json: &str,
+        signature_hex: &str,
+    ) -> Result<String, JsError> {
+        use psy_common::args::DPNSoftwareDefinedCallData;
+        use psy_config::network_constants::PSY_NETWORK_MAGIC;
+        use psy_crypto::hash::traits::qhashable::QFieldHashable;
+        use psy_crypto::signature::secp256k1::core::PsyCompressedSecp256K1Signature;
+        use psy_data::qstore::controllers::proving_session::PsyReadLocalProvingSessionStore;
+
+        let pk_hash = QHashOut::<F>::from_str(pk_hash)
+            .map_err(|e| JsError::new(&format!("Parse public key hash error: {}", e)))?;
+
+        let (public_key, signature) = Self::parse_external_sig_bytes(signature_hex)?;
+
+        // CRITICAL — reuse the session primed by `get_claim_sig_hash` (do NOT
+        // re-prove the claim, which would shift the nonce/sighash). Recompute the
+        // current sighash and bind it as the signed message (stale-state guard).
+        let mgr = self
+            .wallet_session
+            .user_session_mgrs
+            .get(&pk_hash)
+            .ok_or_else(|| {
+                JsError::new(&format!(
+                    "user {} not found in session — call get_claim_sig_hash first (it primes the session)",
+                    pk_hash
+                ))
+            })?;
+        let nonce = mgr.lps.get_nonce();
+        let sighash = mgr.get_sighash(PSY_NETWORK_MAGIC, nonce);
+        drop(mgr);
+
+        let external_sig = PsyCompressedSecp256K1Signature {
+            public_key,
+            signature,
+            message: Hash256::from(sighash),
+        };
+
+        let ext_pk_info = self
+            .wallet_session
+            .wallet
+            .register_external_secp_user(external_sig)
+            .await
+            .map_err(|e| JsError::new(&format!("register_external_secp_user: {}", e)))?;
+        let ext_pk_hash = ext_pk_info.qfhash::<psy_data::config::store_config::PsyHasher>();
+        if ext_pk_hash != pk_hash {
+            return Err(JsError::new(&format!(
+                "external signature public key hash {} does not match addressed pk_hash {}",
+                ext_pk_hash, pk_hash
+            )));
+        }
+
+        // A claim batch's end-cap carries no software-defined call (claim_batch
+        // submits DPNSoftwareDefinedCallData::default()). Run the UNCHANGED
+        // sign_and_submit — sign_inner now dispatches auth to the external signer.
+        let submit_metadata = self
+            .wallet_session
+            .sign_and_submit(pk_hash, DPNSoftwareDefinedCallData::default())
+            .await
+            .map_err(|e| JsError::new(&format!("sign_and_submit (external sig claim): {}", e)))?;
+
+        Ok(submit_metadata.tx_hash.to_string())
+    }
+
+    // ===================================================================
+    // MODE-A (MetaMask `personal_sign` / EIP-191) variants.
+    //
+    // MetaMask removed raw `eth_sign`, so the web wallet authorizes with
+    // `personal_sign`, which signs `keccak256("\x19Ethereum Signed Message:\n32"
+    // || message)` rather than the raw prehash. These methods are byte-identical
+    // to the `*_with_external_signature` ones above — SAME 97-byte payload, SAME
+    // `message: Hash256::from(sighash)` binding, SAME priming via
+    // `get_sig_hash` / `get_claim_sig_hash` — except they install an
+    // `ExternalEthPersonalSignUser` (the EIP-191 signature type), so the proof is
+    // produced by the keccak-prefix circuit. The `message` the wallet hands
+    // MetaMask is the SAME 32-byte sighash the old `eth_sign` path signed
+    // (`Hash256::from(sighash).0`, i.e. the `get_sig_hash` value); the EIP-191
+    // keccak is recomputed in-circuit.
+    //
+    // Because this is a DISTINCT signature circuit fingerprint, the resulting
+    // `pk_hash` / `user_id` is a SEPARATE identity from the classic-secp one for
+    // the same MetaMask key — register the user with THIS method before spending.
+    // ===================================================================
+
+    /// MODE-A (personal_sign) register: register a secp256k1 PUBLIC key as a Psy
+    /// account under the EIP-191 signature type, no held key. Mirrors
+    /// `register_user_with_external_signature`, installing an
+    /// `ExternalEthPersonalSignUser`.
+    #[wasm_bindgen]
+    pub async fn register_user_with_external_eth_personal_signature(
+        &mut self,
+        public_key_hex: &str,
+        signature_hex: &str,
+    ) -> Result<String, JsError> {
+        use psy_crypto::signature::secp256k1::core::PsyCompressedSecp256K1Signature;
+
+        let (public_key, signature) = Self::parse_external_sig_bytes(signature_hex)?;
+
+        {
+            let pk_hex = public_key_hex.trim_start_matches("0x");
+            let want: String = public_key.iter().map(|b| format!("{:02x}", b)).collect();
+            if pk_hex.to_ascii_lowercase() != want {
+                return Err(JsError::new(&format!(
+                    "public_key_hex {} does not match the compressed pubkey in signature_hex {}",
+                    pk_hex, want
+                )));
+            }
+        }
+
+        // Registration binds no session sighash; the carried signature only proves
+        // possession of the key (recover the pubkey). Bind the all-zero hash.
+        let external_sig = PsyCompressedSecp256K1Signature {
+            public_key,
+            signature,
+            message: Hash256::default(),
+        };
+
+        let pk_hash = self
+            .wallet_session
+            .register_external_eth_personal_user(external_sig)
+            .await
+            .map_err(|e| JsError::new(&format!("register_external_eth_personal_user: {}", e)))?;
+
+        let provider = self.wallet_session.st_provider.clone();
+        let mut user_id: Option<u64> = None;
+        for _ in 0..30 {
+            match provider.get_user_ids_for_public_key(pk_hash).await {
+                Ok(ids) => {
+                    if let Some(id) = ids.first() {
+                        user_id = Some(*id);
+                        break;
+                    }
+                }
+                Err(e) => {
+                    return Err(JsError::new(&format!("get_user_ids_for_public_key: {}", e)));
+                }
+            }
+            async_sleep_ms(1000).await;
+        }
+
+        let result = serde_json::json!({
+            "pk_hash": pk_hash.to_string(),
+            "user_id": user_id.map(|id| id.to_string()),
+        });
+        Ok(result.to_string())
+    }
+
+    /// MODE-A (personal_sign) contract call: submit a public contract call
+    /// authorized SOLELY by a MetaMask `personal_sign`. Mirrors
+    /// `exec_contract_call_with_external_signature`, installing an
+    /// `ExternalEthPersonalSignUser`. Prime the session with `get_sig_hash` first;
+    /// the wallet `personal_sign`s the value it returns.
+    #[wasm_bindgen]
+    pub async fn exec_contract_call_with_external_eth_personal_signature(
+        &mut self,
+        pk_hash: &str,
+        call_data_json: &str,
+        signature_hex: &str,
+    ) -> Result<String, JsError> {
+        use psy_config::network_constants::PSY_NETWORK_MAGIC;
+        use psy_crypto::hash::traits::qhashable::QFieldHashable;
+        use psy_crypto::signature::secp256k1::core::PsyCompressedSecp256K1Signature;
+        use psy_data::qstore::controllers::proving_session::PsyReadLocalProvingSessionStore;
+
+        let call_data: ContractCallData = serde_json::from_str(call_data_json)
+            .map_err(|e| JsError::new(&format!("Parse call data JSON error: {}", e)))?;
+        if call_data.contract_calls.is_empty() {
+            return Err(JsError::new("No contract calls to execute"));
+        }
+        let pk_hash = QHashOut::<F>::from_str(pk_hash)
+            .map_err(|e| JsError::new(&format!("Parse public key hash error: {}", e)))?;
+
+        let (public_key, signature) = Self::parse_external_sig_bytes(signature_hex)?;
+
+        // Reuse the session primed by `get_sig_hash` (do NOT re-derive — that would
+        // shift the nonce/sighash). Recompute + bind the current sighash.
+        let mgr = self
+            .wallet_session
+            .user_session_mgrs
+            .get(&pk_hash)
+            .ok_or_else(|| {
+                JsError::new(&format!(
+                    "user {} not found in session — call get_sig_hash first (it primes the session)",
+                    pk_hash
+                ))
+            })?;
+        let nonce = mgr.lps.get_nonce();
+        let sighash = mgr.get_sighash(PSY_NETWORK_MAGIC, nonce);
+        drop(mgr);
+
+        let external_sig = PsyCompressedSecp256K1Signature {
+            public_key,
+            signature,
+            message: Hash256::from(sighash),
+        };
+
+        let ext_pk_info = self
+            .wallet_session
+            .wallet
+            .register_external_eth_personal_user(external_sig)
+            .await
+            .map_err(|e| JsError::new(&format!("register_external_eth_personal_user: {}", e)))?;
+        let ext_pk_hash = ext_pk_info.qfhash::<psy_data::config::store_config::PsyHasher>();
+        if ext_pk_hash != pk_hash {
+            return Err(JsError::new(&format!(
+                "external signature public key hash {} does not match addressed pk_hash {}",
+                ext_pk_hash, pk_hash
+            )));
+        }
+
+        let submit_metadata = self
+            .wallet_session
+            .sign_and_submit(pk_hash, call_data.software_defined_call)
+            .await
+            .map_err(|e| JsError::new(&format!("sign_and_submit (eth_personal sig): {}", e)))?;
+
+        Ok(submit_metadata.tx_hash.to_string())
+    }
+
+    /// MODE-A (personal_sign) claim: submit a claim batch authorized SOLELY by a
+    /// MetaMask `personal_sign`. Mirrors `claim_batch_with_external_signature`,
+    /// installing an `ExternalEthPersonalSignUser`. Prime with `get_claim_sig_hash`
+    /// first; the wallet `personal_sign`s the value it returns.
+    #[wasm_bindgen]
+    pub async fn claim_batch_with_external_eth_personal_signature(
+        &mut self,
+        pk_hash: &str,
+        _claims_json: &str,
+        signature_hex: &str,
+    ) -> Result<String, JsError> {
+        use psy_common::args::DPNSoftwareDefinedCallData;
+        use psy_config::network_constants::PSY_NETWORK_MAGIC;
+        use psy_crypto::hash::traits::qhashable::QFieldHashable;
+        use psy_crypto::signature::secp256k1::core::PsyCompressedSecp256K1Signature;
+        use psy_data::qstore::controllers::proving_session::PsyReadLocalProvingSessionStore;
+
+        let pk_hash = QHashOut::<F>::from_str(pk_hash)
+            .map_err(|e| JsError::new(&format!("Parse public key hash error: {}", e)))?;
+
+        let (public_key, signature) = Self::parse_external_sig_bytes(signature_hex)?;
+
+        let mgr = self
+            .wallet_session
+            .user_session_mgrs
+            .get(&pk_hash)
+            .ok_or_else(|| {
+                JsError::new(&format!(
+                    "user {} not found in session — call get_claim_sig_hash first (it primes the session)",
+                    pk_hash
+                ))
+            })?;
+        let nonce = mgr.lps.get_nonce();
+        let sighash = mgr.get_sighash(PSY_NETWORK_MAGIC, nonce);
+        drop(mgr);
+
+        let external_sig = PsyCompressedSecp256K1Signature {
+            public_key,
+            signature,
+            message: Hash256::from(sighash),
+        };
+
+        let ext_pk_info = self
+            .wallet_session
+            .wallet
+            .register_external_eth_personal_user(external_sig)
+            .await
+            .map_err(|e| JsError::new(&format!("register_external_eth_personal_user: {}", e)))?;
+        let ext_pk_hash = ext_pk_info.qfhash::<psy_data::config::store_config::PsyHasher>();
+        if ext_pk_hash != pk_hash {
+            return Err(JsError::new(&format!(
+                "external signature public key hash {} does not match addressed pk_hash {}",
+                ext_pk_hash, pk_hash
+            )));
+        }
+
+        let submit_metadata = self
+            .wallet_session
+            .sign_and_submit(pk_hash, DPNSoftwareDefinedCallData::default())
+            .await
+            .map_err(|e| JsError::new(&format!("sign_and_submit (eth_personal sig claim): {}", e)))?;
+
+        Ok(submit_metadata.tx_hash.to_string())
+    }
+}
+
+// ===================================================================
+// MODE-A staging spike (native, cfg(test)).
+//
+// Proves the make-or-break primitive: `register_user_with_external_signature`
+// is accepted by live staging and yields a user_id. Skips (no-op) unless
+// PSY_CONFIG points at a staging config (e.g. /tmp/psy-staging-config.json),
+// so CI / offline builds are unaffected. Run with:
+//   PSY_CONFIG=/tmp/psy-staging-config.json \
+//   CARGO_NET_GIT_FETCH_WITH_CLI=true \
+//   cargo +nightly-2025-09-20 test -p psy_rust_sdk --release \
+//     mode_a_register_via_external_sig -- --nocapture --ignored
+// ===================================================================
+#[cfg(all(test, not(target_arch = "wasm32")))]
+mod mode_a_staging_spike {
+    use super::*;
+    use k256::ecdsa::{signature::hazmat::PrehashSigner, SigningKey};
+    use std::str::FromStr;
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    #[ignore = "live staging spike — requires PSY_CONFIG + network access"]
+    async fn mode_a_register_via_external_sig() {
+        let Ok(config_path) = std::env::var("PSY_CONFIG") else {
+            eprintln!("[mode-a-register] PSY_CONFIG not set — skipping live staging spike (offline no-op).");
+            return;
+        };
+        let config_json = std::fs::read_to_string(&config_path)
+            .unwrap_or_else(|e| panic!("read PSY_CONFIG ({config_path}): {e}"));
+
+        // Fresh, deterministic secp256k1 test key — NEVER a real-funds key.
+        // Overridable via PSY_MODE_A_KEY so reruns can use a not-yet-registered key.
+        let private_key_hex = std::env::var("PSY_MODE_A_KEY")
+            .unwrap_or_else(|_| "2b7e151628aed2a6abf7158809cf4f3c762e7160f38b4da56a784d9045190cfe".into());
+
+        eprintln!("[mode-a-register] building WasmRpcServer from staging config…");
+        let mut server = WasmRpcServer::new(&config_json)
+            .await
+            .expect("build WasmRpcServer from staging config");
+
+        // EXTERNAL signature over the all-zero register message (Hash256::default),
+        // exactly as `register_user_with_external_signature` binds it: raw k256
+        // sign_prehash (== MetaMask eth_sign, no EIP-191 prefix).
+        let priv_qhash = QHashOut::<F>::from_str(&private_key_hex).expect("parse priv key");
+        let signing_key = SigningKey::from_slice(&Hash256::from(priv_qhash).0).expect("k256 key");
+        let zero_msg = Hash256::default().0;
+        let sig: k256::ecdsa::Signature = signing_key
+            .sign_prehash(&zero_msg)
+            .expect("eth_sign (sign_prehash) over zero register message");
+
+        let compressed_pk = signing_key.verifying_key().to_encoded_point(true).to_bytes();
+        let mut payload = Vec::with_capacity(97);
+        payload.extend_from_slice(&compressed_pk); // 33
+        payload.extend_from_slice(&sig.r().to_bytes()); // 32
+        payload.extend_from_slice(&sig.s().to_bytes()); // 32
+        assert_eq!(payload.len(), 97, "payload must be pubkey33 + r32 + s32");
+        let public_key_hex = hex::encode(&compressed_pk);
+        let signature_hex = hex::encode(&payload);
+        eprintln!(
+            "[mode-a-register] external eth_sign built: pubkey={} sig={} hex chars",
+            public_key_hex.len(),
+            signature_hex.len()
+        );
+
+        eprintln!("[mode-a-register] register_user_with_external_signature (submit register_user)…");
+        let result_json = server
+            .register_user_with_external_signature(&public_key_hex, &signature_hex)
+            .await
+            .expect("register_user_with_external_signature accepted by staging");
+        eprintln!("[mode-a-register] result={result_json}");
+
+        let v: serde_json::Value = serde_json::from_str(&result_json).expect("parse result JSON");
+        let pk_hash = v["pk_hash"].as_str().expect("pk_hash present");
+        assert!(!pk_hash.is_empty(), "pk_hash must be non-empty");
+        assert!(!pk_hash.contains("error"), "pk_hash looks like an error: {pk_hash}");
+
+        match v["user_id"].as_str() {
+            Some(user_id) => {
+                println!(
+                    "MODE-A REGISTER GO: secp256k1 PUBLIC key registered SOLELY via an external \
+                     eth_sign signature ACCEPTED on live staging — pk_hash={pk_hash} user_id={user_id}"
+                );
+            }
+            None => {
+                // Registration was accepted but has not yet landed on-chain (≈2
+                // checkpoints). The bridge resolves the user_id by polling
+                // get_user_ids_for_public_key — this is still a PASS for "accepted".
+                println!(
+                    "MODE-A REGISTER ACCEPTED (pending checkpoints): register_user submitted via \
+                     external eth_sign on live staging — pk_hash={pk_hash}, user_id resolves after \
+                     registration lands (poll get_user_ids_for_public_key)."
+                );
+            }
+        }
+    }
 }

@@ -54,17 +54,23 @@ debug = false
 
 # Local path overrides for testing local parth-generic-v1 changes.
 [patch."ssh://git@github.com/QEDProtocol/parth-generic-v1.git"]
-psy_vm = { path = "../parth-generic-v1/client_prover/psy_vm" }
-psy_crypto = { path = "../parth-generic-v1/client_prover/psy_core/psy_crypto" }
-psy_client_data = { path = "../parth-generic-v1/client_prover/psy_core/psy_data" }
-psy_client_common = { path = "../parth-generic-v1/client_prover/psy_core/psy_common" }
-psy_config = { path = "../parth-generic-v1/client_prover/psy_core/psy_config" }
-psy_prover = { path = "../parth-generic-v1/client_prover/psy_prover" }
-psy_provider = { path = "../parth-generic-v1/client_prover/psy_provider" }
-psy_common_circuit = { path = "../parth-generic-v1/client_prover/psy_circuit/psy_common_circuit" }
-psy_dpn_circuit = { path = "../parth-generic-v1/client_prover/psy_circuit/psy_dpn_circuit" }
-kvq = { path = "../parth-generic-v1/client_prover/psy_core/kvq" }
-parth_common = { path = "../parth-generic-v1/parth_common" }
-parth_core = { path = "../parth-generic-v1/parth_core" }
-parth_crypto = { path = "../parth-generic-v1/parth_crypto" }
-cf_utils = { path = "../parth-generic-v1/cf_utils" }
+psy_vm = { path = "/Users/geir/Downloads/QED资料/litepaper/parth-ac198474/client_prover/psy_vm" }
+psy_crypto = { path = "/Users/geir/Downloads/QED资料/litepaper/parth-ac198474/client_prover/psy_core/psy_crypto" }
+psy_client_data = { path = "/Users/geir/Downloads/QED资料/litepaper/parth-ac198474/client_prover/psy_core/psy_data" }
+psy_client_common = { path = "/Users/geir/Downloads/QED资料/litepaper/parth-ac198474/client_prover/psy_core/psy_common" }
+psy_config = { path = "/Users/geir/Downloads/QED资料/litepaper/parth-ac198474/client_prover/psy_core/psy_config" }
+psy_prover = { path = "/Users/geir/Downloads/QED资料/litepaper/parth-ac198474/client_prover/psy_prover" }
+psy_provider = { path = "/Users/geir/Downloads/QED资料/litepaper/parth-ac198474/client_prover/psy_provider" }
+psy_common_circuit = { path = "/Users/geir/Downloads/QED资料/litepaper/parth-ac198474/client_prover/psy_circuit/psy_common_circuit" }
+psy_dpn_circuit = { path = "/Users/geir/Downloads/QED资料/litepaper/parth-ac198474/client_prover/psy_circuit/psy_dpn_circuit" }
+kvq = { path = "/Users/geir/Downloads/QED资料/litepaper/parth-ac198474/client_prover/psy_core/kvq" }
+parth_common = { path = "/Users/geir/Downloads/QED资料/litepaper/parth-ac198474/parth_common" }
+parth_core = { path = "/Users/geir/Downloads/QED资料/litepaper/parth-ac198474/parth_core" }
+parth_crypto = { path = "/Users/geir/Downloads/QED资料/litepaper/parth-ac198474/parth_crypto" }
+cf_utils = { path = "/Users/geir/Downloads/QED资料/litepaper/parth-ac198474/cf_utils" }
+
+# Local path overrides for the gnark verifier crates (no remote access to the
+# QEDProtocol/gnark-plonky2-verifier repo; both crates live in the local checkout).
+[patch."ssh://git@github.com/QEDProtocol/gnark-plonky2-verifier.git"]
+gnark-plonky2-verifier-ffi = { path = "../gnark-plonky2-verifier/ffi" }
+gnark-plonky2-wrapper = { path = "../gnark-plonky2-verifier/prover" }

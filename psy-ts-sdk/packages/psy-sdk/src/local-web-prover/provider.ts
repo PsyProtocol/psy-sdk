@@ -125,6 +125,96 @@ export class PsyWasmWebProverProvider implements IPsyUserProverProvider {
         return PsyJSON.parse(result) as TxMetadata;
     }
 
+    // ===================================================================
+    // MODE-A (web / MetaMask) external-signature authorization. Delegates to the
+    // WASM external-signature methods. The web wallet reuses the EXISTING
+    // secp256k1 account type; the signature is supplied from OUTSIDE (MetaMask
+    // eth_sign over the Psy sighash), so no private key is held here.
+    //
+    // signatureHex format (every Mode-A method): compressedPubkey(33) ‖ r(32) ‖
+    // s(32) = 97 bytes hex (optional `0x` prefix); leading byte 0x02/0x03.
+    // ===================================================================
+
+    /** MODE-A step 1 (contract call): prime the session and return the 32-byte
+     * sighash (hex) MetaMask must eth_sign. */
+    async getSigHash(pkHash: string, callData: ContractCallData): Promise<string> {
+        const json = PsyJSON.stringify(callData);
+        return PsyWasmWebProverProvider.runWasmServerCall((server) =>
+            server.get_sig_hash(pkHash, json)
+        );
+    }
+
+    /** MODE-A step 3 (contract call): submit authorized solely by an external
+     * eth_sign signature. Returns the tx end-user-leaf hash. */
+    async execContractCallWithExternalSignature(pkHash: string, callData: ContractCallData, signatureHex: string): Promise<string> {
+        const json = PsyJSON.stringify(callData);
+        return PsyWasmWebProverProvider.runWasmServerCall((server) =>
+            server.exec_contract_call_with_external_signature(pkHash, json, signatureHex)
+        );
+    }
+
+    /** MODE-A core primitive: register a secp256k1 PUBLIC key as a Psy account
+     * with no held key, authorized by an external eth_sign. Returns JSON
+     * `{ pk_hash, user_id }` (user_id null until registration lands on-chain). */
+    async registerUserWithExternalSignature(publicKeyHex: string, signatureHex: string): Promise<{ pk_hash: string; user_id: string | null }> {
+        const json = await PsyWasmWebProverProvider.runWasmServerCall((server) =>
+            server.register_user_with_external_signature(publicKeyHex, signatureHex)
+        );
+        return PsyJSON.parse(json);
+    }
+
+    /** MODE-A step 1 (claim): prime the claim session and return the sighash
+     * (hex) MetaMask must eth_sign. */
+    async getClaimSigHash(pkHash: string, claims: ClaimBatchItem[]): Promise<string> {
+        const json = PsyJSON.stringify(claims);
+        return PsyWasmWebProverProvider.runWasmServerCall((server) =>
+            server.get_claim_sig_hash(pkHash, json)
+        );
+    }
+
+    /** MODE-A step 3 (claim): submit a claim batch authorized solely by an
+     * external eth_sign signature. Returns the tx end-user-leaf hash. */
+    async claimBatchWithExternalSignature(pkHash: string, claims: ClaimBatchItem[], signatureHex: string): Promise<string> {
+        const json = PsyJSON.stringify(claims);
+        return PsyWasmWebProverProvider.runWasmServerCall((server) =>
+            server.claim_batch_with_external_signature(pkHash, json, signatureHex)
+        );
+    }
+
+    // ── MODE-A (MetaMask `personal_sign` / EIP-191) variants ──────────────────
+    // Same shape as the *WithExternalSignature methods above, but the proof is
+    // produced by the keccak-prefix circuit (ExternalEthPersonalSignUser). The
+    // wallet `personal_sign`s the SAME sighash value getSigHash/getClaimSigHash
+    // return; the EIP-191 keccak is recomputed in-circuit. Distinct identity from
+    // the classic-secp path — register via registerUserWithExternalEthPersonalSignature.
+
+    /** MODE-A (personal_sign) register: register a secp256k1 PUBLIC key under the
+     * EIP-191 signature type, no held key. Returns `{ pk_hash, user_id }`. */
+    async registerUserWithExternalEthPersonalSignature(publicKeyHex: string, signatureHex: string): Promise<{ pk_hash: string; user_id: string | null }> {
+        const json = await PsyWasmWebProverProvider.runWasmServerCall((server) =>
+            server.register_user_with_external_eth_personal_signature(publicKeyHex, signatureHex)
+        );
+        return PsyJSON.parse(json);
+    }
+
+    /** MODE-A (personal_sign) contract call: submit authorized solely by a
+     * MetaMask personal_sign. Returns the tx end-user-leaf hash. */
+    async execContractCallWithExternalEthPersonalSignature(pkHash: string, callData: ContractCallData, signatureHex: string): Promise<string> {
+        const json = PsyJSON.stringify(callData);
+        return PsyWasmWebProverProvider.runWasmServerCall((server) =>
+            server.exec_contract_call_with_external_eth_personal_signature(pkHash, json, signatureHex)
+        );
+    }
+
+    /** MODE-A (personal_sign) claim: submit a claim batch authorized solely by a
+     * MetaMask personal_sign. Returns the tx end-user-leaf hash. */
+    async claimBatchWithExternalEthPersonalSignature(pkHash: string, claims: ClaimBatchItem[], signatureHex: string): Promise<string> {
+        const json = PsyJSON.stringify(claims);
+        return PsyWasmWebProverProvider.runWasmServerCall((server) =>
+            server.claim_batch_with_external_eth_personal_signature(pkHash, json, signatureHex)
+        );
+    }
+
     async getClaimRewardsCallArgs(_jobInfos: string): Promise<ContractCallArgs[]> {
         throw new Error("Method not implemented.");
     }

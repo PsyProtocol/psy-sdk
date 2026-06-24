@@ -247,6 +247,16 @@ interface IPsyUserProverProvider {
     claimBatch(pk_hash: string, claims: ClaimBatchItem[]): Promise<TxMetadata>;
     claimBatchWithoutProof(pk_hash: string, claims: ClaimBatchItem[]): Promise<TxMetadata>;
 
+    // Mode-A (web / MetaMask) external-signature authorization. The web wallet
+    // reuses the EXISTING secp256k1 account type; the signature is supplied from
+    // OUTSIDE (eth_sign over the Psy sighash). signatureHex format:
+    // compressedPubkey(33) ‖ r(32) ‖ s(32) = 97 bytes hex (optional 0x prefix).
+    getSigHash(pk_hash: string, callData: ContractCallData): Promise<string>;
+    execContractCallWithExternalSignature(pk_hash: string, callData: ContractCallData, signatureHex: string): Promise<string>;
+    registerUserWithExternalSignature(publicKeyHex: string, signatureHex: string): Promise<{ pk_hash: string; user_id: string | null }>;
+    getClaimSigHash(pk_hash: string, claims: ClaimBatchItem[]): Promise<string>;
+    claimBatchWithExternalSignature(pk_hash: string, claims: ClaimBatchItem[], signatureHex: string): Promise<string>;
+
     getClaimRewardsCallArgs(jobInfos: string): Promise<ContractCallArgs[]>;
     claimRewards(pk_hash: string, jobInfos: string): Promise<string>;
 

@@ -40,6 +40,12 @@ bincode = { workspace = true }
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 getrandom = { workspace = true }
 
+# Native-only dev-dependencies for the Mode-A staging spike (cfg(test)).
+[target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "time"] }
+k256 = { version = "0.13", features = ["ecdsa"] }
+hex = "0.4"
+
 # WASM-specific dependencies
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 reqwest = { workspace = true, features = ["json"] }

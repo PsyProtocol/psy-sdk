@@ -1,5 +1,5 @@
 import { getPsyNetworkMagicForNetworkId, NetworkId } from "../../action";
-import { ContractCallArgs, ContractCallData, DPNFunctionCircuitDefinition, IPsyUserProverProvider, SignType, TxMetadata } from "../../local-prover-rpc";
+import { ClaimBatchItem, ContractCallArgs, ContractCallData, DPNFunctionCircuitDefinition, IPsyUserProverProvider, SignType, TxMetadata } from "../../local-prover-rpc";
 import { IPsyTransactionSigner, TPsyTransactionSignerAbility } from "../types";
 
 class PsyMemoryTransactionSigner implements IPsyTransactionSigner {
@@ -72,6 +72,28 @@ class PsyMemoryTransactionSigner implements IPsyTransactionSigner {
 
     async claimRewards(pk_hash: string, jobInfos: string): Promise<string> {
         return this.prover.claimRewards(pk_hash, jobInfos);
+    }
+
+    // Mode-A (web / MetaMask) external-signature delegates. signatureHex format:
+    // compressedPubkey(33) ‖ r(32) ‖ s(32) = 97 bytes hex (optional 0x prefix).
+    async getSigHash(pk_hash: string, callData: ContractCallData): Promise<string> {
+        return this.prover.getSigHash(pk_hash, callData);
+    }
+
+    async execContractCallWithExternalSignature(pk_hash: string, callData: ContractCallData, signatureHex: string): Promise<string> {
+        return this.prover.execContractCallWithExternalSignature(pk_hash, callData, signatureHex);
+    }
+
+    async registerUserWithExternalSignature(publicKeyHex: string, signatureHex: string): Promise<{ pk_hash: string; user_id: string | null }> {
+        return this.prover.registerUserWithExternalSignature(publicKeyHex, signatureHex);
+    }
+
+    async getClaimSigHash(pk_hash: string, claims: ClaimBatchItem[]): Promise<string> {
+        return this.prover.getClaimSigHash(pk_hash, claims);
+    }
+
+    async claimBatchWithExternalSignature(pk_hash: string, claims: ClaimBatchItem[], signatureHex: string): Promise<string> {
+        return this.prover.claimBatchWithExternalSignature(pk_hash, claims, signatureHex);
     }
 }
 
