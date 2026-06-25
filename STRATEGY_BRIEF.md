@@ -1,99 +1,92 @@
-# STRATEGY BRIEF — gnark Mobile-FFI Gate (native arm64 cross-compile UNBLOCKED)
+# STRATEGY BRIEF — Shared Mobile Core, Now In The Build (FFI wired + API-drift closed)
 
-_Repositioning / strategic realignment, synthesized from the 8-role PsyVerse Flow strategy pass + the execution outcome. Working branch: `feat/mode-a-external-sig` (psy-sdk-fresh). The 4 gate edits + the gate commit physically live in the sibling repo `parth-generic-v1` (branch `feat/bridge-app-unified`, commit `9f9c9135`), reached from psy-sdk-fresh via relative path deps. Date: 2026-06-24._
+_Repositioning / strategic realignment, synthesized from the 8-role PsyVerse Flow strategy pass (Mission, Positioning, Conviction, FlowState/DX, Innovation, Leverage, Narrative, Risk) + the execution outcome. Repo: `psy-sdk`. Working branch: `feat/mode-a-personal-sign`. Increment commit: `8509e8e6`. Date: 2026-06-25._
 
-_Sibling briefs (do NOT clobber): `STRATEGY_BRIEF_MOBILE_CORE_PARITY.md` (the native iOS/Android core-parity run — the 15-method uniffi surface this gate now lets cross-compile) and the prior Web Mode-A brief content (MetaMask per-tx `eth_sign`, separate product). All three ride the same `psy_wallet_core_ffi` core. This brief is the **mobile-core enabling layer**: the dependency-graph gate that turns "the surface is compiler-complete on host" into "the surface links for a phone."_
+_Sibling briefs in this repo — do NOT clobber, they cover adjacent layers of the SAME `psy_wallet_core_ffi` core:_
+- _`STRATEGY_BRIEF_MOBILE_CORE_PARITY.md` — the 15-method uniffi surface / wasm↔FFI parity run._
+- _`STRATEGY_BRIEF_GNARK_FFI_GATE.md` (2026-06-24, `9fd5341b`) — the **gnark mobile-FFI gate**: feature-gating gnark behind `gnark-wrap` so the FFI cross-compiles gnark-free; real Android arm64 `.so` built in 2m19s. That gate ENABLED the wiring this brief lands._
 
-This document is the post-increment realignment for the gnark gate. It synthesizes the 8 strategy sections (Mission, Positioning, Conviction, FlowState/DX, Innovation, Leverage, Narrative, Risk) and the execution outcome into: (1) what changed and the recommended strategic adjustment, (2) the single highest-impact next move, (3) the consolidated brief for the next agent.
+This is the post-increment realignment. It states (1) what changed and the recommended strategic adjustment, (2) the single highest-impact next move, (3) the consolidated brief for the next agent.
 
 ---
 
 ## 0. WHAT WE NOW KNOW (the increment that just landed)
 
-**The native mobile core now cross-compiles. The hard blocker is gone — and it was exactly the dependency the wallet never called.**
+**The shared native-mobile core is now an actual member of the build and compiles green. "Compiler-complete on host" is now "wired, drift-free, `cargo check` 0."**
 
-Before this increment, `cargo build -p psy_wallet_core_ffi --target aarch64-*` failed *before any Plonky2 code ran*: `psy_wallet_core_ffi → psy_prover → psy_plonky2_circuits` hard-linked `gnark-plonky2-wrapper`, a Rust→Go/cgo lib whose `build.rs` compiles a Go archive **host-only**. gnark is the node/prove-proxy L1 Groth16 *wrap*; the wallet's real flow (the ~5.7s staging proof) is pure Plonky2 and never invokes it.
+The prior gnark gate proved the FFI *could* cross-compile to a phone. This increment proved it is *in the workspace and stays in sync with the chain*. Two real, load-bearing blockers were found and closed in the merge of `feat/mode-a-external-sig` into `feat/mode-a-personal-sign`:
 
-The gate feature-gated gnark behind `gnark-wrap`, kept it in the `default` set of both `psy_plonky2_circuits` and `psy_prover` (so the node stays byte-identical), and let the FFI — which already declared `psy_prover = { default-features = false }` — fall out gnark-free. Four files, zero circuit-logic change, uncommitted-then-committed exactly per the repo-safety contract.
+1. **The FFI crate was not in the build.** `psy-wallet-core-ffi/` used `{ workspace = true }` deps but was absent from `[workspace.members]`, so `cargo build -p psy_wallet_core_ffi` — the exact invocation inside `build-ios.sh` / `build-android.sh` — failed with "did not match any packages." It compiled in isolation and was invisible to the release scripts. Fixed: added to `members` (`Cargo.toml:2`).
+2. **API drift vs the pinned parth rev `ac198474`.** Four FFI call sites called `.to_string()` on session returns that are now **structs, not hashes**: `exec_contract_call_json` (returns `TxMetadata` → `serde_json::to_string`) and `sign_and_submit` ×3 incl. the external-sig path (return `TxSubmitMetadata` → `.tx_hash.to_string()`). Each fix mirrors the already-correct WASM SDK (`wasm/mod.rs:681`, `:1932`) — i.e. the wasm and FFI surfaces were silently diverging at the seam where the chain's return types changed.
 
-**Verified acceptance gates (all green):**
-- **FFI gnark-free:** `cargo tree -p psy_wallet_core_ffi -i gnark-plonky2-wrapper` → not in graph; targeted FFI build reports the gnark patch "not used in the crate graph."
-- **Node byte-identical:** node-context resolution shows `psy_prover` = `default,gnark-wrap` and `psy_plonky2_circuits` = `default,default-no-gnark,gnark-wrap,serialize_speedy,std` — the original feature set exactly; gnark still reaches both via `default`.
-- **Headline gate — real Android arm64-v8a build:** `cargo ndk -t arm64-v8a build --release -p psy_wallet_core_ffi` → **Finished in 2m19s**. Artifacts: `libpsy_wallet_core_ffi.so` (20MB) + `.a` (136MB), **0 gnark/cgo/Go symbols, 0 gnark strings**. No further host-only blocker (ring/secp256k1-sys/blst) surfaced.
+**Verified acceptance (all green):** `cargo check -p psy_wallet_core_ffi --all-targets` → 0 (lib, `uniffi-bindgen` bin, `proving_spike` bin, tests); `cargo check -p psy_rust_sdk` → 0 (the workspace-member addition + `rustls-tls` feature unification did not regress the web SDK). Residual output is pre-existing parth-dependency warnings only. Committed `8509e8e6`, **not pushed**, tree clean, 8 other local branches untouched.
 
-**The single most strategically important learning:** the gnark cgo wall was the *only* hard compile blocker between the shared Rust core and a phone binary. The Risk section's #1 "most-likely-to-kill" scenario (feature unification silently re-arming gnark on the FFI) was defused with an objective `cargo tree` tripwire and did not materialize. **One load-bearing plan deviation proved decisive:** Cargo *silently ignores* `default-features = false` on a `workspace = true` dep when the workspace definition doesn't itself set it — so the dep had to be switched to a direct path (`../../psy_plonky2_circuits`, still inside the allowed file) for the override to bite. Without that, the FFI kept pulling gnark while reporting success. That is the trap any future re-derivation must avoid.
+**A second, decision-shaping learning — the supplied feedback was a context mismatch.** The `WALLET_RELEASE_REVIEW` feedback (Nostr outer-tag leak `23f4bd3`; device-key vault `e3581b7`; symbols `publishEncryptedPrivatePayment`, `IStorageData`, `claimables.ts`) targets the **psy-wallet browser-extension repo**, not psy-sdk. Verified: neither hash resolves here (`git cat-file` → not a valid object), none of the symbols/files exist in this tree. Those blockers were already closed *in their own repo* (per the execution outcome) and are **not actionable in psy-sdk**. The realignment lesson: in a monorepo-of-repos, a feedback item is only a blocker for the repo that owns the symbol — route by symbol-ownership, not by topic.
+
+**The single most strategically important fact:** the two layers that gate the entire "three skins, one core" thesis — *does it cross-compile?* (gnark gate, done 06-24) and *is it wired in and drift-free with the chain?* (this increment, done 06-25) — are now both green. What remains unproven is **not** code-completeness. It is **physics**: nobody has run a Plonky2 proof on an actual phone.
 
 ---
 
 ## 1. RECOMMENDED STRATEGIC ADJUSTMENT
 
-The strategy does not pivot. It **clears its last compile-time excuse and hands the baton to physics.** Three concrete adjustments, in priority order:
+The 8-role pass converges hard on one point, and the increment sharpens it rather than changing it:
 
-**A. Collapse the gap between the two mobile briefs: the surface is now both compiler-complete (parity brief) AND cross-compilable (this gate).** Until today, `STRATEGY_BRIEF_MOBILE_CORE_PARITY.md` correctly named its #1 next move — "cross-compile `proving_spike.rs` to a real device" — but flagged the blocker as *provisioning* ("no Xcode/NDK in this environment"). That framing was incomplete: there was *also* a hard dependency-graph blocker (gnark cgo) that would have failed the build even with a phone in hand. **That blocker is now removed and proven removed** (real `.so` produced). The mobile program's center of gravity therefore moves, cleanly and without hedging, from *"can the core even build for arm64?"* (answered: yes) to the single existential unknown both briefs already named: **on-device Plonky2 proving cost (peak RSS + wall-time) on a real mid-tier phone.** There is now zero compile-layer ambiguity in front of that measurement.
+**Stop spending leverage on making the core *exist* and *compile*. That work is now done. Spend the next unit of effort on the one unmeasured physics number that validates — or kills — the whole native-mobile bet: peak RSS + wall-time of on-device Plonky2 proving.**
 
-**B. Lock the gate as a durable invariant, not a one-shot fix — the parity guarantee is the asset.** The whole value is "node byte-identical / FFI gnark-off," and it is fragile: any future contributor re-adding an ungated `use gnark_plonky2_wrapper`, or running the mobile build in full-workspace scope (feature unification), silently re-breaks mobile with a cgo link error indistinguishable from "the gate is wrong." The Leverage and Risk sections converge: a tiny CI tripwire — `cargo build -p psy_wallet_core_ffi --target aarch64-linux-android` plus the two `cargo tree` assertions (gnark NOT in FFI graph; gnark STILL in node graph) — protects the entire mobile track in perpetuity and de-risks the *next* gate by guaranteeing the thing being profiled keeps compiling.
+Why this is the adjustment, grounded in the sections:
 
-**C. Treat "it links" as necessary-not-sufficient and say so in every claim.** This gate unblocked *compilation only*. The Narrative honesty guardrail is non-negotiable: the external message is "the full ZK prover now cross-compiles to phone-native arm64 — we deleted a node-side settlement library the wallet never called, without changing the node by a byte," NOT "native mobile wallet shipped" and NOT any phone proving time. The proving-cost gate is still open; conflating the two torches credibility with the exact privacy-maximalist audience that is the beachhead.
+- **Leverage §1 + Conviction "reject 'WASM mismatch is a small bug'":** every downstream asset — 3,630 LOC of Swift, 2,654 of Kotlin, two UI tracks, the headline "your phone proves it" message — is staked on a single number that has *zero device evidence*. `register_user` clears at ~5.7s on an M-series Mac; a mid-tier phone is an unknown. If a 30s proof OOM-kills a foreground "sending money" app, the architecture must add a `prove-proxy:9999` delegated-proving fallback — a correction **10× cheaper before two UI tracks fork than after.** Now that the FFI links for arm64 (gnark gate) *and* is in the build (this increment), the spike is no longer blocked by anything but provisioning a device.
+
+- **Positioning §3 + Risk #1:** the strategic wedge ("the only network where x402 payments are private") and the worst kill-risk (shipping a privacy product that isn't private) both live in the *user-facing wallet repo*, not here. psy-sdk's job in the wedge is to be the **trustworthy, non-drifting core all three clients share.** This increment's API-drift fix is exactly that job: it caught the wasm↔FFI seam diverging at the chain's return-type boundary. So the adjustment for psy-sdk specifically is: **make drift impossible, not just currently-absent.**
+
+- **Leverage §2 (the durability multiplier):** the multiplier is "three skins, one core," but it only pays if drift is structurally prevented. We just found drift the hard way (manually, via a broken `.to_string()`). The repositioning is to convert that manual catch into an **enforced gate**: a CI smoke test that runs the real first-run sequence (`new → get_random_keypair → register_user → exec_contract_call`) against staging on every chain bump, plus a **circuit-fingerprint assert at `new()`** so a chain redeploy fails fast with "app update required" instead of silently bricking installed wallets (the documented `VirtualTarget` mismatch class).
+
+- **Leverage §3 + Conviction belief #3 ("keys never leave the device"):** every FFI method still takes `private_key_str: String`, which over uniffi lands in a pageable, non-zeroized Swift/Kotlin string — directly contradicting the Secure-Enclave promise. The already-merged Mode-A external-signature path (proven: external `eth_sign` accepted by the secp256k1 circuit, zero circuit change) is the template to reuse as the **enclave-signing callback boundary**. This is the custody primitive that makes the headline security claim *true* across web + iOS + Android at once.
+
+**Net:** psy-sdk pivots from *build-the-core* to *prove-and-protect-the-core* — measure it on a real device, gate it against chain drift, and harden its key-custody seam. Everything else (UI polish, growth copy) is downstream of the device measurement and should not be funded ahead of it.
 
 ---
 
 ## 2. THE SINGLE HIGHEST-IMPACT NEXT MOVE
 
-**Run `proving_spike.rs` on a real mid-tier Android device (now that arm64 links) and record peak RSS + wall-clock for `register_user → exec_contract_call → exec_claim_with_external_proof`. One number on a real phone is worth more than the rest of this brief.**
+**Run the on-device proving spike — record `{circuit, wall_ms, peak_rss_bytes}` for `register → send → claim` on a real mid-tier Android (~6GB) and an older iPhone.**
 
-This is the same move the parity brief named — but it is now *actionable*, not blocked. The gate converted "the build won't even produce an artifact" into "we have a 20MB gnark-free `.so`; load it on hardware and measure."
+This is the highest-leverage move in the entire ecosystem, and the two blockers that previously stood in front of it are now both gone:
+- The FFI cross-compiles gnark-free to arm64 (gnark gate, `9fd5341b`, real 20MB `.so` built).
+- The FFI is in the workspace and `cargo check`-green with no chain drift (this increment, `8509e8e6`).
 
-- **Why this and nothing else first:** it is the only mobile risk with *zero* evidence, it is invisible in the green build, and it is *existential*. If the spike passes on a ~6GB Android, the wedge ("your phone proves it, nothing leaves the device") is real and nearly uncontested — green-light the SwiftUI/Compose UIs and the public message. If it fails (OOM / 20–40s / jetsam SIGKILL on a foreground app mid-send), the architecture must include delegated proving (the existing prove-proxy:9999 fallback) *before* two UIs fork on a false premise — a far cheaper correction now.
-- **It is now a provisioning + measurement problem, not a code problem.** The cgo blocker is gone; `build-android.sh`/`build-ios.sh` exist; `cargo-ndk` + the NDK at the spec'd path are present. The remaining external constraints: rustup targets must be installed (`aarch64-apple-ios`, `aarch64-apple-ios-sim`, plus the Android set) and a physical device/Xcode environment must be supplied.
-- **Acceptance criteria:** report `{circuit, wall_ms, peak_rss_bytes}` per action on (a) a ~6GB Android device and (b) an older iPhone, against a hard foreground-safe memory budget. Land the CI tripwire (Adjustment B) in the same increment so the gate can never silently regress.
-- **Bundle the cheap co-blocker (from the parity brief):** make the written key-custody call — enclave-callback signing (the Mode-A external-signature path is the exact template) vs. software-held key encrypted-at-rest — so UI teams build against the real trust boundary, not the enclave promise the current `private_key_str: String` FFI signature contradicts.
+So the spike is now purely a **provisioning** task, not an engineering one. The code already exists: `proving_spike.rs` (a build target that `cargo check` just confirmed compiles), `build-ios.sh`, `build-android.sh`.
 
-Everything else (durable crash-survivable tx-queue, read-only methods off the proving mutex, panic→`catch_unwind`→`PsyError`, App/Play positioning review, CI image for the bus-factor-1 toolchain) is real and queued — but all downstream of knowing whether the phone can prove at all.
+Concrete handoff:
+1. Cross-compile the FFI for both targets (`cargo ndk -t arm64-v8a build --release` for Android — proven to finish in 2m19s; `build-ios.sh` for the xcframework — already built once).
+2. **Android first** — it's the tighter memory budget *and* its `jniLibs/` was the placeholder, so it's the true unknown. (iOS xcframework already built once; Android is where OOM risk is highest.)
+3. Run `register_user → sign_and_submit (transfer) → claim` via `proving_spike`, capture peak RSS and wall-time per circuit.
+4. **Decision the number forces:** if peak RSS fits comfortably under a foreground app's budget and wall-time is tolerable with a progress UI → the "your phone proves it" architecture is validated, both UI tracks proceed. If it OOMs or exceeds ~30s → add the `prove-proxy:9999` delegated-proving fallback to the core **now**, before the Swift/Kotlin UIs harden around a pure-local assumption.
 
----
+One real-device number resolves the public message, the architecture decision, and whether two UI investments are sound — worth more than any further code-completeness work.
 
-## 3. CONSOLIDATED BRIEF FOR THE NEXT AGENT
-
-**Mission of the next run:** Load the now-buildable gnark-free arm64 FFI on a real device and measure on-device Plonky2 proving cost (peak RSS + wall-time) for the first-run sequence; land a CI tripwire that keeps the gate from regressing; make the written key-custody decision. This is a measurement + provisioning + CI increment — NOT a circuit/prover/FFI-logic change.
-
-**What you already have (proven today):**
-- A real Android arm64-v8a artifact: `target/aarch64-linux-android/release/libpsy_wallet_core_ffi.so` (20MB), gnark-free, built in 2m19s via `cargo ndk -t arm64-v8a build --release -p psy_wallet_core_ffi`.
-- The 15-method uniffi surface (parity brief) is compiler-complete AND now cross-compilable.
-- The gate commit `9f9c9135` on `parth-generic-v1@feat/bridge-app-unified` — 4 files, node byte-identical.
-
-**The gate's load-bearing facts — carry verbatim, never "clean up":**
-- gnark is gated behind `gnark-wrap`, which stays in `default` of BOTH `psy_plonky2_circuits` and `psy_prover`. The node gets it via defaults; the FFI (already `default-features = false` on `psy_prover`) does not.
-- `psy_prover` deps `psy_plonky2_circuits` by **direct path** `../../psy_plonky2_circuits` with `default-features = false, features = ["default-no-gnark"]`. This is load-bearing: a `workspace = true` dep would silently ignore `default-features = false` and re-pull gnark. Do NOT revert it to `workspace = true`.
-- `default-no-gnark` is a named handle holding the exact historical default contents (`std`, the 3 `parth_core/serialize_*`, `serialize_speedy`); it exists because inline `dep/feature` slash syntax is illegal in a dep `features = []` array. Keep it; it is what makes the node feature set byte-identical.
-- The 3 `worker_prove_groth16` methods (`bridge_wrap.rs`) carry `#[cfg(feature = "gnark-wrap")]`; the 2 prove_proxy RPC fns have `#[cfg(not(feature="gnark-wrap"))]` early-return error arms (`let _ = &input;` guards) + `#[cfg(feature="gnark-wrap")]` original bodies. Signatures unchanged so the `#[rpc]` trait impl still holds. The gnark-OFF arms are intentional clear-error stubs the FFI never calls.
-
-**Build / verify discipline (FlowState — the env traps that look like gate bugs):**
-- **Run feature checks FIRST, before any cross-build** — they are env-independent and decide "is the gate correct" in seconds, decoupled from "is my toolchain set up":
-  - FFI: `cargo tree -p psy_wallet_core_ffi -i gnark-plonky2-wrapper` → expect "not in tree."
-  - Node: from the parth workspace, `cargo tree -p psy_prover -i gnark-plonky2-wrapper` → expect still present.
-- Scope the mobile build to the FFI package (`-p psy_wallet_core_ffi`), NEVER a bare workspace `cargo build` — a sibling pulling `psy_prover` with defaults can re-arm gnark via feature unification (Risk R1).
-- `build-std` is set **globally** in `.cargo/config.toml` (not wasm-scoped), so every new target recompiles libstd from source — validate ONE target (Android arm64-v8a, already proven) before fanning out; pay the cold cost once.
-- Disk: ~11GB free, ~20GB target dir; `cargo clean -p psy_wallet_core_ffi` between experiments, not a full nuke. `export CARGO_NET_GIT_FETCH_WITH_CLI=true`; toolchain pinned `nightly-2025-09-20`; `ANDROID_NDK_HOME=/opt/homebrew/share/android-commandlinetools/ndk/27.2.12479018`, `ANDROID_HOME=/opt/homebrew/share/android-commandlinetools`.
-- Avoid `cd <unicode-path> && <cmd>` one-liners — the Chinese-path dir under `&&` silently no-ops to the litepaper root; drive builds with absolute `--manifest-path` or an exported `$PSY` root.
-
-**Innovation surface this gate unlocks (signer-neutral, zero circuit change — preserve it):**
-1. Seedless wallet keyed by Secure Enclave / StrongBox via the Mode-A external-signature path (`get_sig_hash → host sign_prehash → exec_contract_call_with_external_signature`) — the key never leaves hardware; Psy still proves auth in-circuit.
-2. "Sign on phone, prove on desktop" via detached note-inclusion proofs (`prove_private_note_inclusion_json` → portable artifact → `exec_claim_with_external_proof_json`) — the graceful-degradation hedge if on-device proving cost is high.
-3. Byte-identical cross-platform conformance as an audit feature: same Rust core for web/iOS/Android; publish a byte-equal proof vector across all three.
-
-**Dominant risks for the next run (own explicitly):**
-- **[EXISTENTIAL] On-device proving time/memory — still zero device evidence.** The gate removed compilation as the excuse; physics is now the only thing left. Defuse via Move #2.
-- **[HIGH] Gate regression via feature unification or an ungated `use`.** Defuse via the CI tripwire (Adjustment B); never run the mobile build in full-workspace scope.
-- **[HIGH] Secret key crosses FFI as plain `String`** — contradicts the enclave promise; resolve in the bundled custody decision.
-- **[MED] Lock files / `[patch]` churn.** Both `Cargo.lock`s were reverted clean; the gnark `[patch]` (local path) is inert for the FFI but load-bearing for the node — leave it; never hand-edit the lock or patch block.
-
-**Positioning / Narrative guardrails:**
-- Lead with the *property* ("the proof never leaves your phone"), stay SILENT on proving speed until the device spike lands. External claim = "the core cross-compiles to arm64," NOT "mobile wallet shipped."
-- Psy is an independent chain — never L1/L2/rollup; gnark is Psy's *own* settlement wrap, not an Ethereum artifact. Use "Deposit"/"Withdraw," never "bridge" as a verb; show the Psy ID / shielded address; "shielded," never "anonymous."
-- One-line hook (builder/investor): "We just made a full ZK prover cross-compile to arm64 — the only blocker was a Go library the wallet never even calls, gated out without changing the node by a byte."
-
-**Repo state of record:** psy-sdk-fresh on `feat/mode-a-external-sig`; working tree carries only pre-existing unrelated noise (`Cargo.toml`, `Cargo.lock`, `config.json`, `rust-toolchain.toml`, `pnpm-lock.yaml`, `psy-wallet-core-ffi/src/lib.rs`) — leave it. The gate itself is committed in the sibling parth repo at `9f9c9135` (4 files only). Not pushed; never push or touch deploy branches without an explicit ask.
+_Honest blocker to flag in the handoff:_ this environment has no Xcode/NDK device toolchain provisioned, so the spike cannot be executed here — it must run on a machine with a phone attached. That provisioning gap is the only thing between us and the number.
 
 ---
 
-_Bottom line: the gate is a clean, narrow, proven win — the native core now produces a gnark-free arm64 `.so`, and the node stays byte-identical, verified at the feature-resolution level and by a real `cargo ndk` build. That removes the last compile-layer unknown in front of the mobile thesis. Everything that can still quietly invalidate the wedge is now downstream and physical: this has never proven on a phone, and the key-custody story doesn't yet match the enclave promise. Spend the next increment on a real-device proving + memory measurement, a CI tripwire to keep the gate from regressing, and the enclave-callback signing decision._
+## 3. CONSOLIDATED BRIEF (for the next agent)
+
+**Repo / safety:** `psy-sdk`, branch `feat/mode-a-personal-sign`, ahead of origin (`8509e8e6` + this brief), **never pushed**, tree clean, other 8 branches untouched. Commit narrowly; one fix per commit; do not clobber the sibling briefs.
+
+**State of the core (psy-sdk):**
+- Web SDK (`psy_rust_sdk`, WASM) — green, ships the wallet today; the reference for correct return-type handling.
+- Native FFI (`psy_wallet_core_ffi`) — 1441-line lib, 15 uniffi methods, **now a workspace member**, `cargo check --all-targets` = 0, cross-compiles to Android arm64 gnark-free. iOS xcframework built once; Android `jniLibs/` still a placeholder until the spike build runs.
+- gnark is feature-gated behind `gnark-wrap` (in `default` for node parity, out for the FFI). Node stays byte-identical.
+
+**Do, in priority order:**
+1. **On-device proving spike** (§2) — the one number. Highest leverage; only blocked by device provisioning.
+2. **Drift gate** — staging smoke test of the real first-run sequence on every chain bump + circuit-fingerprint assert at `new()` → fail fast with "app update required", not a silent brick. (This increment found drift manually; make it impossible.)
+3. **Enclave-signing custody primitive** — reuse the merged Mode-A external-signature callback so the FFI stops taking `private_key_str: String`; makes "key never leaves the device" true across all three clients.
+
+**Do NOT:**
+- Treat psy-wallet-extension feedback (Nostr tags, device-vault, `claimables.ts`, etc.) as actionable here — it's a different repo; route blockers by symbol-ownership. Those are already closed in psy-wallet.
+- Fund UI polish or "your phone proves it" growth copy ahead of the device measurement — both are downstream of it (Risk + Leverage distribution caveat agree).
+- Re-arm gnark on the FFI — keep the `cargo tree -p psy_wallet_core_ffi -i gnark-plonky2-wrapper` (must be empty) tripwire.
+- Chase general "ZK L1 for everything" framing; the wedge is private payments / private x402, and psy-sdk's role is the trustworthy shared core beneath it.
+
+**The one-line operating creed:** the core now exists, cross-compiles, and is wired in drift-free — the win condition is no longer code-completeness, it's the first real-device proof that the phone can actually prove, behind a drift gate and an enclave-custody seam that make the privacy and security claims true across web, iOS, and Android simultaneously.
