@@ -6,7 +6,7 @@ import { OriginalFormatContractGenerator } from "./original-format-generator";
 import { TypesGenerator } from "./types-generator";
 import { DecoderGenerator } from "./decoder-generator";
 import { AbiConverter } from "../converters/abi-converter";
-import { AbiFormat } from "../types/abi-format";
+import { AbiInput, isAbi } from "../types/abi-format";
 import { PsyJSON } from "@psy-protocol/psy-sdk";
 
 export class SDKGenerator {
@@ -19,23 +19,23 @@ export class SDKGenerator {
 
         console.log(`📖 Reading ABI from ${abiPath}`);
         const abiContent = readFileSync(abiPath, "utf-8");
-        const abiData = PsyJSON.parse(abiContent);
+        const abiData = PsyJSON.parse(abiContent) as AbiInput;
 
-        // Validate it's the expected format
-        if (!abiData.structs || !Array.isArray(abiData.structs)) {
-            throw new Error('Invalid ABI format: must contain "structs" array');
+        // Validate ABI shape and generate.
+        if (!isAbi(abiData)) {
+            throw new Error('Invalid ABI: must contain "contract" and "schema_version"');
         }
-
-        console.log("📋 Processing ABI with struct-based format");
-        await this.generateFromStructFormat(abiData as AbiFormat);
+        console.log("📋 Processing ABI");
+        await this.generateFromAbi(abiData);
     }
 
-    private async generateFromStructFormat(structFormatAbi: AbiFormat): Promise<void> {
-        console.log("🔄 Converting struct format to internal representation...");
+    // Convert the ABI to the internal representation, then generate the SDK files.
+    private async generateFromAbi(abi: AbiInput): Promise<void> {
+        console.log("🔄 Converting ABI to internal representation...");
 
-        // Convert to internal format for generation
+        // Convert to internal format for generation.
         const converter = new AbiConverter();
-        const internalFormat = converter.convert(structFormatAbi);
+        const internalFormat = converter.convert(abi);
 
         console.log(`✅ Processed ${internalFormat.contracts.length} contracts`);
 

@@ -1,5 +1,5 @@
 import { AbiConverter } from "../converters/abi-converter";
-import { AbiFormat, FieldPath, InternalContract, InternalFunction, InternalStruct } from "../types/abi-format";
+import { AbiInput, FieldPath, InternalContract, InternalFunction, InternalStruct } from "../types/abi-format";
 import { RecursiveDecoder } from "./decoder";
 import { createMerkleHelper } from "./merkle-helper";
 import { createVariableProxy, IFlatVariablePosition } from "./proxy";
@@ -11,12 +11,9 @@ export interface ContractOptions {
     userId: Felt;
 }
 
-function isViewFunction(fn: InternalFunction): boolean {
-    return (
-        fn.name.startsWith("get_") ||
-        fn.name.startsWith("view_") ||
-        (fn.return_size > 0 && !fn.name.includes("mint") && !fn.name.includes("transfer") && !fn.name.includes("claim"))
-    );
+// Detect whether a function is a view (read-only) call.
+function isViewCall(fn: InternalFunction): boolean {
+    return fn.state_mutability === "view";
 }
 
 function serializeArg(
@@ -74,7 +71,7 @@ function serializeArgs(
 
 export class Contract {
     private _contractId: Felt;
-    private _abi: AbiFormat;
+    private _abi: AbiInput;
     private _provider: IContractProvider;
     private _signer?: ISigner;
     private _checkpointId: Felt;
@@ -86,7 +83,7 @@ export class Contract {
     private _structs: Map<string, InternalStruct> = new Map();
     private _internalContract: InternalContract;
 
-    constructor(contractId: Felt, abi: AbiFormat, signerOrProvider: ISigner | IContractProvider, opts: ContractOptions) {
+    constructor(contractId: Felt, abi: AbiInput, signerOrProvider: ISigner | IContractProvider, opts: ContractOptions) {
         this._contractId = contractId;
         this._abi = abi;
         this._checkpointId = opts.checkpointId;
@@ -116,15 +113,14 @@ export class Contract {
             throw new Error("Invalid signerOrProvider: must be either a Signer or Provider");
         }
 
-        // Convert ABI
+        // Convert ABI.
         const converter = new AbiConverter();
         const converted = converter.convert(abi);
 
-        const contractStructs = abi.structs.filter((s) => s.is_contract);
-        if (contractStructs.length === 0) {
-            throw new Error("No contract found in ABI (no struct with is_contract: true)");
+        if (converted.contracts.length === 0) {
+            throw new Error("No contract found in ABI");
         }
-        if (contractStructs.length > 1) {
+        if (converted.contracts.length > 1) {
             throw new Error("Multiple contracts in ABI not yet supported. Use codegen path.");
         }
 
@@ -262,7 +258,7 @@ export class Contract {
             throw new Error(`Unknown function: ${name}`);
         }
 
-        const view = isViewFunction(fn);
+        const view = isViewCall(fn);
         if (!view && !this._signer) {
             throw new Error("Signer required for state-changing functions. Use contract.attach(signer)");
         }

@@ -17,4 +17,5 @@ try {
 }
 
 // Export types that will be available after generation
-export type { AbiFormat } from "./types/abi-format";
+export type { AbiInput, Abi } from "./types/abi-format";
+export { isAbi } from "./types/abi-format";

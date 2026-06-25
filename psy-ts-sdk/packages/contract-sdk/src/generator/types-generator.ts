@@ -12,6 +12,16 @@ export interface ToFelts {
   toFelts(): Felt[];
 }
 
+declare global {
+  interface Array<T> {
+    toFelts(): Felt[];
+  }
+
+  interface ReadonlyArray<T> {
+    toFelts(): Felt[];
+  }
+}
+
 export class FeltValue implements ToFelts {
   constructor(private value: Felt) {}
 

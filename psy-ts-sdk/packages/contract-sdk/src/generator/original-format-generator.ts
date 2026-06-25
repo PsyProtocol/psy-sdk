@@ -132,7 +132,7 @@ ${variablePositionsConstant}
         return `// Auto-generated from ABI - Do not edit manually
 import { RecursiveDecoder } from './decoder';
 import { IContractProvider } from '@psy-protocol/psy-sdk';
-import { Felt, ISigner, PsyFixedArray } from './types';
+import { Felt, GHash, ISigner, PsyFixedArray } from './types';
 import { keccak256, toBeHex, zeroPadValue } from 'ethers';
 
 // Inline Merkle proxy types and implementation
@@ -345,10 +345,15 @@ function wrapMerkleProxyHelperBasicSimplifier(
         const serializeCode = argNames.length > 0 ? `
           const serializedArgs: Felt[] = [];
           ${argNames.map(name => `
-          if (typeof ${name} === 'object' && ${name} !== null && typeof ${name}.toFelts === 'function') {
-            serializedArgs.push(...${name}.toFelts());
+          const ${name}Value: any = ${name};
+          if (Array.isArray(${name}Value)) {
+            serializedArgs.push(...(${name}Value as Felt[]));
+          } else if (typeof ${name}Value === 'boolean') {
+            serializedArgs.push(${name}Value ? 1n : 0n);
+          } else if (${name}Value && typeof ${name}Value === 'object' && typeof ${name}Value.toFelts === 'function') {
+            serializedArgs.push(...${name}Value.toFelts());
           } else {
-            serializedArgs.push(${name} as Felt);
+            serializedArgs.push(${name}Value as Felt);
           }`).join('\n    ')}
           ` : "const serializedArgs: Felt[] = [];";
 
@@ -371,6 +376,9 @@ function wrapMerkleProxyHelperBasicSimplifier(
     }
 
     private isViewFunction(fn: any): boolean {
+        if (fn.state_mutability !== undefined) {
+            return fn.state_mutability === "view";
+        }
         return (
             fn.name.startsWith("get_") ||
             fn.name.startsWith("view_") ||
@@ -403,6 +411,12 @@ function wrapMerkleProxyHelperBasicSimplifier(
         case 'felt':
         case 'u32':
           return 'Felt';
+        case 'ContractHashMap':
+        case 'Map':
+        case 'NamespacedMap':
+          return 'unknown';
+        case 'Hash':
+          return 'GHash';
         case 'Bool':
         case 'bool':
           return 'boolean';
@@ -565,6 +579,10 @@ private generateToFeltsBody(struct: any): string {
     const fieldName = field.name;
     const fieldType = field.type;
 
+    if (field.felt_size === 0 || fieldType === 'ContractHashMap' || fieldType === 'Map' || fieldType === 'NamespacedMap') {
+      return '';
+    }
+
     if (fieldType.type === 'Array') {
       const innerType = fieldType.inner_type;
       const isStruct = this.contract.structs.some(s => s.name === innerType);
@@ -579,7 +597,15 @@ private generateToFeltsBody(struct: any): string {
       return `felts.push(...this.${fieldName}.toFelts());`;
     }
 
+    if (fieldType === 'Hash') {
+      return `felts.push(...this.${fieldName});`;
+    }
+
+    if (fieldType === 'Bool' || fieldType === 'bool') {
+      return `felts.push(this.${fieldName} ? 1n : 0n);`;
+    }
+
     return `felts.push(this.${fieldName});`;
-  }).join('\n    ');
+  }).filter(Boolean).join('\n    ');
 }
 }
