@@ -379,14 +379,9 @@ function wrapMerkleProxyHelperBasicSimplifier(
         if (fn.state_mutability !== undefined) {
             return fn.state_mutability === "view";
         }
-        return (
-            fn.name.startsWith("get_") ||
-            fn.name.startsWith("view_") ||
-            (fn.return_size > 0 &&
-                !fn.name.includes("mint") &&
-                !fn.name.includes("transfer") &&
-                !fn.name.includes("claim"))
-        );
+        // No heuristic fallback — all ABI producers must emit explicit state_mutability.
+        // If missing, default to false (requires signer, safe default).
+        return false;
     }
 
     private generateFunctionParams(fn: any): string {
