@@ -53,7 +53,8 @@ interface AltVerifierOnlyCircuitData {
     circuit_digest: QHashOut;
 }
 export interface PrivateTransferClaimRaw {
-    note_proof: Uint8Array;
+    note_proof?: Uint8Array;
+    note_proof_bincode_b64?: string;
     nullifier: [string, string, string, string];
     owner: [string, string, string, string];
     amount: string;
@@ -63,6 +64,7 @@ export interface PrivateTransferClaimRaw {
     random0: string;
     random1: string;
     note_proof_fingerprint?: [string, string, string, string];
+    note_verifier_data?: AltVerifierOnlyCircuitData;
     shield_address?: string;
 }
 export interface ShieldDepositClaimRaw {

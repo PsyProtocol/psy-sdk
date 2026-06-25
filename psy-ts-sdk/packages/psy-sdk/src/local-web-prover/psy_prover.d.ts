@@ -69,7 +69,7 @@ export class WasmRpcServer {
      * Inject an external PrivateNoteInclusion proof into the current session tree.
      * Returns JSON: { "leaf_index": u64, "siblings": [[u64;4]] }
      */
-    add_external_proof_json(pk_hash: string, note_proof: Uint8Array): Promise<string>;
+    add_external_proof_json(pk_hash: string, note_proof_bincode_b64: string, note_proof_fingerprint_json?: string | null, note_verifier_data_json?: string | null): Promise<string>;
     add_user(private_key_str: string, sign_type: string, fingerprint?: string | null): Promise<string>;
     batch_claim_json(pk_hash: string, items_json: string): Promise<string>;
     batch_claim_with_trace_json(pk_hash: string, items_json: string): Promise<string>;
@@ -90,7 +90,7 @@ export class WasmRpcServer {
      *
      * Inputs (all u64 values as decimal strings to avoid JS precision loss):
      *   pk_hash                 - receiver's ZK public key (hex QHashOut)
-     *   note_proof              - PrivateNoteInclusion proof bytes (Uint8Array)
+     *   note_proof_bincode_b64  - base64-encoded PrivateNoteInclusion proof bytes
      *   nullifier_json          - JSON array of 4 decimal strings
      *   owner_json              - JSON array of 4 decimal strings
      *   amount                  - decimal string
@@ -103,7 +103,7 @@ export class WasmRpcServer {
      *
      * Returns the transaction hash string.
      */
-    exec_claim_with_external_proof_json(pk_hash: string, note_proof: Uint8Array, nullifier_json: string, owner_json: string, amount: string, user_tree_root_json: string, checkpoint_id: string, note_root_slot: string, contract_id: string, random0: string, random1: string): Promise<string>;
+    exec_claim_with_external_proof_json(pk_hash: string, note_proof_bincode_b64: string, nullifier_json: string, owner_json: string, amount: string, user_tree_root_json: string, checkpoint_id: string, note_root_slot: string, contract_id: string, random0: string, random1: string, note_proof_fingerprint_json?: string | null, note_verifier_data_json?: string | null): Promise<string>;
     exec_contract_call_json(pk_hash: string, call_data_json: string): Promise<string>;
     exec_contract_call_with_trace_json(pk_hash: string, call_data_json: string): Promise<string>;
     /**
@@ -209,7 +209,6 @@ export function main(): void;
 export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembly.Module;
 
 export interface InitOutput {
-    readonly memory: WebAssembly.Memory;
     readonly __wbg_wasmconstants_free: (a: number, b: number) => void;
     readonly __wbg_wasmpsyconfig_free: (a: number, b: number) => void;
     readonly __wbg_wasmpsyconfigbuilder_free: (a: number, b: number) => void;
@@ -241,14 +240,14 @@ export interface InitOutput {
     readonly wasmpsyconfigbuilder_build: (a: number) => [number, number, number];
     readonly wasmpsyconfigbuilder_json: (a: number, b: number, c: number) => number;
     readonly wasmpsyconfigbuilder_network: (a: number, b: number, c: number) => number;
-    readonly wasmrpcserver_add_external_proof_json: (a: number, b: number, c: number, d: number, e: number) => any;
+    readonly wasmrpcserver_add_external_proof_json: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number) => any;
     readonly wasmrpcserver_add_user: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => any;
     readonly wasmrpcserver_batch_claim_json: (a: number, b: number, c: number, d: number, e: number) => any;
     readonly wasmrpcserver_batch_claim_with_trace_json: (a: number, b: number, c: number, d: number, e: number) => any;
     readonly wasmrpcserver_compute_sighash_from_envelope_json: (a: number, b: number, c: number, d: number, e: number) => [number, number, number, number];
     readonly wasmrpcserver_deploy_contract_json: (a: number, b: number, c: number, d: number, e: number) => any;
     readonly wasmrpcserver_exec_claim_batch_json: (a: number, b: number, c: number, d: number, e: number) => any;
-    readonly wasmrpcserver_exec_claim_with_external_proof_json: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number, l: number, m: number, n: number, o: number, p: number, q: number, r: number, s: number, t: number, u: number, v: number, w: number) => any;
+    readonly wasmrpcserver_exec_claim_with_external_proof_json: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number, l: number, m: number, n: number, o: number, p: number, q: number, r: number, s: number, t: number, u: number, v: number, w: number, x: number, y: number, z: number, a1: number) => any;
     readonly wasmrpcserver_exec_contract_call_json: (a: number, b: number, c: number, d: number, e: number) => any;
     readonly wasmrpcserver_exec_contract_call_with_trace_json: (a: number, b: number, c: number, d: number, e: number) => any;
     readonly wasmrpcserver_exec_shield_claim_deposit_json: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number, l: number, m: number, n: number, o: number, p: number, q: number, r: number, s: number, t: number, u: number, v: number, w: number, x: number, y: number, z: number, a1: number) => any;
@@ -275,9 +274,12 @@ export interface InitOutput {
     readonly wasmrpcserver_submit_end_cap_json: (a: number, b: number, c: number, d: number, e: number) => any;
     readonly wasmpsyconfigbuilder_new: () => number;
     readonly wasmconstants_register_user_fee: () => bigint;
-    readonly wasm_bindgen__convert__closures_____invoke__h41d768e04850544c: (a: number, b: number, c: any) => [number, number];
-    readonly wasm_bindgen__convert__closures_____invoke__h702ca093da666827: (a: number, b: number, c: any, d: any) => void;
-    readonly wasm_bindgen__convert__closures_____invoke__h0e7e04cf3c77836f: (a: number, b: number) => void;
+    readonly wasm_bindgen__convert__closures_____invoke__h60a57e826f0fa70e: (a: number, b: number, c: any) => [number, number];
+    readonly wasm_bindgen__convert__closures_____invoke__h18544ad86c9831de: (a: number, b: number, c: any, d: any) => void;
+    readonly wasm_bindgen__convert__closures_____invoke__h1506b1d2a44b3513: (a: number, b: number, c: any) => void;
+    readonly wasm_bindgen__convert__closures_____invoke__hce075d114139097c: (a: number, b: number, c: any) => void;
+    readonly wasm_bindgen__convert__closures_____invoke__h204019b3324ffeea: (a: number, b: number) => void;
+    readonly memory: WebAssembly.Memory;
     readonly __wbindgen_malloc: (a: number, b: number) => number;
     readonly __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;
     readonly __wbindgen_exn_store: (a: number) => void;
@@ -287,7 +289,8 @@ export interface InitOutput {
     readonly __wbindgen_destroy_closure: (a: number, b: number) => void;
     readonly __externref_table_dealloc: (a: number) => void;
     readonly __externref_drop_slice: (a: number, b: number) => void;
-    readonly __wbindgen_start: () => void;
+    readonly __wbindgen_thread_destroy: (a?: number, b?: number, c?: number) => void;
+    readonly __wbindgen_start: (a: number) => void;
 }
 
 export type SyncInitInput = BufferSource | WebAssembly.Module;
@@ -296,18 +299,20 @@ export type SyncInitInput = BufferSource | WebAssembly.Module;
  * Instantiates the given `module`, which can either be bytes or
  * a precompiled `WebAssembly.Module`.
  *
- * @param {{ module: SyncInitInput }} module - Passing `SyncInitInput` directly is deprecated.
+ * @param {{ module: SyncInitInput, memory?: WebAssembly.Memory, thread_stack_size?: number }} module - Passing `SyncInitInput` directly is deprecated.
+ * @param {WebAssembly.Memory} memory - Deprecated.
  *
  * @returns {InitOutput}
  */
-export function initSync(module: { module: SyncInitInput } | SyncInitInput): InitOutput;
+export function initSync(module: { module: SyncInitInput, memory?: WebAssembly.Memory, thread_stack_size?: number } | SyncInitInput, memory?: WebAssembly.Memory): InitOutput;
 
 /**
  * If `module_or_path` is {RequestInfo} or {URL}, makes a request and
  * for everything else, calls `WebAssembly.instantiate` directly.
  *
- * @param {{ module_or_path: InitInput | Promise<InitInput> }} module_or_path - Passing `InitInput` directly is deprecated.
+ * @param {{ module_or_path: InitInput | Promise<InitInput>, memory?: WebAssembly.Memory, thread_stack_size?: number }} module_or_path - Passing `InitInput` directly is deprecated.
+ * @param {WebAssembly.Memory} memory - Deprecated.
  *
  * @returns {Promise<InitOutput>}
  */
-export default function __wbg_init (module_or_path?: { module_or_path: InitInput | Promise<InitInput> } | InitInput | Promise<InitInput>): Promise<InitOutput>;
+export default function __wbg_init (module_or_path?: { module_or_path: InitInput | Promise<InitInput>, memory?: WebAssembly.Memory, thread_stack_size?: number } | InitInput | Promise<InitInput>, memory?: WebAssembly.Memory): Promise<InitOutput>;
