@@ -204,12 +204,16 @@ impl PsyWalletCore {
         let pk_hash = QHashOut::<F>::from_str(&pk_hash)
             .map_err(|e| PsyError::w(format!("Parse public key hash error: {e}")))?;
         let s = self.inner.lock().await;
-        let end_user_leaf_hash = s
+        // `exec_contract_call` returns a rich `TxMetadata` struct (not a bare
+        // hash). Mirror the WASM build (wasm/mod.rs:681) and hand the caller the
+        // full JSON so it can read tx_hash + contract_call_data + storage_data.
+        let tx_metadata = s
             .wallet_session
             .exec_contract_call(pk_hash, call_data)
             .await
             .map_err(|e| PsyError::w(format!("Error exec calls error: {e}")))?;
-        Ok(end_user_leaf_hash.to_string())
+        serde_json::to_string(&tx_metadata)
+            .map_err(|e| PsyError::w(format!("Serialize tx metadata error: {e}")))
     }
 
     /// Sign + submit the current session's pending proof. Mirrors
@@ -232,7 +236,9 @@ impl PsyWalletCore {
             .sign_and_submit(pk_hash, software_defined_call)
             .await
             .map_err(|e| PsyError::w(format!("Sign and submit error: {e}")))?;
-        Ok(end_user_leaf_hash.to_string())
+        // `sign_and_submit` returns `TxSubmitMetadata`; the on-chain tx hash is
+        // its `tx_hash` field (matches wasm/mod.rs:1932).
+        Ok(end_user_leaf_hash.tx_hash.to_string())
     }
 
     /// PRIVATE CLAIM: inject an external note-inclusion proof and claim it.
@@ -431,7 +437,8 @@ impl PsyWalletCore {
             )));
         }
 
-        Ok(tx_hash.to_string())
+        // `sign_and_submit` returns `TxSubmitMetadata`; surface its `tx_hash`.
+        Ok(tx_hash.tx_hash.to_string())
     }
 
     /// PRIVATE SEND proof: generate a PrivateNoteInclusion ZK proof, returning
@@ -1171,7 +1178,9 @@ impl PsyWalletCore {
             .await
             .map_err(|e| PsyError::w(format!("sign_and_submit (external sig): {e}")))?;
 
-        Ok(end_user_leaf_hash.to_string())
+        // `sign_and_submit` returns `TxSubmitMetadata`; surface its `tx_hash`
+        // (matches wasm/mod.rs:1932).
+        Ok(end_user_leaf_hash.tx_hash.to_string())
     }
 }
 

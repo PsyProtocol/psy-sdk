@@ -1,5 +1,5 @@
 [workspace]
-members = ["psy-rust-sdk"]
+members = ["psy-rust-sdk", "psy-wallet-core-ffi"]
 resolver = "2"
 
 [workspace.package]
