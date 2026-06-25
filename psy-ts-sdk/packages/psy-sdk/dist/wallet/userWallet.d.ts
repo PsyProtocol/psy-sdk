@@ -1,6 +1,6 @@
 import { IPsyUserWallet, IPsyCompleteUserInfo } from "./types";
 import { ICoordinatorEdgeRpcProvider } from "../coord-edge-rpc";
-import { ContractCallArgs, DPNFunctionCircuitDefinition, GeneratedTxTraceJson, ProveTxTraceResumableJson, TxMetadata } from "../local-prover-rpc";
+import { ClaimBatchItem, ContractCallArgs, DPNFunctionCircuitDefinition, GeneratedTxTraceJson, ProveTxTraceResumableJson, TxMetadata } from "../local-prover-rpc";
 import { PsyUserLeaf } from "../types";
 import { IPsyTransactionSigner } from "../zksigner";
 import { IRealmEdgeRpcProvider } from "../realm-edge-rpc";
@@ -23,7 +23,7 @@ declare class PsyUserWallet implements IPsyUserWallet {
     execContractCall(pk_hash: string, contractCallArgs: ContractCallArgs | ContractCallArgs[]): Promise<string>;
     execContractCallWithTrace(pk_hash: string, contractCallArgs: ContractCallArgs | ContractCallArgs[]): Promise<TxMetadata>;
     generateTxTrace(pk_hash: string, contractCallArgs: ContractCallArgs | ContractCallArgs[]): Promise<GeneratedTxTraceJson>;
-    proveTxTrace(pk_hash: string, envelope: string | GeneratedTxTraceJson): Promise<string>;
+    generateBatchClaimTxTrace(pk_hash: string, claims: ClaimBatchItem[]): Promise<GeneratedTxTraceJson>;
     proveTxTraceResumable(pk_hash: string, envelope: string | GeneratedTxTraceJson): Promise<ProveTxTraceResumableJson>;
 }
 export { PsyUserWallet };

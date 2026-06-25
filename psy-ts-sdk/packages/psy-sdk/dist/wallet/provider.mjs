@@ -7,10 +7,8 @@ import '../realm-edge-rpc/types.mjs';
 import { MultiRealmRpcProvider } from '../realm-edge-rpc/client.mjs';
 import { PsyMemoryTransactionSignerProvider } from '../zksigner/memory/provider.mjs';
 import { PsyUserWallet } from './userWallet.mjs';
-import { WasmRpcServer } from '../local-web-prover/psy_prover.mjs';
-import { PsyWasmWebProverProvider, initWasmSync } from '../local-web-prover/provider.mjs';
-import { PsyJSON } from '../utils/json.mjs';
-import '../utils/random.mjs';
+import '../local-web-prover/psy_prover.mjs';
+import { PsyWasmWebProverProvider } from '../local-web-prover/provider.mjs';
 
 class PsyUserWalletProvider {
     constructor(networkId, coordinatorEdgeRpcProvider, realmEdgeRpcProvider, signerProvider, prover) {
@@ -68,22 +66,8 @@ async function createMemoryWalletProvider(config) {
     const networkId = "regtest";
     const coordinator_rpc = new MultiCoordinatorRpcProvider(config.coordinator_configs);
     const realm_rpc = new MultiRealmRpcProvider(config.realm_configs, config.users_per_realm);
-    const initWasmRpcServer = async () => {
-        try {
-            const json = PsyJSON.stringify(config);
-            const now = new Date().getTime();
-            initWasmSync();
-            PsyWasmWebProverProvider.wasmServer = await new WasmRpcServer(json);
-            console.log(`WASM initialized in ${(new Date().getTime() - now) / 1000} seconds`);
-        }
-        catch (error) {
-            console.error('Failed to get prover URL:', error);
-        }
-    };
-    await initWasmRpcServer();
-    let userProver = new PsyWasmWebProverProvider(config);
+    const userProver = new PsyWasmWebProverProvider(config);
     console.log("User Prover:", userProver);
-    console.log("User Prover:", PsyWasmWebProverProvider.wasmServer);
     const transactionSignerProvider = new PsyMemoryTransactionSignerProvider(userProver, networkId);
     return new PsyUserWalletProvider(networkId, coordinator_rpc, realm_rpc, transactionSignerProvider, userProver);
 }

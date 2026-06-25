@@ -1,4 +1,4 @@
-import { ContractCallData, DPNFunctionCircuitDefinition, GeneratedTxTraceJson, ProveTxTraceResumableJson, SignType, TxMetadata } from "../local-prover-rpc/types";
+import { ClaimBatchItem, ContractCallData, DPNFunctionCircuitDefinition, GeneratedTxTraceJson, ProveTxTraceResumableJson, SignType, TxMetadata } from "../local-prover-rpc/types";
 import { ContractCallArgs } from "../types";
 type TPsyTransactionSignerAbility = "sign-hash" | "export-private-key-hex";
 type TPsyTransactionSignerProviderAbility = "import-private-key" | "add-random-private-key";
@@ -10,7 +10,7 @@ interface IPsyTransactionSigner {
     signAndSubmit(pk_hash: string, callData: ContractCallData): Promise<string>;
     execContractCallWithTrace(pk_hash: string, callData: ContractCallData): Promise<TxMetadata>;
     generateTxTrace(pk_hash: string, callData: ContractCallData): Promise<GeneratedTxTraceJson>;
-    proveTxTrace(pk_hash: string, envelope: string | GeneratedTxTraceJson): Promise<string>;
+    generateBatchClaimTxTrace(pk_hash: string, claims: ClaimBatchItem[]): Promise<GeneratedTxTraceJson>;
     proveTxTraceResumable(pk_hash: string, envelope: string | GeneratedTxTraceJson): Promise<ProveTxTraceResumableJson>;
     deployContract(pk_hash: string, circuitDefs: DPNFunctionCircuitDefinition[]): Promise<string>;
     getAbilities(): TPsyTransactionSignerAbility[];

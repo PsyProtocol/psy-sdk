@@ -81,6 +81,7 @@ export interface PrivateTransferClaimRaw {
     random0: string;
     random1: string;
     note_proof_fingerprint?: [string, string, string, string];
+    note_verifier_data?: AltVerifierOnlyCircuitData;
     shield_address?: string;
 }
 

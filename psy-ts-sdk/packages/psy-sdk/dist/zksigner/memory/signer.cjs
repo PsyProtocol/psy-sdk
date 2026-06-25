@@ -36,8 +36,8 @@ class PsyMemoryTransactionSigner {
     async generateTxTrace(pk_hash, callData) {
         return this.prover.generateTxTrace(pk_hash, callData);
     }
-    async proveTxTrace(pk_hash, envelope) {
-        return this.prover.proveTxTrace(pk_hash, envelope);
+    async generateBatchClaimTxTrace(pk_hash, claims) {
+        return this.prover.generateBatchClaimTxTrace(pk_hash, claims);
     }
     async proveTxTraceResumable(pk_hash, envelope) {
         return this.prover.proveTxTraceResumable(pk_hash, envelope);

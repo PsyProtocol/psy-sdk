@@ -160,7 +160,7 @@ export function init_logging(): void;
 
 export function main(): void;
 
-export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembly.Module;
+export type SyncInitInput = BufferSource | WebAssembly.Module;
 
 export interface InitOutput {
     readonly __wbg_wasmconstants_free: (a: number, b: number) => void;
@@ -242,26 +242,37 @@ export interface InitOutput {
     readonly __wbindgen_start: (a: number) => void;
 }
 
-export type SyncInitInput = BufferSource | WebAssembly.Module;
+export interface InitSyncOptions {
+    module?: SyncInitInput;
+    memory?: WebAssembly.Memory;
+    thread_stack_size?: number;
+}
 
 /**
- * Instantiates the given `module`, which can either be bytes or
- * a precompiled `WebAssembly.Module`.
+ * Initialize the WebAssembly module synchronously.
  *
- * @param {{ module: SyncInitInput, memory?: WebAssembly.Memory, thread_stack_size?: number }} module - Passing `SyncInitInput` directly is deprecated.
- * @param {WebAssembly.Memory} memory - Deprecated.
+ * For the main thread, this is called automatically on import.
+ * Worker threads should call this explicitly with shared module and memory:
  *
- * @returns {InitOutput}
+ * ```js
+ * initSync({ module: __wbg_wasm_module, memory: __wbg_memory });
+ * ```
+ *
+ * @param opts - Initialization options
+ * @returns The exports object
  */
-export function initSync(module: { module: SyncInitInput, memory?: WebAssembly.Memory, thread_stack_size?: number } | SyncInitInput, memory?: WebAssembly.Memory): InitOutput;
+export function initSync(opts?: InitSyncOptions): InitOutput;
 
 /**
- * If `module_or_path` is {RequestInfo} or {URL}, makes a request and
- * for everything else, calls `WebAssembly.instantiate` directly.
+ * Get the imports object for WebAssembly instantiation.
  *
- * @param {{ module_or_path: InitInput | Promise<InitInput>, memory?: WebAssembly.Memory, thread_stack_size?: number }} module_or_path - Passing `InitInput` directly is deprecated.
- * @param {WebAssembly.Memory} memory - Deprecated.
- *
- * @returns {Promise<InitOutput>}
+ * @param memory - Optional shared memory to use instead of creating new
+ * @returns The imports object for WebAssembly.Instance
  */
-export default function __wbg_init (module_or_path?: { module_or_path: InitInput | Promise<InitInput>, memory?: WebAssembly.Memory, thread_stack_size?: number } | InitInput | Promise<InitInput>, memory?: WebAssembly.Memory): Promise<InitOutput>;
+export function __wbg_get_imports(memory?: WebAssembly.Memory): WebAssembly.Imports;
+
+/** The compiled WebAssembly module. Can be shared with workers. */
+export const __wbg_wasm_module: WebAssembly.Module;
+
+/** The shared WebAssembly memory. */
+export const __wbg_memory: WebAssembly.Memory;

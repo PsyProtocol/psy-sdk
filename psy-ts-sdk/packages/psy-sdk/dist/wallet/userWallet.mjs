@@ -112,7 +112,7 @@ class PsyUserWallet {
         return this.signer.execContractCallWithTrace(pk_hash, callData);
     }
     // Produce a savable trace envelope without proving/submitting. The wallet persists the
-    // returned envelope (keyed by `sig_hash`) and later calls prove(Resumable)TxTrace to
+    // returned envelope (keyed by `sig_hash`) and later calls proveTxTraceResumable to
     // generate the proof, submit, and track the lifecycle.
     async generateTxTrace(pk_hash, contractCallArgs) {
         const callData = {
@@ -121,8 +121,10 @@ class PsyUserWallet {
         };
         return this.signer.generateTxTrace(pk_hash, callData);
     }
-    async proveTxTrace(pk_hash, envelope) {
-        return this.signer.proveTxTrace(pk_hash, envelope);
+    // Batch-claim variant of generateTxTrace: returns the same savable envelope, proven/tracked
+    // via the shared proveTxTraceResumable below.
+    async generateBatchClaimTxTrace(pk_hash, claims) {
+        return this.signer.generateBatchClaimTxTrace(pk_hash, claims);
     }
     async proveTxTraceResumable(pk_hash, envelope) {
         return this.signer.proveTxTraceResumable(pk_hash, envelope);

@@ -5,9 +5,12 @@ import { ZKPublicKeyInfo } from "../types";
 import { PsyNetworkConfig } from "../config";
 export declare function initWasmSync(): void;
 export declare class PsyWasmWebProverProvider implements IPsyUserProverProvider {
-    static wasmServer: WasmRpcServer | Promise<WasmRpcServer> | null;
-    private static getWasmServer;
+    private static wasmServer;
+    private static wasmServerConfigJson;
+    private static wasmCallQueue;
     constructor(rpcConfigJson: PsyNetworkConfig);
+    static ensureWasmServer(rpcConfigJson: PsyNetworkConfig | string): Promise<WasmRpcServer>;
+    static runWasmServerCall<T>(callback: (server: WasmRpcServer) => T | Promise<T>): Promise<T>;
     execContractCall(pkHash: string, callData: ContractCallData): Promise<string>;
     execContractCallWithTrace(pkHash: string, callData: ContractCallData): Promise<TxMetadata>;
     claimBatch(pkHash: string, claims: ClaimBatchItem[]): Promise<string>;

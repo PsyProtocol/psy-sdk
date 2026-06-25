@@ -146,9 +146,11 @@ export class WasmRpcServer {
      * Returns JSON: { "leaf_index": u64, "siblings": [[u64;4]] }
      * @param {string} pk_hash
      * @param {string} note_proof_bincode_b64
+     * @param {string | null} [note_proof_fingerprint_json]
+     * @param {string | null} [note_verifier_data_json]
      * @returns {Promise<string>}
      */
-    add_external_proof_json(pk_hash: string, note_proof_bincode_b64: string): Promise<string>;
+    add_external_proof_json(pk_hash: string, note_proof_bincode_b64: string, note_proof_fingerprint_json?: string | null | undefined, note_verifier_data_json?: string | null | undefined): Promise<string>;
     /**
      * @param {string} private_key_str
      * @param {string} sign_type
@@ -212,9 +214,11 @@ export class WasmRpcServer {
      * @param {string} contract_id
      * @param {string} random0
      * @param {string} random1
+     * @param {string | null} [note_proof_fingerprint_json]
+     * @param {string | null} [note_verifier_data_json]
      * @returns {Promise<string>}
      */
-    exec_claim_with_external_proof_json(pk_hash: string, note_proof_bincode_b64: string, nullifier_json: string, owner_json: string, amount: string, user_tree_root_json: string, checkpoint_id: string, note_root_slot: string, contract_id: string, random0: string, random1: string): Promise<string>;
+    exec_claim_with_external_proof_json(pk_hash: string, note_proof_bincode_b64: string, nullifier_json: string, owner_json: string, amount: string, user_tree_root_json: string, checkpoint_id: string, note_root_slot: string, contract_id: string, random0: string, random1: string, note_proof_fingerprint_json?: string | null | undefined, note_verifier_data_json?: string | null | undefined): Promise<string>;
     /**
      * @param {string} pk_hash
      * @param {string} call_data_json

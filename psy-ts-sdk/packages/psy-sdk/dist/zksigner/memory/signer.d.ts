@@ -1,5 +1,5 @@
 import { NetworkId } from "../../action";
-import { ContractCallArgs, ContractCallData, DPNFunctionCircuitDefinition, GeneratedTxTraceJson, IPsyUserProverProvider, ProveTxTraceResumableJson, SignType, TxMetadata } from "../../local-prover-rpc";
+import { ClaimBatchItem, ContractCallArgs, ContractCallData, DPNFunctionCircuitDefinition, GeneratedTxTraceJson, IPsyUserProverProvider, ProveTxTraceResumableJson, SignType, TxMetadata } from "../../local-prover-rpc";
 import { IPsyTransactionSigner, TPsyTransactionSignerAbility } from "../types";
 declare class PsyMemoryTransactionSigner implements IPsyTransactionSigner {
     networkId: NetworkId;
@@ -17,7 +17,7 @@ declare class PsyMemoryTransactionSigner implements IPsyTransactionSigner {
     signAndSubmit(pk_hash: string, callData: ContractCallData): Promise<string>;
     execContractCallWithTrace(pk_hash: string, callData: ContractCallData): Promise<TxMetadata>;
     generateTxTrace(pk_hash: string, callData: ContractCallData): Promise<GeneratedTxTraceJson>;
-    proveTxTrace(pk_hash: string, envelope: string | GeneratedTxTraceJson): Promise<string>;
+    generateBatchClaimTxTrace(pk_hash: string, claims: ClaimBatchItem[]): Promise<GeneratedTxTraceJson>;
     proveTxTraceResumable(pk_hash: string, envelope: string | GeneratedTxTraceJson): Promise<ProveTxTraceResumableJson>;
     deployContract(pk_hash: string, circuitDefs: DPNFunctionCircuitDefinition[]): Promise<string>;
     getAbilities(): TPsyTransactionSignerAbility[];

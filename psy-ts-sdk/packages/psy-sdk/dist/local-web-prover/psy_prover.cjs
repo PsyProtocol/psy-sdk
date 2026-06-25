@@ -405,14 +405,20 @@ class WasmRpcServer {
      * Returns JSON: { "leaf_index": u64, "siblings": [[u64;4]] }
      * @param {string} pk_hash
      * @param {string} note_proof_bincode_b64
+     * @param {string | null} [note_proof_fingerprint_json]
+     * @param {string | null} [note_verifier_data_json]
      * @returns {Promise<string>}
      */
-    add_external_proof_json(pk_hash, note_proof_bincode_b64) {
+    add_external_proof_json(pk_hash, note_proof_bincode_b64, note_proof_fingerprint_json, note_verifier_data_json) {
         const ptr0 = passStringToWasm0(pk_hash, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
         const len0 = WASM_VECTOR_LEN;
         const ptr1 = passStringToWasm0(note_proof_bincode_b64, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
         const len1 = WASM_VECTOR_LEN;
-        const ret = wasm.wasmrpcserver_add_external_proof_json(this.__wbg_ptr, ptr0, len0, ptr1, len1);
+        var ptr2 = isLikeNone(note_proof_fingerprint_json) ? 0 : passStringToWasm0(note_proof_fingerprint_json, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        var len2 = WASM_VECTOR_LEN;
+        var ptr3 = isLikeNone(note_verifier_data_json) ? 0 : passStringToWasm0(note_verifier_data_json, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        var len3 = WASM_VECTOR_LEN;
+        const ret = wasm.wasmrpcserver_add_external_proof_json(this.__wbg_ptr, ptr0, len0, ptr1, len1, ptr2, len2, ptr3, len3);
         return ret;
     }
     /**
@@ -515,9 +521,11 @@ class WasmRpcServer {
      * @param {string} contract_id
      * @param {string} random0
      * @param {string} random1
+     * @param {string | null} [note_proof_fingerprint_json]
+     * @param {string | null} [note_verifier_data_json]
      * @returns {Promise<string>}
      */
-    exec_claim_with_external_proof_json(pk_hash, note_proof_bincode_b64, nullifier_json, owner_json, amount, user_tree_root_json, checkpoint_id, note_root_slot, contract_id, random0, random1) {
+    exec_claim_with_external_proof_json(pk_hash, note_proof_bincode_b64, nullifier_json, owner_json, amount, user_tree_root_json, checkpoint_id, note_root_slot, contract_id, random0, random1, note_proof_fingerprint_json, note_verifier_data_json) {
         const ptr0 = passStringToWasm0(pk_hash, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
         const len0 = WASM_VECTOR_LEN;
         const ptr1 = passStringToWasm0(note_proof_bincode_b64, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
@@ -540,7 +548,11 @@ class WasmRpcServer {
         const len9 = WASM_VECTOR_LEN;
         const ptr10 = passStringToWasm0(random1, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
         const len10 = WASM_VECTOR_LEN;
-        const ret = wasm.wasmrpcserver_exec_claim_with_external_proof_json(this.__wbg_ptr, ptr0, len0, ptr1, len1, ptr2, len2, ptr3, len3, ptr4, len4, ptr5, len5, ptr6, len6, ptr7, len7, ptr8, len8, ptr9, len9, ptr10, len10);
+        var ptr11 = isLikeNone(note_proof_fingerprint_json) ? 0 : passStringToWasm0(note_proof_fingerprint_json, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        var len11 = WASM_VECTOR_LEN;
+        var ptr12 = isLikeNone(note_verifier_data_json) ? 0 : passStringToWasm0(note_verifier_data_json, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        var len12 = WASM_VECTOR_LEN;
+        const ret = wasm.wasmrpcserver_exec_claim_with_external_proof_json(this.__wbg_ptr, ptr0, len0, ptr1, len1, ptr2, len2, ptr3, len3, ptr4, len4, ptr5, len5, ptr6, len6, ptr7, len7, ptr8, len8, ptr9, len9, ptr10, len10, ptr11, len11, ptr12, len12);
         return ret;
     }
     /**
@@ -1120,6 +1132,9 @@ function __wbg_get_imports(memory) {
                 wasm.__wbindgen_free(deferred0_0, deferred0_1, 1);
             }
         },
+        __wbg_log_77413b3a29ddb06b: function (arg0, arg1) {
+            console.log(getStringFromWasm0(arg0, arg1));
+        },
         __wbg_log_d282446d03691e72: function (arg0, arg1, arg2, arg3) {
             console.log(arg0, arg1, arg2, arg3);
         },
@@ -1437,22 +1452,22 @@ function __wbg_get_imports(memory) {
             return ret;
         },
         __wbindgen_cast_0000000000000001: function (arg0, arg1) {
-            // Cast intrinsic for `Closure(Closure { owned: true, function: Function { arguments: [Externref], shim_idx: 1818, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
-            const ret = makeMutClosure(arg0, arg1, wasm_bindgen__convert__closures_____invoke__h439d67d7733a6e67);
+            // Cast intrinsic for `Closure(Closure { owned: true, function: Function { arguments: [Externref], shim_idx: 1588, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
+            const ret = makeMutClosure(arg0, arg1, wasm_bindgen__convert__closures_____invoke__h3f745ad0c3ad22ff);
             return ret;
         },
         __wbindgen_cast_0000000000000002: function (arg0, arg1) {
-            // Cast intrinsic for `Closure(Closure { owned: true, function: Function { arguments: [Externref], shim_idx: 5028, ret: Result(Unit), inner_ret: Some(Result(Unit)) }, mutable: true }) -> Externref`.
+            // Cast intrinsic for `Closure(Closure { owned: true, function: Function { arguments: [Externref], shim_idx: 5031, ret: Result(Unit), inner_ret: Some(Result(Unit)) }, mutable: true }) -> Externref`.
             const ret = makeMutClosure(arg0, arg1, wasm_bindgen__convert__closures_____invoke__h60a57e826f0fa70e);
             return ret;
         },
         __wbindgen_cast_0000000000000003: function (arg0, arg1) {
-            // Cast intrinsic for `Closure(Closure { owned: true, function: Function { arguments: [Externref], shim_idx: 5045, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
+            // Cast intrinsic for `Closure(Closure { owned: true, function: Function { arguments: [Externref], shim_idx: 5048, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
             const ret = makeMutClosure(arg0, arg1, wasm_bindgen__convert__closures_____invoke__h1506b1d2a44b3513);
             return ret;
         },
         __wbindgen_cast_0000000000000004: function (arg0, arg1) {
-            // Cast intrinsic for `Closure(Closure { owned: true, function: Function { arguments: [], shim_idx: 4666, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
+            // Cast intrinsic for `Closure(Closure { owned: true, function: Function { arguments: [], shim_idx: 4669, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
             const ret = makeMutClosure(arg0, arg1, wasm_bindgen__convert__closures_____invoke__h204019b3324ffeea);
             return ret;
         },
@@ -1504,8 +1519,8 @@ function __wbg_get_imports(memory) {
 function wasm_bindgen__convert__closures_____invoke__h204019b3324ffeea(arg0, arg1) {
     wasm.wasm_bindgen__convert__closures_____invoke__h204019b3324ffeea(arg0, arg1);
 }
-function wasm_bindgen__convert__closures_____invoke__h439d67d7733a6e67(arg0, arg1, arg2) {
-    wasm.wasm_bindgen__convert__closures_____invoke__h439d67d7733a6e67(arg0, arg1, arg2);
+function wasm_bindgen__convert__closures_____invoke__h3f745ad0c3ad22ff(arg0, arg1, arg2) {
+    wasm.wasm_bindgen__convert__closures_____invoke__h3f745ad0c3ad22ff(arg0, arg1, arg2);
 }
 function wasm_bindgen__convert__closures_____invoke__h1506b1d2a44b3513(arg0, arg1, arg2) {
     wasm.wasm_bindgen__convert__closures_____invoke__h1506b1d2a44b3513(arg0, arg1, arg2);
