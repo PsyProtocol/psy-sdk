@@ -357,20 +357,20 @@ function wrapMerkleProxyHelperBasicSimplifier(
           }`).join('\n    ')}
           ` : "const serializedArgs: Felt[] = [];";
 
+                const isView = this.isViewFunction(fn);
+                const dispatchCode = isView
+                    ? `const result = await this._provider.callViewFunction?.(\n      this._contractId,\n      '${fn.name}',\n      serializedArgs,\n    ) ?? await this._provider.sendTransaction(\n      this._contractId,\n      '${fn.name}',\n      serializedArgs,\n      this._signer?.publicKey\n    );`
+                    : `const result = await this._provider.sendTransaction(\n      this._contractId,\n      '${fn.name}',\n      serializedArgs,\n      this._signer?.publicKey\n    );`;
+
                 return `  async ${fn.name}(${params}): ${returnType} {
     // Check if we have a signer for state-changing functions
-    const isViewFunction = ${this.isViewFunction(fn)};
+    const isViewFunction = ${isView};
     if (!isViewFunction && !this._signer) {
       throw new Error('Signer required for state-changing functions. Use contract.attach(signer)');
     }
     ${serializeCode}
-    const result = await this._provider.sendTransaction(
-      this._contractId,
-      '${fn.name}',
-      serializedArgs,
-      this._signer?.publicKey
-    );${hasReturn ? "\n    return this._decoder.decodeReturnValue(result);" : ""}
-  }`;
+    ${dispatchCode}${hasReturn ? "\n    return this._decoder.decodeReturnValue(result);" : ""}
+  }`
             })
             .join("\n\n");
     }

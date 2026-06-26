@@ -265,12 +265,23 @@ export class Contract {
 
         const serializedArgs = serializeArgs(args, fn.field_flat_paths, this._structs);
 
-        const result = await this._provider.sendTransaction(
-            this._contractId,
-            name,
-            serializedArgs,
-            this._signer?.publicKey
-        );
+        let result: any;
+        if (view && this._provider.callViewFunction) {
+            // View functions: use read-only execution when available (no signer needed)
+            result = await this._provider.callViewFunction(
+                this._contractId,
+                name,
+                serializedArgs,
+            );
+        } else {
+            // External functions or view-without-callViewFunction: submit transaction
+            result = await this._provider.sendTransaction(
+                this._contractId,
+                name,
+                serializedArgs,
+                this._signer?.publicKey
+            );
+        }
 
         if (fn.return_size > 0) {
             return this._decoder.decodeReturnValue(result);

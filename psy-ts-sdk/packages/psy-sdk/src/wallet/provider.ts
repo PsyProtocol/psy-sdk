@@ -20,6 +20,16 @@ export interface IContractProvider {
         publicKey: string
     ): Promise<any>;
 
+    /**
+     * Execute a view (read-only) contract function without submitting a transaction.
+     * If not implemented, view functions fall back to sendTransaction (without publicKey).
+     */
+    callViewFunction?(
+        contractId: Felt,
+        functionName: string,
+        args: any[],
+    ): Promise<any>;
+
     getLatestCheckpointId?(): Promise<Felt>;
 }
 
