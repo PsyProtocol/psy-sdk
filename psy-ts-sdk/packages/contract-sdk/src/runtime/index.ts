@@ -17,6 +17,7 @@ export {
     FeltValue,
     ISigner,
     IContractProvider,
+    IContractStateReader,
     Decodable,
     Signer,
 } from "./types";

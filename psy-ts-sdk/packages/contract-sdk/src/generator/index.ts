@@ -89,7 +89,7 @@ export { RecursiveDecoder } from './decoder';
 ${contractImports}
 
 // Re-export common types for convenience
-export type { Felt, IContractProvider, ISigner } from './types';
+export type { Felt, IContractStateReader, ISigner } from './types';
 export { Signer } from './types';
 `;
     }
