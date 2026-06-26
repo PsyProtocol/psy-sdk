@@ -4,11 +4,16 @@ import '../utils/felt.mjs';
 import { PsyJSON } from '../utils/json.mjs';
 import '../utils/random.mjs';
 
+let isWasmInitialized = false;
 // Synchronous WASM initialization function
 function initWasmSync() {
+    if (isWasmInitialized) {
+        return;
+    }
     try {
         // Initialize synchronously with pre-compiled binary data
         initSync({ module: wasmBinary });
+        isWasmInitialized = true;
         console.log("WASM initialized synchronously from binary data");
     }
     catch (error) {
@@ -17,201 +22,193 @@ function initWasmSync() {
     }
 }
 class PsyWasmWebProverProvider {
-    static async getWasmServer() {
-        if (!PsyWasmWebProverProvider.wasmServer) {
-            throw new Error("WASM prover is not initialized");
-        }
-        const server = await PsyWasmWebProverProvider.wasmServer;
-        PsyWasmWebProverProvider.wasmServer = server;
-        return server;
-    }
     constructor(rpcConfigJson) {
         const json = PsyJSON.stringify(rpcConfigJson);
         console.log(`WASM init with config: ${json}`);
-        if (!PsyWasmWebProverProvider.wasmServer) {
+        void PsyWasmWebProverProvider.ensureWasmServer(json);
+    }
+    static ensureWasmServer(rpcConfigJson) {
+        const json = typeof rpcConfigJson === "string" ? rpcConfigJson : PsyJSON.stringify(rpcConfigJson);
+        if (!this.wasmServer) {
             const now = new Date().getTime();
             initWasmSync();
-            PsyWasmWebProverProvider.wasmServer = Promise.resolve(new WasmRpcServer(json)).then((server) => {
+            this.wasmServer = Promise.resolve(new WasmRpcServer(json)).then((server) => {
                 console.log(`WASM initialized in ${(new Date().getTime() - now) / 1000} seconds`);
                 return server;
             });
+            this.wasmServerConfigJson = json;
         }
+        else if (this.wasmServerConfigJson !== json) {
+            console.warn("WASM RPC server is a singleton; ignoring a different config and reusing the existing server.");
+        }
+        return this.wasmServer;
     }
-    // async execContractCall(pkHash: string, contractCallArg: ContractCallArgs[]): Promise<string> {
-    //     const now = new Date().getTime();
-    //     const json = PsyJSON.stringify(contractCallArg);
-    //     const result = await PsyWasmWebProverProvider.wasmServer.exec_contract_call_json(pkHash, json);
-    //     console.log(`execContractCall in ${(new Date().getTime() - now) / 1000} seconds`);
-    //     return result;
-    // }
+    static runWasmServerCall(callback) {
+        const run = async () => {
+            if (!this.wasmServer) {
+                throw new Error("WASM RPC server is not initialized");
+            }
+            return callback(await this.wasmServer);
+        };
+        const result = this.wasmCallQueue.then(run, run);
+        this.wasmCallQueue = result.then(() => undefined, () => undefined);
+        return result;
+    }
     async execContractCall(pkHash, callData) {
         const now = new Date().getTime();
         const json = PsyJSON.stringify(callData);
-        const wasmServer = await PsyWasmWebProverProvider.getWasmServer();
-        const result = await wasmServer.exec_contract_call_json(pkHash, json);
+        const result = await PsyWasmWebProverProvider.runWasmServerCall((server) => server.exec_contract_call_json(pkHash, json));
         console.log(`execContractCall in ${(new Date().getTime() - now) / 1000} seconds`);
         return result;
     }
     async execContractCallWithTrace(pkHash, callData) {
         const now = new Date().getTime();
         const json = PsyJSON.stringify(callData);
-        const wasmServer = await PsyWasmWebProverProvider.getWasmServer();
-        const result = await wasmServer.exec_contract_call_with_trace_json(pkHash, json);
+        const result = await PsyWasmWebProverProvider.runWasmServerCall((server) => server.exec_contract_call_with_trace_json(pkHash, json));
         console.log(`execContractCallWithTrace in ${(new Date().getTime() - now) / 1000} seconds`);
         return PsyJSON.parse(result);
     }
     async claimBatch(pkHash, claims) {
         const now = new Date().getTime();
         const json = PsyJSON.stringify(claims);
-        const wasmServer = await PsyWasmWebProverProvider.getWasmServer();
-        const result = await wasmServer.exec_claim_batch_json(pkHash, json);
+        const result = await PsyWasmWebProverProvider.runWasmServerCall((server) => server.exec_claim_batch_json(pkHash, json));
         console.log(`claimBatch in ${(new Date().getTime() - now) / 1000} seconds`);
         return result;
     }
     async claimBatchWithTrace(pkHash, claims) {
         const now = new Date().getTime();
         const json = PsyJSON.stringify(claims);
-        const wasmServer = await PsyWasmWebProverProvider.getWasmServer();
-        const result = await wasmServer.batch_claim_with_trace_json(pkHash, json);
+        const result = await PsyWasmWebProverProvider.runWasmServerCall((server) => server.batch_claim_with_trace_json(pkHash, json));
         console.log(`claimBatchWithTrace in ${(new Date().getTime() - now) / 1000} seconds`);
         return PsyJSON.parse(result);
     }
     async generateBatchClaimTxTrace(pkHash, claims) {
         const now = new Date().getTime();
         const json = PsyJSON.stringify(claims);
-        const wasmServer = await PsyWasmWebProverProvider.getWasmServer();
-        const result = await wasmServer.generate_batch_claim_tx_trace_json(pkHash, json);
+        const result = await PsyWasmWebProverProvider.runWasmServerCall((server) => server.generate_batch_claim_tx_trace_json(pkHash, json));
         console.log(`generateBatchClaimTxTrace in ${(new Date().getTime() - now) / 1000} seconds`);
         return PsyJSON.parse(result);
     }
     async batchClaim(pkHash, claims) {
         const now = new Date().getTime();
         const json = PsyJSON.stringify(claims);
-        const wasmServer = await PsyWasmWebProverProvider.getWasmServer();
-        const result = await wasmServer.batch_claim_json(pkHash, json);
+        const result = await PsyWasmWebProverProvider.runWasmServerCall((server) => server.batch_claim_json(pkHash, json));
         console.log(`batchClaim in ${(new Date().getTime() - now) / 1000} seconds`);
         return result;
     }
     async getClaimRewardsCallArgs(_jobInfos) {
-        // const now = new Date().getTime();
-        // const json = PsyJSON.stringify(jobInfos);
-        // const result = await PsyWasmWebProverProvider.wasmServer.get_claim_rewards_call_args_json(jobInfos);
-        // console.log(`claimRewards in ${(new Date().getTime() - now) / 1000} seconds`);
-        // const contractCallArgs = PsyJSON.parse(result) as ContractCallArgs[];
-        // return contractCallArgs;
         throw new Error("Method not implemented.");
     }
     async claimRewards(_pkHash, _jobInfos) {
-        // const now = new Date().getTime();
-        // const json = PsyJSON.stringify(jobInfos);
-        // const result = await PsyWasmWebProverProvider.wasmServer.claim_rewards_json(pkHash, jobInfos);
-        // console.log(`claimRewards in ${(new Date().getTime() - now) / 1000} seconds`);
-        // return result;
         throw new Error("Method not implemented.");
     }
     // Local proving operations
     async startSession(pkHash) {
-        const wasmServer = await PsyWasmWebProverProvider.getWasmServer();
-        return wasmServer.start_session(pkHash);
+        return PsyWasmWebProverProvider.runWasmServerCall((server) => server.start_session(pkHash));
     }
     async proveContractCall(pkHash, contractCallArg) {
         const now = new Date().getTime();
         const json = PsyJSON.stringify(contractCallArg);
-        const wasmServer = await PsyWasmWebProverProvider.getWasmServer();
-        const result = await wasmServer.prove_contract_call_json(pkHash, json);
+        const result = await PsyWasmWebProverProvider.runWasmServerCall((server) => server.prove_contract_call_json(pkHash, json));
         console.log(`proveContractCall in ${(new Date().getTime() - now) / 1000} seconds`);
         return result;
     }
     async proveContractCalls(pkHash, contractCallArgs) {
         const now = new Date().getTime();
         const json = PsyJSON.stringify(contractCallArgs);
-        const wasmServer = await PsyWasmWebProverProvider.getWasmServer();
-        const result = await wasmServer.prove_contract_calls_json(pkHash, json);
+        const result = await PsyWasmWebProverProvider.runWasmServerCall((server) => server.prove_contract_calls_json(pkHash, json));
         console.log(`proveContractCalls in ${(new Date().getTime() - now) / 1000} seconds`);
         return result;
     }
     async signAndSubmit(pkHash, signData) {
         const now = new Date().getTime();
         const signDataJson = signData ? PsyJSON.stringify(signData) : null;
-        const wasmServer = await PsyWasmWebProverProvider.getWasmServer();
-        const result = await wasmServer.sign_and_submit(pkHash, signDataJson);
+        const result = await PsyWasmWebProverProvider.runWasmServerCall((server) => server.sign_and_submit(pkHash, signDataJson));
         console.log(`signAndSubmit in ${(new Date().getTime() - now) / 1000} seconds`);
         return result;
     }
     async generateTxTrace(pkHash, callData) {
         const now = new Date().getTime();
         const json = PsyJSON.stringify(callData);
-        const wasmServer = await PsyWasmWebProverProvider.getWasmServer();
-        const result = await wasmServer.generate_tx_trace_json(pkHash, json);
+        const result = await PsyWasmWebProverProvider.runWasmServerCall((server) => server.generate_tx_trace_json(pkHash, json));
         console.log(`generateTxTrace in ${(new Date().getTime() - now) / 1000} seconds`);
         return PsyJSON.parse(result);
     }
     async simulateContractCall(pkHash, callData) {
         const now = new Date().getTime();
         const json = PsyJSON.stringify(callData);
-        const wasmServer = await PsyWasmWebProverProvider.getWasmServer();
-        const result = await wasmServer.generate_tx_trace_json(pkHash, json);
+        const result = await PsyWasmWebProverProvider.runWasmServerCall((server) => server.generate_tx_trace_json(pkHash, json));
         console.log(`simulateContractCall in ${(new Date().getTime() - now) / 1000} seconds`);
         return PsyJSON.parse(result);
     }
-    async proveTxTrace(pkHash, envelopeJson) {
-        const now = new Date().getTime();
-        const wasmServer = await PsyWasmWebProverProvider.getWasmServer();
+    // ================================
+    // Stateless step proving (no WASM state between calls)
+    // ================================
+    async proveUpsStart(pkHash, envelopeJson) {
         const envelope = typeof envelopeJson === "string" ? envelopeJson : PsyJSON.stringify(envelopeJson);
-        const result = await wasmServer.prove_tx_trace_json(pkHash, envelope);
-        console.log(`proveTxTrace in ${(new Date().getTime() - now) / 1000} seconds`);
-        return result;
+        return PsyWasmWebProverProvider.runWasmServerCall((server) => server.prove_ups_start_json(pkHash, envelope));
     }
-    async proveTxTraceResumable(pkHash, envelopeJson) {
-        const now = new Date().getTime();
-        const wasmServer = await PsyWasmWebProverProvider.getWasmServer();
+    async proveTraceStep(pkHash, envelopeJson, stepIndex, proofTreeMeta, lastStepInfo, currentHeader, previousHeader) {
         const envelope = typeof envelopeJson === "string" ? envelopeJson : PsyJSON.stringify(envelopeJson);
-        const result = await wasmServer.prove_tx_trace_resumable_json(pkHash, envelope);
-        console.log(`proveTxTraceResumable in ${(new Date().getTime() - now) / 1000} seconds`);
-        return PsyJSON.parse(result);
+        return PsyWasmWebProverProvider.runWasmServerCall((server) => server.prove_trace_step_json(pkHash, envelope, stepIndex, PsyJSON.stringify(proofTreeMeta), PsyJSON.stringify(lastStepInfo), PsyJSON.stringify(currentHeader), PsyJSON.stringify(previousHeader)));
+    }
+    async proveEndCapProof(pkHash, envelopeJson, proofTreeMeta, lastStepInfo, allProofBlobs, signatureProof) {
+        const envelope = typeof envelopeJson === "string" ? envelopeJson : PsyJSON.stringify(envelopeJson);
+        return PsyWasmWebProverProvider.runWasmServerCall((server) => server.prove_end_cap_proof_json(pkHash, envelope, PsyJSON.stringify(proofTreeMeta), PsyJSON.stringify(lastStepInfo), allProofBlobs, signatureProof));
+    }
+    async insertExternalProof(pkHash, envelopeJson, proofTreeMeta, lastStepInfo, currentHeader, previousHeader, externalFingerprint, externalProof) {
+        const envelope = typeof envelopeJson === "string" ? envelopeJson : PsyJSON.stringify(envelopeJson);
+        return PsyWasmWebProverProvider.runWasmServerCall((server) => server.insert_external_proof_json(pkHash, envelope, PsyJSON.stringify(proofTreeMeta), PsyJSON.stringify(lastStepInfo), PsyJSON.stringify(currentHeader), PsyJSON.stringify(previousHeader), externalFingerprint, externalProof));
+    }
+    async submitEndCap(envelopeJson, endCapProof) {
+        const envelope = typeof envelopeJson === "string" ? envelopeJson : PsyJSON.stringify(envelopeJson);
+        return PsyWasmWebProverProvider.runWasmServerCall((server) => server.submit_end_cap_json(envelope, endCapProof));
+    }
+    async signSighash(pkHash, sighashJson, envelopeJson, currentHeader) {
+        const env = envelopeJson ? (typeof envelopeJson === 'string' ? envelopeJson : PsyJSON.stringify(envelopeJson)) : undefined;
+        const hdr = currentHeader ? (typeof currentHeader === 'string' ? currentHeader : PsyJSON.stringify(currentHeader)) : undefined;
+        return PsyWasmWebProverProvider.runWasmServerCall((server) => server.sign_sighash_json(pkHash, sighashJson, env, hdr));
+    }
+    async computeSighashFromEnvelope(envelopeJson, currentHeader) {
+        const envelope = typeof envelopeJson === "string" ? envelopeJson : PsyJSON.stringify(envelopeJson);
+        return PsyWasmWebProverProvider.runWasmServerCall((server) => server.compute_sighash_from_envelope_json(envelope, PsyJSON.stringify(currentHeader)));
     }
     // User operations
     async registerUser(privateKey, signType, fingerprint) {
-        const wasmServer = await PsyWasmWebProverProvider.getWasmServer();
-        return wasmServer.register_user(privateKey.toString(), signType, fingerprint);
+        return PsyWasmWebProverProvider.runWasmServerCall((server) => server.register_user(privateKey.toString(), signType, fingerprint));
     }
     async addUser(privateKey, signType, fingerprint) {
-        const wasmServer = await PsyWasmWebProverProvider.getWasmServer();
-        return wasmServer.add_user(privateKey.toString(), signType, fingerprint);
+        return PsyWasmWebProverProvider.runWasmServerCall((server) => server.add_user(privateKey.toString(), signType, fingerprint));
     }
     async getZKPublicKey(privateKey) {
-        const wasmServer = await PsyWasmWebProverProvider.getWasmServer();
-        const json = await wasmServer.get_zk_public_key_json(privateKey.toString());
+        const json = await PsyWasmWebProverProvider.runWasmServerCall((server) => server.get_zk_public_key_json(privateKey.toString()));
         return PsyJSON.parse(json);
     }
     async getRandomKeypair() {
-        const wasmServer = await PsyWasmWebProverProvider.getWasmServer();
-        const json = await wasmServer.get_random_keypair_json();
+        const json = await PsyWasmWebProverProvider.runWasmServerCall((server) => server.get_random_keypair_json());
         return PsyJSON.parse(json);
     }
     // Contract deployment
     async deployContract(deployer, circuitDefs) {
         const json = PsyJSON.stringify(circuitDefs);
-        const wasmServer = await PsyWasmWebProverProvider.getWasmServer();
-        return wasmServer.deploy_contract_json(deployer, json);
+        return PsyWasmWebProverProvider.runWasmServerCall((server) => server.deploy_contract_json(deployer, json));
     }
     async getDeployContractCmd(deployer, circuitDefs) {
         const json = PsyJSON.stringify(circuitDefs);
-        const wasmServer = await PsyWasmWebProverProvider.getWasmServer();
-        const resultJson = await wasmServer.get_deploy_contract_cmd_json(deployer, json);
+        const resultJson = await PsyWasmWebProverProvider.runWasmServerCall((server) => server.get_deploy_contract_cmd_json(deployer, json));
         return PsyJSON.parse(resultJson);
     }
     // Utility methods
     async ping(message) {
-        const wasmServer = await PsyWasmWebProverProvider.getWasmServer();
-        return wasmServer.ping(message);
+        return PsyWasmWebProverProvider.runWasmServerCall((server) => server.ping(message));
     }
     async getResult(id) {
-        const wasmServer = await PsyWasmWebProverProvider.getWasmServer();
-        return wasmServer.get_result(id.toString());
+        return PsyWasmWebProverProvider.runWasmServerCall((server) => server.get_result(id.toString()));
     }
 }
 PsyWasmWebProverProvider.wasmServer = null;
+PsyWasmWebProverProvider.wasmServerConfigJson = null;
+PsyWasmWebProverProvider.wasmCallQueue = Promise.resolve();
 class PsyWasmConstantsProvider {
     static getAll() {
         if (!this._cache) {

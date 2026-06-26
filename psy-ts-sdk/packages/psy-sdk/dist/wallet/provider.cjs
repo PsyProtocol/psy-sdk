@@ -7,12 +7,11 @@ require('../coord-edge-rpc/types.cjs');
 var client = require('../coord-edge-rpc/client.cjs');
 require('../realm-edge-rpc/types.cjs');
 var client$1 = require('../realm-edge-rpc/client.cjs');
+require('../utils/json.cjs');
 var provider$1 = require('../zksigner/memory/provider.cjs');
 var userWallet = require('./userWallet.cjs');
-var psy_prover = require('../local-web-prover/psy_prover.cjs');
+require('../local-web-prover/psy_prover.cjs');
 var provider = require('../local-web-prover/provider.cjs');
-var json = require('../utils/json.cjs');
-require('../utils/random.cjs');
 
 class PsyUserWalletProvider {
     constructor(networkId, coordinatorEdgeRpcProvider, realmEdgeRpcProvider, signerProvider, prover) {
@@ -70,22 +69,8 @@ async function createMemoryWalletProvider(config) {
     const networkId = "regtest";
     const coordinator_rpc = new client.MultiCoordinatorRpcProvider(config.coordinator_configs);
     const realm_rpc = new client$1.MultiRealmRpcProvider(config.realm_configs, config.users_per_realm);
-    const initWasmRpcServer = async () => {
-        try {
-            const json$1 = json.PsyJSON.stringify(config);
-            const now = new Date().getTime();
-            provider.initWasmSync();
-            provider.PsyWasmWebProverProvider.wasmServer = await new psy_prover.WasmRpcServer(json$1);
-            console.log(`WASM initialized in ${(new Date().getTime() - now) / 1000} seconds`);
-        }
-        catch (error) {
-            console.error('Failed to get prover URL:', error);
-        }
-    };
-    await initWasmRpcServer();
-    let userProver = new provider.PsyWasmWebProverProvider(config);
+    const userProver = new provider.PsyWasmWebProverProvider(config);
     console.log("User Prover:", userProver);
-    console.log("User Prover:", provider.PsyWasmWebProverProvider.wasmServer);
     const transactionSignerProvider = new provider$1.PsyMemoryTransactionSignerProvider(userProver, networkId);
     return new PsyUserWalletProvider(networkId, coordinator_rpc, realm_rpc, transactionSignerProvider, userProver);
 }

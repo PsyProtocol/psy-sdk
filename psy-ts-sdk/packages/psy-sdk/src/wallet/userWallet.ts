@@ -157,8 +157,7 @@ class PsyUserWallet implements IPsyUserWallet {
     }
 
     // Produce a savable trace envelope without proving/submitting. The wallet persists the
-    // returned envelope (keyed by `sig_hash`) and later calls proveTxTraceResumable to
-    // generate the proof, submit, and track the lifecycle.
+    // returned envelope (keyed by `sig_hash`) and later proves/tracks it via the step API.
     async generateTxTrace(pk_hash: string, contractCallArgs: ContractCallArgs | ContractCallArgs[]): Promise<GeneratedTxTraceJson> {
         const callData = {
             contract_calls: Array.isArray(contractCallArgs) ? contractCallArgs : [contractCallArgs],
@@ -168,13 +167,24 @@ class PsyUserWallet implements IPsyUserWallet {
     }
 
     // Batch-claim variant of generateTxTrace: returns the same savable envelope, proven/tracked
-    // via the shared proveTxTraceResumable below.
+    // via the shared step-proving path below.
     async generateBatchClaimTxTrace(pk_hash: string, claims: ClaimBatchItem[]): Promise<GeneratedTxTraceJson> {
         return this.signer.generateBatchClaimTxTrace(pk_hash, claims);
     }
 
-    async proveTxTraceResumable(pk_hash: string, envelope: string | GeneratedTxTraceJson): Promise<ProveTxTraceResumableJson> {
-        return this.signer.proveTxTraceResumable(pk_hash, envelope);
+    async proveTxTraceStep(
+        pk_hash: string,
+        envelope: string | GeneratedTxTraceJson,
+        resumeFrom?: {
+            proof_tree_meta: unknown;
+            last_step_info: unknown;
+            current_header: unknown;
+            previous_header: unknown;
+            proof_blobs: Uint8Array[];
+            next_step_index: number;
+        },
+    ): Promise<ProveTxTraceResumableJson> {
+        return this.signer.proveTxTraceStep(pk_hash, envelope, resumeFrom);
     }
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars

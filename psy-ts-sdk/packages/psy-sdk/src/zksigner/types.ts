@@ -8,6 +8,7 @@ interface IPsyTransactionSigner {
     getPrivateKeyHex?(): Promise<string>;
     getSignType?(): Promise<string>;
     getFingerprint?(): Promise<string|null|undefined>;
+    getAbilities(): TPsyTransactionSignerAbility[];
     // signHash?(hash: QHashOut): Promise<ProofWithPublicInputs>;
     signAndSubmit(pk_hash: string, callData: ContractCallData): Promise<string>;
     execContractCallWithTrace(pk_hash: string, callData: ContractCallData): Promise<TxMetadata>;
@@ -15,11 +16,21 @@ interface IPsyTransactionSigner {
     // wallet can persist it and prove/track it later. The SDK holds no state of its own.
     generateTxTrace(pk_hash: string, callData: ContractCallData): Promise<GeneratedTxTraceJson>;
     // Batch-claim variant: produces the same GeneratedTxTraceJson envelope, so the wallet
-    // proves/tracks it via the shared proveTxTraceResumable below.
+    // can persist and prove it later via the step API.
     generateBatchClaimTxTrace(pk_hash: string, claims: ClaimBatchItem[]): Promise<GeneratedTxTraceJson>;
-    proveTxTraceResumable(pk_hash: string, envelope: string | GeneratedTxTraceJson): Promise<ProveTxTraceResumableJson>;
+    proveTxTraceStep(
+        pk_hash: string,
+        envelope: string | GeneratedTxTraceJson,
+        resumeFrom?: {
+            proof_tree_meta: unknown;
+            last_step_info: unknown;
+            current_header: unknown;
+            previous_header: unknown;
+            proof_blobs: Uint8Array[];
+            next_step_index: number;
+        },
+    ): Promise<ProveTxTraceResumableJson>;
     deployContract(pk_hash: string, circuitDefs: DPNFunctionCircuitDefinition[]): Promise<string>;
-    getAbilities(): TPsyTransactionSignerAbility[];
     registerUser(privateKeyHex: string, signType: SignType, fingerprint?: string): Promise<string>;
     addUser(privateKeyHex: string, signType: SignType, fingerprint?: string): Promise<string>;
     getClaimRewardsCallArgs(jobInfos: string): Promise<ContractCallArgs[]>;

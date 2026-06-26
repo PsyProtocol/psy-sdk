@@ -71,7 +71,7 @@ interface AltVerifierOnlyCircuitData {
 }
 
 export interface PrivateTransferClaimRaw {
-    note_proof_bincode_b64: string;
+    note_proof: Uint8Array;
     nullifier: [string, string, string, string];
     owner: [string, string, string, string];
     amount: string;
@@ -205,6 +205,28 @@ export interface ProveTxTraceResumableJson {
     status: "submitted" | "failed";
 }
 
+export interface InitStepProvingJson {
+    proof_tree_meta: unknown;
+    last_step_info: unknown;
+    current_header: unknown;
+    previous_header: unknown;
+    ups_proof: Uint8Array;
+}
+
+export interface ProveStepJson {
+    cfc_proof: Uint8Array;
+    ups_proof: Uint8Array;
+    proof_tree_meta: unknown;
+    last_step_info: unknown;
+    current_header: unknown;
+    previous_header: unknown;
+}
+
+export interface ProveEndCapProofJson {
+    end_cap_proof: Uint8Array;
+    tx_hash: string;
+}
+
 export interface TxStorageRead {
     user_id: Felt;
     contract_id: Felt;
@@ -275,7 +297,7 @@ export enum SignType {
     SECP256K1Sign = "secp256k1",
     SoftwareDefinedDPNSign = "software-defined-dpn",
     SoftwareDefinedPlonky2Sign = "software-defined-plonky2",
-    SDKKeySign = "sdk-key"
+    SDKeySign = "sd-key"
 }
 
 interface IPsyUserProverProvider {
@@ -288,8 +310,38 @@ interface IPsyUserProverProvider {
     signAndSubmit(pk_hash: string, signData?: SignData): Promise<string>;
     generateTxTrace(pk_hash: string, callData: ContractCallData, localId?: string | null): Promise<GeneratedTxTraceJson>;
     simulateContractCall(pk_hash: string, callData: ContractCallData, localId?: string | null): Promise<GeneratedTxTraceJson>;
-    proveTxTrace(pk_hash: string, envelopeJson: string | GeneratedTxTraceJson): Promise<string>;
-    proveTxTraceResumable(pk_hash: string, envelopeJson: string | GeneratedTxTraceJson): Promise<ProveTxTraceResumableJson>;
+    proveUpsStart(pk_hash: string, envelopeJson: string | GeneratedTxTraceJson): Promise<InitStepProvingJson>;
+
+    proveTraceStep(
+        pk_hash: string,
+        envelopeJson: string | GeneratedTxTraceJson,
+        stepIndex: number,
+        proofTreeMeta: unknown,
+        lastStepInfo: unknown,
+        currentHeader: unknown,
+        previousHeader: unknown,
+    ): Promise<ProveStepJson>;
+    proveEndCapProof(
+        pk_hash: string,
+        envelopeJson: string | GeneratedTxTraceJson,
+        proofTreeMeta: unknown,
+        lastStepInfo: unknown,
+        allProofBlobs: Uint8Array[],
+        signatureProof: Uint8Array,
+    ): Promise<ProveEndCapProofJson>;
+    submitEndCap(envelopeJson: string | GeneratedTxTraceJson, endCapProof: Uint8Array): Promise<string>;
+    signSighash(pk_hash: string, sighashJson: string, envelopeJson?: string | GeneratedTxTraceJson, currentHeader?: unknown): Promise<Uint8Array>;
+    computeSighashFromEnvelope(envelopeJson: string | GeneratedTxTraceJson, currentHeader: unknown): Promise<string>;
+    insertExternalProof(
+        pk_hash: string,
+        envelopeJson: string | GeneratedTxTraceJson,
+        proofTreeMeta: unknown,
+        lastStepInfo: unknown,
+        currentHeader: unknown,
+        previousHeader: unknown,
+        externalFingerprint: string,
+        externalProof: Uint8Array,
+    ): Promise<any>;
     generateBatchClaimTxTrace(pk_hash: string, claims: ClaimBatchItem[], localId?: string | null): Promise<GeneratedTxTraceJson>;
     batchClaim(pk_hash: string, claims: ClaimBatchItem[], localId?: string | null): Promise<string>;
     claimBatchWithTrace(pk_hash: string, claims: ClaimBatchItem[]): Promise<TxMetadata>;

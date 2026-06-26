@@ -8,7 +8,6 @@ import {
     DPNFunctionCircuitDefinition,
     GeneratedTxTraceJson,
     IPsyUserProverProvider,
-    ProveTxTraceResumableJson,
     QBCDeployContract,
     SignData,
     SignType,
@@ -207,26 +206,119 @@ export class PsyWasmWebProverProvider implements IPsyUserProverProvider {
         console.log(`simulateContractCall in ${(new Date().getTime() - now) / 1000} seconds`);
         return PsyJSON.parse(result) as GeneratedTxTraceJson;
     }
+    // ================================
+    // Stateless step proving (no WASM state between calls)
+    // ================================
 
-    async proveTxTrace(pkHash: PublicKey, envelopeJson: string | GeneratedTxTraceJson): Promise<string> {
-        const now = new Date().getTime();
+    async proveUpsStart(pkHash: PublicKey, envelopeJson: string | GeneratedTxTraceJson): Promise<any> {
         const envelope = typeof envelopeJson === "string" ? envelopeJson : PsyJSON.stringify(envelopeJson);
-        const result = await PsyWasmWebProverProvider.runWasmServerCall((server) =>
-            server.prove_tx_trace_json(pkHash, envelope)
-        );
-        console.log(`proveTxTrace in ${(new Date().getTime() - now) / 1000} seconds`);
-        return result;
+        return PsyWasmWebProverProvider.runWasmServerCall((server) =>
+            server.prove_ups_start_json(pkHash, envelope)
+        ) as Promise<any>;
     }
 
-    async proveTxTraceResumable(pkHash: PublicKey, envelopeJson: string | GeneratedTxTraceJson): Promise<ProveTxTraceResumableJson> {
-        const now = new Date().getTime();
+    async proveTraceStep(
+        pkHash: PublicKey,
+        envelopeJson: string | GeneratedTxTraceJson,
+        stepIndex: number,
+        proofTreeMeta: unknown,
+        lastStepInfo: unknown,
+        currentHeader: unknown,
+        previousHeader: unknown,
+    ): Promise<any> {
         const envelope = typeof envelopeJson === "string" ? envelopeJson : PsyJSON.stringify(envelopeJson);
-        const result = await PsyWasmWebProverProvider.runWasmServerCall((server) =>
-            server.prove_tx_trace_resumable_json(pkHash, envelope)
-        );
-        console.log(`proveTxTraceResumable in ${(new Date().getTime() - now) / 1000} seconds`);
-        return PsyJSON.parse(result) as ProveTxTraceResumableJson;
+        return PsyWasmWebProverProvider.runWasmServerCall((server) =>
+            server.prove_trace_step_json(
+                pkHash,
+                envelope,
+                stepIndex,
+                PsyJSON.stringify(proofTreeMeta),
+                PsyJSON.stringify(lastStepInfo),
+                PsyJSON.stringify(currentHeader),
+                PsyJSON.stringify(previousHeader),
+            )
+        ) as Promise<any>;
     }
+
+    async proveEndCapProof(
+        pkHash: PublicKey,
+        envelopeJson: string | GeneratedTxTraceJson,
+        proofTreeMeta: unknown,
+        lastStepInfo: unknown,
+        allProofBlobs: Uint8Array[],
+        signatureProof: Uint8Array,
+    ): Promise<any> {
+        const envelope = typeof envelopeJson === "string" ? envelopeJson : PsyJSON.stringify(envelopeJson);
+        return PsyWasmWebProverProvider.runWasmServerCall((server) =>
+            server.prove_end_cap_proof_json(
+                pkHash,
+                envelope,
+                PsyJSON.stringify(proofTreeMeta),
+                PsyJSON.stringify(lastStepInfo),
+                allProofBlobs,
+                signatureProof,
+            )
+        ) as Promise<any>;
+    }
+
+    async insertExternalProof(
+        pkHash: PublicKey,
+        envelopeJson: string | GeneratedTxTraceJson,
+        proofTreeMeta: unknown,
+        lastStepInfo: unknown,
+        currentHeader: unknown,
+        previousHeader: unknown,
+        externalFingerprint: string,
+        externalProof: Uint8Array,
+    ): Promise<any> {
+        const envelope = typeof envelopeJson === "string" ? envelopeJson : PsyJSON.stringify(envelopeJson);
+        return PsyWasmWebProverProvider.runWasmServerCall((server) =>
+            server.insert_external_proof_json(
+                pkHash,
+                envelope,
+                PsyJSON.stringify(proofTreeMeta),
+                PsyJSON.stringify(lastStepInfo),
+                PsyJSON.stringify(currentHeader),
+                PsyJSON.stringify(previousHeader),
+                externalFingerprint,
+                externalProof,
+            )
+        ) as Promise<any>;
+    }
+
+    async submitEndCap(
+        envelopeJson: string | GeneratedTxTraceJson,
+        endCapProof: Uint8Array,
+    ): Promise<string> {
+        const envelope = typeof envelopeJson === "string" ? envelopeJson : PsyJSON.stringify(envelopeJson);
+        return PsyWasmWebProverProvider.runWasmServerCall((server) =>
+            server.submit_end_cap_json(envelope, endCapProof)
+        );
+    }
+
+    async signSighash(
+        pkHash: PublicKey,
+        sighashJson: string,
+        envelopeJson?: string | GeneratedTxTraceJson,
+        currentHeader?: unknown,
+    ): Promise<Uint8Array> {
+        const env = envelopeJson ? (typeof envelopeJson === 'string' ? envelopeJson : PsyJSON.stringify(envelopeJson)) : undefined;
+        const hdr = currentHeader ? (typeof currentHeader === 'string' ? currentHeader : PsyJSON.stringify(currentHeader)) : undefined;
+        return PsyWasmWebProverProvider.runWasmServerCall((server) =>
+            server.sign_sighash_json(pkHash, sighashJson, env, hdr)
+        ) as Promise<Uint8Array>;
+    }
+
+    async computeSighashFromEnvelope(
+        envelopeJson: string | GeneratedTxTraceJson,
+        currentHeader: unknown,
+    ): Promise<string> {
+        const envelope = typeof envelopeJson === "string" ? envelopeJson : PsyJSON.stringify(envelopeJson);
+        return PsyWasmWebProverProvider.runWasmServerCall((server) =>
+            server.compute_sighash_from_envelope_json(envelope, PsyJSON.stringify(currentHeader))
+        );
+    }
+
 
 
     // User operations

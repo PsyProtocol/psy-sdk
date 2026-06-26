@@ -1,5 +1,5 @@
 import { Felt } from "../core";
-import { ContractCallArgs, GeneratedTxTraceJson, ProveTxTraceResumableJson, TxMetadata } from "../local-prover-rpc";
+import { ClaimBatchItem, ContractCallArgs, GeneratedTxTraceJson, ProveTxTraceResumableJson, TxMetadata } from "../local-prover-rpc";
 import { IPsyTransactionSigner, IPsyTransactionSignerProvider } from "../zksigner";
 import { NetworkId } from "../action";
 interface ICorePsyUserInfo {
@@ -21,8 +21,15 @@ interface IPsyUserWallet {
     execContractCall(pk_hash: string, contractCallArgs: ContractCallArgs | ContractCallArgs[]): Promise<string>;
     execContractCallWithTrace(pk_hash: string, contractCallArgs: ContractCallArgs | ContractCallArgs[]): Promise<TxMetadata>;
     generateTxTrace(pk_hash: string, contractCallArgs: ContractCallArgs | ContractCallArgs[]): Promise<GeneratedTxTraceJson>;
-    proveTxTrace(pk_hash: string, envelope: string | GeneratedTxTraceJson): Promise<string>;
-    proveTxTraceResumable(pk_hash: string, envelope: string | GeneratedTxTraceJson): Promise<ProveTxTraceResumableJson>;
+    generateBatchClaimTxTrace(pk_hash: string, claims: ClaimBatchItem[]): Promise<GeneratedTxTraceJson>;
+    proveTxTraceStep(pk_hash: string, envelope: string | GeneratedTxTraceJson, resumeFrom?: {
+        proof_tree_meta: unknown;
+        last_step_info: unknown;
+        current_header: unknown;
+        previous_header: unknown;
+        proof_blobs: Uint8Array[];
+        next_step_index: number;
+    }): Promise<ProveTxTraceResumableJson>;
 }
 interface IPsyUserWalletProvider {
     networkId: NetworkId;

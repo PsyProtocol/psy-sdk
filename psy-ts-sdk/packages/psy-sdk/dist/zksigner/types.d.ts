@@ -1,4 +1,4 @@
-import { ContractCallData, DPNFunctionCircuitDefinition, GeneratedTxTraceJson, ProveTxTraceResumableJson, SignType, TxMetadata } from "../local-prover-rpc/types";
+import { ClaimBatchItem, ContractCallData, DPNFunctionCircuitDefinition, GeneratedTxTraceJson, ProveTxTraceResumableJson, SignType, TxMetadata } from "../local-prover-rpc/types";
 import { ContractCallArgs } from "../types";
 type TPsyTransactionSignerAbility = "sign-hash" | "export-private-key-hex";
 type TPsyTransactionSignerProviderAbility = "import-private-key" | "add-random-private-key";
@@ -7,13 +7,20 @@ interface IPsyTransactionSigner {
     getPrivateKeyHex?(): Promise<string>;
     getSignType?(): Promise<string>;
     getFingerprint?(): Promise<string | null | undefined>;
+    getAbilities(): TPsyTransactionSignerAbility[];
     signAndSubmit(pk_hash: string, callData: ContractCallData): Promise<string>;
     execContractCallWithTrace(pk_hash: string, callData: ContractCallData): Promise<TxMetadata>;
     generateTxTrace(pk_hash: string, callData: ContractCallData): Promise<GeneratedTxTraceJson>;
-    proveTxTrace(pk_hash: string, envelope: string | GeneratedTxTraceJson): Promise<string>;
-    proveTxTraceResumable(pk_hash: string, envelope: string | GeneratedTxTraceJson): Promise<ProveTxTraceResumableJson>;
+    generateBatchClaimTxTrace(pk_hash: string, claims: ClaimBatchItem[]): Promise<GeneratedTxTraceJson>;
+    proveTxTraceStep(pk_hash: string, envelope: string | GeneratedTxTraceJson, resumeFrom?: {
+        proof_tree_meta: unknown;
+        last_step_info: unknown;
+        current_header: unknown;
+        previous_header: unknown;
+        proof_blobs: Uint8Array[];
+        next_step_index: number;
+    }): Promise<ProveTxTraceResumableJson>;
     deployContract(pk_hash: string, circuitDefs: DPNFunctionCircuitDefinition[]): Promise<string>;
-    getAbilities(): TPsyTransactionSignerAbility[];
     registerUser(privateKeyHex: string, signType: SignType, fingerprint?: string): Promise<string>;
     addUser(privateKeyHex: string, signType: SignType, fingerprint?: string): Promise<string>;
     getClaimRewardsCallArgs(jobInfos: string): Promise<ContractCallArgs[]>;

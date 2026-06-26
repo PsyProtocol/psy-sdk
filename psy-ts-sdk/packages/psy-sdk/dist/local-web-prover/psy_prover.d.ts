@@ -145,17 +145,17 @@ export class WasmRpcServer {
      * Inject an external PrivateNoteInclusion proof into the current session tree.
      * Returns JSON: { "leaf_index": u64, "siblings": [[u64;4]] }
      * @param {string} pk_hash
-     * @param {string} note_proof_bincode_b64
+     * @param {Uint8Array} note_proof
      * @returns {Promise<string>}
      */
-    add_external_proof_json(pk_hash: string, note_proof_bincode_b64: string): Promise<string>;
+    add_external_proof_json(pk_hash: string, note_proof: Uint8Array): Promise<string>;
     /**
      * @param {string} private_key_str
      * @param {string} sign_type
-     * @param {string | null} [sdk_key_fingerprint]
+     * @param {string | null} [fingerprint]
      * @returns {Promise<string>}
      */
-    add_user(private_key_str: string, sign_type: string, sdk_key_fingerprint?: string | null | undefined): Promise<string>;
+    add_user(private_key_str: string, sign_type: string, fingerprint?: string | null | undefined): Promise<string>;
     /**
      * @param {string} pk_hash
      * @param {string} items_json
@@ -168,6 +168,15 @@ export class WasmRpcServer {
      * @returns {Promise<string>}
      */
     batch_claim_with_trace_json(pk_hash: string, items_json: string): Promise<string>;
+    /**
+     * Compute sighash from an envelope + current header JSON.
+     * Extracts nonce, user_id, and network_magic from the trace itself,
+     * so JS doesn't need to parse the bincode payload.
+     * @param {string} envelope_json
+     * @param {string} current_header_json
+     * @returns {string}
+     */
+    compute_sighash_from_envelope_json(envelope_json: string, current_header_json: string): string;
     /**
      * @param {string} deployer
      * @param {string} circuit_defs_json
@@ -189,7 +198,7 @@ export class WasmRpcServer {
      *
      * Inputs (all u64 values as decimal strings to avoid JS precision loss):
      *   pk_hash                 - receiver's ZK public key (hex QHashOut)
-     *   note_proof_bincode_b64  - base64-encoded PrivateNoteInclusion proof bytes
+     *   note_proof              - PrivateNoteInclusion proof bytes (Uint8Array)
      *   nullifier_json          - JSON array of 4 decimal strings
      *   owner_json              - JSON array of 4 decimal strings
      *   amount                  - decimal string
@@ -202,7 +211,7 @@ export class WasmRpcServer {
      *
      * Returns the transaction hash string.
      * @param {string} pk_hash
-     * @param {string} note_proof_bincode_b64
+     * @param {Uint8Array} note_proof
      * @param {string} nullifier_json
      * @param {string} owner_json
      * @param {string} amount
@@ -214,7 +223,7 @@ export class WasmRpcServer {
      * @param {string} random1
      * @returns {Promise<string>}
      */
-    exec_claim_with_external_proof_json(pk_hash: string, note_proof_bincode_b64: string, nullifier_json: string, owner_json: string, amount: string, user_tree_root_json: string, checkpoint_id: string, note_root_slot: string, contract_id: string, random0: string, random1: string): Promise<string>;
+    exec_claim_with_external_proof_json(pk_hash: string, note_proof: Uint8Array, nullifier_json: string, owner_json: string, amount: string, user_tree_root_json: string, checkpoint_id: string, note_root_slot: string, contract_id: string, random0: string, random1: string): Promise<string>;
     /**
      * @param {string} pk_hash
      * @param {string} call_data_json
@@ -296,6 +305,22 @@ export class WasmRpcServer {
      */
     get_zk_public_key_json(private_key_str: string): Promise<string>;
     /**
+     * Stateless external proof insertion: inject a private_note_inclusion or
+     * shield_deposit_claim proof into the proof tree. No baton/header changes.
+     * Returns the updated `proof_tree_meta` with the new leaf's metadata
+     * appended to `leaf_records`.
+     * @param {string} pk_hash
+     * @param {string} envelope_json
+     * @param {string} proof_tree_meta_json
+     * @param {string} last_step_info_json
+     * @param {string} current_header_json
+     * @param {string} previous_header_json
+     * @param {string} external_fingerprint
+     * @param {Uint8Array} external_proof
+     * @returns {Promise<any>}
+     */
+    insert_external_proof_json(pk_hash: string, envelope_json: string, proof_tree_meta_json: string, last_step_info_json: string, current_header_json: string, previous_header_json: string, external_fingerprint: string, external_proof: Uint8Array): Promise<any>;
+    /**
      * @param {string} message
      * @returns {string}
      */
@@ -312,6 +337,21 @@ export class WasmRpcServer {
      * @returns {Promise<string>}
      */
     prove_contract_calls_json(pk_hash: string, contract_calls_json: string): Promise<string>;
+    /**
+     * Stateless end-cap prove: reconstructs all leaf_proofs from JS-provided records,
+     * adds ZkSign leaf, runs finalize_tree. Takes external signature proof.
+     * `all_proof_blobs` are bincode-serialized `ProofWithPublicInputs` for
+     * each leaf in insertion order (from trace cfc_proof/ups_proof).
+     * `proof_tree_meta` must contain `leaf_records` with `insertion_proof`.
+     * @param {string} pk_hash
+     * @param {string} envelope_json
+     * @param {string} proof_tree_meta_json
+     * @param {string} last_step_info_json
+     * @param {Uint8Array[]} all_proof_blobs
+     * @param {Uint8Array} signature_proof
+     * @returns {Promise<any>}
+     */
+    prove_end_cap_proof_json(pk_hash: string, envelope_json: string, proof_tree_meta_json: string, last_step_info_json: string, all_proof_blobs: Uint8Array[], signature_proof: Uint8Array): Promise<any>;
     /**
      * Generate a PrivateNoteInclusion ZK proof and return the full NoteProofOutput as JSON.
      *
@@ -338,31 +378,43 @@ export class WasmRpcServer {
      */
     prove_private_note_inclusion_json(pk_hash: string, owner_json: string, amount: string, note_secret_hash_json: string, nullifier_secret_json: string, contract_id: string, note_root_slot: string, checkpoint_id: string): Promise<string>;
     /**
+     * Stateless CFC step prove: reconstructs manager from JS-provided state.
+     * Returns updated state. `leaf_records` with `insertion_proof` are
+     * inside `proof_tree_meta`. Proof blobs returned as cfc_proof/ups_proof.
      * @param {string} pk_hash
      * @param {string} envelope_json
-     * @returns {Promise<string>}
+     * @param {number} step_index
+     * @param {string} proof_tree_meta_json
+     * @param {string} last_step_info_json
+     * @param {string} current_header_json
+     * @param {string} previous_header_json
+     * @returns {Promise<any>}
      */
-    prove_tx_trace_json(pk_hash: string, envelope_json: string): Promise<string>;
+    prove_trace_step_json(pk_hash: string, envelope_json: string, step_index: number, proof_tree_meta_json: string, last_step_info_json: string, current_header_json: string, previous_header_json: string): Promise<any>;
     /**
+     * Stateless ups_start prove: no manager persisted in WASM.
+     * Returns all state JS needs for subsequent steps. `leaf_records` with
+     * `insertion_proof` are inside `proof_tree_meta`. Proof blob returned
+     * as `ups_proof` (Uint8Array) — JS stores it separately for finalize.
      * @param {string} pk_hash
      * @param {string} envelope_json
-     * @returns {Promise<string>}
+     * @returns {Promise<any>}
      */
-    prove_tx_trace_resumable_json(pk_hash: string, envelope_json: string): Promise<string>;
+    prove_ups_start_json(pk_hash: string, envelope_json: string): Promise<any>;
     /**
      * @param {BigUint64Array} allowed_contract_ids
      * @param {BigUint64Array} allowed_method_ids
      * @param {bigint} expected_tx_count
      * @returns {Promise<string>}
      */
-    register_sdk_key_circuit(allowed_contract_ids: BigUint64Array, allowed_method_ids: BigUint64Array, expected_tx_count: bigint): Promise<string>;
+    register_sd_key_circuit(allowed_contract_ids: BigUint64Array, allowed_method_ids: BigUint64Array, expected_tx_count: bigint): Promise<string>;
     /**
      * @param {string} private_key_str
      * @param {string} sign_type
-     * @param {string | null} [sdk_key_fingerprint]
+     * @param {string | null} [fingerprint]
      * @returns {Promise<string>}
      */
-    register_user(private_key_str: string, sign_type: string, sdk_key_fingerprint?: string | null | undefined): Promise<string>;
+    register_user(private_key_str: string, sign_type: string, fingerprint?: string | null | undefined): Promise<string>;
     /**
      * @param {string} pk_hash
      * @param {string | null} [sign_data]
@@ -370,12 +422,34 @@ export class WasmRpcServer {
      */
     sign_and_submit(pk_hash: string, sign_data?: string | null | undefined): Promise<string>;
     /**
+     * Sign a sighash with the wallet's private key and return the signature
+     * proof as bincode bytes (Uint8Array). Used by the step proving path:
+     * JS calls `compute_sighash_from_envelope_json` → `sign_sighash_json` →
+     * passes the result to `prove_end_cap_proof_json`.
+     *
+     * NOTE: This still uses the wallet's in-WASM private key. Full signer
+     * externalisation (Phase 2) would move this to JS.
+     * @param {string} pk_hash
+     * @param {string} sighash_json
+     * @param {string | null} [envelope_json]
+     * @param {string | null} [current_header_json]
+     * @returns {Promise<Uint8Array>}
+     */
+    sign_sighash_json(pk_hash: string, sighash_json: string, envelope_json?: string | null | undefined, current_header_json?: string | null | undefined): Promise<Uint8Array>;
+    /**
      * @param {string} pk_hash
      * @returns {Promise<string>}
      */
     start_session(pk_hash: string): Promise<string>;
+    /**
+     * Submit a pre-proven end-cap proof (RPC only, no proving).
+     * @param {string} envelope_json
+     * @param {Uint8Array} end_cap_proof
+     * @returns {Promise<string>}
+     */
+    submit_end_cap_json(envelope_json: string, end_cap_proof: Uint8Array): Promise<string>;
 }
-export function initSync(module: any, memory: any): any;
-declare function __wbg_init(module_or_path: any, memory: any): Promise<any>;
+export function initSync(module: any): any;
+declare function __wbg_init(module_or_path: any): Promise<any>;
 export { __wbg_init as default };
 //# sourceMappingURL=psy_prover.d.ts.map
