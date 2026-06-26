@@ -29,8 +29,8 @@ export class ${className} {
     this._contractId = contractId;
     
     // Handle both signer and provider inputs
-    if ('sendTransaction' in signerOrProvider && 'getContractState' in signerOrProvider) {
-      // It's a provider
+    if ('getContractState' in signerOrProvider) {
+      // It's a provider (IContractStateReader or IContractProvider)
       this._provider = signerOrProvider;
     } else if ('provider' in signerOrProvider) {
       // It's a signer
@@ -359,8 +359,8 @@ function wrapMerkleProxyHelperBasicSimplifier(
 
                 const isView = this.isViewFunction(fn);
                 const dispatchCode = isView
-                    ? `const result = await this._provider.callViewFunction?.(\n      this._contractId,\n      '${fn.name}',\n      serializedArgs,\n    ) ?? await this._provider.sendTransaction(\n      this._contractId,\n      '${fn.name}',\n      serializedArgs,\n      this._signer?.publicKey\n    );`
-                    : `const result = await this._provider.sendTransaction(\n      this._contractId,\n      '${fn.name}',\n      serializedArgs,\n      this._signer?.publicKey\n    );`;
+                    ? `const result = await (this._provider as any).callViewFunction?.(\n      this._contractId,\n      '${fn.name}',\n      serializedArgs,\n    ) ?? await (this._provider as any).sendTransaction(\n      this._contractId,\n      '${fn.name}',\n      serializedArgs,\n      this._signer?.publicKey\n    );`
+                    : `const result = await (this._provider as any).sendTransaction(\n      this._contractId,\n      '${fn.name}',\n      serializedArgs,\n      this._signer?.publicKey\n    );`;
 
                 return `  async ${fn.name}(${params}): ${returnType} {
     // Check if we have a signer for state-changing functions

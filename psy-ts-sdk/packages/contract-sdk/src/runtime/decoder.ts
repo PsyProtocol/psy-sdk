@@ -138,8 +138,38 @@ export class RecursiveDecoder {
         const rawValue = rawFelts[index] ?? BigInt(0);
         const typeName = pathInfo.type;
 
+        // Handle array types: type is { type: "Array", inner_type, length }
+        if (typeof typeName === "object" && typeName !== null) {
+            // Array type: decode each element
+            if (typeName.type === "Array") {
+                const innerType = typeof typeName.inner_type === "string" ? typeName.inner_type : "Felt";
+                const length = typeName.length ?? rawFelts.length - index;
+                const result: any[] = [];
+                for (let i = 0; i < length; i++) {
+                    const elemFelt = rawFelts[index + i] ?? BigInt(0);
+                    // Try struct decode for inner_type
+                    const structDef = structs.get(innerType);
+                    if (structDef) {
+                        const elemResult: any = {};
+                        structDef.fields.forEach((field, fieldIdx) => {
+                            elemResult[field.name] = this.decode(field.name, [...pathInfo.path, String(i), field.name], rawFelts[index + i + fieldIdx] ?? BigInt(0));
+                        });
+                        result.push(elemResult);
+                    } else {
+                        result.push(BigInt(elemFelt));
+                    }
+                }
+                return result;
+            }
+            // Unknown object type: fall through to BigInt
+            return BigInt(rawValue);
+        }
+
+        // typeName is a string from here on
+        const typeStr = typeName as string;
+
         // Check if it's a known struct type
-        const structDef = structs.get(typeName);
+        const structDef = structs.get(typeStr);
         if (structDef) {
             const result: any = {};
             structDef.fields.forEach((field, fieldIdx) => {
@@ -150,13 +180,13 @@ export class RecursiveDecoder {
         }
 
         // Use the type name for decoding
-        const decoder = this.decoders.get(typeName);
+        const decoder = this.decoders.get(typeStr);
         if (decoder) {
             return decoder(rawValue);
         }
 
         // Check type name for primitive type hints
-        const lowerType = typeName.toLowerCase();
+        const lowerType = typeStr.toLowerCase();
         if (lowerType === "bool") {
             return rawValue !== BigInt(0);
         }

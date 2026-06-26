@@ -198,7 +198,7 @@ export class Contract {
             this._contractId,
             this._abi,
             signer,
-            { checkpointId: this._checkpointId, userId: this._userId }
+            { checkpointId: this._checkpointId, userId: this._userId, contractName: this._internalContract.name }
         );
     }
 
@@ -207,7 +207,7 @@ export class Contract {
             this._contractId,
             this._abi,
             signerOrProvider,
-            { checkpointId: this._checkpointId, userId: this._userId }
+            { checkpointId: this._checkpointId, userId: this._userId, contractName: this._internalContract.name }
         );
     }
 
@@ -228,7 +228,7 @@ export class Contract {
             this._contractId,
             this._abi,
             this._signer || this._provider,
-            { checkpointId: newCheckpointId, userId: this._userId }
+            { checkpointId: newCheckpointId, userId: this._userId, contractName: this._internalContract.name }
         );
     }
 
