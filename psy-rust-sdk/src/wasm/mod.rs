@@ -392,17 +392,19 @@ impl WasmRpcServer {
     ) -> Result<String, JsError> {
         use base64::engine::general_purpose::STANDARD as BASE64;
         use base64::Engine;
+        use plonky2::field::types::PrimeField64;
         use psy_common_circuit::circuits::traits::qstandard::QStandardCircuit;
-        use psy_crypto::hash::merkle::core::MerkleProofCore;
         use psy_config::network_constants::{
             GLOBAL_CONTRACT_TREE_HEIGHT, GLOBAL_USER_TREE_HEIGHT, MAX_CONTRACT_STATE_TREE_HEIGHT,
         };
+        use psy_crypto::hash::merkle::core::MerkleProofCore;
         use psy_crypto::shield_address::{
-            derive_deposit_commitment, derive_nullifier_hash, derive_shield_address,
+            derive_deposit_commitment, derive_note_commitment, derive_nullifier_hash,
+            derive_shield_address,
         };
         use psy_data::privacy::shield_deposit_claim::ShieldDepositClaimInput;
-        use psy_dpn_circuit::circuits::privacy::shield_deposit_claim::ShieldDepositClaimCircuit;
         use psy_dpn_circuit::circuits::privacy::private_note_inclusion::PrivateNoteInclusionCircuit;
+        use psy_dpn_circuit::circuits::privacy::shield_deposit_claim::ShieldDepositClaimCircuit;
 
         const NOTE_TREE_HEIGHT: usize = 20;
 
@@ -429,6 +431,8 @@ impl WasmRpcServer {
             user_tree_root: [String; 4],
             checkpoint_id: String,
             note_root_slot: String,
+            #[serde(default)]
+            note_proof_fingerprint: Option<[String; 4]>,
             random0: String,
             random1: String,
             #[serde(default)]
@@ -438,7 +442,7 @@ impl WasmRpcServer {
         #[derive(serde::Deserialize)]
         struct ShieldDepositClaimRaw {
             nullifier: [String; 4],
-            note_secret_hash: [String; 4],
+            note_secret: [String; 4],
             token_address_u32x8: [String; 8],
             l2_token_contract_id: [String; 8],
             amount_u32x8: [String; 8],
@@ -467,10 +471,18 @@ impl WasmRpcServer {
 
         let parse_u64_arr = |arr: [String; 4]| -> Result<[u64; 4], JsError> {
             Ok([
-                arr[0].parse().map_err(|e: std::num::ParseIntError| JsError::new(&e.to_string()))?,
-                arr[1].parse().map_err(|e: std::num::ParseIntError| JsError::new(&e.to_string()))?,
-                arr[2].parse().map_err(|e: std::num::ParseIntError| JsError::new(&e.to_string()))?,
-                arr[3].parse().map_err(|e: std::num::ParseIntError| JsError::new(&e.to_string()))?,
+                arr[0]
+                    .parse()
+                    .map_err(|e: std::num::ParseIntError| JsError::new(&e.to_string()))?,
+                arr[1]
+                    .parse()
+                    .map_err(|e: std::num::ParseIntError| JsError::new(&e.to_string()))?,
+                arr[2]
+                    .parse()
+                    .map_err(|e: std::num::ParseIntError| JsError::new(&e.to_string()))?,
+                arr[3]
+                    .parse()
+                    .map_err(|e: std::num::ParseIntError| JsError::new(&e.to_string()))?,
             ])
         };
         let parse_u32_arr = |arr: [String; 8]| -> Result<[u32; 8], JsError> {
@@ -496,8 +508,12 @@ impl WasmRpcServer {
                 WalletClaimBatchItem::Public(call) => {
                     claims.push(ClaimBatchItem::Public(call));
                 }
-                WalletClaimBatchItem::PrivateTransfer { contract_id, claim: input } => {
-                    let proof_bytes = BASE64.decode(input.note_proof_bincode_b64.as_bytes())
+                WalletClaimBatchItem::PrivateTransfer {
+                    contract_id,
+                    claim: input,
+                } => {
+                    let proof_bytes = BASE64
+                        .decode(input.note_proof_bincode_b64.as_bytes())
                         .map_err(|e| JsError::new(&format!("base64 decode: {}", e)))?;
                     let proof: ProofWithPublicInputs<F, C, D> =
                         match ProofWithPublicInputs::<F, C, D>::from_bytes(
@@ -505,31 +521,53 @@ impl WasmRpcServer {
                             circuit.get_common_circuit_data_ref(),
                         ) {
                             Ok(p) => p,
-                            Err(native_err) => bincode::deserialize(&proof_bytes).map_err(|bin_err| {
-                                JsError::new(&format!(
-                                    "proof deserialize: native={} ; bincode={}",
-                                    native_err, bin_err
-                                ))
-                            })?,
+                            Err(native_err) => {
+                                bincode::deserialize(&proof_bytes).map_err(|bin_err| {
+                                    JsError::new(&format!(
+                                        "proof deserialize: native={} ; bincode={}",
+                                        native_err, bin_err
+                                    ))
+                                })?
+                            }
                         };
-                    let fingerprint = circuit.get_fingerprint();
                     let verifier_data = circuit.get_verifier_config_ref().clone();
 
                     let nullifier = parse_u64_arr(input.nullifier)?;
                     let owner = parse_u64_arr(input.owner)?;
-                    let amount: u64 = input.amount.parse()
+                    let amount: u64 = input
+                        .amount
+                        .parse()
                         .map_err(|e: std::num::ParseIntError| JsError::new(&e.to_string()))?;
                     let user_tree_root = parse_u64_arr(input.user_tree_root)?;
-                    let checkpoint_id: u64 = input.checkpoint_id.parse()
+                    let checkpoint_id: u64 = input
+                        .checkpoint_id
+                        .parse()
                         .map_err(|e: std::num::ParseIntError| JsError::new(&e.to_string()))?;
-                    let note_root_slot: u64 = input.note_root_slot.parse()
+                    let note_root_slot: u64 = input
+                        .note_root_slot
+                        .parse()
                         .map_err(|e: std::num::ParseIntError| JsError::new(&e.to_string()))?;
-                    let random0: u64 = input.random0.parse()
+                    let random0: u64 = input
+                        .random0
+                        .parse()
                         .map_err(|e: std::num::ParseIntError| JsError::new(&e.to_string()))?;
-                    let random1: u64 = input.random1.parse()
+                    let random1: u64 = input
+                        .random1
+                        .parse()
                         .map_err(|e: std::num::ParseIntError| JsError::new(&e.to_string()))?;
-                    let contract_id: u64 = contract_id.parse()
+                    let contract_id: u64 = contract_id
+                        .parse()
                         .map_err(|e: std::num::ParseIntError| JsError::new(&e.to_string()))?;
+                    let fingerprint = circuit.get_fingerprint();
+                    if let Some(raw) = input.note_proof_fingerprint {
+                        let payload_fingerprint = qhash_from_u64_arr(parse_u64_arr(raw)?);
+                        if payload_fingerprint != fingerprint {
+                            return Err(JsError::new(&format!(
+                                "PrivateNoteInclusion fingerprint mismatch: payload={} local={}",
+                                payload_fingerprint, fingerprint
+                            )));
+                        }
+                    }
 
                     let claim = PrivateTransferClaim {
                         nullifier,
@@ -549,28 +587,34 @@ impl WasmRpcServer {
                 }
                 WalletClaimBatchItem::ClaimShieldDeposit(input) => {
                     let nullifier_secret = parse_u64_arr(input.nullifier)?;
-                    let note_secret_hash = parse_u64_arr(input.note_secret_hash)?;
+                    let note_secret = parse_u64_arr(input.note_secret)?;
                     let token_address = parse_u32_arr(input.token_address_u32x8)?;
                     let l2_token_contract_id = parse_u32_arr(input.l2_token_contract_id)?;
                     let amount = parse_u32_arr(input.amount_u32x8)?;
-                    let source_chain_index: u32 = input.source_chain_index
+                    let source_chain_index: u32 = input
+                        .source_chain_index
                         .parse()
                         .map_err(|e: std::num::ParseIntError| JsError::new(&e.to_string()))?;
-                    let deposit_index: u64 = input.deposit_index
+                    let deposit_index: u64 = input
+                        .deposit_index
                         .parse()
                         .map_err(|e: std::num::ParseIntError| JsError::new(&e.to_string()))?;
                     let deposit_root = qhash_from_u64_arr(parse_u64_arr(input.deposit_root)?);
-                    let deposit_siblings: Vec<QHashOut<F>> = input.deposit_siblings
+                    let deposit_siblings: Vec<QHashOut<F>> = input
+                        .deposit_siblings
                         .into_iter()
                         .map(|sibling| parse_u64_arr(sibling).map(|arr| qhash_from_u64_arr(arr)))
                         .collect::<Result<Vec<_>, _>>()?;
-                    let random0: u64 = input.random0
+                    let random0: u64 = input
+                        .random0
                         .parse()
                         .map_err(|e: std::num::ParseIntError| JsError::new(&e.to_string()))?;
-                    let random1: u64 = input.random1
+                    let random1: u64 = input
+                        .random1
                         .parse()
                         .map_err(|e: std::num::ParseIntError| JsError::new(&e.to_string()))?;
-                    let contract_id: u64 = input.contract_id
+                    let contract_id: u64 = input
+                        .contract_id
                         .parse()
                         .map_err(|e: std::num::ParseIntError| JsError::new(&e.to_string()))?;
 
@@ -578,26 +622,41 @@ impl WasmRpcServer {
                     let user_ids = provider
                         .get_user_ids_for_public_key(pk_hash)
                         .await
-                        .map_err(|e| JsError::new(&format!("get_user_ids_for_public_key: {}", e)))?;
+                        .map_err(|e| {
+                            JsError::new(&format!("get_user_ids_for_public_key: {}", e))
+                        })?;
                     let user_id = *user_ids
                         .first()
                         .ok_or_else(|| JsError::new("No user ID found for public key"))?;
 
                     let shield_address = derive_shield_address(user_id, random0, random1);
                     let nullifier_hash = derive_nullifier_hash(nullifier_secret);
+                    let note_commitment = derive_note_commitment(nullifier_secret, note_secret);
+                    let note_commitment_u64 = [
+                        note_commitment.0.elements[0].to_canonical_u64(),
+                        note_commitment.0.elements[1].to_canonical_u64(),
+                        note_commitment.0.elements[2].to_canonical_u64(),
+                        note_commitment.0.elements[3].to_canonical_u64(),
+                    ];
                     let deposit_leaf = derive_deposit_commitment(
                         shield_address,
                         token_address,
                         l2_token_contract_id,
                         amount,
                         source_chain_index,
-                        note_secret_hash,
+                        note_commitment_u64,
                     );
 
                     let circuit = ShieldDepositClaimCircuit::<C, D>::new();
                     let claim_input = ShieldDepositClaimInput::<F> {
-                        nullifier_secret: std::array::from_fn(|i| <F as plonky2::field::types::Field>::from_canonical_u64(nullifier_secret[i])),
-                        note_secret_hash: std::array::from_fn(|i| <F as plonky2::field::types::Field>::from_canonical_u64(note_secret_hash[i])),
+                        nullifier_secret: std::array::from_fn(|i| {
+                            <F as plonky2::field::types::Field>::from_canonical_u64(
+                                nullifier_secret[i],
+                            )
+                        }),
+                        note_secret: std::array::from_fn(|i| {
+                            <F as plonky2::field::types::Field>::from_canonical_u64(note_secret[i])
+                        }),
                         r0: <F as plonky2::field::types::Field>::from_canonical_u64(random0),
                         r1: <F as plonky2::field::types::Field>::from_canonical_u64(random1),
                         user_id,
@@ -670,10 +729,10 @@ impl WasmRpcServer {
         use base64::engine::general_purpose::STANDARD as BASE64;
         use base64::Engine;
         use psy_common_circuit::circuits::traits::qstandard::QStandardCircuit;
-        use psy_dpn_circuit::circuits::privacy::private_note_inclusion::PrivateNoteInclusionCircuit;
         use psy_config::network_constants::{
-            GLOBAL_USER_TREE_HEIGHT, GLOBAL_CONTRACT_TREE_HEIGHT, MAX_CONTRACT_STATE_TREE_HEIGHT,
+            GLOBAL_CONTRACT_TREE_HEIGHT, GLOBAL_USER_TREE_HEIGHT, MAX_CONTRACT_STATE_TREE_HEIGHT,
         };
+        use psy_dpn_circuit::circuits::privacy::private_note_inclusion::PrivateNoteInclusionCircuit;
 
         const NOTE_TREE_HEIGHT: usize = 20;
         type C = PoseidonGoldilocksConfig;
@@ -773,12 +832,12 @@ impl WasmRpcServer {
         use base64::engine::general_purpose::STANDARD as BASE64;
         use base64::Engine;
         use plonky2::field::types::PrimeField64;
-        use psy_data::traits::qdatastore::qmetadata::QMetaDataStoreReaderSync;
         use psy_common_circuit::circuits::traits::qstandard::QStandardCircuit;
-        use psy_dpn_circuit::circuits::privacy::private_note_inclusion::PrivateNoteInclusionCircuit;
         use psy_config::network_constants::{
-            GLOBAL_USER_TREE_HEIGHT, GLOBAL_CONTRACT_TREE_HEIGHT, MAX_CONTRACT_STATE_TREE_HEIGHT,
+            GLOBAL_CONTRACT_TREE_HEIGHT, GLOBAL_USER_TREE_HEIGHT, MAX_CONTRACT_STATE_TREE_HEIGHT,
         };
+        use psy_data::traits::qdatastore::qmetadata::QMetaDataStoreReaderSync;
+        use psy_dpn_circuit::circuits::privacy::private_note_inclusion::PrivateNoteInclusionCircuit;
 
         const NOTE_TREE_HEIGHT: usize = 20;
         type C = PoseidonGoldilocksConfig;
@@ -800,22 +859,29 @@ impl WasmRpcServer {
             .map_err(|e| JsError::new(&format!("parse pk_hash: {}", e)))?;
         let nullifier = parse_u64x4(nullifier_json)?;
         let owner = parse_u64x4(owner_json)?;
-        let amount_val: u64 = amount.parse()
+        let amount_val: u64 = amount
+            .parse()
             .map_err(|e: std::num::ParseIntError| JsError::new(&e.to_string()))?;
         let user_tree_root = parse_u64x4(user_tree_root_json)?;
-        let checkpoint_id_val: u64 = checkpoint_id.parse()
+        let checkpoint_id_val: u64 = checkpoint_id
+            .parse()
             .map_err(|e: std::num::ParseIntError| JsError::new(&e.to_string()))?;
-        let note_root_slot_val: u64 = note_root_slot.parse()
+        let note_root_slot_val: u64 = note_root_slot
+            .parse()
             .map_err(|e: std::num::ParseIntError| JsError::new(&e.to_string()))?;
-        let contract_id_val: u64 = contract_id.parse()
+        let contract_id_val: u64 = contract_id
+            .parse()
             .map_err(|e: std::num::ParseIntError| JsError::new(&e.to_string()))?;
-        let random0_val: u64 = random0.parse()
+        let random0_val: u64 = random0
+            .parse()
             .map_err(|e: std::num::ParseIntError| JsError::new(&e.to_string()))?;
-        let random1_val: u64 = random1.parse()
+        let random1_val: u64 = random1
+            .parse()
             .map_err(|e: std::num::ParseIntError| JsError::new(&e.to_string()))?;
 
         // Decode and deserialize the proof
-        let proof_bytes = BASE64.decode(note_proof_bincode_b64.as_bytes())
+        let proof_bytes = BASE64
+            .decode(note_proof_bincode_b64.as_bytes())
             .map_err(|e| JsError::new(&format!("base64 decode: {}", e)))?;
         let circuit = PrivateNoteInclusionCircuit::<C, D>::new(
             GLOBAL_USER_TREE_HEIGHT as usize,
@@ -991,7 +1057,7 @@ impl WasmRpcServer {
     /// Inputs:
     ///   pk_hash                    - receiver's ZK public key (hex QHashOut)
     ///   nullifier_json             - JSON array of 4 decimal strings
-    ///   note_secret_hash_json      - JSON array of 4 decimal strings
+    ///   note_secret_json           - JSON array of 4 decimal strings
     ///   token_address_u32x8_json   - JSON array of 8 decimal strings (bytes32 BE words)
     ///   l2_token_contract_id_json  - JSON array of 8 decimal strings (bytes32 BE words)
     ///   amount_u32x8_json          - JSON array of 8 decimal strings (bytes32 BE words)
@@ -1009,7 +1075,7 @@ impl WasmRpcServer {
         &mut self,
         pk_hash: &str,
         nullifier_json: &str,
-        note_secret_hash_json: &str,
+        note_secret_json: &str,
         token_address_u32x8_json: &str,
         l2_token_contract_id_json: &str,
         amount_u32x8_json: &str,
@@ -1022,10 +1088,13 @@ impl WasmRpcServer {
         contract_id: &str,
     ) -> Result<String, JsError> {
         use plonky2::field::types::PrimeField64;
-        use psy_data::privacy::shield_deposit_claim::ShieldDepositClaimInput;
         use psy_common_circuit::circuits::traits::qstandard::QStandardCircuit;
         use psy_crypto::hash::merkle::core::MerkleProofCore;
-        use psy_crypto::shield_address::{derive_deposit_commitment, derive_nullifier_hash, derive_shield_address};
+        use psy_crypto::shield_address::{
+            derive_deposit_commitment, derive_note_commitment, derive_nullifier_hash,
+            derive_shield_address,
+        };
+        use psy_data::privacy::shield_deposit_claim::ShieldDepositClaimInput;
         use psy_dpn_circuit::circuits::privacy::shield_deposit_claim::ShieldDepositClaimCircuit;
 
         let parse_u64x4 = |json: &str| -> Result<[u64; 4], JsError> {
@@ -1056,7 +1125,9 @@ impl WasmRpcServer {
 
         let parse_qhash = |json: &str| -> Result<QHashOut<F>, JsError> {
             let limbs = parse_u64x4(json)?;
-            Ok(QHashOut::from_values(limbs[0], limbs[1], limbs[2], limbs[3]))
+            Ok(QHashOut::from_values(
+                limbs[0], limbs[1], limbs[2], limbs[3],
+            ))
         };
 
         let parse_qhash_vec = |json: &str| -> Result<Vec<QHashOut<F>>, JsError> {
@@ -1099,7 +1170,7 @@ impl WasmRpcServer {
         let pk_hash = QHashOut::<F>::from_str(pk_hash)
             .map_err(|e| JsError::new(&format!("parse pk_hash: {}", e)))?;
         let nullifier_secret = parse_u64x4(nullifier_json)?;
-        let note_secret_hash = parse_u64x4(note_secret_hash_json)?;
+        let note_secret = parse_u64x4(note_secret_json)?;
         let token_address = parse_u32x8(token_address_u32x8_json)?;
         let l2_token_contract_id = parse_u32x8(l2_token_contract_id_json)?;
         let amount = parse_u32x8(amount_u32x8_json)?;
@@ -1132,19 +1203,30 @@ impl WasmRpcServer {
 
         let shield_address = derive_shield_address(user_id, random0_val, random1_val);
         let nullifier_hash = derive_nullifier_hash(nullifier_secret);
+        let note_commitment = derive_note_commitment(nullifier_secret, note_secret);
+        let note_commitment_u64 = [
+            note_commitment.0.elements[0].to_canonical_u64(),
+            note_commitment.0.elements[1].to_canonical_u64(),
+            note_commitment.0.elements[2].to_canonical_u64(),
+            note_commitment.0.elements[3].to_canonical_u64(),
+        ];
         let deposit_leaf = derive_deposit_commitment(
             shield_address,
             token_address,
             l2_token_contract_id,
             amount,
             source_chain_index_val,
-            note_secret_hash,
+            note_commitment_u64,
         );
 
         let circuit = ShieldDepositClaimCircuit::<C, D>::new();
         let input = ShieldDepositClaimInput::<F> {
-            nullifier_secret: std::array::from_fn(|i| <F as plonky2::field::types::Field>::from_canonical_u64(nullifier_secret[i])),
-            note_secret_hash: std::array::from_fn(|i| <F as plonky2::field::types::Field>::from_canonical_u64(note_secret_hash[i])),
+            nullifier_secret: std::array::from_fn(|i| {
+                <F as plonky2::field::types::Field>::from_canonical_u64(nullifier_secret[i])
+            }),
+            note_secret: std::array::from_fn(|i| {
+                <F as plonky2::field::types::Field>::from_canonical_u64(note_secret[i])
+            }),
             r0: <F as plonky2::field::types::Field>::from_canonical_u64(random0_val),
             r1: <F as plonky2::field::types::Field>::from_canonical_u64(random1_val),
             user_id,
@@ -1185,7 +1267,11 @@ impl WasmRpcServer {
         contract_inputs.extend(token_address.iter().map(|&v| v as u64));
         contract_inputs.extend(amount.iter().map(|&v| v as u64));
         contract_inputs.push(source_chain_index_val as u64);
-        contract_inputs.extend(qhash_to_internal_u32x8(deposit_root).iter().map(|&v| v as u64));
+        contract_inputs.extend(
+            qhash_to_internal_u32x8(deposit_root)
+                .iter()
+                .map(|&v| v as u64),
+        );
         contract_inputs.push(random0_val);
         contract_inputs.push(random1_val);
         for sibling in &proof_siblings {
@@ -1231,7 +1317,7 @@ impl WasmRpcServer {
     ///   pk_hash            - sender's ZK public key (hex QHashOut)
     ///   owner_json         - receiver's shield address as JSON array of 4 decimal strings
     ///   amount             - transfer amount (u64 as decimal string)
-    ///   note_secret_hash_json - randomness used in commitment, JSON array of 4 decimal strings
+    ///   note_secret_json   - raw note secret, JSON array of 4 decimal strings
     ///   nullifier_secret_json - nullifier secret, JSON array of 4 decimal strings
     ///   contract_id        - contract ID (u64 as decimal string)
     ///   note_root_slot     - note root slot index (u64 as decimal string)
@@ -1244,7 +1330,7 @@ impl WasmRpcServer {
         pk_hash: &str,
         owner_json: &str,
         amount: &str,
-        note_secret_hash_json: &str,
+        note_secret_json: &str,
         nullifier_secret_json: &str,
         contract_id: &str,
         note_root_slot: &str,
@@ -1254,18 +1340,19 @@ impl WasmRpcServer {
         use base64::Engine;
         use plonky2::field::types::{Field, PrimeField64};
         use psy_common_circuit::circuits::traits::qstandard::QStandardCircuit;
-        use psy_dpn_circuit::circuits::privacy::private_note_inclusion::PrivateNoteInclusionCircuit;
         use psy_config::network_constants::{
-            GLOBAL_USER_TREE_HEIGHT, GLOBAL_CONTRACT_TREE_HEIGHT, MAX_CONTRACT_STATE_TREE_HEIGHT,
+            GLOBAL_CONTRACT_TREE_HEIGHT, GLOBAL_USER_TREE_HEIGHT, MAX_CONTRACT_STATE_TREE_HEIGHT,
         };
+        use psy_crypto::hash::merkle::core::MerkleProofCore;
         use psy_crypto::hash::traits::{
             hasher::{FieldQHasher, PoseidonHasher},
             qhashable::QFieldHashable,
         };
-        use psy_crypto::hash::merkle::core::MerkleProofCore;
+        use psy_crypto::shield_address::derive_note_commitment;
         use psy_data::privacy::private_note_inclusion::PrivateNoteInclusionInput;
-        use psy_data::traits::qdatastore::qtreedata::QTreeDataStoreReaderSync;
         use psy_data::traits::qdatastore::qmetadata::QMetaDataStoreReaderSync;
+        use psy_data::traits::qdatastore::qtreedata::QTreeDataStoreReaderSync;
+        use psy_dpn_circuit::circuits::privacy::private_note_inclusion::PrivateNoteInclusionCircuit;
 
         const NOTE_TREE_HEIGHT: usize = 20;
         type C = PoseidonGoldilocksConfig;
@@ -1286,21 +1373,35 @@ impl WasmRpcServer {
         let pk_hash = QHashOut::<F>::from_str(pk_hash)
             .map_err(|e| JsError::new(&format!("parse pk_hash: {}", e)))?;
         let owner_u64 = parse_u64x4(owner_json)?;
-        let amount_val: u64 = amount.parse().map_err(|e: std::num::ParseIntError| JsError::new(&e.to_string()))?;
-        let note_secret_hash_u64 = parse_u64x4(note_secret_hash_json)?;
+        let amount_val: u64 = amount
+            .parse()
+            .map_err(|e: std::num::ParseIntError| JsError::new(&e.to_string()))?;
+        let note_secret_u64 = parse_u64x4(note_secret_json)?;
         let nullifier_secret_u64 = parse_u64x4(nullifier_secret_json)?;
-        let contract_id_val: u64 = contract_id.parse().map_err(|e: std::num::ParseIntError| JsError::new(&e.to_string()))?;
-        let note_root_slot_val: u64 = note_root_slot.parse().map_err(|e: std::num::ParseIntError| JsError::new(&e.to_string()))?;
-        let checkpoint_before_raw: u64 = checkpoint_id.parse().map_err(|e: std::num::ParseIntError| JsError::new(&e.to_string()))?;
+        let contract_id_val: u64 = contract_id
+            .parse()
+            .map_err(|e: std::num::ParseIntError| JsError::new(&e.to_string()))?;
+        let note_root_slot_val: u64 = note_root_slot
+            .parse()
+            .map_err(|e: std::num::ParseIntError| JsError::new(&e.to_string()))?;
+        let checkpoint_before_raw: u64 = checkpoint_id
+            .parse()
+            .map_err(|e: std::num::ParseIntError| JsError::new(&e.to_string()))?;
 
-        let owner = QHashOut::<F>::from_values(owner_u64[0], owner_u64[1], owner_u64[2], owner_u64[3]);
-        let note_secret_hash = QHashOut::<F>::from_values(
-            note_secret_hash_u64[0], note_secret_hash_u64[1],
-            note_secret_hash_u64[2], note_secret_hash_u64[3],
+        let owner =
+            QHashOut::<F>::from_values(owner_u64[0], owner_u64[1], owner_u64[2], owner_u64[3]);
+        let note_secret = QHashOut::<F>::from_values(
+            note_secret_u64[0],
+            note_secret_u64[1],
+            note_secret_u64[2],
+            note_secret_u64[3],
         );
+        let note_commitment = derive_note_commitment(nullifier_secret_u64, note_secret_u64);
         let nullifier_secret = QHashOut::<F>::from_values(
-            nullifier_secret_u64[0], nullifier_secret_u64[1],
-            nullifier_secret_u64[2], nullifier_secret_u64[3],
+            nullifier_secret_u64[0],
+            nullifier_secret_u64[1],
+            nullifier_secret_u64[2],
+            nullifier_secret_u64[3],
         );
 
         let provider = self.wallet_session.st_provider.clone();
@@ -1331,9 +1432,12 @@ impl WasmRpcServer {
         };
 
         // Get sender's user_id from public key
-        let user_ids = provider.get_user_ids_for_public_key(pk_hash).await
+        let user_ids = provider
+            .get_user_ids_for_public_key(pk_hash)
+            .await
             .map_err(|e| JsError::new(&format!("get_user_ids_for_public_key: {}", e)))?;
-        let sender_user_id = *user_ids.first()
+        let sender_user_id = *user_ids
+            .first()
             .ok_or_else(|| JsError::new("No user ID found for public key"))?;
 
         let user_provider = provider.with_user_id_owned(sender_user_id);
@@ -1341,10 +1445,15 @@ impl WasmRpcServer {
         // Build note membership proof from the pre-submit checkpoint.
         // note_count is at slot note_root_slot - 1, elements[3] is the note index.
         let note_count_slot = note_root_slot_val.saturating_sub(1);
-        let note_count_proof = user_provider.get_user_contract_state_tree_merkle_proof(
-            checkpoint_before, sender_user_id, contract_id_val as u32,
-            MAX_CONTRACT_STATE_TREE_HEIGHT as u8, note_count_slot,
-        ).await
+        let note_count_proof = user_provider
+            .get_user_contract_state_tree_merkle_proof(
+                checkpoint_before,
+                sender_user_id,
+                contract_id_val as u32,
+                MAX_CONTRACT_STATE_TREE_HEIGHT as u8,
+                note_count_slot,
+            )
+            .await
             .map_err(|e| JsError::new(&format!("note_count_proof: {}", e)))?;
         let note_index = note_count_proof.value.0.elements[3].to_canonical_u64();
 
@@ -1352,10 +1461,15 @@ impl WasmRpcServer {
         let mut last_path: Vec<QHashOut<F>> = Vec::with_capacity(NOTE_TREE_HEIGHT);
         for level in 0..NOTE_TREE_HEIGHT as u64 {
             let slot = note_root_slot_val + 1 + level;
-            let proof = user_provider.get_user_contract_state_tree_merkle_proof(
-                checkpoint_before, sender_user_id, contract_id_val as u32,
-                MAX_CONTRACT_STATE_TREE_HEIGHT as u8, slot,
-            ).await
+            let proof = user_provider
+                .get_user_contract_state_tree_merkle_proof(
+                    checkpoint_before,
+                    sender_user_id,
+                    contract_id_val as u32,
+                    MAX_CONTRACT_STATE_TREE_HEIGHT as u8,
+                    slot,
+                )
+                .await
                 .map_err(|e| JsError::new(&format!("last_path[{}]: {}", level, e)))?;
             last_path.push(proof.value);
         }
@@ -1363,7 +1477,7 @@ impl WasmRpcServer {
         // Build commitment and Merkle siblings
         let value_hash = QHashOut::<F>::from_values(amount_val, 0, 0, 0);
         let inner = PoseidonHasher::q_two_to_one(owner, value_hash);
-        let commitment = PoseidonHasher::q_two_to_one(inner, note_secret_hash);
+        let commitment = PoseidonHasher::q_two_to_one(inner, note_commitment);
 
         let mut siblings: Vec<QHashOut<F>> = Vec::with_capacity(NOTE_TREE_HEIGHT);
         let mut zero = QHashOut::<F>::from_values(0, 0, 0, 0);
@@ -1376,9 +1490,8 @@ impl WasmRpcServer {
             }
             zero = PoseidonHasher::q_two_to_one(zero, zero);
         }
-        let note_membership_proof = MerkleProofCore::new_from_params::<PoseidonHasher>(
-            note_index, commitment, siblings,
-        );
+        let note_membership_proof =
+            MerkleProofCore::new_from_params::<PoseidonHasher>(note_index, commitment, siblings);
 
         // Wait state update after checkpoint_before and prove against the first
         // checkpoint where note_count or note_root slot changes.
@@ -1458,8 +1571,7 @@ impl WasmRpcServer {
                     Err(e) => {
                         last_error = format!(
                             "note_count proof rpc failed at checkpoint {}: {}",
-                            latest_observable,
-                            e
+                            latest_observable, e
                         );
                         async_sleep_ms(1000).await;
                         continue;
@@ -1479,8 +1591,7 @@ impl WasmRpcServer {
                     Err(e) => {
                         last_error = format!(
                             "note_root proof rpc failed at checkpoint {}: {}",
-                            latest_observable,
-                            e
+                            latest_observable, e
                         );
                         async_sleep_ms(1000).await;
                         continue;
@@ -1514,21 +1625,32 @@ impl WasmRpcServer {
         })?;
 
         // Fetch post-submit proofs and leaf at the selected checkpoint.
-        let user_leaf = user_provider.get_user_leaf_data(checkpoint_after, sender_user_id).await
+        let user_leaf = user_provider
+            .get_user_leaf_data(checkpoint_after, sender_user_id)
+            .await
             .map_err(|e| JsError::new(&format!("get_user_leaf_data: {}", e)))?;
-        let note_root_slot_proof = user_provider.get_user_contract_state_tree_merkle_proof(
-            checkpoint_after, sender_user_id, contract_id_val as u32,
-            MAX_CONTRACT_STATE_TREE_HEIGHT as u8, note_root_slot_val,
-        ).await
+        let note_root_slot_proof = user_provider
+            .get_user_contract_state_tree_merkle_proof(
+                checkpoint_after,
+                sender_user_id,
+                contract_id_val as u32,
+                MAX_CONTRACT_STATE_TREE_HEIGHT as u8,
+                note_root_slot_val,
+            )
+            .await
             .map_err(|e| JsError::new(&format!("note_root_slot_proof: {}", e)))?;
         // Fetch contract_proof and user_tree_proof
-        let contract_proof = user_provider.get_user_contract_tree_merkle_proof(
-            checkpoint_after, sender_user_id, contract_id_val as u32,
-        ).await
+        let contract_proof = user_provider
+            .get_user_contract_tree_merkle_proof(
+                checkpoint_after,
+                sender_user_id,
+                contract_id_val as u32,
+            )
+            .await
             .map_err(|e| JsError::new(&format!("contract_proof: {}", e)))?;
-        let user_tree_proof = user_provider.get_user_tree_merkle_proof(
-            checkpoint_after, sender_user_id,
-        ).await
+        let user_tree_proof = user_provider
+            .get_user_tree_merkle_proof(checkpoint_after, sender_user_id)
+            .await
             .map_err(|e| JsError::new(&format!("user_tree_proof: {}", e)))?;
         let global_user_tree_root = user_tree_proof.root;
 
@@ -1541,12 +1663,14 @@ impl WasmRpcServer {
             user_leaf,
             owner,
             amount: <F as plonky2::field::types::Field>::from_canonical_u64(amount_val),
-            randomness: note_secret_hash,
+            note_secret,
             note_membership_proof,
             note_root_slot_proof,
             contract_proof,
             user_tree_proof,
-            checkpoint_id: <F as plonky2::field::types::Field>::from_canonical_u64(checkpoint_after),
+            checkpoint_id: <F as plonky2::field::types::Field>::from_canonical_u64(
+                checkpoint_after,
+            ),
         };
 
         let circuit = PrivateNoteInclusionCircuit::<C, D>::new(
@@ -1555,7 +1679,8 @@ impl WasmRpcServer {
             MAX_CONTRACT_STATE_TREE_HEIGHT as usize,
             NOTE_TREE_HEIGHT,
         );
-        let proof = circuit.prove(&circuit_input)
+        let proof = circuit
+            .prove(&circuit_input)
             .map_err(|e| JsError::new(&format!("prove error: {}", e)))?;
         let fingerprint = circuit.get_fingerprint();
 
@@ -1670,9 +1795,8 @@ impl WasmRpcServer {
                 let fingerprint = sdk_key_fingerprint.ok_or_else(|| {
                     JsError::new("SDK key fingerprint is required for sdk-key sign type")
                 })?;
-                QHashOut::<F>::from_str(&fingerprint).map_err(|e| {
-                    JsError::new(&format!("Parse SDK key fingerprint error: {}", e))
-                })?
+                QHashOut::<F>::from_str(&fingerprint)
+                    .map_err(|e| JsError::new(&format!("Parse SDK key fingerprint error: {}", e)))?
             }
             _ => {
                 return Err(JsError::new(&format!(
@@ -1707,9 +1831,8 @@ impl WasmRpcServer {
                 let fingerprint = sdk_key_fingerprint.ok_or_else(|| {
                     JsError::new("SDK key fingerprint is required for sdk-key sign type")
                 })?;
-                QHashOut::<F>::from_str(&fingerprint).map_err(|e| {
-                    JsError::new(&format!("Parse SDK key fingerprint error: {}", e))
-                })?
+                QHashOut::<F>::from_str(&fingerprint)
+                    .map_err(|e| JsError::new(&format!("Parse SDK key fingerprint error: {}", e)))?
             }
             _ => {
                 return Err(JsError::new(&format!(

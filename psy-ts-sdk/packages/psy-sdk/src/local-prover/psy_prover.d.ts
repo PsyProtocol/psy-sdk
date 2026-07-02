@@ -106,7 +106,7 @@ export class WasmRpcServer {
      * Inputs:
      *   pk_hash                    - receiver's ZK public key (hex QHashOut)
      *   nullifier_json             - JSON array of 4 decimal strings
-     *   note_secret_hash_json      - JSON array of 4 decimal strings
+     *   note_secret_json           - JSON array of 4 decimal strings
      *   token_address_u32x8_json   - JSON array of 8 decimal strings (bytes32 BE words)
      *   l2_token_contract_id_json  - JSON array of 8 decimal strings (bytes32 BE words)
      *   amount_u32x8_json          - JSON array of 8 decimal strings (bytes32 BE words)
@@ -120,7 +120,7 @@ export class WasmRpcServer {
      *
      * Returns the transaction hash string.
      */
-    exec_shield_claim_deposit_json(pk_hash: string, nullifier_json: string, note_secret_hash_json: string, token_address_u32x8_json: string, l2_token_contract_id_json: string, amount_u32x8_json: string, source_chain_index: string, deposit_index: string, deposit_root_json: string, deposit_siblings_json: string, random0: string, random1: string, contract_id: string): Promise<string>;
+    exec_shield_claim_deposit_json(pk_hash: string, nullifier_json: string, note_secret_json: string, token_address_u32x8_json: string, l2_token_contract_id_json: string, amount_u32x8_json: string, source_chain_index: string, deposit_index: string, deposit_root_json: string, deposit_siblings_json: string, random0: string, random1: string, contract_id: string): Promise<string>;
     get_deploy_contract_cmd_json(deployer: string, circuit_defs_json: string): string;
     get_random_keypair_json(): Promise<string>;
     get_result(id_str: string): Uint8Array;
@@ -136,7 +136,7 @@ export class WasmRpcServer {
      *   pk_hash            - sender's ZK public key (hex QHashOut)
      *   owner_json         - receiver's shield address as JSON array of 4 decimal strings
      *   amount             - transfer amount (u64 as decimal string)
-     *   note_secret_hash_json - randomness used in commitment, JSON array of 4 decimal strings
+     *   note_secret_json   - raw note secret, JSON array of 4 decimal strings
      *   nullifier_secret_json - nullifier secret, JSON array of 4 decimal strings
      *   contract_id        - contract ID (u64 as decimal string)
      *   note_root_slot     - note root slot index (u64 as decimal string)
@@ -144,7 +144,7 @@ export class WasmRpcServer {
      *
      * Returns JSON matching NoteProofOutput.
      */
-    prove_private_note_inclusion_json(pk_hash: string, owner_json: string, amount: string, note_secret_hash_json: string, nullifier_secret_json: string, contract_id: string, note_root_slot: string, checkpoint_id: string): Promise<string>;
+    prove_private_note_inclusion_json(pk_hash: string, owner_json: string, amount: string, note_secret_json: string, nullifier_secret_json: string, contract_id: string, note_root_slot: string, checkpoint_id: string): Promise<string>;
     register_sdk_key_circuit(allowed_contract_ids: BigUint64Array, allowed_method_ids: BigUint64Array, expected_tx_count: bigint): Promise<string>;
     register_user(private_key_str: string, sign_type: string, sdk_key_fingerprint?: string | null): Promise<string>;
     sign_and_submit(pk_hash: string, sign_data?: string | null): Promise<string>;

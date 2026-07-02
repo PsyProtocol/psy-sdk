@@ -78,14 +78,14 @@ export interface PrivateTransferClaimRaw {
     user_tree_root: [string, string, string, string];
     checkpoint_id: string;
     note_root_slot: string;
+    note_proof_fingerprint?: [string, string, string, string];
     random0: string;
     random1: string;
     shield_address?: string;
 }
 
-export interface ShieldDepositClaimRaw {
+interface ShieldDepositClaimRawBase {
     nullifier: [string, string, string, string];
-    note_secret_hash: [string, string, string, string];
     token_address_u32x8: [string, string, string, string, string, string, string, string];
     l2_token_contract_id: [string, string, string, string, string, string, string, string];
     amount_u32x8: [string, string, string, string, string, string, string, string];
@@ -98,6 +98,10 @@ export interface ShieldDepositClaimRaw {
     contract_id: string;
     shield_address?: string;
 }
+
+export type ShieldDepositClaimRaw = ShieldDepositClaimRawBase & {
+    note_secret: [string, string, string, string];
+};
 
 export type ClaimBatchItem =
     | { type: "public"; data: ContractCallArgs }
