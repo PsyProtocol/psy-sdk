@@ -1,5 +1,5 @@
 import { Felt } from "../core";
-import { ClaimBatchItem, ContractCallArgs, GeneratedTxTraceJson, ProveTxTraceResumableJson, TxMetadata } from "../local-prover-rpc";
+import { ClaimBatchItem, ContractCallArgs, GeneratedTxTraceJson, ProveTxTraceResumableJson, TraceProofConcurrentResult, TxMetadata } from "../local-prover-rpc";
 import { IPsyTransactionSigner, IPsyTransactionSignerProvider } from "../zksigner";
 import { NetworkId } from "../action";
 interface ICorePsyUserInfo {
@@ -30,6 +30,7 @@ interface IPsyUserWallet {
         proof_blobs: Uint8Array[];
         next_step_index: number;
     }): Promise<ProveTxTraceResumableJson>;
+    proveTxTraceConcurrent(pk_hash: string, envelope: string | GeneratedTxTraceJson): Promise<TraceProofConcurrentResult>;
 }
 interface IPsyUserWalletProvider {
     networkId: NetworkId;

@@ -143,6 +143,8 @@ export class WasmRpcServer {
     insert_external_proof_json(pk_hash: string, envelope_json: string, proof_tree_meta_json: string, last_step_info_json: string, current_header_json: string, previous_header_json: string, external_fingerprint: string, external_proof: Uint8Array): Promise<any>;
     constructor(rpc_config_json: string);
     ping(message: string): string;
+    prepare_trace_proof_schedule_json(envelope_json: string): Promise<string>;
+    prove_cfc_job_with_schedule_step_json(pk_hash: string, envelope_json: string, schedule_json: string, step_index: number): Promise<string>;
     prove_contract_call_json(pk_hash: string, contract_call_json: string): Promise<string>;
     prove_contract_calls_json(pk_hash: string, contract_calls_json: string): Promise<string>;
     /**
@@ -153,6 +155,8 @@ export class WasmRpcServer {
      * `proof_tree_meta` must contain `leaf_records` with `insertion_proof`.
      */
     prove_end_cap_proof_json(pk_hash: string, envelope_json: string, proof_tree_meta_json: string, last_step_info_json: string, all_proof_blobs: Uint8Array[], signature_proof: Uint8Array): Promise<any>;
+    prove_endcap_job_from_output_jsons_json(pk_hash: string, envelope_json: string, schedule_json: string, output_jsons: string[]): Promise<string>;
+    prove_external_proof_job_json(envelope_json: string, step_index: number): Promise<string>;
     /**
      * Generate a PrivateNoteInclusion ZK proof and return the full NoteProofOutput as JSON.
      *
@@ -175,6 +179,7 @@ export class WasmRpcServer {
      * inside `proof_tree_meta`. Proof blobs returned as cfc_proof/ups_proof.
      */
     prove_trace_step_json(pk_hash: string, envelope_json: string, step_index: number, proof_tree_meta_json: string, last_step_info_json: string, current_header_json: string, previous_header_json: string): Promise<any>;
+    prove_ups_start_job_json(pk_hash: string, envelope_json: string): Promise<string>;
     /**
      * Stateless ups_start prove: no manager persisted in WASM.
      * Returns all state JS needs for subsequent steps. `leaf_records` with
@@ -182,6 +187,7 @@ export class WasmRpcServer {
      * as `ups_proof` (Uint8Array) — JS stores it separately for finalize.
      */
     prove_ups_start_json(pk_hash: string, envelope_json: string): Promise<any>;
+    prove_zksign_job_json(pk_hash: string, envelope_json: string): Promise<string>;
     register_sd_key_circuit(allowed_contract_ids: BigUint64Array, allowed_method_ids: BigUint64Array, expected_tx_count: bigint): Promise<string>;
     register_user(private_key_str: string, sign_type: string, fingerprint?: string | null): Promise<string>;
     sign_and_submit(pk_hash: string, sign_data?: string | null): Promise<string>;
@@ -200,6 +206,8 @@ export class WasmRpcServer {
      * Submit a pre-proven end-cap proof (RPC only, no proving).
      */
     submit_end_cap_json(envelope_json: string, end_cap_proof: Uint8Array): Promise<string>;
+    submit_endcap_job_json(envelope_json: string, endcap_output_json: string): Promise<string>;
+    trace_proof_job_step_indices_json(envelope_json: string): string;
 }
 
 export function init_logging(): void;
@@ -260,24 +268,32 @@ export interface InitOutput {
     readonly wasmrpcserver_insert_external_proof_json: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number, l: number, m: number, n: number, o: number, p: number, q: number) => any;
     readonly wasmrpcserver_new: (a: number, b: number) => any;
     readonly wasmrpcserver_ping: (a: number, b: number, c: number) => [number, number, number, number];
+    readonly wasmrpcserver_prepare_trace_proof_schedule_json: (a: number, b: number, c: number) => any;
+    readonly wasmrpcserver_prove_cfc_job_with_schedule_step_json: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number) => any;
     readonly wasmrpcserver_prove_contract_call_json: (a: number, b: number, c: number, d: number, e: number) => any;
     readonly wasmrpcserver_prove_contract_calls_json: (a: number, b: number, c: number, d: number, e: number) => any;
     readonly wasmrpcserver_prove_end_cap_proof_json: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number, l: number, m: number) => any;
+    readonly wasmrpcserver_prove_endcap_job_from_output_jsons_json: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number) => any;
+    readonly wasmrpcserver_prove_external_proof_job_json: (a: number, b: number, c: number, d: number) => any;
     readonly wasmrpcserver_prove_private_note_inclusion_json: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number, l: number, m: number, n: number, o: number, p: number, q: number) => any;
     readonly wasmrpcserver_prove_trace_step_json: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number, l: number, m: number, n: number) => any;
+    readonly wasmrpcserver_prove_ups_start_job_json: (a: number, b: number, c: number, d: number, e: number) => any;
     readonly wasmrpcserver_prove_ups_start_json: (a: number, b: number, c: number, d: number, e: number) => any;
+    readonly wasmrpcserver_prove_zksign_job_json: (a: number, b: number, c: number, d: number, e: number) => any;
     readonly wasmrpcserver_register_sd_key_circuit: (a: number, b: number, c: number, d: number, e: number, f: bigint) => any;
     readonly wasmrpcserver_register_user: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => any;
     readonly wasmrpcserver_sign_and_submit: (a: number, b: number, c: number, d: number, e: number) => any;
     readonly wasmrpcserver_sign_sighash_json: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number) => any;
     readonly wasmrpcserver_start_session: (a: number, b: number, c: number) => any;
     readonly wasmrpcserver_submit_end_cap_json: (a: number, b: number, c: number, d: number, e: number) => any;
+    readonly wasmrpcserver_submit_endcap_job_json: (a: number, b: number, c: number, d: number, e: number) => any;
+    readonly wasmrpcserver_trace_proof_job_step_indices_json: (a: number, b: number, c: number) => [number, number, number, number];
     readonly wasmpsyconfigbuilder_new: () => number;
     readonly wasmconstants_register_user_fee: () => bigint;
     readonly wasm_bindgen__convert__closures_____invoke__h60a57e826f0fa70e: (a: number, b: number, c: any) => [number, number];
     readonly wasm_bindgen__convert__closures_____invoke__h18544ad86c9831de: (a: number, b: number, c: any, d: any) => void;
-    readonly wasm_bindgen__convert__closures_____invoke__h1506b1d2a44b3513: (a: number, b: number, c: any) => void;
     readonly wasm_bindgen__convert__closures_____invoke__hce075d114139097c: (a: number, b: number, c: any) => void;
+    readonly wasm_bindgen__convert__closures_____invoke__h1506b1d2a44b3513: (a: number, b: number, c: any) => void;
     readonly wasm_bindgen__convert__closures_____invoke__h204019b3324ffeea: (a: number, b: number) => void;
     readonly memory: WebAssembly.Memory;
     readonly __wbindgen_malloc: (a: number, b: number) => number;

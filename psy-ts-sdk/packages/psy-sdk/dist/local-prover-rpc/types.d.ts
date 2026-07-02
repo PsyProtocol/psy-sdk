@@ -198,6 +198,18 @@ export interface ProveEndCapProofJson {
     end_cap_proof: Uint8Array;
     tx_hash: string;
 }
+export type TraceProofScheduleJson = string;
+export type TraceProofJobOutputJson = string;
+export interface TraceProofJobStepIndices {
+    cfc_step_indices: number[];
+    external_step_indices: number[];
+}
+export interface TraceProofConcurrentResult {
+    scheduleJson: TraceProofScheduleJson;
+    firstWaveOutputJsons: TraceProofJobOutputJson[];
+    endcapOutputJson: TraceProofJobOutputJson;
+    submitOutputJson: TraceProofJobOutputJson;
+}
 export interface TxStorageRead {
     user_id: Felt;
     contract_id: Felt;
@@ -270,6 +282,15 @@ interface IPsyUserProverProvider {
     generateTxTrace(pk_hash: string, callData: ContractCallData, localId?: string | null): Promise<GeneratedTxTraceJson>;
     simulateContractCall(pk_hash: string, callData: ContractCallData, localId?: string | null): Promise<GeneratedTxTraceJson>;
     proveUpsStart(pk_hash: string, envelopeJson: string | GeneratedTxTraceJson): Promise<InitStepProvingJson>;
+    prepareTraceProofSchedule(envelopeJson: string | GeneratedTxTraceJson): Promise<TraceProofScheduleJson>;
+    getTraceProofJobStepIndices(envelopeJson: string | GeneratedTxTraceJson): Promise<TraceProofJobStepIndices>;
+    proveUpsStartJob(pk_hash: string, envelopeJson: string | GeneratedTxTraceJson): Promise<TraceProofJobOutputJson>;
+    proveCfcJobWithScheduleStep(pk_hash: string, envelopeJson: string | GeneratedTxTraceJson, scheduleJson: TraceProofScheduleJson, stepIndex: number): Promise<TraceProofJobOutputJson>;
+    proveExternalProofJob(envelopeJson: string | GeneratedTxTraceJson, stepIndex: number): Promise<TraceProofJobOutputJson>;
+    proveZkSignJob(pk_hash: string, envelopeJson: string | GeneratedTxTraceJson): Promise<TraceProofJobOutputJson>;
+    proveEndcapJobFromOutputJsons(pk_hash: string, envelopeJson: string | GeneratedTxTraceJson, scheduleJson: TraceProofScheduleJson, outputJsons: TraceProofJobOutputJson[]): Promise<TraceProofJobOutputJson>;
+    submitEndcapJob(envelopeJson: string | GeneratedTxTraceJson, endcapOutputJson: TraceProofJobOutputJson): Promise<TraceProofJobOutputJson>;
+    proveTraceJobsConcurrent(pk_hash: string, envelopeJson: string | GeneratedTxTraceJson): Promise<TraceProofConcurrentResult>;
     proveTraceStep(pk_hash: string, envelopeJson: string | GeneratedTxTraceJson, stepIndex: number, proofTreeMeta: unknown, lastStepInfo: unknown, currentHeader: unknown, previousHeader: unknown): Promise<ProveStepJson>;
     proveEndCapProof(pk_hash: string, envelopeJson: string | GeneratedTxTraceJson, proofTreeMeta: unknown, lastStepInfo: unknown, allProofBlobs: Uint8Array[], signatureProof: Uint8Array): Promise<ProveEndCapProofJson>;
     submitEndCap(envelopeJson: string | GeneratedTxTraceJson, endCapProof: Uint8Array): Promise<string>;

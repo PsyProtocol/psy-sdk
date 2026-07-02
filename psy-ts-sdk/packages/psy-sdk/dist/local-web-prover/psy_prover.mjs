@@ -834,6 +834,33 @@ class WasmRpcServer {
         }
     }
     /**
+     * @param {string} envelope_json
+     * @returns {Promise<string>}
+     */
+    prepare_trace_proof_schedule_json(envelope_json) {
+        const ptr0 = passStringToWasm0(envelope_json, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.wasmrpcserver_prepare_trace_proof_schedule_json(this.__wbg_ptr, ptr0, len0);
+        return ret;
+    }
+    /**
+     * @param {string} pk_hash
+     * @param {string} envelope_json
+     * @param {string} schedule_json
+     * @param {number} step_index
+     * @returns {Promise<string>}
+     */
+    prove_cfc_job_with_schedule_step_json(pk_hash, envelope_json, schedule_json, step_index) {
+        const ptr0 = passStringToWasm0(pk_hash, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ptr1 = passStringToWasm0(envelope_json, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len1 = WASM_VECTOR_LEN;
+        const ptr2 = passStringToWasm0(schedule_json, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len2 = WASM_VECTOR_LEN;
+        const ret = wasm.wasmrpcserver_prove_cfc_job_with_schedule_step_json(this.__wbg_ptr, ptr0, len0, ptr1, len1, ptr2, len2, step_index);
+        return ret;
+    }
+    /**
      * @param {string} pk_hash
      * @param {string} contract_call_json
      * @returns {Promise<string>}
@@ -887,6 +914,36 @@ class WasmRpcServer {
         const ptr5 = passArray8ToWasm0(signature_proof, wasm.__wbindgen_malloc);
         const len5 = WASM_VECTOR_LEN;
         const ret = wasm.wasmrpcserver_prove_end_cap_proof_json(this.__wbg_ptr, ptr0, len0, ptr1, len1, ptr2, len2, ptr3, len3, ptr4, len4, ptr5, len5);
+        return ret;
+    }
+    /**
+     * @param {string} pk_hash
+     * @param {string} envelope_json
+     * @param {string} schedule_json
+     * @param {string[]} output_jsons
+     * @returns {Promise<string>}
+     */
+    prove_endcap_job_from_output_jsons_json(pk_hash, envelope_json, schedule_json, output_jsons) {
+        const ptr0 = passStringToWasm0(pk_hash, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ptr1 = passStringToWasm0(envelope_json, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len1 = WASM_VECTOR_LEN;
+        const ptr2 = passStringToWasm0(schedule_json, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len2 = WASM_VECTOR_LEN;
+        const ptr3 = passArrayJsValueToWasm0(output_jsons, wasm.__wbindgen_malloc);
+        const len3 = WASM_VECTOR_LEN;
+        const ret = wasm.wasmrpcserver_prove_endcap_job_from_output_jsons_json(this.__wbg_ptr, ptr0, len0, ptr1, len1, ptr2, len2, ptr3, len3);
+        return ret;
+    }
+    /**
+     * @param {string} envelope_json
+     * @param {number} step_index
+     * @returns {Promise<string>}
+     */
+    prove_external_proof_job_json(envelope_json, step_index) {
+        const ptr0 = passStringToWasm0(envelope_json, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.wasmrpcserver_prove_external_proof_job_json(this.__wbg_ptr, ptr0, len0, step_index);
         return ret;
     }
     /**
@@ -963,6 +1020,19 @@ class WasmRpcServer {
         return ret;
     }
     /**
+     * @param {string} pk_hash
+     * @param {string} envelope_json
+     * @returns {Promise<string>}
+     */
+    prove_ups_start_job_json(pk_hash, envelope_json) {
+        const ptr0 = passStringToWasm0(pk_hash, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ptr1 = passStringToWasm0(envelope_json, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len1 = WASM_VECTOR_LEN;
+        const ret = wasm.wasmrpcserver_prove_ups_start_job_json(this.__wbg_ptr, ptr0, len0, ptr1, len1);
+        return ret;
+    }
+    /**
      * Stateless ups_start prove: no manager persisted in WASM.
      * Returns all state JS needs for subsequent steps. `leaf_records` with
      * `insertion_proof` are inside `proof_tree_meta`. Proof blob returned
@@ -977,6 +1047,19 @@ class WasmRpcServer {
         const ptr1 = passStringToWasm0(envelope_json, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
         const len1 = WASM_VECTOR_LEN;
         const ret = wasm.wasmrpcserver_prove_ups_start_json(this.__wbg_ptr, ptr0, len0, ptr1, len1);
+        return ret;
+    }
+    /**
+     * @param {string} pk_hash
+     * @param {string} envelope_json
+     * @returns {Promise<string>}
+     */
+    prove_zksign_job_json(pk_hash, envelope_json) {
+        const ptr0 = passStringToWasm0(pk_hash, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ptr1 = passStringToWasm0(envelope_json, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len1 = WASM_VECTOR_LEN;
+        const ret = wasm.wasmrpcserver_prove_zksign_job_json(this.__wbg_ptr, ptr0, len0, ptr1, len1);
         return ret;
     }
     /**
@@ -1071,6 +1154,45 @@ class WasmRpcServer {
         const len1 = WASM_VECTOR_LEN;
         const ret = wasm.wasmrpcserver_submit_end_cap_json(this.__wbg_ptr, ptr0, len0, ptr1, len1);
         return ret;
+    }
+    /**
+     * @param {string} envelope_json
+     * @param {string} endcap_output_json
+     * @returns {Promise<string>}
+     */
+    submit_endcap_job_json(envelope_json, endcap_output_json) {
+        const ptr0 = passStringToWasm0(envelope_json, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ptr1 = passStringToWasm0(endcap_output_json, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len1 = WASM_VECTOR_LEN;
+        const ret = wasm.wasmrpcserver_submit_endcap_job_json(this.__wbg_ptr, ptr0, len0, ptr1, len1);
+        return ret;
+    }
+    /**
+     * @param {string} envelope_json
+     * @returns {string}
+     */
+    trace_proof_job_step_indices_json(envelope_json) {
+        let deferred3_0;
+        let deferred3_1;
+        try {
+            const ptr0 = passStringToWasm0(envelope_json, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+            const len0 = WASM_VECTOR_LEN;
+            const ret = wasm.wasmrpcserver_trace_proof_job_step_indices_json(this.__wbg_ptr, ptr0, len0);
+            var ptr2 = ret[0];
+            var len2 = ret[1];
+            if (ret[3]) {
+                ptr2 = 0;
+                len2 = 0;
+                throw takeFromExternrefTable0(ret[2]);
+            }
+            deferred3_0 = ptr2;
+            deferred3_1 = len2;
+            return getStringFromWasm0(ptr2, len2);
+        }
+        finally {
+            wasm.__wbindgen_free(deferred3_0, deferred3_1, 1);
+        }
     }
 }
 if (Symbol.dispose)
@@ -1630,22 +1752,22 @@ function __wbg_get_imports(memory) {
             return ret;
         },
         __wbindgen_cast_0000000000000001: function (arg0, arg1) {
-            // Cast intrinsic for `Closure(Closure { owned: true, function: Function { arguments: [Externref], shim_idx: 5055, ret: Result(Unit), inner_ret: Some(Result(Unit)) }, mutable: true }) -> Externref`.
-            const ret = makeMutClosure(arg0, arg1, wasm_bindgen__convert__closures_____invoke__h60a57e826f0fa70e);
-            return ret;
-        },
-        __wbindgen_cast_0000000000000002: function (arg0, arg1) {
-            // Cast intrinsic for `Closure(Closure { owned: true, function: Function { arguments: [Externref], shim_idx: 5072, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
-            const ret = makeMutClosure(arg0, arg1, wasm_bindgen__convert__closures_____invoke__h1506b1d2a44b3513);
-            return ret;
-        },
-        __wbindgen_cast_0000000000000003: function (arg0, arg1) {
-            // Cast intrinsic for `Closure(Closure { owned: true, function: Function { arguments: [Externref], shim_idx: 918, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
+            // Cast intrinsic for `Closure(Closure { owned: true, function: Function { arguments: [Externref], shim_idx: 1840, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
             const ret = makeMutClosure(arg0, arg1, wasm_bindgen__convert__closures_____invoke__hce075d114139097c);
             return ret;
         },
+        __wbindgen_cast_0000000000000002: function (arg0, arg1) {
+            // Cast intrinsic for `Closure(Closure { owned: true, function: Function { arguments: [Externref], shim_idx: 5112, ret: Result(Unit), inner_ret: Some(Result(Unit)) }, mutable: true }) -> Externref`.
+            const ret = makeMutClosure(arg0, arg1, wasm_bindgen__convert__closures_____invoke__h60a57e826f0fa70e);
+            return ret;
+        },
+        __wbindgen_cast_0000000000000003: function (arg0, arg1) {
+            // Cast intrinsic for `Closure(Closure { owned: true, function: Function { arguments: [Externref], shim_idx: 5129, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
+            const ret = makeMutClosure(arg0, arg1, wasm_bindgen__convert__closures_____invoke__h1506b1d2a44b3513);
+            return ret;
+        },
         __wbindgen_cast_0000000000000004: function (arg0, arg1) {
-            // Cast intrinsic for `Closure(Closure { owned: true, function: Function { arguments: [], shim_idx: 4693, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
+            // Cast intrinsic for `Closure(Closure { owned: true, function: Function { arguments: [], shim_idx: 4750, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
             const ret = makeMutClosure(arg0, arg1, wasm_bindgen__convert__closures_____invoke__h204019b3324ffeea);
             return ret;
         },
@@ -1709,11 +1831,11 @@ function __wbg_get_imports(memory) {
 function wasm_bindgen__convert__closures_____invoke__h204019b3324ffeea(arg0, arg1) {
     wasm.wasm_bindgen__convert__closures_____invoke__h204019b3324ffeea(arg0, arg1);
 }
-function wasm_bindgen__convert__closures_____invoke__h1506b1d2a44b3513(arg0, arg1, arg2) {
-    wasm.wasm_bindgen__convert__closures_____invoke__h1506b1d2a44b3513(arg0, arg1, arg2);
-}
 function wasm_bindgen__convert__closures_____invoke__hce075d114139097c(arg0, arg1, arg2) {
     wasm.wasm_bindgen__convert__closures_____invoke__hce075d114139097c(arg0, arg1, arg2);
+}
+function wasm_bindgen__convert__closures_____invoke__h1506b1d2a44b3513(arg0, arg1, arg2) {
+    wasm.wasm_bindgen__convert__closures_____invoke__h1506b1d2a44b3513(arg0, arg1, arg2);
 }
 function wasm_bindgen__convert__closures_____invoke__h60a57e826f0fa70e(arg0, arg1, arg2) {
     const ret = wasm.wasm_bindgen__convert__closures_____invoke__h60a57e826f0fa70e(arg0, arg1, arg2);

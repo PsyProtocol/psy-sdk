@@ -1,6 +1,6 @@
 import { WasmRpcServer, WasmPsyConfig, WasmPsyConfigBuilder, WasmConstants } from "./psy_prover";
 import { PrivateKey, PublicKey, QHashOut, U8Bytes } from "../core";
-import { ContractCallArgs, ContractCallData, ClaimBatchItem, DPNFunctionCircuitDefinition, GeneratedTxTraceJson, IPsyUserProverProvider, QBCDeployContract, SignData, SignType, TxMetadata, WalletKeyPair } from "../local-prover-rpc/types";
+import { ContractCallArgs, ContractCallData, ClaimBatchItem, DPNFunctionCircuitDefinition, GeneratedTxTraceJson, IPsyUserProverProvider, QBCDeployContract, SignData, SignType, TraceProofConcurrentResult, TraceProofJobOutputJson, TraceProofJobStepIndices, TraceProofScheduleJson, TxMetadata, WalletKeyPair } from "../local-prover-rpc/types";
 import { ZKPublicKeyInfo } from "../types";
 import { PsyNetworkConfig } from "../config";
 export declare function initWasmSync(): void;
@@ -11,6 +11,7 @@ export declare class PsyWasmWebProverProvider implements IPsyUserProverProvider 
     constructor(rpcConfigJson: PsyNetworkConfig);
     static ensureWasmServer(rpcConfigJson: PsyNetworkConfig | string): Promise<WasmRpcServer>;
     static runWasmServerCall<T>(callback: (server: WasmRpcServer) => T | Promise<T>): Promise<T>;
+    static runWasmServerConcurrentCall<T>(callback: (server: WasmRpcServer) => T | Promise<T>): Promise<T>;
     execContractCall(pkHash: string, callData: ContractCallData): Promise<string>;
     execContractCallWithTrace(pkHash: string, callData: ContractCallData): Promise<TxMetadata>;
     claimBatch(pkHash: string, claims: ClaimBatchItem[]): Promise<string>;
@@ -26,6 +27,15 @@ export declare class PsyWasmWebProverProvider implements IPsyUserProverProvider 
     generateTxTrace(pkHash: PublicKey, callData: ContractCallData): Promise<GeneratedTxTraceJson>;
     simulateContractCall(pkHash: PublicKey, callData: ContractCallData): Promise<GeneratedTxTraceJson>;
     proveUpsStart(pkHash: PublicKey, envelopeJson: string | GeneratedTxTraceJson): Promise<any>;
+    prepareTraceProofSchedule(envelopeJson: string | GeneratedTxTraceJson): Promise<TraceProofScheduleJson>;
+    getTraceProofJobStepIndices(envelopeJson: string | GeneratedTxTraceJson): Promise<TraceProofJobStepIndices>;
+    proveUpsStartJob(pkHash: PublicKey, envelopeJson: string | GeneratedTxTraceJson): Promise<TraceProofJobOutputJson>;
+    proveCfcJobWithScheduleStep(pkHash: PublicKey, envelopeJson: string | GeneratedTxTraceJson, scheduleJson: TraceProofScheduleJson, stepIndex: number): Promise<TraceProofJobOutputJson>;
+    proveExternalProofJob(envelopeJson: string | GeneratedTxTraceJson, stepIndex: number): Promise<TraceProofJobOutputJson>;
+    proveZkSignJob(pkHash: PublicKey, envelopeJson: string | GeneratedTxTraceJson): Promise<TraceProofJobOutputJson>;
+    proveEndcapJobFromOutputJsons(pkHash: PublicKey, envelopeJson: string | GeneratedTxTraceJson, scheduleJson: TraceProofScheduleJson, outputJsons: TraceProofJobOutputJson[]): Promise<TraceProofJobOutputJson>;
+    submitEndcapJob(envelopeJson: string | GeneratedTxTraceJson, endcapOutputJson: TraceProofJobOutputJson): Promise<TraceProofJobOutputJson>;
+    proveTraceJobsConcurrent(pkHash: PublicKey, envelopeJson: string | GeneratedTxTraceJson): Promise<TraceProofConcurrentResult>;
     proveTraceStep(pkHash: PublicKey, envelopeJson: string | GeneratedTxTraceJson, stepIndex: number, proofTreeMeta: unknown, lastStepInfo: unknown, currentHeader: unknown, previousHeader: unknown): Promise<any>;
     proveEndCapProof(pkHash: PublicKey, envelopeJson: string | GeneratedTxTraceJson, proofTreeMeta: unknown, lastStepInfo: unknown, allProofBlobs: Uint8Array[], signatureProof: Uint8Array): Promise<any>;
     insertExternalProof(pkHash: PublicKey, envelopeJson: string | GeneratedTxTraceJson, proofTreeMeta: unknown, lastStepInfo: unknown, currentHeader: unknown, previousHeader: unknown, externalFingerprint: string, externalProof: Uint8Array): Promise<any>;

@@ -168,6 +168,9 @@ class PsyMemoryTransactionSigner {
             };
         }
     }
+    async proveTxTraceConcurrent(pkHash, envelope) {
+        return this.prover.proveTraceJobsConcurrent(pkHash, envelope);
+    }
 }
 
 exports.PsyMemoryTransactionSigner = PsyMemoryTransactionSigner;

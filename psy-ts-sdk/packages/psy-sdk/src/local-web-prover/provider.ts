@@ -11,6 +11,10 @@ import {
     QBCDeployContract,
     SignData,
     SignType,
+    TraceProofConcurrentResult,
+    TraceProofJobOutputJson,
+    TraceProofJobStepIndices,
+    TraceProofScheduleJson,
     TxMetadata,
     WalletKeyPair,
 } from "../local-prover-rpc/types";
@@ -83,6 +87,10 @@ export class PsyWasmWebProverProvider implements IPsyUserProverProvider {
             () => undefined,
         );
         return result;
+    }
+
+    static async runWasmServerConcurrentCall<T>(callback: (server: WasmRpcServer) => T | Promise<T>): Promise<T> {
+        return this.runWasmServerCall(callback);
     }
 
     async execContractCall(pkHash: string, callData: ContractCallData): Promise<string> {
@@ -215,6 +223,126 @@ export class PsyWasmWebProverProvider implements IPsyUserProverProvider {
         return PsyWasmWebProverProvider.runWasmServerCall((server) =>
             server.prove_ups_start_json(pkHash, envelope)
         ) as Promise<any>;
+    }
+
+    async prepareTraceProofSchedule(envelopeJson: string | GeneratedTxTraceJson): Promise<TraceProofScheduleJson> {
+        const envelope = typeof envelopeJson === "string" ? envelopeJson : PsyJSON.stringify(envelopeJson);
+        return PsyWasmWebProverProvider.runWasmServerConcurrentCall((server) =>
+            server.prepare_trace_proof_schedule_json(envelope)
+        );
+    }
+
+    async getTraceProofJobStepIndices(envelopeJson: string | GeneratedTxTraceJson): Promise<TraceProofJobStepIndices> {
+        const envelope = typeof envelopeJson === "string" ? envelopeJson : PsyJSON.stringify(envelopeJson);
+        const raw = await PsyWasmWebProverProvider.runWasmServerConcurrentCall((server) =>
+            server.trace_proof_job_step_indices_json(envelope)
+        );
+        return PsyJSON.parse(raw) as TraceProofJobStepIndices;
+    }
+
+    async proveUpsStartJob(pkHash: PublicKey, envelopeJson: string | GeneratedTxTraceJson): Promise<TraceProofJobOutputJson> {
+        const envelope = typeof envelopeJson === "string" ? envelopeJson : PsyJSON.stringify(envelopeJson);
+        return PsyWasmWebProverProvider.runWasmServerConcurrentCall((server) =>
+            server.prove_ups_start_job_json(pkHash, envelope)
+        );
+    }
+
+    async proveCfcJobWithScheduleStep(
+        pkHash: PublicKey,
+        envelopeJson: string | GeneratedTxTraceJson,
+        scheduleJson: TraceProofScheduleJson,
+        stepIndex: number,
+    ): Promise<TraceProofJobOutputJson> {
+        const envelope = typeof envelopeJson === "string" ? envelopeJson : PsyJSON.stringify(envelopeJson);
+        return PsyWasmWebProverProvider.runWasmServerConcurrentCall((server) =>
+            server.prove_cfc_job_with_schedule_step_json(pkHash, envelope, scheduleJson, stepIndex)
+        );
+    }
+
+    async proveExternalProofJob(envelopeJson: string | GeneratedTxTraceJson, stepIndex: number): Promise<TraceProofJobOutputJson> {
+        const envelope = typeof envelopeJson === "string" ? envelopeJson : PsyJSON.stringify(envelopeJson);
+        return PsyWasmWebProverProvider.runWasmServerConcurrentCall((server) =>
+            server.prove_external_proof_job_json(envelope, stepIndex)
+        );
+    }
+
+    async proveZkSignJob(pkHash: PublicKey, envelopeJson: string | GeneratedTxTraceJson): Promise<TraceProofJobOutputJson> {
+        const envelope = typeof envelopeJson === "string" ? envelopeJson : PsyJSON.stringify(envelopeJson);
+        return PsyWasmWebProverProvider.runWasmServerConcurrentCall((server) =>
+            server.prove_zksign_job_json(pkHash, envelope)
+        );
+    }
+
+    async proveEndcapJobFromOutputJsons(
+        pkHash: PublicKey,
+        envelopeJson: string | GeneratedTxTraceJson,
+        scheduleJson: TraceProofScheduleJson,
+        outputJsons: TraceProofJobOutputJson[],
+    ): Promise<TraceProofJobOutputJson> {
+        const envelope = typeof envelopeJson === "string" ? envelopeJson : PsyJSON.stringify(envelopeJson);
+        return PsyWasmWebProverProvider.runWasmServerConcurrentCall((server) =>
+            server.prove_endcap_job_from_output_jsons_json(pkHash, envelope, scheduleJson, outputJsons)
+        );
+    }
+
+    async submitEndcapJob(envelopeJson: string | GeneratedTxTraceJson, endcapOutputJson: TraceProofJobOutputJson): Promise<TraceProofJobOutputJson> {
+        const envelope = typeof envelopeJson === "string" ? envelopeJson : PsyJSON.stringify(envelopeJson);
+        return PsyWasmWebProverProvider.runWasmServerConcurrentCall((server) =>
+            server.submit_endcap_job_json(envelope, endcapOutputJson)
+        );
+    }
+
+    async proveTraceJobsConcurrent(pkHash: PublicKey, envelopeJson: string | GeneratedTxTraceJson): Promise<TraceProofConcurrentResult> {
+        const envelope = typeof envelopeJson === "string" ? envelopeJson : PsyJSON.stringify(envelopeJson);
+        const startedAt = Date.now();
+        const logPrefix = "[trace-concurrent]";
+        const timedJob = async <T>(name: string, job: () => Promise<T>): Promise<T> => {
+            const jobStartedAt = Date.now();
+            console.info(`${logPrefix}[${name}] start`);
+            try {
+                const result = await job();
+                console.info(`${logPrefix}[${name}] end`, {
+                    durationMs: Date.now() - jobStartedAt,
+                });
+                return result;
+            } catch (error) {
+                console.warn(`${logPrefix}[${name}] failed`, {
+                    durationMs: Date.now() - jobStartedAt,
+                    error,
+                });
+                throw error;
+            }
+        };
+
+        const zkSignPromise = timedJob("zksign", () => this.proveZkSignJob(pkHash, envelope));
+        const schedulePromise = timedJob("schedule", () => this.prepareTraceProofSchedule(envelope));
+        const indicesPromise = timedJob("indices", () => this.getTraceProofJobStepIndices(envelope));
+        const upsStartPromise = timedJob("ups_start", () => this.proveUpsStartJob(pkHash, envelope));
+
+        const [scheduleJson, indices] = await Promise.all([schedulePromise, indicesPromise]);
+        const firstWaveOutputJsons = await Promise.all([
+            zkSignPromise,
+            upsStartPromise,
+            ...indices.cfc_step_indices.map((stepIndex) =>
+                timedJob(`cfc:${stepIndex}`, () => this.proveCfcJobWithScheduleStep(pkHash, envelope, scheduleJson, stepIndex))
+            ),
+            ...indices.external_step_indices.map((stepIndex) =>
+                timedJob(`external:${stepIndex}`, () => this.proveExternalProofJob(envelope, stepIndex))
+            ),
+        ]);
+        const endcapOutputJson = await timedJob("endcap", () =>
+            this.proveEndcapJobFromOutputJsons(pkHash, envelope, scheduleJson, firstWaveOutputJsons)
+        );
+        const submitOutputJson = await timedJob("submit", () => this.submitEndcapJob(envelope, endcapOutputJson));
+        console.info(`${logPrefix}[all] end`, {
+            durationMs: Date.now() - startedAt,
+        });
+        return {
+            scheduleJson,
+            firstWaveOutputJsons,
+            endcapOutputJson,
+            submitOutputJson,
+        };
     }
 
     async proveTraceStep(

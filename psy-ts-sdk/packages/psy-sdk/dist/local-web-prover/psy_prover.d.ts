@@ -330,6 +330,19 @@ export class WasmRpcServer {
      */
     ping(message: string): string;
     /**
+     * @param {string} envelope_json
+     * @returns {Promise<string>}
+     */
+    prepare_trace_proof_schedule_json(envelope_json: string): Promise<string>;
+    /**
+     * @param {string} pk_hash
+     * @param {string} envelope_json
+     * @param {string} schedule_json
+     * @param {number} step_index
+     * @returns {Promise<string>}
+     */
+    prove_cfc_job_with_schedule_step_json(pk_hash: string, envelope_json: string, schedule_json: string, step_index: number): Promise<string>;
+    /**
      * @param {string} pk_hash
      * @param {string} contract_call_json
      * @returns {Promise<string>}
@@ -356,6 +369,20 @@ export class WasmRpcServer {
      * @returns {Promise<any>}
      */
     prove_end_cap_proof_json(pk_hash: string, envelope_json: string, proof_tree_meta_json: string, last_step_info_json: string, all_proof_blobs: Uint8Array[], signature_proof: Uint8Array): Promise<any>;
+    /**
+     * @param {string} pk_hash
+     * @param {string} envelope_json
+     * @param {string} schedule_json
+     * @param {string[]} output_jsons
+     * @returns {Promise<string>}
+     */
+    prove_endcap_job_from_output_jsons_json(pk_hash: string, envelope_json: string, schedule_json: string, output_jsons: string[]): Promise<string>;
+    /**
+     * @param {string} envelope_json
+     * @param {number} step_index
+     * @returns {Promise<string>}
+     */
+    prove_external_proof_job_json(envelope_json: string, step_index: number): Promise<string>;
     /**
      * Generate a PrivateNoteInclusion ZK proof and return the full NoteProofOutput as JSON.
      *
@@ -396,6 +423,12 @@ export class WasmRpcServer {
      */
     prove_trace_step_json(pk_hash: string, envelope_json: string, step_index: number, proof_tree_meta_json: string, last_step_info_json: string, current_header_json: string, previous_header_json: string): Promise<any>;
     /**
+     * @param {string} pk_hash
+     * @param {string} envelope_json
+     * @returns {Promise<string>}
+     */
+    prove_ups_start_job_json(pk_hash: string, envelope_json: string): Promise<string>;
+    /**
      * Stateless ups_start prove: no manager persisted in WASM.
      * Returns all state JS needs for subsequent steps. `leaf_records` with
      * `insertion_proof` are inside `proof_tree_meta`. Proof blob returned
@@ -405,6 +438,12 @@ export class WasmRpcServer {
      * @returns {Promise<any>}
      */
     prove_ups_start_json(pk_hash: string, envelope_json: string): Promise<any>;
+    /**
+     * @param {string} pk_hash
+     * @param {string} envelope_json
+     * @returns {Promise<string>}
+     */
+    prove_zksign_job_json(pk_hash: string, envelope_json: string): Promise<string>;
     /**
      * @param {BigUint64Array} allowed_contract_ids
      * @param {BigUint64Array} allowed_method_ids
@@ -452,6 +491,17 @@ export class WasmRpcServer {
      * @returns {Promise<string>}
      */
     submit_end_cap_json(envelope_json: string, end_cap_proof: Uint8Array): Promise<string>;
+    /**
+     * @param {string} envelope_json
+     * @param {string} endcap_output_json
+     * @returns {Promise<string>}
+     */
+    submit_endcap_job_json(envelope_json: string, endcap_output_json: string): Promise<string>;
+    /**
+     * @param {string} envelope_json
+     * @returns {string}
+     */
+    trace_proof_job_step_indices_json(envelope_json: string): string;
 }
 export function initSync(module: any, memory: any): any;
 declare function __wbg_init(module_or_path: any, memory: any): Promise<any>;

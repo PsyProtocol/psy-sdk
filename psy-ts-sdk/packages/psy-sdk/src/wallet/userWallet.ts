@@ -7,6 +7,7 @@ import {
     DPNFunctionCircuitDefinition,
     GeneratedTxTraceJson,
     ProveTxTraceResumableJson,
+    TraceProofConcurrentResult,
     TxMetadata,
 } from "../local-prover-rpc";
 import { PsyUserLeaf } from "../types";
@@ -185,6 +186,10 @@ class PsyUserWallet implements IPsyUserWallet {
         },
     ): Promise<ProveTxTraceResumableJson> {
         return this.signer.proveTxTraceStep(pk_hash, envelope, resumeFrom);
+    }
+
+    async proveTxTraceConcurrent(pk_hash: string, envelope: string | GeneratedTxTraceJson): Promise<TraceProofConcurrentResult> {
+        return this.signer.proveTxTraceConcurrent(pk_hash, envelope);
     }
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars

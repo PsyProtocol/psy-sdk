@@ -130,6 +130,9 @@ class PsyUserWallet {
     async proveTxTraceStep(pk_hash, envelope, resumeFrom) {
         return this.signer.proveTxTraceStep(pk_hash, envelope, resumeFrom);
     }
+    async proveTxTraceConcurrent(pk_hash, envelope) {
+        return this.signer.proveTxTraceConcurrent(pk_hash, envelope);
+    }
 }
 
 exports.PsyUserWallet = PsyUserWallet;

@@ -2560,6 +2560,182 @@ impl WasmRpcServer {
     // Stateless step proving exports (no DashMap persistence)
     // ================================
 
+    #[wasm_bindgen]
+    pub async fn prepare_trace_proof_schedule_json(
+        &self,
+        envelope_json: &str,
+    ) -> Result<String, JsError> {
+        let (_envelope, trace) = parse_tx_trace_envelope(envelope_json)?;
+        let schedule = self
+            .wallet_session
+            .prepare_trace_proof_schedule(&trace)
+            .await
+            .map_err(|e| JsError::new(&format!("Error preparing trace proof schedule: {}", e)))?;
+        serde_json::to_string(&schedule)
+            .map_err(|e| JsError::new(&format!("Error serializing trace proof schedule: {}", e)))
+    }
+
+    #[wasm_bindgen]
+    pub fn trace_proof_job_step_indices_json(
+        &self,
+        envelope_json: &str,
+    ) -> Result<String, JsError> {
+        #[derive(serde::Serialize)]
+        struct TraceProofJobStepIndices {
+            cfc_step_indices: Vec<usize>,
+            external_step_indices: Vec<usize>,
+        }
+
+        let (_envelope, trace) = parse_tx_trace_envelope(envelope_json)?;
+        let mut cfc_step_indices = Vec::new();
+        let mut external_step_indices = Vec::new();
+        for (step_index, step) in trace.steps.iter().enumerate() {
+            match step {
+                psy_prover::trace::TraceStep::Standard(_)
+                | psy_prover::trace::TraceStep::BurnFee(_)
+                | psy_prover::trace::TraceStep::Deferred(_) => {
+                    cfc_step_indices.push(step_index);
+                }
+                psy_prover::trace::TraceStep::ExternalProof(_) => {
+                    external_step_indices.push(step_index);
+                }
+                _ => {}
+            }
+        }
+        serde_json::to_string(&TraceProofJobStepIndices {
+            cfc_step_indices,
+            external_step_indices,
+        })
+        .map_err(|e| JsError::new(&format!("Error serializing trace proof job indices: {}", e)))
+    }
+
+    #[wasm_bindgen]
+    pub async fn prove_ups_start_job_json(
+        &self,
+        pk_hash: &str,
+        envelope_json: &str,
+    ) -> Result<String, JsError> {
+        let pk_hash = QHashOut::<F>::from_str(pk_hash)
+            .map_err(|e| JsError::new(&format!("Parse public key hash error: {}", e)))?;
+        let (_envelope, trace) = parse_tx_trace_envelope(envelope_json)?;
+        let output = self
+            .wallet_session
+            .prove_ups_start_job(pk_hash, &trace)
+            .await
+            .map_err(|e| JsError::new(&format!("Error proving ups_start job: {}", e)))?;
+        serde_json::to_string(&output)
+            .map_err(|e| JsError::new(&format!("Error serializing ups_start job output: {}", e)))
+    }
+
+    #[wasm_bindgen]
+    pub async fn prove_cfc_job_with_schedule_step_json(
+        &self,
+        pk_hash: &str,
+        envelope_json: &str,
+        schedule_json: &str,
+        step_index: u32,
+    ) -> Result<String, JsError> {
+        let pk_hash = QHashOut::<F>::from_str(pk_hash)
+            .map_err(|e| JsError::new(&format!("Parse public key hash error: {}", e)))?;
+        let (_envelope, trace) = parse_tx_trace_envelope(envelope_json)?;
+        let schedule: psy_prover::trace::proof_schedule::TraceProofSchedule =
+            serde_json::from_str(schedule_json)
+                .map_err(|e| JsError::new(&format!("Invalid trace proof schedule JSON: {}", e)))?;
+        let seed = schedule
+            .seeds
+            .iter()
+            .find(|seed| seed.step_index == step_index as usize)
+            .ok_or_else(|| JsError::new(&format!("missing CFC seed for step {}", step_index)))?;
+        let output = self
+            .wallet_session
+            .prove_cfc_job_with_seed(pk_hash, &trace, seed)
+            .await
+            .map_err(|e| JsError::new(&format!("Error proving CFC job {}: {}", step_index, e)))?;
+        serde_json::to_string(&output)
+            .map_err(|e| JsError::new(&format!("Error serializing CFC job output: {}", e)))
+    }
+
+    #[wasm_bindgen]
+    pub async fn prove_external_proof_job_json(
+        &self,
+        envelope_json: &str,
+        step_index: u32,
+    ) -> Result<String, JsError> {
+        let (_envelope, trace) = parse_tx_trace_envelope(envelope_json)?;
+        let output = self
+            .wallet_session
+            .prove_external_proof_job(&trace, step_index as usize)
+            .await
+            .map_err(|e| JsError::new(&format!("Error proving external-proof job {}: {}", step_index, e)))?;
+        serde_json::to_string(&output)
+            .map_err(|e| JsError::new(&format!("Error serializing external-proof job output: {}", e)))
+    }
+
+    #[wasm_bindgen]
+    pub async fn prove_zksign_job_json(
+        &self,
+        pk_hash: &str,
+        envelope_json: &str,
+    ) -> Result<String, JsError> {
+        let pk_hash = QHashOut::<F>::from_str(pk_hash)
+            .map_err(|e| JsError::new(&format!("Parse public key hash error: {}", e)))?;
+        let (_envelope, trace) = parse_tx_trace_envelope(envelope_json)?;
+        let output = self
+            .wallet_session
+            .prove_zksign_job(pk_hash, &trace)
+            .await
+            .map_err(|e| JsError::new(&format!("Error proving zksign job: {}", e)))?;
+        serde_json::to_string(&output)
+            .map_err(|e| JsError::new(&format!("Error serializing zksign job output: {}", e)))
+    }
+
+    #[wasm_bindgen]
+    pub async fn prove_endcap_job_from_output_jsons_json(
+        &self,
+        pk_hash: &str,
+        envelope_json: &str,
+        schedule_json: &str,
+        output_jsons: Vec<String>,
+    ) -> Result<String, JsError> {
+        let pk_hash = QHashOut::<F>::from_str(pk_hash)
+            .map_err(|e| JsError::new(&format!("Parse public key hash error: {}", e)))?;
+        let (_envelope, trace) = parse_tx_trace_envelope(envelope_json)?;
+        let schedule: psy_prover::trace::proof_schedule::TraceProofSchedule =
+            serde_json::from_str(schedule_json)
+                .map_err(|e| JsError::new(&format!("Invalid trace proof schedule JSON: {}", e)))?;
+        let outputs = output_jsons
+            .iter()
+            .map(|output_json| serde_json::from_str(output_json))
+            .collect::<Result<Vec<psy_prover::session::TraceProofJobOutput>, _>>()
+            .map_err(|e| JsError::new(&format!("Invalid trace proof job output JSON: {}", e)))?;
+        let output = self
+            .wallet_session
+            .prove_endcap_job_from_outputs(pk_hash, &trace, &schedule, outputs)
+            .await
+            .map_err(|e| JsError::new(&format!("Error proving endcap job: {}", e)))?;
+        serde_json::to_string(&output)
+            .map_err(|e| JsError::new(&format!("Error serializing endcap job output: {}", e)))
+    }
+
+    #[wasm_bindgen]
+    pub async fn submit_endcap_job_json(
+        &self,
+        envelope_json: &str,
+        endcap_output_json: &str,
+    ) -> Result<String, JsError> {
+        let (_envelope, trace) = parse_tx_trace_envelope(envelope_json)?;
+        let endcap: psy_prover::session::TraceProofJobOutput =
+            serde_json::from_str(endcap_output_json)
+                .map_err(|e| JsError::new(&format!("Invalid endcap output JSON: {}", e)))?;
+        let output = self
+            .wallet_session
+            .submit_endcap_job(&trace, endcap)
+            .await
+            .map_err(|e| JsError::new(&format!("Error submitting endcap job: {}", e)))?;
+        serde_json::to_string(&output)
+            .map_err(|e| JsError::new(&format!("Error serializing submit job output: {}", e)))
+    }
+
     /// Stateless ups_start prove: no manager persisted in WASM.
     /// Returns all state JS needs for subsequent steps. `leaf_records` with
     /// `insertion_proof` are inside `proof_tree_meta`. Proof blob returned

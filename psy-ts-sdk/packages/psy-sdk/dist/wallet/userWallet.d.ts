@@ -1,6 +1,6 @@
 import { IPsyUserWallet, IPsyCompleteUserInfo } from "./types";
 import { ICoordinatorEdgeRpcProvider } from "../coord-edge-rpc";
-import { ClaimBatchItem, ContractCallArgs, DPNFunctionCircuitDefinition, GeneratedTxTraceJson, ProveTxTraceResumableJson, TxMetadata } from "../local-prover-rpc";
+import { ClaimBatchItem, ContractCallArgs, DPNFunctionCircuitDefinition, GeneratedTxTraceJson, ProveTxTraceResumableJson, TraceProofConcurrentResult, TxMetadata } from "../local-prover-rpc";
 import { PsyUserLeaf } from "../types";
 import { IPsyTransactionSigner } from "../zksigner";
 import { IRealmEdgeRpcProvider } from "../realm-edge-rpc";
@@ -32,6 +32,7 @@ declare class PsyUserWallet implements IPsyUserWallet {
         proof_blobs: Uint8Array[];
         next_step_index: number;
     }): Promise<ProveTxTraceResumableJson>;
+    proveTxTraceConcurrent(pk_hash: string, envelope: string | GeneratedTxTraceJson): Promise<TraceProofConcurrentResult>;
 }
 export { PsyUserWallet };
 //# sourceMappingURL=userWallet.d.ts.map

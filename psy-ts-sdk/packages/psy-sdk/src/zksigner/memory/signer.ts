@@ -1,5 +1,5 @@
 import { getPsyNetworkMagicForNetworkId, NetworkId } from "../../action";
-import { ClaimBatchItem, ContractCallArgs, ContractCallData, DPNFunctionCircuitDefinition, GeneratedTxTraceJson, IPsyUserProverProvider, ProveTxTraceResumableJson, SignType, TxMetadata } from "../../local-prover-rpc";
+import { ClaimBatchItem, ContractCallArgs, ContractCallData, DPNFunctionCircuitDefinition, GeneratedTxTraceJson, IPsyUserProverProvider, ProveTxTraceResumableJson, SignType, TraceProofConcurrentResult, TxMetadata } from "../../local-prover-rpc";
 import { IPsyTransactionSigner, TPsyTransactionSignerAbility } from "../types";
 import { PsyJSON } from "../../utils/json";
 
@@ -249,6 +249,10 @@ class PsyMemoryTransactionSigner implements IPsyTransactionSigner {
                 status: "failed",
             };
         }
+    }
+
+    async proveTxTraceConcurrent(pkHash: string, envelope: string | GeneratedTxTraceJson): Promise<TraceProofConcurrentResult> {
+        return this.prover.proveTraceJobsConcurrent(pkHash, envelope);
     }
 }
 

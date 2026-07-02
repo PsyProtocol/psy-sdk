@@ -1,5 +1,5 @@
 import { NetworkId } from "../../action";
-import { ClaimBatchItem, ContractCallArgs, ContractCallData, DPNFunctionCircuitDefinition, GeneratedTxTraceJson, IPsyUserProverProvider, ProveTxTraceResumableJson, SignType, TxMetadata } from "../../local-prover-rpc";
+import { ClaimBatchItem, ContractCallArgs, ContractCallData, DPNFunctionCircuitDefinition, GeneratedTxTraceJson, IPsyUserProverProvider, ProveTxTraceResumableJson, SignType, TraceProofConcurrentResult, TxMetadata } from "../../local-prover-rpc";
 import { IPsyTransactionSigner, TPsyTransactionSignerAbility } from "../types";
 declare class PsyMemoryTransactionSigner implements IPsyTransactionSigner {
     networkId: NetworkId;
@@ -33,6 +33,7 @@ declare class PsyMemoryTransactionSigner implements IPsyTransactionSigner {
         proof_blobs: Uint8Array[];
         next_step_index: number;
     }): Promise<ProveTxTraceResumableJson>;
+    proveTxTraceConcurrent(pkHash: string, envelope: string | GeneratedTxTraceJson): Promise<TraceProofConcurrentResult>;
 }
 export { PsyMemoryTransactionSigner };
 //# sourceMappingURL=signer.d.ts.map
