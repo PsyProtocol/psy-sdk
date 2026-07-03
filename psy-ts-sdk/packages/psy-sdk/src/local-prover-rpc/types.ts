@@ -85,6 +85,7 @@ export interface PrivateTransferClaimRaw {
 }
 
 interface ShieldDepositClaimRawBase {
+    user_id?: string;
     nullifier: [string, string, string, string];
     token_address_u32x8: [string, string, string, string, string, string, string, string];
     l2_token_contract_id: [string, string, string, string, string, string, string, string];

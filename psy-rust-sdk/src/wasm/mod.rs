@@ -441,6 +441,8 @@ impl WasmRpcServer {
 
         #[derive(serde::Deserialize)]
         struct ShieldDepositClaimRaw {
+            #[serde(default)]
+            user_id: Option<String>,
             nullifier: [String; 4],
             note_secret: [String; 4],
             token_address_u32x8: [String; 8],
@@ -586,6 +588,7 @@ impl WasmRpcServer {
                     claims.push(ClaimBatchItem::PrivateTransfer { contract_id, claim });
                 }
                 WalletClaimBatchItem::ClaimShieldDeposit(input) => {
+                    let requested_user_id = input.user_id.clone();
                     let nullifier_secret = parse_u64_arr(input.nullifier)?;
                     let note_secret = parse_u64_arr(input.note_secret)?;
                     let token_address = parse_u32_arr(input.token_address_u32x8)?;
@@ -625,9 +628,28 @@ impl WasmRpcServer {
                         .map_err(|e| {
                             JsError::new(&format!("get_user_ids_for_public_key: {}", e))
                         })?;
-                    let user_id = *user_ids
-                        .first()
-                        .ok_or_else(|| JsError::new("No user ID found for public key"))?;
+                    let user_id = match requested_user_id
+                        .as_deref()
+                        .map(str::trim)
+                        .filter(|s| !s.is_empty())
+                    {
+                        Some(raw) => {
+                            let parsed: u64 =
+                                raw.parse().map_err(|e: std::num::ParseIntError| {
+                                    JsError::new(&e.to_string())
+                                })?;
+                            if !user_ids.contains(&parsed) {
+                                return Err(JsError::new(&format!(
+                                    "claim_shield_deposit user_id {} is not registered for public key",
+                                    parsed
+                                )));
+                            }
+                            parsed
+                        }
+                        None => *user_ids
+                            .first()
+                            .ok_or_else(|| JsError::new("No user ID found for public key"))?,
+                    };
 
                     let shield_address = derive_shield_address(user_id, random0, random1);
                     let nullifier_hash = derive_nullifier_hash(nullifier_secret);
@@ -1086,6 +1108,7 @@ impl WasmRpcServer {
         random0: &str,
         random1: &str,
         contract_id: &str,
+        user_id: &str,
     ) -> Result<String, JsError> {
         use plonky2::field::types::PrimeField64;
         use psy_common_circuit::circuits::traits::qstandard::QStandardCircuit;
@@ -1197,9 +1220,23 @@ impl WasmRpcServer {
             .get_user_ids_for_public_key(pk_hash)
             .await
             .map_err(|e| JsError::new(&format!("get_user_ids_for_public_key: {}", e)))?;
-        let user_id = *user_ids
-            .first()
-            .ok_or_else(|| JsError::new("No user ID found for public key"))?;
+        let user_id = match user_id.trim() {
+            "" => *user_ids
+                .first()
+                .ok_or_else(|| JsError::new("No user ID found for public key"))?,
+            raw => {
+                let parsed: u64 = raw
+                    .parse()
+                    .map_err(|e: std::num::ParseIntError| JsError::new(&e.to_string()))?;
+                if !user_ids.contains(&parsed) {
+                    return Err(JsError::new(&format!(
+                        "claim_shield_deposit user_id {} is not registered for public key",
+                        parsed
+                    )));
+                }
+                parsed
+            }
+        };
 
         let shield_address = derive_shield_address(user_id, random0_val, random1_val);
         let nullifier_hash = derive_nullifier_hash(nullifier_secret);
