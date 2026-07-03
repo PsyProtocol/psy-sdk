@@ -93,7 +93,8 @@ interface ShieldDepositClaimRawBase {
     source_chain_index: string;
     deposit_index: string;
     deposit_root: [string, string, string, string];
-    deposit_siblings: [string, string, string, string][];
+    deposit_proof_bincode_b64: string;
+    deposit_proof_fingerprint?: [string, string, string, string];
     random0: string;
     random1: string;
     contract_id: string;

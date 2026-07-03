@@ -99,7 +99,7 @@ export class WasmRpcServer {
     exec_contract_call_json(pk_hash: string, call_data_json: string): Promise<string>;
     /**
      * Atomic shield claim_deposit:
-     * build ShieldDepositClaim proof -> start_session -> add_external_proof -> prove -> sign_and_submit.
+     * build DepositInclusion proof -> start_session -> add_external_proof -> prove -> sign_and_submit.
      *
      * Inputs:
      *   pk_hash                    - receiver's ZK public key (hex QHashOut)
@@ -111,14 +111,14 @@ export class WasmRpcServer {
      *   source_chain_index         - decimal string
      *   deposit_index              - decimal string
      *   deposit_root_json          - JSON array of 4 decimal strings (QHashOut limbs)
-     *   deposit_siblings_json      - JSON array of arrays of 4 decimal strings
+     *   deposit_proof_bincode_b64  - base64-encoded DepositInclusion proof bytes
      *   random0                    - decimal string
      *   random1                    - decimal string
      *   contract_id                - decimal string
      *
      * Returns the transaction hash string.
      */
-    exec_shield_claim_deposit_json(pk_hash: string, nullifier_json: string, note_secret_json: string, token_address_u32x8_json: string, l2_token_contract_id_json: string, amount_u32x8_json: string, source_chain_index: string, deposit_index: string, deposit_root_json: string, deposit_siblings_json: string, random0: string, random1: string, contract_id: string, user_id: string): Promise<string>;
+    exec_shield_claim_deposit_json(pk_hash: string, nullifier_json: string, note_secret_json: string, token_address_u32x8_json: string, l2_token_contract_id_json: string, amount_u32x8_json: string, source_chain_index: string, deposit_index: string, deposit_root_json: string, deposit_proof_bincode_b64: string, random0: string, random1: string, contract_id: string, user_id: string): Promise<string>;
     get_deploy_contract_cmd_json(deployer: string, circuit_defs_json: string): string;
     get_random_keypair_json(): Promise<string>;
     get_result(id_str: string): Uint8Array;
@@ -127,6 +127,14 @@ export class WasmRpcServer {
     ping(message: string): string;
     prove_contract_call_json(pk_hash: string, contract_call_json: string): Promise<string>;
     prove_contract_calls_json(pk_hash: string, contract_calls_json: string): Promise<string>;
+    /**
+     * Generate a sender-side DepositInclusion ZK proof for a shield deposit backup.
+     *
+     * This proves the deposit commitment exists in the deposit tree without
+     * requiring receiver-side r0/r1/user_id. Inputs are encoded with the same
+     * u32x8/QHashOut layouts used by claim_deposit.
+     */
+    prove_deposit_inclusion_json(shield_address_json: string, nullifier_json: string, note_secret_json: string, token_address_u32x8_json: string, l2_token_contract_id_json: string, amount_u32x8_json: string, source_chain_index: string, deposit_index: string, deposit_root_json: string, deposit_siblings_json: string): Promise<string>;
     /**
      * Generate a PrivateNoteInclusion ZK proof and return the full NoteProofOutput as JSON.
      *
@@ -202,6 +210,7 @@ export interface InitOutput {
     readonly wasmrpcserver_ping: (a: number, b: number, c: number) => [number, number, number, number];
     readonly wasmrpcserver_prove_contract_call_json: (a: number, b: number, c: number, d: number, e: number) => any;
     readonly wasmrpcserver_prove_contract_calls_json: (a: number, b: number, c: number, d: number, e: number) => any;
+    readonly wasmrpcserver_prove_deposit_inclusion_json: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number, l: number, m: number, n: number, o: number, p: number, q: number, r: number, s: number, t: number, u: number) => any;
     readonly wasmrpcserver_prove_private_note_inclusion_json: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number, l: number, m: number, n: number, o: number, p: number, q: number) => any;
     readonly wasmrpcserver_register_sdk_key_circuit: (a: number, b: number, c: number, d: number, e: number, f: bigint) => any;
     readonly wasmrpcserver_register_user: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => any;
@@ -211,8 +220,8 @@ export interface InitOutput {
     readonly wasmconstants_register_user_fee: () => bigint;
     readonly wasm_bindgen__convert__closures_____invoke__h41d768e04850544c: (a: number, b: number, c: any) => [number, number];
     readonly wasm_bindgen__convert__closures_____invoke__h702ca093da666827: (a: number, b: number, c: any, d: any) => void;
-    readonly wasm_bindgen__convert__closures_____invoke__hc2aeb2518eaf4ea7: (a: number, b: number, c: any) => void;
     readonly wasm_bindgen__convert__closures_____invoke__h5ee5a126ae61dad8: (a: number, b: number, c: any) => void;
+    readonly wasm_bindgen__convert__closures_____invoke__hc2aeb2518eaf4ea7: (a: number, b: number, c: any) => void;
     readonly wasm_bindgen__convert__closures_____invoke__h0e7e04cf3c77836f: (a: number, b: number) => void;
     readonly memory: WebAssembly.Memory;
     readonly __wbindgen_malloc: (a: number, b: number) => number;
