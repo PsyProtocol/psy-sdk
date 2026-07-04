@@ -417,7 +417,7 @@ impl WasmRpcServer {
                 contract_id: String,
                 claim: PrivateTransferClaimInput,
             },
-            ClaimShieldDeposit(ShieldDepositClaimRaw),
+            ClaimShieldDeposit(DepositInclusionClaimRaw),
         }
 
         #[derive(serde::Deserialize)]
@@ -438,7 +438,7 @@ impl WasmRpcServer {
         }
 
         #[derive(serde::Deserialize)]
-        struct ShieldDepositClaimRaw {
+        struct DepositInclusionClaimRaw {
             #[serde(default)]
             user_id: Option<String>,
             nullifier: [String; 4],

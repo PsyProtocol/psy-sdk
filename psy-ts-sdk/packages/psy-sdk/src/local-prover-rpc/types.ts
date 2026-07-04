@@ -84,7 +84,7 @@ export interface PrivateTransferClaimRaw {
     shield_address?: string;
 }
 
-interface ShieldDepositClaimRawBase {
+interface DepositInclusionClaimRawBase {
     user_id?: string;
     nullifier: [string, string, string, string];
     token_address_u32x8: [string, string, string, string, string, string, string, string];
@@ -101,14 +101,14 @@ interface ShieldDepositClaimRawBase {
     shield_address?: string;
 }
 
-export type ShieldDepositClaimRaw = ShieldDepositClaimRawBase & {
+export type DepositInclusionClaimRaw = DepositInclusionClaimRawBase & {
     note_secret: [string, string, string, string];
 };
 
 export type ClaimBatchItem =
     | { type: "public"; data: ContractCallArgs }
     | { type: "private_transfer"; data: { contract_id: string; claim: PrivateTransferClaimRaw } }
-    | { type: "claim_shield_deposit"; data: ShieldDepositClaimRaw };
+    | { type: "claim_shield_deposit"; data: DepositInclusionClaimRaw };
 
 // Core input for SubmitUserEndCapNonProofInput
 interface SubmitUserEndCapNonProofCoreInput {
