@@ -136,19 +136,26 @@ export interface SignData {
 
 export interface BridgeWithdrawalWitnessInput {
     withdrawal_root: string;
+    sender_user_id: number;
     recipient: number[];
     token: number[];
     amount: number[];
-    nonce: number;
-    dest_chain_id: number;
+    nonce: number[];
+    destination_chain_index: number;
     leaf_index: number;
     bridge_user_id: number;
     siblings: string[];
 }
 
+export interface BridgeWithdrawalBatchWitnessInput {
+    bridge_user_id: number;
+    withdrawals: BridgeWithdrawalWitnessInput[];
+}
+
 export interface BridgeWithdrawalGroth16Proof {
     solidity_proof: string[];
     public_inputs: number[];
+    slot_data: number[];
 }
 
 export interface BridgeDepositLeafInput {
