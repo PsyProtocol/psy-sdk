@@ -1,7 +1,7 @@
 export class TypesGenerator {
     generate(): string {
         return `// Auto-generated type definitions - Do not edit manually
-import { IContractProvider } from '@psy-protocol/psy-sdk';
+import { IContractStateReader, IContractProvider } from '@psy-protocol/psy-sdk';
 
 // Common types used throughout the SDK
 export type Felt = bigint | number;
@@ -58,8 +58,8 @@ export interface ISigner {
   provider: IContractProvider;
 }
 
-// Re-export IContractProvider from psy-sdk
-export type { IContractProvider };
+// Re-export provider interfaces from psy-sdk
+export type { IContractStateReader, IContractProvider };
 
 // Decodable interface for recursive decoding
 export interface Decodable<T> {

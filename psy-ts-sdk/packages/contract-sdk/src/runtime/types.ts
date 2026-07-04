@@ -1,5 +1,5 @@
 // Runtime type definitions
-import { IContractProvider } from "@psy-protocol/psy-sdk";
+import { IContractProvider, IContractStateReader } from "@psy-protocol/psy-sdk";
 
 export type Felt = bigint | number;
 export type GHash = [Felt, Felt, Felt, Felt];
@@ -43,7 +43,7 @@ export interface ISigner {
     provider: IContractProvider;
 }
 
-export type { IContractProvider };
+export type { IContractProvider, IContractStateReader };
 
 export interface Decodable<T> {
     decode(data: Felt[]): T;

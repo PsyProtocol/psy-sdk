@@ -3,12 +3,13 @@ import { AbiInput, FieldPath, InternalContract, InternalFunction, InternalStruct
 import { RecursiveDecoder } from "./decoder";
 import { createMerkleHelper } from "./merkle-helper";
 import { createVariableProxy, IFlatVariablePosition } from "./proxy";
-import { Felt, IContractProvider, ISigner } from "./types";
+import { Felt, IContractStateReader, ISigner } from "./types";
 import "./types"; // side-effect: patches Array.prototype.toFelts
 
 export interface ContractOptions {
     checkpointId: Felt;
     userId: Felt;
+    contractName?: string;
 }
 
 // Detect whether a function is a view (read-only) call.
@@ -72,7 +73,7 @@ function serializeArgs(
 export class Contract {
     private _contractId: Felt;
     private _abi: AbiInput;
-    private _provider: IContractProvider;
+    private _provider: IContractStateReader;
     private _signer?: ISigner;
     private _checkpointId: Felt;
     private _userId: Felt;
@@ -83,7 +84,7 @@ export class Contract {
     private _structs: Map<string, InternalStruct> = new Map();
     private _internalContract: InternalContract;
 
-    constructor(contractId: Felt, abi: AbiInput, signerOrProvider: ISigner | IContractProvider, opts: ContractOptions) {
+    constructor(contractId: Felt, abi: AbiInput, signerOrProvider: ISigner | IContractStateReader, opts: ContractOptions) {
         this._contractId = contractId;
         this._abi = abi;
         this._checkpointId = opts.checkpointId;
@@ -104,13 +105,15 @@ export class Contract {
             );
         }
 
-        if ("sendTransaction" in signerOrProvider && "getContractState" in signerOrProvider) {
-            this._provider = signerOrProvider;
+        if ("getContractState" in signerOrProvider) {
+            // Provider (IContractStateReader or IContractProvider)
+            this._provider = signerOrProvider as IContractStateReader;
         } else if ("provider" in signerOrProvider) {
-            this._signer = signerOrProvider;
+            // Signer
+            this._signer = signerOrProvider as ISigner;
             this._provider = signerOrProvider.provider;
         } else {
-            throw new Error("Invalid signerOrProvider: must be either a Signer or Provider");
+            throw new Error("Invalid signerOrProvider: must be either a Signer, IContractProvider, or IContractStateReader");
         }
 
         // Convert ABI.
@@ -120,11 +123,26 @@ export class Contract {
         if (converted.contracts.length === 0) {
             throw new Error("No contract found in ABI");
         }
-        if (converted.contracts.length > 1) {
-            throw new Error("Multiple contracts in ABI not yet supported. Use codegen path.");
-        }
 
-        const contract = converted.contracts[0];
+        let contract: InternalContract;
+        if (converted.contracts.length === 1) {
+            contract = converted.contracts[0];
+        } else {
+            // Multi-contract ABI: select by name
+            const name = opts.contractName;
+            if (!name) {
+                const names = converted.contracts.map(c => c.name).join(", ");
+                throw new Error(
+                    `ABI contains ${converted.contracts.length} contracts (${names}). ` +
+                    `Specify which one via opts.contractName.`
+                );
+            }
+            contract = converted.contracts.find(c => c.name === name) ?? converted.contracts.find(c => c.name === `${name}Ref`);
+            if (!contract) {
+                const names = converted.contracts.map(c => c.name).join(", ");
+                throw new Error(`Contract "${name}" not found in ABI. Available: ${names}`);
+            }
+        }
         this._internalContract = contract;
 
         for (const fn of contract.functions) {
@@ -180,16 +198,16 @@ export class Contract {
             this._contractId,
             this._abi,
             signer,
-            { checkpointId: this._checkpointId, userId: this._userId }
+            { checkpointId: this._checkpointId, userId: this._userId, contractName: this._internalContract.name }
         );
     }
 
-    connect(signerOrProvider: ISigner | IContractProvider): Contract {
+    connect(signerOrProvider: ISigner | IContractStateReader): Contract {
         return new Contract(
             this._contractId,
             this._abi,
             signerOrProvider,
-            { checkpointId: this._checkpointId, userId: this._userId }
+            { checkpointId: this._checkpointId, userId: this._userId, contractName: this._internalContract.name }
         );
     }
 
@@ -210,7 +228,7 @@ export class Contract {
             this._contractId,
             this._abi,
             this._signer || this._provider,
-            { checkpointId: newCheckpointId, userId: this._userId }
+            { checkpointId: newCheckpointId, userId: this._userId, contractName: this._internalContract.name }
         );
     }
 
@@ -240,7 +258,7 @@ export class Contract {
         return this._signer;
     }
 
-    get provider(): IContractProvider {
+    get provider(): IContractStateReader {
         return this._provider;
     }
 
@@ -250,6 +268,18 @@ export class Contract {
             const proxy = createVariableProxy(this._merkleHelper, varPos, BigInt(0));
             this._stateProxies.set(varPos.name, proxy);
         });
+    }
+
+    /**
+     * Call a contract method by name. This is the public entry point for
+     * method invocation — both view and external functions.
+     *
+     * For map updates: instead of writing state directly (which requires a proof),
+     * call the contract method that performs the map operation:
+     *   await contract.callMethod("simple_transfer", recipientId, amount);
+     */
+    async callMethod(methodName: string, ...args: any[]): Promise<any> {
+        return this._dispatchFunction(methodName, args);
     }
 
     private async _dispatchFunction(name: string, args: any[]): Promise<any> {
@@ -265,14 +295,37 @@ export class Contract {
 
         const serializedArgs = serializeArgs(args, fn.field_flat_paths, this._structs);
 
-        const result = await this._provider.sendTransaction(
-            this._contractId,
-            name,
-            serializedArgs,
-            this._signer?.publicKey
-        );
+        let result: any;
+        const provider = this._provider as any;
+        if (view && provider.callViewFunction) {
+            // View functions: use read-only execution when available (no signer needed)
+            result = await provider.callViewFunction(
+                this._contractId,
+                name,
+                serializedArgs,
+            );
+        } else if (provider.sendTransaction) {
+            // External functions or view-without-callViewFunction: submit transaction
+            result = await provider.sendTransaction(
+                this._contractId,
+                name,
+                serializedArgs,
+                this._signer?.publicKey
+            );
+        } else {
+            throw new Error(
+                `Cannot execute ${view ? "view" : "external"} function "${name}": ` +
+                `provider does not implement ${view ? "callViewFunction" : "sendTransaction"}. ` +
+                `Use a full IContractProvider instead of IContractStateReader.`
+            );
+        }
 
         if (fn.return_size > 0) {
+            // Try type-aware decoding first, fall back to basic decoding
+            if (fn.return_type_flat_paths && fn.return_type_flat_paths.length > 0) {
+                const felts = Array.isArray(result) ? result : [result];
+                return this._decoder.decodeReturnType(felts, fn.return_type_flat_paths, this._structs);
+            }
             return this._decoder.decodeReturnValue(result);
         }
     }

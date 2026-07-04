@@ -1,9 +1,9 @@
 import { keccak256, toBeHex, zeroPadValue } from "ethers";
-import { Felt, IContractProvider } from "./types";
+import { Felt, IContractStateReader } from "./types";
 import { IMerkleProxyHelper, wrapMerkleProxyHelperBasicSimplifier } from "./proxy";
 
 export function createMerkleHelper(
-    provider: IContractProvider,
+    provider: IContractStateReader,
     checkpointId: Felt,
     contractId: Felt,
     userId: Felt

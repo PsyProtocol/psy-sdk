@@ -14,7 +14,7 @@ export class OriginalFormatContractGenerator {
 ${structDefinitions}
 
 export class ${className} {
-  private _provider: IContractProvider;
+  private _provider: IContractStateReader;
   private _signer?: ISigner;
   private _checkpointId: Felt;
   private _contractId: Felt;
@@ -23,14 +23,14 @@ export class ${className} {
   private _decoder: RecursiveDecoder;
   private _stateProxies: Map<string, any> = new Map();
 
-  constructor(checkpointId: Felt, userId: Felt, contractId: Felt, signerOrProvider: ISigner | IContractProvider) {
+  constructor(checkpointId: Felt, userId: Felt, contractId: Felt, signerOrProvider: ISigner | IContractStateReader) {
     this._checkpointId = checkpointId;
     this._userId = userId;
     this._contractId = contractId;
     
     // Handle both signer and provider inputs
-    if ('sendTransaction' in signerOrProvider && 'getContractState' in signerOrProvider) {
-      // It's a provider
+    if ('getContractState' in signerOrProvider) {
+      // It's a provider (IContractStateReader or IContractProvider)
       this._provider = signerOrProvider;
     } else if ('provider' in signerOrProvider) {
       // It's a signer
@@ -56,7 +56,7 @@ export class ${className} {
   }
 
   // Connect to a different provider
-  connect(signerOrProvider: ISigner | IContractProvider): ${className} {
+  connect(signerOrProvider: ISigner | IContractStateReader): ${className} {
     return new ${className}(this._checkpointId, this._userId, this._contractId, signerOrProvider);
   }
 
@@ -110,7 +110,7 @@ export class ${className} {
   }
 
   // Get the current provider
-  get provider(): IContractProvider {
+  get provider(): IContractStateReader {
     return this._provider;
   }
 
@@ -131,7 +131,7 @@ ${variablePositionsConstant}
     private generateImports(): string {
         return `// Auto-generated from ABI - Do not edit manually
 import { RecursiveDecoder } from './decoder';
-import { IContractProvider } from '@psy-protocol/psy-sdk';
+import { IContractStateReader } from '@psy-protocol/psy-sdk';
 import { Felt, GHash, ISigner, PsyFixedArray } from './types';
 import { keccak256, toBeHex, zeroPadValue } from 'ethers';
 
@@ -357,20 +357,20 @@ function wrapMerkleProxyHelperBasicSimplifier(
           }`).join('\n    ')}
           ` : "const serializedArgs: Felt[] = [];";
 
+                const isView = this.isViewFunction(fn);
+                const dispatchCode = isView
+                    ? `const result = await (this._provider as any).callViewFunction?.(\n      this._contractId,\n      '${fn.name}',\n      serializedArgs,\n    ) ?? await (this._provider as any).sendTransaction(\n      this._contractId,\n      '${fn.name}',\n      serializedArgs,\n      this._signer?.publicKey\n    );`
+                    : `const result = await (this._provider as any).sendTransaction(\n      this._contractId,\n      '${fn.name}',\n      serializedArgs,\n      this._signer?.publicKey\n    );`;
+
                 return `  async ${fn.name}(${params}): ${returnType} {
     // Check if we have a signer for state-changing functions
-    const isViewFunction = ${this.isViewFunction(fn)};
+    const isViewFunction = ${isView};
     if (!isViewFunction && !this._signer) {
       throw new Error('Signer required for state-changing functions. Use contract.attach(signer)');
     }
     ${serializeCode}
-    const result = await this._provider.sendTransaction(
-      this._contractId,
-      '${fn.name}',
-      serializedArgs,
-      this._signer?.publicKey
-    );${hasReturn ? "\n    return this._decoder.decodeReturnValue(result);" : ""}
-  }`;
+    ${dispatchCode}${hasReturn ? "\n    return this._decoder.decodeReturnValue(result);" : ""}
+  }`
             })
             .join("\n\n");
     }
