@@ -55,6 +55,7 @@ export const wasmrpcserver_prepare_trace_proof_schedule_json: (a: number, b: num
 export const wasmrpcserver_prove_cfc_job_with_schedule_step_json: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number) => any;
 export const wasmrpcserver_prove_contract_call_json: (a: number, b: number, c: number, d: number, e: number) => any;
 export const wasmrpcserver_prove_contract_calls_json: (a: number, b: number, c: number, d: number, e: number) => any;
+export const wasmrpcserver_prove_deposit_inclusion_json: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number, l: number, m: number, n: number, o: number, p: number, q: number, r: number, s: number, t: number, u: number) => any;
 export const wasmrpcserver_prove_end_cap_proof_json: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number, l: number, m: number) => any;
 export const wasmrpcserver_prove_endcap_job_from_output_jsons_json: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number) => any;
 export const wasmrpcserver_prove_external_proof_job_json: (a: number, b: number, c: number, d: number) => any;

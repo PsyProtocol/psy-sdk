@@ -107,9 +107,6 @@ export class WasmRpcServer {
     exec_contract_call_json(pk_hash: string, call_data_json: string): Promise<string>;
     exec_contract_call_with_trace_json(pk_hash: string, call_data_json: string): Promise<string>;
     /**
-     * Atomic shield claim_deposit:
-     * build ShieldDepositClaim proof -> start_session -> add_external_proof -> prove -> sign_and_submit.
-     *
      * Inputs:
      *   pk_hash                    - receiver's ZK public key (hex QHashOut)
      *   nullifier_json             - JSON array of 4 decimal strings
@@ -147,6 +144,39 @@ export class WasmRpcServer {
     prove_cfc_job_with_schedule_step_json(pk_hash: string, envelope_json: string, schedule_json: string, step_index: number): Promise<string>;
     prove_contract_call_json(pk_hash: string, contract_call_json: string): Promise<string>;
     prove_contract_calls_json(pk_hash: string, contract_calls_json: string): Promise<string>;
+    /**
+     * Atomic shield claim_deposit:
+     * build ShieldDepositClaim proof -> start_session -> add_external_proof -> prove -> sign_and_submit.
+     *
+     * Generate a sender-side DepositInclusion proof packet without
+     * submitting any claim transaction.
+     *
+     * Inputs:
+     *   shield_address_json         - JSON array of 4 decimal strings
+     *   nullifier_json             - JSON array of 4 decimal strings
+     *   note_secret_json           - JSON array of 4 decimal strings
+     *   token_address_u32x8_json   - JSON array of 8 decimal strings (bytes32 BE words)
+     *   l2_token_contract_id_json  - JSON array of 8 decimal strings (bytes32 BE words)
+     *   amount_u32x8_json          - JSON array of 8 decimal strings (bytes32 BE words)
+     *   source_chain_index         - decimal string
+     *   deposit_index              - decimal string
+     *   deposit_root_json          - JSON array of 4 decimal strings (QHashOut limbs)
+     *   deposit_siblings_json      - JSON array of arrays of 4 decimal strings
+     *
+     * Returns JSON containing:
+     *   deposit_proof_bincode_b64
+     *   deposit_proof_fingerprint
+     *   shield_address
+     *   amount_u32x8
+     *   token_address_u32x8
+     *   l2_token_contract_id
+     *   source_chain_index
+     *   deposit_index
+     *   deposit_root
+     *   nullifier_hash
+     *   note_commitment
+     */
+    prove_deposit_inclusion_json(shield_address_json: string, nullifier_json: string, note_secret_json: string, token_address_u32x8_json: string, l2_token_contract_id_json: string, amount_u32x8_json: string, source_chain_index: string, deposit_index: string, deposit_root_json: string, deposit_siblings_json: string): Promise<string>;
     /**
      * Stateless end-cap prove: reconstructs all leaf_proofs from JS-provided records,
      * adds ZkSign leaf, runs finalize_tree. Takes external signature proof.
@@ -272,6 +302,7 @@ export interface InitOutput {
     readonly wasmrpcserver_prove_cfc_job_with_schedule_step_json: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number) => any;
     readonly wasmrpcserver_prove_contract_call_json: (a: number, b: number, c: number, d: number, e: number) => any;
     readonly wasmrpcserver_prove_contract_calls_json: (a: number, b: number, c: number, d: number, e: number) => any;
+    readonly wasmrpcserver_prove_deposit_inclusion_json: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number, l: number, m: number, n: number, o: number, p: number, q: number, r: number, s: number, t: number, u: number) => any;
     readonly wasmrpcserver_prove_end_cap_proof_json: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number, l: number, m: number) => any;
     readonly wasmrpcserver_prove_endcap_job_from_output_jsons_json: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number) => any;
     readonly wasmrpcserver_prove_external_proof_job_json: (a: number, b: number, c: number, d: number) => any;
