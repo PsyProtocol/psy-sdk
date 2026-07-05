@@ -108,20 +108,9 @@ class PsyMemoryTransactionSigner implements IPsyTransactionSigner {
         let envelopeJson = PsyJSON.stringify(envelopeObj);
 
         const toU8 = (a: number[] | Uint8Array): Uint8Array => a instanceof Uint8Array ? a : new Uint8Array(a);
-        const toArray = (a: Uint8Array): number[] => Array.from(a);
         const tracePayload = PsyJSON.parse(envelopeObj.trace.payload) as {
             ups_start_witness: Record<string, unknown>;
             steps: Array<Record<string, unknown>>;
-        };
-        const syncEnvelopePayload = () => {
-            envelopeObj = {
-                ...envelopeObj,
-                trace: {
-                    ...envelopeObj.trace,
-                    payload: PsyJSON.stringify(tracePayload),
-                },
-            };
-            envelopeJson = PsyJSON.stringify(envelopeObj);
         };
 
         let meta: unknown;
@@ -167,11 +156,6 @@ class PsyMemoryTransactionSigner implements IPsyTransactionSigner {
                 const upsProof = toU8(startResult.ups_proof);
                 allProofBlobs = [upsProof];
                 nextStepIndex = 0;
-                tracePayload.ups_start_witness = {
-                    ...tracePayload.ups_start_witness,
-                    proof: { proof: toArray(upsProof) },
-                };
-                syncEnvelopePayload();
             }
 
             for (let stepIndex = nextStepIndex; stepIndex < tracePayload.steps.length; stepIndex++) {
@@ -200,7 +184,6 @@ class PsyMemoryTransactionSigner implements IPsyTransactionSigner {
                     );
                     allProofBlobs.push(externalProof);
                     nextStepIndex = stepIndex + 1;
-                    syncEnvelopePayload();
                     continue;
                 }
 
@@ -221,15 +204,7 @@ class PsyMemoryTransactionSigner implements IPsyTransactionSigner {
                 const upsProof = toU8(stepResult.ups_proof);
                 allProofBlobs.push(cfcProof);
                 allProofBlobs.push(upsProof);
-                tracePayload.steps[stepIndex] = {
-                    ...step,
-                    proof: {
-                        cfc_proof: toArray(cfcProof),
-                        ups_proof: toArray(upsProof),
-                    },
-                };
                 nextStepIndex = stepIndex + 1;
-                syncEnvelopePayload();
             }
 
             const sighashJson = await this.prover.computeSighashFromEnvelope(envelopeJson, currHeader);
