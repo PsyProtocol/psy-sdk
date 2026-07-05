@@ -212,11 +212,21 @@ export interface ProvedTxResultJson {
     status: string;
 }
 
+export interface TraceStepResumeStateJson {
+    proof_tree_meta: unknown;
+    last_step_info: unknown;
+    current_header: unknown;
+    previous_header: unknown;
+    proof_blobs: Uint8Array[];
+    next_step_index: number;
+}
+
 export interface ProveTxTraceResumableJson {
     generated: GeneratedTxTraceJson;
     proved: ProvedTxResultJson | null;
     error: string | null;
     status: "submitted" | "failed";
+    resume_from: TraceStepResumeStateJson | null;
 }
 
 export interface InitStepProvingJson {

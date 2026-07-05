@@ -1,5 +1,5 @@
 import { getPsyNetworkMagicForNetworkId, NetworkId } from "../../action";
-import { ClaimBatchItem, ContractCallArgs, ContractCallData, DPNFunctionCircuitDefinition, GeneratedTxTraceJson, IPsyUserProverProvider, ProveTxTraceResumableJson, SignType, TraceProofConcurrentResult, TxMetadata } from "../../local-prover-rpc";
+import { ClaimBatchItem, ContractCallArgs, ContractCallData, DPNFunctionCircuitDefinition, GeneratedTxTraceJson, IPsyUserProverProvider, ProveTxTraceResumableJson, SignType, TraceProofConcurrentResult, TraceStepResumeStateJson, TxMetadata } from "../../local-prover-rpc";
 import { IPsyTransactionSigner, TPsyTransactionSignerAbility } from "../types";
 import { PsyJSON } from "../../utils/json";
 
@@ -124,21 +124,40 @@ class PsyMemoryTransactionSigner implements IPsyTransactionSigner {
             envelopeJson = PsyJSON.stringify(envelopeObj);
         };
 
-        try {
-            let meta: unknown;
-            let baton: unknown;
-            let currHeader: unknown;
-            let prevHeader: unknown;
-            let allProofBlobs: Uint8Array[];
-            let startStep: number;
+        let meta: unknown;
+        let baton: unknown;
+        let currHeader: unknown;
+        let prevHeader: unknown;
+        let allProofBlobs: Uint8Array[] | undefined;
+        let nextStepIndex = resumeFrom?.next_step_index ?? 0;
+        const captureResumeState = (): TraceStepResumeStateJson | null => {
+            if (
+                meta === undefined ||
+                baton === undefined ||
+                currHeader === undefined ||
+                prevHeader === undefined ||
+                allProofBlobs === undefined
+            ) {
+                return null;
+            }
+            return {
+                proof_tree_meta: meta,
+                last_step_info: baton,
+                current_header: currHeader,
+                previous_header: prevHeader,
+                proof_blobs: allProofBlobs.map(toU8),
+                next_step_index: nextStepIndex,
+            };
+        };
 
+        try {
             if (resumeFrom) {
                 meta = resumeFrom.proof_tree_meta;
                 baton = resumeFrom.last_step_info;
                 currHeader = resumeFrom.current_header;
                 prevHeader = resumeFrom.previous_header;
                 allProofBlobs = resumeFrom.proof_blobs.map(toU8);
-                startStep = resumeFrom.next_step_index;
+                nextStepIndex = resumeFrom.next_step_index;
             } else {
                 const startResult = await this.prover.proveUpsStart(pkHash, envelopeJson);
                 meta = startResult.proof_tree_meta;
@@ -147,7 +166,7 @@ class PsyMemoryTransactionSigner implements IPsyTransactionSigner {
                 prevHeader = startResult.previous_header;
                 const upsProof = toU8(startResult.ups_proof);
                 allProofBlobs = [upsProof];
-                startStep = 0;
+                nextStepIndex = 0;
                 tracePayload.ups_start_witness = {
                     ...tracePayload.ups_start_witness,
                     proof: { proof: toArray(upsProof) },
@@ -155,11 +174,12 @@ class PsyMemoryTransactionSigner implements IPsyTransactionSigner {
                 syncEnvelopePayload();
             }
 
-            for (let stepIndex = startStep; stepIndex < tracePayload.steps.length; stepIndex++) {
+            for (let stepIndex = nextStepIndex; stepIndex < tracePayload.steps.length; stepIndex++) {
                 const step = tracePayload.steps[stepIndex];
                 const kind = String(step?.kind ?? "");
 
                 if (kind === "zk_sign") {
+                    nextStepIndex = stepIndex;
                     break;
                 }
 
@@ -179,6 +199,7 @@ class PsyMemoryTransactionSigner implements IPsyTransactionSigner {
                         externalProof,
                     );
                     allProofBlobs.push(externalProof);
+                    nextStepIndex = stepIndex + 1;
                     syncEnvelopePayload();
                     continue;
                 }
@@ -207,6 +228,7 @@ class PsyMemoryTransactionSigner implements IPsyTransactionSigner {
                         ups_proof: toArray(upsProof),
                     },
                 };
+                nextStepIndex = stepIndex + 1;
                 syncEnvelopePayload();
             }
 
@@ -240,6 +262,7 @@ class PsyMemoryTransactionSigner implements IPsyTransactionSigner {
                 },
                 error: null,
                 status: "submitted",
+                resume_from: null,
             };
         } catch (e: any) {
             return {
@@ -247,6 +270,7 @@ class PsyMemoryTransactionSigner implements IPsyTransactionSigner {
                 proved: null,
                 error: PsyJSON.stringify(e?.message ?? String(e)),
                 status: "failed",
+                resume_from: captureResumeState(),
             };
         }
     }
