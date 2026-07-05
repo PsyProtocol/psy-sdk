@@ -2,6 +2,7 @@
 import { IContractProvider, IContractStateReader } from "@psy-protocol/psy-sdk";
 
 export type Felt = bigint | number;
+export type u32 = Felt;
 export type GHash = [Felt, Felt, Felt, Felt];
 export type PsyFixedArray<T, L extends number> = ReadonlyArray<T> & { length: L };
 

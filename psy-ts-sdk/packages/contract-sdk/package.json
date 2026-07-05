@@ -9,7 +9,7 @@
     "abi"
   ],
   "scripts": {
-    "clean": "rm -rf dist generated/*",
+    "clean": "rm -rf dist && find generated -mindepth 1 ! -name '.gitkeep' ! -name 'tsconfig.json' ! -name 'package.json' -delete",
     "build": "tsc -p tsconfig.build.json",
     "generate": "tsx src/cli.ts -i ./abi/contract.abi.json -o ./generated",
     "postgenerate": "prettier --write ./generated/**/*.ts",

@@ -73,6 +73,8 @@ export class SDKGenerator {
 
         // Generate README
         files.set("README.md", this.generateReadme(contractNames));
+        files.set("tsconfig.json", this.generateTsconfig());
+        files.set("package.json", this.generatePackageJson());
 
         // Write all files
         for (const [filename, content] of files) {
@@ -146,6 +148,39 @@ const contract = new ${firstContract}(userId, contractId, signer);
 await contract.simple_mint(1000n);
 \`\`\`
 `;
+    }
+
+    private generateTsconfig(): string {
+        return JSON.stringify(
+            {
+                compilerOptions: {
+                    target: "ES2020",
+                    module: "commonjs",
+                    moduleResolution: "node",
+                    lib: ["ES2020"],
+                    strict: false,
+                    skipLibCheck: true,
+                    esModuleInterop: true,
+                    allowSyntheticDefaultImports: true,
+                    noEmit: true,
+                },
+                include: ["./*.ts"],
+            },
+            null,
+            2
+        );
+    }
+
+    private generatePackageJson(): string {
+        return JSON.stringify(
+            {
+                name: "@psy-protocol/generated-contract-sdk",
+                private: true,
+                type: "commonjs",
+            },
+            null,
+            2
+        );
     }
 
     private writeFile(filename: string, content: string): void {

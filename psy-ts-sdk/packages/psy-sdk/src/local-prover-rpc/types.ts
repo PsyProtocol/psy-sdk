@@ -1,5 +1,5 @@
 import { Felt, PrivateKey, PublicKey, QHashOut, U8Bytes } from "../core";
-import { QBCDeployContract, ZKPublicKeyInfo, ContractCallArgs, WalletKeyPair } from "../types";
+import { QBCDeployContract, ZKPublicKeyInfo, ContractCallArgs, WalletKeyPair, GUTAStats } from "../types";
 
 // Assertion for DPN function circuits
 interface DPNAssertEqInfoIndexed {
@@ -71,16 +71,18 @@ interface AltVerifierOnlyCircuitData {
 }
 
 export interface PrivateTransferClaimRaw {
-    note_proof_bincode_b64: string;
+    note_proof?: Uint8Array;
+    note_proof_bincode_b64?: string;
     nullifier: [string, string, string, string];
     owner: [string, string, string, string];
     amount: string;
     user_tree_root: [string, string, string, string];
     checkpoint_id: string;
     note_root_slot: string;
-    note_proof_fingerprint?: [string, string, string, string];
     random0: string;
     random1: string;
+    note_proof_fingerprint?: [string, string, string, string];
+    note_verifier_data?: AltVerifierOnlyCircuitData;
     shield_address?: string;
 }
 
@@ -185,21 +187,213 @@ export interface ContractCallData {
     software_defined_call: SignData;
 }
 
+export type JsonPrimitive = string | number | boolean | null;
+export type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue };
+
+export interface TracePayload {
+    encoding: string;
+    payload: string;
+}
+
+export interface GeneratedTxTraceJson {
+    user_id: string;
+    pk_hash: string;
+    sig_hash: string;
+    tx_hash: string;
+    call_data: JsonValue;
+    tx_count: number;
+    trace: TracePayload;
+}
+
+export interface ProvedTxResultJson {
+    sig_hash: string;
+    tx_hash: string;
+    checkpoint_id: Felt | null;
+    status: string;
+}
+
+export interface ProveTxTraceResumableJson {
+    generated: GeneratedTxTraceJson;
+    proved: ProvedTxResultJson | null;
+    error: string | null;
+    status: "submitted" | "failed";
+}
+
+export interface InitStepProvingJson {
+    proof_tree_meta: unknown;
+    last_step_info: unknown;
+    current_header: unknown;
+    previous_header: unknown;
+    ups_proof: Uint8Array;
+}
+
+export interface ProveStepJson {
+    cfc_proof: Uint8Array;
+    ups_proof: Uint8Array;
+    proof_tree_meta: unknown;
+    last_step_info: unknown;
+    current_header: unknown;
+    previous_header: unknown;
+}
+
+export interface ProveEndCapProofJson {
+    end_cap_proof: Uint8Array;
+    tx_hash: string;
+}
+
+export type TraceProofScheduleJson = string;
+export type TraceProofJobOutputJson = string;
+
+export interface TraceProofJobStepIndices {
+    cfc_step_indices: number[];
+    external_step_indices: number[];
+}
+
+export interface TraceProofConcurrentResult {
+    scheduleJson: TraceProofScheduleJson;
+    firstWaveOutputJsons: TraceProofJobOutputJson[];
+    endcapOutputJson: TraceProofJobOutputJson;
+    submitOutputJson: TraceProofJobOutputJson;
+}
+
+export interface TxStorageRead {
+    user_id: Felt;
+    contract_id: Felt;
+    slot_index: Felt;
+    value: QHashOut;
+}
+
+export interface TxStorageWrite {
+    user_id: Felt;
+    contract_id: Felt;
+    slot_index: Felt;
+    old_value: QHashOut;
+    new_value: QHashOut;
+}
+
+export interface TxStorageData {
+    reads: TxStorageRead[];
+    writes: TxStorageWrite[];
+}
+
+export interface ContractCallResultArgs {
+    contract_id: Felt;
+    method_name: string;
+    inputs: Felt[];
+    outputs: Felt[];
+}
+
+export interface ContractCallResultData {
+    contract_calls: ContractCallResultArgs[];
+    software_defined_call: SignData;
+}
+
+export interface TxEndCapData {
+    checkpoint_id: Felt;
+    user_id: Felt;
+    global_user_tree_height: number;
+    start_user_leaf_hash: QHashOut;
+    end_user_leaf_hash: QHashOut;
+    checkpoint_tree_root_hash: QHashOut;
+    stats: GUTAStats;
+}
+
+export interface TxProofMetadata {
+    storage_data: TxStorageData;
+    contract_calls: ContractCallResultArgs[];
+}
+
+export interface TxSubmitMetadata {
+    tx_hash: QHashOut;
+    end_cap_data: TxEndCapData;
+    storage_writes: TxStorageWrite[];
+}
+
+export interface TxMetadata {
+    tx_hash: QHashOut;
+    end_cap_data: TxEndCapData;
+    contract_call_data: ContractCallResultData;
+    storage_data: TxStorageData;
+}
+
+export interface SimulatedTxJson {
+    generated: GeneratedTxTraceJson;
+    metadata: TxMetadata;
+}
+
 export enum SignType {
     ZKSign = "zk",
     SECP256K1Sign = "secp256k1",
     SoftwareDefinedDPNSign = "software-defined-dpn",
     SoftwareDefinedPlonky2Sign = "software-defined-plonky2",
-    SDKKeySign = "sdk-key"
+    SDKeySign = "sd-key",
+    SDKKeySign = "sd-key"
 }
 
 interface IPsyUserProverProvider {
     // Local proving operations
     execContractCall(pk_hash: string, callData: ContractCallData): Promise<string>;
+    execContractCallWithTrace(pk_hash: string, callData: ContractCallData): Promise<TxMetadata>;
     startSession(pk_hash: string): Promise<string>;
     proveContractCall(pk_hash: string, contractCallArg: ContractCallArgs): Promise<string>;
     proveContractCalls(pk_hash: string, contractCallArgs: ContractCallArgs[]): Promise<string>;
     signAndSubmit(pk_hash: string, signData?: SignData): Promise<string>;
+    generateTxTrace(pk_hash: string, callData: ContractCallData, localId?: string | null): Promise<GeneratedTxTraceJson>;
+    simulateContractCall(pk_hash: string, callData: ContractCallData, localId?: string | null): Promise<GeneratedTxTraceJson>;
+    proveUpsStart(pk_hash: string, envelopeJson: string | GeneratedTxTraceJson): Promise<InitStepProvingJson>;
+    prepareTraceProofSchedule(envelopeJson: string | GeneratedTxTraceJson): Promise<TraceProofScheduleJson>;
+    getTraceProofJobStepIndices(envelopeJson: string | GeneratedTxTraceJson): Promise<TraceProofJobStepIndices>;
+    proveUpsStartJob(pk_hash: string, envelopeJson: string | GeneratedTxTraceJson): Promise<TraceProofJobOutputJson>;
+    proveCfcJobWithScheduleStep(
+        pk_hash: string,
+        envelopeJson: string | GeneratedTxTraceJson,
+        scheduleJson: TraceProofScheduleJson,
+        stepIndex: number,
+    ): Promise<TraceProofJobOutputJson>;
+    proveExternalProofJob(envelopeJson: string | GeneratedTxTraceJson, stepIndex: number): Promise<TraceProofJobOutputJson>;
+    proveZkSignJob(pk_hash: string, envelopeJson: string | GeneratedTxTraceJson): Promise<TraceProofJobOutputJson>;
+    proveEndcapJobFromOutputJsons(
+        pk_hash: string,
+        envelopeJson: string | GeneratedTxTraceJson,
+        scheduleJson: TraceProofScheduleJson,
+        outputJsons: TraceProofJobOutputJson[],
+    ): Promise<TraceProofJobOutputJson>;
+    submitEndcapJob(envelopeJson: string | GeneratedTxTraceJson, endcapOutputJson: TraceProofJobOutputJson): Promise<TraceProofJobOutputJson>;
+    proveTraceJobsConcurrent(pk_hash: string, envelopeJson: string | GeneratedTxTraceJson): Promise<TraceProofConcurrentResult>;
+
+    proveTraceStep(
+        pk_hash: string,
+        envelopeJson: string | GeneratedTxTraceJson,
+        stepIndex: number,
+        proofTreeMeta: unknown,
+        lastStepInfo: unknown,
+        currentHeader: unknown,
+        previousHeader: unknown,
+    ): Promise<ProveStepJson>;
+    proveEndCapProof(
+        pk_hash: string,
+        envelopeJson: string | GeneratedTxTraceJson,
+        proofTreeMeta: unknown,
+        lastStepInfo: unknown,
+        allProofBlobs: Uint8Array[],
+        signatureProof: Uint8Array,
+    ): Promise<ProveEndCapProofJson>;
+    submitEndCap(envelopeJson: string | GeneratedTxTraceJson, endCapProof: Uint8Array): Promise<string>;
+    signSighash(pk_hash: string, sighashJson: string, envelopeJson?: string | GeneratedTxTraceJson, currentHeader?: unknown): Promise<Uint8Array>;
+    computeSighashFromEnvelope(envelopeJson: string | GeneratedTxTraceJson, currentHeader: unknown): Promise<string>;
+    insertExternalProof(
+        pk_hash: string,
+        envelopeJson: string | GeneratedTxTraceJson,
+        proofTreeMeta: unknown,
+        lastStepInfo: unknown,
+        currentHeader: unknown,
+        previousHeader: unknown,
+        externalFingerprint: string,
+        externalProof: Uint8Array,
+    ): Promise<any>;
+    generateBatchClaimTxTrace(pk_hash: string, claims: ClaimBatchItem[], localId?: string | null): Promise<GeneratedTxTraceJson>;
+    batchClaim(pk_hash: string, claims: ClaimBatchItem[], localId?: string | null): Promise<string>;
+    claimBatchWithTrace(pk_hash: string, claims: ClaimBatchItem[]): Promise<TxMetadata>;
     claimBatch(pk_hash: string, claims: ClaimBatchItem[]): Promise<string>;
 
     getClaimRewardsCallArgs(jobInfos: string): Promise<ContractCallArgs[]>;

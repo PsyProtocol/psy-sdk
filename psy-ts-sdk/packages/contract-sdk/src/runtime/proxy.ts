@@ -53,7 +53,30 @@ const structVariableProxy = {
 };
 
 export function isPrimitiveVariable(position: IFlatVariablePosition): boolean {
-    return position.children.length === 0 && (position.nth_size === 0 || position.nth_size === BigInt(0));
+    return position.children.length === 0;
+}
+
+function primitiveWidth(position: IFlatVariablePosition): bigint {
+    if (typeof position.nth_size === "bigint") {
+        return position.nth_size > 0n ? position.nth_size : 1n;
+    }
+    return position.nth_size > 0 ? BigInt(position.nth_size) : 1n;
+}
+
+function readPrimitiveValue(
+    helper: IMerkleProxyHelper,
+    position: IFlatVariablePosition,
+    baseIndex: any
+): any {
+    const width = primitiveWidth(position);
+    if (width === 1n) {
+        return helper.getHashFelt(baseIndex);
+    }
+    return Promise.all(
+        Array.from({ length: Number(width) }, (_, i) =>
+            helper.getHashFelt(helper.add(baseIndex, BigInt(i)))
+        )
+    );
 }
 
 export function isArrayVariable(position: IFlatVariablePosition): boolean {
@@ -66,12 +89,12 @@ export function createVariableProxy(
     baseIndex: any
 ): any {
     if (isPrimitiveVariable(position)) {
-        return helper.getHashFelt(baseIndex);
+        return readPrimitiveValue(helper, position, baseIndex);
     }
 
     if (position.name === "[]") {
         if (position.children.length === 0) {
-            return helper.getHashFelt(baseIndex);
+            return readPrimitiveValue(helper, position, baseIndex);
         } else {
             return new Proxy({ helper, position, newOffsetIndex: baseIndex }, structVariableProxy);
         }

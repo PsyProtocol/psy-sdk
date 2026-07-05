@@ -23,6 +23,7 @@ import {
 export class AbiConverter {
     private typeRegistry = new Map<string, number>();
     private typeIdCounter = 0;
+    private static readonly pseudoMapStructNames = new Set(["Map", "ContractHashMap", "NamespacedMap"]);
 
     // Convert the ABI into version, contracts, and types.
     convert(abi: AbiInput): { version: string; contracts: InternalContract[]; types: TypeDefinition[] } {
@@ -172,7 +173,9 @@ export class AbiConverter {
         const functions = contract.methods.map((m) => this.convertAbiMethod(m));
 
         // Convert all named struct types into internal struct representations.
-        const structs = types.map((t) => this.convertAbiStruct(t));
+        const structs = types
+            .filter((t) => !this.isPseudoMapStruct(t))
+            .map((t) => this.convertAbiStruct(t));
 
         return {
             name: contract.name,
@@ -204,7 +207,7 @@ export class AbiConverter {
                 name: field.name,
                 offset,
                 array_length: 1,
-                nth_size: 0,
+                nth_size: BigInt(field.felt_size),
                 typeId: this.getTypeId(typeName),
                 children: [],
             };
@@ -291,7 +294,7 @@ export class AbiConverter {
                     name: field.name,
                     offset: relOffset,
                     array_length: 1,
-                    nth_size: 0,
+                    nth_size: BigInt(field.felt_size),
                     typeId: this.getTypeId(typeName),
                     children: [],
                 };
@@ -459,6 +462,10 @@ export class AbiConverter {
             default:
                 return mapKind;
         }
+    }
+
+    private isPseudoMapStruct(struct: AbiStructType): boolean {
+        return struct.felt_size === 0 && struct.fields.length === 0 && AbiConverter.pseudoMapStructNames.has(struct.name);
     }
 
     // Compute the depth of a variable position tree.

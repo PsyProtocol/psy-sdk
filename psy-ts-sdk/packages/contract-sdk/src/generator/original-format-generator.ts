@@ -21,7 +21,7 @@ export class ${className} {
   private _userId: Felt;
   private _merkleHelper: IMerkleProxyHelper;
   private _decoder: RecursiveDecoder;
-  private _stateProxies: Map<string, any> = new Map();
+  private _stateProxies: globalThis.Map<string, any> = new globalThis.Map();
 
   constructor(checkpointId: Felt, userId: Felt, contractId: Felt, signerOrProvider: ISigner | IContractStateReader) {
     this._checkpointId = checkpointId;
@@ -132,7 +132,7 @@ ${variablePositionsConstant}
         return `// Auto-generated from ABI - Do not edit manually
 import { RecursiveDecoder } from './decoder';
 import { IContractStateReader } from '@psy-protocol/psy-sdk';
-import { Felt, GHash, ISigner, PsyFixedArray } from './types';
+import { Felt, GHash, ISigner, PsyFixedArray, u32 } from './types';
 import { keccak256, toBeHex, zeroPadValue } from 'ethers';
 
 // Inline Merkle proxy types and implementation
@@ -206,7 +206,30 @@ const structVariableProxy = {
 };
 
 function isPrimitiveVariable(position: IFlatVariablePosition): boolean {
-  return position.children.length === 0 && position.nth_size === BigInt(0);
+  return position.children.length === 0;
+}
+
+function primitiveWidth(position: IFlatVariablePosition): bigint {
+  if (typeof position.nth_size === 'bigint') {
+    return position.nth_size > 0n ? position.nth_size : 1n;
+  }
+  return position.nth_size > 0 ? BigInt(position.nth_size) : 1n;
+}
+
+function readPrimitiveValue(
+  helper: IMerkleProxyHelper,
+  position: IFlatVariablePosition,
+  baseIndex: any
+): any {
+  const width = primitiveWidth(position);
+  if (width === 1n) {
+    return helper.getHashFelt(baseIndex);
+  }
+  return Promise.all(
+    Array.from({ length: Number(width) }, (_, i) =>
+      helper.getHashFelt(helper.add(baseIndex, BigInt(i)))
+    )
+  );
 }
 
 function isArrayVariable(position: IFlatVariablePosition): boolean {
@@ -220,7 +243,7 @@ function createVariableProxy(
 ): any {
   // For primitive variables, the baseIndex already includes all necessary offsets
   if (isPrimitiveVariable(position)) {
-    return helper.getHashFelt(baseIndex);
+    return readPrimitiveValue(helper, position, baseIndex);
   }
   
   // Special handling for array elements marked with '[]'
@@ -231,7 +254,7 @@ function createVariableProxy(
     // Check if it has children (struct) or not (primitive)
     if (position.children.length === 0) {
       // Primitive array element
-      return helper.getHashFelt(baseIndex);
+      return readPrimitiveValue(helper, position, baseIndex);
     } else {
       // Struct array element - create struct proxy
       return new Proxy({ helper, position, newOffsetIndex: baseIndex }, structVariableProxy);
@@ -518,7 +541,6 @@ function wrapMerkleProxyHelperBasicSimplifier(
   private generateStructDefinitions(): string {
     let structDefinitions = '';
     const structs = this.contract.structs;
-    console.log(structs[0]);
 
     for (const struct of structs) {
       if (!struct.is_contract) {
@@ -584,7 +606,7 @@ private generateToFeltsBody(struct: any): string {
       if (isStruct) {
         return `this.${fieldName}.forEach(item => { felts.push(...item.toFelts()); });`;
       } else {
-        return `this.${fieldName}.forEach(item => { felts.push(item); });`;
+        return `this.${fieldName}.forEach(item => { if (Array.isArray(item)) { felts.push(...(item as Felt[])); } else { felts.push(item as Felt); } });`;
       }
     }
 

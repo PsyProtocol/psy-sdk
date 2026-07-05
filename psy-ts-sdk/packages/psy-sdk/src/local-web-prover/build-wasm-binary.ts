@@ -22,15 +22,34 @@ function runWasmPack(target: "web" | "nodejs", outDir: string, rustSdkDir: strin
 }
 
 function ensureWasmArtifacts() {
-    if (fs.existsSync(wasmPath)) {
+    if (process.env.SKIP_WASM_PACK) {
+        console.log("SKIP_WASM_PACK set: re-encoding existing prover WASM, skipping wasm-pack...");
+        if (!fs.existsSync(wasmPath)) {
+            throw new Error(`SKIP_WASM_PACK set but no wasm artifact found at ${wasmPath}`);
+        }
         return;
     }
 
-    console.log("WASM binary not found. Building via wasm-pack...");
+    console.log("Building prover WASM artifacts via wasm-pack...");
 
     const rustSdkDir = path.resolve(__dirname, "../../../../../psy-rust-sdk");
     const webOutDir = path.resolve(__dirname);
     const nodeOutDir = path.resolve(__dirname, "../local-prover");
+
+    for (const stalePath of [
+        path.join(webOutDir, "psy_prover.js"),
+        path.join(webOutDir, "psy_prover.d.ts"),
+        path.join(webOutDir, "psy_prover_bg.wasm"),
+        path.join(webOutDir, "psy_prover_bg.wasm.d.ts"),
+        path.join(nodeOutDir, "psy_prover.js"),
+        path.join(nodeOutDir, "psy_prover.d.ts"),
+        path.join(nodeOutDir, "psy_prover_bg.wasm"),
+        path.join(nodeOutDir, "psy_prover_bg.wasm.d.ts"),
+    ]) {
+        if (fs.existsSync(stalePath)) {
+            fs.rmSync(stalePath, { force: true });
+        }
+    }
 
     runWasmPack("web", webOutDir, rustSdkDir);
     runWasmPack("nodejs", nodeOutDir, rustSdkDir);
@@ -49,17 +68,45 @@ function ensureWasmArtifacts() {
 ensureWasmArtifacts();
 
 const wasmBuffer = fs.readFileSync(wasmPath);
-
-// Convert to Uint8Array
-const wasmArray = new Uint8Array(wasmBuffer);
-const arrayString = Array.from(wasmArray).join(',');
+const base64Chunks = wasmBuffer.toString("base64").match(/.{1,65536}/g) ?? [];
+const base64ChunkString = base64Chunks.map((chunk) => `    ${JSON.stringify(chunk)},`).join("\n");
 
 // Generate TypeScript module
 const moduleContent = `
 // Auto-generated WASM binary data
 // DO NOT EDIT MANUALLY
 
-export const wasmBinary = new Uint8Array([${arrayString}]);
+const base64Chunks: string[] = [
+${base64ChunkString}
+];
+
+function decodeBase64(chunks: string[]): Uint8Array {
+    const base64 = chunks.join("");
+    const atob = (globalThis as { atob?: (data: string) => string }).atob;
+
+    if (typeof atob === "function") {
+        const binary = atob(base64);
+        const bytes = new Uint8Array(binary.length);
+
+        for (let i = 0; i < binary.length; i += 1) {
+            bytes[i] = binary.charCodeAt(i);
+        }
+
+        return bytes;
+    }
+
+    const buffer = (globalThis as {
+        Buffer?: { from(data: string, encoding: "base64"): Uint8Array };
+    }).Buffer;
+
+    if (buffer) {
+        return new Uint8Array(buffer.from(base64, "base64"));
+    }
+
+    throw new Error("No base64 decoder is available in this environment");
+}
+
+export const wasmBinary = decodeBase64(base64Chunks);
 `;
 
 // Write to output file
@@ -67,4 +114,4 @@ const outputPath = path.join(__dirname, './wasm-binary.ts');
 fs.writeFileSync(outputPath, moduleContent);
 
 console.log('WASM binary module generated successfully!');
-console.log(`Size: ${wasmArray.length} bytes`);
+console.log(`Size: ${wasmBuffer.length} bytes`);
