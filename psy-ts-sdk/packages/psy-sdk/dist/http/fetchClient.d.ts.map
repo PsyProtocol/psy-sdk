@@ -1,1 +1,0 @@
-{"version":3,"file":"fetchClient.d.ts","sourceRoot":"","sources":["../../src/http/fetchClient.ts"],"names":[],"mappings":"AAAA,OAAO,EAAE,WAAW,EAAE,kBAAkB,EAAE,mBAAmB,EAAE,MAAM,SAAS,CAAC;AAE/E,cAAM,eAAgB,YAAW,WAAW;IACxC,mBAAmB,EAAE,GAAG,CAAC;gBACb,mBAAmB,CAAC,EAAE,GAAG;IAS/B,WAAW,CAAC,OAAO,EAAE,kBAAkB,GAAG,OAAO,CAAC,mBAAmB,CAAC;CA0C/E;AAED,OAAO,EAAE,eAAe,EAAE,CAAC"}

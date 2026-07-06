@@ -1,1 +1,0 @@
-{"version":3,"file":"DPNStateCmdGetOtherUserContractStateSlotSingle.d.ts","sourceRoot":"","sources":["../../src/types/DPNStateCmdGetOtherUserContractStateSlotSingle.ts"],"names":[],"mappings":"AAEA,MAAM,MAAM,8CAA8C,GAAG;IAAE,OAAO,EAAE,MAAM,CAAC;IAAC,WAAW,EAAE,MAAM,CAAC;IAAC,cAAc,EAAE,MAAM,CAAC;IAAC,0BAA0B,EAAE,MAAM,CAAC;CAAE,CAAC"}

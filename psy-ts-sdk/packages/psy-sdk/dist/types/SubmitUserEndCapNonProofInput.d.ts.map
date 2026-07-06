@@ -1,1 +1,0 @@
-{"version":3,"file":"SubmitUserEndCapNonProofInput.d.ts","sourceRoot":"","sources":["../../src/types/SubmitUserEndCapNonProofInput.ts"],"names":[],"mappings":"AACA,OAAO,KAAK,EAAE,6BAA6B,EAAE,MAAM,iCAAiC,CAAC;AACrF,OAAO,KAAK,EAAE,iCAAiC,EAAE,MAAM,qCAAqC,CAAC;AAE7F,MAAM,MAAM,6BAA6B,GAAG;IAAE,IAAI,EAAE,iCAAiC,CAAC;IAAC,sBAAsB,EAAE,KAAK,CAAC,6BAA6B,CAAC,CAAC;CAAE,CAAC"}

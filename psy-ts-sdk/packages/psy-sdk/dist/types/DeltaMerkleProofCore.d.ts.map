@@ -1,1 +1,0 @@
-{"version":3,"file":"DeltaMerkleProofCore.d.ts","sourceRoot":"","sources":["../../src/types/DeltaMerkleProofCore.ts"],"names":[],"mappings":"AAEA,MAAM,MAAM,oBAAoB,GAAG;IAAE,QAAQ,EAAE,MAAM,CAAC;IAAC,SAAS,EAAE,MAAM,CAAC;IAAC,QAAQ,EAAE,MAAM,CAAC;IAAC,SAAS,EAAE,MAAM,CAAC;IAAC,KAAK,EAAE,MAAM,CAAC;IAAC,QAAQ,EAAE,KAAK,CAAC,MAAM,CAAC,CAAC;CAAE,CAAC"}
