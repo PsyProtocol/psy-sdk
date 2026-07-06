@@ -1830,6 +1830,23 @@ impl WasmRpcServer {
             nullifier_secret_u64[3],
         );
 
+        let qhash_to_hex = |h: QHashOut<F>| -> String {
+            h.0.elements
+                .iter()
+                .map(|e| format!("{:016x}", e.to_canonical_u64()))
+                .collect::<Vec<_>>()
+                .join("")
+        };
+
+        console_log!(
+            "[psy-sdk][wasm] prove_private_note_inclusion_json start: sender_user_id via pk_hash={}, owner={}, amount={}, contract_id={}, note_root_slot={}, checkpoint_id_raw={}",
+            pk_hash, qhash_to_hex(owner), amount_val, contract_id_val, note_root_slot_val, checkpoint_before_raw
+        );
+        console_log!(
+            "[psy-sdk][wasm] secrets: note_secret_hash={}, nullifier_secret={}",
+            qhash_to_hex(note_secret_hash), qhash_to_hex(nullifier_secret)
+        );
+
         let provider = self.wallet_session.st_provider.clone();
 
         let latest_coordinator_before = provider
@@ -1857,6 +1874,11 @@ impl WasmRpcServer {
             checkpoint_before_raw
         };
 
+        console_log!(
+            "[psy-sdk][wasm] checkpoint_before selected: {} (latest coordinator={}, realm={}, observable={})",
+            checkpoint_before, latest_coordinator_before, latest_realm_before, latest_observable_before
+        );
+
         // Get sender's user_id from public key
         let user_ids = provider
             .get_user_ids_for_public_key(pk_hash)
@@ -1882,6 +1904,10 @@ impl WasmRpcServer {
             .await
             .map_err(|e| JsError::new(&format!("note_count_proof: {}", e)))?;
         let note_index = note_count_proof.value.0.elements[3].to_canonical_u64();
+        console_log!(
+            "[psy-sdk][wasm] note_count slot={} value={} parsed_note_index={}",
+            note_count_slot, note_count_proof.value, note_index
+        );
 
         // Collect last_path (levels 0..NOTE_TREE_HEIGHT) from slots note_root_slot+1..
         let mut last_path: Vec<QHashOut<F>> = Vec::with_capacity(NOTE_TREE_HEIGHT);
@@ -1897,6 +1923,10 @@ impl WasmRpcServer {
                 )
                 .await
                 .map_err(|e| JsError::new(&format!("last_path[{}]: {}", level, e)))?;
+            console_log!(
+                "[psy-sdk][wasm] last_path[level={}] slot={} value={}",
+                level, slot, qhash_to_hex(proof.value)
+            );
             last_path.push(proof.value);
         }
 
@@ -1905,6 +1935,10 @@ impl WasmRpcServer {
         let inner = PoseidonHasher::q_two_to_one(owner, value_hash);
         let note_commitment = derive_note_commitment(nullifier_secret_u64, note_secret_hash_u64);
         let commitment = PoseidonHasher::q_two_to_one(inner, note_commitment);
+        console_log!(
+            "[psy-sdk][wasm] commitment calc: note_commitment={}, commitment={}",
+            qhash_to_hex(note_commitment), qhash_to_hex(commitment)
+        );
 
         let mut siblings: Vec<QHashOut<F>> = Vec::with_capacity(NOTE_TREE_HEIGHT);
         let mut zero = QHashOut::<F>::from_values(0, 0, 0, 0);
@@ -1919,6 +1953,10 @@ impl WasmRpcServer {
         }
         let note_membership_proof =
             MerkleProofCore::new_from_params::<PoseidonHasher>(note_index, commitment, siblings);
+        console_log!(
+            "[psy-sdk][wasm] membership proof: note_index={}, commitment={}, computed_root={}",
+            note_index, qhash_to_hex(commitment), qhash_to_hex(note_membership_proof.root)
+        );
 
         // Wait state update after checkpoint_before and prove against the first
         // checkpoint where note_count or note_root slot changes.
@@ -1954,6 +1992,17 @@ impl WasmRpcServer {
             .await
             .map_err(|e| JsError::new(&format!("baseline note_root proof: {}", e)))?
             .value;
+
+        console_log!(
+            "[psy-sdk][wasm] baseline at checkpoint_before={}: note_count={}, note_root={}",
+            checkpoint_before, baseline_note_count, qhash_to_hex(baseline_note_root)
+        );
+        if note_membership_proof.root == baseline_note_root {
+            console_log!(
+                "[psy-sdk][wasm] WARNING: membership_root already equals baseline_note_root at checkpoint_before={}. This likely means checkpoint_before is already AFTER the private_transfer. Expecting a future checkpoint where root changes.",
+                checkpoint_before
+            );
+        }
 
         let wait_deadline_ms = now_ms().saturating_add(180_000);
         let mut latest_coordinator_seen = checkpoint_before;
@@ -2025,7 +2074,16 @@ impl WasmRpcServer {
                     }
                 };
 
+                console_log!(
+                    "[psy-sdk][wasm] poll checkpoint={}: note_count={}, note_root={}",
+                    latest_observable, note_count, qhash_to_hex(note_root)
+                );
                 if note_count != baseline_note_count || note_root != baseline_note_root {
+                    console_log!(
+                        "[psy-sdk][wasm] slots changed at checkpoint={}: count {}->{}, root {}->{}",
+                        latest_observable, baseline_note_count, note_count,
+                        qhash_to_hex(baseline_note_root), qhash_to_hex(note_root)
+                    );
                     checkpoint_after = Some(latest_observable);
                     break;
                 }
@@ -2066,6 +2124,12 @@ impl WasmRpcServer {
             )
             .await
             .map_err(|e| JsError::new(&format!("note_root_slot_proof: {}", e)))?;
+        console_log!(
+            "[psy-sdk][wasm] checkpoint_after={}: note_root_slot value={}, membership_root={}, match={}",
+            checkpoint_after, qhash_to_hex(note_root_slot_proof.value),
+            qhash_to_hex(note_membership_proof.root),
+            note_root_slot_proof.value == note_membership_proof.root
+        );
         // Fetch contract_proof and user_tree_proof
         let contract_proof = user_provider
             .get_user_contract_tree_merkle_proof(
