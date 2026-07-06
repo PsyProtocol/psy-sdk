@@ -32,6 +32,7 @@ psy_provider = { workspace = true }
 psy_prover = { workspace = true }
 psy_common_circuit = { workspace = true }
 psy_dpn_circuit = { workspace = true }
+psy_ups_circuit = { workspace = true }
 
 base64 = { workspace = true }
 bincode = { workspace = true }

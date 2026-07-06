@@ -1,0 +1,69 @@
+'use strict';
+
+var constants = require('../../action/constants.cjs');
+require('../../utils/address.cjs');
+var felt = require('../../utils/felt.cjs');
+var types = require('../../local-prover-rpc/types.cjs');
+require('../../utils/json.cjs');
+require('../../utils/random.cjs');
+var signer = require('./signer.cjs');
+
+class PsyMemoryTransactionSignerProvider {
+    constructor(proverProvider, networkId) {
+        this.signers = [];
+        this.networkId = networkId;
+        this.l2NetworkMagic = constants.getPsyNetworkMagicForNetworkId(networkId);
+        this.proverProvider = proverProvider;
+    }
+    getSigners() {
+        return Promise.resolve(this.signers);
+    }
+    getPublicKeysHex() {
+        return Promise.resolve(this.signers.map((signer) => signer.publicKeyHex));
+    }
+    getSignerByPublicKeyHex(publicKeyHex) {
+        const signer = this.signers.find((signer) => signer.publicKeyHex === publicKeyHex);
+        if (!signer)
+            return Promise.reject(new Error("Signer not found"));
+        return Promise.resolve(signer);
+    }
+    getAbilities() {
+        return ["import-private-key", "add-random-private-key"];
+    }
+    async importPrivateKey(privateKeyHex, signType, fingerprint) {
+        const existing = this.signers.find((signer) => signer.privateKeyHex === privateKeyHex && signer.signType === signType && signer.fingerprint == fingerprint);
+        if (existing)
+            return existing;
+        const signer$1 = await signer.PsyMemoryTransactionSigner.create(this.proverProvider, this.networkId, privateKeyHex, signType, fingerprint);
+        this.signers.push(signer$1);
+        return signer$1;
+    }
+    async addRandomPrivateKey(signType) {
+        const fingerprint = this.getFingerprintForSignType(signType);
+        return this.importPrivateKey(felt.cryptoRandomHashOutHex(), signType, fingerprint);
+    }
+    getFingerprintForSignType(signType) {
+        switch (signType) {
+            case types.SignType.ZKSign:
+                return "65e0169bfffd55f1c0ea9f76c111a5b15e652322ee253c1a9604a10d59066b50";
+            case types.SignType.SECP256K1Sign:
+                return "320d034234f0dab4d02c4b03d69276cbd5c2eb831aca1b11c7e52078ace2e33b";
+            default:
+                throw new Error(`Unsupported sign type: ${signType}`);
+        }
+    }
+    async registerUser(privateKeyHex, signType, fingerprint) {
+        return this.proverProvider.registerUser(privateKeyHex, signType, fingerprint);
+    }
+    async addUser(privateKeyHex, signType, fingerprint) {
+        return this.proverProvider.addUser(privateKeyHex, signType, fingerprint);
+    }
+    async getClaimRewardsCallArgs(jobInfos) {
+        return this.proverProvider.getClaimRewardsCallArgs(jobInfos);
+    }
+    async claimRewards(pk_hash, jobInfos) {
+        return this.proverProvider.claimRewards(pk_hash, jobInfos);
+    }
+}
+
+exports.PsyMemoryTransactionSignerProvider = PsyMemoryTransactionSignerProvider;

@@ -1,0 +1,88 @@
+import { WasmRpcServer, WasmPsyConfig, WasmPsyConfigBuilder, WasmConstants } from "./psy_prover";
+import { PrivateKey, PublicKey, QHashOut, U8Bytes } from "../core";
+import { ContractCallArgs, ContractCallData, ClaimBatchItem, DPNFunctionCircuitDefinition, GeneratedTxTraceJson, IPsyUserProverProvider, QBCDeployContract, SignData, SignType, TraceProofConcurrentResult, TraceProofJobOutputJson, TraceProofJobStepIndices, TraceProofScheduleJson, TxMetadata, WalletKeyPair } from "../local-prover-rpc/types";
+import { ZKPublicKeyInfo } from "../types";
+import { PsyNetworkConfig } from "../config";
+export declare function initWasmSync(): void;
+export declare class PsyWasmWebProverProvider implements IPsyUserProverProvider {
+    private static wasmServer;
+    private static wasmServerConfigJson;
+    private static wasmCallQueue;
+    constructor(rpcConfigJson: PsyNetworkConfig);
+    static ensureWasmServer(rpcConfigJson: PsyNetworkConfig | string): Promise<WasmRpcServer>;
+    static runWasmServerCall<T>(callback: (server: WasmRpcServer) => T | Promise<T>): Promise<T>;
+    static runWasmServerConcurrentCall<T>(callback: (server: WasmRpcServer) => T | Promise<T>): Promise<T>;
+    execContractCall(pkHash: string, callData: ContractCallData): Promise<string>;
+    execContractCallWithTrace(pkHash: string, callData: ContractCallData): Promise<TxMetadata>;
+    claimBatch(pkHash: string, claims: ClaimBatchItem[]): Promise<string>;
+    claimBatchWithTrace(pkHash: string, claims: ClaimBatchItem[]): Promise<TxMetadata>;
+    generateBatchClaimTxTrace(pkHash: string, claims: ClaimBatchItem[]): Promise<GeneratedTxTraceJson>;
+    batchClaim(pkHash: string, claims: ClaimBatchItem[]): Promise<string>;
+    getClaimRewardsCallArgs(_jobInfos: string): Promise<ContractCallArgs[]>;
+    claimRewards(_pkHash: string, _jobInfos: string): Promise<string>;
+    startSession(pkHash: PublicKey): Promise<string>;
+    proveContractCall(pkHash: PublicKey, contractCallArg: ContractCallArgs): Promise<string>;
+    proveContractCalls(pkHash: PublicKey, contractCallArgs: ContractCallArgs[]): Promise<string>;
+    signAndSubmit(pkHash: PublicKey, signData?: SignData): Promise<string>;
+    generateTxTrace(pkHash: PublicKey, callData: ContractCallData): Promise<GeneratedTxTraceJson>;
+    simulateContractCall(pkHash: PublicKey, callData: ContractCallData): Promise<GeneratedTxTraceJson>;
+    proveUpsStart(pkHash: PublicKey, envelopeJson: string | GeneratedTxTraceJson): Promise<any>;
+    prepareTraceProofSchedule(envelopeJson: string | GeneratedTxTraceJson): Promise<TraceProofScheduleJson>;
+    getTraceProofJobStepIndices(envelopeJson: string | GeneratedTxTraceJson): Promise<TraceProofJobStepIndices>;
+    proveUpsStartJob(pkHash: PublicKey, envelopeJson: string | GeneratedTxTraceJson): Promise<TraceProofJobOutputJson>;
+    proveCfcJobWithScheduleStep(pkHash: PublicKey, envelopeJson: string | GeneratedTxTraceJson, scheduleJson: TraceProofScheduleJson, stepIndex: number): Promise<TraceProofJobOutputJson>;
+    proveExternalProofJob(envelopeJson: string | GeneratedTxTraceJson, stepIndex: number): Promise<TraceProofJobOutputJson>;
+    proveZkSignJob(pkHash: PublicKey, envelopeJson: string | GeneratedTxTraceJson): Promise<TraceProofJobOutputJson>;
+    proveEndcapJobFromOutputJsons(pkHash: PublicKey, envelopeJson: string | GeneratedTxTraceJson, scheduleJson: TraceProofScheduleJson, outputJsons: TraceProofJobOutputJson[]): Promise<TraceProofJobOutputJson>;
+    submitEndcapJob(envelopeJson: string | GeneratedTxTraceJson, endcapOutputJson: TraceProofJobOutputJson): Promise<TraceProofJobOutputJson>;
+    proveTraceJobsConcurrent(pkHash: PublicKey, envelopeJson: string | GeneratedTxTraceJson): Promise<TraceProofConcurrentResult>;
+    proveTraceStep(pkHash: PublicKey, envelopeJson: string | GeneratedTxTraceJson, stepIndex: number, proofTreeMeta: unknown, lastStepInfo: unknown, currentHeader: unknown, previousHeader: unknown): Promise<any>;
+    proveEndCapProof(pkHash: PublicKey, envelopeJson: string | GeneratedTxTraceJson, proofTreeMeta: unknown, lastStepInfo: unknown, allProofBlobs: Uint8Array[], signatureProof: Uint8Array): Promise<any>;
+    insertExternalProof(pkHash: PublicKey, envelopeJson: string | GeneratedTxTraceJson, proofTreeMeta: unknown, lastStepInfo: unknown, currentHeader: unknown, previousHeader: unknown, externalFingerprint: string, externalProof: Uint8Array): Promise<any>;
+    submitEndCap(envelopeJson: string | GeneratedTxTraceJson, endCapProof: Uint8Array): Promise<string>;
+    signSighash(pkHash: PublicKey, sighashJson: string, envelopeJson?: string | GeneratedTxTraceJson, currentHeader?: unknown): Promise<Uint8Array>;
+    computeSighashFromEnvelope(envelopeJson: string | GeneratedTxTraceJson, currentHeader: unknown): Promise<string>;
+    registerUser(privateKey: PrivateKey, signType: SignType, fingerprint?: string): Promise<PublicKey>;
+    addUser(privateKey: PrivateKey, signType: SignType, fingerprint?: string): Promise<PublicKey>;
+    getZKPublicKey(privateKey: PrivateKey): Promise<ZKPublicKeyInfo>;
+    getRandomKeypair(): Promise<WalletKeyPair>;
+    deployContract(deployer: PublicKey, circuitDefs: DPNFunctionCircuitDefinition[]): Promise<string>;
+    getDeployContractCmd(deployer: PublicKey, circuitDefs: DPNFunctionCircuitDefinition[]): Promise<QBCDeployContract>;
+    ping(message: string): Promise<string>;
+    getResult(id: QHashOut): Promise<U8Bytes>;
+}
+export declare class PsyWasmConstantsProvider {
+    private static _cache;
+    static getAll(): Record<string, any>;
+    static get<T = any>(key: keyof typeof WasmConstants | string): T;
+    static getRawJson(): string;
+    static refresh(): void;
+    static get globalUserTreeHeight(): number;
+    static get coordinatorUserTreeHeight(): number;
+    static get realmUserTreeHeight(): number;
+    static get groupRealmHeight(): number;
+    static get usersPerRealm(): bigint;
+    static get nativeCurrency(): string;
+    static get nativeCurrencyName(): string;
+    static get nativeCurrencyDecimal(): number;
+    static get registerUserFee(): bigint;
+    static get deployContractFee(): bigint;
+    static get gutaFee(): bigint;
+    static get currentNetwork(): string;
+    static get configPath(): string;
+    static get coordinatorRpcUrl(): string;
+    static get realmRpcUrls(): string[];
+}
+export declare class PsyWasmConfigBuilderProvider {
+    static wasmPsyConfigBuilder: WasmPsyConfigBuilder | null;
+    static wasmPsyConfig: WasmPsyConfig | null;
+    static initBuilder(): WasmPsyConfigBuilder;
+    static fromJson(json: string): WasmPsyConfigBuilder;
+    static setNetwork(network: string): WasmPsyConfigBuilder;
+    static build(): WasmPsyConfig;
+    static useNetwork(network: string): void;
+    static getCurrentNetwork(): string;
+    static listNetworks(): string[];
+    static getNetworkJson(network: string): string;
+}
+//# sourceMappingURL=provider.d.ts.map

@@ -1,0 +1,25 @@
+declare function readU32LEFromBytes(bytes: Uint8Array | number[], offset?: number): number;
+declare function writeU32LEToBytes(value: number, bytes: Uint8Array | number[], offset?: number): void;
+declare function readU16LEFromBytes(bytes: Uint8Array | number[], offset?: number): number;
+declare function writeU16LEToBytes(value: number, bytes: Uint8Array | number[], offset?: number): void;
+declare function readU64LEFromBytes(bytes: Uint8Array | number[], offset?: number): bigint;
+declare function writeU64LEToBytes(value: bigint | string | number, bytes: Uint8Array | number[], offset?: number): void;
+declare function u8ArrayToHex(x: Uint8Array | number[]): string;
+declare function hexToU8Array(hex: string): Uint8Array;
+declare function swapEndianU32(x: number): number;
+declare function swapEndianU16(x: number): number;
+declare function u32ArrayToHex(x: Uint32Array | (number | bigint | string)[]): string;
+declare function hexToU32Array(hex: string, bigEndian?: boolean): Uint32Array;
+declare function u16ArrayToHex(x: Uint16Array | (number | bigint | string)[]): string;
+declare function hexToU16Array(hex: string, bigEndian?: boolean): Uint16Array;
+declare function swapEndianU32Array(x: Uint32Array): Uint32Array;
+declare function swapEndianU32Array(x: number[]): number[];
+declare function swapEndianU16Array(x: Uint16Array): Uint16Array;
+declare function swapEndianU16Array(x: number[]): number[];
+declare function isZeroedArray(x: Uint8Array | number[]): boolean;
+declare function isDataValidASCII(array: Uint8Array | number[]): boolean;
+declare function seq(count: number, startIndex?: number, reversed?: number | boolean): number[];
+declare function rseq(count: number, largestIndex?: number): number[];
+export { u8ArrayToHex, hexToU8Array, u32ArrayToHex, hexToU32Array, u16ArrayToHex, hexToU16Array, isZeroedArray, swapEndianU32Array, swapEndianU32, swapEndianU16Array, swapEndianU16, isDataValidASCII, seq, rseq, };
+export { readU32LEFromBytes, writeU32LEToBytes, readU16LEFromBytes, writeU16LEToBytes, readU64LEFromBytes, writeU64LEToBytes, };
+//# sourceMappingURL=byteView.d.ts.map

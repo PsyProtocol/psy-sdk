@@ -5905,6 +5905,7 @@ dependencies = [
  "psy_dpn_circuit",
  "psy_prover",
  "psy_provider",
+ "psy_ups_circuit",
  "psy_vm",
  "reqwest 0.12.28",
  "serde",
