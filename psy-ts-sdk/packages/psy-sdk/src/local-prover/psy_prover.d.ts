@@ -124,7 +124,7 @@ export class WasmRpcServer {
      *
      * Returns the transaction hash string.
      */
-    exec_shield_claim_deposit_json(pk_hash: string, nullifier_json: string, note_secret_json: string, token_address_u32x8_json: string, l2_token_contract_id_json: string, amount_u32x8_json: string, source_chain_index: string, deposit_index: string, deposit_root_json: string, deposit_siblings_json: string, random0: string, random1: string, contract_id: string): Promise<string>;
+    exec_shield_claim_deposit_json(pk_hash: string, nullifier_json: string, note_secret_json: string, token_address_u32x8_json: string, l2_token_contract_id_json: string, amount_u32x8_json: string, source_chain_index: string, deposit_index: string, deposit_root_json: string, deposit_proof_bincode_b64: string, random0: string, random1: string, contract_id: string, deposit_proof_fingerprint_json?: string | null): Promise<string>;
     generate_batch_claim_tx_trace_json(pk_hash: string, items_json: string): Promise<string>;
     generate_tx_trace_json(pk_hash: string, call_data_json: string): Promise<string>;
     get_deploy_contract_cmd_json(deployer: string, circuit_defs_json: string): string;
