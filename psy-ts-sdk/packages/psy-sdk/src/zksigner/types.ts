@@ -1,4 +1,14 @@
-import { ClaimBatchItem, ContractCallData, DPNFunctionCircuitDefinition, GeneratedTxTraceJson, ProveTxTraceResumableJson, SignType, TraceProofConcurrentResult, TxMetadata } from "../local-prover-rpc/types";
+import {
+    ClaimBatchItem,
+    ContractCallData,
+    DPNFunctionCircuitDefinition,
+    GeneratedTxTraceJson,
+    ProveTxTraceResumableJson,
+    SignType,
+    TraceProofConcurrentResult,
+    TraceStepResumeStateJson,
+    TxMetadata,
+} from "../local-prover-rpc/types";
 import { ContractCallArgs } from "../types";
 
 type TPsyTransactionSignerAbility = "sign-hash" | "export-private-key-hex";
@@ -21,14 +31,7 @@ interface IPsyTransactionSigner {
     proveTxTraceStep(
         pk_hash: string,
         envelope: string | GeneratedTxTraceJson,
-        resumeFrom?: {
-            proof_tree_meta: unknown;
-            last_step_info: unknown;
-            current_header: unknown;
-            previous_header: unknown;
-            proof_blobs: Uint8Array[];
-            next_step_index: number;
-        },
+        resumeFrom?: TraceStepResumeStateJson,
     ): Promise<ProveTxTraceResumableJson>;
     proveTxTraceConcurrent(pk_hash: string, envelope: string | GeneratedTxTraceJson): Promise<TraceProofConcurrentResult>;
     deployContract(pk_hash: string, circuitDefs: DPNFunctionCircuitDefinition[]): Promise<string>;

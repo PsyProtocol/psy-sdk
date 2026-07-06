@@ -4,6 +4,7 @@ import typescript from '@rollup/plugin-typescript';
 
 const input = {
     index: 'src/index.ts',
+    'expert/index': 'src/expert/index.ts',
     'local-web-compiler/index': 'src/local-web-compiler/index.ts',
     'local-web-compiler/compiler': 'src/local-web-compiler/compiler.ts',
     // Keep raw wasm-bindgen entry as explicit Rollup input so exports like

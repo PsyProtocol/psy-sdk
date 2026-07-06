@@ -92,14 +92,7 @@ class PsyMemoryTransactionSigner implements IPsyTransactionSigner {
     async proveTxTraceStep(
         pkHash: string,
         envelope: string | GeneratedTxTraceJson,
-        resumeFrom?: {
-            proof_tree_meta: unknown;
-            last_step_info: unknown;
-            current_header: unknown;
-            previous_header: unknown;
-            proof_blobs: Uint8Array[];
-            next_step_index: number;
-        },
+        resumeFrom?: TraceStepResumeStateJson,
     ): Promise<ProveTxTraceResumableJson> {
         let envelopeObj =
             typeof envelope === "string"

@@ -5,6 +5,7 @@ import {
     GeneratedTxTraceJson,
     ProveTxTraceResumableJson,
     TraceProofConcurrentResult,
+    TraceStepResumeStateJson,
     TxMetadata,
 } from "../local-prover-rpc";
 import { IPsyTransactionSigner, IPsyTransactionSignerProvider } from "../zksigner";
@@ -41,14 +42,11 @@ interface IPsyUserWallet {
     // wallet can persist it and prove/track it later via the step API.
     generateTxTrace(pk_hash: string, contractCallArgs: ContractCallArgs | ContractCallArgs[]): Promise<GeneratedTxTraceJson>;
     generateBatchClaimTxTrace(pk_hash: string, claims: ClaimBatchItem[]): Promise<GeneratedTxTraceJson>;
-    proveTxTraceStep(pk_hash: string, envelope: string | GeneratedTxTraceJson, resumeFrom?: {
-        proof_tree_meta: unknown;
-        last_step_info: unknown;
-        current_header: unknown;
-        previous_header: unknown;
-        proof_blobs: Uint8Array[];
-        next_step_index: number;
-    }): Promise<ProveTxTraceResumableJson>;
+    proveTxTraceStep(
+        pk_hash: string,
+        envelope: string | GeneratedTxTraceJson,
+        resumeFrom?: TraceStepResumeStateJson,
+    ): Promise<ProveTxTraceResumableJson>;
     proveTxTraceConcurrent(pk_hash: string, envelope: string | GeneratedTxTraceJson): Promise<TraceProofConcurrentResult>;
     // transfer(recipient: SCNumberLike, amount: SCNumberLike, nonce?: SCNumberLike): Promise<void>;
 }
