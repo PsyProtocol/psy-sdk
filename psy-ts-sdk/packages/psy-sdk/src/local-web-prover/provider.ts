@@ -58,10 +58,29 @@ export class PsyWasmWebProverProvider implements IPsyUserProverProvider {
         if (!this.wasmServer) {
             const now = new Date().getTime();
             initWasmSync();
-            this.wasmServer = Promise.resolve(new WasmRpcServer(json)).then((server) => {
-                console.log(`WASM initialized in ${(new Date().getTime() - now) / 1000} seconds`);
-                return server;
-            });
+            this.wasmServer = Promise.resolve(new WasmRpcServer(json))
+                .then((server) => {
+                    console.log(`WASM initialized in ${(new Date().getTime() - now) / 1000} seconds`);
+                    return server;
+                })
+                .catch((error) => {
+                    let parsedConfig: unknown = json;
+                    try {
+                        parsedConfig = JSON.parse(json);
+                    } catch {
+                        // Keep raw JSON string when parsing fails.
+                    }
+                    console.error("[psy-sdk][wasm] ensureWasmServer failed", {
+                        elapsedMs: new Date().getTime() - now,
+                        config: parsedConfig,
+                        message: error instanceof Error ? error.message : String(error),
+                        stack: error instanceof Error ? error.stack : undefined,
+                        error,
+                    });
+                    this.wasmServer = null;
+                    this.wasmServerConfigJson = null;
+                    throw error;
+                });
             this.wasmServerConfigJson = json;
         } else if (this.wasmServerConfigJson !== json) {
             console.warn(

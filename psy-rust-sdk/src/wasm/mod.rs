@@ -584,7 +584,8 @@ impl WasmRpcServer {
         use psy_crypto::hash::merkle::core::MerkleProofCore;
         use psy_crypto::hash::traits::hasher::PoseidonHasher;
         use psy_crypto::shield_address::{
-            derive_deposit_commitment, derive_nullifier_hash, derive_shield_address,
+            derive_deposit_commitment, derive_note_commitment, derive_nullifier_hash,
+            derive_shield_address,
         };
         use psy_data::privacy::shield_deposit_claim::ShieldDepositClaimInput;
         use psy_prover::trace::GeneratedTxTraceJson;
@@ -862,13 +863,21 @@ impl WasmRpcServer {
 
                     let shield_address = derive_shield_address(user_id, random0, random1);
                     let nullifier_hash = derive_nullifier_hash(nullifier_secret);
+                    let note_commitment =
+                        derive_note_commitment(nullifier_secret, note_secret_hash);
+                    let note_commitment_u64 = [
+                        note_commitment.0.elements[0].to_canonical_u64(),
+                        note_commitment.0.elements[1].to_canonical_u64(),
+                        note_commitment.0.elements[2].to_canonical_u64(),
+                        note_commitment.0.elements[3].to_canonical_u64(),
+                    ];
                     let deposit_leaf = derive_deposit_commitment(
                         shield_address,
                         token_address,
                         l2_token_contract_id,
                         amount,
                         source_chain_index,
-                        note_secret_hash,
+                        note_commitment_u64,
                     );
                     // Verify the caller-supplied deposit Merkle proof authenticates the
                     // locally-derived deposit leaf under the caller-supplied deposit_root.
@@ -896,14 +905,12 @@ impl WasmRpcServer {
                                 nullifier_secret[i],
                             )
                         }),
-                        note_secret_hash: std::array::from_fn(|i| {
+                        note_secret: std::array::from_fn(|i| {
                             <F as plonky2::field::types::Field>::from_canonical_u64(
                                 note_secret_hash[i],
                             )
                         }),
-                        r0: <F as plonky2::field::types::Field>::from_canonical_u64(random0),
-                        r1: <F as plonky2::field::types::Field>::from_canonical_u64(random1),
-                        user_id,
+                        shield_address,
                         deposit_index,
                         token_address,
                         l2_token_contract_id,
@@ -933,6 +940,8 @@ impl WasmRpcServer {
                         amount,
                         source_chain_index,
                         deposit_root,
+                        note_commitment,
+                        deposit_index,
                         r0: random0,
                         r1: random1,
                         proof_fingerprint,
@@ -971,9 +980,23 @@ impl WasmRpcServer {
         let rpc_config: RpcConfig<F> = serde_json::from_str(rpc_config_json)
             .map_err(|e| JsError::new(&format!("Parse RPC config error: {}", e)))?;
 
-        let wallet_session = WalletSession::new(&rpc_config)
-            .await
-            .map_err(|e| JsError::new(&format!("Create wallet session error: {}", e)))?;
+        let wallet_session = match WalletSession::new(&rpc_config).await {
+            Ok(wallet_session) => wallet_session,
+            Err(e) => {
+                let prove_proxy_url = serde_json::from_str::<serde_json::Value>(rpc_config_json)
+                    .ok()
+                    .and_then(|value| value.get("prove_proxy_url").cloned())
+                    .unwrap_or(serde_json::Value::Null);
+                let detail = format!("Create wallet session error: {:#}", e);
+                web_sys::console::error_1(
+                    &wasm_bindgen::JsValue::from_str(&format!(
+                        "[psy-sdk][wasm] WasmRpcServer::new failed; prove_proxy_url={}; {}",
+                        prove_proxy_url, detail
+                    )),
+                );
+                return Err(JsError::new(&detail));
+            }
+        };
 
         Ok(WasmRpcServer {
             store: UserProverWorkerStore::new(),
@@ -1488,7 +1511,8 @@ impl WasmRpcServer {
         use psy_crypto::hash::merkle::core::MerkleProofCore;
         use psy_crypto::hash::traits::hasher::PoseidonHasher;
         use psy_crypto::shield_address::{
-            derive_deposit_commitment, derive_nullifier_hash, derive_shield_address,
+            derive_deposit_commitment, derive_note_commitment, derive_nullifier_hash,
+            derive_shield_address,
         };
         use psy_data::privacy::shield_deposit_claim::ShieldDepositClaimInput;
 
@@ -1598,13 +1622,14 @@ impl WasmRpcServer {
 
         let shield_address = derive_shield_address(user_id, random0_val, random1_val);
         let nullifier_hash = derive_nullifier_hash(nullifier_secret);
+        let note_commitment = derive_note_commitment(nullifier_secret, note_secret_hash);
         let deposit_leaf = derive_deposit_commitment(
             shield_address,
             token_address,
             l2_token_contract_id,
             amount,
             source_chain_index_val,
-            note_secret_hash,
+            qhash_to_u64x4(note_commitment),
         );
         // Verify the caller-supplied deposit Merkle proof authenticates the
         // locally-derived deposit leaf under the caller-supplied deposit_root.
@@ -1629,12 +1654,10 @@ impl WasmRpcServer {
             nullifier_secret: std::array::from_fn(|i| {
                 <F as plonky2::field::types::Field>::from_canonical_u64(nullifier_secret[i])
             }),
-            note_secret_hash: std::array::from_fn(|i| {
+            note_secret: std::array::from_fn(|i| {
                 <F as plonky2::field::types::Field>::from_canonical_u64(note_secret_hash[i])
             }),
-            r0: <F as plonky2::field::types::Field>::from_canonical_u64(random0_val),
-            r1: <F as plonky2::field::types::Field>::from_canonical_u64(random1_val),
-            user_id,
+            shield_address,
             deposit_index: deposit_index_val,
             token_address,
             l2_token_contract_id,
@@ -1678,6 +1701,8 @@ impl WasmRpcServer {
                 .iter()
                 .map(|&v| v as u64),
         );
+        contract_inputs.extend_from_slice(&qhash_to_u64x4(note_commitment));
+        contract_inputs.push(deposit_index_val);
         contract_inputs.push(random0_val);
         contract_inputs.push(random1_val);
         for sibling in &proof_siblings {
@@ -2063,7 +2088,7 @@ impl WasmRpcServer {
             user_leaf,
             owner,
             amount: <F as plonky2::field::types::Field>::from_canonical_u64(amount_val),
-            randomness: note_secret_hash,
+            note_secret: note_secret_hash,
             note_membership_proof,
             note_root_slot_proof,
             contract_proof,
@@ -2666,9 +2691,18 @@ impl WasmRpcServer {
             .wallet_session
             .prove_external_proof_job(&trace, step_index as usize)
             .await
-            .map_err(|e| JsError::new(&format!("Error proving external-proof job {}: {}", step_index, e)))?;
-        serde_json::to_string(&output)
-            .map_err(|e| JsError::new(&format!("Error serializing external-proof job output: {}", e)))
+            .map_err(|e| {
+                JsError::new(&format!(
+                    "Error proving external-proof job {}: {}",
+                    step_index, e
+                ))
+            })?;
+        serde_json::to_string(&output).map_err(|e| {
+            JsError::new(&format!(
+                "Error serializing external-proof job output: {}",
+                e
+            ))
+        })
     }
 
     #[wasm_bindgen]
