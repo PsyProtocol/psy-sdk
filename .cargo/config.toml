@@ -6,6 +6,10 @@ TS_RS_EXPORT_DIR = { value = "psy_sdk/psy-ts-sdk/packages/psy-sdk/src/types", re
 rustflags = [
     "-C", "target-feature=+atomics",
     "-C", "panic=abort",
+    # Shared (+atomics) memory defaults to LLD's 1 GB maximum (16384 pages),
+    # which the wallet's degree-2^17 circuit build exhausts -> "RuntimeError:
+    # unreachable" at login for returning users. Raise to the wasm32 max (4 GB).
+    "-C", "link-arg=--max-memory=4294967296",
     '--cfg', 'getrandom_backend="js"'
 ]
 
