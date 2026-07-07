@@ -109,8 +109,6 @@ export class WasmRpcServer {
     /**
      * Inputs:
      *   pk_hash                    - receiver's ZK public key (hex QHashOut)
-     *   nullifier_json             - JSON array of 4 decimal strings
-     *   note_secret_json      - JSON array of 4 decimal strings
      *   token_address_u32x8_json   - JSON array of 8 decimal strings (bytes32 BE words)
      *   l2_token_contract_id_json  - JSON array of 8 decimal strings (bytes32 BE words)
      *   amount_u32x8_json          - JSON array of 8 decimal strings (bytes32 BE words)
@@ -119,9 +117,11 @@ export class WasmRpcServer {
      *   deposit_root_json          - JSON array of 4 decimal strings (QHashOut limbs)
      *   nullifier_hash_json        - JSON array of 4 decimal strings (QHashOut limbs)
      *   note_commitment_json       - JSON array of 4 decimal strings (QHashOut limbs)
-     *   random0                    - decimal string
-     *   random1                    - decimal string
+     *   deposit_proof_bincode_b64  - base64-encoded bincode ProofWithPublicInputs
+     *   random0                    - decimal string (receiver's r0, locally derived)
+     *   random1                    - decimal string (receiver's r1, locally derived)
      *   contract_id                - decimal string
+     *   deposit_proof_fingerprint_json - optional JSON array of 4 decimal strings (circuit fingerprint)
      *
      * Returns the transaction hash string.
      */
@@ -237,6 +237,7 @@ export function main(): void;
 export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembly.Module;
 
 export interface InitOutput {
+    readonly memory: WebAssembly.Memory;
     readonly __wbg_wasmconstants_free: (a: number, b: number) => void;
     readonly __wbg_wasmpsyconfig_free: (a: number, b: number) => void;
     readonly __wbg_wasmpsyconfigbuilder_free: (a: number, b: number) => void;
@@ -313,10 +314,7 @@ export interface InitOutput {
     readonly wasmconstants_register_user_fee: () => bigint;
     readonly wasm_bindgen__convert__closures_____invoke__h41d768e04850544c: (a: number, b: number, c: any) => [number, number];
     readonly wasm_bindgen__convert__closures_____invoke__h702ca093da666827: (a: number, b: number, c: any, d: any) => void;
-    readonly wasm_bindgen__convert__closures_____invoke__haea1eaf86c82f57b: (a: number, b: number, c: any) => void;
-    readonly wasm_bindgen__convert__closures_____invoke__h5ee5a126ae61dad8: (a: number, b: number, c: any) => void;
     readonly wasm_bindgen__convert__closures_____invoke__h0e7e04cf3c77836f: (a: number, b: number) => void;
-    readonly memory: WebAssembly.Memory;
     readonly __wbindgen_malloc: (a: number, b: number) => number;
     readonly __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;
     readonly __wbindgen_exn_store: (a: number) => void;
@@ -326,8 +324,7 @@ export interface InitOutput {
     readonly __wbindgen_destroy_closure: (a: number, b: number) => void;
     readonly __externref_table_dealloc: (a: number) => void;
     readonly __externref_drop_slice: (a: number, b: number) => void;
-    readonly __wbindgen_thread_destroy: (a?: number, b?: number, c?: number) => void;
-    readonly __wbindgen_start: (a: number) => void;
+    readonly __wbindgen_start: () => void;
 }
 
 export type SyncInitInput = BufferSource | WebAssembly.Module;
@@ -336,20 +333,18 @@ export type SyncInitInput = BufferSource | WebAssembly.Module;
  * Instantiates the given `module`, which can either be bytes or
  * a precompiled `WebAssembly.Module`.
  *
- * @param {{ module: SyncInitInput, memory?: WebAssembly.Memory, thread_stack_size?: number }} module - Passing `SyncInitInput` directly is deprecated.
- * @param {WebAssembly.Memory} memory - Deprecated.
+ * @param {{ module: SyncInitInput }} module - Passing `SyncInitInput` directly is deprecated.
  *
  * @returns {InitOutput}
  */
-export function initSync(module: { module: SyncInitInput, memory?: WebAssembly.Memory, thread_stack_size?: number } | SyncInitInput, memory?: WebAssembly.Memory): InitOutput;
+export function initSync(module: { module: SyncInitInput } | SyncInitInput): InitOutput;
 
 /**
  * If `module_or_path` is {RequestInfo} or {URL}, makes a request and
  * for everything else, calls `WebAssembly.instantiate` directly.
  *
- * @param {{ module_or_path: InitInput | Promise<InitInput>, memory?: WebAssembly.Memory, thread_stack_size?: number }} module_or_path - Passing `InitInput` directly is deprecated.
- * @param {WebAssembly.Memory} memory - Deprecated.
+ * @param {{ module_or_path: InitInput | Promise<InitInput> }} module_or_path - Passing `InitInput` directly is deprecated.
  *
  * @returns {Promise<InitOutput>}
  */
-export default function __wbg_init (module_or_path?: { module_or_path: InitInput | Promise<InitInput>, memory?: WebAssembly.Memory, thread_stack_size?: number } | InitInput | Promise<InitInput>, memory?: WebAssembly.Memory): Promise<InitOutput>;
+export default function __wbg_init (module_or_path?: { module_or_path: InitInput | Promise<InitInput> } | InitInput | Promise<InitInput>): Promise<InitOutput>;
