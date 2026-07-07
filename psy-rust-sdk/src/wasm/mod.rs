@@ -1713,8 +1713,6 @@ impl WasmRpcServer {
 
     /// Inputs:
     ///   pk_hash                    - receiver's ZK public key (hex QHashOut)
-    ///   nullifier_json             - JSON array of 4 decimal strings
-    ///   note_secret_json      - JSON array of 4 decimal strings
     ///   token_address_u32x8_json   - JSON array of 8 decimal strings (bytes32 BE words)
     ///   l2_token_contract_id_json  - JSON array of 8 decimal strings (bytes32 BE words)
     ///   amount_u32x8_json          - JSON array of 8 decimal strings (bytes32 BE words)
@@ -1723,9 +1721,11 @@ impl WasmRpcServer {
     ///   deposit_root_json          - JSON array of 4 decimal strings (QHashOut limbs)
     ///   nullifier_hash_json        - JSON array of 4 decimal strings (QHashOut limbs)
     ///   note_commitment_json       - JSON array of 4 decimal strings (QHashOut limbs)
-    ///   random0                    - decimal string
-    ///   random1                    - decimal string
+    ///   deposit_proof_bincode_b64  - base64-encoded bincode ProofWithPublicInputs
+    ///   random0                    - decimal string (receiver's r0, locally derived)
+    ///   random1                    - decimal string (receiver's r1, locally derived)
     ///   contract_id                - decimal string
+    ///   deposit_proof_fingerprint_json - optional JSON array of 4 decimal strings (circuit fingerprint)
     ///
     /// Returns the transaction hash string.
     #[wasm_bindgen]
