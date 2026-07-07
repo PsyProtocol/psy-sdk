@@ -106,6 +106,7 @@ fn parse_tx_trace_envelope(
     Ok((envelope, trace))
 }
 
+
 // Initialize panic hook for better error messages in WASM
 #[wasm_bindgen(start)]
 pub fn main() {
@@ -364,10 +365,15 @@ use psy_common::{
     },
 };
 use psy_crypto::signature::zk::data::ZKPublicKeyInfo;
+use psy_data::{
+    guta::end_cap_input::SubmitUserEndCapNonProofInput,
+    qblock::cmds::deploy_contract::{QBCDeployContract, QContractABI},
+};
 use psy_prover::{
     local::store::UserProverWorkerStore,
     session::{
-        ClaimBatchItem, PrivateTransferClaim, ShieldDepositClaim, WalletSession,
+        ClaimBatchItem, PrivateTransferClaim, ShieldDepositClaim, TraceProvingStepResult,
+        TraceResumeState, WalletKeyPair, WalletSession,
     },
 };
 use psy_provider::provider::NetworkConfig as RpcConfig;
@@ -454,6 +460,16 @@ impl WasmRpcServer {
                 label
             ))),
         }
+    }
+
+    fn serialize_trace_resume_blob(resume_state: &TraceResumeState) -> Result<Vec<u8>, JsError> {
+        bincode::serialize(resume_state)
+            .map_err(|e| JsError::new(&format!("serialize trace resume blob: {}", e)))
+    }
+
+    fn deserialize_trace_resume_blob(blob: &[u8]) -> Result<TraceResumeState, JsError> {
+        bincode::deserialize(blob)
+            .map_err(|e| JsError::new(&format!("deserialize trace resume blob: {}", e)))
     }
 
     fn decode_note_proof_bytes(
@@ -589,13 +605,12 @@ impl WasmRpcServer {
         pk_hash_str: &str,
         items_json: &str,
     ) -> Result<psy_prover::trace::GeneratedTxTraceJson, JsError> {
-        use psy_crypto::hash::merkle::core::MerkleProofCore;
         use psy_crypto::hash::traits::hasher::PoseidonHasher;
-        use psy_crypto::shield_address::{
-            derive_deposit_commitment, derive_note_commitment, derive_nullifier_hash,
-            derive_shield_address,
-        };
-        use psy_data::privacy::shield_deposit_claim::ShieldDepositClaimInput;
+        use psy_crypto::hash::traits::hasher::FieldQHasher;
+        use psy_crypto::shield_address::derive_shield_address;
+        use plonky2::field::types::PrimeField64;
+        use psy_common_circuit::circuits::traits::qstandard::QStandardCircuit;
+        use psy_dpn_circuit::circuits::privacy::deposit_inclusion::DepositInclusionCircuit;
         use psy_prover::trace::GeneratedTxTraceJson;
 
         let pk_hash = QHashOut::<F>::from_str(pk_hash_str)
@@ -609,7 +624,7 @@ impl WasmRpcServer {
                 contract_id: String,
                 claim: PrivateTransferClaimInput,
             },
-            ClaimShieldDeposit(ShieldDepositClaimRaw),
+            ClaimShieldDeposit(DepositInclusionClaimRaw),
         }
 
         #[derive(serde::Deserialize)]
@@ -635,16 +650,20 @@ impl WasmRpcServer {
         }
 
         #[derive(serde::Deserialize)]
-        struct ShieldDepositClaimRaw {
-            nullifier: [String; 4],
-            note_secret_hash: [String; 4],
+        struct DepositInclusionClaimRaw {
+            #[serde(default)]
+            user_id: Option<String>,
+            nullifier_hash: [String; 4],
+            note_commitment: [String; 4],
             token_address_u32x8: [String; 8],
             l2_token_contract_id: [String; 8],
             amount_u32x8: [String; 8],
             source_chain_index: String,
             deposit_index: String,
             deposit_root: [String; 4],
-            deposit_siblings: Vec<[String; 4]>,
+            deposit_proof_bincode_b64: String,
+            #[serde(default)]
+            deposit_proof_fingerprint: Option<[String; 4]>,
             random0: String,
             random1: String,
             contract_id: String,
@@ -686,6 +705,14 @@ impl WasmRpcServer {
         };
         let qhash_from_u64_arr = |arr: [u64; 4]| -> QHashOut<F> {
             QHashOut::from_values(arr[0], arr[1], arr[2], arr[3])
+        };
+        let qhash_to_u64_arr = |hash: QHashOut<F>| -> [u64; 4] {
+            [
+                hash.0.elements[0].to_canonical_u64(),
+                hash.0.elements[1].to_canonical_u64(),
+                hash.0.elements[2].to_canonical_u64(),
+                hash.0.elements[3].to_canonical_u64(),
+            ]
         };
 
         let mut builder = self
@@ -746,27 +773,14 @@ impl WasmRpcServer {
                         .note_proof_fingerprint
                         .map(|raw| parse_u64_arr(raw).map(qhash_from_u64_arr))
                         .transpose()?;
-                    // What the local fallback minifier would resolve to, for comparison
-                    // against whatever fingerprint actually gets used.
-                    let local_fallback_fp = self
-                        .wallet_session
-                        .wallet
-                        .fallback_private_note_inclusion_minifier_fingerprint();
                     let (proof_fingerprint, verifier_data) = self
                         .resolve_private_note_inclusion_proof_data(proof_fingerprint, input.note_verifier_data)
                         .map_err(|e| {
                             console_log!(
-                                "[note-claim-diag] FAIL resolve fingerprint/verifier (local_fallback_fp={})",
-                                local_fallback_fp,
+                                "[note-claim-diag] FAIL resolve fingerprint/verifier"
                             );
                             e
                         })?;
-                    console_log!(
-                        "[note-claim-diag] resolved fingerprint={} local_fallback_fp={} equal={}",
-                        proof_fingerprint,
-                        local_fallback_fp,
-                        proof_fingerprint == local_fallback_fp,
-                    );
 
                     let nullifier = parse_u64_arr(input.nullifier)?;
                     let owner = parse_u64_arr(input.owner)?;
@@ -826,8 +840,12 @@ impl WasmRpcServer {
                     ordered_calls.push(call);
                 }
                 WalletClaimBatchItem::ClaimShieldDeposit(input) => {
-                    let nullifier_secret = parse_u64_arr(input.nullifier)?;
-                    let note_secret_hash = parse_u64_arr(input.note_secret_hash)?;
+                    use base64::engine::general_purpose::STANDARD as BASE64;
+                    use base64::Engine;
+
+                    let requested_user_id = input.user_id.clone();
+                    let nullifier_hash = qhash_from_u64_arr(parse_u64_arr(input.nullifier_hash)?);
+                    let note_commitment = qhash_from_u64_arr(parse_u64_arr(input.note_commitment)?);
                     let token_address = parse_u32_arr(input.token_address_u32x8)?;
                     let l2_token_contract_id = parse_u32_arr(input.l2_token_contract_id)?;
                     let amount = parse_u32_arr(input.amount_u32x8)?;
@@ -840,11 +858,6 @@ impl WasmRpcServer {
                         .parse()
                         .map_err(|e: std::num::ParseIntError| JsError::new(&e.to_string()))?;
                     let deposit_root = qhash_from_u64_arr(parse_u64_arr(input.deposit_root)?);
-                    let deposit_siblings: Vec<QHashOut<F>> = input
-                        .deposit_siblings
-                        .into_iter()
-                        .map(|sibling| parse_u64_arr(sibling).map(qhash_from_u64_arr))
-                        .collect::<Result<Vec<_>, _>>()?;
                     let random0: u64 = input
                         .random0
                         .parse()
@@ -865,79 +878,105 @@ impl WasmRpcServer {
                         .map_err(|e| {
                             JsError::new(&format!("get_user_ids_for_public_key: {}", e))
                         })?;
-                    let user_id = *user_ids
-                        .first()
-                        .ok_or_else(|| JsError::new("No user ID found for public key"))?;
+                    let user_id = match requested_user_id
+                        .as_deref()
+                        .map(str::trim)
+                        .filter(|s| !s.is_empty())
+                    {
+                        Some(raw) => {
+                            let parsed: u64 =
+                                raw.parse().map_err(|e: std::num::ParseIntError| {
+                                    JsError::new(&e.to_string())
+                                })?;
+                            if !user_ids.contains(&parsed) {
+                                return Err(JsError::new(&format!(
+                                    "claim_shield_deposit user_id {} is not registered for public key",
+                                    parsed
+                                )));
+                            }
+                            parsed
+                        }
+                        None => *user_ids
+                            .first()
+                            .ok_or_else(|| JsError::new("No user ID found for public key"))?,
+                    };
 
                     let shield_address = derive_shield_address(user_id, random0, random1);
-                    let nullifier_hash = derive_nullifier_hash(nullifier_secret);
-                    let note_commitment =
-                        derive_note_commitment(nullifier_secret, note_secret_hash);
-                    let note_commitment_u64 = [
-                        note_commitment.0.elements[0].to_canonical_u64(),
-                        note_commitment.0.elements[1].to_canonical_u64(),
-                        note_commitment.0.elements[2].to_canonical_u64(),
-                        note_commitment.0.elements[3].to_canonical_u64(),
-                    ];
-                    let deposit_leaf = derive_deposit_commitment(
-                        shield_address,
-                        token_address,
-                        l2_token_contract_id,
-                        amount,
-                        source_chain_index,
-                        note_commitment_u64,
+                    let circuit = DepositInclusionCircuit::<C, D>::new();
+                    let proof_fingerprint = circuit.get_fingerprint();
+                    if let Some(raw) = input.deposit_proof_fingerprint {
+                        let payload_fingerprint = qhash_from_u64_arr(parse_u64_arr(raw)?);
+                        if payload_fingerprint != proof_fingerprint {
+                            return Err(JsError::new(&format!(
+                                "DepositInclusion fingerprint mismatch: payload={} local={}",
+                                payload_fingerprint, proof_fingerprint
+                            )));
+                        }
+                    }
+                    let proof_bytes = BASE64
+                        .decode(input.deposit_proof_bincode_b64.as_bytes())
+                        .map_err(|e| JsError::new(&format!("deposit proof base64 decode: {}", e)))?;
+                    let proof: ProofWithPublicInputs<F, C, D> =
+                        match ProofWithPublicInputs::<F, C, D>::from_bytes(
+                            proof_bytes.clone(),
+                            circuit.get_common_circuit_data_ref(),
+                        ) {
+                            Ok(p) => p,
+                            Err(native_err) => bincode::deserialize(&proof_bytes).map_err(|bin_err| {
+                                JsError::new(&format!(
+                                    "deposit proof deserialize: native={} ; bincode={}",
+                                    native_err, bin_err
+                                ))
+                            })?,
+                        };
+                    let proof_pi_hash = QHashOut::<F>::from_values(
+                        proof.public_inputs[0].to_canonical_u64(),
+                        proof.public_inputs[1].to_canonical_u64(),
+                        proof.public_inputs[2].to_canonical_u64(),
+                        proof.public_inputs[3].to_canonical_u64(),
                     );
-                    // Verify the caller-supplied deposit Merkle proof authenticates the
-                    // locally-derived deposit leaf under the caller-supplied deposit_root.
-                    // This mirrors the CLI's `services_leaf_hash == deposit_commitment` check:
-                    // shield_address/token_address/amount/source_chain_index/note_secret_hash
-                    // are all baked into deposit_leaf, so a mismatch between the claimed proof
-                    // and the deposit actually being claimed fails inclusion here.
-                    let reconstructed_deposit_root =
-                        MerkleProofCore::new_from_params::<PoseidonHasher>(
-                            deposit_index,
-                            deposit_leaf,
-                            deposit_siblings.clone(),
-                        )
-                        .root;
-                    if reconstructed_deposit_root != deposit_root {
+                    let mut pi_preimage = Vec::with_capacity(42);
+                    pi_preimage.extend(
+                        qhash_to_u64_arr(shield_address)
+                            .iter()
+                            .map(|&v| F::from_canonical_u64(v)),
+                    );
+                    pi_preimage.extend(amount.iter().map(|&v| F::from_canonical_u64(v as u64)));
+                    pi_preimage.extend(
+                        token_address
+                            .iter()
+                            .map(|&v| F::from_canonical_u64(v as u64)),
+                    );
+                    pi_preimage.extend(
+                        l2_token_contract_id
+                            .iter()
+                            .map(|&v| F::from_canonical_u64(v as u64)),
+                    );
+                    pi_preimage.push(F::from_canonical_u64(source_chain_index as u64));
+                    pi_preimage.extend(
+                        qhash_to_u64_arr(deposit_root)
+                            .iter()
+                            .map(|&v| F::from_canonical_u64(v)),
+                    );
+                    pi_preimage.extend(
+                        qhash_to_u64_arr(nullifier_hash)
+                            .iter()
+                            .map(|&v| F::from_canonical_u64(v)),
+                    );
+                    pi_preimage.extend(
+                        qhash_to_u64_arr(note_commitment)
+                            .iter()
+                            .map(|&v| F::from_canonical_u64(v)),
+                    );
+                    pi_preimage.push(F::from_canonical_u64(deposit_index));
+                    let expected_pi_hash = PoseidonHasher::q_hash_many(&pi_preimage);
+                    if expected_pi_hash != proof_pi_hash {
                         return Err(JsError::new(&format!(
-                            "shield deposit services proof mismatch: reconstructed deposit_root {:?} != caller deposit_root {:?} (deposit_index={})",
-                            reconstructed_deposit_root, deposit_root, deposit_index,
+                            "deposit proof public input hash mismatch: expected={} proof={}",
+                            expected_pi_hash, proof_pi_hash
                         )));
                     }
-
-                    let claim_input = ShieldDepositClaimInput::<F> {
-                        nullifier_secret: std::array::from_fn(|i| {
-                            <F as plonky2::field::types::Field>::from_canonical_u64(
-                                nullifier_secret[i],
-                            )
-                        }),
-                        note_secret: std::array::from_fn(|i| {
-                            <F as plonky2::field::types::Field>::from_canonical_u64(
-                                note_secret_hash[i],
-                            )
-                        }),
-                        shield_address,
-                        deposit_index,
-                        token_address,
-                        l2_token_contract_id,
-                        amount,
-                        source_chain_index,
-                        deposit_root,
-                        deposit_proof: MerkleProofCore {
-                            root: deposit_root,
-                            value: deposit_leaf,
-                            index: deposit_index,
-                            siblings: deposit_siblings,
-                        },
-                    };
-                    let (proof_fingerprint, proof, verifier_data_alt) = self
-                        .wallet_session
-                        .prove_shield_deposit_claim(&claim_input)
-                        .await
-                        .map_err(|e| JsError::new(&format!("shield claim prove: {}", e)))?;
-                    let verifier_data = verifier_data_alt.to_verifier_data::<C, D>();
+                    let verifier_data = circuit.get_verifier_config_ref().clone();
 
                     let claim = ShieldDepositClaim {
                         contract_id,
@@ -954,7 +993,7 @@ impl WasmRpcServer {
                         r1: random1,
                         proof_fingerprint,
                         proof: proof.clone(),
-                        verifier_data: verifier_data_alt,
+                        verifier_data: verifier_data.clone().into(),
                     };
                     let proof_ref = builder
                         .add_external_proof(proof_fingerprint, proof, verifier_data)
@@ -988,21 +1027,9 @@ impl WasmRpcServer {
         let rpc_config: RpcConfig<F> = serde_json::from_str(rpc_config_json)
             .map_err(|e| JsError::new(&format!("Parse RPC config error: {}", e)))?;
 
-        let wallet_session = match WalletSession::new(&rpc_config).await {
-            Ok(wallet_session) => wallet_session,
-            Err(e) => {
-                let prove_proxy_url = serde_json::from_str::<serde_json::Value>(rpc_config_json)
-                    .ok()
-                    .and_then(|value| value.get("prove_proxy_url").cloned())
-                    .unwrap_or(serde_json::Value::Null);
-                let detail = format!("Create wallet session error: {:#}", e);
-                web_sys::console::error_1(&wasm_bindgen::JsValue::from_str(&format!(
-                    "[psy-sdk][wasm] WasmRpcServer::new failed; prove_proxy_url={}; {}",
-                    prove_proxy_url, detail
-                )));
-                return Err(JsError::new(&detail));
-            }
-        };
+        let wallet_session = WalletSession::new(&rpc_config)
+            .await
+            .map_err(|e| JsError::new(&format!("Create wallet session error: {}", e)))?;
 
         Ok(WasmRpcServer {
             store: UserProverWorkerStore::new(),
@@ -1480,10 +1507,13 @@ impl WasmRpcServer {
     /// Atomic shield claim_deposit:
     /// build ShieldDepositClaim proof -> start_session -> add_external_proof -> prove -> sign_and_submit.
     ///
+    /// Generate a sender-side DepositInclusion proof packet without
+    /// submitting any claim transaction.
+    ///
     /// Inputs:
-    ///   pk_hash                    - receiver's ZK public key (hex QHashOut)
+    ///   shield_address_json         - JSON array of 4 decimal strings
     ///   nullifier_json             - JSON array of 4 decimal strings
-    ///   note_secret_hash_json      - JSON array of 4 decimal strings
+    ///   note_secret_json           - JSON array of 4 decimal strings
     ///   token_address_u32x8_json   - JSON array of 8 decimal strings (bytes32 BE words)
     ///   l2_token_contract_id_json  - JSON array of 8 decimal strings (bytes32 BE words)
     ///   amount_u32x8_json          - JSON array of 8 decimal strings (bytes32 BE words)
@@ -1491,17 +1521,25 @@ impl WasmRpcServer {
     ///   deposit_index              - decimal string
     ///   deposit_root_json          - JSON array of 4 decimal strings (QHashOut limbs)
     ///   deposit_siblings_json      - JSON array of arrays of 4 decimal strings
-    ///   random0                    - decimal string
-    ///   random1                    - decimal string
-    ///   contract_id                - decimal string
     ///
-    /// Returns the transaction hash string.
+    /// Returns JSON containing:
+    ///   deposit_proof_bincode_b64
+    ///   deposit_proof_fingerprint
+    ///   shield_address
+    ///   amount_u32x8
+    ///   token_address_u32x8
+    ///   l2_token_contract_id
+    ///   source_chain_index
+    ///   deposit_index
+    ///   deposit_root
+    ///   nullifier_hash
+    ///   note_commitment
     #[wasm_bindgen]
-    pub async fn exec_shield_claim_deposit_json(
+    pub async fn prove_deposit_inclusion_json(
         &mut self,
-        pk_hash: &str,
+        shield_address_json: &str,
         nullifier_json: &str,
-        note_secret_hash_json: &str,
+        note_secret_json: &str,
         token_address_u32x8_json: &str,
         l2_token_contract_id_json: &str,
         amount_u32x8_json: &str,
@@ -1509,16 +1547,14 @@ impl WasmRpcServer {
         deposit_index: &str,
         deposit_root_json: &str,
         deposit_siblings_json: &str,
-        random0: &str,
-        random1: &str,
-        contract_id: &str,
     ) -> Result<String, JsError> {
+        use base64::engine::general_purpose::STANDARD as BASE64;
+        use base64::Engine;
         use plonky2::field::types::PrimeField64;
         use psy_crypto::hash::merkle::core::MerkleProofCore;
         use psy_crypto::hash::traits::hasher::PoseidonHasher;
         use psy_crypto::shield_address::{
             derive_deposit_commitment, derive_note_commitment, derive_nullifier_hash,
-            derive_shield_address,
         };
         use psy_data::privacy::shield_deposit_claim::ShieldDepositClaimInput;
 
@@ -1570,6 +1606,200 @@ impl WasmRpcServer {
                 .collect()
         };
 
+        let qhash_to_u64x4 = |hash: QHashOut<F>| -> [String; 4] {
+            [
+                hash.0.elements[0].to_canonical_u64().to_string(),
+                hash.0.elements[1].to_canonical_u64().to_string(),
+                hash.0.elements[2].to_canonical_u64().to_string(),
+                hash.0.elements[3].to_canonical_u64().to_string(),
+            ]
+        };
+        let qhash_to_u64_arr = |hash: QHashOut<F>| -> [u64; 4] {
+            [
+                hash.0.elements[0].to_canonical_u64(),
+                hash.0.elements[1].to_canonical_u64(),
+                hash.0.elements[2].to_canonical_u64(),
+                hash.0.elements[3].to_canonical_u64(),
+            ]
+        };
+
+        let u32x8_to_string_arr = |words: [u32; 8]| -> [String; 8] {
+            [
+                words[0].to_string(),
+                words[1].to_string(),
+                words[2].to_string(),
+                words[3].to_string(),
+                words[4].to_string(),
+                words[5].to_string(),
+                words[6].to_string(),
+                words[7].to_string(),
+            ]
+        };
+
+        let shield_address = {
+            let limbs = parse_u64x4(shield_address_json)?;
+            QHashOut::from_values(limbs[0], limbs[1], limbs[2], limbs[3])
+        };
+        let nullifier_secret = parse_u64x4(nullifier_json)?;
+        let note_secret = parse_u64x4(note_secret_json)?;
+        let token_address = parse_u32x8(token_address_u32x8_json)?;
+        let l2_token_contract_id = parse_u32x8(l2_token_contract_id_json)?;
+        let amount = parse_u32x8(amount_u32x8_json)?;
+        let source_chain_index_val: u32 = source_chain_index
+            .parse()
+            .map_err(|e: std::num::ParseIntError| JsError::new(&e.to_string()))?;
+        let deposit_index_val: u64 = deposit_index
+            .parse()
+            .map_err(|e: std::num::ParseIntError| JsError::new(&e.to_string()))?;
+        let deposit_root = parse_qhash(deposit_root_json)?;
+        let deposit_siblings = parse_qhash_vec(deposit_siblings_json)?;
+
+        let nullifier_hash = derive_nullifier_hash(nullifier_secret);
+        let note_commitment = derive_note_commitment(nullifier_secret, note_secret);
+        let deposit_leaf = derive_deposit_commitment(
+            shield_address,
+            token_address,
+            l2_token_contract_id,
+            amount,
+            source_chain_index_val,
+            qhash_to_u64_arr(note_commitment),
+        );
+        let reconstructed_deposit_root = MerkleProofCore::new_from_params::<PoseidonHasher>(
+            deposit_index_val,
+            deposit_leaf,
+            deposit_siblings.clone(),
+        )
+        .root;
+        if reconstructed_deposit_root != deposit_root {
+            return Err(JsError::new(&format!(
+                "deposit inclusion services proof mismatch: reconstructed deposit_root {:?} != caller deposit_root {:?} (deposit_index={})",
+                reconstructed_deposit_root, deposit_root, deposit_index_val,
+            )));
+        }
+
+        let input = ShieldDepositClaimInput::<F> {
+            nullifier_secret: std::array::from_fn(|i| {
+                <F as plonky2::field::types::Field>::from_canonical_u64(nullifier_secret[i])
+            }),
+            note_secret: std::array::from_fn(|i| {
+                <F as plonky2::field::types::Field>::from_canonical_u64(note_secret[i])
+            }),
+            shield_address,
+            deposit_index: deposit_index_val,
+            token_address,
+            l2_token_contract_id,
+            amount,
+            source_chain_index: source_chain_index_val,
+            deposit_root,
+            deposit_proof: MerkleProofCore {
+                root: deposit_root,
+                value: deposit_leaf,
+                index: deposit_index_val,
+                siblings: deposit_siblings,
+            },
+        };
+
+        let (fingerprint, proof, _verifier_data_alt) = self
+            .wallet_session
+            .prove_shield_deposit_claim(&input)
+            .await
+            .map_err(|e| JsError::new(&format!("prove_deposit_inclusion: {}", e)))?;
+
+        let proof_bytes = bincode::serialize(&proof)
+            .map_err(|e| JsError::new(&format!("serialize deposit proof: {}", e)))?;
+        let result = serde_json::json!({
+            "deposit_proof_bincode_b64": BASE64.encode(&proof_bytes),
+            "deposit_proof_fingerprint": qhash_to_u64x4(fingerprint),
+            "shield_address": qhash_to_u64x4(shield_address),
+            "amount_u32x8": u32x8_to_string_arr(amount),
+            "token_address_u32x8": u32x8_to_string_arr(token_address),
+            "l2_token_contract_id": u32x8_to_string_arr(l2_token_contract_id),
+            "source_chain_index": source_chain_index_val.to_string(),
+            "deposit_index": deposit_index_val.to_string(),
+            "deposit_root": qhash_to_u64x4(deposit_root),
+            "nullifier_hash": qhash_to_u64x4(nullifier_hash),
+            "note_commitment": qhash_to_u64x4(note_commitment),
+        });
+        Ok(result.to_string())
+    }
+
+    /// Inputs:
+    ///   pk_hash                    - receiver's ZK public key (hex QHashOut)
+    ///   token_address_u32x8_json   - JSON array of 8 decimal strings (bytes32 BE words)
+    ///   l2_token_contract_id_json  - JSON array of 8 decimal strings (bytes32 BE words)
+    ///   amount_u32x8_json          - JSON array of 8 decimal strings (bytes32 BE words)
+    ///   source_chain_index         - decimal string
+    ///   deposit_index              - decimal string
+    ///   deposit_root_json          - JSON array of 4 decimal strings (QHashOut limbs)
+    ///   nullifier_hash_json        - JSON array of 4 decimal strings (QHashOut limbs)
+    ///   note_commitment_json       - JSON array of 4 decimal strings (QHashOut limbs)
+    ///   deposit_proof_bincode_b64  - base64-encoded bincode ProofWithPublicInputs
+    ///   random0                    - decimal string (receiver's r0, locally derived)
+    ///   random1                    - decimal string (receiver's r1, locally derived)
+    ///   contract_id                - decimal string
+    ///   deposit_proof_fingerprint_json - optional JSON array of 4 decimal strings (circuit fingerprint)
+    ///
+    /// Returns the transaction hash string.
+    #[wasm_bindgen]
+    pub async fn exec_shield_claim_deposit_json(
+        &mut self,
+        pk_hash: &str,
+        token_address_u32x8_json: &str,
+        l2_token_contract_id_json: &str,
+        amount_u32x8_json: &str,
+        source_chain_index: &str,
+        deposit_index: &str,
+        deposit_root_json: &str,
+        nullifier_hash_json: &str,
+        note_commitment_json: &str,
+        deposit_proof_bincode_b64: &str,
+        random0: &str,
+        random1: &str,
+        contract_id: &str,
+        deposit_proof_fingerprint_json: Option<String>,
+    ) -> Result<String, JsError> {
+        use base64::engine::general_purpose::STANDARD as BASE64;
+        use base64::Engine;
+        use plonky2::field::types::PrimeField64;
+        use psy_common_circuit::circuits::traits::qstandard::QStandardCircuit;
+        use psy_crypto::hash::traits::hasher::FieldQHasher;
+        use psy_crypto::hash::traits::hasher::PoseidonHasher;
+        use psy_crypto::shield_address::derive_shield_address;
+        use psy_dpn_circuit::circuits::privacy::deposit_inclusion::DepositInclusionCircuit;
+
+        let parse_u64x4 = |json: &str| -> Result<[u64; 4], JsError> {
+            let arr: [String; 4] = serde_json::from_str(json)
+                .map_err(|e| JsError::new(&format!("parse u64x4: {}", e)))?;
+            Ok([
+                parse_int_string(&arr[0])?,
+                parse_int_string(&arr[1])?,
+                parse_int_string(&arr[2])?,
+                parse_int_string(&arr[3])?,
+            ])
+        };
+
+        let parse_u32x8 = |json: &str| -> Result<[u32; 8], JsError> {
+            let arr: [String; 8] = serde_json::from_str(json)
+                .map_err(|e| JsError::new(&format!("parse u32x8: {}", e)))?;
+            Ok([
+                parse_int_string(&arr[0])? as u32,
+                parse_int_string(&arr[1])? as u32,
+                parse_int_string(&arr[2])? as u32,
+                parse_int_string(&arr[3])? as u32,
+                parse_int_string(&arr[4])? as u32,
+                parse_int_string(&arr[5])? as u32,
+                parse_int_string(&arr[6])? as u32,
+                parse_int_string(&arr[7])? as u32,
+            ])
+        };
+
+        let parse_qhash = |json: &str| -> Result<QHashOut<F>, JsError> {
+            let limbs = parse_u64x4(json)?;
+            Ok(QHashOut::from_values(
+                limbs[0], limbs[1], limbs[2], limbs[3],
+            ))
+        };
+
         let qhash_to_internal_u32x8 = |hash: QHashOut<F>| -> [u32; 8] {
             [
                 (hash.0.elements[0].to_canonical_u64() & 0xffff_ffff) as u32,
@@ -1594,8 +1824,6 @@ impl WasmRpcServer {
 
         let pk_hash = QHashOut::<F>::from_str(pk_hash)
             .map_err(|e| JsError::new(&format!("parse pk_hash: {}", e)))?;
-        let nullifier_secret = parse_u64x4(nullifier_json)?;
-        let note_secret_hash = parse_u64x4(note_secret_hash_json)?;
         let token_address = parse_u32x8(token_address_u32x8_json)?;
         let l2_token_contract_id = parse_u32x8(l2_token_contract_id_json)?;
         let amount = parse_u32x8(amount_u32x8_json)?;
@@ -1606,7 +1834,8 @@ impl WasmRpcServer {
             .parse()
             .map_err(|e: std::num::ParseIntError| JsError::new(&e.to_string()))?;
         let deposit_root = parse_qhash(deposit_root_json)?;
-        let deposit_siblings = parse_qhash_vec(deposit_siblings_json)?;
+        let nullifier_hash = parse_qhash(nullifier_hash_json)?;
+        let note_commitment = parse_qhash(note_commitment_json)?;
         let random0_val: u64 = random0
             .parse()
             .map_err(|e: std::num::ParseIntError| JsError::new(&e.to_string()))?;
@@ -1627,63 +1856,82 @@ impl WasmRpcServer {
             .ok_or_else(|| JsError::new("No user ID found for public key"))?;
 
         let shield_address = derive_shield_address(user_id, random0_val, random1_val);
-        let nullifier_hash = derive_nullifier_hash(nullifier_secret);
-        let note_commitment = derive_note_commitment(nullifier_secret, note_secret_hash);
-        let deposit_leaf = derive_deposit_commitment(
-            shield_address,
-            token_address,
-            l2_token_contract_id,
-            amount,
-            source_chain_index_val,
-            qhash_to_u64x4(note_commitment),
-        );
-        // Verify the caller-supplied deposit Merkle proof authenticates the
-        // locally-derived deposit leaf under the caller-supplied deposit_root.
-        // This mirrors the CLI's `services_leaf_hash == deposit_commitment` check:
-        // shield_address/token_address/amount/source_chain_index/note_secret_hash
-        // are all baked into deposit_leaf, so a mismatch between the claimed proof
-        // and the deposit actually being claimed fails inclusion here.
-        let reconstructed_deposit_root = MerkleProofCore::new_from_params::<PoseidonHasher>(
-            deposit_index_val,
-            deposit_leaf,
-            deposit_siblings.clone(),
-        )
-        .root;
-        if reconstructed_deposit_root != deposit_root {
-            return Err(JsError::new(&format!(
-                "shield deposit services proof mismatch: reconstructed deposit_root {:?} != caller deposit_root {:?} (deposit_index={})",
-                reconstructed_deposit_root, deposit_root, deposit_index_val,
-            )));
+        let circuit = DepositInclusionCircuit::<C, D>::new();
+        let proof_fingerprint = circuit.get_fingerprint();
+        if let Some(raw) = deposit_proof_fingerprint_json.as_deref() {
+            let payload_fingerprint = Self::parse_qhash_u64x4_json(raw, "deposit_proof_fingerprint")?;
+            if payload_fingerprint != proof_fingerprint {
+                return Err(JsError::new(&format!(
+                    "DepositInclusion fingerprint mismatch: payload={} local={}",
+                    payload_fingerprint, proof_fingerprint
+                )));
+            }
         }
 
-        let input = ShieldDepositClaimInput::<F> {
-            nullifier_secret: std::array::from_fn(|i| {
-                <F as plonky2::field::types::Field>::from_canonical_u64(nullifier_secret[i])
-            }),
-            note_secret: std::array::from_fn(|i| {
-                <F as plonky2::field::types::Field>::from_canonical_u64(note_secret_hash[i])
-            }),
-            shield_address,
-            deposit_index: deposit_index_val,
-            token_address,
-            l2_token_contract_id,
-            amount,
-            source_chain_index: source_chain_index_val,
-            deposit_root,
-            deposit_proof: MerkleProofCore {
-                root: deposit_root,
-                value: deposit_leaf,
-                index: deposit_index_val,
-                siblings: deposit_siblings,
-            },
-        };
-
-        let (fingerprint, proof, verifier_data_alt) = self
-            .wallet_session
-            .prove_shield_deposit_claim(&input)
-            .await
-            .map_err(|e| JsError::new(&format!("shield claim prove: {}", e)))?;
-        let verifier_data = verifier_data_alt.to_verifier_data::<C, D>();
+        let proof_bytes = BASE64
+            .decode(deposit_proof_bincode_b64.as_bytes())
+            .map_err(|e| JsError::new(&format!("deposit proof base64 decode: {}", e)))?;
+        let proof: ProofWithPublicInputs<F, C, D> =
+            match ProofWithPublicInputs::<F, C, D>::from_bytes(
+                proof_bytes.clone(),
+                circuit.get_common_circuit_data_ref(),
+            ) {
+                Ok(p) => p,
+                Err(native_err) => bincode::deserialize(&proof_bytes).map_err(|bin_err| {
+                    JsError::new(&format!(
+                        "deposit proof deserialize: native={} ; bincode={}",
+                        native_err, bin_err
+                    ))
+                })?,
+            };
+        let proof_pi_hash = QHashOut::<F>::from_values(
+            proof.public_inputs[0].to_canonical_u64(),
+            proof.public_inputs[1].to_canonical_u64(),
+            proof.public_inputs[2].to_canonical_u64(),
+            proof.public_inputs[3].to_canonical_u64(),
+        );
+        let mut pi_preimage = Vec::with_capacity(42);
+        pi_preimage.extend(
+            qhash_to_u64x4(shield_address)
+                .iter()
+                .map(|&v| F::from_canonical_u64(v)),
+        );
+        pi_preimage.extend(amount.iter().map(|&v| F::from_canonical_u64(v as u64)));
+        pi_preimage.extend(
+            token_address
+                .iter()
+                .map(|&v| F::from_canonical_u64(v as u64)),
+        );
+        pi_preimage.extend(
+            l2_token_contract_id
+                .iter()
+                .map(|&v| F::from_canonical_u64(v as u64)),
+        );
+        pi_preimage.push(F::from_canonical_u64(source_chain_index_val as u64));
+        pi_preimage.extend(
+            qhash_to_u64x4(deposit_root)
+                .iter()
+                .map(|&v| F::from_canonical_u64(v)),
+        );
+        pi_preimage.extend(
+            qhash_to_u64x4(nullifier_hash)
+                .iter()
+                .map(|&v| F::from_canonical_u64(v)),
+        );
+        pi_preimage.extend(
+            qhash_to_u64x4(note_commitment)
+                .iter()
+                .map(|&v| F::from_canonical_u64(v)),
+        );
+        pi_preimage.push(F::from_canonical_u64(deposit_index_val));
+        let expected_pi_hash = PoseidonHasher::q_hash_many(&pi_preimage);
+        if expected_pi_hash != proof_pi_hash {
+            return Err(JsError::new(&format!(
+                "deposit proof public input hash mismatch: expected={} proof={}",
+                expected_pi_hash, proof_pi_hash
+            )));
+        }
+        let verifier_data = circuit.get_verifier_config_ref().clone();
 
         self.wallet_session
             .start_session(pk_hash)
@@ -1692,7 +1940,12 @@ impl WasmRpcServer {
 
         let (proof_index, proof_siblings) = self
             .wallet_session
-            .add_external_proof_with_siblings(pk_hash, fingerprint, proof, verifier_data)
+            .add_external_proof_with_siblings(
+                pk_hash,
+                proof_fingerprint,
+                proof,
+                verifier_data,
+            )
             .await
             .map_err(|e| JsError::new(&format!("add_external_proof: {}", e)))?;
 
@@ -1754,7 +2007,7 @@ impl WasmRpcServer {
     ///   pk_hash            - sender's ZK public key (hex QHashOut)
     ///   owner_json         - receiver's shield address as JSON array of 4 decimal strings
     ///   amount             - transfer amount (u64 as decimal string)
-    ///   note_secret_hash_json - randomness used in commitment, JSON array of 4 decimal strings
+    ///   note_secret_json - randomness used in commitment, JSON array of 4 decimal strings
     ///   nullifier_secret_json - nullifier secret, JSON array of 4 decimal strings
     ///   contract_id        - contract ID (u64 as decimal string)
     ///   note_root_slot     - note root slot index (u64 as decimal string)
@@ -1767,7 +2020,7 @@ impl WasmRpcServer {
         pk_hash: &str,
         owner_json: &str,
         amount: &str,
-        note_secret_hash_json: &str,
+        note_secret_json: &str,
         nullifier_secret_json: &str,
         contract_id: &str,
         note_root_slot: &str,
@@ -1775,11 +2028,12 @@ impl WasmRpcServer {
     ) -> Result<String, JsError> {
         use base64::engine::general_purpose::STANDARD as BASE64;
         use base64::Engine;
-        use plonky2::field::types::PrimeField64;
+        use plonky2::field::types::{Field, PrimeField64};
         use psy_config::network_constants::MAX_CONTRACT_STATE_TREE_HEIGHT;
         use psy_crypto::hash::merkle::core::MerkleProofCore;
         use psy_crypto::hash::traits::{
             hasher::{FieldQHasher, PoseidonHasher},
+            qhashable::QFieldHashable,
         };
         use psy_crypto::shield_address::derive_note_commitment;
         use psy_data::privacy::private_note_inclusion::PrivateNoteInclusionInput;
@@ -1808,7 +2062,7 @@ impl WasmRpcServer {
         let amount_val: u64 = amount
             .parse()
             .map_err(|e: std::num::ParseIntError| JsError::new(&e.to_string()))?;
-        let note_secret_hash_u64 = parse_u64x4(note_secret_hash_json)?;
+        let note_secret_u64 = parse_u64x4(note_secret_json)?;
         let nullifier_secret_u64 = parse_u64x4(nullifier_secret_json)?;
         let contract_id_val: u64 = contract_id
             .parse()
@@ -1822,35 +2076,17 @@ impl WasmRpcServer {
 
         let owner =
             QHashOut::<F>::from_values(owner_u64[0], owner_u64[1], owner_u64[2], owner_u64[3]);
-        let note_secret_hash = QHashOut::<F>::from_values(
-            note_secret_hash_u64[0],
-            note_secret_hash_u64[1],
-            note_secret_hash_u64[2],
-            note_secret_hash_u64[3],
+        let note_secret = QHashOut::<F>::from_values(
+            note_secret_u64[0],
+            note_secret_u64[1],
+            note_secret_u64[2],
+            note_secret_u64[3],
         );
         let nullifier_secret = QHashOut::<F>::from_values(
             nullifier_secret_u64[0],
             nullifier_secret_u64[1],
             nullifier_secret_u64[2],
             nullifier_secret_u64[3],
-        );
-
-        let qhash_to_hex = |h: QHashOut<F>| -> String {
-            h.0.elements
-                .iter()
-                .map(|e| format!("{:016x}", e.to_canonical_u64()))
-                .collect::<Vec<_>>()
-                .join("")
-        };
-
-        console_log!(
-            "[psy-sdk][wasm] prove_private_note_inclusion_json start: sender_user_id via pk_hash={}, owner={}, amount={}, contract_id={}, note_root_slot={}, checkpoint_id_raw={}",
-            pk_hash, qhash_to_hex(owner), amount_val, contract_id_val, note_root_slot_val, checkpoint_before_raw
-        );
-        console_log!(
-            "[psy-sdk][wasm] secrets: note_secret_hash={}, nullifier_secret={}",
-            qhash_to_hex(note_secret_hash),
-            qhash_to_hex(nullifier_secret)
         );
 
         let provider = self.wallet_session.st_provider.clone();
@@ -1880,11 +2116,6 @@ impl WasmRpcServer {
             checkpoint_before_raw
         };
 
-        console_log!(
-            "[psy-sdk][wasm] checkpoint_before selected: {} (latest coordinator={}, realm={}, observable={})",
-            checkpoint_before, latest_coordinator_before, latest_realm_before, latest_observable_before
-        );
-
         // Get sender's user_id from public key
         let user_ids = provider
             .get_user_ids_for_public_key(pk_hash)
@@ -1910,12 +2141,6 @@ impl WasmRpcServer {
             .await
             .map_err(|e| JsError::new(&format!("note_count_proof: {}", e)))?;
         let note_index = note_count_proof.value.0.elements[3].to_canonical_u64();
-        console_log!(
-            "[psy-sdk][wasm] note_count slot={} value={} parsed_note_index={}",
-            note_count_slot,
-            note_count_proof.value,
-            note_index
-        );
 
         // Collect last_path (levels 0..NOTE_TREE_HEIGHT) from slots note_root_slot+1..
         let mut last_path: Vec<QHashOut<F>> = Vec::with_capacity(NOTE_TREE_HEIGHT);
@@ -1931,25 +2156,27 @@ impl WasmRpcServer {
                 )
                 .await
                 .map_err(|e| JsError::new(&format!("last_path[{}]: {}", level, e)))?;
-            console_log!(
-                "[psy-sdk][wasm] last_path[level={}] slot={} value={}",
-                level,
-                slot,
-                qhash_to_hex(proof.value)
-            );
             last_path.push(proof.value);
         }
 
         // Build commitment and Merkle siblings
         let value_hash = QHashOut::<F>::from_values(amount_val, 0, 0, 0);
         let inner = PoseidonHasher::q_two_to_one(owner, value_hash);
-        let note_commitment = derive_note_commitment(nullifier_secret_u64, note_secret_hash_u64);
-        let commitment = PoseidonHasher::q_two_to_one(inner, note_commitment);
-        console_log!(
-            "[psy-sdk][wasm] commitment calc: note_commitment={}, commitment={}",
-            qhash_to_hex(note_commitment),
-            qhash_to_hex(commitment)
+        let note_commitment = derive_note_commitment(
+            [
+                nullifier_secret.0.elements[0].to_canonical_u64(),
+                nullifier_secret.0.elements[1].to_canonical_u64(),
+                nullifier_secret.0.elements[2].to_canonical_u64(),
+                nullifier_secret.0.elements[3].to_canonical_u64(),
+            ],
+            [
+                note_secret.0.elements[0].to_canonical_u64(),
+                note_secret.0.elements[1].to_canonical_u64(),
+                note_secret.0.elements[2].to_canonical_u64(),
+                note_secret.0.elements[3].to_canonical_u64(),
+            ],
         );
+        let commitment = PoseidonHasher::q_two_to_one(inner, note_commitment);
 
         let mut siblings: Vec<QHashOut<F>> = Vec::with_capacity(NOTE_TREE_HEIGHT);
         let mut zero = QHashOut::<F>::from_values(0, 0, 0, 0);
@@ -1964,26 +2191,14 @@ impl WasmRpcServer {
         }
         let note_membership_proof =
             MerkleProofCore::new_from_params::<PoseidonHasher>(note_index, commitment, siblings);
-        console_log!(
-            "[psy-sdk][wasm] membership proof: note_index={}, commitment={}, computed_root={}",
-            note_index,
-            qhash_to_hex(commitment),
-            qhash_to_hex(note_membership_proof.root)
-        );
 
-        // Wait state update after checkpoint_before and prove against the
-        // checkpoint where this note's computed root is actually present.
+        // Wait state update after checkpoint_before and prove against the first
+        // checkpoint where note_count or note_root slot changes.
         //
         // NOTE:
         // We intentionally do not require nonce bump here. Some transaction
         // paths may not mutate nonce in a way that's observable at this stage,
         // while note slots are the actual source of truth for note inclusion.
-        //
-        // Also do not select a checkpoint merely because note_count/note_root
-        // changed. A resumed proof may run after later private transfers, so
-        // the latest root can already include newer notes. The membership
-        // proof is built from checkpoint_before's frontier and authenticates
-        // exactly one historical post-transfer root.
         let baseline_user_leaf = provider
             .get_user_leaf_data(checkpoint_before, sender_user_id)
             .await
@@ -2012,19 +2227,6 @@ impl WasmRpcServer {
             .map_err(|e| JsError::new(&format!("baseline note_root proof: {}", e)))?
             .value;
 
-        console_log!(
-            "[psy-sdk][wasm] baseline at checkpoint_before={}: note_count={}, note_root={}",
-            checkpoint_before,
-            baseline_note_count,
-            qhash_to_hex(baseline_note_root)
-        );
-        if note_membership_proof.root == baseline_note_root {
-            console_log!(
-                "[psy-sdk][wasm] WARNING: membership_root already equals baseline_note_root at checkpoint_before={}. This likely means checkpoint_before is already AFTER the private_transfer. Expecting a future checkpoint where root changes.",
-                checkpoint_before
-            );
-        }
-
         let wait_deadline_ms = now_ms().saturating_add(180_000);
         let mut latest_coordinator_seen = checkpoint_before;
         let mut latest_realm_seen = checkpoint_before;
@@ -2032,7 +2234,6 @@ impl WasmRpcServer {
 
         let mut checkpoint_after: Option<u64> = None;
         let mut last_error = String::new();
-        let mut next_checkpoint_to_check = checkpoint_before.saturating_add(1);
         while now_ms() < wait_deadline_ms {
             let latest_coordinator = provider
                 .get_coordinator_latest_block_state()
@@ -2054,18 +2255,10 @@ impl WasmRpcServer {
                 .unwrap_or(latest_coordinator);
             latest_observable_seen = latest_observable_seen.max(latest_observable);
 
-            if latest_observable >= next_checkpoint_to_check {
-                console_log!(
-                    "[psy-sdk][wasm] scan checkpoints {}..={} for membership_root={}",
-                    next_checkpoint_to_check,
-                    latest_observable,
-                    qhash_to_hex(note_membership_proof.root)
-                );
-            }
-            while next_checkpoint_to_check <= latest_observable {
+            if latest_observable > checkpoint_before {
                 let note_count = match user_provider
                     .get_user_contract_state_tree_merkle_proof(
-                        next_checkpoint_to_check,
+                        latest_observable,
                         sender_user_id,
                         contract_id_val as u32,
                         MAX_CONTRACT_STATE_TREE_HEIGHT as u8,
@@ -2077,14 +2270,15 @@ impl WasmRpcServer {
                     Err(e) => {
                         last_error = format!(
                             "note_count proof rpc failed at checkpoint {}: {}",
-                            next_checkpoint_to_check, e
+                            latest_observable, e
                         );
-                        break;
+                        async_sleep_ms(1000).await;
+                        continue;
                     }
                 };
                 let note_root = match user_provider
                     .get_user_contract_state_tree_merkle_proof(
-                        next_checkpoint_to_check,
+                        latest_observable,
                         sender_user_id,
                         contract_id_val as u32,
                         MAX_CONTRACT_STATE_TREE_HEIGHT as u8,
@@ -2096,46 +2290,21 @@ impl WasmRpcServer {
                     Err(e) => {
                         last_error = format!(
                             "note_root proof rpc failed at checkpoint {}: {}",
-                            next_checkpoint_to_check, e
+                            latest_observable, e
                         );
-                        break;
+                        async_sleep_ms(1000).await;
+                        continue;
                     }
                 };
 
-                console_log!(
-                    "[psy-sdk][wasm] poll checkpoint={}: note_count={}, note_root={}",
-                    next_checkpoint_to_check,
-                    note_count,
-                    qhash_to_hex(note_root)
-                );
-                if note_root == note_membership_proof.root {
-                    console_log!(
-                        "[psy-sdk][wasm] matched note root at checkpoint={}: count {}->{}, root {}->{}",
-                        next_checkpoint_to_check,
-                        baseline_note_count,
-                        note_count,
-                        qhash_to_hex(baseline_note_root),
-                        qhash_to_hex(note_root)
-                    );
-                    checkpoint_after = Some(next_checkpoint_to_check);
+                if note_count != baseline_note_count || note_root != baseline_note_root {
+                    checkpoint_after = Some(latest_observable);
                     break;
                 }
-                last_error = if note_count != baseline_note_count || note_root != baseline_note_root
-                {
-                    format!(
-                        "slots changed at checkpoint {} but root {} != expected {} (count={})",
-                        next_checkpoint_to_check,
-                        qhash_to_hex(note_root),
-                        qhash_to_hex(note_membership_proof.root),
-                        note_count
-                    )
-                } else {
-                    format!(
-                        "slots unchanged at checkpoint {}: note_count={} note_root={} baseline_nonce={}",
-                        next_checkpoint_to_check, note_count, note_root, baseline_nonce
-                    )
-                };
-                next_checkpoint_to_check = next_checkpoint_to_check.saturating_add(1);
+                last_error = format!(
+                    "slots unchanged at checkpoint {}: note_count={} note_root={} baseline_nonce={}",
+                    latest_observable, note_count, note_root, baseline_nonce
+                );
             }
             if checkpoint_after.is_some() {
                 break;
@@ -2169,21 +2338,6 @@ impl WasmRpcServer {
             )
             .await
             .map_err(|e| JsError::new(&format!("note_root_slot_proof: {}", e)))?;
-        console_log!(
-            "[psy-sdk][wasm] checkpoint_after={}: note_root_slot value={}, membership_root={}, match={}",
-            checkpoint_after, qhash_to_hex(note_root_slot_proof.value),
-            qhash_to_hex(note_membership_proof.root),
-            note_root_slot_proof.value == note_membership_proof.root
-        );
-        if note_root_slot_proof.value != note_membership_proof.root {
-            return Err(JsError::new(&format!(
-                "private note inclusion root mismatch: membership_root={} != note_root_slot_value={} (checkpoint={}, slot={})",
-                qhash_to_hex(note_membership_proof.root),
-                qhash_to_hex(note_root_slot_proof.value),
-                checkpoint_after,
-                note_root_slot_val
-            )));
-        }
         // Fetch contract_proof and user_tree_proof
         let contract_proof = user_provider
             .get_user_contract_tree_merkle_proof(
@@ -2208,7 +2362,7 @@ impl WasmRpcServer {
             user_leaf,
             owner,
             amount: <F as plonky2::field::types::Field>::from_canonical_u64(amount_val),
-            note_secret: note_secret_hash,
+            note_secret: note_secret,
             note_membership_proof,
             note_root_slot_proof,
             contract_proof,
@@ -2811,18 +2965,9 @@ impl WasmRpcServer {
             .wallet_session
             .prove_external_proof_job(&trace, step_index as usize)
             .await
-            .map_err(|e| {
-                JsError::new(&format!(
-                    "Error proving external-proof job {}: {}",
-                    step_index, e
-                ))
-            })?;
-        serde_json::to_string(&output).map_err(|e| {
-            JsError::new(&format!(
-                "Error serializing external-proof job output: {}",
-                e
-            ))
-        })
+            .map_err(|e| JsError::new(&format!("Error proving external-proof job {}: {}", step_index, e)))?;
+        serde_json::to_string(&output)
+            .map_err(|e| JsError::new(&format!("Error serializing external-proof job output: {}", e)))
     }
 
     #[wasm_bindgen]
@@ -2890,11 +3035,6 @@ impl WasmRpcServer {
             .map_err(|e| JsError::new(&format!("Error serializing submit job output: {}", e)))
     }
 
-    /// Stateless ups_start prove: no manager persisted in WASM.
-    /// Returns all state JS needs for subsequent steps. `leaf_records` with
-    /// `insertion_proof` are inside `proof_tree_meta`. Proof blob returned
-    /// as `ups_proof` (Uint8Array) — JS stores it separately for finalize.
-
     #[wasm_bindgen]
     pub async fn prove_ups_start_json(
         &mut self,
@@ -2955,98 +3095,118 @@ impl WasmRpcServer {
         Ok(result.into())
     }
 
-    /// Stateless CFC step prove: reconstructs manager from JS-provided state.
-    /// Returns updated state. `leaf_records` with `insertion_proof` are
-    /// inside `proof_tree_meta`. Proof blobs returned as cfc_proof/ups_proof.
     #[wasm_bindgen]
     pub async fn prove_trace_step_json(
         &mut self,
         pk_hash: &str,
         envelope_json: &str,
-        step_index: u32,
-        proof_tree_meta_json: &str,
-        last_step_info_json: &str,
-        current_header_json: &str,
-        previous_header_json: &str,
+        resume_blob: Option<Vec<u8>>,
     ) -> Result<JsValue, JsError> {
         use js_sys::{Object, Reflect, Uint8Array};
 
         let pk_hash = QHashOut::<F>::from_str(pk_hash)
             .map_err(|e| JsError::new(&format!("Parse public key hash error: {}", e)))?;
         let (_envelope, trace) = parse_tx_trace_envelope(envelope_json)?;
-        let meta: psy_prover::trace::proof_tree_meta::ProofTreeMeta =
-            serde_json::from_str(proof_tree_meta_json)
-                .map_err(|e| JsError::new(&format!("Invalid proof_tree_meta JSON: {}", e)))?;
-        let baton: psy_prover::trace::proof_tree_meta::LastStepProofInfo =
-            serde_json::from_str(last_step_info_json)
-                .map_err(|e| JsError::new(&format!("Invalid last_step_info JSON: {}", e)))?;
-        let current_header: psy_data::ups::ups_context_input::UserProvingSessionHeader<F> =
-            serde_json::from_str(current_header_json)
-                .map_err(|e| JsError::new(&format!("Invalid current header JSON: {}", e)))?;
-        let previous_header: psy_data::ups::ups_context_input::UserProvingSessionHeader<F> =
-            serde_json::from_str(previous_header_json)
-                .map_err(|e| JsError::new(&format!("Invalid previous header JSON: {}", e)))?;
+        let provided_resume_state = resume_blob
+            .as_ref()
+            .map(|blob| Self::deserialize_trace_resume_blob(blob))
+            .transpose()?;
 
-        let (proofs, meta, baton, current_header, previous_header) = self
+        let step_result = self
             .wallet_session
-            .prove_trace_step_with_state(
-                pk_hash,
-                &trace,
-                step_index as usize,
-                &meta,
-                baton,
-                &current_header,
-                &previous_header,
-            )
-            .await
-            .map_err(|e| JsError::new(&format!("Error proving CFC step {}: {}", step_index, e)))?;
-
-        let cfc_proof_bytes = bincode::serialize(&proofs.cfc_proof)
-            .map_err(|e| JsError::new(&format!("Error serializing cfc_proof: {}", e)))?;
-        let ups_proof_bytes = bincode::serialize(&proofs.ups_proof)
-            .map_err(|e| JsError::new(&format!("Error serializing ups_proof: {}", e)))?;
+            .prove_trace_step(pk_hash, &trace, provided_resume_state.as_ref())
+            .await;
 
         let result = Object::new();
-        Reflect::set(
-            &result,
-            &JsValue::from_str("cfc_proof"),
-            &Uint8Array::from(cfc_proof_bytes.as_slice()).into(),
-        )
-        .map_err(|e| JsError::new(&format!("Error setting cfc_proof: {:?}", e)))?;
-        Reflect::set(
-            &result,
-            &JsValue::from_str("ups_proof"),
-            &Uint8Array::from(ups_proof_bytes.as_slice()).into(),
-        )
-        .map_err(|e| JsError::new(&format!("Error setting ups_proof: {:?}", e)))?;
-        Reflect::set(
-            &result,
-            &JsValue::from_str("proof_tree_meta"),
-            &serde_wasm_bindgen::to_value(&meta)
-                .map_err(|e| JsError::new(&format!("Error serializing meta: {}", e)))?,
-        )
-        .map_err(|e| JsError::new(&format!("Error setting proof_tree_meta: {:?}", e)))?;
-        Reflect::set(
-            &result,
-            &JsValue::from_str("last_step_info"),
-            &serde_wasm_bindgen::to_value(&baton)
-                .map_err(|e| JsError::new(&format!("Error serializing baton: {}", e)))?,
-        )
-        .map_err(|e| JsError::new(&format!("Error setting last_step_info: {:?}", e)))?;
-        Reflect::set(
-            &result,
-            &JsValue::from_str("current_header"),
-            &serde_wasm_bindgen::to_value(&current_header)
-                .map_err(|e| JsError::new(&format!("Error serializing current_header: {}", e)))?,
-        )
-        .map_err(|e| JsError::new(&format!("Error setting current_header: {:?}", e)))?;
-        Reflect::set(
-            &result,
-            &JsValue::from_str("previous_header"),
-            &serde_wasm_bindgen::to_value(&previous_header)
-                .map_err(|e| JsError::new(&format!("Error serializing previous_header: {}", e)))?,
-        )
-        .map_err(|e| JsError::new(&format!("Error setting previous_header: {:?}", e)))?;
+        match step_result {
+            TraceProvingStepResult::Submitted(tx_hash) => {
+                Reflect::set(
+                    &result,
+                    &JsValue::from_str("status"),
+                    &JsValue::from_str("submitted"),
+                )
+                .map_err(|e| JsError::new(&format!("Error setting status: {:?}", e)))?;
+                Reflect::set(
+                    &result,
+                    &JsValue::from_str("tx_hash"),
+                    &JsValue::from_str(&tx_hash.to_string()),
+                )
+                .map_err(|e| JsError::new(&format!("Error setting tx_hash: {:?}", e)))?;
+            }
+            TraceProvingStepResult::Progress(resume_state) => {
+                let resume_blob = Self::serialize_trace_resume_blob(&resume_state)?;
+                Reflect::set(
+                    &result,
+                    &JsValue::from_str("status"),
+                    &JsValue::from_str("progress"),
+                )
+                .map_err(|e| JsError::new(&format!("Error setting status: {:?}", e)))?;
+                Reflect::set(
+                    &result,
+                    &JsValue::from_str("resume_blob"),
+                    &Uint8Array::from(resume_blob.as_slice()).into(),
+                )
+                .map_err(|e| JsError::new(&format!("Error setting resume_blob: {:?}", e)))?;
+                Reflect::set(
+                    &result,
+                    &JsValue::from_str("next_step_index"),
+                    &JsValue::from_f64(resume_state.next_step_index as f64),
+                )
+                .map_err(|e| JsError::new(&format!("Error setting next_step_index: {:?}", e)))?;
+            }
+            TraceProvingStepResult::Failed {
+                error,
+                needs_regenerate,
+                resume_state,
+            } => {
+                Reflect::set(
+                    &result,
+                    &JsValue::from_str("status"),
+                    &JsValue::from_str("failed"),
+                )
+                .map_err(|e| JsError::new(&format!("Error setting status: {:?}", e)))?;
+                if let Some(resume_state) = resume_state {
+                    let resume_blob = Self::serialize_trace_resume_blob(&resume_state)?;
+                    Reflect::set(
+                        &result,
+                        &JsValue::from_str("resume_blob"),
+                        &Uint8Array::from(resume_blob.as_slice()).into(),
+                    )
+                    .map_err(|e| JsError::new(&format!("Error setting resume_blob: {:?}", e)))?;
+                    Reflect::set(
+                        &result,
+                        &JsValue::from_str("next_step_index"),
+                        &JsValue::from_f64(resume_state.next_step_index as f64),
+                    )
+                    .map_err(|e| JsError::new(&format!("Error setting next_step_index: {:?}", e)))?;
+                } else {
+                    Reflect::set(
+                        &result,
+                        &JsValue::from_str("resume_blob"),
+                        &JsValue::NULL,
+                    )
+                    .map_err(|e| JsError::new(&format!("Error setting resume_blob: {:?}", e)))?;
+                    Reflect::set(
+                        &result,
+                        &JsValue::from_str("next_step_index"),
+                        &JsValue::NULL,
+                    )
+                    .map_err(|e| JsError::new(&format!("Error setting next_step_index: {:?}", e)))?;
+                }
+                Reflect::set(
+                    &result,
+                    &JsValue::from_str("error"),
+                    &JsValue::from_str(&error),
+                )
+                .map_err(|e| JsError::new(&format!("Error setting error: {:?}", e)))?;
+                Reflect::set(
+                    &result,
+                    &JsValue::from_str("needs_regenerate"),
+                    &JsValue::from_bool(needs_regenerate),
+                )
+                .map_err(|e| JsError::new(&format!("Error setting needs_regenerate: {:?}", e)))?;
+            }
+        }
 
         Ok(result.into())
     }
@@ -3131,6 +3291,8 @@ impl WasmRpcServer {
         external_fingerprint: &str,
         external_proof: Vec<u8>,
     ) -> Result<JsValue, JsError> {
+        use js_sys::Object;
+
         let pk_hash = QHashOut::<F>::from_str(pk_hash)
             .map_err(|e| JsError::new(&format!("Parse public key hash error: {}", e)))?;
         let (_envelope, trace) = parse_tx_trace_envelope(envelope_json)?;

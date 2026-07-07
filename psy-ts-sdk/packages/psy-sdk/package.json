@@ -11,6 +11,11 @@
       "require": "./dist/index.cjs",
       "types": "./dist/index.d.ts"
     },
+    "./expert": {
+      "import": "./dist/expert/index.mjs",
+      "require": "./dist/expert/index.cjs",
+      "types": "./dist/expert/index.d.ts"
+    },
     "./local-web-compiler": {
       "import": "./dist/local-web-compiler/index.mjs",
       "require": "./dist/local-web-compiler/index.cjs",
@@ -68,14 +73,14 @@
   "scripts": {
     "build:wasm": "node --import 'data:text/javascript,import { register } from \"node:module\"; import { pathToFileURL } from \"node:url\"; register(\"ts-node/esm\", pathToFileURL(\"./\"));' src/local-web-prover/build-wasm-binary.ts",
     "build:wasm-compiler": "node --import 'data:text/javascript,import { register } from \"node:module\"; import { pathToFileURL } from \"node:url\"; register(\"ts-node/esm\", pathToFileURL(\"./\"));' src/local-web-compiler/build-wasm-binary.ts",
-    "encode:wasm": "SKIP_WASM_PACK=1 pnpm run build:wasm && SKIP_WASM_PACK=1 pnpm run build:wasm-compiler",
-    "build": "NODE_OPTIONS='--max-old-space-size=8192' pnpm run precompile && NODE_OPTIONS='--max-old-space-size=8192' pnpm run compile",
-    "precompile": "cpx ../../../config.json src/config && pnpm run clean && pnpm run encode:wasm",
+    "encode:wasm": "pnpm run build:wasm && pnpm run build:wasm-compiler",
+    "prepare:wasm": "cpx ../../../config.json src/config && pnpm run clean && pnpm run encode:wasm",
+    "build": "NODE_OPTIONS='--max-old-space-size=8192' pnpm run prepare:wasm && NODE_OPTIONS='--max-old-space-size=8192' pnpm run compile",
     "clean": "rimraf dist",
     "compile": "rollup -c",
     "lint": "eslint 'src/**/*.{ts,tsx}' --max-warnings 100",
     "lint:fix": "eslint 'src/**/*.{ts,tsx}' --fix",
-    "type-check": "pnpm run precompile && tsc --noEmit",
+    "type-check": "pnpm run prepare:wasm && tsc --noEmit",
     "bind": "npx barrelsby -c .barrelsby.json",
     "prepublishOnly": "pnpm run build",
     "test:integration": "jest --testNamePattern=\"Integration\"",

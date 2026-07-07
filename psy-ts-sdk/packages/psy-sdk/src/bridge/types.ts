@@ -34,8 +34,9 @@ export interface WithdrawalClaimProofQuery {
     recipient: string;
     tokenAddress: string;
     amount: string;
-    nonce: number | bigint | string;
-    destinationChainId: number | bigint | string;
+    nonce: string;
+    destinationChainIndex: number | string;
+    senderUserId?: number | string;
 }
 
 export interface WithdrawalClaimProofResult {
@@ -48,7 +49,8 @@ export interface WithdrawalClaimProofResult {
         token_address: string;
         amount: string;
         nonce: string;
-        destination_chain_id: number;
+        destination_chain_index: number;
+        sender_user_id?: number;
     };
 }
 

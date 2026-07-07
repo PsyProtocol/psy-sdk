@@ -9,7 +9,18 @@ const __dirname = path.dirname(__filename);
 const wasmPath = path.join(__dirname, "./psy_prover_bg.wasm");
 
 function runWasmPack(target: "web" | "nodejs", outDir: string, rustSdkDir: string) {
-    const args = ["build", "--target", target, "--out-dir", outDir, "--out-name", "psy_prover", "--no-pack", "--release"];
+    const args = [
+        "build",
+        "--target",
+        target,
+        "--out-dir",
+        outDir,
+        "--out-name",
+        "psy_prover",
+        "--no-pack",
+        "--release",
+        "--no-opt",
+    ];
     const result = spawnSync("wasm-pack", args, {
         cwd: rustSdkDir,
         stdio: "inherit",

@@ -9,9 +9,20 @@ import { PsyUserWallet } from "./userWallet";
 import { PsyNetworkConfig } from "../config";
 import { PsyWasmWebProverProvider } from "../local-web-prover";
 
-export interface IContractProvider {
+/**
+ * Minimal read-only interface for contract state access.
+ * Read-only consumers (explorer, dashboards) can implement just this.
+ */
+export interface IContractStateReader {
     getContractState(checkpointId: Felt, contractId: Felt, userId: Felt, slots: Felt[]): Promise<Felt[]>;
+    getLatestCheckpointId?(): Promise<Felt>;
+}
 
+/**
+ * Full provider: read + write + optional view execution.
+ * Extends IContractStateReader with transaction submission and view function execution.
+ */
+export interface IContractProvider extends IContractStateReader {
     sendTransaction(
         contractId: Felt,
         functionName: string,
@@ -19,7 +30,15 @@ export interface IContractProvider {
         publicKey: string
     ): Promise<any>;
 
-    getLatestCheckpointId?(): Promise<Felt>;
+    /**
+     * Execute a view (read-only) contract function without submitting a transaction.
+     * If not implemented, view functions fall back to sendTransaction (without publicKey).
+     */
+    callViewFunction?(
+        contractId: Felt,
+        functionName: string,
+        args: any[],
+    ): Promise<any>;
 }
 
 class PsyUserWalletProvider implements IPsyUserWalletProvider, IContractProvider {

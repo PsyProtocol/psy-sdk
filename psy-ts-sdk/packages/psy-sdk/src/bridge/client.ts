@@ -92,13 +92,17 @@ export class PoseidonBridgeClient {
         servicesUrl: string,
         query: WithdrawalClaimProofQuery
     ): Promise<WithdrawalClaimProofResult> {
-        const qs = encodeQuery({
+        const params: Record<string, string> = {
             recipient: query.recipient,
             token_address: query.tokenAddress,
             amount: query.amount,
-            nonce: query.nonce.toString(),
-            destination_chain_id: query.destinationChainId.toString(),
-        });
+            nonce: query.nonce,
+            destination_chain_index: query.destinationChainIndex.toString(),
+        };
+        if (query.senderUserId !== undefined) {
+            params.sender_user_id = query.senderUserId.toString();
+        }
+        const qs = encodeQuery(params);
         const resp = await this.httpClient.sendRequest({
             url: `${servicesUrl.replace(/\/$/, "")}/api/v1/bridge/withdrawal-claim-proof?${qs}`,
             method: "GET",

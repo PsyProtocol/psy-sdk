@@ -11,6 +11,7 @@ import {
     QBCDeployContract,
     SignData,
     SignType,
+    TraceStepProgressJson,
     TraceProofConcurrentResult,
     TraceProofJobOutputJson,
     TraceProofJobStepIndices,
@@ -43,7 +44,13 @@ export function initWasmSync(): void {
 }
 
 export class PsyWasmWebProverProvider implements IPsyUserProverProvider {
-    private static wasmServer: Promise<WasmRpcServer> | null = null;
+    // Synchronous wasm server handle for backwards compat with wallet callers
+    // that read PsyWasmWebProverProvider.wasmServer directly. This field is null
+    // during the cold-boot window (before the Plonky2 circuit build resolves)
+    // and is populated by ensureWasmServer's promise. New code should use
+    // runWasmServerCall / ensureWasmServer instead.
+    public static wasmServer: WasmRpcServer | null = null;
+    private static wasmServerPromise: Promise<WasmRpcServer> | null = null;
     private static wasmServerConfigJson: string | null = null;
     private static wasmCallQueue: Promise<void> = Promise.resolve();
 
@@ -55,32 +62,14 @@ export class PsyWasmWebProverProvider implements IPsyUserProverProvider {
 
     static ensureWasmServer(rpcConfigJson: PsyNetworkConfig | string): Promise<WasmRpcServer> {
         const json = typeof rpcConfigJson === "string" ? rpcConfigJson : PsyJSON.stringify(rpcConfigJson);
-        if (!this.wasmServer) {
+        if (!this.wasmServerPromise) {
             const now = new Date().getTime();
             initWasmSync();
-            this.wasmServer = Promise.resolve(new WasmRpcServer(json))
-                .then((server) => {
-                    console.log(`WASM initialized in ${(new Date().getTime() - now) / 1000} seconds`);
-                    return server;
-                })
-                .catch((error) => {
-                    let parsedConfig: unknown = json;
-                    try {
-                        parsedConfig = JSON.parse(json);
-                    } catch {
-                        // Keep raw JSON string when parsing fails.
-                    }
-                    console.error("[psy-sdk][wasm] ensureWasmServer failed", {
-                        elapsedMs: new Date().getTime() - now,
-                        config: parsedConfig,
-                        message: error instanceof Error ? error.message : String(error),
-                        stack: error instanceof Error ? error.stack : undefined,
-                        error,
-                    });
-                    this.wasmServer = null;
-                    this.wasmServerConfigJson = null;
-                    throw error;
-                });
+            this.wasmServerPromise = Promise.resolve(new WasmRpcServer(json)).then((server) => {
+                console.log(`WASM initialized in ${(new Date().getTime() - now) / 1000} seconds`);
+                this.wasmServer = server;
+                return server;
+            });
             this.wasmServerConfigJson = json;
         } else if (this.wasmServerConfigJson !== json) {
             console.warn(
@@ -88,16 +77,17 @@ export class PsyWasmWebProverProvider implements IPsyUserProverProvider {
             );
         }
 
-        return this.wasmServer;
+        return this.wasmServerPromise;
     }
 
     static runWasmServerCall<T>(callback: (server: WasmRpcServer) => T | Promise<T>): Promise<T> {
         const run = async (): Promise<T> => {
-            if (!this.wasmServer) {
+            if (!this.wasmServerPromise) {
                 throw new Error("WASM RPC server is not initialized");
             }
 
-            return callback(await this.wasmServer);
+            const server = await this.wasmServerPromise;
+            return callback(server);
         };
 
         const result = this.wasmCallQueue.then(run, run);
@@ -234,13 +224,24 @@ export class PsyWasmWebProverProvider implements IPsyUserProverProvider {
         return PsyJSON.parse(result) as GeneratedTxTraceJson;
     }
     // ================================
-    // Stateless step proving (no WASM state between calls)
+    // Checkpointed trace proving
     // ================================
 
     async proveUpsStart(pkHash: PublicKey, envelopeJson: string | GeneratedTxTraceJson): Promise<any> {
         const envelope = typeof envelopeJson === "string" ? envelopeJson : PsyJSON.stringify(envelopeJson);
         return PsyWasmWebProverProvider.runWasmServerCall((server) =>
             server.prove_ups_start_json(pkHash, envelope)
+        ) as Promise<any>;
+    }
+
+    async proveTraceStep(
+        pkHash: PublicKey,
+        envelopeJson: string | GeneratedTxTraceJson,
+        resumeBlob?: Uint8Array,
+    ): Promise<TraceStepProgressJson> {
+        const envelope = typeof envelopeJson === "string" ? envelopeJson : PsyJSON.stringify(envelopeJson);
+        return PsyWasmWebProverProvider.runWasmServerCall((server) =>
+            server.prove_trace_step_json(pkHash, envelope, resumeBlob)
         ) as Promise<any>;
     }
 
@@ -362,29 +363,6 @@ export class PsyWasmWebProverProvider implements IPsyUserProverProvider {
             endcapOutputJson,
             submitOutputJson,
         };
-    }
-
-    async proveTraceStep(
-        pkHash: PublicKey,
-        envelopeJson: string | GeneratedTxTraceJson,
-        stepIndex: number,
-        proofTreeMeta: unknown,
-        lastStepInfo: unknown,
-        currentHeader: unknown,
-        previousHeader: unknown,
-    ): Promise<any> {
-        const envelope = typeof envelopeJson === "string" ? envelopeJson : PsyJSON.stringify(envelopeJson);
-        return PsyWasmWebProverProvider.runWasmServerCall((server) =>
-            server.prove_trace_step_json(
-                pkHash,
-                envelope,
-                stepIndex,
-                PsyJSON.stringify(proofTreeMeta),
-                PsyJSON.stringify(lastStepInfo),
-                PsyJSON.stringify(currentHeader),
-                PsyJSON.stringify(previousHeader),
-            )
-        ) as Promise<any>;
     }
 
     async proveEndCapProof(

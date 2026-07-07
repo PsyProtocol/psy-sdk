@@ -192,7 +192,7 @@ export abstract class Provider {
      */
     private startHealthChecks(): void {
         this.healthCheckTimer = setInterval(() => {
-            this.performHealthChecks().then((r) => console.log(r));
+            this.performHealthChecks().catch((e) => console.error("health check failed:", e));
         }, this.multiProviderConfig.healthCheckInterval);
     }
 

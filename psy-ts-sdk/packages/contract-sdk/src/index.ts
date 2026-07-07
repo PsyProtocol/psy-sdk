@@ -5,7 +5,7 @@ export { AbiConverter } from "./converters/abi-converter";
 // Export runtime module
 export { Contract } from "./runtime/contract";
 export { Signer } from "./runtime/types";
-export type { Felt, ISigner, PsyFixedArray, ContractOptions } from "./runtime";
+export type { Felt, ISigner, IContractProvider, IContractStateReader, PsyFixedArray, ContractOptions } from "./runtime";
 
 // Only try to export generated files if they exist
 // This allows the package to build even before generation
@@ -17,4 +17,5 @@ try {
 }
 
 // Export types that will be available after generation
-export type { AbiFormat } from "./types/abi-format";
+export type { AbiInput, Abi } from "./types/abi-format";
+export { isAbi } from "./types/abi-format";

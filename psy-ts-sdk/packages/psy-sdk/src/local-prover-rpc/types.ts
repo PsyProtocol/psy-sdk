@@ -86,26 +86,30 @@ export interface PrivateTransferClaimRaw {
     shield_address?: string;
 }
 
-export interface ShieldDepositClaimRaw {
-    nullifier: [string, string, string, string];
-    note_secret_hash: [string, string, string, string];
+interface DepositInclusionClaimRawBase {
+    user_id?: string;
+    nullifier_hash: [string, string, string, string];
+    note_commitment: [string, string, string, string];
     token_address_u32x8: [string, string, string, string, string, string, string, string];
     l2_token_contract_id: [string, string, string, string, string, string, string, string];
     amount_u32x8: [string, string, string, string, string, string, string, string];
     source_chain_index: string;
     deposit_index: string;
     deposit_root: [string, string, string, string];
-    deposit_siblings: [string, string, string, string][];
+    deposit_proof_bincode_b64: string;
+    deposit_proof_fingerprint?: [string, string, string, string];
     random0: string;
     random1: string;
     contract_id: string;
     shield_address?: string;
 }
 
+export type DepositInclusionClaimRaw = DepositInclusionClaimRawBase;
+
 export type ClaimBatchItem =
     | { type: "public"; data: ContractCallArgs }
     | { type: "private_transfer"; data: { contract_id: string; claim: PrivateTransferClaimRaw } }
-    | { type: "claim_shield_deposit"; data: ShieldDepositClaimRaw };
+    | { type: "claim_shield_deposit"; data: DepositInclusionClaimRaw };
 
 // Core input for SubmitUserEndCapNonProofInput
 interface SubmitUserEndCapNonProofCoreInput {
@@ -133,19 +137,26 @@ export interface SignData {
 
 export interface BridgeWithdrawalWitnessInput {
     withdrawal_root: string;
+    sender_user_id: number;
     recipient: number[];
     token: number[];
     amount: number[];
-    nonce: number;
-    dest_chain_id: number;
+    nonce: number[];
+    destination_chain_index: number;
     leaf_index: number;
     bridge_user_id: number;
     siblings: string[];
 }
 
+export interface BridgeWithdrawalBatchWitnessInput {
+    bridge_user_id: number;
+    withdrawals: BridgeWithdrawalWitnessInput[];
+}
+
 export interface BridgeWithdrawalGroth16Proof {
     solidity_proof: string[];
     public_inputs: number[];
+    slot_data: number[];
 }
 
 export interface BridgeDepositLeafInput {
@@ -200,11 +211,32 @@ export interface ProvedTxResultJson {
     status: string;
 }
 
+export type TraceResumeBlobJson = Uint8Array;
+
+export type TraceStepProgressJson =
+    | {
+          status: "progress";
+          resume_blob: TraceResumeBlobJson;
+          next_step_index: number;
+      }
+    | {
+          status: "submitted";
+          tx_hash: string;
+      }
+    | {
+          status: "failed";
+          error: string;
+          needs_regenerate: boolean;
+          resume_blob: TraceResumeBlobJson | null;
+          next_step_index: number | null;
+      };
+
 export interface ProveTxTraceResumableJson {
     generated: GeneratedTxTraceJson;
     proved: ProvedTxResultJson | null;
     error: string | null;
     status: "submitted" | "failed";
+    resume_blob: TraceResumeBlobJson | null;
 }
 
 export interface InitStepProvingJson {
@@ -314,7 +346,8 @@ export enum SignType {
     SECP256K1Sign = "secp256k1",
     SoftwareDefinedDPNSign = "software-defined-dpn",
     SoftwareDefinedPlonky2Sign = "software-defined-plonky2",
-    SDKeySign = "sd-key"
+    SDKeySign = "sd-key",
+    SDKKeySign = "sd-key"
 }
 
 interface IPsyUserProverProvider {
@@ -328,6 +361,11 @@ interface IPsyUserProverProvider {
     generateTxTrace(pk_hash: string, callData: ContractCallData, localId?: string | null): Promise<GeneratedTxTraceJson>;
     simulateContractCall(pk_hash: string, callData: ContractCallData, localId?: string | null): Promise<GeneratedTxTraceJson>;
     proveUpsStart(pk_hash: string, envelopeJson: string | GeneratedTxTraceJson): Promise<InitStepProvingJson>;
+    proveTraceStep(
+        pk_hash: string,
+        envelopeJson: string | GeneratedTxTraceJson,
+        resumeBlob?: TraceResumeBlobJson,
+    ): Promise<TraceStepProgressJson>;
     prepareTraceProofSchedule(envelopeJson: string | GeneratedTxTraceJson): Promise<TraceProofScheduleJson>;
     getTraceProofJobStepIndices(envelopeJson: string | GeneratedTxTraceJson): Promise<TraceProofJobStepIndices>;
     proveUpsStartJob(pk_hash: string, envelopeJson: string | GeneratedTxTraceJson): Promise<TraceProofJobOutputJson>;
@@ -348,15 +386,6 @@ interface IPsyUserProverProvider {
     submitEndcapJob(envelopeJson: string | GeneratedTxTraceJson, endcapOutputJson: TraceProofJobOutputJson): Promise<TraceProofJobOutputJson>;
     proveTraceJobsConcurrent(pk_hash: string, envelopeJson: string | GeneratedTxTraceJson): Promise<TraceProofConcurrentResult>;
 
-    proveTraceStep(
-        pk_hash: string,
-        envelopeJson: string | GeneratedTxTraceJson,
-        stepIndex: number,
-        proofTreeMeta: unknown,
-        lastStepInfo: unknown,
-        currentHeader: unknown,
-        previousHeader: unknown,
-    ): Promise<ProveStepJson>;
     proveEndCapProof(
         pk_hash: string,
         envelopeJson: string | GeneratedTxTraceJson,

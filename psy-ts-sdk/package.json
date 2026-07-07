@@ -7,6 +7,7 @@
     "apps/*"
   ],
   "scripts": {
+    "_help:local-deps": "echo 'See LOCAL_DEVELOPMENT.md for local dependency setup'",
     "docs": "doctoc --title '**Table of content**' README.md",
     "clean": "pnpm run -r clean",
     "build": "pnpm run -r build",
