@@ -23,7 +23,7 @@ Built from `parth-generic-v1/client_prover/psy_ide/psy_wasm` (vendored) or the s
 pnpm --filter @psy-protocol/psy-sdk run build:wasm
 
 # Or specify a custom path:
-PSY_COMPILER_DIR=/home/cj/Projects/psy-compiler \
+PSY_COMPILER_DIR=$HOME/Projects/psy-compiler \
   pnpm --filter @psy-protocol/psy-sdk run build:wasm
 ```
 
@@ -41,7 +41,7 @@ Built from the same crate directory.
 pnpm --filter @psy-protocol/psy-sdk run build:wasm-compiler
 
 # Or with custom path:
-PSY_COMPILER_DIR=/home/cj/Projects/psy-compiler \
+PSY_COMPILER_DIR=$HOME/Projects/psy-compiler \
   pnpm --filter @psy-protocol/psy-sdk run build:wasm-compiler
 ```
 
@@ -68,10 +68,10 @@ pnpm run build
 "@psy-protocol/contract-sdk": "file:../psy-sdk/psy-ts-sdk/packages/contract-sdk",
 
 # Option 2: pnpm link
-cd /home/cj/Projects/psy-sdk/psy-ts-sdk/packages/psy-sdk
+cd $HOME/Projects/psy-sdk/psy-ts-sdk/packages/psy-sdk
 pnpm link --global
 
-cd /home/cj/Projects/psy-wallet
+cd $HOME/Projects/psy-wallet
 pnpm link --global @psy-protocol/psy-sdk
 pnpm run build:dev
 ```
@@ -98,8 +98,8 @@ Or use pnpm link as above, then `pnpm install` in the explorer directory.
 
 ```bash
 # 1. Rebuild WASM after compiler changes:
-cd /home/cj/Projects/psy-sdk/psy-ts-sdk
-PSY_COMPILER_DIR=/home/cj/Projects/psy-compiler \
+cd $HOME/Projects/psy-sdk/psy-ts-sdk
+PSY_COMPILER_DIR=$HOME/Projects/psy-compiler \
   pnpm --filter @psy-protocol/psy-sdk run build:wasm
 
 # 2. Full psy-sdk build:
@@ -109,10 +109,10 @@ pnpm --filter @psy-protocol/psy-sdk run build
 pnpm --filter @psy-protocol/contract-sdk run build
 
 # 4. Rebuild downstream:
-cd /home/cj/Projects/psy-wallet && pnpm run build:dev
+cd $HOME/Projects/psy-wallet && pnpm run build:dev
 # or
-cd /home/cj/Projects/parth-generic-v1/client_prover/psy_explorer && pnpm run build
-cd /home/cj/Projects/parth-generic-v1/client_prover/psy_ide/frontend && bun run build
+cd $HOME/Projects/parth-generic-v1/client_prover/psy_explorer && pnpm run build
+cd $HOME/Projects/parth-generic-v1/client_prover/psy_ide/frontend && bun run build
 ```
 
 ## Environment variables
