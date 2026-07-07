@@ -106,6 +106,7 @@ fn parse_tx_trace_envelope(
     Ok((envelope, trace))
 }
 
+
 // Initialize panic hook for better error messages in WASM
 #[wasm_bindgen(start)]
 pub fn main() {
@@ -371,7 +372,8 @@ use psy_data::{
 use psy_prover::{
     local::store::UserProverWorkerStore,
     session::{
-        ClaimBatchItem, PrivateTransferClaim, ShieldDepositClaim, WalletKeyPair, WalletSession,
+        ClaimBatchItem, PrivateTransferClaim, ShieldDepositClaim, TraceProvingStepResult,
+        TraceResumeState, WalletKeyPair, WalletSession,
     },
 };
 use psy_provider::provider::NetworkConfig as RpcConfig;
@@ -458,6 +460,16 @@ impl WasmRpcServer {
                 label
             ))),
         }
+    }
+
+    fn serialize_trace_resume_blob(resume_state: &TraceResumeState) -> Result<Vec<u8>, JsError> {
+        bincode::serialize(resume_state)
+            .map_err(|e| JsError::new(&format!("serialize trace resume blob: {}", e)))
+    }
+
+    fn deserialize_trace_resume_blob(blob: &[u8]) -> Result<TraceResumeState, JsError> {
+        bincode::deserialize(blob)
+            .map_err(|e| JsError::new(&format!("deserialize trace resume blob: {}", e)))
     }
 
     fn decode_note_proof_bytes(
@@ -583,9 +595,7 @@ impl WasmRpcServer {
     ) -> Result<psy_prover::trace::GeneratedTxTraceJson, JsError> {
         use psy_crypto::hash::traits::hasher::PoseidonHasher;
         use psy_crypto::hash::traits::hasher::FieldQHasher;
-        use psy_crypto::shield_address::{
-            derive_note_commitment, derive_nullifier_hash, derive_shield_address,
-        };
+        use psy_crypto::shield_address::derive_shield_address;
         use plonky2::field::types::PrimeField64;
         use psy_common_circuit::circuits::traits::qstandard::QStandardCircuit;
         use psy_dpn_circuit::circuits::privacy::deposit_inclusion::DepositInclusionCircuit;
@@ -631,8 +641,8 @@ impl WasmRpcServer {
         struct DepositInclusionClaimRaw {
             #[serde(default)]
             user_id: Option<String>,
-            nullifier: [String; 4],
-            note_secret: [String; 4],
+            nullifier_hash: [String; 4],
+            note_commitment: [String; 4],
             token_address_u32x8: [String; 8],
             l2_token_contract_id: [String; 8],
             amount_u32x8: [String; 8],
@@ -822,8 +832,8 @@ impl WasmRpcServer {
                     use base64::Engine;
 
                     let requested_user_id = input.user_id.clone();
-                    let nullifier_secret = parse_u64_arr(input.nullifier)?;
-                    let note_secret = parse_u64_arr(input.note_secret)?;
+                    let nullifier_hash = qhash_from_u64_arr(parse_u64_arr(input.nullifier_hash)?);
+                    let note_commitment = qhash_from_u64_arr(parse_u64_arr(input.note_commitment)?);
                     let token_address = parse_u32_arr(input.token_address_u32x8)?;
                     let l2_token_contract_id = parse_u32_arr(input.l2_token_contract_id)?;
                     let amount = parse_u32_arr(input.amount_u32x8)?;
@@ -880,8 +890,6 @@ impl WasmRpcServer {
                     };
 
                     let shield_address = derive_shield_address(user_id, random0, random1);
-                    let nullifier_hash = derive_nullifier_hash(nullifier_secret);
-                    let note_commitment = derive_note_commitment(nullifier_secret, note_secret);
                     let circuit = DepositInclusionCircuit::<C, D>::new();
                     let proof_fingerprint = circuit.get_fingerprint();
                     if let Some(raw) = input.deposit_proof_fingerprint {
@@ -1713,7 +1721,8 @@ impl WasmRpcServer {
     ///   source_chain_index         - decimal string
     ///   deposit_index              - decimal string
     ///   deposit_root_json          - JSON array of 4 decimal strings (QHashOut limbs)
-    ///   deposit_siblings_json      - JSON array of arrays of 4 decimal strings
+    ///   nullifier_hash_json        - JSON array of 4 decimal strings (QHashOut limbs)
+    ///   note_commitment_json       - JSON array of 4 decimal strings (QHashOut limbs)
     ///   random0                    - decimal string
     ///   random1                    - decimal string
     ///   contract_id                - decimal string
@@ -1723,14 +1732,14 @@ impl WasmRpcServer {
     pub async fn exec_shield_claim_deposit_json(
         &mut self,
         pk_hash: &str,
-        nullifier_json: &str,
-        note_secret_json: &str,
         token_address_u32x8_json: &str,
         l2_token_contract_id_json: &str,
         amount_u32x8_json: &str,
         source_chain_index: &str,
         deposit_index: &str,
         deposit_root_json: &str,
+        nullifier_hash_json: &str,
+        note_commitment_json: &str,
         deposit_proof_bincode_b64: &str,
         random0: &str,
         random1: &str,
@@ -1743,9 +1752,7 @@ impl WasmRpcServer {
         use psy_common_circuit::circuits::traits::qstandard::QStandardCircuit;
         use psy_crypto::hash::traits::hasher::FieldQHasher;
         use psy_crypto::hash::traits::hasher::PoseidonHasher;
-        use psy_crypto::shield_address::{
-            derive_note_commitment, derive_nullifier_hash, derive_shield_address,
-        };
+        use psy_crypto::shield_address::derive_shield_address;
         use psy_dpn_circuit::circuits::privacy::deposit_inclusion::DepositInclusionCircuit;
 
         let parse_u64x4 = |json: &str| -> Result<[u64; 4], JsError> {
@@ -1805,8 +1812,6 @@ impl WasmRpcServer {
 
         let pk_hash = QHashOut::<F>::from_str(pk_hash)
             .map_err(|e| JsError::new(&format!("parse pk_hash: {}", e)))?;
-        let nullifier_secret = parse_u64x4(nullifier_json)?;
-        let note_secret = parse_u64x4(note_secret_json)?;
         let token_address = parse_u32x8(token_address_u32x8_json)?;
         let l2_token_contract_id = parse_u32x8(l2_token_contract_id_json)?;
         let amount = parse_u32x8(amount_u32x8_json)?;
@@ -1817,6 +1822,8 @@ impl WasmRpcServer {
             .parse()
             .map_err(|e: std::num::ParseIntError| JsError::new(&e.to_string()))?;
         let deposit_root = parse_qhash(deposit_root_json)?;
+        let nullifier_hash = parse_qhash(nullifier_hash_json)?;
+        let note_commitment = parse_qhash(note_commitment_json)?;
         let random0_val: u64 = random0
             .parse()
             .map_err(|e: std::num::ParseIntError| JsError::new(&e.to_string()))?;
@@ -1837,8 +1844,6 @@ impl WasmRpcServer {
             .ok_or_else(|| JsError::new("No user ID found for public key"))?;
 
         let shield_address = derive_shield_address(user_id, random0_val, random1_val);
-        let nullifier_hash = derive_nullifier_hash(nullifier_secret);
-        let note_commitment = derive_note_commitment(nullifier_secret, note_secret);
         let circuit = DepositInclusionCircuit::<C, D>::new();
         let proof_fingerprint = circuit.get_fingerprint();
         if let Some(raw) = deposit_proof_fingerprint_json.as_deref() {
@@ -3018,11 +3023,6 @@ impl WasmRpcServer {
             .map_err(|e| JsError::new(&format!("Error serializing submit job output: {}", e)))
     }
 
-    /// Stateless ups_start prove: no manager persisted in WASM.
-    /// Returns all state JS needs for subsequent steps. `leaf_records` with
-    /// `insertion_proof` are inside `proof_tree_meta`. Proof blob returned
-    /// as `ups_proof` (Uint8Array) — JS stores it separately for finalize.
-
     #[wasm_bindgen]
     pub async fn prove_ups_start_json(
         &mut self,
@@ -3083,98 +3083,118 @@ impl WasmRpcServer {
         Ok(result.into())
     }
 
-    /// Stateless CFC step prove: reconstructs manager from JS-provided state.
-    /// Returns updated state. `leaf_records` with `insertion_proof` are
-    /// inside `proof_tree_meta`. Proof blobs returned as cfc_proof/ups_proof.
     #[wasm_bindgen]
     pub async fn prove_trace_step_json(
         &mut self,
         pk_hash: &str,
         envelope_json: &str,
-        step_index: u32,
-        proof_tree_meta_json: &str,
-        last_step_info_json: &str,
-        current_header_json: &str,
-        previous_header_json: &str,
+        resume_blob: Option<Vec<u8>>,
     ) -> Result<JsValue, JsError> {
         use js_sys::{Object, Reflect, Uint8Array};
 
         let pk_hash = QHashOut::<F>::from_str(pk_hash)
             .map_err(|e| JsError::new(&format!("Parse public key hash error: {}", e)))?;
         let (_envelope, trace) = parse_tx_trace_envelope(envelope_json)?;
-        let meta: psy_prover::trace::proof_tree_meta::ProofTreeMeta =
-            serde_json::from_str(proof_tree_meta_json)
-                .map_err(|e| JsError::new(&format!("Invalid proof_tree_meta JSON: {}", e)))?;
-        let baton: psy_prover::trace::proof_tree_meta::LastStepProofInfo =
-            serde_json::from_str(last_step_info_json)
-                .map_err(|e| JsError::new(&format!("Invalid last_step_info JSON: {}", e)))?;
-        let current_header: psy_data::ups::ups_context_input::UserProvingSessionHeader<F> =
-            serde_json::from_str(current_header_json)
-                .map_err(|e| JsError::new(&format!("Invalid current header JSON: {}", e)))?;
-        let previous_header: psy_data::ups::ups_context_input::UserProvingSessionHeader<F> =
-            serde_json::from_str(previous_header_json)
-                .map_err(|e| JsError::new(&format!("Invalid previous header JSON: {}", e)))?;
+        let provided_resume_state = resume_blob
+            .as_ref()
+            .map(|blob| Self::deserialize_trace_resume_blob(blob))
+            .transpose()?;
 
-        let (proofs, meta, baton, current_header, previous_header) = self
+        let step_result = self
             .wallet_session
-            .prove_trace_step(
-                pk_hash,
-                &trace,
-                step_index as usize,
-                &meta,
-                baton,
-                &current_header,
-                &previous_header,
-            )
-            .await
-            .map_err(|e| JsError::new(&format!("Error proving CFC step {}: {}", step_index, e)))?;
-
-        let cfc_proof_bytes = bincode::serialize(&proofs.cfc_proof)
-            .map_err(|e| JsError::new(&format!("Error serializing cfc_proof: {}", e)))?;
-        let ups_proof_bytes = bincode::serialize(&proofs.ups_proof)
-            .map_err(|e| JsError::new(&format!("Error serializing ups_proof: {}", e)))?;
+            .prove_trace_step(pk_hash, &trace, provided_resume_state.as_ref())
+            .await;
 
         let result = Object::new();
-        Reflect::set(
-            &result,
-            &JsValue::from_str("cfc_proof"),
-            &Uint8Array::from(cfc_proof_bytes.as_slice()).into(),
-        )
-        .map_err(|e| JsError::new(&format!("Error setting cfc_proof: {:?}", e)))?;
-        Reflect::set(
-            &result,
-            &JsValue::from_str("ups_proof"),
-            &Uint8Array::from(ups_proof_bytes.as_slice()).into(),
-        )
-        .map_err(|e| JsError::new(&format!("Error setting ups_proof: {:?}", e)))?;
-        Reflect::set(
-            &result,
-            &JsValue::from_str("proof_tree_meta"),
-            &serde_wasm_bindgen::to_value(&meta)
-                .map_err(|e| JsError::new(&format!("Error serializing meta: {}", e)))?,
-        )
-        .map_err(|e| JsError::new(&format!("Error setting proof_tree_meta: {:?}", e)))?;
-        Reflect::set(
-            &result,
-            &JsValue::from_str("last_step_info"),
-            &serde_wasm_bindgen::to_value(&baton)
-                .map_err(|e| JsError::new(&format!("Error serializing baton: {}", e)))?,
-        )
-        .map_err(|e| JsError::new(&format!("Error setting last_step_info: {:?}", e)))?;
-        Reflect::set(
-            &result,
-            &JsValue::from_str("current_header"),
-            &serde_wasm_bindgen::to_value(&current_header)
-                .map_err(|e| JsError::new(&format!("Error serializing current_header: {}", e)))?,
-        )
-        .map_err(|e| JsError::new(&format!("Error setting current_header: {:?}", e)))?;
-        Reflect::set(
-            &result,
-            &JsValue::from_str("previous_header"),
-            &serde_wasm_bindgen::to_value(&previous_header)
-                .map_err(|e| JsError::new(&format!("Error serializing previous_header: {}", e)))?,
-        )
-        .map_err(|e| JsError::new(&format!("Error setting previous_header: {:?}", e)))?;
+        match step_result {
+            TraceProvingStepResult::Submitted(tx_hash) => {
+                Reflect::set(
+                    &result,
+                    &JsValue::from_str("status"),
+                    &JsValue::from_str("submitted"),
+                )
+                .map_err(|e| JsError::new(&format!("Error setting status: {:?}", e)))?;
+                Reflect::set(
+                    &result,
+                    &JsValue::from_str("tx_hash"),
+                    &JsValue::from_str(&tx_hash.to_string()),
+                )
+                .map_err(|e| JsError::new(&format!("Error setting tx_hash: {:?}", e)))?;
+            }
+            TraceProvingStepResult::Progress(resume_state) => {
+                let resume_blob = Self::serialize_trace_resume_blob(&resume_state)?;
+                Reflect::set(
+                    &result,
+                    &JsValue::from_str("status"),
+                    &JsValue::from_str("progress"),
+                )
+                .map_err(|e| JsError::new(&format!("Error setting status: {:?}", e)))?;
+                Reflect::set(
+                    &result,
+                    &JsValue::from_str("resume_blob"),
+                    &Uint8Array::from(resume_blob.as_slice()).into(),
+                )
+                .map_err(|e| JsError::new(&format!("Error setting resume_blob: {:?}", e)))?;
+                Reflect::set(
+                    &result,
+                    &JsValue::from_str("next_step_index"),
+                    &JsValue::from_f64(resume_state.next_step_index as f64),
+                )
+                .map_err(|e| JsError::new(&format!("Error setting next_step_index: {:?}", e)))?;
+            }
+            TraceProvingStepResult::Failed {
+                error,
+                needs_regenerate,
+                resume_state,
+            } => {
+                Reflect::set(
+                    &result,
+                    &JsValue::from_str("status"),
+                    &JsValue::from_str("failed"),
+                )
+                .map_err(|e| JsError::new(&format!("Error setting status: {:?}", e)))?;
+                if let Some(resume_state) = resume_state {
+                    let resume_blob = Self::serialize_trace_resume_blob(&resume_state)?;
+                    Reflect::set(
+                        &result,
+                        &JsValue::from_str("resume_blob"),
+                        &Uint8Array::from(resume_blob.as_slice()).into(),
+                    )
+                    .map_err(|e| JsError::new(&format!("Error setting resume_blob: {:?}", e)))?;
+                    Reflect::set(
+                        &result,
+                        &JsValue::from_str("next_step_index"),
+                        &JsValue::from_f64(resume_state.next_step_index as f64),
+                    )
+                    .map_err(|e| JsError::new(&format!("Error setting next_step_index: {:?}", e)))?;
+                } else {
+                    Reflect::set(
+                        &result,
+                        &JsValue::from_str("resume_blob"),
+                        &JsValue::NULL,
+                    )
+                    .map_err(|e| JsError::new(&format!("Error setting resume_blob: {:?}", e)))?;
+                    Reflect::set(
+                        &result,
+                        &JsValue::from_str("next_step_index"),
+                        &JsValue::NULL,
+                    )
+                    .map_err(|e| JsError::new(&format!("Error setting next_step_index: {:?}", e)))?;
+                }
+                Reflect::set(
+                    &result,
+                    &JsValue::from_str("error"),
+                    &JsValue::from_str(&error),
+                )
+                .map_err(|e| JsError::new(&format!("Error setting error: {:?}", e)))?;
+                Reflect::set(
+                    &result,
+                    &JsValue::from_str("needs_regenerate"),
+                    &JsValue::from_bool(needs_regenerate),
+                )
+                .map_err(|e| JsError::new(&format!("Error setting needs_regenerate: {:?}", e)))?;
+            }
+        }
 
         Ok(result.into())
     }

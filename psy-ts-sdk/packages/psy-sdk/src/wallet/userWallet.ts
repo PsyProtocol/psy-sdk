@@ -8,7 +8,7 @@ import {
     GeneratedTxTraceJson,
     ProveTxTraceResumableJson,
     TraceProofConcurrentResult,
-    TraceStepResumeStateJson,
+    TraceResumeBlobJson,
     TxMetadata,
 } from "../local-prover-rpc";
 import { PsyUserLeaf } from "../types";
@@ -177,9 +177,9 @@ class PsyUserWallet implements IPsyUserWallet {
     async proveTxTraceStep(
         pk_hash: string,
         envelope: string | GeneratedTxTraceJson,
-        resumeFrom?: TraceStepResumeStateJson,
+        resumeBlob?: TraceResumeBlobJson,
     ): Promise<ProveTxTraceResumableJson> {
-        return this.signer.proveTxTraceStep(pk_hash, envelope, resumeFrom);
+        return this.signer.proveTxTraceStep(pk_hash, envelope, resumeBlob);
     }
 
     async proveTxTraceConcurrent(pk_hash: string, envelope: string | GeneratedTxTraceJson): Promise<TraceProofConcurrentResult> {

@@ -6,7 +6,7 @@ import {
     ProveTxTraceResumableJson,
     SignType,
     TraceProofConcurrentResult,
-    TraceStepResumeStateJson,
+    TraceResumeBlobJson,
     TxMetadata,
 } from "../local-prover-rpc/types";
 import { ContractCallArgs } from "../types";
@@ -31,7 +31,7 @@ interface IPsyTransactionSigner {
     proveTxTraceStep(
         pk_hash: string,
         envelope: string | GeneratedTxTraceJson,
-        resumeFrom?: TraceStepResumeStateJson,
+        resumeBlob?: TraceResumeBlobJson,
     ): Promise<ProveTxTraceResumableJson>;
     proveTxTraceConcurrent(pk_hash: string, envelope: string | GeneratedTxTraceJson): Promise<TraceProofConcurrentResult>;
     deployContract(pk_hash: string, circuitDefs: DPNFunctionCircuitDefinition[]): Promise<string>;

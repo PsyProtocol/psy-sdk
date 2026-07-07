@@ -11,6 +11,7 @@ import {
     QBCDeployContract,
     SignData,
     SignType,
+    TraceStepProgressJson,
     TraceProofConcurrentResult,
     TraceProofJobOutputJson,
     TraceProofJobStepIndices,
@@ -223,13 +224,24 @@ export class PsyWasmWebProverProvider implements IPsyUserProverProvider {
         return PsyJSON.parse(result) as GeneratedTxTraceJson;
     }
     // ================================
-    // Stateless step proving (no WASM state between calls)
+    // Checkpointed trace proving
     // ================================
 
     async proveUpsStart(pkHash: PublicKey, envelopeJson: string | GeneratedTxTraceJson): Promise<any> {
         const envelope = typeof envelopeJson === "string" ? envelopeJson : PsyJSON.stringify(envelopeJson);
         return PsyWasmWebProverProvider.runWasmServerCall((server) =>
             server.prove_ups_start_json(pkHash, envelope)
+        ) as Promise<any>;
+    }
+
+    async proveTraceStep(
+        pkHash: PublicKey,
+        envelopeJson: string | GeneratedTxTraceJson,
+        resumeBlob?: Uint8Array,
+    ): Promise<TraceStepProgressJson> {
+        const envelope = typeof envelopeJson === "string" ? envelopeJson : PsyJSON.stringify(envelopeJson);
+        return PsyWasmWebProverProvider.runWasmServerCall((server) =>
+            server.prove_trace_step_json(pkHash, envelope, resumeBlob)
         ) as Promise<any>;
     }
 
@@ -351,29 +363,6 @@ export class PsyWasmWebProverProvider implements IPsyUserProverProvider {
             endcapOutputJson,
             submitOutputJson,
         };
-    }
-
-    async proveTraceStep(
-        pkHash: PublicKey,
-        envelopeJson: string | GeneratedTxTraceJson,
-        stepIndex: number,
-        proofTreeMeta: unknown,
-        lastStepInfo: unknown,
-        currentHeader: unknown,
-        previousHeader: unknown,
-    ): Promise<any> {
-        const envelope = typeof envelopeJson === "string" ? envelopeJson : PsyJSON.stringify(envelopeJson);
-        return PsyWasmWebProverProvider.runWasmServerCall((server) =>
-            server.prove_trace_step_json(
-                pkHash,
-                envelope,
-                stepIndex,
-                PsyJSON.stringify(proofTreeMeta),
-                PsyJSON.stringify(lastStepInfo),
-                PsyJSON.stringify(currentHeader),
-                PsyJSON.stringify(previousHeader),
-            )
-        ) as Promise<any>;
     }
 
     async proveEndCapProof(

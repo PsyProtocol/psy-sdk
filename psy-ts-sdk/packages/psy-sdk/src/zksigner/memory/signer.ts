@@ -1,7 +1,15 @@
 import { getPsyNetworkMagicForNetworkId, NetworkId } from "../../action";
-import { ClaimBatchItem, ContractCallArgs, ContractCallData, DPNFunctionCircuitDefinition, GeneratedTxTraceJson, IPsyUserProverProvider, ProveTxTraceResumableJson, SignType, TraceProofConcurrentResult, TraceStepResumeStateJson, TxMetadata } from "../../local-prover-rpc";
+import { ClaimBatchItem, ContractCallArgs, ContractCallData, DPNFunctionCircuitDefinition, GeneratedTxTraceJson, IPsyUserProverProvider, ProveTxTraceResumableJson, SignType, TraceProofConcurrentResult, TraceResumeBlobJson, TxMetadata } from "../../local-prover-rpc";
 import { IPsyTransactionSigner, TPsyTransactionSignerAbility } from "../types";
 import { PsyJSON } from "../../utils/json";
+
+function isStaleTraceAnchorError(message: string): boolean {
+    const normalized = message.toLowerCase();
+    return (
+        normalized.includes("stale trace anchor") ||
+        normalized.includes("start_user_leaf_hash changed while proving")
+    );
+}
 
 class PsyMemoryTransactionSigner implements IPsyTransactionSigner {
     networkId: NetworkId;
@@ -92,153 +100,70 @@ class PsyMemoryTransactionSigner implements IPsyTransactionSigner {
     async proveTxTraceStep(
         pkHash: string,
         envelope: string | GeneratedTxTraceJson,
-        resumeFrom?: TraceStepResumeStateJson,
+        resumeBlob?: TraceResumeBlobJson,
     ): Promise<ProveTxTraceResumableJson> {
-        let envelopeObj =
+        const envelopeObj =
             typeof envelope === "string"
                 ? (PsyJSON.parse(envelope) as GeneratedTxTraceJson)
                 : (PsyJSON.parse(PsyJSON.stringify(envelope)) as GeneratedTxTraceJson);
-        let envelopeJson = PsyJSON.stringify(envelopeObj);
-
-        const toU8 = (a: number[] | Uint8Array): Uint8Array => a instanceof Uint8Array ? a : new Uint8Array(a);
-        const tracePayload = PsyJSON.parse(envelopeObj.trace.payload) as {
-            ups_start_witness: Record<string, unknown>;
-            steps: Array<Record<string, unknown>>;
-        };
-
-        let meta: unknown;
-        let baton: unknown;
-        let currHeader: unknown;
-        let prevHeader: unknown;
-        let allProofBlobs: Uint8Array[] | undefined;
-        let nextStepIndex = resumeFrom?.next_step_index ?? 0;
-        const captureResumeState = (): TraceStepResumeStateJson | null => {
-            if (
-                meta === undefined ||
-                baton === undefined ||
-                currHeader === undefined ||
-                prevHeader === undefined ||
-                allProofBlobs === undefined
-            ) {
-                return null;
-            }
-            return {
-                proof_tree_meta: meta,
-                last_step_info: baton,
-                current_header: currHeader,
-                previous_header: prevHeader,
-                proof_blobs: allProofBlobs.map(toU8),
-                next_step_index: nextStepIndex,
-            };
-        };
+        const envelopeJson = PsyJSON.stringify(envelopeObj);
+        const toU8 = (a: number[] | Uint8Array): Uint8Array =>
+            a instanceof Uint8Array ? a : new Uint8Array(a);
+        let latestResumeBlob: Uint8Array | null = resumeBlob ? toU8(resumeBlob) : null;
+        let restoreBlob: Uint8Array | undefined = latestResumeBlob ?? undefined;
 
         try {
-            if (resumeFrom) {
-                meta = resumeFrom.proof_tree_meta;
-                baton = resumeFrom.last_step_info;
-                currHeader = resumeFrom.current_header;
-                prevHeader = resumeFrom.previous_header;
-                allProofBlobs = resumeFrom.proof_blobs.map(toU8);
-                nextStepIndex = resumeFrom.next_step_index;
-            } else {
-                const startResult = await this.prover.proveUpsStart(pkHash, envelopeJson);
-                meta = startResult.proof_tree_meta;
-                baton = startResult.last_step_info;
-                currHeader = startResult.current_header;
-                prevHeader = startResult.previous_header;
-                const upsProof = toU8(startResult.ups_proof);
-                allProofBlobs = [upsProof];
-                nextStepIndex = 0;
-            }
-
-            for (let stepIndex = nextStepIndex; stepIndex < tracePayload.steps.length; stepIndex++) {
-                const step = tracePayload.steps[stepIndex];
-                const kind = String(step?.kind ?? "");
-
-                if (kind === "zk_sign") {
-                    nextStepIndex = stepIndex;
-                    break;
-                }
-
-                if (kind === "external_proof") {
-                    const externalProof = toU8((step?.proof as number[] | Uint8Array | undefined) ?? []);
-                    if (!externalProof.length) {
-                        throw new Error(`trace external proof ${stepIndex} missing proof bytes`);
-                    }
-                    meta = await this.prover.insertExternalProof(
-                        pkHash,
-                        envelopeJson,
-                        meta,
-                        baton,
-                        currHeader,
-                        prevHeader,
-                        String(step?.fingerprint ?? ""),
-                        externalProof,
-                    );
-                    allProofBlobs.push(externalProof);
-                    nextStepIndex = stepIndex + 1;
-                    continue;
-                }
-
+            for (;;) {
                 const stepResult = await this.prover.proveTraceStep(
                     pkHash,
                     envelopeJson,
-                    stepIndex,
-                    meta,
-                    baton,
-                    currHeader,
-                    prevHeader,
+                    restoreBlob,
                 );
-                meta = stepResult.proof_tree_meta;
-                baton = stepResult.last_step_info;
-                currHeader = stepResult.current_header;
-                prevHeader = stepResult.previous_header;
-                const cfcProof = toU8(stepResult.cfc_proof);
-                const upsProof = toU8(stepResult.ups_proof);
-                allProofBlobs.push(cfcProof);
-                allProofBlobs.push(upsProof);
-                nextStepIndex = stepIndex + 1;
+                restoreBlob = undefined;
+
+                if (stepResult.status === "progress") {
+                    latestResumeBlob = toU8(stepResult.resume_blob);
+                    continue;
+                }
+
+                if (stepResult.status === "submitted") {
+                    return {
+                        generated: envelopeObj,
+                        proved: {
+                            sig_hash: envelopeObj.sig_hash,
+                            tx_hash: stepResult.tx_hash,
+                            checkpoint_id: null,
+                            status: "submitted",
+                        },
+                        error: null,
+                        status: "submitted",
+                        resume_blob: null,
+                    };
+                }
+
+                latestResumeBlob = stepResult.resume_blob
+                    ? toU8(stepResult.resume_blob)
+                    : null;
+                return {
+                    generated: envelopeObj,
+                    proved: null,
+                    error: PsyJSON.stringify(stepResult.error),
+                    status: "failed",
+                    resume_blob: stepResult.needs_regenerate
+                        ? null
+                        : latestResumeBlob,
+                };
             }
-
-            const sighashJson = await this.prover.computeSighashFromEnvelope(envelopeJson, currHeader);
-            const signatureProof = await this.prover.signSighash(
-                this.publicKeyHex,
-                sighashJson,
-                envelopeJson,
-                currHeader,
-            );
-            const endCapResult = await this.prover.proveEndCapProof(
-                pkHash,
-                envelopeJson,
-                meta,
-                baton,
-                allProofBlobs,
-                signatureProof,
-            );
-            const txHash = await this.prover.submitEndCap(
-                envelopeJson,
-                toU8(endCapResult.end_cap_proof),
-            );
-
-            return {
-                generated: envelopeObj,
-                proved: {
-                    sig_hash: envelopeObj.sig_hash,
-                    tx_hash: txHash,
-                    checkpoint_id: null,
-                    status: "submitted",
-                },
-                error: null,
-                status: "submitted",
-                resume_from: null,
-            };
         } catch (e: any) {
+            const message = e?.message ?? String(e);
             return {
                 generated: envelopeObj,
                 proved: null,
-                error: PsyJSON.stringify(e?.message ?? String(e)),
+                error: PsyJSON.stringify(message),
                 status: "failed",
-                resume_from: captureResumeState(),
+                resume_blob: isStaleTraceAnchorError(message)
+                    ? null
+                    : latestResumeBlob,
             };
         }
     }

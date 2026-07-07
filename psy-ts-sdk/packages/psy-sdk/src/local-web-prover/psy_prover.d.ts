@@ -117,14 +117,15 @@ export class WasmRpcServer {
      *   source_chain_index         - decimal string
      *   deposit_index              - decimal string
      *   deposit_root_json          - JSON array of 4 decimal strings (QHashOut limbs)
-     *   deposit_siblings_json      - JSON array of arrays of 4 decimal strings
+     *   nullifier_hash_json        - JSON array of 4 decimal strings (QHashOut limbs)
+     *   note_commitment_json       - JSON array of 4 decimal strings (QHashOut limbs)
      *   random0                    - decimal string
      *   random1                    - decimal string
      *   contract_id                - decimal string
      *
      * Returns the transaction hash string.
      */
-    exec_shield_claim_deposit_json(pk_hash: string, nullifier_json: string, note_secret_json: string, token_address_u32x8_json: string, l2_token_contract_id_json: string, amount_u32x8_json: string, source_chain_index: string, deposit_index: string, deposit_root_json: string, deposit_proof_bincode_b64: string, random0: string, random1: string, contract_id: string, deposit_proof_fingerprint_json?: string | null): Promise<string>;
+    exec_shield_claim_deposit_json(pk_hash: string, token_address_u32x8_json: string, l2_token_contract_id_json: string, amount_u32x8_json: string, source_chain_index: string, deposit_index: string, deposit_root_json: string, nullifier_hash_json: string, note_commitment_json: string, deposit_proof_bincode_b64: string, random0: string, random1: string, contract_id: string, deposit_proof_fingerprint_json?: string | null): Promise<string>;
     generate_batch_claim_tx_trace_json(pk_hash: string, items_json: string): Promise<string>;
     generate_tx_trace_json(pk_hash: string, call_data_json: string): Promise<string>;
     get_deploy_contract_cmd_json(deployer: string, circuit_defs_json: string): string;
@@ -203,19 +204,8 @@ export class WasmRpcServer {
      * Returns JSON matching NoteProofOutput.
      */
     prove_private_note_inclusion_json(pk_hash: string, owner_json: string, amount: string, note_secret_json: string, nullifier_secret_json: string, contract_id: string, note_root_slot: string, checkpoint_id: string): Promise<string>;
-    /**
-     * Stateless CFC step prove: reconstructs manager from JS-provided state.
-     * Returns updated state. `leaf_records` with `insertion_proof` are
-     * inside `proof_tree_meta`. Proof blobs returned as cfc_proof/ups_proof.
-     */
-    prove_trace_step_json(pk_hash: string, envelope_json: string, step_index: number, proof_tree_meta_json: string, last_step_info_json: string, current_header_json: string, previous_header_json: string): Promise<any>;
+    prove_trace_step_json(pk_hash: string, envelope_json: string, resume_blob?: Uint8Array | null): Promise<any>;
     prove_ups_start_job_json(pk_hash: string, envelope_json: string): Promise<string>;
-    /**
-     * Stateless ups_start prove: no manager persisted in WASM.
-     * Returns all state JS needs for subsequent steps. `leaf_records` with
-     * `insertion_proof` are inside `proof_tree_meta`. Proof blob returned
-     * as `ups_proof` (Uint8Array) — JS stores it separately for finalize.
-     */
     prove_ups_start_json(pk_hash: string, envelope_json: string): Promise<any>;
     prove_zksign_job_json(pk_hash: string, envelope_json: string): Promise<string>;
     register_sd_key_circuit(allowed_contract_ids: BigUint64Array, allowed_method_ids: BigUint64Array, expected_tx_count: bigint): Promise<string>;
@@ -247,7 +237,6 @@ export function main(): void;
 export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembly.Module;
 
 export interface InitOutput {
-    readonly memory: WebAssembly.Memory;
     readonly __wbg_wasmconstants_free: (a: number, b: number) => void;
     readonly __wbg_wasmpsyconfig_free: (a: number, b: number) => void;
     readonly __wbg_wasmpsyconfigbuilder_free: (a: number, b: number) => void;
@@ -308,7 +297,7 @@ export interface InitOutput {
     readonly wasmrpcserver_prove_endcap_job_from_output_jsons_json: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number) => any;
     readonly wasmrpcserver_prove_external_proof_job_json: (a: number, b: number, c: number, d: number) => any;
     readonly wasmrpcserver_prove_private_note_inclusion_json: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number, l: number, m: number, n: number, o: number, p: number, q: number) => any;
-    readonly wasmrpcserver_prove_trace_step_json: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number, l: number, m: number, n: number) => any;
+    readonly wasmrpcserver_prove_trace_step_json: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => any;
     readonly wasmrpcserver_prove_ups_start_job_json: (a: number, b: number, c: number, d: number, e: number) => any;
     readonly wasmrpcserver_prove_ups_start_json: (a: number, b: number, c: number, d: number, e: number) => any;
     readonly wasmrpcserver_prove_zksign_job_json: (a: number, b: number, c: number, d: number, e: number) => any;
@@ -324,7 +313,10 @@ export interface InitOutput {
     readonly wasmconstants_register_user_fee: () => bigint;
     readonly wasm_bindgen__convert__closures_____invoke__h41d768e04850544c: (a: number, b: number, c: any) => [number, number];
     readonly wasm_bindgen__convert__closures_____invoke__h702ca093da666827: (a: number, b: number, c: any, d: any) => void;
+    readonly wasm_bindgen__convert__closures_____invoke__haea1eaf86c82f57b: (a: number, b: number, c: any) => void;
+    readonly wasm_bindgen__convert__closures_____invoke__h5ee5a126ae61dad8: (a: number, b: number, c: any) => void;
     readonly wasm_bindgen__convert__closures_____invoke__h0e7e04cf3c77836f: (a: number, b: number) => void;
+    readonly memory: WebAssembly.Memory;
     readonly __wbindgen_malloc: (a: number, b: number) => number;
     readonly __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;
     readonly __wbindgen_exn_store: (a: number) => void;
@@ -334,7 +326,8 @@ export interface InitOutput {
     readonly __wbindgen_destroy_closure: (a: number, b: number) => void;
     readonly __externref_table_dealloc: (a: number) => void;
     readonly __externref_drop_slice: (a: number, b: number) => void;
-    readonly __wbindgen_start: () => void;
+    readonly __wbindgen_thread_destroy: (a?: number, b?: number, c?: number) => void;
+    readonly __wbindgen_start: (a: number) => void;
 }
 
 export type SyncInitInput = BufferSource | WebAssembly.Module;
@@ -343,18 +336,20 @@ export type SyncInitInput = BufferSource | WebAssembly.Module;
  * Instantiates the given `module`, which can either be bytes or
  * a precompiled `WebAssembly.Module`.
  *
- * @param {{ module: SyncInitInput }} module - Passing `SyncInitInput` directly is deprecated.
+ * @param {{ module: SyncInitInput, memory?: WebAssembly.Memory, thread_stack_size?: number }} module - Passing `SyncInitInput` directly is deprecated.
+ * @param {WebAssembly.Memory} memory - Deprecated.
  *
  * @returns {InitOutput}
  */
-export function initSync(module: { module: SyncInitInput } | SyncInitInput): InitOutput;
+export function initSync(module: { module: SyncInitInput, memory?: WebAssembly.Memory, thread_stack_size?: number } | SyncInitInput, memory?: WebAssembly.Memory): InitOutput;
 
 /**
  * If `module_or_path` is {RequestInfo} or {URL}, makes a request and
  * for everything else, calls `WebAssembly.instantiate` directly.
  *
- * @param {{ module_or_path: InitInput | Promise<InitInput> }} module_or_path - Passing `InitInput` directly is deprecated.
+ * @param {{ module_or_path: InitInput | Promise<InitInput>, memory?: WebAssembly.Memory, thread_stack_size?: number }} module_or_path - Passing `InitInput` directly is deprecated.
+ * @param {WebAssembly.Memory} memory - Deprecated.
  *
  * @returns {Promise<InitOutput>}
  */
-export default function __wbg_init (module_or_path?: { module_or_path: InitInput | Promise<InitInput> } | InitInput | Promise<InitInput>): Promise<InitOutput>;
+export default function __wbg_init (module_or_path?: { module_or_path: InitInput | Promise<InitInput>, memory?: WebAssembly.Memory, thread_stack_size?: number } | InitInput | Promise<InitInput>, memory?: WebAssembly.Memory): Promise<InitOutput>;

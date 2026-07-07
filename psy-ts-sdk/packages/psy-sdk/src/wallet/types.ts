@@ -5,7 +5,7 @@ import {
     GeneratedTxTraceJson,
     ProveTxTraceResumableJson,
     TraceProofConcurrentResult,
-    TraceStepResumeStateJson,
+    TraceResumeBlobJson,
     TxMetadata,
 } from "../local-prover-rpc";
 import { IPsyTransactionSigner, IPsyTransactionSignerProvider } from "../zksigner";
@@ -45,7 +45,7 @@ interface IPsyUserWallet {
     proveTxTraceStep(
         pk_hash: string,
         envelope: string | GeneratedTxTraceJson,
-        resumeFrom?: TraceStepResumeStateJson,
+        resumeBlob?: TraceResumeBlobJson,
     ): Promise<ProveTxTraceResumableJson>;
     proveTxTraceConcurrent(pk_hash: string, envelope: string | GeneratedTxTraceJson): Promise<TraceProofConcurrentResult>;
     // transfer(recipient: SCNumberLike, amount: SCNumberLike, nonce?: SCNumberLike): Promise<void>;
