@@ -211,33 +211,26 @@ export interface ProvedTxResultJson {
     status: string;
 }
 
-export type TraceResumeBlobJson = Uint8Array;
+export type ProvingStateBlobJson = Uint8Array;
+export type ProvingProofBlobJson = Uint8Array;
 
 export type TraceStepProgressJson =
     | {
-          status: "progress";
-          resume_blob: TraceResumeBlobJson;
-          next_step_index: number;
+          done: false;
+          state: ProvingStateBlobJson;
+          proofs: ProvingProofBlobJson[];
       }
     | {
-          status: "submitted";
+          done: true;
           tx_hash: string;
       }
     | {
-          status: "failed";
+          done: false;
           error: string;
-          needs_regenerate: boolean;
-          resume_blob: TraceResumeBlobJson | null;
-          next_step_index: number | null;
+          state?: undefined;
+          proofs?: undefined;
+          tx_hash?: undefined;
       };
-
-export interface ProveTxTraceResumableJson {
-    generated: GeneratedTxTraceJson;
-    proved: ProvedTxResultJson | null;
-    error: string | null;
-    status: "submitted" | "failed";
-    resume_blob: TraceResumeBlobJson | null;
-}
 
 export interface InitStepProvingJson {
     proof_tree_meta: unknown;
@@ -364,7 +357,8 @@ interface IPsyUserProverProvider {
     proveTraceStep(
         pk_hash: string,
         envelopeJson: string | GeneratedTxTraceJson,
-        resumeBlob?: TraceResumeBlobJson,
+        stateBlob?: ProvingStateBlobJson,
+        proofs?: ProvingProofBlobJson[],
     ): Promise<TraceStepProgressJson>;
     prepareTraceProofSchedule(envelopeJson: string | GeneratedTxTraceJson): Promise<TraceProofScheduleJson>;
     getTraceProofJobStepIndices(envelopeJson: string | GeneratedTxTraceJson): Promise<TraceProofJobStepIndices>;

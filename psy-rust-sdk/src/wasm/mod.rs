@@ -373,7 +373,7 @@ use psy_prover::{
     local::store::UserProverWorkerStore,
     session::{
         ClaimBatchItem, PrivateTransferClaim, ShieldDepositClaim, TraceProvingStepResult,
-        TraceResumeState, WalletKeyPair, WalletSession,
+        ProvingState, WalletKeyPair, WalletSession,
     },
 };
 use psy_provider::provider::NetworkConfig as RpcConfig;
@@ -462,14 +462,14 @@ impl WasmRpcServer {
         }
     }
 
-    fn serialize_trace_resume_blob(resume_state: &TraceResumeState) -> Result<Vec<u8>, JsError> {
-        bincode::serialize(resume_state)
-            .map_err(|e| JsError::new(&format!("serialize trace resume blob: {}", e)))
+    fn serialize_proving_state_blob(state: &ProvingState) -> Result<Vec<u8>, JsError> {
+        bincode::serialize(state)
+            .map_err(|e| JsError::new(&format!("serialize proving state blob: {}", e)))
     }
 
-    fn deserialize_trace_resume_blob(blob: &[u8]) -> Result<TraceResumeState, JsError> {
+    fn deserialize_proving_state_blob(blob: &[u8]) -> Result<ProvingState, JsError> {
         bincode::deserialize(blob)
-            .map_err(|e| JsError::new(&format!("deserialize trace resume blob: {}", e)))
+            .map_err(|e| JsError::new(&format!("deserialize proving state blob: {}", e)))
     }
 
     fn decode_note_proof_bytes(
@@ -3100,21 +3100,30 @@ impl WasmRpcServer {
         &mut self,
         pk_hash: &str,
         envelope_json: &str,
-        resume_blob: Option<Vec<u8>>,
+        state_blob: Option<Vec<u8>>,
+        proofs: Option<Vec<js_sys::Uint8Array>>,
     ) -> Result<JsValue, JsError> {
-        use js_sys::{Object, Reflect, Uint8Array};
+        use js_sys::{Array, Object, Reflect, Uint8Array};
 
         let pk_hash = QHashOut::<F>::from_str(pk_hash)
             .map_err(|e| JsError::new(&format!("Parse public key hash error: {}", e)))?;
         let (_envelope, trace) = parse_tx_trace_envelope(envelope_json)?;
-        let provided_resume_state = resume_blob
+        let provided_state = state_blob
             .as_ref()
-            .map(|blob| Self::deserialize_trace_resume_blob(blob))
+            .map(|blob| Self::deserialize_proving_state_blob(blob))
             .transpose()?;
+        let provided_proofs = proofs.as_ref().map(|items| {
+            items.iter().map(|proof| proof.to_vec()).collect::<Vec<_>>()
+        });
 
         let step_result = self
             .wallet_session
-            .prove_trace_step(pk_hash, &trace, provided_resume_state.as_ref())
+            .prove_trace_step(
+                pk_hash,
+                &trace,
+                provided_state.as_ref(),
+                provided_proofs.as_deref(),
+            )
             .await;
 
         let result = Object::new();
@@ -3122,10 +3131,10 @@ impl WasmRpcServer {
             TraceProvingStepResult::Submitted(tx_hash) => {
                 Reflect::set(
                     &result,
-                    &JsValue::from_str("status"),
-                    &JsValue::from_str("submitted"),
+                    &JsValue::from_str("done"),
+                    &JsValue::from_bool(true),
                 )
-                .map_err(|e| JsError::new(&format!("Error setting status: {:?}", e)))?;
+                .map_err(|e| JsError::new(&format!("Error setting done: {:?}", e)))?;
                 Reflect::set(
                     &result,
                     &JsValue::from_str("tx_hash"),
@@ -3133,78 +3142,44 @@ impl WasmRpcServer {
                 )
                 .map_err(|e| JsError::new(&format!("Error setting tx_hash: {:?}", e)))?;
             }
-            TraceProvingStepResult::Progress(resume_state) => {
-                let resume_blob = Self::serialize_trace_resume_blob(&resume_state)?;
-                Reflect::set(
-                    &result,
-                    &JsValue::from_str("status"),
-                    &JsValue::from_str("progress"),
-                )
-                .map_err(|e| JsError::new(&format!("Error setting status: {:?}", e)))?;
-                Reflect::set(
-                    &result,
-                    &JsValue::from_str("resume_blob"),
-                    &Uint8Array::from(resume_blob.as_slice()).into(),
-                )
-                .map_err(|e| JsError::new(&format!("Error setting resume_blob: {:?}", e)))?;
-                Reflect::set(
-                    &result,
-                    &JsValue::from_str("next_step_index"),
-                    &JsValue::from_f64(resume_state.next_step_index as f64),
-                )
-                .map_err(|e| JsError::new(&format!("Error setting next_step_index: {:?}", e)))?;
-            }
-            TraceProvingStepResult::Failed {
-                error,
-                needs_regenerate,
-                resume_state,
-            } => {
-                Reflect::set(
-                    &result,
-                    &JsValue::from_str("status"),
-                    &JsValue::from_str("failed"),
-                )
-                .map_err(|e| JsError::new(&format!("Error setting status: {:?}", e)))?;
-                if let Some(resume_state) = resume_state {
-                    let resume_blob = Self::serialize_trace_resume_blob(&resume_state)?;
-                    Reflect::set(
-                        &result,
-                        &JsValue::from_str("resume_blob"),
-                        &Uint8Array::from(resume_blob.as_slice()).into(),
-                    )
-                    .map_err(|e| JsError::new(&format!("Error setting resume_blob: {:?}", e)))?;
-                    Reflect::set(
-                        &result,
-                        &JsValue::from_str("next_step_index"),
-                        &JsValue::from_f64(resume_state.next_step_index as f64),
-                    )
-                    .map_err(|e| JsError::new(&format!("Error setting next_step_index: {:?}", e)))?;
-                } else {
-                    Reflect::set(
-                        &result,
-                        &JsValue::from_str("resume_blob"),
-                        &JsValue::NULL,
-                    )
-                    .map_err(|e| JsError::new(&format!("Error setting resume_blob: {:?}", e)))?;
-                    Reflect::set(
-                        &result,
-                        &JsValue::from_str("next_step_index"),
-                        &JsValue::NULL,
-                    )
-                    .map_err(|e| JsError::new(&format!("Error setting next_step_index: {:?}", e)))?;
+            TraceProvingStepResult::Progress { state, proofs } => {
+                let state_blob = Self::serialize_proving_state_blob(&state)?;
+                let proof_array = Array::new();
+                for proof in proofs {
+                    proof_array.push(&Uint8Array::from(proof.as_slice()));
                 }
+                Reflect::set(
+                    &result,
+                    &JsValue::from_str("done"),
+                    &JsValue::from_bool(false),
+                )
+                .map_err(|e| JsError::new(&format!("Error setting done: {:?}", e)))?;
+                Reflect::set(
+                    &result,
+                    &JsValue::from_str("state"),
+                    &Uint8Array::from(state_blob.as_slice()).into(),
+                )
+                .map_err(|e| JsError::new(&format!("Error setting state: {:?}", e)))?;
+                Reflect::set(
+                    &result,
+                    &JsValue::from_str("proofs"),
+                    &proof_array.into(),
+                )
+                .map_err(|e| JsError::new(&format!("Error setting proofs: {:?}", e)))?;
+            }
+            TraceProvingStepResult::Failed { error } => {
+                Reflect::set(
+                    &result,
+                    &JsValue::from_str("done"),
+                    &JsValue::from_bool(false),
+                )
+                .map_err(|e| JsError::new(&format!("Error setting done: {:?}", e)))?;
                 Reflect::set(
                     &result,
                     &JsValue::from_str("error"),
                     &JsValue::from_str(&error),
                 )
                 .map_err(|e| JsError::new(&format!("Error setting error: {:?}", e)))?;
-                Reflect::set(
-                    &result,
-                    &JsValue::from_str("needs_regenerate"),
-                    &JsValue::from_bool(needs_regenerate),
-                )
-                .map_err(|e| JsError::new(&format!("Error setting needs_regenerate: {:?}", e)))?;
             }
         }
 

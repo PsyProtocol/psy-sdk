@@ -237,11 +237,12 @@ export class PsyWasmWebProverProvider implements IPsyUserProverProvider {
     async proveTraceStep(
         pkHash: PublicKey,
         envelopeJson: string | GeneratedTxTraceJson,
-        resumeBlob?: Uint8Array,
+        stateBlob?: Uint8Array,
+        proofs?: Uint8Array[],
     ): Promise<TraceStepProgressJson> {
         const envelope = typeof envelopeJson === "string" ? envelopeJson : PsyJSON.stringify(envelopeJson);
         return PsyWasmWebProverProvider.runWasmServerCall((server) =>
-            server.prove_trace_step_json(pkHash, envelope, resumeBlob)
+            server.prove_trace_step_json(pkHash, envelope, stateBlob, proofs)
         ) as Promise<any>;
     }
 

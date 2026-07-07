@@ -6,9 +6,10 @@ import {
     ContractCallArgs,
     DPNFunctionCircuitDefinition,
     GeneratedTxTraceJson,
-    ProveTxTraceResumableJson,
     TraceProofConcurrentResult,
-    TraceResumeBlobJson,
+    TraceStepProgressJson,
+    ProvingProofBlobJson,
+    ProvingStateBlobJson,
     TxMetadata,
 } from "../local-prover-rpc";
 import { PsyUserLeaf } from "../types";
@@ -177,9 +178,10 @@ class PsyUserWallet implements IPsyUserWallet {
     async proveTxTraceStep(
         pk_hash: string,
         envelope: string | GeneratedTxTraceJson,
-        resumeBlob?: TraceResumeBlobJson,
-    ): Promise<ProveTxTraceResumableJson> {
-        return this.signer.proveTxTraceStep(pk_hash, envelope, resumeBlob);
+        stateBlob?: ProvingStateBlobJson,
+        proofs?: ProvingProofBlobJson[],
+    ): Promise<TraceStepProgressJson> {
+        return this.signer.proveTxTraceStep(pk_hash, envelope, stateBlob, proofs);
     }
 
     async proveTxTraceConcurrent(pk_hash: string, envelope: string | GeneratedTxTraceJson): Promise<TraceProofConcurrentResult> {

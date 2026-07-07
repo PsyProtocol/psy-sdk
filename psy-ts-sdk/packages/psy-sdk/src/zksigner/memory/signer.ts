@@ -1,15 +1,7 @@
 import { getPsyNetworkMagicForNetworkId, NetworkId } from "../../action";
-import { ClaimBatchItem, ContractCallArgs, ContractCallData, DPNFunctionCircuitDefinition, GeneratedTxTraceJson, IPsyUserProverProvider, ProveTxTraceResumableJson, SignType, TraceProofConcurrentResult, TraceResumeBlobJson, TxMetadata } from "../../local-prover-rpc";
+import { ClaimBatchItem, ContractCallArgs, ContractCallData, DPNFunctionCircuitDefinition, GeneratedTxTraceJson, IPsyUserProverProvider, ProvingProofBlobJson, ProvingStateBlobJson, SignType, TraceProofConcurrentResult, TraceStepProgressJson, TxMetadata } from "../../local-prover-rpc";
 import { IPsyTransactionSigner, TPsyTransactionSignerAbility } from "../types";
 import { PsyJSON } from "../../utils/json";
-
-function isStaleTraceAnchorError(message: string): boolean {
-    const normalized = message.toLowerCase();
-    return (
-        normalized.includes("stale trace anchor") ||
-        normalized.includes("start_user_leaf_hash changed while proving")
-    );
-}
 
 class PsyMemoryTransactionSigner implements IPsyTransactionSigner {
     networkId: NetworkId;
@@ -100,72 +92,15 @@ class PsyMemoryTransactionSigner implements IPsyTransactionSigner {
     async proveTxTraceStep(
         pkHash: string,
         envelope: string | GeneratedTxTraceJson,
-        resumeBlob?: TraceResumeBlobJson,
-    ): Promise<ProveTxTraceResumableJson> {
+        stateBlob?: ProvingStateBlobJson,
+        proofs?: ProvingProofBlobJson[],
+    ): Promise<TraceStepProgressJson> {
         const envelopeObj =
             typeof envelope === "string"
                 ? (PsyJSON.parse(envelope) as GeneratedTxTraceJson)
                 : (PsyJSON.parse(PsyJSON.stringify(envelope)) as GeneratedTxTraceJson);
         const envelopeJson = PsyJSON.stringify(envelopeObj);
-        const toU8 = (a: number[] | Uint8Array): Uint8Array =>
-            a instanceof Uint8Array ? a : new Uint8Array(a);
-        let latestResumeBlob: Uint8Array | null = resumeBlob ? toU8(resumeBlob) : null;
-        let restoreBlob: Uint8Array | undefined = latestResumeBlob ?? undefined;
-
-        try {
-            for (;;) {
-                const stepResult = await this.prover.proveTraceStep(
-                    pkHash,
-                    envelopeJson,
-                    restoreBlob,
-                );
-                restoreBlob = undefined;
-
-                if (stepResult.status === "progress") {
-                    latestResumeBlob = toU8(stepResult.resume_blob);
-                    continue;
-                }
-
-                if (stepResult.status === "submitted") {
-                    return {
-                        generated: envelopeObj,
-                        proved: {
-                            sig_hash: envelopeObj.sig_hash,
-                            tx_hash: stepResult.tx_hash,
-                            checkpoint_id: null,
-                            status: "submitted",
-                        },
-                        error: null,
-                        status: "submitted",
-                        resume_blob: null,
-                    };
-                }
-
-                latestResumeBlob = stepResult.resume_blob
-                    ? toU8(stepResult.resume_blob)
-                    : null;
-                return {
-                    generated: envelopeObj,
-                    proved: null,
-                    error: PsyJSON.stringify(stepResult.error),
-                    status: "failed",
-                    resume_blob: stepResult.needs_regenerate
-                        ? null
-                        : latestResumeBlob,
-                };
-            }
-        } catch (e: any) {
-            const message = e?.message ?? String(e);
-            return {
-                generated: envelopeObj,
-                proved: null,
-                error: PsyJSON.stringify(message),
-                status: "failed",
-                resume_blob: isStaleTraceAnchorError(message)
-                    ? null
-                    : latestResumeBlob,
-            };
-        }
+        return this.prover.proveTraceStep(pkHash, envelopeJson, stateBlob, proofs);
     }
 
     async proveTxTraceConcurrent(pkHash: string, envelope: string | GeneratedTxTraceJson): Promise<TraceProofConcurrentResult> {
