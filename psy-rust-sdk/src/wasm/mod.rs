@@ -364,14 +364,10 @@ use psy_common::{
     },
 };
 use psy_crypto::signature::zk::data::ZKPublicKeyInfo;
-use psy_data::{
-    guta::end_cap_input::SubmitUserEndCapNonProofInput,
-    qblock::cmds::deploy_contract::{QBCDeployContract, QContractABI},
-};
 use psy_prover::{
     local::store::UserProverWorkerStore,
     session::{
-        ClaimBatchItem, PrivateTransferClaim, ShieldDepositClaim, WalletKeyPair, WalletSession,
+        ClaimBatchItem, PrivateTransferClaim, ShieldDepositClaim, WalletSession,
     },
 };
 use psy_provider::provider::NetworkConfig as RpcConfig;
@@ -489,16 +485,28 @@ impl WasmRpcServer {
         fingerprint: Option<QHashOut<F>>,
         verifier_data_alt: Option<AltVerifierOnlyCircuitData<F>>,
     ) -> Result<(QHashOut<F>, VerifierOnlyCircuitData<C, D>), JsError> {
-        let fingerprint = if let Some(fingerprint) = fingerprint {
-            fingerprint
-        } else {
-            // Falls back to the local minifier fingerprint when the prove proxy did not
-            // advertise the private-note-inclusion minifier (so circuit_info has no entry),
-            // matching the sender's local fallback in prove_private_note_inclusion.
-            self.wallet_session
-                .private_note_inclusion_fingerprint()
-                .map_err(|_| JsError::new("The private proof packet is missing note_proof_fingerprint. Re-export the private-payment backup JSON and import the whole packet, not an on-chain proof field or transaction log."))?
-        };
+        // The token contract hard-codes the PrivateNoteInclusion fingerprint when it
+        // reconstructs the proof-tree leaf. A stale packet fingerprint creates a
+        // different leaf and fails later as `proof tree root mismatch`, so normalize
+        // to the current contract/session fingerprint here.
+        let expected_fingerprint = self.wallet_session.private_note_inclusion_fingerprint().map_err(|_| {
+            JsError::new("Cannot resolve the current PrivateNoteInclusion fingerprint for this wallet build")
+        })?;
+        if let Some(packet_fingerprint) = fingerprint {
+            if packet_fingerprint != expected_fingerprint {
+                console_log!(
+                    "[note-claim-diag] packet note_proof_fingerprint={} differs from current private_note_inclusion_fingerprint={}",
+                    packet_fingerprint,
+                    expected_fingerprint
+                );
+                if verifier_data_alt.is_some() {
+                    return Err(JsError::new(
+                        "The private proof packet fingerprint/verifier_data is incompatible with the current token contract. Re-export the private-payment backup JSON with this wallet build.",
+                    ));
+                }
+            }
+        }
+        let fingerprint = expected_fingerprint;
 
         let verifier_data = if let Some(verifier_data_alt) = verifier_data_alt {
             verifier_data_alt.to_verifier_data::<C, D>()
@@ -1767,12 +1775,11 @@ impl WasmRpcServer {
     ) -> Result<String, JsError> {
         use base64::engine::general_purpose::STANDARD as BASE64;
         use base64::Engine;
-        use plonky2::field::types::{Field, PrimeField64};
+        use plonky2::field::types::PrimeField64;
         use psy_config::network_constants::MAX_CONTRACT_STATE_TREE_HEIGHT;
         use psy_crypto::hash::merkle::core::MerkleProofCore;
         use psy_crypto::hash::traits::{
             hasher::{FieldQHasher, PoseidonHasher},
-            qhashable::QFieldHashable,
         };
         use psy_crypto::shield_address::derive_note_commitment;
         use psy_data::privacy::private_note_inclusion::PrivateNoteInclusionInput;
@@ -2982,7 +2989,7 @@ impl WasmRpcServer {
 
         let (proofs, meta, baton, current_header, previous_header) = self
             .wallet_session
-            .prove_trace_step(
+            .prove_trace_step_with_state(
                 pk_hash,
                 &trace,
                 step_index as usize,
@@ -3124,8 +3131,6 @@ impl WasmRpcServer {
         external_fingerprint: &str,
         external_proof: Vec<u8>,
     ) -> Result<JsValue, JsError> {
-        use js_sys::Object;
-
         let pk_hash = QHashOut::<F>::from_str(pk_hash)
             .map_err(|e| JsError::new(&format!("Parse public key hash error: {}", e)))?;
         let (_envelope, trace) = parse_tx_trace_envelope(envelope_json)?;
