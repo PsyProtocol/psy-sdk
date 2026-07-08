@@ -106,7 +106,6 @@ fn parse_tx_trace_envelope(
     Ok((envelope, trace))
 }
 
-
 // Initialize panic hook for better error messages in WASM
 #[wasm_bindgen(start)]
 pub fn main() {
@@ -372,8 +371,8 @@ use psy_data::{
 use psy_prover::{
     local::store::UserProverWorkerStore,
     session::{
-        ClaimBatchItem, PrivateTransferClaim, ShieldDepositClaim, TraceProvingStepResult,
-        ProvingState, WalletKeyPair, WalletSession,
+        ClaimBatchItem, PrivateTransferClaim, ProvingState, ShieldDepositClaim,
+        TraceProvingStepResult, WalletKeyPair, WalletSession,
     },
 };
 use psy_provider::provider::NetworkConfig as RpcConfig;
@@ -605,11 +604,11 @@ impl WasmRpcServer {
         pk_hash_str: &str,
         items_json: &str,
     ) -> Result<psy_prover::trace::GeneratedTxTraceJson, JsError> {
-        use psy_crypto::hash::traits::hasher::PoseidonHasher;
-        use psy_crypto::hash::traits::hasher::FieldQHasher;
-        use psy_crypto::shield_address::derive_shield_address;
         use plonky2::field::types::PrimeField64;
         use psy_common_circuit::circuits::traits::qstandard::QStandardCircuit;
+        use psy_crypto::hash::traits::hasher::FieldQHasher;
+        use psy_crypto::hash::traits::hasher::PoseidonHasher;
+        use psy_crypto::shield_address::derive_shield_address;
         use psy_dpn_circuit::circuits::privacy::deposit_inclusion::DepositInclusionCircuit;
         use psy_prover::trace::GeneratedTxTraceJson;
 
@@ -774,11 +773,12 @@ impl WasmRpcServer {
                         .map(|raw| parse_u64_arr(raw).map(qhash_from_u64_arr))
                         .transpose()?;
                     let (proof_fingerprint, verifier_data) = self
-                        .resolve_private_note_inclusion_proof_data(proof_fingerprint, input.note_verifier_data)
+                        .resolve_private_note_inclusion_proof_data(
+                            proof_fingerprint,
+                            input.note_verifier_data,
+                        )
                         .map_err(|e| {
-                            console_log!(
-                                "[note-claim-diag] FAIL resolve fingerprint/verifier"
-                            );
+                            console_log!("[note-claim-diag] FAIL resolve fingerprint/verifier");
                             e
                         })?;
 
@@ -915,19 +915,23 @@ impl WasmRpcServer {
                     }
                     let proof_bytes = BASE64
                         .decode(input.deposit_proof_bincode_b64.as_bytes())
-                        .map_err(|e| JsError::new(&format!("deposit proof base64 decode: {}", e)))?;
+                        .map_err(|e| {
+                            JsError::new(&format!("deposit proof base64 decode: {}", e))
+                        })?;
                     let proof: ProofWithPublicInputs<F, C, D> =
                         match ProofWithPublicInputs::<F, C, D>::from_bytes(
                             proof_bytes.clone(),
                             circuit.get_common_circuit_data_ref(),
                         ) {
                             Ok(p) => p,
-                            Err(native_err) => bincode::deserialize(&proof_bytes).map_err(|bin_err| {
-                                JsError::new(&format!(
-                                    "deposit proof deserialize: native={} ; bincode={}",
-                                    native_err, bin_err
-                                ))
-                            })?,
+                            Err(native_err) => {
+                                bincode::deserialize(&proof_bytes).map_err(|bin_err| {
+                                    JsError::new(&format!(
+                                        "deposit proof deserialize: native={} ; bincode={}",
+                                        native_err, bin_err
+                                    ))
+                                })?
+                            }
                         };
                     let proof_pi_hash = QHashOut::<F>::from_values(
                         proof.public_inputs[0].to_canonical_u64(),
@@ -1859,7 +1863,8 @@ impl WasmRpcServer {
         let circuit = DepositInclusionCircuit::<C, D>::new();
         let proof_fingerprint = circuit.get_fingerprint();
         if let Some(raw) = deposit_proof_fingerprint_json.as_deref() {
-            let payload_fingerprint = Self::parse_qhash_u64x4_json(raw, "deposit_proof_fingerprint")?;
+            let payload_fingerprint =
+                Self::parse_qhash_u64x4_json(raw, "deposit_proof_fingerprint")?;
             if payload_fingerprint != proof_fingerprint {
                 return Err(JsError::new(&format!(
                     "DepositInclusion fingerprint mismatch: payload={} local={}",
@@ -1940,12 +1945,7 @@ impl WasmRpcServer {
 
         let (proof_index, proof_siblings) = self
             .wallet_session
-            .add_external_proof_with_siblings(
-                pk_hash,
-                proof_fingerprint,
-                proof,
-                verifier_data,
-            )
+            .add_external_proof_with_siblings(pk_hash, proof_fingerprint, proof, verifier_data)
             .await
             .map_err(|e| JsError::new(&format!("add_external_proof: {}", e)))?;
 
@@ -2965,9 +2965,18 @@ impl WasmRpcServer {
             .wallet_session
             .prove_external_proof_job(&trace, step_index as usize)
             .await
-            .map_err(|e| JsError::new(&format!("Error proving external-proof job {}: {}", step_index, e)))?;
-        serde_json::to_string(&output)
-            .map_err(|e| JsError::new(&format!("Error serializing external-proof job output: {}", e)))
+            .map_err(|e| {
+                JsError::new(&format!(
+                    "Error proving external-proof job {}: {}",
+                    step_index, e
+                ))
+            })?;
+        serde_json::to_string(&output).map_err(|e| {
+            JsError::new(&format!(
+                "Error serializing external-proof job output: {}",
+                e
+            ))
+        })
     }
 
     #[wasm_bindgen]
@@ -3112,9 +3121,9 @@ impl WasmRpcServer {
             .as_ref()
             .map(|blob| Self::deserialize_proving_state_blob(blob))
             .transpose()?;
-        let provided_proofs = proofs.as_ref().map(|items| {
-            items.iter().map(|proof| proof.to_vec()).collect::<Vec<_>>()
-        });
+        let provided_proofs = proofs
+            .as_ref()
+            .map(|items| items.iter().map(|proof| proof.to_vec()).collect::<Vec<_>>());
 
         let step_result = self
             .wallet_session
@@ -3160,26 +3169,11 @@ impl WasmRpcServer {
                     &Uint8Array::from(state_blob.as_slice()).into(),
                 )
                 .map_err(|e| JsError::new(&format!("Error setting state: {:?}", e)))?;
-                Reflect::set(
-                    &result,
-                    &JsValue::from_str("proofs"),
-                    &proof_array.into(),
-                )
-                .map_err(|e| JsError::new(&format!("Error setting proofs: {:?}", e)))?;
+                Reflect::set(&result, &JsValue::from_str("proofs"), &proof_array.into())
+                    .map_err(|e| JsError::new(&format!("Error setting proofs: {:?}", e)))?;
             }
             TraceProvingStepResult::Failed { error } => {
-                Reflect::set(
-                    &result,
-                    &JsValue::from_str("done"),
-                    &JsValue::from_bool(false),
-                )
-                .map_err(|e| JsError::new(&format!("Error setting done: {:?}", e)))?;
-                Reflect::set(
-                    &result,
-                    &JsValue::from_str("error"),
-                    &JsValue::from_str(&error),
-                )
-                .map_err(|e| JsError::new(&format!("Error setting error: {:?}", e)))?;
+                return Err(JsError::new(&error));
             }
         }
 

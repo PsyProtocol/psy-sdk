@@ -104,14 +104,13 @@ export class RecursiveDecoder {
             return this.decodeField(path, 0, rawFelts, structs);
         }
 
-        // Multiple paths: could be a struct or array
-        // Try to detect if it's a struct (paths have non-numeric names)
-        const isStruct = returnTypePaths.every(p =>
-            p.path.length > 0 && isNaN(Number(p.path[p.path.length - 1]))
-        );
+        // Multiple top-level return paths represent a named tuple/result object.
+        // Do not infer this from field names: numeric field names are legal and
+        // arrays are represented by a single top-level path with an Array type.
+        const isNamedTuple = returnTypePaths.every(p => p.path.length === 1);
 
-        if (isStruct) {
-            // Reconstruct struct from fields
+        if (isNamedTuple) {
+            // Reconstruct named return object from fields
             const result: any = {};
             returnTypePaths.forEach((pathInfo, index) => {
                 const fieldName = pathInfo.path[pathInfo.path.length - 1];
@@ -146,16 +145,17 @@ export class RecursiveDecoder {
                 const length = typeName.length ?? rawFelts.length - index;
                 const result: any[] = [];
                 for (let i = 0; i < length; i++) {
-                    const elemFelt = rawFelts[index + i] ?? BigInt(0);
                     // Try struct decode for inner_type
                     const structDef = structs.get(innerType);
                     if (structDef) {
+                        const elementOffset = index + i * structDef.fields.length;
                         const elemResult: any = {};
                         structDef.fields.forEach((field, fieldIdx) => {
-                            elemResult[field.name] = this.decode(field.name, [...pathInfo.path, String(i), field.name], rawFelts[index + i + fieldIdx] ?? BigInt(0));
+                            elemResult[field.name] = this.decode(field.name, [...pathInfo.path, String(i), field.name], rawFelts[elementOffset + fieldIdx] ?? BigInt(0));
                         });
                         result.push(elemResult);
                     } else {
+                        const elemFelt = rawFelts[index + i] ?? BigInt(0);
                         result.push(BigInt(elemFelt));
                     }
                 }
