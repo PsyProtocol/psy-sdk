@@ -14,6 +14,7 @@
 
 import type { Config as WagmiConfig } from 'wagmi'
 import type { PsyStorage, ResolvedNetwork } from './config/types'
+import { ProverEngine } from './prover/engine'
 
 /** Simple typed event hub (no dependency; mirrors the app's window-event use). */
 export class Emitter<Events extends Record<string, unknown>> {
@@ -76,8 +77,8 @@ export interface PsyWalletRuntime {
   readonly storage: PsyStorage
   readonly createWorker?: () => Worker
   readonly events: Emitter<RuntimeEvents>
-  /** Memoized PsyJSON config string for prover construction (set in P2). */
-  proverConfigJson?: string
+  /** The client's sole prover pipeline (worker + FIFO gate + gated calls). */
+  readonly prover: ProverEngine
 }
 
 export function createRuntime(input: {
@@ -92,5 +93,11 @@ export function createRuntime(input: {
     storage: input.storage ?? defaultStorage(),
     createWorker: input.createWorker,
     events: new Emitter<RuntimeEvents>(),
+    // The prover stringifies the raw Psy chain config (bigint-safe via PsyJSON)
+    // and spawns the worker via the injected factory or the dist fallback.
+    prover: new ProverEngine({
+      psyConfig: input.network.psy,
+      createWorker: input.createWorker,
+    }),
   }
 }
