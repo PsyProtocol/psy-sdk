@@ -11,4 +11,31 @@
  * prover worker module at '@psy-protocol/evm-wallet/worker'.
  */
 
-export const EVM_WALLET_VERSION = '0.1.0';
+// ── config kernel ────────────────────────────────────────────────────────────
+export {
+  definePsyNetwork,
+  type ChainConfig,
+  type DeepPartial,
+  type PsyChainConfig,
+  type PsyNetworkDefinition,
+  type PsyNetworkName,
+  type PsyNetworkUrls,
+  type PsyStorage,
+  type PsyWalletConfig,
+  type ResolvedNetwork,
+} from './config/types'
+export { resolveNetworkDefinition } from './config/resolve'
+export { testnet } from './config/presets/testnet'
+export { localhost } from './config/presets/localhost'
+
+// ── errors ───────────────────────────────────────────────────────────────────
+export {
+  PsyWalletError,
+  SIGN_IN_CONTEXTS,
+  errorInfo,
+  type ErrorContext,
+  type ErrorCopy,
+} from './errors/types'
+export { classifyError, classifyLoginError } from './errors/classify'
+
+export const EVM_WALLET_VERSION = '0.1.0'
