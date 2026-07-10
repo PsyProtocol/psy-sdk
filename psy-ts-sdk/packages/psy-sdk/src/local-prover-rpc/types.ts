@@ -352,7 +352,7 @@ interface IPsyUserProverProvider {
     proveContractCalls(pk_hash: string, contractCallArgs: ContractCallArgs[]): Promise<string>;
     signAndSubmit(pk_hash: string, signData?: SignData): Promise<string>;
     generateTxTrace(pk_hash: string, callData: ContractCallData, localId?: string | null): Promise<GeneratedTxTraceJson>;
-    simulateContractCall(pk_hash: string, callData: ContractCallData, localId?: string | null): Promise<GeneratedTxTraceJson>;
+    simulateContractCall(pk_hash: string, callData: ContractCallData, localId?: string | null): Promise<SimulatedTxJson>;
     proveUpsStart(pk_hash: string, envelopeJson: string | GeneratedTxTraceJson): Promise<InitStepProvingJson>;
     proveTraceStep(
         pk_hash: string,

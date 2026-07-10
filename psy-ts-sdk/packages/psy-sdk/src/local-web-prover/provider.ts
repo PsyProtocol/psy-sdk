@@ -8,6 +8,7 @@ import {
     DPNFunctionCircuitDefinition,
     GeneratedTxTraceJson,
     IPsyUserProverProvider,
+    SimulatedTxJson,
     QBCDeployContract,
     SignData,
     SignType,
@@ -214,14 +215,14 @@ export class PsyWasmWebProverProvider implements IPsyUserProverProvider {
         console.log(`generateTxTrace in ${(new Date().getTime() - now) / 1000} seconds`);
         return PsyJSON.parse(result) as GeneratedTxTraceJson;
     }
-    async simulateContractCall(pkHash: PublicKey, callData: ContractCallData): Promise<GeneratedTxTraceJson> {
+    async simulateContractCall(pkHash: PublicKey, callData: ContractCallData): Promise<SimulatedTxJson> {
         const now = new Date().getTime();
         const json = PsyJSON.stringify(callData);
         const result = await PsyWasmWebProverProvider.runWasmServerCall((server) =>
-            server.generate_tx_trace_json(pkHash, json)
+            server.simulate_contract_call_json(pkHash, json)
         );
         console.log(`simulateContractCall in ${(new Date().getTime() - now) / 1000} seconds`);
-        return PsyJSON.parse(result) as GeneratedTxTraceJson;
+        return PsyJSON.parse(result) as SimulatedTxJson;
     }
     // ================================
     // Checkpointed trace proving
