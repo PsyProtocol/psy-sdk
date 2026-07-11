@@ -11,6 +11,9 @@
  * prover worker module at '@psy-protocol/evm-wallet/worker'.
  */
 
+// ── public entry ──────────────────────────────────────────────────────────────
+export { createPsyWallet, type PsyWalletClient } from './client'
+
 // ── config kernel ────────────────────────────────────────────────────────────
 export {
   definePsyNetwork,

@@ -91,9 +91,13 @@ export interface SessionState {
 }
 
 export class SessionController {
-  private readonly signer: EvmSigner
-  private readonly rpc: RpcClient
+  /** Low-level personal_sign seam (connect + EIP-191 signatures). */
+  readonly evmSigner: EvmSigner
+  /** Coordinator/realm/prove-proxy JSON-RPC bound to this network. */
+  readonly rpc: RpcClient
+  /** pkHash→evmAddress bindings (the Mode-A submit-path selector). */
   readonly registry: ModeARegistry
+  /** The Mode-A transaction signer (personal_sign → external-signature seam). */
   readonly submitter: ModeASubmitter
 
   private state: SessionState
@@ -104,10 +108,10 @@ export class SessionController {
   private unwatchAccounts: (() => void) | null = null
 
   constructor(private readonly runtime: PsyWalletRuntime) {
-    this.signer = new EvmSigner(runtime.wagmiConfig)
+    this.evmSigner = new EvmSigner(runtime.wagmiConfig)
     this.rpc = new RpcClient(runtime.network.urls, runtime.network.psy.users_per_realm)
     this.registry = new ModeARegistry()
-    this.submitter = new ModeASubmitter(runtime.prover, this.signer)
+    this.submitter = new ModeASubmitter(runtime.prover, this.evmSigner)
     this.state = {
       session: null,
       phase: 'idle',
@@ -115,7 +119,7 @@ export class SessionController {
       authVersion: this.loadAuthVersion(),
     }
     // Wallet account switch ⇒ drop the session (identity is account-bound).
-    this.unwatchAccounts = this.signer.onAccountsChanged((accounts) => {
+    this.unwatchAccounts = this.evmSigner.onAccountsChanged((accounts) => {
       const current = this.state.session
       if (!current) return
       const next = accounts[0]
@@ -243,7 +247,7 @@ export class SessionController {
     this.loginInFlight = true
     this.setState({ error: null, phase: 'connecting' })
     try {
-      const evmAddress = await this.signer.connect()
+      const evmAddress = await this.evmSigner.connect()
       const authVersion = opts?.authVersion ?? this.loadAuthVersion()
 
       this.setState({ phase: 'preparing-prover' })
@@ -253,14 +257,14 @@ export class SessionController {
       // derivation is shared (guarded by the golden-vector test).
       let signature: string
       if (authVersion === 'v2') {
-        signature = await this.signer.signTypedDataV4(
+        signature = await this.evmSigner.signTypedDataV4(
           buildEip712AuthDomain(),
           EIP712_AUTH_TYPES,
           buildEip712AuthValue(evmAddress),
           evmAddress,
         )
       } else {
-        signature = await this.signer.personalSign(buildAuthMessage(evmAddress), evmAddress)
+        signature = await this.evmSigner.personalSign(buildAuthMessage(evmAddress), evmAddress)
       }
       const material = await deriveKeyMaterialFromSignature(evmAddress, signature)
 
