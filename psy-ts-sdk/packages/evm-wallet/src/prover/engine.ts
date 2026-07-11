@@ -61,14 +61,27 @@ export class ProverEngine {
 
   constructor(input: { psyConfig: unknown; createWorker?: () => Worker }) {
     this.configJson = PsyJSON.stringify(input.psyConfig)
-    this.createWorker =
-      input.createWorker ??
-      (() =>
-        // Dist fallback: resolves ./worker.mjs sitting beside this engine.mjs in
-        // the built package. Requires the consumer's bundler to not pre-bundle
-        // the library worker (Vite: optimizeDeps.exclude). The canonical path is
-        // the injected createWorker factory (see README).
-        new Worker(new URL('./worker.mjs', import.meta.url), { type: 'module' }))
+    this.createWorker = input.createWorker ?? (() => this.spawnFallbackWorker())
+  }
+
+  /**
+   * Best-effort dist fallback when no createWorker is injected: spawn the built
+   * worker.mjs that sits one level up from this engine.mjs (dist/prover/ →
+   * dist/worker.mjs).
+   *
+   * The specifier is assembled at RUNTIME (not a bare string literal) ON PURPOSE:
+   * bundlers (Vite's worker-import-meta-url, Rollup) statically match
+   * `new Worker(new URL('<literal>', import.meta.url))` and would try to bundle
+   * this fallback into the CONSUMER's graph — pulling the 22 MB WASM in twice and
+   * failing to resolve the path. The canonical, bundler-proof path is the
+   * injected createWorker factory (a 1-line app-local `import '.../worker'`
+   * file); this fallback only runs for consumers who don't inject one, and needs
+   * the bundler to leave the library worker un-prebundled (Vite:
+   * optimizeDeps.exclude).
+   */
+  private spawnFallbackWorker(): Worker {
+    const spec = ['..', 'worker.mjs'].join('/')
+    return new Worker(new URL(spec, import.meta.url), { type: 'module' })
   }
 
   // ── worker lifecycle (was unified/prover-client.ts) ─────────────────────────
