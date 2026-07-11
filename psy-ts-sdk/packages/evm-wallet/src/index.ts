@@ -38,4 +38,36 @@ export {
 } from './errors/types'
 export { classifyError, classifyLoginError } from './errors/classify'
 
+// ── session (UPS) ─────────────────────────────────────────────────────────────
+export {
+  SessionController,
+  type AuthVersion,
+  type SessionPhase,
+  type SessionState,
+  type UnifiedSession,
+  type UserIdPollProgress,
+} from './session/controller'
+export {
+  AUTH_MESSAGE_VERSION,
+  DEFAULT_AUTH_VERSION,
+  EIP712_AUTH_VERSION,
+  buildAuthMessage,
+  deriveKeyMaterialFromSignature,
+  deriveShieldAddressForUser,
+  type DerivedPsyKeyMaterial,
+} from './session/identity'
+export { ModeARegistry } from './session/mode-a-registry'
+export { ModeASubmitter, type ModeAResult } from './session/mode-a-submitter'
+
+// ── psy rpc + types ───────────────────────────────────────────────────────────
+export { RpcClient, realmIdFromUserId, type UserLeaf } from './psy/rpc'
+export type { ClaimBatchItem, ContractCallArgs } from './psy/types'
+
+// ── evm signer ────────────────────────────────────────────────────────────────
+export { EvmSigner } from './evm/signer'
+
+// ── runtime ───────────────────────────────────────────────────────────────────
+export { createRuntime, type PsyWalletRuntime } from './runtime'
+export { ProverEngine } from './prover/engine'
+
 export const EVM_WALLET_VERSION = '0.1.0'
