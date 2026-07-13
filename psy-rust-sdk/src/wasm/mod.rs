@@ -1111,6 +1111,25 @@ impl WasmRpcServer {
     }
 
     #[wasm_bindgen]
+    pub async fn simulate_contract_call_json(
+        &mut self,
+        pk_hash: &str,
+        call_data_json: &str,
+    ) -> Result<String, JsError> {
+        let pk_hash = QHashOut::<F>::from_str(pk_hash)
+            .map_err(|e| JsError::new(&format!("Parse public key hash error: {}", e)))?;
+        let call_data: ContractCallData = serde_json::from_str(call_data_json)
+            .map_err(|e| JsError::new(&format!("Invalid call data JSON: {}", e)))?;
+        let simulated = self
+            .wallet_session
+            .simulate_contract_call_with_opts(pk_hash, call_data)
+            .await
+            .map_err(|e| JsError::new(&format!("Error simulating tx trace: {}", e)))?;
+        serde_json::to_string(&simulated)
+            .map_err(|e| JsError::new(&format!("Error serializing simulated tx: {}", e)))
+    }
+
+    #[wasm_bindgen]
     pub async fn generate_batch_claim_tx_trace_json(
         &mut self,
         pk_hash: &str,

@@ -112,9 +112,11 @@ export class RecursiveDecoder {
         if (isNamedTuple) {
             // Reconstruct named return object from fields
             const result: any = {};
-            returnTypePaths.forEach((pathInfo, index) => {
+            let offset = 0;
+            returnTypePaths.forEach((pathInfo) => {
                 const fieldName = pathInfo.path[pathInfo.path.length - 1];
-                result[fieldName] = this.decodeField(pathInfo, index, rawFelts, structs);
+                result[fieldName] = this.decodeField(pathInfo, offset, rawFelts, structs);
+                offset += this.typeFeltSize(pathInfo.type, structs);
             });
             return result;
         }
@@ -148,12 +150,8 @@ export class RecursiveDecoder {
                     // Try struct decode for inner_type
                     const structDef = structs.get(innerType);
                     if (structDef) {
-                        const elementOffset = index + i * structDef.fields.length;
-                        const elemResult: any = {};
-                        structDef.fields.forEach((field, fieldIdx) => {
-                            elemResult[field.name] = this.decode(field.name, [...pathInfo.path, String(i), field.name], rawFelts[elementOffset + fieldIdx] ?? BigInt(0));
-                        });
-                        result.push(elemResult);
+                        const elementOffset = index + i * this.structFeltSize(structDef, structs);
+                        result.push(this.decodeStruct(structDef, elementOffset, rawFelts, structs, [...pathInfo.path, String(i)]));
                     } else {
                         const elemFelt = rawFelts[index + i] ?? BigInt(0);
                         result.push(BigInt(elemFelt));
@@ -171,12 +169,7 @@ export class RecursiveDecoder {
         // Check if it's a known struct type
         const structDef = structs.get(typeStr);
         if (structDef) {
-            const result: any = {};
-            structDef.fields.forEach((field, fieldIdx) => {
-                const fieldPath = [...pathInfo.path, field.name];
-                result[field.name] = this.decode(field.name, fieldPath, rawFelts[index + fieldIdx] ?? BigInt(0));
-            });
-            return result;
+            return this.decodeStruct(structDef, index, rawFelts, structs, pathInfo.path);
         }
 
         // Use the type name for decoding
@@ -195,5 +188,54 @@ export class RecursiveDecoder {
         }
 
         return BigInt(rawValue);
+    }
+
+    private decodeStruct(
+        structDef: { name: string; fields: any[] },
+        startIndex: number,
+        rawFelts: any[],
+        structs: Map<string, { name: string; fields: any[] }>,
+        path: string[]
+    ): any {
+        const result: any = {};
+        let offset = startIndex;
+        for (const field of structDef.fields) {
+            const fieldPath = [...path, field.name];
+            result[field.name] = this.decodeField(
+                { path: fieldPath, type: field.type, typeId: field.typeId },
+                offset,
+                rawFelts,
+                structs
+            );
+            offset += this.typeFeltSize(field.type, structs, field.felt_size);
+        }
+        return result;
+    }
+
+    private typeFeltSize(
+        type: string | any | undefined,
+        structs: Map<string, { name: string; fields: any[] }>,
+        explicitSize?: number
+    ): number {
+        if (typeof explicitSize === "number" && Number.isFinite(explicitSize) && explicitSize > 0) {
+            return explicitSize;
+        }
+        if (typeof type === "string") {
+            const structDef = structs.get(type);
+            return structDef ? this.structFeltSize(structDef, structs) : 1;
+        }
+        if (type && typeof type === "object" && type.type === "Array") {
+            const length = typeof type.length === "number" ? type.length : 0;
+            const innerSize = this.typeFeltSize(type.inner_type, structs);
+            return Math.max(0, length) * innerSize;
+        }
+        return 1;
+    }
+
+    private structFeltSize(
+        structDef: { name: string; fields: any[] },
+        structs: Map<string, { name: string; fields: any[] }>
+    ): number {
+        return structDef.fields.reduce((sum, field) => sum + this.typeFeltSize(field.type, structs, field.felt_size), 0);
     }
 }

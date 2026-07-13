@@ -221,6 +221,7 @@ export class WasmRpcServer {
      * externalisation (Phase 2) would move this to JS.
      */
     sign_sighash_json(pk_hash: string, sighash_json: string, envelope_json?: string | null, current_header_json?: string | null): Promise<Uint8Array>;
+    simulate_contract_call_json(pk_hash: string, call_data_json: string): Promise<string>;
     start_session(pk_hash: string): Promise<string>;
     /**
      * Submit a pre-proven end-cap proof (RPC only, no proving).
@@ -306,6 +307,7 @@ export interface InitOutput {
     readonly wasmrpcserver_register_user: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => any;
     readonly wasmrpcserver_sign_and_submit: (a: number, b: number, c: number, d: number, e: number) => any;
     readonly wasmrpcserver_sign_sighash_json: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number) => any;
+    readonly wasmrpcserver_simulate_contract_call_json: (a: number, b: number, c: number, d: number, e: number) => any;
     readonly wasmrpcserver_start_session: (a: number, b: number, c: number) => any;
     readonly wasmrpcserver_submit_end_cap_json: (a: number, b: number, c: number, d: number, e: number) => any;
     readonly wasmrpcserver_submit_endcap_job_json: (a: number, b: number, c: number, d: number, e: number) => any;

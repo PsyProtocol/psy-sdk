@@ -69,6 +69,7 @@ export const wasmrpcserver_register_sd_key_circuit: (a: number, b: number, c: nu
 export const wasmrpcserver_register_user: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => any;
 export const wasmrpcserver_sign_and_submit: (a: number, b: number, c: number, d: number, e: number) => any;
 export const wasmrpcserver_sign_sighash_json: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number) => any;
+export const wasmrpcserver_simulate_contract_call_json: (a: number, b: number, c: number, d: number, e: number) => any;
 export const wasmrpcserver_start_session: (a: number, b: number, c: number) => any;
 export const wasmrpcserver_submit_end_cap_json: (a: number, b: number, c: number, d: number, e: number) => any;
 export const wasmrpcserver_submit_endcap_job_json: (a: number, b: number, c: number, d: number, e: number) => any;

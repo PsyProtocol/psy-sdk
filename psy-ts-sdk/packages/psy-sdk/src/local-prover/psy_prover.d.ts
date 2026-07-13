@@ -221,6 +221,7 @@ export class WasmRpcServer {
      * externalisation (Phase 2) would move this to JS.
      */
     sign_sighash_json(pk_hash: string, sighash_json: string, envelope_json?: string | null, current_header_json?: string | null): Promise<Uint8Array>;
+    simulate_contract_call_json(pk_hash: string, call_data_json: string): Promise<string>;
     start_session(pk_hash: string): Promise<string>;
     /**
      * Submit a pre-proven end-cap proof (RPC only, no proving).
