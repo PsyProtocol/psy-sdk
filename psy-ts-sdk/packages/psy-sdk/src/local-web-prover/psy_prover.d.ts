@@ -303,11 +303,11 @@ export interface InitOutput {
     readonly wasmrpcserver_register_user_with_external_signature: (a: number, b: number, c: number, d: number, e: number) => any;
     readonly wasmpsyconfigbuilder_new: () => number;
     readonly wasmconstants_register_user_fee: () => bigint;
-    readonly wasm_bindgen__closure__destroy__h1b5505c935284b57: (a: number, b: number) => void;
+    readonly wasm_bindgen__closure__destroy__h31fa0ffb0ac18368: (a: number, b: number) => void;
     readonly wasm_bindgen__closure__destroy__h331a7637426ce72b: (a: number, b: number) => void;
     readonly wasm_bindgen__convert__closures_____invoke__hbd96d25d7b63f7a4: (a: number, b: number, c: any, d: any) => void;
     readonly wasm_bindgen__convert__closures_____invoke__h9bc15f362fb0f120: (a: number, b: number, c: any) => void;
-    readonly wasm_bindgen__convert__closures_____invoke__hda423c06aeee1c91: (a: number, b: number) => void;
+    readonly wasm_bindgen__convert__closures_____invoke__hce1fdf91c45a02b9: (a: number, b: number) => void;
     readonly memory: WebAssembly.Memory;
     readonly __wbindgen_malloc: (a: number, b: number) => number;
     readonly __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;

@@ -594,14 +594,17 @@ impl WasmRpcServer {
                                 nullifier_secret[i],
                             )
                         }),
-                        note_secret_hash: std::array::from_fn(|i| {
+                        // NOTE(shield-deposit drift): the rebased circuit re-derives
+                        // note_commitment = Poseidon(nullifier_secret || note_secret) internally, so
+                        // this field must be the note-secret PREIMAGE. The wallet currently passes the
+                        // on-chain note commitment as `note_secret_hash`; runtime deposit-claims will
+                        // fail until the deposit/backup flow supplies the preimage. See handoff report.
+                        note_secret: std::array::from_fn(|i| {
                             <F as plonky2::field::types::Field>::from_canonical_u64(
                                 note_secret_hash[i],
                             )
                         }),
-                        r0: <F as plonky2::field::types::Field>::from_canonical_u64(random0),
-                        r1: <F as plonky2::field::types::Field>::from_canonical_u64(random1),
-                        user_id,
+                        shield_address,
                         deposit_index,
                         token_address,
                         l2_token_contract_id,
@@ -630,6 +633,8 @@ impl WasmRpcServer {
                         amount,
                         source_chain_index,
                         deposit_root,
+                        note_commitment: qhash_from_u64_arr(note_secret_hash),
+                        deposit_index,
                         r0: random0,
                         r1: random1,
                         proof_fingerprint,
@@ -1100,12 +1105,13 @@ impl WasmRpcServer {
             nullifier_secret: std::array::from_fn(|i| {
                 <F as plonky2::field::types::Field>::from_canonical_u64(nullifier_secret[i])
             }),
-            note_secret_hash: std::array::from_fn(|i| {
+            // NOTE(shield-deposit drift): must be the note-secret PREIMAGE; the circuit re-derives
+            // note_commitment = Poseidon(nullifier_secret || note_secret). Wallet currently passes the
+            // on-chain commitment as `note_secret_hash` — see site above and handoff report.
+            note_secret: std::array::from_fn(|i| {
                 <F as plonky2::field::types::Field>::from_canonical_u64(note_secret_hash[i])
             }),
-            r0: <F as plonky2::field::types::Field>::from_canonical_u64(random0_val),
-            r1: <F as plonky2::field::types::Field>::from_canonical_u64(random1_val),
-            user_id,
+            shield_address,
             deposit_index: deposit_index_val,
             token_address,
             l2_token_contract_id,
@@ -1139,6 +1145,13 @@ impl WasmRpcServer {
                     amount,
                     source_chain_index: source_chain_index_val,
                     deposit_root,
+                    note_commitment: QHashOut::from_values(
+                        note_secret_hash[0],
+                        note_secret_hash[1],
+                        note_secret_hash[2],
+                        note_secret_hash[3],
+                    ),
+                    deposit_index: deposit_index_val,
                     r0: random0_val,
                     r1: random1_val,
                     proof_fingerprint: fingerprint,
@@ -1503,7 +1516,13 @@ impl WasmRpcServer {
             user_leaf,
             owner,
             amount: <F as plonky2::field::types::Field>::from_canonical_u64(amount_val),
-            randomness: note_secret_hash,
+            // NOTE(private-note drift): like the deposit case, the rebased circuit now derives
+            // note_commitment = Poseidon(nullifier_secret || note_secret) internally, so this field
+            // is the note-secret PREIMAGE (old field name was `randomness`, used directly). The note
+            // must ALSO be created as Hash(inner, Poseidon(nullifier_secret || note_secret)); the
+            // current wallet creates it from the raw secret, so SEND-claims will fail until the
+            // wallet's note-creation path passes derive_note_commitment(...) too. See handoff report.
+            note_secret: note_secret_hash,
             note_membership_proof,
             note_root_slot_proof,
             contract_proof,
@@ -1635,9 +1654,17 @@ impl WasmRpcServer {
         allowed_method_ids: &[u64],
         expected_tx_count: u64,
     ) -> Result<String, JsError> {
+        // Rebased relayer renamed this to `register_sd_key_circuit` (sd_key, not sdk_key) and
+        // narrowed allowed_method_ids from &[u64] to &[u32].
+        let allowed_method_ids_u32: Vec<u32> =
+            allowed_method_ids.iter().map(|&m| m as u32).collect();
         let fingerprint = self
             .wallet_session
-            .register_sdk_key_circuit(allowed_contract_ids, allowed_method_ids, expected_tx_count)
+            .register_sd_key_circuit(
+                allowed_contract_ids,
+                &allowed_method_ids_u32,
+                expected_tx_count,
+            )
             .await
             .map_err(|e| JsError::new(&format!("Register sd key circuit error: {}", e)))?;
         Ok(fingerprint.to_string())
@@ -1838,7 +1865,10 @@ impl WasmRpcServer {
             .user_session_mgrs
             .get(&pk_hash)
             .ok_or_else(|| JsError::new(&format!("user {} not found in session", pk_hash)))?;
-        let nonce = mgr.lps.get_nonce();
+        let nonce = mgr
+            .require_lps()
+            .map_err(|e| JsError::new(&format!("require_lps: {}", e)))?
+            .get_nonce();
         let sighash = mgr.get_sighash(PSY_NETWORK_MAGIC, nonce);
         drop(mgr);
 
@@ -1894,7 +1924,10 @@ impl WasmRpcServer {
                     pk_hash
                 ))
             })?;
-        let nonce = mgr.lps.get_nonce();
+        let nonce = mgr
+            .require_lps()
+            .map_err(|e| JsError::new(&format!("require_lps: {}", e)))?
+            .get_nonce();
         let sighash = mgr.get_sighash(PSY_NETWORK_MAGIC, nonce);
         drop(mgr);
 
@@ -2001,7 +2034,18 @@ impl WasmRpcServer {
                     }
                 }
                 Err(e) => {
-                    return Err(JsError::new(&format!("get_user_ids_for_public_key: {}", e)));
+                    // -local/relayer coordinators return the "no user ids yet" case
+                    // as an ERROR ("no user ids found") where older ones returned
+                    // Ok(empty). A freshly-submitted registration is not checkpointed
+                    // yet, so treat THAT specific error as "not resolved yet" and keep
+                    // polling instead of aborting sign-in. Any other error still aborts.
+                    let msg = format!("{}", e);
+                    if !msg.contains("no user ids found") {
+                        return Err(JsError::new(&format!(
+                            "get_user_ids_for_public_key: {}",
+                            e
+                        )));
+                    }
                 }
             }
             async_sleep_ms(1000).await;
@@ -2047,7 +2091,10 @@ impl WasmRpcServer {
             .user_session_mgrs
             .get(&pk_hash)
             .ok_or_else(|| JsError::new(&format!("user {} not found in session", pk_hash)))?;
-        let nonce = mgr.lps.get_nonce();
+        let nonce = mgr
+            .require_lps()
+            .map_err(|e| JsError::new(&format!("require_lps: {}", e)))?
+            .get_nonce();
         let sighash = mgr.get_sighash(PSY_NETWORK_MAGIC, nonce);
         drop(mgr);
 
@@ -2094,7 +2141,10 @@ impl WasmRpcServer {
                     pk_hash
                 ))
             })?;
-        let nonce = mgr.lps.get_nonce();
+        let nonce = mgr
+            .require_lps()
+            .map_err(|e| JsError::new(&format!("require_lps: {}", e)))?
+            .get_nonce();
         let sighash = mgr.get_sighash(PSY_NETWORK_MAGIC, nonce);
         drop(mgr);
 
@@ -2200,7 +2250,18 @@ impl WasmRpcServer {
                     }
                 }
                 Err(e) => {
-                    return Err(JsError::new(&format!("get_user_ids_for_public_key: {}", e)));
+                    // -local/relayer coordinators return the "no user ids yet" case
+                    // as an ERROR ("no user ids found") where older ones returned
+                    // Ok(empty). A freshly-submitted registration is not checkpointed
+                    // yet, so treat THAT specific error as "not resolved yet" and keep
+                    // polling instead of aborting sign-in. Any other error still aborts.
+                    let msg = format!("{}", e);
+                    if !msg.contains("no user ids found") {
+                        return Err(JsError::new(&format!(
+                            "get_user_ids_for_public_key: {}",
+                            e
+                        )));
+                    }
                 }
             }
             async_sleep_ms(1000).await;
@@ -2252,7 +2313,10 @@ impl WasmRpcServer {
                     pk_hash
                 ))
             })?;
-        let nonce = mgr.lps.get_nonce();
+        let nonce = mgr
+            .require_lps()
+            .map_err(|e| JsError::new(&format!("require_lps: {}", e)))?
+            .get_nonce();
         let sighash = mgr.get_sighash(PSY_NETWORK_MAGIC, nonce);
         drop(mgr);
 
@@ -2317,7 +2381,10 @@ impl WasmRpcServer {
                     pk_hash
                 ))
             })?;
-        let nonce = mgr.lps.get_nonce();
+        let nonce = mgr
+            .require_lps()
+            .map_err(|e| JsError::new(&format!("require_lps: {}", e)))?
+            .get_nonce();
         let sighash = mgr.get_sighash(PSY_NETWORK_MAGIC, nonce);
         drop(mgr);
 
