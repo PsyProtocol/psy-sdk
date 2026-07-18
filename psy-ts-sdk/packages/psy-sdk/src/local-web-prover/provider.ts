@@ -1,5 +1,4 @@
 import { initSync, WasmRpcServer, WasmPsyConfig, WasmPsyConfigBuilder, WasmConstants } from "./psy_prover";
-import { wasmBinary } from "./wasm-binary";
 import { PrivateKey, PublicKey, QHashOut, U8Bytes } from "../core";
 import {
     ContractCallArgs,
@@ -16,24 +15,33 @@ import { ZKPublicKeyInfo } from "../types";
 import { PsyJSON } from "../utils";
 import { PsyNetworkConfig } from "../config";
 
-let isWasmInitialized = false;
+let wasmInitPromise: Promise<void> | null = null;
 
-// Synchronous WASM initialization function
-export function initWasmSync(): void {
-    if (isWasmInitialized) {
-        return;
+// WASM URL asset — bundlers (Vite) rewrite `new URL('./x.wasm', import.meta.url)`
+// to an emitted asset, so the ~35 MB binary ships as a real .wasm file fetched at
+// runtime rather than a ~110 MB JS array literal (which blows the 100 MB static-
+// host per-file limit and is far slower for the browser to parse).
+const WASM_URL = new URL("./psy_prover_bg.wasm", import.meta.url);
+
+// Async WASM initialization: fetch the binary asset, then initialize synchronously
+// from its bytes. Idempotent + single-flight (retryable on failure).
+export function initWasm(): Promise<void> {
+    if (!wasmInitPromise) {
+        wasmInitPromise = (async () => {
+            const resp = await fetch(WASM_URL);
+            if (!resp.ok) {
+                throw new Error(`Failed to fetch WASM binary (${resp.status}) from ${WASM_URL}`);
+            }
+            const bytes = new Uint8Array(await resp.arrayBuffer());
+            initSync({ module: bytes });
+            console.log("WASM initialized from fetched binary asset");
+        })().catch((error) => {
+            wasmInitPromise = null; // allow retry on a transient fetch/compile failure
+            console.error("Failed to initialize WASM:", error);
+            throw error;
+        });
     }
-
-    try {
-        // Initialize synchronously with pre-compiled binary data
-        initSync({ module: wasmBinary });
-        isWasmInitialized = true;
-
-        console.log("WASM initialized synchronously from binary data");
-    } catch (error) {
-        console.error("Failed to initialize WASM:", error);
-        throw error;
-    }
+    return wasmInitPromise;
 }
 
 export class PsyWasmWebProverProvider implements IPsyUserProverProvider {
@@ -51,9 +59,9 @@ export class PsyWasmWebProverProvider implements IPsyUserProverProvider {
         const json = typeof rpcConfigJson === "string" ? rpcConfigJson : PsyJSON.stringify(rpcConfigJson);
         if (!this.wasmServer) {
             const now = new Date().getTime();
-            initWasmSync();
-            this.wasmServer = Promise.resolve(
-                new WasmRpcServer(json) as unknown as WasmRpcServer | Promise<WasmRpcServer>
+            // Fetch + init the WASM asset, THEN construct the (sync) RPC server.
+            this.wasmServer = initWasm().then(
+                () => new WasmRpcServer(json) as unknown as WasmRpcServer
             );
             this.wasmServerConfigJson = json;
             this.wasmServer.then(() => {
