@@ -21,15 +21,15 @@ plonky2 = { git = "https://github.com/PsyProtocol/plonky2-hwa", rev = "1dfe6112c
 ] }
 plonky2_maybe_rayon = { git = "https://github.com/PsyProtocol/plonky2-hwa", rev = "1dfe6112c3eca3668c15820755371a8a3e75f934" }
 
-psy_vm = { git = "ssh://git@github.com/QEDProtocol/parth-generic-v1.git", rev = "ac1984740c707cef016dfffb37ad3bcf56acd141", package = "psy_vm", default-features = false }
-psy_crypto = { git = "ssh://git@github.com/QEDProtocol/parth-generic-v1.git", rev = "ac1984740c707cef016dfffb37ad3bcf56acd141", package = "psy_crypto" }
-psy_data = { git = "ssh://git@github.com/QEDProtocol/parth-generic-v1.git", rev = "ac1984740c707cef016dfffb37ad3bcf56acd141", package = "psy_client_data", default-features = false }
-psy_common = { git = "ssh://git@github.com/QEDProtocol/parth-generic-v1.git", rev = "ac1984740c707cef016dfffb37ad3bcf56acd141", package = "psy_client_common" }
-psy_config = { git = "ssh://git@github.com/QEDProtocol/parth-generic-v1.git", rev = "ac1984740c707cef016dfffb37ad3bcf56acd141", package = "psy_config" }
-psy_prover = { git = "ssh://git@github.com/QEDProtocol/parth-generic-v1.git", rev = "ac1984740c707cef016dfffb37ad3bcf56acd141", package = "psy_prover", default-features = false }
-psy_provider = { git = "ssh://git@github.com/QEDProtocol/parth-generic-v1.git", rev = "ac1984740c707cef016dfffb37ad3bcf56acd141", package = "psy_provider" }
-psy_common_circuit = { git = "ssh://git@github.com/QEDProtocol/parth-generic-v1.git", rev = "ac1984740c707cef016dfffb37ad3bcf56acd141", package = "psy_common_circuit", default-features = false }
-psy_dpn_circuit = { git = "ssh://git@github.com/QEDProtocol/parth-generic-v1.git", rev = "ac1984740c707cef016dfffb37ad3bcf56acd141", package = "psy_dpn_circuit", default-features = false }
+psy_vm = { git = "ssh://git@github.com/QEDProtocol/parth-generic-v1.git", rev = "694c7795c5bc8efcb0cbe0bca54797f5586e46e2", package = "psy_vm", default-features = false }
+psy_crypto = { git = "ssh://git@github.com/QEDProtocol/parth-generic-v1.git", rev = "694c7795c5bc8efcb0cbe0bca54797f5586e46e2", package = "psy_crypto" }
+psy_data = { git = "ssh://git@github.com/QEDProtocol/parth-generic-v1.git", rev = "694c7795c5bc8efcb0cbe0bca54797f5586e46e2", package = "psy_client_data", default-features = false }
+psy_common = { git = "ssh://git@github.com/QEDProtocol/parth-generic-v1.git", rev = "694c7795c5bc8efcb0cbe0bca54797f5586e46e2", package = "psy_client_common" }
+psy_config = { git = "ssh://git@github.com/QEDProtocol/parth-generic-v1.git", rev = "694c7795c5bc8efcb0cbe0bca54797f5586e46e2", package = "psy_config" }
+psy_prover = { git = "ssh://git@github.com/QEDProtocol/parth-generic-v1.git", rev = "694c7795c5bc8efcb0cbe0bca54797f5586e46e2", package = "psy_prover", default-features = false }
+psy_provider = { git = "ssh://git@github.com/QEDProtocol/parth-generic-v1.git", rev = "694c7795c5bc8efcb0cbe0bca54797f5586e46e2", package = "psy_provider" }
+psy_common_circuit = { git = "ssh://git@github.com/QEDProtocol/parth-generic-v1.git", rev = "694c7795c5bc8efcb0cbe0bca54797f5586e46e2", package = "psy_common_circuit", default-features = false }
+psy_dpn_circuit = { git = "ssh://git@github.com/QEDProtocol/parth-generic-v1.git", rev = "694c7795c5bc8efcb0cbe0bca54797f5586e46e2", package = "psy_dpn_circuit", default-features = false }
 
 base64 = "0.22"
 bincode = { version = "=1.3.3" }
@@ -53,22 +53,6 @@ reqwest = { version = "0.12", default-features = false, features = [
 debug = false
 
 # Local path overrides for testing local parth-generic-v1 changes.
-[patch."ssh://git@github.com/QEDProtocol/parth-generic-v1.git"]
-psy_vm = { path = "/Users/geir/Downloads/QED资料/litepaper/parth-ac198474/client_prover/psy_vm" }
-psy_crypto = { path = "/Users/geir/Downloads/QED资料/litepaper/parth-ac198474/client_prover/psy_core/psy_crypto" }
-psy_client_data = { path = "/Users/geir/Downloads/QED资料/litepaper/parth-ac198474/client_prover/psy_core/psy_data" }
-psy_client_common = { path = "/Users/geir/Downloads/QED资料/litepaper/parth-ac198474/client_prover/psy_core/psy_common" }
-psy_config = { path = "/Users/geir/Downloads/QED资料/litepaper/parth-ac198474/client_prover/psy_core/psy_config" }
-psy_prover = { path = "/Users/geir/Downloads/QED资料/litepaper/parth-ac198474/client_prover/psy_prover" }
-psy_provider = { path = "/Users/geir/Downloads/QED资料/litepaper/parth-ac198474/client_prover/psy_provider" }
-psy_common_circuit = { path = "/Users/geir/Downloads/QED资料/litepaper/parth-ac198474/client_prover/psy_circuit/psy_common_circuit" }
-psy_dpn_circuit = { path = "/Users/geir/Downloads/QED资料/litepaper/parth-ac198474/client_prover/psy_circuit/psy_dpn_circuit" }
-kvq = { path = "/Users/geir/Downloads/QED资料/litepaper/parth-ac198474/client_prover/psy_core/kvq" }
-parth_common = { path = "/Users/geir/Downloads/QED资料/litepaper/parth-ac198474/parth_common" }
-parth_core = { path = "/Users/geir/Downloads/QED资料/litepaper/parth-ac198474/parth_core" }
-parth_crypto = { path = "/Users/geir/Downloads/QED资料/litepaper/parth-ac198474/parth_crypto" }
-cf_utils = { path = "/Users/geir/Downloads/QED资料/litepaper/parth-ac198474/cf_utils" }
-
 # Local path overrides for the gnark verifier crates (no remote access to the
 # QEDProtocol/gnark-plonky2-verifier repo; both crates live in the local checkout).
 [patch."ssh://git@github.com/QEDProtocol/gnark-plonky2-verifier.git"]
