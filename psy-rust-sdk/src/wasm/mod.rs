@@ -1203,6 +1203,7 @@ impl WasmRpcServer {
             hasher::{FieldQHasher, PoseidonHasher},
             qhashable::QFieldHashable,
         };
+        use psy_crypto::shield_address::derive_note_commitment;
         use psy_data::privacy::private_note_inclusion::PrivateNoteInclusionInput;
         use psy_data::traits::qdatastore::qmetadata::QMetaDataStoreReaderSync;
         use psy_data::traits::qdatastore::qtreedata::QTreeDataStoreReaderSync;
@@ -1327,10 +1328,16 @@ impl WasmRpcServer {
             last_path.push(proof.value);
         }
 
-        // Build commitment and Merkle siblings
+        // Build commitment and Merkle siblings.
+        // The note-tree LEAF's third input must be the DERIVED note commitment
+        // (Poseidon(nullifier[4]||note[4])), NOT the raw note_secret_hash — this
+        // matches the value submitted on-chain (private-transfer.ts) and the CLI
+        // golden reference (private_transfer.rs). Using the raw preimage here made
+        // membership_root != slot_value and tripped the PrivateNoteInclusion guard.
         let value_hash = QHashOut::<F>::from_values(amount_val, 0, 0, 0);
         let inner = PoseidonHasher::q_two_to_one(owner, value_hash);
-        let commitment = PoseidonHasher::q_two_to_one(inner, note_secret_hash);
+        let note_commitment = derive_note_commitment(nullifier_secret_u64, note_secret_hash_u64);
+        let commitment = PoseidonHasher::q_two_to_one(inner, note_commitment);
 
         let mut siblings: Vec<QHashOut<F>> = Vec::with_capacity(NOTE_TREE_HEIGHT);
         let mut zero = QHashOut::<F>::from_values(0, 0, 0, 0);
