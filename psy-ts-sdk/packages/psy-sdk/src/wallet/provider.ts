@@ -96,11 +96,10 @@ class PsyUserWalletProvider implements IPsyUserWalletProvider, IContractProvider
         userId: Felt,
         slots: Felt[]
     ): Promise<Felt[]> {
-        const userStateTreeHeight = (await this.coordinatorEdgeRpcProvider.getContractLeafData(contractId)).state_tree_height;
         if (!Array.isArray(slots)) {
             throw new Error(`slots must be an array, got ${typeof slots}`);
         }
-        const slotValues = await this.realmEdgeRpcProvider.getRpcProviderByUserId(userId).getSlotValues(checkpointId, userId, contractId, Number(userStateTreeHeight), slots);
+        const slotValues = await this.realmEdgeRpcProvider.getRpcProviderByUserId(userId).getSlotValues(checkpointId, userId, contractId, slots);
         return slotValues;
     }
 

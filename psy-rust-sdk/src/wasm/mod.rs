@@ -831,7 +831,10 @@ impl WasmRpcServer {
                             JsError::new(&format!("add_external_proof error: {}", e))
                         })?;
                     console_log!("[note-claim-diag] add_external_proof OK");
-                    let call = claim.to_contract_call_args(contract_id, &proof_ref);
+                    let call = claim.to_contract_call_args(contract_id, &proof_ref).map_err(|e| {
+                        console_log!("[note-claim-diag] FAIL to_contract_call_args: {}", e);
+                        JsError::new(&format!("to_contract_call_args error: {}", e))
+                    })?;
                     builder.trace_call(call.clone()).await.map_err(|e| {
                         console_log!("[note-claim-diag] FAIL trace_call: {}", e);
                         JsError::new(&format!("trace private claim call error: {}", e))
@@ -2048,7 +2051,7 @@ impl WasmRpcServer {
         use base64::engine::general_purpose::STANDARD as BASE64;
         use base64::Engine;
         use plonky2::field::types::{Field, PrimeField64};
-        use psy_config::network_constants::MAX_CONTRACT_STATE_TREE_HEIGHT;
+        use psy_config::network_constants::TOKEN_CONTRACT_STATE_TREE_HEIGHT;
         use psy_crypto::hash::merkle::core::MerkleProofCore;
         use psy_crypto::hash::traits::{
             hasher::{FieldQHasher, PoseidonHasher},
@@ -2154,7 +2157,7 @@ impl WasmRpcServer {
                 checkpoint_before,
                 sender_user_id,
                 contract_id_val as u32,
-                MAX_CONTRACT_STATE_TREE_HEIGHT as u8,
+                TOKEN_CONTRACT_STATE_TREE_HEIGHT,
                 note_count_slot,
             )
             .await
@@ -2170,7 +2173,7 @@ impl WasmRpcServer {
                     checkpoint_before,
                     sender_user_id,
                     contract_id_val as u32,
-                    MAX_CONTRACT_STATE_TREE_HEIGHT as u8,
+                    TOKEN_CONTRACT_STATE_TREE_HEIGHT,
                     slot,
                 )
                 .await
@@ -2228,7 +2231,7 @@ impl WasmRpcServer {
                 checkpoint_before,
                 sender_user_id,
                 contract_id_val as u32,
-                MAX_CONTRACT_STATE_TREE_HEIGHT as u8,
+                TOKEN_CONTRACT_STATE_TREE_HEIGHT,
                 note_count_slot,
             )
             .await
@@ -2239,7 +2242,7 @@ impl WasmRpcServer {
                 checkpoint_before,
                 sender_user_id,
                 contract_id_val as u32,
-                MAX_CONTRACT_STATE_TREE_HEIGHT as u8,
+                TOKEN_CONTRACT_STATE_TREE_HEIGHT,
                 note_root_slot_val,
             )
             .await
@@ -2280,7 +2283,7 @@ impl WasmRpcServer {
                         latest_observable,
                         sender_user_id,
                         contract_id_val as u32,
-                        MAX_CONTRACT_STATE_TREE_HEIGHT as u8,
+                        TOKEN_CONTRACT_STATE_TREE_HEIGHT,
                         note_count_slot,
                     )
                     .await
@@ -2300,7 +2303,7 @@ impl WasmRpcServer {
                         latest_observable,
                         sender_user_id,
                         contract_id_val as u32,
-                        MAX_CONTRACT_STATE_TREE_HEIGHT as u8,
+                        TOKEN_CONTRACT_STATE_TREE_HEIGHT,
                         note_root_slot_val,
                     )
                     .await
@@ -2352,7 +2355,7 @@ impl WasmRpcServer {
                 checkpoint_after,
                 sender_user_id,
                 contract_id_val as u32,
-                MAX_CONTRACT_STATE_TREE_HEIGHT as u8,
+                TOKEN_CONTRACT_STATE_TREE_HEIGHT,
                 note_root_slot_val,
             )
             .await

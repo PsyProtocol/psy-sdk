@@ -308,7 +308,6 @@ describe("RealmEdgeRpcProvider Integration Tests", () => {
             mockCheckpointIdNum,
             mockUserIdNum,
             mockContractIdNum,
-            mockHeight,
             mockLeafIdNum
         );
         console.log("getUserContractStateTreeLeafHash result:", result);
@@ -320,7 +319,6 @@ describe("RealmEdgeRpcProvider Integration Tests", () => {
             mockCheckpointIdBigInt,
             mockUserIdBigInt,
             mockContractIdBigInt,
-            mockHeight,
             mockLeafIdBigInt
         );
         console.log("getUserContractStateTreeLeafHashF result:", result);
@@ -332,7 +330,6 @@ describe("RealmEdgeRpcProvider Integration Tests", () => {
             mockCheckpointIdNum,
             mockUserIdNum,
             mockContractIdNum,
-            mockHeight,
             mockLeafIdNum
         );
         console.log("getUserContractStateTreeMerkleProof result:", result);
@@ -344,7 +341,6 @@ describe("RealmEdgeRpcProvider Integration Tests", () => {
             mockCheckpointIdBigInt,
             mockUserIdBigInt,
             mockContractIdBigInt,
-            mockHeight,
             mockLeafIdBigInt
         );
         console.log("getUserContractStateTreeMerkleProofF result:", result);

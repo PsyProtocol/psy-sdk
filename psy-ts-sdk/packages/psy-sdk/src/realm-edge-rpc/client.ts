@@ -196,14 +196,12 @@ export class RealmEdgeRpcProvider extends Provider implements IRealmEdgeRpcProvi
         checkpointId: Felt,
         userId: Felt,
         contractId: Felt,
-        height: number,
         leafId: Felt
     ): Promise<QHashOut> {
         return this.rpc(RealmEdgeRPCCommand.GetUserContractStateTreeLeafHash, [
             checkpointId,
             userId,
             contractId,
-            height,
             leafId,
         ]);
     }
@@ -212,14 +210,12 @@ export class RealmEdgeRpcProvider extends Provider implements IRealmEdgeRpcProvi
         checkpointId: Felt,
         userId: Felt,
         contractId: Felt,
-        height: number,
         leafId: Felt
     ): Promise<QHashOut> {
         return this.rpc(RealmEdgeRPCCommand.GetUserContractStateTreeLeafHashF, [
             checkpointId,
             userId,
             contractId,
-            height,
             leafId,
         ]);
     }
@@ -228,10 +224,9 @@ export class RealmEdgeRpcProvider extends Provider implements IRealmEdgeRpcProvi
         checkpointId: Felt,
         userId: Felt,
         contractId: Felt,
-        height: number,
         slot: Felt
     ): Promise<Felt> {
-        const slotValues = await this.getSlotValues(checkpointId, userId, contractId, height, [slot]);
+        const slotValues = await this.getSlotValues(checkpointId, userId, contractId, [slot]);
         return slotValues[0];
     }
 
@@ -239,14 +234,13 @@ export class RealmEdgeRpcProvider extends Provider implements IRealmEdgeRpcProvi
         checkpointId: Felt,
         userId: Felt,
         contractId: Felt,
-        height: number,
         slots: Felt[]
     ): Promise<Felt[]> {
         const slotValues: Felt[] = [];
         for (const slot of slots) {
             const slotIndex = BigInt(slot) / 4n;
             const slotOffset = 3n - BigInt(slot) % 4n;
-            const slotHash = await this.getUserContractStateTreeLeafHash(checkpointId, userId, contractId, height, slotIndex);
+            const slotHash = await this.getUserContractStateTreeLeafHash(checkpointId, userId, contractId, slotIndex);
             const slotValue = parseInt(slotHash?.substring(Number(slotOffset) * 16, Number(slotOffset) * 16 + 16), 16);
             slotValues.push(slotValue);
         }
@@ -258,14 +252,12 @@ export class RealmEdgeRpcProvider extends Provider implements IRealmEdgeRpcProvi
         checkpointId: Felt,
         userId: Felt,
         contractId: Felt,
-        height: number,
         leafId: Felt
     ): Promise<MerkleProofCore<QHashOut>> {
         return this.rpc(RealmEdgeRPCCommand.GetUserContractStateTreeMerkleProof, [
             checkpointId,
             userId,
             contractId,
-            height,
             leafId,
         ]);
     }
@@ -274,14 +266,12 @@ export class RealmEdgeRpcProvider extends Provider implements IRealmEdgeRpcProvi
         checkpointId: Felt,
         userId: Felt,
         contractId: Felt,
-        height: number,
         leafId: Felt
     ): Promise<MerkleProofCore<QHashOut>> {
         return this.rpc(RealmEdgeRPCCommand.GetUserContractStateTreeMerkleProofF, [
             checkpointId,
             userId,
             contractId,
-            height,
             leafId,
         ]);
     }
@@ -506,66 +496,60 @@ export class MultiRealmRpcProvider implements IRealmEdgeRpcProvider {
         checkpointId: Felt,
         userId: Felt,
         contractId: Felt,
-        height: number,
         leafId: Felt
     ): Promise<QHashOut> {
         return this.rpcs
             .get(this.getRealmId(Number(userId)))!
-            .getUserContractStateTreeLeafHash(checkpointId, userId, contractId, height, leafId);
+            .getUserContractStateTreeLeafHash(checkpointId, userId, contractId, leafId);
     }
     getUserContractStateTreeLeafHashF(
         checkpointId: Felt,
         userId: Felt,
         contractId: Felt,
-        height: number,
         leafId: Felt
     ): Promise<QHashOut> {
         return this.rpcs
             .get(this.getRealmId(Number(userId)))!
-            .getUserContractStateTreeLeafHashF(checkpointId, userId, contractId, height, leafId);
+            .getUserContractStateTreeLeafHashF(checkpointId, userId, contractId, leafId);
     }
     async getSlotValue(
         checkpointId: Felt,
         userId: Felt,
         contractId: Felt,
-        height: number,
         slot: Felt
     ): Promise<Felt> {
-        const slotValues = await this.getSlotValues(checkpointId, userId, contractId, height, [slot]);
+        const slotValues = await this.getSlotValues(checkpointId, userId, contractId, [slot]);
         return slotValues[0];
     }
     async getSlotValues(
         checkpointId: Felt,
         userId: Felt,
         contractId: Felt,
-        height: number,
         slots: Felt[]
     ): Promise<Felt[]> {
         return this.rpcs
             .get(this.getRealmId(Number(userId)))!
-            .getSlotValues(checkpointId, userId, contractId, height, slots);
+            .getSlotValues(checkpointId, userId, contractId, slots);
     }
     getUserContractStateTreeMerkleProof(
         checkpointId: Felt,
         userId: Felt,
         contractId: Felt,
-        height: number,
         leafId: Felt
     ): Promise<MerkleProofCore<QHashOut>> {
         return this.rpcs
             .get(this.getRealmId(Number(userId)))!
-            .getUserContractStateTreeMerkleProof(checkpointId, userId, contractId, height, leafId);
+            .getUserContractStateTreeMerkleProof(checkpointId, userId, contractId, leafId);
     }
     getUserContractStateTreeMerkleProofF(
         checkpointId: Felt,
         userId: Felt,
         contractId: Felt,
-        height: number,
         leafId: Felt
     ): Promise<MerkleProofCore<QHashOut>> {
         return this.rpcs
             .get(this.getRealmId(Number(userId)))!
-            .getUserContractStateTreeMerkleProofF(checkpointId, userId, contractId, height, leafId);
+            .getUserContractStateTreeMerkleProofF(checkpointId, userId, contractId, leafId);
     }
     getUserContractTreeRoot(checkpointId: Felt, userId: Felt): Promise<QHashOut> {
         return this.rpcs.get(this.getRealmId(Number(userId)))!.getUserContractTreeRoot(checkpointId, userId);

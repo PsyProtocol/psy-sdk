@@ -149,8 +149,8 @@ await client.getUserSubTreeMerkleProof(checkpointId, rootLevel, leafLevel, leafI
 ```typescript
 // Get user contract state tree
 await client.getUserContractStateTreeRoot(checkpointId, userId, contractId);
-await client.getUserContractStateTreeLeafHash(checkpointId, userId, contractId, height, leafId);
-await client.getUserContractStateTreeMerkleProof(checkpointId, userId, contractId, height, leafId);
+await client.getUserContractStateTreeLeafHash(checkpointId, userId, contractId, leafId);
+await client.getUserContractStateTreeMerkleProof(checkpointId, userId, contractId, leafId);
 
 // Get user contract tree
 await client.getUserContractTreeRoot(checkpointId, userId);
