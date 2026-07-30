@@ -15,10 +15,16 @@ export interface ServicesApiResponse<T> {
 }
 
 export interface DepositClaimProofQuery {
-    depositor: string;
-    nonce: number | bigint | string;
-    sourceChainId: number | bigint | string;
-    depositIndex?: number | bigint | string;
+    /** Envio global deposit locator (bridge list/display identity). */
+    depositIndex: number | bigint | string;
+    /** Source chain the deposit was bridged through. */
+    sourceChainIndex: number | bigint | string;
+    /**
+     * Chain-local tree leaf count at proof time. Preferred services input
+     * (server-side aliases such as proved_deposit_count/tree_count are not
+     * emitted by this client).
+     */
+    snapshotDepositCount: number | bigint | string;
 }
 
 export interface DepositClaimProofResult {

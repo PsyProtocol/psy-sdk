@@ -1,6 +1,6 @@
 /* eslint-env node */
-module.exports = {
-    preset: 'ts-jest',
+export default {
+    preset: 'ts-jest/presets/default-esm',
     testEnvironment: 'jest-environment-node',
     roots: ['./src'],
     testMatch: [
@@ -8,9 +8,12 @@ module.exports = {
         '**/?(*.)+(spec|test).ts'
     ],
     transform: {
-        '^.+\\.(ts|tsx|js|jsx|mjs|mts)$': ['ts-jest', { tsconfig: 'tsconfig.json' }],
+        '^.+\\.(ts|tsx|js|jsx|mjs|mts)$': ['ts-jest', { tsconfig: 'tsconfig.json', useESM: true }],
     },
     extensionsToTreatAsEsm: ['.ts', '.tsx'],
+    moduleNameMapper: {
+        '^(\\.{1,2}/.*)\\.js$': '$1',
+    },
     transformIgnorePatterns: [
         '/node_modules/(?!.*(?:@noble/secp256k1|doge-sdk))/'
     ],
@@ -25,4 +28,4 @@ module.exports = {
     testTimeout: 30000,
     setupFilesAfterEnv: ['./jest.setup.ts'],
     verbose: true
-}; 
+};

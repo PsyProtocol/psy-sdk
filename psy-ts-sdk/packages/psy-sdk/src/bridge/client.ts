@@ -75,10 +75,9 @@ export class PoseidonBridgeClient {
 
     async getDepositClaimProof(servicesUrl: string, query: DepositClaimProofQuery): Promise<DepositClaimProofResult> {
         const qs = encodeQuery({
-            depositor: query.depositor,
-            nonce: query.nonce.toString(),
-            source_chain_id: query.sourceChainId.toString(),
-            ...(query.depositIndex !== undefined ? { deposit_index: query.depositIndex.toString() } : {}),
+            deposit_index: query.depositIndex.toString(),
+            source_chain_index: query.sourceChainIndex.toString(),
+            snapshot_deposit_count: query.snapshotDepositCount.toString(),
         });
         const resp = await this.httpClient.sendRequest({
             url: `${servicesUrl.replace(/\/$/, "")}/api/v1/bridge/deposit-claim-proof?${qs}`,
