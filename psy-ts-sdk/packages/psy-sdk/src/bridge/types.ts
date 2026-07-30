@@ -23,11 +23,28 @@ export interface DepositClaimProofQuery {
 
 export interface DepositClaimProofResult {
     found: boolean;
+    /** Envio global deposit locator (bridge list/display identity). */
     deposit_index?: number;
+    /** Per-source-chain tree leaf index; equals depositProofRaw.deposit_index. */
+    chain_local_deposit_index?: number;
+    source_chain_index?: number;
+    proved_deposit_count?: number;
+    snapshot_deposit_count?: number;
+    proved_count?: number;
+    tree_count?: number;
     leaf_hash?: string;
     leaf_index?: number;
     deposit_root?: string;
     siblings?: string[];
+    deposit?: {
+        shield_address: string;
+        token_address: string;
+        l2_token_contract_id: string;
+        amount: string;
+        note_commitment: string;
+        source_chain_id: number;
+        created_at?: string;
+    };
 }
 
 export interface WithdrawalClaimProofQuery {
