@@ -48,7 +48,10 @@ export const wasmrpcserver_generate_tx_trace_json: (a: number, b: number, c: num
 export const wasmrpcserver_get_deploy_contract_cmd_json: (a: number, b: number, c: number, d: number, e: number) => [number, number, number, number];
 export const wasmrpcserver_get_random_keypair_json: (a: number) => any;
 export const wasmrpcserver_get_result: (a: number, b: number, c: number) => [number, number, number, number];
+export const wasmrpcserver_get_sign_type_fingerprint: (a: number, b: number, c: number) => any;
 export const wasmrpcserver_get_zk_public_key_json: (a: number, b: number, c: number) => any;
+export const wasmrpcserver_inject_eth_personal_signature: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number) => any;
+export const wasmrpcserver_inject_secp_signature: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number) => any;
 export const wasmrpcserver_insert_external_proof_json: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number, l: number, m: number, n: number, o: number, p: number, q: number) => any;
 export const wasmrpcserver_new: (a: number, b: number) => any;
 export const wasmrpcserver_ping: (a: number, b: number, c: number) => [number, number, number, number];
@@ -65,6 +68,8 @@ export const wasmrpcserver_prove_trace_step_json: (a: number, b: number, c: numb
 export const wasmrpcserver_prove_ups_start_job_json: (a: number, b: number, c: number, d: number, e: number) => any;
 export const wasmrpcserver_prove_ups_start_json: (a: number, b: number, c: number, d: number, e: number) => any;
 export const wasmrpcserver_prove_zksign_job_json: (a: number, b: number, c: number, d: number, e: number) => any;
+export const wasmrpcserver_register_external_eth_personal_user: (a: number, b: number, c: number) => any;
+export const wasmrpcserver_register_external_secp_user: (a: number, b: number, c: number) => any;
 export const wasmrpcserver_register_sd_key_circuit: (a: number, b: number, c: number, d: number, e: number, f: bigint) => any;
 export const wasmrpcserver_register_user: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => any;
 export const wasmrpcserver_sign_and_submit: (a: number, b: number, c: number, d: number, e: number) => any;

@@ -349,7 +349,10 @@ export interface SimulatedTxJson {
 
 export enum SignType {
     ZKSign = "zk",
+    /** Classic secp256k1 signer whose private key is held by the inner prover. */
     SECP256K1Sign = "secp256k1",
+    /** EIP-191 personal_sign signer whose private key is held by the inner prover. */
+    EthPersonalSECP256K1Sign = "eth-personal-secp256k1",
     SoftwareDefinedDPNSign = "software-defined-dpn",
     SoftwareDefinedPlonky2Sign = "software-defined-plonky2",
     SDKeySign = "sd-key",
@@ -425,6 +428,11 @@ interface IPsyUserProverProvider {
     // User operations
     registerUser(privateKey: PrivateKey, signType: SignType, fingerprint?: string): Promise<PublicKey>;
     addUser(privateKey: PrivateKey, signType: SignType, fingerprint?: string): Promise<PublicKey>;
+    getSignTypeFingerprint(signType: SignType): Promise<string>;
+    registerExternalSecpUser(compressedPublicKey: Uint8Array): Promise<PublicKey>;
+    injectSecpSignature(expectedPublicKey: PublicKey, compressedPublicKey: Uint8Array, signature: Uint8Array, sighash: string): Promise<PublicKey>;
+    registerExternalEthPersonalUser(compressedPublicKey: Uint8Array): Promise<PublicKey>;
+    injectEthPersonalSignature(expectedPublicKey: PublicKey, compressedPublicKey: Uint8Array, signature: Uint8Array, sighash: string): Promise<PublicKey>;
     // switchUser(pkHash: PublicKey): Promise<void>;
     getZKPublicKey(privateKey: PrivateKey): Promise<ZKPublicKeyInfo>;
     getRandomKeypair(): Promise<WalletKeyPair>;

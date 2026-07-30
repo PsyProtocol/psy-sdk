@@ -2167,7 +2167,7 @@ impl WasmRpcServer {
                 checkpoint_before,
                 sender_user_id,
                 contract_id_val as u32,
-                MAX_CONTRACT_STATE_TREE_HEIGHT as u8,
+                MAX_CONTRACT_STATE_TREE_HEIGHT,
                 note_count_slot,
             )
             .await
@@ -2183,7 +2183,7 @@ impl WasmRpcServer {
                     checkpoint_before,
                     sender_user_id,
                     contract_id_val as u32,
-                    MAX_CONTRACT_STATE_TREE_HEIGHT as u8,
+                    MAX_CONTRACT_STATE_TREE_HEIGHT,
                     slot,
                 )
                 .await
@@ -2241,7 +2241,7 @@ impl WasmRpcServer {
                 checkpoint_before,
                 sender_user_id,
                 contract_id_val as u32,
-                MAX_CONTRACT_STATE_TREE_HEIGHT as u8,
+                MAX_CONTRACT_STATE_TREE_HEIGHT,
                 note_count_slot,
             )
             .await
@@ -2252,7 +2252,7 @@ impl WasmRpcServer {
                 checkpoint_before,
                 sender_user_id,
                 contract_id_val as u32,
-                MAX_CONTRACT_STATE_TREE_HEIGHT as u8,
+                MAX_CONTRACT_STATE_TREE_HEIGHT,
                 note_root_slot_val,
             )
             .await
@@ -2293,7 +2293,7 @@ impl WasmRpcServer {
                         latest_observable,
                         sender_user_id,
                         contract_id_val as u32,
-                        MAX_CONTRACT_STATE_TREE_HEIGHT as u8,
+                        MAX_CONTRACT_STATE_TREE_HEIGHT,
                         note_count_slot,
                     )
                     .await
@@ -2313,7 +2313,7 @@ impl WasmRpcServer {
                         latest_observable,
                         sender_user_id,
                         contract_id_val as u32,
-                        MAX_CONTRACT_STATE_TREE_HEIGHT as u8,
+                        MAX_CONTRACT_STATE_TREE_HEIGHT,
                         note_root_slot_val,
                     )
                     .await
@@ -2365,7 +2365,7 @@ impl WasmRpcServer {
                 checkpoint_after,
                 sender_user_id,
                 contract_id_val as u32,
-                MAX_CONTRACT_STATE_TREE_HEIGHT as u8,
+                MAX_CONTRACT_STATE_TREE_HEIGHT,
                 note_root_slot_val,
             )
             .await
@@ -2528,6 +2528,9 @@ impl WasmRpcServer {
             | psy_prover::trace::TraceSignCircuitSource::SecpBuiltin => {
                 psy_prover::signature::SignContext::new(fingerprint)
             }
+            psy_prover::trace::TraceSignCircuitSource::EthPersonalSecpBuiltin => {
+                psy_prover::signature::SignContext::new(fingerprint)
+            }
             psy_prover::trace::TraceSignCircuitSource::PsySoftwareDefined { .. } => {
                 if zs.sign_witness.is_empty() {
                     return Err(JsError::new(
@@ -2673,6 +2676,209 @@ impl WasmRpcServer {
     }
 
     // User operations
+    /// Resolve the fingerprint for a built-in signing circuit.
+    #[wasm_bindgen]
+    pub async fn get_sign_type_fingerprint(&self, sign_type: &str) -> Result<String, JsError> {
+        let fingerprint = match sign_type {
+            "zk" => psy_prover::wallet::memory_wallet::get_zk_fingerprint::<F>(),
+            "secp256k1" => psy_prover::wallet::memory_wallet::get_secp256k1_fingerprint::<F>(),
+            "eth-personal-secp256k1" => {
+                psy_prover::wallet::memory_wallet::get_eth_secp256k1_fingerprint::<F>()
+            }
+            _ => {
+                return Err(JsError::new(&format!(
+                    "Unsupported built-in sign type: {}",
+                    sign_type
+                )))
+            }
+        };
+        Ok(fingerprint.to_string())
+    }
+
+    /// Register an external classic secp256k1 user from its compressed public
+    /// key. The key must be the 33-byte SEC1 compressed form.
+    ///
+    /// This is the PK-first phase: after generating a transaction trace, sign
+    /// its raw sighash and call `inject_secp_signature` before proving.
+    #[wasm_bindgen]
+    pub async fn register_external_secp_user(
+        &mut self,
+        compressed_public_key: &[u8],
+    ) -> Result<String, JsError> {
+        if compressed_public_key.len() != 33 {
+            return Err(JsError::new(&format!(
+                "Compressed secp256k1 public key must be 33 bytes, got {}",
+                compressed_public_key.len()
+            )));
+        }
+        if !matches!(compressed_public_key[0], 0x02 | 0x03) {
+            return Err(JsError::new(
+                "Compressed secp256k1 public key must start with 0x02 or 0x03",
+            ));
+        }
+
+        let compressed_public_key =
+            psy_common::data::secp256k1::CompressedPublicKey::new_from_slice(compressed_public_key);
+        let pk_hash = self
+            .wallet_session
+            .register_external_secp_user(compressed_public_key)
+            .await
+            .map_err(|e| JsError::new(&format!("Register external secp256k1 user error: {}", e)))?;
+        Ok(pk_hash.to_string())
+    }
+
+    /// Inject a classic secp256k1 signature over the raw session sighash.
+    ///
+    /// `signature` accepts either the 64-byte `r || s` form or a 65-byte
+    /// `r || s || recovery_id` form (the recovery byte is ignored). `sighash`
+    /// is the QHashOut string returned in the generated transaction trace.
+    #[wasm_bindgen]
+    pub async fn inject_secp_signature(
+        &mut self,
+        expected_public_key: &str,
+        compressed_public_key: &[u8],
+        signature: &[u8],
+        sighash: &str,
+    ) -> Result<String, JsError> {
+        if compressed_public_key.len() != 33 {
+            return Err(JsError::new(&format!(
+                "Compressed secp256k1 public key must be 33 bytes, got {}",
+                compressed_public_key.len()
+            )));
+        }
+        if !matches!(compressed_public_key[0], 0x02 | 0x03) {
+            return Err(JsError::new(
+                "Compressed secp256k1 public key must start with 0x02 or 0x03",
+            ));
+        }
+        if !matches!(signature.len(), 64 | 65) {
+            return Err(JsError::new(&format!(
+                "Secp256k1 signature must be 64 or 65 bytes, got {}",
+                signature.len()
+            )));
+        }
+
+        let sighash = QHashOut::<F>::from_str(sighash)
+            .map_err(|e| JsError::new(&format!("Parse sighash error: {}", e)))?;
+        let expected_public_key = QHashOut::<F>::from_str(expected_public_key)
+            .map_err(|e| JsError::new(&format!("Parse expected public key error: {}", e)))?;
+        let mut public_key = [0u8; 33];
+        public_key.copy_from_slice(compressed_public_key);
+        let mut rs = [0u8; 64];
+        rs.copy_from_slice(&signature[..64]);
+        let signature = psy_crypto::signature::secp256k1::core::PsyCompressedSecp256K1Signature {
+            public_key,
+            signature: rs,
+            message: sighash.into(),
+        };
+
+        let pk_hash = self
+            .wallet_session
+            .inject_secp_signature(expected_public_key, signature)
+            .await
+            .map_err(|e| {
+                JsError::new(&format!("Inject external secp256k1 signature error: {}", e))
+            })?;
+        Ok(pk_hash.to_string())
+    }
+
+    /// Register an external MetaMask `personal_sign` user from its compressed
+    /// secp256k1 public key. The key must be the 33-byte SEC1 compressed form.
+    ///
+    /// This is the PK-first phase: after generating a transaction trace, sign
+    /// its sighash with `personal_sign` and call
+    /// `inject_eth_personal_signature` before proving.
+    #[wasm_bindgen]
+    pub async fn register_external_eth_personal_user(
+        &mut self,
+        compressed_public_key: &[u8],
+    ) -> Result<String, JsError> {
+        if compressed_public_key.len() != 33 {
+            return Err(JsError::new(&format!(
+                "Compressed secp256k1 public key must be 33 bytes, got {}",
+                compressed_public_key.len()
+            )));
+        }
+        if !matches!(compressed_public_key[0], 0x02 | 0x03) {
+            return Err(JsError::new(
+                "Compressed secp256k1 public key must start with 0x02 or 0x03",
+            ));
+        }
+
+        let compressed_public_key =
+            psy_common::data::secp256k1::CompressedPublicKey::new_from_slice(compressed_public_key);
+        let pk_hash = self
+            .wallet_session
+            .register_external_eth_personal_user(compressed_public_key)
+            .await
+            .map_err(|e| {
+                JsError::new(&format!(
+                    "Register external eth personal-sign user error: {}",
+                    e
+                ))
+            })?;
+        Ok(pk_hash.to_string())
+    }
+
+    /// Inject a MetaMask `personal_sign` result for a previously registered
+    /// external user.
+    ///
+    /// `signature` accepts either the 64-byte `r || s` form or MetaMask's
+    /// 65-byte `r || s || v` form (the recovery byte is ignored). `sighash`
+    /// is the QHashOut string returned in the generated transaction trace.
+    #[wasm_bindgen]
+    pub async fn inject_eth_personal_signature(
+        &mut self,
+        expected_public_key: &str,
+        compressed_public_key: &[u8],
+        signature: &[u8],
+        sighash: &str,
+    ) -> Result<String, JsError> {
+        if compressed_public_key.len() != 33 {
+            return Err(JsError::new(&format!(
+                "Compressed secp256k1 public key must be 33 bytes, got {}",
+                compressed_public_key.len()
+            )));
+        }
+        if !matches!(compressed_public_key[0], 0x02 | 0x03) {
+            return Err(JsError::new(
+                "Compressed secp256k1 public key must start with 0x02 or 0x03",
+            ));
+        }
+        if !matches!(signature.len(), 64 | 65) {
+            return Err(JsError::new(&format!(
+                "Ethereum personal-sign signature must be 64 or 65 bytes, got {}",
+                signature.len()
+            )));
+        }
+
+        let sighash = QHashOut::<F>::from_str(sighash)
+            .map_err(|e| JsError::new(&format!("Parse sighash error: {}", e)))?;
+        let expected_public_key = QHashOut::<F>::from_str(expected_public_key)
+            .map_err(|e| JsError::new(&format!("Parse expected public key error: {}", e)))?;
+        let mut public_key = [0u8; 33];
+        public_key.copy_from_slice(compressed_public_key);
+        let mut rs = [0u8; 64];
+        rs.copy_from_slice(&signature[..64]);
+        let signature = psy_crypto::signature::secp256k1::core::PsyCompressedSecp256K1Signature {
+            public_key,
+            signature: rs,
+            message: sighash.into(),
+        };
+
+        let pk_hash = self
+            .wallet_session
+            .inject_eth_personal_signature(expected_public_key, signature)
+            .await
+            .map_err(|e| {
+                JsError::new(&format!(
+                    "Inject external eth personal-sign signature error: {}",
+                    e
+                ))
+            })?;
+        Ok(pk_hash.to_string())
+    }
+
     #[wasm_bindgen]
     pub async fn register_user(
         &mut self,
@@ -2686,6 +2892,9 @@ impl WasmRpcServer {
         let fingerprint = match sign_type {
             "zk" => psy_prover::wallet::memory_wallet::get_zk_fingerprint(),
             "secp256k1" => psy_prover::wallet::memory_wallet::get_secp256k1_fingerprint(),
+            "eth-personal-secp256k1" => {
+                psy_prover::wallet::memory_wallet::get_eth_secp256k1_fingerprint()
+            }
             "software-defined-dpn" | "software-defined-plonky2" | "sd-key" => {
                 let fp = fingerprint.ok_or_else(|| {
                     JsError::new(&format!(
@@ -2725,6 +2934,9 @@ impl WasmRpcServer {
         let fingerprint = match sign_type {
             "zk" => psy_prover::wallet::memory_wallet::get_zk_fingerprint(),
             "secp256k1" => psy_prover::wallet::memory_wallet::get_secp256k1_fingerprint(),
+            "eth-personal-secp256k1" => {
+                psy_prover::wallet::memory_wallet::get_eth_secp256k1_fingerprint()
+            }
             "software-defined-dpn" | "software-defined-plonky2" | "sd-key" => {
                 let fp = fingerprint.ok_or_else(|| {
                     JsError::new(&format!(
