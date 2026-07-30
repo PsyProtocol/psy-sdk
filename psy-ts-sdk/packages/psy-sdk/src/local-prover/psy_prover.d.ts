@@ -131,7 +131,28 @@ export class WasmRpcServer {
     get_deploy_contract_cmd_json(deployer: string, circuit_defs_json: string): string;
     get_random_keypair_json(): Promise<string>;
     get_result(id_str: string): Uint8Array;
+    /**
+     * Resolve the fingerprint for a built-in signing circuit.
+     */
+    get_sign_type_fingerprint(sign_type: string): Promise<string>;
     get_zk_public_key_json(private_key_str: string): Promise<string>;
+    /**
+     * Inject a MetaMask `personal_sign` result for a previously registered
+     * external user.
+     *
+     * `signature` accepts either the 64-byte `r || s` form or MetaMask's
+     * 65-byte `r || s || v` form (the recovery byte is ignored). `sighash`
+     * is the QHashOut string returned in the generated transaction trace.
+     */
+    inject_eth_personal_signature(expected_public_key: string, compressed_public_key: Uint8Array, signature: Uint8Array, sighash: string): Promise<string>;
+    /**
+     * Inject a classic secp256k1 signature over the raw session sighash.
+     *
+     * `signature` accepts either the 64-byte `r || s` form or a 65-byte
+     * `r || s || recovery_id` form (the recovery byte is ignored). `sighash`
+     * is the QHashOut string returned in the generated transaction trace.
+     */
+    inject_secp_signature(expected_public_key: string, compressed_public_key: Uint8Array, signature: Uint8Array, sighash: string): Promise<string>;
     /**
      * Stateless external proof insertion: inject a private_note_inclusion or
      * shield_deposit_claim proof into the proof tree. No baton/header changes.
@@ -208,6 +229,23 @@ export class WasmRpcServer {
     prove_ups_start_job_json(pk_hash: string, envelope_json: string): Promise<string>;
     prove_ups_start_json(pk_hash: string, envelope_json: string): Promise<any>;
     prove_zksign_job_json(pk_hash: string, envelope_json: string): Promise<string>;
+    /**
+     * Register an external MetaMask `personal_sign` user from its compressed
+     * secp256k1 public key. The key must be the 33-byte SEC1 compressed form.
+     *
+     * This is the PK-first phase: after generating a transaction trace, sign
+     * its sighash with `personal_sign` and call
+     * `inject_eth_personal_signature` before proving.
+     */
+    register_external_eth_personal_user(compressed_public_key: Uint8Array): Promise<string>;
+    /**
+     * Register an external classic secp256k1 user from its compressed public
+     * key. The key must be the 33-byte SEC1 compressed form.
+     *
+     * This is the PK-first phase: after generating a transaction trace, sign
+     * its raw sighash and call `inject_secp_signature` before proving.
+     */
+    register_external_secp_user(compressed_public_key: Uint8Array): Promise<string>;
     register_sd_key_circuit(allowed_contract_ids: BigUint64Array, allowed_method_ids: BigUint64Array, expected_tx_count: bigint): Promise<string>;
     register_user(private_key_str: string, sign_type: string, fingerprint?: string | null): Promise<string>;
     sign_and_submit(pk_hash: string, sign_data?: string | null): Promise<string>;
@@ -285,7 +323,10 @@ export interface InitOutput {
     readonly wasmrpcserver_get_deploy_contract_cmd_json: (a: number, b: number, c: number, d: number, e: number) => [number, number, number, number];
     readonly wasmrpcserver_get_random_keypair_json: (a: number) => any;
     readonly wasmrpcserver_get_result: (a: number, b: number, c: number) => [number, number, number, number];
+    readonly wasmrpcserver_get_sign_type_fingerprint: (a: number, b: number, c: number) => any;
     readonly wasmrpcserver_get_zk_public_key_json: (a: number, b: number, c: number) => any;
+    readonly wasmrpcserver_inject_eth_personal_signature: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number) => any;
+    readonly wasmrpcserver_inject_secp_signature: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number) => any;
     readonly wasmrpcserver_insert_external_proof_json: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number, l: number, m: number, n: number, o: number, p: number, q: number) => any;
     readonly wasmrpcserver_new: (a: number, b: number) => any;
     readonly wasmrpcserver_ping: (a: number, b: number, c: number) => [number, number, number, number];
@@ -302,6 +343,8 @@ export interface InitOutput {
     readonly wasmrpcserver_prove_ups_start_job_json: (a: number, b: number, c: number, d: number, e: number) => any;
     readonly wasmrpcserver_prove_ups_start_json: (a: number, b: number, c: number, d: number, e: number) => any;
     readonly wasmrpcserver_prove_zksign_job_json: (a: number, b: number, c: number, d: number, e: number) => any;
+    readonly wasmrpcserver_register_external_eth_personal_user: (a: number, b: number, c: number) => any;
+    readonly wasmrpcserver_register_external_secp_user: (a: number, b: number, c: number) => any;
     readonly wasmrpcserver_register_sd_key_circuit: (a: number, b: number, c: number, d: number, e: number, f: bigint) => any;
     readonly wasmrpcserver_register_user: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => any;
     readonly wasmrpcserver_sign_and_submit: (a: number, b: number, c: number, d: number, e: number) => any;
@@ -315,8 +358,8 @@ export interface InitOutput {
     readonly wasmconstants_register_user_fee: () => bigint;
     readonly wasm_bindgen__convert__closures_____invoke__h60a57e826f0fa70e: (a: number, b: number, c: any) => [number, number];
     readonly wasm_bindgen__convert__closures_____invoke__h18544ad86c9831de: (a: number, b: number, c: any, d: any) => void;
+    readonly wasm_bindgen__convert__closures_____invoke__hf5b247af464ec1c4: (a: number, b: number, c: any) => void;
     readonly wasm_bindgen__convert__closures_____invoke__h1506b1d2a44b3513: (a: number, b: number, c: any) => void;
-    readonly wasm_bindgen__convert__closures_____invoke__h2f523fc1a6c4a235: (a: number, b: number, c: any) => void;
     readonly wasm_bindgen__convert__closures_____invoke__h204019b3324ffeea: (a: number, b: number) => void;
     readonly memory: WebAssembly.Memory;
     readonly __wbindgen_malloc: (a: number, b: number) => number;

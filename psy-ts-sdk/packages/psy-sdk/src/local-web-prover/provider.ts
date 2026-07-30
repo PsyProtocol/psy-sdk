@@ -463,6 +463,46 @@ export class PsyWasmWebProverProvider implements IPsyUserProverProvider {
         );
     }
 
+    async getSignTypeFingerprint(signType: SignType): Promise<string> {
+        return PsyWasmWebProverProvider.runWasmServerCall((server) =>
+            server.get_sign_type_fingerprint(signType)
+        );
+    }
+
+    async registerExternalSecpUser(compressedPublicKey: Uint8Array): Promise<PublicKey> {
+        return PsyWasmWebProverProvider.runWasmServerCall((server) =>
+            server.register_external_secp_user(compressedPublicKey)
+        );
+    }
+
+    async injectSecpSignature(
+        expectedPublicKey: PublicKey,
+        compressedPublicKey: Uint8Array,
+        signature: Uint8Array,
+        sighash: string,
+    ): Promise<PublicKey> {
+        return PsyWasmWebProverProvider.runWasmServerCall((server) =>
+            server.inject_secp_signature(expectedPublicKey, compressedPublicKey, signature, sighash)
+        );
+    }
+
+    async registerExternalEthPersonalUser(compressedPublicKey: Uint8Array): Promise<PublicKey> {
+        return PsyWasmWebProverProvider.runWasmServerCall((server) =>
+            server.register_external_eth_personal_user(compressedPublicKey)
+        );
+    }
+
+    async injectEthPersonalSignature(
+        expectedPublicKey: PublicKey,
+        compressedPublicKey: Uint8Array,
+        signature: Uint8Array,
+        sighash: string,
+    ): Promise<PublicKey> {
+        return PsyWasmWebProverProvider.runWasmServerCall((server) =>
+            server.inject_eth_personal_signature(expectedPublicKey, compressedPublicKey, signature, sighash)
+        );
+    }
+
     async getZKPublicKey(privateKey: PrivateKey): Promise<ZKPublicKeyInfo> {
         const json = await PsyWasmWebProverProvider.runWasmServerCall((server) =>
             server.get_zk_public_key_json(privateKey.toString())

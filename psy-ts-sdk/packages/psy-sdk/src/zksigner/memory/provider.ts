@@ -36,16 +36,16 @@ class PsyMemoryTransactionSignerProvider implements IPsyTransactionSignerProvide
         return signer;
     }
     async addRandomPrivateKey(signType: SignType): Promise<IPsyTransactionSigner> {
-        const fingerprint = this.getFingerprintForSignType(signType);
+        const fingerprint = await this.getFingerprintForSignType(signType);
         return this.importPrivateKey(cryptoRandomHashOutHex(), signType, fingerprint);
     }
 
-    private getFingerprintForSignType(signType: SignType): string {
+    private async getFingerprintForSignType(signType: SignType): Promise<string> {
         switch (signType) {
             case SignType.ZKSign:
-                return "65e0169bfffd55f1c0ea9f76c111a5b15e652322ee253c1a9604a10d59066b50";
             case SignType.SECP256K1Sign:
-                return "320d034234f0dab4d02c4b03d69276cbd5c2eb831aca1b11c7e52078ace2e33b";
+            case SignType.EthPersonalSECP256K1Sign:
+                return this.proverProvider.getSignTypeFingerprint(signType);
             default:
                 throw new Error(`Unsupported sign type: ${signType}`);
         }
