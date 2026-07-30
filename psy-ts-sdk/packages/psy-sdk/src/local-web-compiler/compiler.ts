@@ -9,6 +9,9 @@ export interface PsyCompileResult {
     error_offset?: number;
     entry_path?: string;
     compile_results?: DPNFunctionCircuitDefinition[];
+    contract_code?: unknown;
+    method_count?: number;
+    methodCount?: number;
     abi?: any;
 }
 
@@ -19,6 +22,7 @@ export interface PsyInterpretResult {
     entry_path?: string;
     execution_result?: any;
     compile_results?: DPNFunctionCircuitDefinition[];
+    contract_code?: unknown;
     abi?: any;
 }
 

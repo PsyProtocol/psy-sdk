@@ -68,7 +68,8 @@
     }
   },
   "files": [
-    "dist"
+    "dist",
+    ".compiler-artifact.json"
   ],
   "scripts": {
     "build:wasm": "node --import 'data:text/javascript,import { register } from \"node:module\"; import { pathToFileURL } from \"node:url\"; register(\"ts-node/esm\", pathToFileURL(\"./\"));' src/local-web-prover/build-wasm-binary.ts",
