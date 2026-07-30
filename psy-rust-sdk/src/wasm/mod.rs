@@ -2424,6 +2424,7 @@ impl WasmRpcServer {
             "user_tree_root": to_str_arr(global_user_tree_root),
             "checkpoint_id": checkpoint_after.to_string(),
             "note_root_slot": note_root_slot_val.to_string(),
+            "token_contract_id": contract_id_val.to_string(),
             "note_proof": proof_bytes,
             "note_proof_fingerprint": to_str_arr(fingerprint),
             "note_verifier_data": verifier_data_alt,

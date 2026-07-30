@@ -84,6 +84,12 @@ export interface PrivateTransferClaimRaw {
     note_proof_fingerprint?: [string, string, string, string];
     note_verifier_data?: AltVerifierOnlyCircuitData;
     shield_address?: string;
+    /** Canonical producer→services→wallet contract identity for the note's
+     *  token contract. Decimal string; bound to the private-note inclusion
+     *  proof's public inputs. Clean cutover: every PrivateTransferClaimRaw
+     *  MUST carry this — no optional fallback / default-to-0. Wallet builders
+     *  always populate it from the validated note-proof envelope. */
+    token_contract_id: string;
 }
 
 interface DepositInclusionClaimRawBase {
