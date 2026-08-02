@@ -4,12 +4,20 @@ import typescript from '@rollup/plugin-typescript';
 
 const input = {
     index: 'src/index.ts',
+    'expert/index': 'src/expert/index.ts',
+    'local-web-prover/index': 'src/local-web-prover/index.ts',
     'local-web-compiler/index': 'src/local-web-compiler/index.ts',
     'local-web-compiler/compiler': 'src/local-web-compiler/compiler.ts',
     // Keep raw wasm-bindgen entry as explicit Rollup input so exports like
     // init_chain/create_account/deploy_contract/call_contract are not pruned.
     'local-web-compiler/psy_compiler': 'src/local-web-compiler/psy_compiler.js',
     'local-web-compiler/wasm-binary': 'src/local-web-compiler/wasm-binary.ts',
+    'local-web-prover/index': 'src/local-web-prover/index.ts',
+    'local-web-prover/provider': 'src/local-web-prover/provider.ts',
+    // Keep raw wasm-bindgen entry as explicit Rollup input so exports like
+    // prove_private_note_inclusion_json are not pruned.
+    'local-web-prover/psy_prover': 'src/local-web-prover/psy_prover.js',
+    'local-web-prover/wasm-binary': 'src/local-web-prover/wasm-binary.ts',
 };
 
 export default {
@@ -18,6 +26,7 @@ export default {
         {
             dir: 'dist',
             format: 'esm',
+            exports: 'named',
             preserveModules: true,
             preserveModulesRoot: 'src',
             entryFileNames: '[name].mjs',
@@ -25,6 +34,7 @@ export default {
         {
             dir: 'dist',
             format: 'cjs',
+            exports: 'named',
             preserveModules: true,
             preserveModulesRoot: 'src',
             entryFileNames: '[name].cjs',

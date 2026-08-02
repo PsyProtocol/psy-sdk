@@ -1,6 +1,9 @@
 .idea
 node_modules
 **/dist*
+**/*.d.ts.map
+packages/psy-sdk/dist/
+packages/psy-sdk/dist/node_modules/
 results
 .nyc_output
 *.tsbuildinfo

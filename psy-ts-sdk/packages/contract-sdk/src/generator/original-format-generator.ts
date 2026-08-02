@@ -14,23 +14,23 @@ export class OriginalFormatContractGenerator {
 ${structDefinitions}
 
 export class ${className} {
-  private _provider: IContractProvider;
+  private _provider: IContractStateReader;
   private _signer?: ISigner;
   private _checkpointId: Felt;
   private _contractId: Felt;
   private _userId: Felt;
   private _merkleHelper: IMerkleProxyHelper;
   private _decoder: RecursiveDecoder;
-  private _stateProxies: Map<string, any> = new Map();
+  private _stateProxies: globalThis.Map<string, any> = new globalThis.Map();
 
-  constructor(checkpointId: Felt, userId: Felt, contractId: Felt, signerOrProvider: ISigner | IContractProvider) {
+  constructor(checkpointId: Felt, userId: Felt, contractId: Felt, signerOrProvider: ISigner | IContractStateReader) {
     this._checkpointId = checkpointId;
     this._userId = userId;
     this._contractId = contractId;
     
     // Handle both signer and provider inputs
-    if ('sendTransaction' in signerOrProvider && 'getContractState' in signerOrProvider) {
-      // It's a provider
+    if ('getContractState' in signerOrProvider) {
+      // It's a provider (IContractStateReader or IContractProvider)
       this._provider = signerOrProvider;
     } else if ('provider' in signerOrProvider) {
       // It's a signer
@@ -56,7 +56,7 @@ export class ${className} {
   }
 
   // Connect to a different provider
-  connect(signerOrProvider: ISigner | IContractProvider): ${className} {
+  connect(signerOrProvider: ISigner | IContractStateReader): ${className} {
     return new ${className}(this._checkpointId, this._userId, this._contractId, signerOrProvider);
   }
 
@@ -110,7 +110,7 @@ export class ${className} {
   }
 
   // Get the current provider
-  get provider(): IContractProvider {
+  get provider(): IContractStateReader {
     return this._provider;
   }
 
@@ -131,8 +131,8 @@ ${variablePositionsConstant}
     private generateImports(): string {
         return `// Auto-generated from ABI - Do not edit manually
 import { RecursiveDecoder } from './decoder';
-import { IContractProvider } from '@psy-protocol/psy-sdk';
-import { Felt, ISigner, PsyFixedArray } from './types';
+import { IContractStateReader } from '@psy-protocol/psy-sdk';
+import { Felt, GHash, ISigner, PsyFixedArray, u32 } from './types';
 import { keccak256, toBeHex, zeroPadValue } from 'ethers';
 
 // Inline Merkle proxy types and implementation
@@ -206,7 +206,30 @@ const structVariableProxy = {
 };
 
 function isPrimitiveVariable(position: IFlatVariablePosition): boolean {
-  return position.children.length === 0 && position.nth_size === BigInt(0);
+  return position.children.length === 0;
+}
+
+function primitiveWidth(position: IFlatVariablePosition): bigint {
+  if (typeof position.nth_size === 'bigint') {
+    return position.nth_size > 0n ? position.nth_size : 1n;
+  }
+  return position.nth_size > 0 ? BigInt(position.nth_size) : 1n;
+}
+
+function readPrimitiveValue(
+  helper: IMerkleProxyHelper,
+  position: IFlatVariablePosition,
+  baseIndex: any
+): any {
+  const width = primitiveWidth(position);
+  if (width === 1n) {
+    return helper.getHashFelt(baseIndex);
+  }
+  return Promise.all(
+    Array.from({ length: Number(width) }, (_, i) =>
+      helper.getHashFelt(helper.add(baseIndex, BigInt(i)))
+    )
+  );
 }
 
 function isArrayVariable(position: IFlatVariablePosition): boolean {
@@ -220,7 +243,7 @@ function createVariableProxy(
 ): any {
   // For primitive variables, the baseIndex already includes all necessary offsets
   if (isPrimitiveVariable(position)) {
-    return helper.getHashFelt(baseIndex);
+    return readPrimitiveValue(helper, position, baseIndex);
   }
   
   // Special handling for array elements marked with '[]'
@@ -231,7 +254,7 @@ function createVariableProxy(
     // Check if it has children (struct) or not (primitive)
     if (position.children.length === 0) {
       // Primitive array element
-      return helper.getHashFelt(baseIndex);
+      return readPrimitiveValue(helper, position, baseIndex);
     } else {
       // Struct array element - create struct proxy
       return new Proxy({ helper, position, newOffsetIndex: baseIndex }, structVariableProxy);
@@ -345,40 +368,43 @@ function wrapMerkleProxyHelperBasicSimplifier(
         const serializeCode = argNames.length > 0 ? `
           const serializedArgs: Felt[] = [];
           ${argNames.map(name => `
-          if (typeof ${name} === 'object' && ${name} !== null && typeof ${name}.toFelts === 'function') {
-            serializedArgs.push(...${name}.toFelts());
+          const ${name}Value: any = ${name};
+          if (Array.isArray(${name}Value)) {
+            serializedArgs.push(...(${name}Value as Felt[]));
+          } else if (typeof ${name}Value === 'boolean') {
+            serializedArgs.push(${name}Value ? 1n : 0n);
+          } else if (${name}Value && typeof ${name}Value === 'object' && typeof ${name}Value.toFelts === 'function') {
+            serializedArgs.push(...${name}Value.toFelts());
           } else {
-            serializedArgs.push(${name} as Felt);
+            serializedArgs.push(${name}Value as Felt);
           }`).join('\n    ')}
           ` : "const serializedArgs: Felt[] = [];";
 
+                const isView = this.isViewFunction(fn);
+                const dispatchCode = isView
+                    ? `const result = await (this._provider as any).callViewFunction?.(\n      this._contractId,\n      '${fn.name}',\n      serializedArgs,\n    ) ?? await (this._provider as any).sendTransaction(\n      this._contractId,\n      '${fn.name}',\n      serializedArgs,\n      this._signer?.publicKey\n    );`
+                    : `const result = await (this._provider as any).sendTransaction(\n      this._contractId,\n      '${fn.name}',\n      serializedArgs,\n      this._signer?.publicKey\n    );`;
+
                 return `  async ${fn.name}(${params}): ${returnType} {
     // Check if we have a signer for state-changing functions
-    const isViewFunction = ${this.isViewFunction(fn)};
+    const isViewFunction = ${isView};
     if (!isViewFunction && !this._signer) {
       throw new Error('Signer required for state-changing functions. Use contract.attach(signer)');
     }
     ${serializeCode}
-    const result = await this._provider.sendTransaction(
-      this._contractId,
-      '${fn.name}',
-      serializedArgs,
-      this._signer?.publicKey
-    );${hasReturn ? "\n    return this._decoder.decodeReturnValue(result);" : ""}
-  }`;
+    ${dispatchCode}${hasReturn ? "\n    return this._decoder.decodeReturnValue(result);" : ""}
+  }`
             })
             .join("\n\n");
     }
 
     private isViewFunction(fn: any): boolean {
-        return (
-            fn.name.startsWith("get_") ||
-            fn.name.startsWith("view_") ||
-            (fn.return_size > 0 &&
-                !fn.name.includes("mint") &&
-                !fn.name.includes("transfer") &&
-                !fn.name.includes("claim"))
-        );
+        if (fn.state_mutability !== undefined) {
+            return fn.state_mutability === "view";
+        }
+        // No heuristic fallback — all ABI producers must emit explicit state_mutability.
+        // If missing, default to false (requires signer, safe default).
+        return false;
     }
 
     private generateFunctionParams(fn: any): string {
@@ -403,6 +429,12 @@ function wrapMerkleProxyHelperBasicSimplifier(
         case 'felt':
         case 'u32':
           return 'Felt';
+        case 'ContractHashMap':
+        case 'Map':
+        case 'NamespacedMap':
+          return 'unknown';
+        case 'Hash':
+          return 'GHash';
         case 'Bool':
         case 'bool':
           return 'boolean';
@@ -509,7 +541,6 @@ function wrapMerkleProxyHelperBasicSimplifier(
   private generateStructDefinitions(): string {
     let structDefinitions = '';
     const structs = this.contract.structs;
-    console.log(structs[0]);
 
     for (const struct of structs) {
       if (!struct.is_contract) {
@@ -565,13 +596,17 @@ private generateToFeltsBody(struct: any): string {
     const fieldName = field.name;
     const fieldType = field.type;
 
+    if (field.felt_size === 0 || fieldType === 'ContractHashMap' || fieldType === 'Map' || fieldType === 'NamespacedMap') {
+      return '';
+    }
+
     if (fieldType.type === 'Array') {
       const innerType = fieldType.inner_type;
       const isStruct = this.contract.structs.some(s => s.name === innerType);
       if (isStruct) {
         return `this.${fieldName}.forEach(item => { felts.push(...item.toFelts()); });`;
       } else {
-        return `this.${fieldName}.forEach(item => { felts.push(item); });`;
+        return `this.${fieldName}.forEach(item => { if (Array.isArray(item)) { felts.push(...(item as Felt[])); } else { felts.push(item as Felt); } });`;
       }
     }
 
@@ -579,7 +614,15 @@ private generateToFeltsBody(struct: any): string {
       return `felts.push(...this.${fieldName}.toFelts());`;
     }
 
+    if (fieldType === 'Hash') {
+      return `felts.push(...this.${fieldName});`;
+    }
+
+    if (fieldType === 'Bool' || fieldType === 'bool') {
+      return `felts.push(this.${fieldName} ? 1n : 0n);`;
+    }
+
     return `felts.push(this.${fieldName});`;
-  }).join('\n    ');
+  }).filter(Boolean).join('\n    ');
 }
 }

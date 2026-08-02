@@ -134,8 +134,8 @@ export class CoordinatorEdgeRpcProvider extends Provider implements ICoordinator
      * @param contract The contract deployment parameters
      * @returns A confirmation message
      */
-    async deployContract(contract: QBCDeployContract): Promise<string> {
-        return this.rpc<string>(CoordinatorEdgeRPCCommand.DeployContract, [contract]);
+    async deployContract(contract: QBCDeployContract, signal?: AbortSignal): Promise<string> {
+        return this.rpc<string>(CoordinatorEdgeRPCCommand.DeployContract, [contract], "1", "2.0", undefined, signal);
     }
 
     /**
@@ -599,8 +599,8 @@ export class MultiCoordinatorRpcProvider implements ICoordinatorEdgeRpcProvider 
     getUserId(publicKey: QHashOut): Promise<number> {
         return this.rpcs.get(this.getCurrentCoordinatorId())!.getUserId(publicKey);
     }
-    deployContract(contract: QBCDeployContract): Promise<string> {
-        return this.rpcs.get(this.getCurrentCoordinatorId())!.deployContract(contract);
+    deployContract(contract: QBCDeployContract, signal?: AbortSignal): Promise<string> {
+        return this.rpcs.get(this.getCurrentCoordinatorId())!.deployContract(contract, signal);
     }
     getLatestCheckpointId(): Promise<number> {
         return this.rpcs.get(this.getCurrentCoordinatorId())!.getLatestCheckpointId();

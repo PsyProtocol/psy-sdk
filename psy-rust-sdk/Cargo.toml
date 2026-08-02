@@ -32,6 +32,7 @@ psy_provider = { workspace = true }
 psy_prover = { workspace = true }
 psy_common_circuit = { workspace = true }
 psy_dpn_circuit = { workspace = true }
+psy_ups_circuit = { workspace = true }
 
 base64 = { workspace = true }
 bincode = { workspace = true }
@@ -44,10 +45,6 @@ getrandom = { workspace = true }
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 reqwest = { workspace = true, features = ["json"] }
 getrandom = { workspace = true, features = ["wasm_js"] }
-
-
-[package.metadata.wasm-pack.profile.release]
-wasm-opt = ["-O", "--enable-bulk-memory", "--enable-nontrapping-float-to-int"]
 
 [features]
 # default = ["is_sync"]

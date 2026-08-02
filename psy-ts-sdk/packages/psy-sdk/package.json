@@ -1,6 +1,6 @@
 {
   "name": "@psy-protocol/psy-sdk",
-  "version": "2.0.0",
+  "version": "2.0.2",
   "main": "dist/index.cjs",
   "module": "dist/index.mjs",
   "types": "dist/index.d.ts",
@@ -10,6 +10,11 @@
       "import": "./dist/index.mjs",
       "require": "./dist/index.cjs",
       "types": "./dist/index.d.ts"
+    },
+    "./expert": {
+      "import": "./dist/expert/index.mjs",
+      "require": "./dist/expert/index.cjs",
+      "types": "./dist/expert/index.d.ts"
     },
     "./local-web-compiler": {
       "import": "./dist/local-web-compiler/index.mjs",
@@ -36,10 +41,10 @@
       "require": "./dist/local-web-prover/index.cjs",
       "types": "./dist/local-web-prover/index.d.ts"
     },
-    "./local-web-prover/prover": {
-      "import": "./dist/local-web-prover/prover.mjs",
-      "require": "./dist/local-web-prover/prover.cjs",
-      "types": "./dist/local-web-prover/prover.d.ts"
+    "./local-web-prover/provider": {
+      "import": "./dist/local-web-prover/provider.mjs",
+      "require": "./dist/local-web-prover/provider.cjs",
+      "types": "./dist/local-web-prover/provider.d.ts"
     },
     "./local-web-prover/psy_prover": {
       "import": "./dist/local-web-prover/psy_prover.mjs",
@@ -63,18 +68,20 @@
     }
   },
   "files": [
-    "dist"
+    "dist",
+    ".compiler-artifact.json"
   ],
   "scripts": {
     "build:wasm": "node --import 'data:text/javascript,import { register } from \"node:module\"; import { pathToFileURL } from \"node:url\"; register(\"ts-node/esm\", pathToFileURL(\"./\"));' src/local-web-prover/build-wasm-binary.ts",
     "build:wasm-compiler": "node --import 'data:text/javascript,import { register } from \"node:module\"; import { pathToFileURL } from \"node:url\"; register(\"ts-node/esm\", pathToFileURL(\"./\"));' src/local-web-compiler/build-wasm-binary.ts",
-    "build": "NODE_OPTIONS='--max-old-space-size=8192' pnpm run precompile && NODE_OPTIONS='--max-old-space-size=8192' pnpm run compile",
-    "precompile": "cpx ../../../psy-genesis/config.json src/config && pnpm run clean && pnpm run build:wasm && pnpm run build:wasm-compiler",
+    "encode:wasm": "pnpm run build:wasm && pnpm run build:wasm-compiler",
+    "prepare:wasm": "cpx ../../../config.json src/config && pnpm run clean && pnpm run encode:wasm",
+    "build": "NODE_OPTIONS='--max-old-space-size=8192' pnpm run prepare:wasm && NODE_OPTIONS='--max-old-space-size=8192' pnpm run compile",
     "clean": "rimraf dist",
     "compile": "rollup -c",
     "lint": "eslint 'src/**/*.{ts,tsx}' --max-warnings 100",
     "lint:fix": "eslint 'src/**/*.{ts,tsx}' --fix",
-    "type-check": "pnpm run precompile && tsc --noEmit",
+    "type-check": "pnpm run prepare:wasm && tsc --noEmit",
     "bind": "npx barrelsby -c .barrelsby.json",
     "prepublishOnly": "pnpm run build",
     "test:integration": "jest --testNamePattern=\"Integration\"",

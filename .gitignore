@@ -33,3 +33,4 @@ book/
 
 # Generated deployment files
 /aws*/
+dist/

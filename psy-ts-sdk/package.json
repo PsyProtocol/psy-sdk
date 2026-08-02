@@ -7,6 +7,7 @@
     "apps/*"
   ],
   "scripts": {
+    "_help:local-deps": "echo 'See LOCAL_DEVELOPMENT.md for local dependency setup'",
     "docs": "doctoc --title '**Table of content**' README.md",
     "clean": "pnpm run -r clean",
     "build": "pnpm run -r build",
@@ -19,10 +20,9 @@
     "contract:demo": "pnpm --filter @psy-protocol/contract-sdk demo",
     "publish:check": "pnpm --filter @psy-protocol/utils run build && pnpm --filter @psy-protocol/utils pack --dry-run && NODE_OPTIONS=--max-old-space-size=12288 pnpm --filter @psy-protocol/psy-sdk run build && pnpm --filter @psy-protocol/psy-sdk pack --dry-run && pnpm --filter @psy-protocol/contract-sdk run build && pnpm --filter @psy-protocol/contract-sdk pack --dry-run",
     "version:patch:utils": "node -e \"const fs=require('fs');const p='packages/utils/package.json';const j=JSON.parse(fs.readFileSync(p,'utf8'));const a=(j.version||'0.0.0').split('.').map(Number);j.version=[a[0]||0,a[1]||0,(a[2]||0)+1].join('.');fs.writeFileSync(p,JSON.stringify(j,null,2)+'\\n');console.log('@psy-protocol/utils ->',j.version);\"",
-    "version:patch:psy-sdk": "node -e \"const fs=require('fs');const p='packages/psy-sdk/package.json';const j=JSON.parse(fs.readFileSync(p,'utf8'));const a=(j.version||'0.0.0').split('.').map(Number);j.version=[a[0]||0,a[1]||0,(a[2]||0)+1].join('.');fs.writeFileSync(p,JSON.stringify(j,null,2)+'\\n');console.log('@psy-protocol/psy-sdk ->',j.version);\"",
     "version:patch:contract-sdk": "node -e \"const fs=require('fs');const p='packages/contract-sdk/package.json';const j=JSON.parse(fs.readFileSync(p,'utf8'));const a=(j.version||'0.0.0').split('.').map(Number);j.version=[a[0]||0,a[1]||0,(a[2]||0)+1].join('.');fs.writeFileSync(p,JSON.stringify(j,null,2)+'\\n');console.log('@psy-protocol/contract-sdk ->',j.version);\"",
     "publish:utils": "pnpm run version:patch:utils && pnpm --filter @psy-protocol/utils publish --access public --registry=https://registry.npmjs.org/ --no-git-checks",
-    "publish:psy-sdk": "pnpm run version:patch:psy-sdk && NODE_OPTIONS=--max-old-space-size=12288 pnpm --filter @psy-protocol/psy-sdk publish --access public --registry=https://registry.npmjs.org/ --no-git-checks",
+    "publish:psy-sdk": "NODE_OPTIONS=--max-old-space-size=12288 pnpm --filter @psy-protocol/psy-sdk publish --access public --registry=https://registry.npmjs.org/ --no-git-checks",
     "publish:contract-sdk": "pnpm run version:patch:contract-sdk && pnpm --filter @psy-protocol/contract-sdk run build && pnpm --filter @psy-protocol/contract-sdk publish --access public --registry=https://registry.npmjs.org/ --no-git-checks",
     "publish:all": "pnpm run publish:utils && pnpm run publish:psy-sdk && pnpm run publish:contract-sdk"
   },

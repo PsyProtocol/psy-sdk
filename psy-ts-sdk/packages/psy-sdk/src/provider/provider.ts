@@ -192,7 +192,7 @@ export abstract class Provider {
      */
     private startHealthChecks(): void {
         this.healthCheckTimer = setInterval(() => {
-            this.performHealthChecks().then((r) => console.log(r));
+            this.performHealthChecks().catch((e) => console.error("health check failed:", e));
         }, this.multiProviderConfig.healthCheckInterval);
     }
 
@@ -345,21 +345,21 @@ export abstract class Provider {
     /**
      * Make a direct JSON-RPC request to a specific provider
      */
-    protected async directRpc<T>(url: string, method: string, params: any, id = "1", jsonrpc = "2.0"): Promise<T> {
-        return this.directRpcWithHeaders<T>(url, method, params, id, jsonrpc);
+    protected async directRpc<T>(url: string, method: string, params: any, id = "1", jsonrpc = "2.0", signal?: AbortSignal): Promise<T> {
+        return this.directRpcWithHeaders<T>(url, method, params, id, jsonrpc, undefined, signal);
     }
 
     /**
      * Execute parallel-first strategy
      */
-    private async executeParallelFirst<T>(method: string, params: any, id: string, jsonrpc: string): Promise<T> {
+    private async executeParallelFirst<T>(method: string, params: any, id: string, jsonrpc: string, signal?: AbortSignal): Promise<T> {
         const healthyProviders = this.getHealthyProviders();
 
         if (healthyProviders.length === 0) {
             throw new Error("No healthy providers available");
         }
 
-        const promises = healthyProviders.map((url) => this.directRpc<T>(url, method, params, id, jsonrpc));
+        const promises = healthyProviders.map((url) => this.directRpc<T>(url, method, params, id, jsonrpc, signal));
 
         try {
             return await Promise.race([
@@ -375,7 +375,7 @@ export abstract class Provider {
             // If all parallel requests fail, try them sequentially
             for (const url of healthyProviders) {
                 try {
-                    return await this.directRpc<T>(url, method, params, id, jsonrpc);
+                    return await this.directRpc<T>(url, method, params, id, jsonrpc, signal);
                 } catch (sequentialError) {
                     // Continue to next provider
                     console.error(`Sequential request failed: ${sequentialError}`);
@@ -393,10 +393,11 @@ export abstract class Provider {
         params: unknown,
         id = "1",
         jsonrpc = "2.0",
-        headers?: Record<string, string>
+        headers?: Record<string, string>,
+        signal?: AbortSignal
     ): Promise<T> {
         // console.log(`RPC request to ${this.selectProvider()} with method ${method} and params ${params}`);
-        return this.rpc_with_url<T>(this.selectProvider(), method, params, id, jsonrpc, headers);
+        return this.rpc_with_url<T>(this.selectProvider(), method, params, id, jsonrpc, headers, signal);
     }
     protected async rpc_with_url<T>(
         url: string,
@@ -404,7 +405,8 @@ export abstract class Provider {
         params: unknown,
         id = "1",
         jsonrpc = "2.0",
-        headers?: Record<string, string>
+        headers?: Record<string, string>,
+        signal?: AbortSignal
     ): Promise<T> {
         const isReadOperation = this.getReadOnlyMethods().has(method);
 
@@ -421,20 +423,26 @@ export abstract class Provider {
 
         // Retry logic
         for (let attempt = 0; attempt < this.retryConfig.maxAttempts; attempt++) {
+            if (signal?.aborted) {
+                if (signal.reason instanceof Error) throw signal.reason;
+                const aborted = new Error("Request aborted");
+                aborted.name = "AbortError";
+                throw aborted;
+            }
             try {
                 let result: T;
 
                 if (this.urls.length === 1 || !this.config.multiProvider) {
                     // Single provider or multi-provider disabled
-                    result = await this.directRpcWithHeaders<T>(this.urls[0], method, params, id, jsonrpc, headers);
+                    result = await this.directRpcWithHeaders<T>(this.urls[0], method, params, id, jsonrpc, headers, signal);
                 } else {
                     // Multi-provider logic
                     switch (this.multiProviderConfig.strategy) {
                         case "parallel-first":
-                            result = await this.executeParallelFirst<T>(method, params, id, jsonrpc);
+                            result = await this.executeParallelFirst<T>(method, params, id, jsonrpc, signal);
                             break;
                         default:
-                            result = await this.directRpcWithHeaders<T>(url, method, params, id, jsonrpc, headers);
+                            result = await this.directRpcWithHeaders<T>(url, method, params, id, jsonrpc, headers, signal);
                             break;
                     }
                 }
@@ -448,6 +456,8 @@ export abstract class Provider {
                 return result;
             } catch (error) {
                 lastError = error as Error;
+
+                if (signal?.aborted) break;
 
                 // Update provider health on error
                 if (this.urls.length > 1 && this.config.multiProvider) {
@@ -484,7 +494,8 @@ export abstract class Provider {
         params: any,
         id = "1",
         jsonrpc = "2.0",
-        customHeaders?: Record<string, string>
+        customHeaders?: Record<string, string>,
+        signal?: AbortSignal
     ): Promise<T> {
         const headers: Record<string, string> = {
             "Content-Type": "application/json",
@@ -494,6 +505,7 @@ export abstract class Provider {
         const response = await this.httpClient.sendRequest({
             method: "POST",
             url,
+            signal,
             headers,
             body: PsyJSON.stringify({
                 jsonrpc,

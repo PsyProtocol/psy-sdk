@@ -15,27 +15,51 @@ export interface ServicesApiResponse<T> {
 }
 
 export interface DepositClaimProofQuery {
-    depositor: string;
-    nonce: number | bigint | string;
-    sourceChainId: number | bigint | string;
-    depositIndex?: number | bigint | string;
+    /** Envio global deposit locator (bridge list/display identity). */
+    depositIndex: number | bigint | string;
+    /** Source chain the deposit was bridged through. */
+    sourceChainIndex: number | bigint | string;
+    /**
+     * Chain-local tree leaf count at proof time. Preferred services input
+     * (server-side aliases such as proved_deposit_count/tree_count are not
+     * emitted by this client).
+     */
+    snapshotDepositCount: number | bigint | string;
 }
 
 export interface DepositClaimProofResult {
     found: boolean;
+    /** Envio global deposit locator (bridge list/display identity). */
     deposit_index?: number;
+    /** Per-source-chain tree leaf index; equals depositProofRaw.deposit_index. */
+    chain_local_deposit_index?: number;
+    source_chain_index?: number;
+    proved_deposit_count?: number;
+    snapshot_deposit_count?: number;
+    proved_count?: number;
+    tree_count?: number;
     leaf_hash?: string;
     leaf_index?: number;
     deposit_root?: string;
     siblings?: string[];
+    deposit?: {
+        shield_address: string;
+        token_address: string;
+        l2_token_contract_id: string;
+        amount: string;
+        note_commitment: string;
+        source_chain_id: number;
+        created_at?: string;
+    };
 }
 
 export interface WithdrawalClaimProofQuery {
     recipient: string;
     tokenAddress: string;
     amount: string;
-    nonce: number | bigint | string;
-    destinationChainId: number | bigint | string;
+    nonce: string;
+    destinationChainIndex: number | string;
+    senderUserId?: number | string;
 }
 
 export interface WithdrawalClaimProofResult {
@@ -48,7 +72,8 @@ export interface WithdrawalClaimProofResult {
         token_address: string;
         amount: string;
         nonce: string;
-        destination_chain_id: number;
+        destination_chain_index: number;
+        sender_user_id?: number;
     };
 }
 

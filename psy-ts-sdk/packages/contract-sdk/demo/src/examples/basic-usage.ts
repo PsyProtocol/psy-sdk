@@ -1,7 +1,7 @@
 // src/examples/basic-usage.ts
-import { PsyTokenContract as Contract, Signer, PsyFixedArray, Felt } from "../../../generated";
+import { PsyTokenContract as Contract, Signer } from "../../../generated";
 import { createMemoryWalletProvider } from "../providers";
-import { PsyNetworkConfig, networkConfig } from "../config";
+import { networkConfig } from "../config";
 import { SignType } from "@psy-protocol/psy-sdk";
 
 const privateKey = "c71603f33a1144ca7953db0ab48808f4c4055e3364a246c33c18a9786cb0b359";
@@ -19,32 +19,14 @@ async function basicUsageExample() {
     console.log(`   Connected to coordinator:`, networkConfig.coordinator_configs);
     console.log(`   Connected to realm:`, networkConfig.realm_configs);
 
-    const checkpointId = (await provider.coordinatorEdgeRpcProvider.getLatestBlockState()).checkpoint_id;
-
     // Step 2: add user
     console.log("2️⃣ Adding User...");
     console.log(`   Provider:`, provider.signerProvider);
+    const registrationStartCheckpoint = (await provider.coordinatorEdgeRpcProvider.getLatestBlockState()).checkpoint_id;
     const publicKey = await provider.signerProvider.registerUser(privateKey, signType);
-
-    let userId: number | undefined;
-    for (let i = 0; i < 20; i++) {
-        try {
-            userId = await provider.coordinatorEdgeRpcProvider.getUserId(publicKey);
-            if (userId != null) {
-                console.log(`   Found User ID: ${userId}`);
-                break;
-            }
-        } catch (e) {
-            console.warn(`Failed to find user ID error: ${e}`);
-        }
-        console.log(`   Waiting for user registration... (${i + 1}/20)`);
-        await sleep(1000);
-    }
-    if (userId == null) {
-        throw new Error(`Failed to find user ID after 20 attempts`);
-    }
-
+    const { userId, checkpointId } = await waitForRegisteredUser(provider, publicKey, registrationStartCheckpoint);
     await provider.signerProvider.importPrivateKey?.(privateKey, signType, zkFingerprint);
+    console.log(`   Found User ID: ${userId}`);
     console.log(`   Public Key: ${publicKey}`);
 
 
@@ -163,7 +145,7 @@ async function basicUsageExample() {
             const recipients = 1;
             const amounts = 1000000;
 
-            await contract.simple_transfer(recipients, amounts);
+            await readOnlyContract.simple_transfer(recipients, amounts);
         } catch (error) {
             console.log(
                 `   ✅ Expected error for write operation without signer:`,
@@ -213,9 +195,36 @@ if (require.main === module) {
         });
 }
 
-function sleep(ms: number): Promise<void> {
-    console.log(`Sleeping for ${ms} milliseconds...`);
-    return new Promise(resolve => setTimeout(resolve, ms));
+export { basicUsageExample };
+
+async function waitForRegisteredUser(
+    provider: Awaited<ReturnType<typeof createMemoryWalletProvider>>,
+    publicKey: string,
+    registrationStartCheckpoint: number,
+    attempts = 60,
+) {
+    for (let i = 0; i < attempts; i++) {
+        const latestCheckpoint = (await provider.coordinatorEdgeRpcProvider.getLatestBlockState()).checkpoint_id;
+        const progressed = Number(latestCheckpoint) - Number(registrationStartCheckpoint);
+        if (progressed >= 2) {
+            try {
+                const userId = await provider.coordinatorEdgeRpcProvider.getUserId(publicKey);
+                return { userId: Number(userId), checkpointId: Number(latestCheckpoint) };
+            } catch (error) {
+                console.log(
+                    `   Registration not visible yet at checkpoint ${latestCheckpoint}:`,
+                    error instanceof Error ? error.message : String(error),
+                );
+            }
+        }
+        console.log(`   Waiting for registered user... checkpoint ${latestCheckpoint} (+${progressed}) (${i + 1}/${attempts})`);
+        await sleep(1000);
+    }
+
+    throw new Error(`Failed to resolve registered user after ${attempts} attempts`);
 }
 
-export { basicUsageExample };
+function sleep(ms: number): Promise<void> {
+    console.log(`Sleeping for ${ms} milliseconds...`);
+    return new Promise((resolve) => setTimeout(resolve, ms));
+}

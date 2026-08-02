@@ -7,12 +7,22 @@ import { IPsyTransactionSignerProvider, PsyMemoryTransactionSignerProvider } fro
 import { IPsyUserWallet, IPsyUserWalletProvider } from "./types";
 import { PsyUserWallet } from "./userWallet";
 import { PsyNetworkConfig } from "../config";
-import { initWasmSync, PsyWasmWebProverProvider, WasmRpcServer } from "../local-web-prover";
-import { PsyJSON } from "../utils";
+import { PsyWasmWebProverProvider } from "../local-web-prover";
 
-export interface IContractProvider {
+/**
+ * Minimal read-only interface for contract state access.
+ * Read-only consumers (explorer, dashboards) can implement just this.
+ */
+export interface IContractStateReader {
     getContractState(checkpointId: Felt, contractId: Felt, userId: Felt, slots: Felt[]): Promise<Felt[]>;
+    getLatestCheckpointId?(): Promise<Felt>;
+}
 
+/**
+ * Full provider: read + write + optional view execution.
+ * Extends IContractStateReader with transaction submission and view function execution.
+ */
+export interface IContractProvider extends IContractStateReader {
     sendTransaction(
         contractId: Felt,
         functionName: string,
@@ -20,7 +30,15 @@ export interface IContractProvider {
         publicKey: string
     ): Promise<any>;
 
-    getLatestCheckpointId?(): Promise<Felt>;
+    /**
+     * Execute a view (read-only) contract function without submitting a transaction.
+     * If not implemented, view functions fall back to sendTransaction (without publicKey).
+     */
+    callViewFunction?(
+        contractId: Felt,
+        functionName: string,
+        args: any[],
+    ): Promise<any>;
 }
 
 class PsyUserWalletProvider implements IPsyUserWalletProvider, IContractProvider {
@@ -126,23 +144,8 @@ async function createMemoryWalletProvider(
         config.users_per_realm,
     );
 
-    const initWasmRpcServer = async () => {
-        try {
-            const json = PsyJSON.stringify(config);
-            const now = new Date().getTime();
-            initWasmSync();
-            PsyWasmWebProverProvider.wasmServer = await new WasmRpcServer(json);
-            console.log(`WASM initialized in ${(new Date().getTime() - now) / 1000} seconds`);
-        } catch (error) {
-            console.error('Failed to get prover URL:', error);
-        }
-    };
-    await initWasmRpcServer();
-
-    let userProver: IPsyUserProverProvider = new PsyWasmWebProverProvider(config);
+    const userProver: IPsyUserProverProvider = new PsyWasmWebProverProvider(config);
     console.log("User Prover:", userProver);
-    console.log("User Prover:", PsyWasmWebProverProvider.wasmServer);
-
 
     const transactionSignerProvider = new PsyMemoryTransactionSignerProvider(
         userProver,

@@ -1,6 +1,6 @@
 {
   "name": "@psy-protocol/contract-sdk",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "ZK Contract SDK with generated contracts",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -9,7 +9,7 @@
     "abi"
   ],
   "scripts": {
-    "clean": "rm -rf dist generated/*",
+    "clean": "rm -rf dist && find generated -mindepth 1 ! -name '.gitkeep' ! -name 'tsconfig.json' ! -name 'package.json' -delete",
     "build": "tsc -p tsconfig.build.json",
     "generate": "tsx src/cli.ts -i ./abi/contract.abi.json -o ./generated",
     "postgenerate": "prettier --write ./generated/**/*.ts",

@@ -1,6 +1,13 @@
 import { Felt } from "../core";
 import {
+    ClaimBatchItem,
     ContractCallArgs,
+    GeneratedTxTraceJson,
+    TraceProofConcurrentResult,
+    TraceStepProgressJson,
+    ProvingProofBlobJson,
+    ProvingStateBlobJson,
+    TxMetadata,
 } from "../local-prover-rpc";
 import { IPsyTransactionSigner, IPsyTransactionSignerProvider } from "../zksigner";
 import { NetworkId } from "../action";
@@ -31,6 +38,18 @@ interface IPsyUserWallet {
     // deployContract(circuitDefs: DPNFunctionCircuitDefinition[]): Promise<string>;
     // getDeployContract(circuitDefs: DPNFunctionCircuitDefinition[]): Promise<QBCDeployContract>;
     execContractCall(pk_hash: string, contractCallArgs: ContractCallArgs | ContractCallArgs[]): Promise<string>;
+    execContractCallWithTrace(pk_hash: string, contractCallArgs: ContractCallArgs | ContractCallArgs[]): Promise<TxMetadata>;
+    // Build a savable trace envelope (keyed by `sig_hash`) without proving/submitting, so the
+    // wallet can persist it and prove/track it later via the step API.
+    generateTxTrace(pk_hash: string, contractCallArgs: ContractCallArgs | ContractCallArgs[]): Promise<GeneratedTxTraceJson>;
+    generateBatchClaimTxTrace(pk_hash: string, claims: ClaimBatchItem[]): Promise<GeneratedTxTraceJson>;
+    proveTxTraceStep(
+        pk_hash: string,
+        envelope: string | GeneratedTxTraceJson,
+        stateBlob?: ProvingStateBlobJson,
+        proofs?: ProvingProofBlobJson[],
+    ): Promise<TraceStepProgressJson>;
+    proveTxTraceConcurrent(pk_hash: string, envelope: string | GeneratedTxTraceJson): Promise<TraceProofConcurrentResult>;
     // transfer(recipient: SCNumberLike, amount: SCNumberLike, nonce?: SCNumberLike): Promise<void>;
 }
 

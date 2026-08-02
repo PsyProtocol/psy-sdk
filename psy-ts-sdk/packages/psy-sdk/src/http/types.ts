@@ -1,6 +1,7 @@
 interface ISimpleHTTPRequest {
     url: string;
     method: string;
+    signal?: AbortSignal;
     credentials?: "include" | "omit" | "same-origin";
     headers?: Record<string, string>;
     body?: string | ArrayBuffer;
