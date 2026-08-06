@@ -638,6 +638,7 @@ impl WasmRpcServer {
             user_tree_root: [String; 4],
             checkpoint_id: String,
             note_root_slot: String,
+            token_contract_id: String,
             random0: String,
             random1: String,
             #[serde(default)]
@@ -805,6 +806,10 @@ impl WasmRpcServer {
                         .random1
                         .parse()
                         .map_err(|e: std::num::ParseIntError| JsError::new(&e.to_string()))?;
+                    let token_contract_id: u64 = input
+                        .token_contract_id
+                        .parse()
+                        .map_err(|e: std::num::ParseIntError| JsError::new(&e.to_string()))?;
                     let contract_id: u64 = contract_id
                         .parse()
                         .map_err(|e: std::num::ParseIntError| JsError::new(&e.to_string()))?;
@@ -816,6 +821,7 @@ impl WasmRpcServer {
                         user_tree_root,
                         checkpoint_id,
                         note_root_slot,
+                        token_contract_id,
                         random0,
                         random1,
                         note_proof_fingerprint: proof_fingerprint,
@@ -831,7 +837,12 @@ impl WasmRpcServer {
                             JsError::new(&format!("add_external_proof error: {}", e))
                         })?;
                     console_log!("[note-claim-diag] add_external_proof OK");
-                    let call = claim.to_contract_call_args(contract_id, &proof_ref);
+                    let call = claim
+                        .to_contract_call_args(contract_id, &proof_ref)
+                        .map_err(|e| {
+                            console_log!("[note-claim-diag] FAIL to_contract_call_args: {}", e);
+                            JsError::new(&format!("to_contract_call_args error: {}", e))
+                        })?;
                     builder.trace_call(call.clone()).await.map_err(|e| {
                         console_log!("[note-claim-diag] FAIL trace_call: {}", e);
                         JsError::new(&format!("trace private claim call error: {}", e))
