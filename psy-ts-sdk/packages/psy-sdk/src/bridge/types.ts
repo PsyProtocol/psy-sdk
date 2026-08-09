@@ -1,8 +1,8 @@
 import type {
     BridgeDepositBatchGroth16Proof,
     BridgeDepositBatchWitnessInput,
-    BridgeWithdrawalGroth16Proof,
-    BridgeWithdrawalWitnessInput,
+    BridgeWithdrawalBatchGroth16Proof,
+    BridgeWithdrawalBatchWitnessInput,
 } from "../local-prover-rpc/types";
 
 export type U32x8 = [number, number, number, number, number, number, number, number];
@@ -88,8 +88,8 @@ export interface JsonRpcResponse<T> {
     };
 }
 
-export interface BridgeProveWithdrawalRequest {
-    witnessInput: BridgeWithdrawalWitnessInput;
+export interface BridgeProveWithdrawalBatchRequest {
+    witnessInput: BridgeWithdrawalBatchWitnessInput;
 }
 
 export interface BridgeProveDepositBatchRequest {
@@ -99,6 +99,6 @@ export interface BridgeProveDepositBatchRequest {
 export type {
     BridgeDepositBatchGroth16Proof,
     BridgeDepositBatchWitnessInput,
-    BridgeWithdrawalGroth16Proof,
-    BridgeWithdrawalWitnessInput,
+    BridgeWithdrawalBatchGroth16Proof,
+    BridgeWithdrawalBatchWitnessInput,
 };

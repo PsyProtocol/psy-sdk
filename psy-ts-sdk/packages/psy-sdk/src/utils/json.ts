@@ -1,8 +1,11 @@
 import { parse, isInteger, stringify } from "lossless-json";
 const MAX_SAFE_INT = BigInt("9007199254740991");
-// parse integer values into a bigint, and use a regular number otherwise
+const MIN_SAFE_INT = BigInt("-9007199254740991");
+// parse integer values outside the safe range into a bigint; keep safe integers as number
 function customNumberParser(value: string) {
-    return isInteger(value) && BigInt(value) > MAX_SAFE_INT ? BigInt(value) : parseFloat(value);
+    if (!isInteger(value)) return parseFloat(value);
+    const asBigInt = BigInt(value);
+    return asBigInt > MAX_SAFE_INT || asBigInt < MIN_SAFE_INT ? asBigInt : parseFloat(value);
 }
 
 function parseBigIntJson(jsonString: string): any {

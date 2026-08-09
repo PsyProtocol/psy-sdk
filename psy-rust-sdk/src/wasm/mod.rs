@@ -66,10 +66,50 @@ fn now_ms() -> u64 {
 }
 
 fn parse_int_string(value: &str) -> Result<u64, JsError> {
-    let normalized = value.strip_prefix("n:").unwrap_or(value);
-    normalized
+    value
         .parse::<u64>()
         .map_err(|e| JsError::new(&e.to_string()))
+}
+
+fn parse_fixed_hex<const N: usize>(value: &str, field: &str) -> Result<[u8; N], String> {
+    let hex = value.strip_prefix("0x").unwrap_or(value);
+    let expected_len = N * 2;
+    if hex.len() != expected_len {
+        return Err(format!(
+            "{} must be exactly {} bytes ({} hex characters), got {} hex characters",
+            field,
+            N,
+            expected_len,
+            hex.len()
+        ));
+    }
+
+    fn nibble(byte: u8) -> Option<u8> {
+        match byte {
+            b'0'..=b'9' => Some(byte - b'0'),
+            b'a'..=b'f' => Some(byte - b'a' + 10),
+            b'A'..=b'F' => Some(byte - b'A' + 10),
+            _ => None,
+        }
+    }
+
+    let bytes = hex.as_bytes();
+    let mut parsed = [0u8; N];
+    for (index, output) in parsed.iter_mut().enumerate() {
+        let offset = index * 2;
+        let high = nibble(bytes[offset]).ok_or_else(|| {
+            format!("{} contains non-hex character at index {}", field, offset)
+        })?;
+        let low = nibble(bytes[offset + 1]).ok_or_else(|| {
+            format!("{} contains non-hex character at index {}", field, offset + 1)
+        })?;
+        *output = (high << 4) | low;
+    }
+    Ok(parsed)
+}
+
+fn parse_fixed_hex_js<const N: usize>(value: &str, field: &str) -> Result<[u8; N], JsError> {
+    parse_fixed_hex(value, field).map_err(|error| JsError::new(&error))
 }
 
 fn parse_tx_trace_envelope(
@@ -357,7 +397,7 @@ use plonky2::{
     },
 };
 use psy_common::{
-    args::{ContractCallArgs, ContractCallData, DPNSoftwareDefinedCallData, SignType},
+    args::{ContractCallArgs, ContractCallData, DPNSoftwareDefinedCallData, SignType, ViewCallData},
     data::{
         alt::AltVerifierOnlyCircuitData, base_types::hash256::Hash256, qhashout::QHashOut,
         u8bytes::U8Bytes,
@@ -1140,6 +1180,25 @@ impl WasmRpcServer {
             .map_err(|e| JsError::new(&format!("Error simulating tx trace: {}", e)))?;
         serde_json::to_string(&simulated)
             .map_err(|e| JsError::new(&format!("Error serializing simulated tx: {}", e)))
+    }
+
+    #[wasm_bindgen]
+    pub async fn call_view_json(
+        &mut self,
+        pk_hash: &str,
+        call_data_json: &str,
+    ) -> Result<String, JsError> {
+        let pk_hash = QHashOut::<F>::from_str(pk_hash)
+            .map_err(|e| JsError::new(&format!("Parse public key hash error: {}", e)))?;
+        let call_data: ViewCallData = serde_json::from_str(call_data_json)
+            .map_err(|e| JsError::new(&format!("Invalid view call data JSON: {}", e)))?;
+        let view_result = self
+            .wallet_session
+            .call_view(pk_hash, call_data)
+            .await
+            .map_err(|e| JsError::new(&format!("Error executing view call: {}", e)))?;
+        serde_json::to_string(&view_result)
+            .map_err(|e| JsError::new(&format!("Error serializing view call result: {}", e)))
     }
 
     #[wasm_bindgen]
@@ -2035,15 +2094,16 @@ impl WasmRpcServer {
 
     /// Generate a PrivateNoteInclusion ZK proof and return the full NoteProofOutput as JSON.
     ///
-    /// Inputs (all u64 arrays as JSON arrays of decimal strings to avoid JS precision loss):
+    /// Inputs (u64 arrays use JSON arrays of decimal strings to avoid JS precision loss):
     ///   pk_hash            - sender's ZK public key (hex QHashOut)
     ///   owner_json         - receiver's shield address as JSON array of 4 decimal strings
     ///   amount             - transfer amount (u64 as decimal string)
-    ///   note_secret_json - randomness used in commitment, JSON array of 4 decimal strings
+    ///   note_secret_json   - randomness used in commitment, JSON array of 4 decimal strings
     ///   nullifier_secret_json - nullifier secret, JSON array of 4 decimal strings
     ///   contract_id        - contract ID (u64 as decimal string)
     ///   note_root_slot     - note root slot index (u64 as decimal string)
-    ///   checkpoint_id      - pre-submit checkpoint ID (u64 as decimal string, "0" = latest)
+    ///   checkpoint_id      - immutable pre-submit checkpoint ID (u64 as decimal string)
+    ///   end_user_leaf_hash - submitted transaction's end-user leaf hash (hex QHashOut)
     ///
     /// Returns JSON matching NoteProofOutput.
     #[wasm_bindgen]
@@ -2057,11 +2117,14 @@ impl WasmRpcServer {
         contract_id: &str,
         note_root_slot: &str,
         checkpoint_id: &str,
+        end_user_leaf_hash: &str,
     ) -> Result<String, JsError> {
         use base64::engine::general_purpose::STANDARD as BASE64;
         use base64::Engine;
         use plonky2::field::types::{Field, PrimeField64};
-        use psy_config::network_constants::MAX_CONTRACT_STATE_TREE_HEIGHT;
+        use psy_config::network_constants::{
+            GLOBAL_CONTRACT_TREE_HEIGHT, GLOBAL_USER_TREE_HEIGHT, MAX_CONTRACT_STATE_TREE_HEIGHT,
+        };
         use psy_crypto::hash::merkle::core::MerkleProofCore;
         use psy_crypto::hash::traits::{
             hasher::{FieldQHasher, PoseidonHasher},
@@ -2071,6 +2134,11 @@ impl WasmRpcServer {
         use psy_data::privacy::private_note_inclusion::PrivateNoteInclusionInput;
         use psy_data::traits::qdatastore::qmetadata::QMetaDataStoreReaderSync;
         use psy_data::traits::qdatastore::qtreedata::QTreeDataStoreReaderSync;
+        use crate::private_note_checkpoint::{
+            ensure_expected_private_note_root, ensure_private_note_proof_coherence,
+            is_checkpoint_observable, private_note_proof_diagnostic, validate_snapshot_proof,
+            PrivateNoteProofCoherence,
+        };
 
         const NOTE_TREE_HEIGHT: usize = 20;
         type C = PoseidonGoldilocksConfig;
@@ -2090,6 +2158,8 @@ impl WasmRpcServer {
 
         let pk_hash = QHashOut::<F>::from_str(pk_hash)
             .map_err(|e| JsError::new(&format!("parse pk_hash: {}", e)))?;
+        let end_user_leaf_hash = QHashOut::<F>::from_str(end_user_leaf_hash)
+            .map_err(|e| JsError::new(&format!("parse end_user_leaf_hash: {}", e)))?;
         let owner_u64 = parse_u64x4(owner_json)?;
         let amount_val: u64 = amount
             .parse()
@@ -2102,9 +2172,27 @@ impl WasmRpcServer {
         let note_root_slot_val: u64 = note_root_slot
             .parse()
             .map_err(|e: std::num::ParseIntError| JsError::new(&e.to_string()))?;
-        let checkpoint_before_raw: u64 = checkpoint_id
+        let checkpoint_before: u64 = checkpoint_id
             .parse()
             .map_err(|e: std::num::ParseIntError| JsError::new(&e.to_string()))?;
+        if contract_id_val >= 1u64 << GLOBAL_CONTRACT_TREE_HEIGHT {
+            return Err(JsError::new(&format!(
+                "contract_id={} exceeds {}-level contract tree",
+                contract_id_val, GLOBAL_CONTRACT_TREE_HEIGHT,
+            )));
+        }
+        if note_root_slot_val == 0 {
+            return Err(JsError::new("note_root_slot must be greater than zero"));
+        }
+        let highest_note_path_slot = note_root_slot_val
+            .checked_add(NOTE_TREE_HEIGHT as u64)
+            .ok_or_else(|| JsError::new("note_root_slot path range overflows u64"))?;
+        if highest_note_path_slot >= 1u64 << MAX_CONTRACT_STATE_TREE_HEIGHT {
+            return Err(JsError::new(&format!(
+                "note_root_slot={} with {} path levels exceeds {}-level contract-state tree",
+                note_root_slot_val, NOTE_TREE_HEIGHT, MAX_CONTRACT_STATE_TREE_HEIGHT,
+            )));
+        }
 
         let owner =
             QHashOut::<F>::from_values(owner_u64[0], owner_u64[1], owner_u64[2], owner_u64[3]);
@@ -2123,31 +2211,6 @@ impl WasmRpcServer {
 
         let provider = self.wallet_session.st_provider.clone();
 
-        let latest_coordinator_before = provider
-            .get_coordinator_latest_block_state()
-            .await
-            .map_err(|e| JsError::new(&format!("get_coordinator_latest_block_state: {}", e)))?
-            .checkpoint_id;
-        let latest_realm_before = provider
-            .get_realm_latest_block_state()
-            .await
-            .map_err(|e| JsError::new(&format!("get_realm_latest_block_state: {}", e)))?
-            .checkpoint_id;
-        let latest_observable_before = latest_coordinator_before.min(latest_realm_before);
-        let checkpoint_before = if checkpoint_before_raw == 0 {
-            latest_observable_before
-        } else if checkpoint_before_raw > latest_observable_before {
-            return Err(JsError::new(&format!(
-                "checkpoint_id {} is ahead of latest observable checkpoint {} (coordinator={}, realm={})",
-                checkpoint_before_raw,
-                latest_observable_before,
-                latest_coordinator_before,
-                latest_realm_before
-            )));
-        } else {
-            checkpoint_before_raw
-        };
-
         // Get sender's user_id from public key
         let user_ids = provider
             .get_user_ids_for_public_key(pk_hash)
@@ -2159,6 +2222,49 @@ impl WasmRpcServer {
 
         let user_provider = provider.with_user_id_owned(sender_user_id);
 
+        // The caller's pre-submit checkpoint is immutable. Wait for both
+        // streams to expose it before reconstructing the note frontier.
+        let wait_deadline_ms = now_ms().saturating_add(180_000);
+        let mut latest_coordinator_seen = 0u64;
+        let mut latest_realm_seen = 0u64;
+        let mut coordinator_error = String::new();
+        let mut realm_error = String::new();
+        loop {
+            match provider.get_coordinator_latest_block_state().await {
+                Ok(state) => {
+                    latest_coordinator_seen = latest_coordinator_seen.max(state.checkpoint_id);
+                    coordinator_error.clear();
+                }
+                Err(e) => coordinator_error = e.to_string(),
+            }
+            match user_provider.get_realm_latest_block_state().await {
+                Ok(state) => {
+                    latest_realm_seen = latest_realm_seen.max(state.checkpoint_id);
+                    realm_error.clear();
+                }
+                Err(e) => realm_error = e.to_string(),
+            }
+
+            if is_checkpoint_observable(
+                checkpoint_before,
+                latest_coordinator_seen,
+                latest_realm_seen,
+            ) {
+                break;
+            }
+            if now_ms() >= wait_deadline_ms {
+                return Err(JsError::new(&format!(
+                    "[wallet-wasm-v2] timeout waiting pre-submit checkpoint visibility (checkpoint_before={}, latestCoordinator={}, latestRealm={}, coordinatorError={}, realmError={})",
+                    checkpoint_before,
+                    latest_coordinator_seen,
+                    latest_realm_seen,
+                    coordinator_error,
+                    realm_error
+                )));
+            }
+            async_sleep_ms(1000).await;
+        }
+
         // Build note membership proof from the pre-submit checkpoint.
         // note_count is at slot note_root_slot - 1, elements[3] is the note index.
         let note_count_slot = note_root_slot_val.saturating_sub(1);
@@ -2167,27 +2273,53 @@ impl WasmRpcServer {
                 checkpoint_before,
                 sender_user_id,
                 contract_id_val as u32,
-                MAX_CONTRACT_STATE_TREE_HEIGHT,
+                MAX_CONTRACT_STATE_TREE_HEIGHT as u8,
                 note_count_slot,
             )
             .await
             .map_err(|e| JsError::new(&format!("note_count_proof: {}", e)))?;
         let note_index = note_count_proof.value.0.elements[3].to_canonical_u64();
+        validate_snapshot_proof(
+            "note_count",
+            checkpoint_before,
+            &note_count_proof,
+            note_count_slot,
+            MAX_CONTRACT_STATE_TREE_HEIGHT as usize,
+            None,
+        )
+        .map_err(|e| JsError::new(&e))?;
+        if note_index >= 1u64 << NOTE_TREE_HEIGHT {
+            return Err(JsError::new(&format!(
+                "private note proof invalid at checkpoint {}: note_index={} exceeds {}-level note tree",
+                checkpoint_before, note_index, NOTE_TREE_HEIGHT,
+            )));
+        }
 
         // Collect last_path (levels 0..NOTE_TREE_HEIGHT) from slots note_root_slot+1..
         let mut last_path: Vec<QHashOut<F>> = Vec::with_capacity(NOTE_TREE_HEIGHT);
         for level in 0..NOTE_TREE_HEIGHT as u64 {
-            let slot = note_root_slot_val + 1 + level;
+            let slot = note_root_slot_val
+                .checked_add(1 + level)
+                .ok_or_else(|| JsError::new("note_root_slot path range overflows u64"))?;
             let proof = user_provider
                 .get_user_contract_state_tree_merkle_proof(
                     checkpoint_before,
                     sender_user_id,
                     contract_id_val as u32,
-                    MAX_CONTRACT_STATE_TREE_HEIGHT,
+                    MAX_CONTRACT_STATE_TREE_HEIGHT as u8,
                     slot,
                 )
                 .await
                 .map_err(|e| JsError::new(&format!("last_path[{}]: {}", level, e)))?;
+            validate_snapshot_proof(
+                &format!("last_path[{}]", level),
+                checkpoint_before,
+                &proof,
+                slot,
+                MAX_CONTRACT_STATE_TREE_HEIGHT as usize,
+                Some(note_count_proof.root),
+            )
+            .map_err(|e| JsError::new(&e))?;
             last_path.push(proof.value);
         }
 
@@ -2224,152 +2356,90 @@ impl WasmRpcServer {
         let note_membership_proof =
             MerkleProofCore::new_from_params::<PoseidonHasher>(note_index, commitment, siblings);
 
-        // Wait state update after checkpoint_before and prove against the first
-        // checkpoint where note_count or note_root slot changes.
-        //
-        // NOTE:
-        // We intentionally do not require nonce bump here. Some transaction
-        // paths may not mutate nonce in a way that's observable at this stage,
-        // while note slots are the actual source of truth for note inclusion.
-        let baseline_user_leaf = provider
-            .get_user_leaf_data(checkpoint_before, sender_user_id)
-            .await
-            .map_err(|e| JsError::new(&format!("get_user_leaf_data(baseline): {}", e)))?;
-        let baseline_nonce = baseline_user_leaf.nonce.to_canonical_u64();
-        let baseline_note_count = user_provider
-            .get_user_contract_state_tree_merkle_proof(
-                checkpoint_before,
+        let expected_note_root = note_membership_proof.root;
+        let checkpoint_after = provider
+            .wait_for_endcap_inclusion(
                 sender_user_id,
-                contract_id_val as u32,
-                MAX_CONTRACT_STATE_TREE_HEIGHT,
-                note_count_slot,
+                end_user_leaf_hash,
+                checkpoint_before,
+                Some(180),
+                1,
             )
             .await
-            .map_err(|e| JsError::new(&format!("baseline note_count proof: {}", e)))?
-            .value;
-        let baseline_note_root = user_provider
-            .get_user_contract_state_tree_merkle_proof(
-                checkpoint_before,
-                sender_user_id,
-                contract_id_val as u32,
-                MAX_CONTRACT_STATE_TREE_HEIGHT,
-                note_root_slot_val,
-            )
-            .await
-            .map_err(|e| JsError::new(&format!("baseline note_root proof: {}", e)))?
-            .value;
+            .map_err(|e| {
+                JsError::new(&format!(
+                    "wait_for_endcap_inclusion failed (sender_user_id={}, end_user_leaf_hash={}, checkpoint_before={}): {}",
+                    sender_user_id, end_user_leaf_hash, checkpoint_before, e
+                ))
+            })?;
 
+        // Inclusion discovery is coordinator-backed. Do not read composed
+        // proof data until the realm stream exposes that same checkpoint too.
         let wait_deadline_ms = now_ms().saturating_add(180_000);
-        let mut latest_coordinator_seen = checkpoint_before;
-        let mut latest_realm_seen = checkpoint_before;
-        let mut latest_observable_seen = checkpoint_before;
-
-        let mut checkpoint_after: Option<u64> = None;
-        let mut last_error = String::new();
-        while now_ms() < wait_deadline_ms {
-            let latest_coordinator = provider
-                .get_coordinator_latest_block_state()
-                .await
-                .map_err(|e| JsError::new(&format!("get_coordinator_latest_block_state: {}", e)))?
-                .checkpoint_id;
-            latest_coordinator_seen = latest_coordinator_seen.max(latest_coordinator);
-
-            let latest_realm = match provider.get_realm_latest_block_state().await {
-                Ok(realm_state) => {
-                    latest_realm_seen = latest_realm_seen.max(realm_state.checkpoint_id);
-                    Some(realm_state.checkpoint_id)
+        let mut latest_coordinator_seen = 0u64;
+        let mut latest_realm_seen = 0u64;
+        let mut coordinator_error = String::new();
+        let mut realm_error = String::new();
+        loop {
+            match provider.get_coordinator_latest_block_state().await {
+                Ok(state) => {
+                    latest_coordinator_seen = latest_coordinator_seen.max(state.checkpoint_id);
+                    coordinator_error.clear();
                 }
-                Err(_) => None,
-            };
-
-            let latest_observable = latest_realm
-                .map(|realm_checkpoint| realm_checkpoint.min(latest_coordinator))
-                .unwrap_or(latest_coordinator);
-            latest_observable_seen = latest_observable_seen.max(latest_observable);
-
-            if latest_observable > checkpoint_before {
-                let note_count = match user_provider
-                    .get_user_contract_state_tree_merkle_proof(
-                        latest_observable,
-                        sender_user_id,
-                        contract_id_val as u32,
-                        MAX_CONTRACT_STATE_TREE_HEIGHT,
-                        note_count_slot,
-                    )
-                    .await
-                {
-                    Ok(v) => v.value,
-                    Err(e) => {
-                        last_error = format!(
-                            "note_count proof rpc failed at checkpoint {}: {}",
-                            latest_observable, e
-                        );
-                        async_sleep_ms(1000).await;
-                        continue;
-                    }
-                };
-                let note_root = match user_provider
-                    .get_user_contract_state_tree_merkle_proof(
-                        latest_observable,
-                        sender_user_id,
-                        contract_id_val as u32,
-                        MAX_CONTRACT_STATE_TREE_HEIGHT,
-                        note_root_slot_val,
-                    )
-                    .await
-                {
-                    Ok(v) => v.value,
-                    Err(e) => {
-                        last_error = format!(
-                            "note_root proof rpc failed at checkpoint {}: {}",
-                            latest_observable, e
-                        );
-                        async_sleep_ms(1000).await;
-                        continue;
-                    }
-                };
-
-                if note_count != baseline_note_count || note_root != baseline_note_root {
-                    checkpoint_after = Some(latest_observable);
-                    break;
-                }
-                last_error = format!(
-                    "slots unchanged at checkpoint {}: note_count={} note_root={} baseline_nonce={}",
-                    latest_observable, note_count, note_root, baseline_nonce
-                );
+                Err(e) => coordinator_error = e.to_string(),
             }
-            if checkpoint_after.is_some() {
+            match user_provider.get_realm_latest_block_state().await {
+                Ok(state) => {
+                    latest_realm_seen = latest_realm_seen.max(state.checkpoint_id);
+                    realm_error.clear();
+                }
+                Err(e) => realm_error = e.to_string(),
+            }
+
+            if is_checkpoint_observable(
+                checkpoint_after,
+                latest_coordinator_seen,
+                latest_realm_seen,
+            ) {
                 break;
+            }
+            if now_ms() >= wait_deadline_ms {
+                return Err(JsError::new(&format!(
+                    "[wallet-wasm-v2] timeout waiting inclusion checkpoint visibility (checkpoint_after={}, checkpoint_before={}, end_user_leaf_hash={}, latestCoordinator={}, latestRealm={}, coordinatorError={}, realmError={})",
+                    checkpoint_after,
+                    checkpoint_before,
+                    end_user_leaf_hash,
+                    latest_coordinator_seen,
+                    latest_realm_seen,
+                    coordinator_error,
+                    realm_error
+                )));
             }
             async_sleep_ms(1000).await;
         }
-        let checkpoint_after = checkpoint_after.ok_or_else(|| {
-            JsError::new(&format!(
-                "[wallet-wasm-v2] timeout waiting note slots change (checkpoint_before={}, baseline_nonce={}, latestCoordinator={}, latestRealm={}, latestObservable={}, lastError={})",
-                checkpoint_before,
-                baseline_nonce,
-                latest_coordinator_seen,
-                latest_realm_seen,
-                latest_observable_seen,
-                last_error
-            ))
-        })?;
 
-        // Fetch post-submit proofs and leaf at the selected checkpoint.
-        let user_leaf = user_provider
-            .get_user_leaf_data(checkpoint_after, sender_user_id)
-            .await
-            .map_err(|e| JsError::new(&format!("get_user_leaf_data: {}", e)))?;
+        // Root equality validates the transaction identified above; it is not
+        // used to discover or select a checkpoint.
         let note_root_slot_proof = user_provider
             .get_user_contract_state_tree_merkle_proof(
                 checkpoint_after,
                 sender_user_id,
                 contract_id_val as u32,
-                MAX_CONTRACT_STATE_TREE_HEIGHT,
+                MAX_CONTRACT_STATE_TREE_HEIGHT as u8,
                 note_root_slot_val,
             )
             .await
             .map_err(|e| JsError::new(&format!("note_root_slot_proof: {}", e)))?;
+        ensure_expected_private_note_root(
+            checkpoint_after,
+            note_root_slot_proof.value,
+            expected_note_root,
+        )
+        .map_err(|e| JsError::new(&e))?;
+        let user_leaf = user_provider
+            .get_user_leaf_data(checkpoint_after, sender_user_id)
+            .await
+            .map_err(|e| JsError::new(&format!("get_user_leaf_data: {}", e)))?;
         // Fetch contract_proof and user_tree_proof
         let contract_proof = user_provider
             .get_user_contract_tree_merkle_proof(
@@ -2383,6 +2453,32 @@ impl WasmRpcServer {
             .get_user_tree_merkle_proof(checkpoint_after, sender_user_id)
             .await
             .map_err(|e| JsError::new(&format!("user_tree_proof: {}", e)))?;
+        let coherence = PrivateNoteProofCoherence {
+            checkpoint: checkpoint_after,
+            sender_user_id,
+            contract_id: contract_id_val,
+            note_root_slot: note_root_slot_val,
+            note_index,
+            note_tree_height: NOTE_TREE_HEIGHT,
+            contract_state_tree_height: MAX_CONTRACT_STATE_TREE_HEIGHT as usize,
+            contract_tree_height: GLOBAL_CONTRACT_TREE_HEIGHT as usize,
+            user_tree_height: GLOBAL_USER_TREE_HEIGHT as usize,
+            membership_root: expected_note_root,
+        };
+        ensure_private_note_proof_coherence(
+            &coherence,
+            &note_root_slot_proof,
+            &contract_proof,
+            &user_leaf,
+            &user_tree_proof,
+        )
+        .map_err(|e| {
+            JsError::new(&format!(
+                "{}; {}",
+                e,
+                private_note_proof_diagnostic(&coherence),
+            ))
+        })?;
         let global_user_tree_root = user_tree_proof.root;
 
         // Build circuit input and prove
@@ -2525,10 +2621,8 @@ impl WasmRpcServer {
 
         let sign_context = match &zs.sign_circuit_source {
             psy_prover::trace::TraceSignCircuitSource::ZkBuiltin
-            | psy_prover::trace::TraceSignCircuitSource::SecpBuiltin => {
-                psy_prover::signature::SignContext::new(fingerprint)
-            }
-            psy_prover::trace::TraceSignCircuitSource::EthPersonalSecpBuiltin => {
+            | psy_prover::trace::TraceSignCircuitSource::SecpBuiltin
+            | psy_prover::trace::TraceSignCircuitSource::EthPersonalSecpBuiltin => {
                 psy_prover::signature::SignContext::new(fingerprint)
             }
             psy_prover::trace::TraceSignCircuitSource::PsySoftwareDefined { .. } => {
@@ -2676,203 +2770,82 @@ impl WasmRpcServer {
     }
 
     // User operations
-    /// Resolve the fingerprint for a built-in signing circuit.
+    /// Returns the exact 32-byte, network-bound challenge that the selected
+    /// account must sign before external EIP-191 registration.
     #[wasm_bindgen]
-    pub async fn get_sign_type_fingerprint(&self, sign_type: &str) -> Result<String, JsError> {
-        let fingerprint = match sign_type {
-            "zk" => psy_prover::wallet::memory_wallet::get_zk_fingerprint::<F>(),
-            "secp256k1" => psy_prover::wallet::memory_wallet::get_secp256k1_fingerprint::<F>(),
-            "eth-personal-secp256k1" => {
-                psy_prover::wallet::memory_wallet::get_eth_secp256k1_fingerprint::<F>()
-            }
-            _ => {
-                return Err(JsError::new(&format!(
-                    "Unsupported built-in sign type: {}",
-                    sign_type
-                )))
-            }
-        };
-        Ok(fingerprint.to_string())
+    pub async fn eth_personal_registration_challenge(selected_evm_address_hex: &str) -> Result<String, JsError> {
+        let selected_evm_address =
+            parse_fixed_hex_js::<20>(selected_evm_address_hex, "selected EVM address")?;
+        let challenge = psy_prover::session::WalletSession::eth_personal_registration_challenge(selected_evm_address)
+            .map_err(|error| JsError::new(&format!("Build external EIP-191 registration challenge error: {}", error)))?;
+        Ok(format!("0x{}", challenge))
     }
 
-    /// Register an external classic secp256k1 user from its compressed public
-    /// key. The key must be the 33-byte SEC1 compressed form.
-    ///
-    /// This is the PK-first phase: after generating a transaction trace, sign
-    /// its raw sighash and call `inject_secp_signature` before proving.
-    #[wasm_bindgen]
-    pub async fn register_external_secp_user(
-        &mut self,
-        compressed_public_key: &[u8],
-    ) -> Result<String, JsError> {
-        if compressed_public_key.len() != 33 {
-            return Err(JsError::new(&format!(
-                "Compressed secp256k1 public key must be 33 bytes, got {}",
-                compressed_public_key.len()
-            )));
-        }
-        if !matches!(compressed_public_key[0], 0x02 | 0x03) {
-            return Err(JsError::new(
-                "Compressed secp256k1 public key must start with 0x02 or 0x03",
-            ));
-        }
-
-        let compressed_public_key =
-            psy_common::data::secp256k1::CompressedPublicKey::new_from_slice(compressed_public_key);
-        let pk_hash = self
-            .wallet_session
-            .register_external_secp_user(compressed_public_key)
-            .await
-            .map_err(|e| JsError::new(&format!("Register external secp256k1 user error: {}", e)))?;
-        Ok(pk_hash.to_string())
-    }
-
-    /// Inject a classic secp256k1 signature over the raw session sighash.
-    ///
-    /// `signature` accepts either the 64-byte `r || s` form or a 65-byte
-    /// `r || s || recovery_id` form (the recovery byte is ignored). `sighash`
-    /// is the QHashOut string returned in the generated transaction trace.
-    #[wasm_bindgen]
-    pub async fn inject_secp_signature(
-        &mut self,
-        expected_public_key: &str,
-        compressed_public_key: &[u8],
-        signature: &[u8],
-        sighash: &str,
-    ) -> Result<String, JsError> {
-        if compressed_public_key.len() != 33 {
-            return Err(JsError::new(&format!(
-                "Compressed secp256k1 public key must be 33 bytes, got {}",
-                compressed_public_key.len()
-            )));
-        }
-        if !matches!(compressed_public_key[0], 0x02 | 0x03) {
-            return Err(JsError::new(
-                "Compressed secp256k1 public key must start with 0x02 or 0x03",
-            ));
-        }
-        if !matches!(signature.len(), 64 | 65) {
-            return Err(JsError::new(&format!(
-                "Secp256k1 signature must be 64 or 65 bytes, got {}",
-                signature.len()
-            )));
-        }
-
-        let sighash = QHashOut::<F>::from_str(sighash)
-            .map_err(|e| JsError::new(&format!("Parse sighash error: {}", e)))?;
-        let expected_public_key = QHashOut::<F>::from_str(expected_public_key)
-            .map_err(|e| JsError::new(&format!("Parse expected public key error: {}", e)))?;
-        let mut public_key = [0u8; 33];
-        public_key.copy_from_slice(compressed_public_key);
-        let mut rs = [0u8; 64];
-        rs.copy_from_slice(&signature[..64]);
-        let signature = psy_crypto::signature::secp256k1::core::PsyCompressedSecp256K1Signature {
-            public_key,
-            signature: rs,
-            message: sighash.into(),
-        };
-
-        let pk_hash = self
-            .wallet_session
-            .inject_secp_signature(expected_public_key, signature)
-            .await
-            .map_err(|e| {
-                JsError::new(&format!("Inject external secp256k1 signature error: {}", e))
-            })?;
-        Ok(pk_hash.to_string())
-    }
-
-    /// Register an external MetaMask `personal_sign` user from its compressed
-    /// secp256k1 public key. The key must be the 33-byte SEC1 compressed form.
-    ///
-    /// This is the PK-first phase: after generating a transaction trace, sign
-    /// its sighash with `personal_sign` and call
-    /// `inject_eth_personal_signature` before proving.
+    /// Register an externally held EIP-191 secp256k1 key. The wallet session
+    /// recovers the signer from the selected EVM address, recovery message, and
+    /// MetaMask `r || s || v` signature; callers cannot supply a public key.
     #[wasm_bindgen]
     pub async fn register_external_eth_personal_user(
         &mut self,
-        compressed_public_key: &[u8],
+        selected_evm_address_hex: &str,
+        recovery_message_hex: &str,
+        signature_hex: &str,
     ) -> Result<String, JsError> {
-        if compressed_public_key.len() != 33 {
-            return Err(JsError::new(&format!(
-                "Compressed secp256k1 public key must be 33 bytes, got {}",
-                compressed_public_key.len()
-            )));
-        }
-        if !matches!(compressed_public_key[0], 0x02 | 0x03) {
-            return Err(JsError::new(
-                "Compressed secp256k1 public key must start with 0x02 or 0x03",
-            ));
-        }
+        let selected_evm_address =
+            parse_fixed_hex_js::<20>(selected_evm_address_hex, "selected EVM address")?;
+        let recovery_message = Hash256(parse_fixed_hex_js::<32>(
+            recovery_message_hex,
+            "recovery message",
+        )?);
+        let signature = parse_fixed_hex_js::<65>(signature_hex, "MetaMask signature")?;
 
-        let compressed_public_key =
-            psy_common::data::secp256k1::CompressedPublicKey::new_from_slice(compressed_public_key);
         let pk_hash = self
             .wallet_session
-            .register_external_eth_personal_user(compressed_public_key)
+            .register_external_eth_personal_user(
+                selected_evm_address,
+                recovery_message,
+                signature,
+            )
             .await
             .map_err(|e| {
                 JsError::new(&format!(
-                    "Register external eth personal-sign user error: {}",
+                    "Register external EIP-191 user error: {}",
                     e
                 ))
             })?;
         Ok(pk_hash.to_string())
     }
 
-    /// Inject a MetaMask `personal_sign` result for a previously registered
-    /// external user.
-    ///
-    /// `signature` accepts either the 64-byte `r || s` form or MetaMask's
-    /// 65-byte `r || s || v` form (the recovery byte is ignored). `sighash`
-    /// is the QHashOut string returned in the generated transaction trace.
+    /// Inject the MetaMask `r || s || v` signature for the exact raw 32-byte
+    /// session sighash. The wallet session recovers and authenticates the
+    /// signer against both the selected EVM address and registered key hash.
     #[wasm_bindgen]
     pub async fn inject_eth_personal_signature(
         &mut self,
-        expected_public_key: &str,
-        compressed_public_key: &[u8],
-        signature: &[u8],
-        sighash: &str,
+        expected_pk_hash: &str,
+        selected_evm_address_hex: &str,
+        sighash_hex: &str,
+        signature_hex: &str,
     ) -> Result<String, JsError> {
-        if compressed_public_key.len() != 33 {
-            return Err(JsError::new(&format!(
-                "Compressed secp256k1 public key must be 33 bytes, got {}",
-                compressed_public_key.len()
-            )));
-        }
-        if !matches!(compressed_public_key[0], 0x02 | 0x03) {
-            return Err(JsError::new(
-                "Compressed secp256k1 public key must start with 0x02 or 0x03",
-            ));
-        }
-        if !matches!(signature.len(), 64 | 65) {
-            return Err(JsError::new(&format!(
-                "Ethereum personal-sign signature must be 64 or 65 bytes, got {}",
-                signature.len()
-            )));
-        }
-
-        let sighash = QHashOut::<F>::from_str(sighash)
-            .map_err(|e| JsError::new(&format!("Parse sighash error: {}", e)))?;
-        let expected_public_key = QHashOut::<F>::from_str(expected_public_key)
-            .map_err(|e| JsError::new(&format!("Parse expected public key error: {}", e)))?;
-        let mut public_key = [0u8; 33];
-        public_key.copy_from_slice(compressed_public_key);
-        let mut rs = [0u8; 64];
-        rs.copy_from_slice(&signature[..64]);
-        let signature = psy_crypto::signature::secp256k1::core::PsyCompressedSecp256K1Signature {
-            public_key,
-            signature: rs,
-            message: sighash.into(),
-        };
+        let expected_pk_hash = QHashOut::<F>::from_str(expected_pk_hash)
+            .map_err(|e| JsError::new(&format!("Parse public key hash error: {}", e)))?;
+        let selected_evm_address =
+            parse_fixed_hex_js::<20>(selected_evm_address_hex, "selected EVM address")?;
+        let sighash = Hash256(parse_fixed_hex_js::<32>(sighash_hex, "sighash")?);
+        let signature = parse_fixed_hex_js::<65>(signature_hex, "MetaMask signature")?;
 
         let pk_hash = self
             .wallet_session
-            .inject_eth_personal_signature(expected_public_key, signature)
+            .inject_eth_personal_signature(
+                expected_pk_hash,
+                selected_evm_address,
+                sighash,
+                signature,
+            )
             .await
             .map_err(|e| {
                 JsError::new(&format!(
-                    "Inject external eth personal-sign signature error: {}",
+                    "Inject external EIP-191 signature error: {}",
                     e
                 ))
             })?;
@@ -2893,7 +2866,7 @@ impl WasmRpcServer {
             "zk" => psy_prover::wallet::memory_wallet::get_zk_fingerprint(),
             "secp256k1" => psy_prover::wallet::memory_wallet::get_secp256k1_fingerprint(),
             "eth-personal-secp256k1" => {
-                psy_prover::wallet::memory_wallet::get_eth_secp256k1_fingerprint()
+                psy_prover::wallet::memory_wallet::get_eth_personal_secp256k1_fingerprint()
             }
             "software-defined-dpn" | "software-defined-plonky2" | "sd-key" => {
                 let fp = fingerprint.ok_or_else(|| {
@@ -2935,7 +2908,7 @@ impl WasmRpcServer {
             "zk" => psy_prover::wallet::memory_wallet::get_zk_fingerprint(),
             "secp256k1" => psy_prover::wallet::memory_wallet::get_secp256k1_fingerprint(),
             "eth-personal-secp256k1" => {
-                psy_prover::wallet::memory_wallet::get_eth_secp256k1_fingerprint()
+                psy_prover::wallet::memory_wallet::get_eth_personal_secp256k1_fingerprint()
             }
             "software-defined-dpn" | "software-defined-plonky2" | "sd-key" => {
                 let fp = fingerprint.ok_or_else(|| {
@@ -3564,5 +3537,30 @@ impl WasmRpcServer {
             .map_err(|e| JsError::new(&format!("Error submitting end-cap: {}", e)))?;
 
         Ok(tx_hash.to_string())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::parse_fixed_hex;
+
+    #[test]
+    fn fixed_hex_accepts_optional_prefix_and_mixed_case() {
+        assert_eq!(parse_fixed_hex::<2>("0x00fF", "value").unwrap(), [0x00, 0xff]);
+        assert_eq!(parse_fixed_hex::<2>("AB12", "value").unwrap(), [0xab, 0x12]);
+    }
+
+    #[test]
+    fn fixed_hex_rejects_wrong_length() {
+        let error = parse_fixed_hex::<2>("0x001", "signature").unwrap_err();
+        assert!(error.contains("signature must be exactly 2 bytes"));
+    }
+
+    #[test]
+    fn fixed_hex_rejects_non_hex_and_whitespace() {
+        assert!(parse_fixed_hex::<2>("00xz", "value")
+            .unwrap_err()
+            .contains("non-hex character at index 2"));
+        assert!(parse_fixed_hex::<2>(" 001", "value").is_err());
     }
 }

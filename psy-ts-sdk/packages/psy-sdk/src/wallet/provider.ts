@@ -1,7 +1,7 @@
 import { Felt } from "../core";
 import { getPsyNetworkMagicForNetworkId, NetworkId } from "../action";
 import { ICoordinatorEdgeRpcProvider, MultiCoordinatorRpcProvider } from "../coord-edge-rpc";
-import { ContractCallData, IPsyUserProverProvider } from "../local-prover-rpc";
+import { ContractCallData, IPsyUserProverProvider, ViewCallData } from "../local-prover-rpc";
 import { IRealmEdgeRpcProvider, MultiRealmRpcProvider } from "../realm-edge-rpc";
 import { IPsyTransactionSignerProvider, PsyMemoryTransactionSignerProvider } from "../zksigner";
 import { IPsyUserWallet, IPsyUserWalletProvider } from "./types";
@@ -19,26 +19,23 @@ export interface IContractStateReader {
 }
 
 /**
- * Full provider: read + write + optional view execution.
- * Extends IContractStateReader with transaction submission and view function execution.
+ * Full provider: read, write, and wallet-identity-bound view execution.
  */
 export interface IContractProvider extends IContractStateReader {
     sendTransaction(
         contractId: Felt,
         functionName: string,
-        args: any[],
+        args: Array<Felt | string>,
         publicKey: string
-    ): Promise<any>;
+    ): Promise<unknown>;
 
-    /**
-     * Execute a view (read-only) contract function without submitting a transaction.
-     * If not implemented, view functions fall back to sendTransaction (without publicKey).
-     */
-    callViewFunction?(
+    /** Execute a view (read-only) contract function for an explicit wallet identity. */
+    callViewFunction(
         contractId: Felt,
         functionName: string,
-        args: any[],
-    ): Promise<any>;
+        args: Array<Felt | string>,
+        publicKey: string,
+    ): Promise<Felt[]>;
 }
 
 class PsyUserWalletProvider implements IPsyUserWalletProvider, IContractProvider {
@@ -107,9 +104,9 @@ class PsyUserWalletProvider implements IPsyUserWalletProvider, IContractProvider
     async sendTransaction(
         contractId: Felt,
         functionName: string,
-        args: any[],
+        args: Array<Felt | string>,
         publicKey: string
-    ): Promise<any> {
+    ): Promise<unknown> {
         const signer = await this.signerProvider.getSignerByPublicKeyHex(publicKey);
         const contractCallData: ContractCallData = {
             contract_calls: [
@@ -124,6 +121,34 @@ class PsyUserWalletProvider implements IPsyUserWalletProvider, IContractProvider
             }
         };
         return signer.signAndSubmit(publicKey, contractCallData);
+    }
+
+    async callViewFunction(
+        contractId: Felt,
+        functionName: string,
+        args: Array<Felt | string>,
+        publicKey: string,
+    ): Promise<Felt[]> {
+        const normalizedPublicKey = publicKey.trim();
+        if (!normalizedPublicKey) {
+            throw new Error(`Cannot call view function "${functionName}": a wallet public key is required`);
+        }
+        await this.signerProvider.getSignerByPublicKeyHex(normalizedPublicKey);
+        const callData: ViewCallData = {
+            contract_calls: [
+                {
+                    contract_id: BigInt(contractId),
+                    method_name: functionName,
+                    inputs: args.map((arg) => BigInt(arg)),
+                },
+            ],
+        };
+        const response = await this.prover.callView(normalizedPublicKey, callData);
+        const contractCall = response.contract_calls[0];
+        if (!contractCall) {
+            throw new Error(`View function "${functionName}" returned no contract call result`);
+        }
+        return contractCall.outputs;
     }
 
     async getLatestCheckpointId(): Promise<Felt> {

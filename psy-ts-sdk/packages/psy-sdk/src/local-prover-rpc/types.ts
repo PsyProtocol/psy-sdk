@@ -165,6 +165,12 @@ export interface BridgeWithdrawalGroth16Proof {
     slot_data: number[];
 }
 
+export interface BridgeWithdrawalBatchGroth16Proof {
+    solidity_proof: string[];
+    public_inputs: number[];
+    slot_data: number[];
+}
+
 export interface BridgeDepositLeafInput {
     depositor: number[];
     l2_recipient: number[];
@@ -190,6 +196,11 @@ export interface BridgeDepositBatchGroth16Proof {
 export interface ContractCallData {
     contract_calls: ContractCallArgs[];
     software_defined_call: SignData;
+}
+
+/** View-only call request: contract calls only, no software-defined / fee path. */
+export interface ViewCallData {
+    contract_calls: ContractCallArgs[];
 }
 
 export type JsonPrimitive = string | number | boolean | null;
@@ -347,11 +358,16 @@ export interface SimulatedTxJson {
     metadata: SimulatedTxMetadata;
 }
 
+/** Fixed fee-free view result: no generated trace, tx hash, or end-cap fields. */
+export interface ViewCallResult {
+    checkpoint_id: Felt;
+    contract_calls: ContractCallResultArgs[];
+    storage_reads: TxStorageRead[];
+}
+
 export enum SignType {
     ZKSign = "zk",
-    /** Classic secp256k1 signer whose private key is held by the inner prover. */
     SECP256K1Sign = "secp256k1",
-    /** EIP-191 personal_sign signer whose private key is held by the inner prover. */
     EthPersonalSECP256K1Sign = "eth-personal-secp256k1",
     SoftwareDefinedDPNSign = "software-defined-dpn",
     SoftwareDefinedPlonky2Sign = "software-defined-plonky2",
@@ -369,6 +385,7 @@ interface IPsyUserProverProvider {
     signAndSubmit(pk_hash: string, signData?: SignData): Promise<string>;
     generateTxTrace(pk_hash: string, callData: ContractCallData, localId?: string | null): Promise<GeneratedTxTraceJson>;
     simulateContractCall(pk_hash: string, callData: ContractCallData, localId?: string | null): Promise<SimulatedTxJson>;
+    callView(pk_hash: string, callData: ViewCallData, localId?: string | null): Promise<ViewCallResult>;
     proveUpsStart(pk_hash: string, envelopeJson: string | GeneratedTxTraceJson): Promise<InitStepProvingJson>;
     proveTraceStep(
         pk_hash: string,
@@ -428,14 +445,16 @@ interface IPsyUserProverProvider {
     // User operations
     registerUser(privateKey: PrivateKey, signType: SignType, fingerprint?: string): Promise<PublicKey>;
     addUser(privateKey: PrivateKey, signType: SignType, fingerprint?: string): Promise<PublicKey>;
-    getSignTypeFingerprint(signType: SignType): Promise<string>;
-    registerExternalSecpUser(compressedPublicKey: Uint8Array): Promise<PublicKey>;
-    injectSecpSignature(expectedPublicKey: PublicKey, compressedPublicKey: Uint8Array, signature: Uint8Array, sighash: string): Promise<PublicKey>;
-    registerExternalEthPersonalUser(compressedPublicKey: Uint8Array): Promise<PublicKey>;
-    injectEthPersonalSignature(expectedPublicKey: PublicKey, compressedPublicKey: Uint8Array, signature: Uint8Array, sighash: string): Promise<PublicKey>;
     // switchUser(pkHash: PublicKey): Promise<void>;
     getZKPublicKey(privateKey: PrivateKey): Promise<ZKPublicKeyInfo>;
     getRandomKeypair(): Promise<WalletKeyPair>;
+
+    // External EIP-191 personal_sign signer (browser / MetaMask flow).
+    // The canonical Rust adapter recovers/authenticates the signer from the
+    // supplied signature; the SDK performs no cryptography itself.
+    ethPersonalRegistrationChallenge(selectedEvmAddressHex: string): Promise<string>;
+    registerExternalEthPersonalUser(selectedEvmAddressHex: string, recoveryMessageHex32: string, signatureHex65: string): Promise<PublicKey>;
+    injectEthPersonalSignature(expectedPkHash: PublicKey, selectedEvmAddressHex: string, messageHex32: string, signatureHex65: string): Promise<PublicKey>;
 
     // Contract deployment
     deployContract(deployer: string, circuitDefs: DPNFunctionCircuitDefinition[]): Promise<string>;

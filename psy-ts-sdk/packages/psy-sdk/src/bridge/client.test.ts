@@ -6,7 +6,11 @@ import type {
     ISimpleHTTPRequest,
     ISimpleHTTPResponse,
 } from "../http/types";
-import type { DepositClaimProofResult } from "./types";
+import type {
+    BridgeWithdrawalBatchGroth16Proof,
+    BridgeWithdrawalBatchWitnessInput,
+    DepositClaimProofResult,
+} from "./types";
 
 /**
  * Minimal recording HTTP client: captures every request verbatim and returns
@@ -25,6 +29,10 @@ function recordingHttpClient(response: ISimpleHTTPResponse): {
         },
     };
     return { client, requests };
+}
+/** JSON-RPC 2.0 success envelope shape consumed by assertOkResponse. */
+function jsonRpcOk<T>(result: T): ISimpleHTTPResponse {
+    return { statusCode: 200, body: { jsonrpc: "2.0", id: 1, result } };
 }
 
 /** Services success envelope shape consumed by assertOkResponse. */
@@ -155,5 +163,70 @@ describe("PoseidonBridgeClient.getDepositClaimProof", () => {
                 snapshotDepositCount: 5,
             }),
         ).rejects.toThrow(/deposit not indexed yet/);
+    });
+});
+
+describe("PoseidonBridgeClient.proveWithdrawalClaim", () => {
+    it("emits the canonical batch JSON-RPC method and a single-element batch witness params array", async () => {
+        const proof: BridgeWithdrawalBatchGroth16Proof = {
+            solidity_proof: ["0xp0", "0xp1", "0xp2", "0xp3", "0xp4", "0xp5", "0xp6", "0xp7"],
+            public_inputs: [1, 2, 3],
+            slot_data: [9, 8, 7],
+        };
+        const { client, requests } = recordingHttpClient(jsonRpcOk(proof));
+        const bridgeClient = new PoseidonBridgeClient(client);
+
+        const witnessInput: BridgeWithdrawalBatchWitnessInput = {
+            bridge_user_id: 42,
+            withdrawals: [
+                {
+                    withdrawal_root: "0xroot",
+                    sender_user_id: 7,
+                    recipient: [10],
+                    token: [11],
+                    amount: [12],
+                    nonce: [13],
+                    destination_chain_index: 0,
+                    leaf_index: 4,
+                    bridge_user_id: 42,
+                    siblings: ["0xsib0", "0xsib1"],
+                },
+            ],
+        };
+
+        const result = await bridgeClient.proveWithdrawalClaim(
+            "https://prove-proxy.test/",
+            witnessInput,
+        );
+
+        // Returned proof passes through unchanged from the JSON-RPC result.
+        expect(result).toEqual(proof);
+
+        expect(requests).toHaveLength(1);
+        const req = requests[0]!;
+        expect(req.method).toBe("POST");
+        expect(req.responseType).toBe("json");
+        expect(req.headers?.["content-type"]).toBe("application/json");
+
+        // The body is a JSON-RPC 2.0 envelope; parse it to assert the exact
+        // method name and params wire shape.
+        const body = JSON.parse(req.body as string) as {
+            jsonrpc: string;
+            id: number;
+            method: string;
+            params: unknown[];
+        };
+        expect(body.jsonrpc).toBe("2.0");
+        expect(body.id).toBe(1);
+        expect(body.method).toBe("psy_prove_withdrawal_batch_claim_groth16");
+        // Canonical batch wrapper: params is a single-element array wrapping
+        // the batch witness input (bridge_user_id + withdrawals[]).
+        expect(body.params).toEqual([witnessInput]);
+
+        // Negative guard: the legacy non-batch method name must never regress.
+        expect(body.method).not.toBe("psy_prove_batch_withdrawal_groth16");
+        // The batch witness carries the withdrawals array, never a bare
+        // single-withdrawal input at the params top level.
+        expect(Array.isArray((body.params[0] as BridgeWithdrawalBatchWitnessInput).withdrawals)).toBe(true);
     });
 });

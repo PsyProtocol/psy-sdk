@@ -3,7 +3,7 @@ import { AbiInput, FieldPath, InternalContract, InternalFunction, InternalStruct
 import { RecursiveDecoder } from "./decoder";
 import { createMerkleHelper } from "./merkle-helper";
 import { createVariableProxy, IFlatVariablePosition } from "./proxy";
-import { Felt, IContractStateReader, ISigner } from "./types";
+import { Felt, IContractProvider, IContractStateReader, ISigner } from "./types";
 import "./types"; // side-effect: patches Array.prototype.toFelts
 
 export interface ContractOptions {
@@ -128,7 +128,6 @@ export class Contract {
         if (converted.contracts.length === 1) {
             contract = converted.contracts[0];
         } else {
-            // Multi-contract ABI: select by name
             const name = opts.contractName;
             if (!name) {
                 const names = converted.contracts.map(c => c.name).join(", ");
@@ -137,11 +136,13 @@ export class Contract {
                     `Specify which one via opts.contractName.`
                 );
             }
-            contract = converted.contracts.find(c => c.name === name) ?? converted.contracts.find(c => c.name === `${name}Ref`);
-            if (!contract) {
+            const matchingContract = converted.contracts.find(c => c.name === name)
+                ?? converted.contracts.find(c => c.name === `${name}Ref`);
+            if (!matchingContract) {
                 const names = converted.contracts.map(c => c.name).join(", ");
                 throw new Error(`Contract "${name}" not found in ABI. Available: ${names}`);
             }
+            contract = matchingContract;
         }
         this._internalContract = contract;
 
@@ -289,34 +290,27 @@ export class Contract {
         }
 
         const view = isViewCall(fn);
-        if (!view && !this._signer) {
-            throw new Error("Signer required for state-changing functions. Use contract.attach(signer)");
+        if (!this._signer) {
+            throw new Error(`Signer required for ${view ? "view" : "state-changing"} functions. Use contract.attach(signer)`);
         }
 
         const serializedArgs = serializeArgs(args, fn.field_flat_paths, this._structs);
 
         let result: any;
-        const provider = this._provider as any;
-        if (view && provider.callViewFunction) {
-            // View functions: use read-only execution when available (no signer needed)
+        const provider = this._provider as IContractProvider;
+        if (view) {
             result = await provider.callViewFunction(
                 this._contractId,
                 name,
                 serializedArgs,
+                this._signer.publicKey,
             );
-        } else if (provider.sendTransaction) {
-            // External functions or view-without-callViewFunction: submit transaction
+        } else {
             result = await provider.sendTransaction(
                 this._contractId,
                 name,
                 serializedArgs,
-                this._signer?.publicKey
-            );
-        } else {
-            throw new Error(
-                `Cannot execute ${view ? "view" : "external"} function "${name}": ` +
-                `provider does not implement ${view ? "callViewFunction" : "sendTransaction"}. ` +
-                `Use a full IContractProvider instead of IContractStateReader.`
+                this._signer.publicKey,
             );
         }
 

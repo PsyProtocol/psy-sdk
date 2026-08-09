@@ -3,8 +3,8 @@ import type { IHTTPClient } from "../http/types";
 import type {
     BridgeDepositBatchGroth16Proof,
     BridgeDepositBatchWitnessInput,
-    BridgeWithdrawalGroth16Proof,
-    BridgeWithdrawalWitnessInput,
+    BridgeWithdrawalBatchGroth16Proof,
+    BridgeWithdrawalBatchWitnessInput,
     DepositClaimProofQuery,
     DepositClaimProofResult,
     JsonRpcResponse,
@@ -112,8 +112,8 @@ export class PoseidonBridgeClient {
 
     async proveWithdrawalClaim(
         proveProxyUrl: string,
-        witnessInput: BridgeWithdrawalWitnessInput
-    ): Promise<BridgeWithdrawalGroth16Proof> {
+        witnessInput: BridgeWithdrawalBatchWitnessInput
+    ): Promise<BridgeWithdrawalBatchGroth16Proof> {
         const resp = await this.httpClient.sendRequest({
             url: proveProxyUrl,
             method: "POST",
@@ -121,12 +121,12 @@ export class PoseidonBridgeClient {
             body: JSON.stringify({
                 jsonrpc: "2.0",
                 id: 1,
-                method: "psy_prove_batch_withdrawal_groth16",
+                method: "psy_prove_withdrawal_batch_claim_groth16",
                 params: [witnessInput],
             }),
             responseType: "json",
         });
-        return assertOkResponse(resp.body, "psy_prove_batch_withdrawal_groth16");
+        return assertOkResponse(resp.body, "psy_prove_withdrawal_batch_claim_groth16");
     }
 
     async proveDepositBatchAppend(

@@ -73,6 +73,7 @@ export class WasmRpcServer {
     add_user(private_key_str: string, sign_type: string, fingerprint?: string | null): Promise<string>;
     batch_claim_json(pk_hash: string, items_json: string): Promise<string>;
     batch_claim_with_trace_json(pk_hash: string, items_json: string): Promise<string>;
+    call_view_json(pk_hash: string, call_data_json: string): Promise<string>;
     /**
      * Compute sighash from an envelope + current header JSON.
      * Extracts nonce, user_id, and network_magic from the trace itself,
@@ -80,6 +81,11 @@ export class WasmRpcServer {
      */
     compute_sighash_from_envelope_json(envelope_json: string, current_header_json: string): string;
     deploy_contract_json(deployer: string, circuit_defs_json: string): Promise<string>;
+    /**
+     * Returns the exact 32-byte, network-bound challenge that the selected
+     * account must sign before external EIP-191 registration.
+     */
+    static eth_personal_registration_challenge(selected_evm_address_hex: string): Promise<string>;
     exec_claim_batch_json(pk_hash: string, claims_json: string): Promise<string>;
     /**
      * Atomic private_claim: start_session → add_external_proof → prove → sign_and_submit.
@@ -131,28 +137,13 @@ export class WasmRpcServer {
     get_deploy_contract_cmd_json(deployer: string, circuit_defs_json: string): string;
     get_random_keypair_json(): Promise<string>;
     get_result(id_str: string): Uint8Array;
-    /**
-     * Resolve the fingerprint for a built-in signing circuit.
-     */
-    get_sign_type_fingerprint(sign_type: string): Promise<string>;
     get_zk_public_key_json(private_key_str: string): Promise<string>;
     /**
-     * Inject a MetaMask `personal_sign` result for a previously registered
-     * external user.
-     *
-     * `signature` accepts either the 64-byte `r || s` form or MetaMask's
-     * 65-byte `r || s || v` form (the recovery byte is ignored). `sighash`
-     * is the QHashOut string returned in the generated transaction trace.
+     * Inject the MetaMask `r || s || v` signature for the exact raw 32-byte
+     * session sighash. The wallet session recovers and authenticates the
+     * signer against both the selected EVM address and registered key hash.
      */
-    inject_eth_personal_signature(expected_public_key: string, compressed_public_key: Uint8Array, signature: Uint8Array, sighash: string): Promise<string>;
-    /**
-     * Inject a classic secp256k1 signature over the raw session sighash.
-     *
-     * `signature` accepts either the 64-byte `r || s` form or a 65-byte
-     * `r || s || recovery_id` form (the recovery byte is ignored). `sighash`
-     * is the QHashOut string returned in the generated transaction trace.
-     */
-    inject_secp_signature(expected_public_key: string, compressed_public_key: Uint8Array, signature: Uint8Array, sighash: string): Promise<string>;
+    inject_eth_personal_signature(expected_pk_hash: string, selected_evm_address_hex: string, sighash_hex: string, signature_hex: string): Promise<string>;
     /**
      * Stateless external proof insertion: inject a private_note_inclusion or
      * shield_deposit_claim proof into the proof tree. No baton/header changes.
@@ -212,40 +203,30 @@ export class WasmRpcServer {
     /**
      * Generate a PrivateNoteInclusion ZK proof and return the full NoteProofOutput as JSON.
      *
-     * Inputs (all u64 arrays as JSON arrays of decimal strings to avoid JS precision loss):
+     * Inputs (u64 arrays use JSON arrays of decimal strings to avoid JS precision loss):
      *   pk_hash            - sender's ZK public key (hex QHashOut)
      *   owner_json         - receiver's shield address as JSON array of 4 decimal strings
      *   amount             - transfer amount (u64 as decimal string)
-     *   note_secret_json - randomness used in commitment, JSON array of 4 decimal strings
+     *   note_secret_json   - randomness used in commitment, JSON array of 4 decimal strings
      *   nullifier_secret_json - nullifier secret, JSON array of 4 decimal strings
      *   contract_id        - contract ID (u64 as decimal string)
      *   note_root_slot     - note root slot index (u64 as decimal string)
-     *   checkpoint_id      - pre-submit checkpoint ID (u64 as decimal string, "0" = latest)
+     *   checkpoint_id      - immutable pre-submit checkpoint ID (u64 as decimal string)
+     *   end_user_leaf_hash - submitted transaction's end-user leaf hash (hex QHashOut)
      *
      * Returns JSON matching NoteProofOutput.
      */
-    prove_private_note_inclusion_json(pk_hash: string, owner_json: string, amount: string, note_secret_json: string, nullifier_secret_json: string, contract_id: string, note_root_slot: string, checkpoint_id: string): Promise<string>;
+    prove_private_note_inclusion_json(pk_hash: string, owner_json: string, amount: string, note_secret_json: string, nullifier_secret_json: string, contract_id: string, note_root_slot: string, checkpoint_id: string, end_user_leaf_hash: string): Promise<string>;
     prove_trace_step_json(pk_hash: string, envelope_json: string, state_blob?: Uint8Array | null, proofs?: Uint8Array[] | null): Promise<any>;
     prove_ups_start_job_json(pk_hash: string, envelope_json: string): Promise<string>;
     prove_ups_start_json(pk_hash: string, envelope_json: string): Promise<any>;
     prove_zksign_job_json(pk_hash: string, envelope_json: string): Promise<string>;
     /**
-     * Register an external MetaMask `personal_sign` user from its compressed
-     * secp256k1 public key. The key must be the 33-byte SEC1 compressed form.
-     *
-     * This is the PK-first phase: after generating a transaction trace, sign
-     * its sighash with `personal_sign` and call
-     * `inject_eth_personal_signature` before proving.
+     * Register an externally held EIP-191 secp256k1 key. The wallet session
+     * recovers the signer from the selected EVM address, recovery message, and
+     * MetaMask `r || s || v` signature; callers cannot supply a public key.
      */
-    register_external_eth_personal_user(compressed_public_key: Uint8Array): Promise<string>;
-    /**
-     * Register an external classic secp256k1 user from its compressed public
-     * key. The key must be the 33-byte SEC1 compressed form.
-     *
-     * This is the PK-first phase: after generating a transaction trace, sign
-     * its raw sighash and call `inject_secp_signature` before proving.
-     */
-    register_external_secp_user(compressed_public_key: Uint8Array): Promise<string>;
+    register_external_eth_personal_user(selected_evm_address_hex: string, recovery_message_hex: string, signature_hex: string): Promise<string>;
     register_sd_key_circuit(allowed_contract_ids: BigUint64Array, allowed_method_ids: BigUint64Array, expected_tx_count: bigint): Promise<string>;
     register_user(private_key_str: string, sign_type: string, fingerprint?: string | null): Promise<string>;
     sign_and_submit(pk_hash: string, sign_data?: string | null): Promise<string>;
@@ -312,8 +293,10 @@ export interface InitOutput {
     readonly wasmrpcserver_add_user: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => any;
     readonly wasmrpcserver_batch_claim_json: (a: number, b: number, c: number, d: number, e: number) => any;
     readonly wasmrpcserver_batch_claim_with_trace_json: (a: number, b: number, c: number, d: number, e: number) => any;
+    readonly wasmrpcserver_call_view_json: (a: number, b: number, c: number, d: number, e: number) => any;
     readonly wasmrpcserver_compute_sighash_from_envelope_json: (a: number, b: number, c: number, d: number, e: number) => [number, number, number, number];
     readonly wasmrpcserver_deploy_contract_json: (a: number, b: number, c: number, d: number, e: number) => any;
+    readonly wasmrpcserver_eth_personal_registration_challenge: (a: number, b: number) => any;
     readonly wasmrpcserver_exec_claim_batch_json: (a: number, b: number, c: number, d: number, e: number) => any;
     readonly wasmrpcserver_exec_claim_with_external_proof_json: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number, l: number, m: number, n: number, o: number, p: number, q: number, r: number, s: number, t: number, u: number, v: number, w: number, x: number, y: number, z: number, a1: number) => any;
     readonly wasmrpcserver_exec_contract_call_json: (a: number, b: number, c: number, d: number, e: number) => any;
@@ -324,10 +307,8 @@ export interface InitOutput {
     readonly wasmrpcserver_get_deploy_contract_cmd_json: (a: number, b: number, c: number, d: number, e: number) => [number, number, number, number];
     readonly wasmrpcserver_get_random_keypair_json: (a: number) => any;
     readonly wasmrpcserver_get_result: (a: number, b: number, c: number) => [number, number, number, number];
-    readonly wasmrpcserver_get_sign_type_fingerprint: (a: number, b: number, c: number) => any;
     readonly wasmrpcserver_get_zk_public_key_json: (a: number, b: number, c: number) => any;
     readonly wasmrpcserver_inject_eth_personal_signature: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number) => any;
-    readonly wasmrpcserver_inject_secp_signature: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number) => any;
     readonly wasmrpcserver_insert_external_proof_json: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number, l: number, m: number, n: number, o: number, p: number, q: number) => any;
     readonly wasmrpcserver_new: (a: number, b: number) => any;
     readonly wasmrpcserver_ping: (a: number, b: number, c: number) => [number, number, number, number];
@@ -339,13 +320,12 @@ export interface InitOutput {
     readonly wasmrpcserver_prove_end_cap_proof_json: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number, l: number, m: number) => any;
     readonly wasmrpcserver_prove_endcap_job_from_output_jsons_json: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number) => any;
     readonly wasmrpcserver_prove_external_proof_job_json: (a: number, b: number, c: number, d: number) => any;
-    readonly wasmrpcserver_prove_private_note_inclusion_json: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number, l: number, m: number, n: number, o: number, p: number, q: number) => any;
+    readonly wasmrpcserver_prove_private_note_inclusion_json: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number, l: number, m: number, n: number, o: number, p: number, q: number, r: number, s: number) => any;
     readonly wasmrpcserver_prove_trace_step_json: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number) => any;
     readonly wasmrpcserver_prove_ups_start_job_json: (a: number, b: number, c: number, d: number, e: number) => any;
     readonly wasmrpcserver_prove_ups_start_json: (a: number, b: number, c: number, d: number, e: number) => any;
     readonly wasmrpcserver_prove_zksign_job_json: (a: number, b: number, c: number, d: number, e: number) => any;
-    readonly wasmrpcserver_register_external_eth_personal_user: (a: number, b: number, c: number) => any;
-    readonly wasmrpcserver_register_external_secp_user: (a: number, b: number, c: number) => any;
+    readonly wasmrpcserver_register_external_eth_personal_user: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => any;
     readonly wasmrpcserver_register_sd_key_circuit: (a: number, b: number, c: number, d: number, e: number, f: bigint) => any;
     readonly wasmrpcserver_register_user: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => any;
     readonly wasmrpcserver_sign_and_submit: (a: number, b: number, c: number, d: number, e: number) => any;

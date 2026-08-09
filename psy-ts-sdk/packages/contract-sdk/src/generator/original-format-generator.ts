@@ -132,7 +132,7 @@ ${variablePositionsConstant}
         return `// Auto-generated from ABI - Do not edit manually
 import { RecursiveDecoder } from './decoder';
 import { IContractStateReader } from '@psy-protocol/psy-sdk';
-import { Felt, GHash, ISigner, PsyFixedArray, u32 } from './types';
+import { Felt, GHash, IContractProvider, ISigner, PsyFixedArray, u32 } from './types';
 import { keccak256, toBeHex, zeroPadValue } from 'ethers';
 
 // Inline Merkle proxy types and implementation
@@ -382,14 +382,12 @@ function wrapMerkleProxyHelperBasicSimplifier(
 
                 const isView = this.isViewFunction(fn);
                 const dispatchCode = isView
-                    ? `const result = await (this._provider as any).callViewFunction?.(\n      this._contractId,\n      '${fn.name}',\n      serializedArgs,\n    ) ?? await (this._provider as any).sendTransaction(\n      this._contractId,\n      '${fn.name}',\n      serializedArgs,\n      this._signer?.publicKey\n    );`
-                    : `const result = await (this._provider as any).sendTransaction(\n      this._contractId,\n      '${fn.name}',\n      serializedArgs,\n      this._signer?.publicKey\n    );`;
+                    ? `const result = await (this._provider as IContractProvider).callViewFunction(\n      this._contractId,\n      '${fn.name}',\n      serializedArgs,\n      this._signer.publicKey\n    );`
+                    : `const result = await (this._provider as IContractProvider).sendTransaction(\n      this._contractId,\n      '${fn.name}',\n      serializedArgs,\n      this._signer.publicKey\n    );`;
 
                 return `  async ${fn.name}(${params}): ${returnType} {
-    // Check if we have a signer for state-changing functions
-    const isViewFunction = ${isView};
-    if (!isViewFunction && !this._signer) {
-      throw new Error('Signer required for state-changing functions. Use contract.attach(signer)');
+    if (!this._signer) {
+      throw new Error('Signer required for ${isView ? "view" : "state-changing"} functions. Use contract.attach(signer)');
     }
     ${serializeCode}
     ${dispatchCode}${hasReturn ? "\n    return this._decoder.decodeReturnValue(result);" : ""}

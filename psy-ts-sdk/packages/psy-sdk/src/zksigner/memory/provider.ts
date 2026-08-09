@@ -36,16 +36,21 @@ class PsyMemoryTransactionSignerProvider implements IPsyTransactionSignerProvide
         return signer;
     }
     async addRandomPrivateKey(signType: SignType): Promise<IPsyTransactionSigner> {
-        const fingerprint = await this.getFingerprintForSignType(signType);
+        const fingerprint = this.getFingerprintForSignType(signType);
         return this.importPrivateKey(cryptoRandomHashOutHex(), signType, fingerprint);
     }
 
-    private async getFingerprintForSignType(signType: SignType): Promise<string> {
+    private getFingerprintForSignType(signType: SignType): string {
         switch (signType) {
             case SignType.ZKSign:
+                return "65e0169bfffd55f1c0ea9f76c111a5b15e652322ee253c1a9604a10d59066b50";
             case SignType.SECP256K1Sign:
+                return "320d034234f0dab4d02c4b03d69276cbd5c2eb831aca1b11c7e52078ace2e33b";
             case SignType.EthPersonalSECP256K1Sign:
-                return this.proverProvider.getSignTypeFingerprint(signType);
+                // Canonical get_eth_personal_secp256k1_fingerprint() — the Rust
+                // adapter resolves this internally; the TS held-key path mirrors
+                // the existing hardcoded-fingerprint convention for local identity.
+                return "4cf514982eb7155648bf1b7852a6a564d8e86998cc1c6365a50e15796b7f0745";
             default:
                 throw new Error(`Unsupported sign type: ${signType}`);
         }

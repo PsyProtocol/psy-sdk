@@ -1,0 +1,15 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "rootDir": "../../",
+    "paths": {
+      "@psy-protocol/psy-sdk": ["psy-sdk/src"],
+      "@psy-protocol/*": ["*/src"]
+    }
+  },
+  "include": [
+    "src/**/*",
+    "../contract-sdk/src/**/*",
+    "jest.setup.ts"
+  ]
+}

@@ -36,8 +36,10 @@ export const wasmrpcserver_add_external_proof_json: (a: number, b: number, c: nu
 export const wasmrpcserver_add_user: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => any;
 export const wasmrpcserver_batch_claim_json: (a: number, b: number, c: number, d: number, e: number) => any;
 export const wasmrpcserver_batch_claim_with_trace_json: (a: number, b: number, c: number, d: number, e: number) => any;
+export const wasmrpcserver_call_view_json: (a: number, b: number, c: number, d: number, e: number) => any;
 export const wasmrpcserver_compute_sighash_from_envelope_json: (a: number, b: number, c: number, d: number, e: number) => [number, number, number, number];
 export const wasmrpcserver_deploy_contract_json: (a: number, b: number, c: number, d: number, e: number) => any;
+export const wasmrpcserver_eth_personal_registration_challenge: (a: number, b: number) => any;
 export const wasmrpcserver_exec_claim_batch_json: (a: number, b: number, c: number, d: number, e: number) => any;
 export const wasmrpcserver_exec_claim_with_external_proof_json: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number, l: number, m: number, n: number, o: number, p: number, q: number, r: number, s: number, t: number, u: number, v: number, w: number, x: number, y: number, z: number, a1: number) => any;
 export const wasmrpcserver_exec_contract_call_json: (a: number, b: number, c: number, d: number, e: number) => any;
@@ -48,10 +50,8 @@ export const wasmrpcserver_generate_tx_trace_json: (a: number, b: number, c: num
 export const wasmrpcserver_get_deploy_contract_cmd_json: (a: number, b: number, c: number, d: number, e: number) => [number, number, number, number];
 export const wasmrpcserver_get_random_keypair_json: (a: number) => any;
 export const wasmrpcserver_get_result: (a: number, b: number, c: number) => [number, number, number, number];
-export const wasmrpcserver_get_sign_type_fingerprint: (a: number, b: number, c: number) => any;
 export const wasmrpcserver_get_zk_public_key_json: (a: number, b: number, c: number) => any;
 export const wasmrpcserver_inject_eth_personal_signature: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number) => any;
-export const wasmrpcserver_inject_secp_signature: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number) => any;
 export const wasmrpcserver_insert_external_proof_json: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number, l: number, m: number, n: number, o: number, p: number, q: number) => any;
 export const wasmrpcserver_new: (a: number, b: number) => any;
 export const wasmrpcserver_ping: (a: number, b: number, c: number) => [number, number, number, number];
@@ -63,13 +63,12 @@ export const wasmrpcserver_prove_deposit_inclusion_json: (a: number, b: number, 
 export const wasmrpcserver_prove_end_cap_proof_json: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number, l: number, m: number) => any;
 export const wasmrpcserver_prove_endcap_job_from_output_jsons_json: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number) => any;
 export const wasmrpcserver_prove_external_proof_job_json: (a: number, b: number, c: number, d: number) => any;
-export const wasmrpcserver_prove_private_note_inclusion_json: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number, l: number, m: number, n: number, o: number, p: number, q: number) => any;
+export const wasmrpcserver_prove_private_note_inclusion_json: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number, l: number, m: number, n: number, o: number, p: number, q: number, r: number, s: number) => any;
 export const wasmrpcserver_prove_trace_step_json: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number) => any;
 export const wasmrpcserver_prove_ups_start_job_json: (a: number, b: number, c: number, d: number, e: number) => any;
 export const wasmrpcserver_prove_ups_start_json: (a: number, b: number, c: number, d: number, e: number) => any;
 export const wasmrpcserver_prove_zksign_job_json: (a: number, b: number, c: number, d: number, e: number) => any;
-export const wasmrpcserver_register_external_eth_personal_user: (a: number, b: number, c: number) => any;
-export const wasmrpcserver_register_external_secp_user: (a: number, b: number, c: number) => any;
+export const wasmrpcserver_register_external_eth_personal_user: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => any;
 export const wasmrpcserver_register_sd_key_circuit: (a: number, b: number, c: number, d: number, e: number, f: bigint) => any;
 export const wasmrpcserver_register_user: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => any;
 export const wasmrpcserver_sign_and_submit: (a: number, b: number, c: number, d: number, e: number) => any;

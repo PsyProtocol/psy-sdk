@@ -4,5 +4,6 @@
     "types": ["jest", "node"],
     "rootDir": "."
   },
-  "include": ["src/**/*", "jest.setup.ts"]
+  "include": ["src/**/*", "jest.setup.ts"],
+  "exclude": ["src/wallet/contractViewIdentity.test.ts"]
 }

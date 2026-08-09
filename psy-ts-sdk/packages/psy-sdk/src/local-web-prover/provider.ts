@@ -18,6 +18,8 @@ import {
     TraceProofJobStepIndices,
     TraceProofScheduleJson,
     TxMetadata,
+    ViewCallData,
+    ViewCallResult,
     WalletKeyPair,
 } from "../local-prover-rpc/types";
 import { ZKPublicKeyInfo } from "../types";
@@ -223,6 +225,15 @@ export class PsyWasmWebProverProvider implements IPsyUserProverProvider {
         );
         console.log(`simulateContractCall in ${(new Date().getTime() - now) / 1000} seconds`);
         return PsyJSON.parse(result) as SimulatedTxJson;
+    }
+    async callView(pkHash: PublicKey, callData: ViewCallData): Promise<ViewCallResult> {
+        const now = new Date().getTime();
+        const json = PsyJSON.stringify(callData);
+        const result = await PsyWasmWebProverProvider.runWasmServerCall((server) =>
+            server.call_view_json(pkHash, json)
+        );
+        console.log(`callView in ${(new Date().getTime() - now) / 1000} seconds`);
+        return PsyJSON.parse(result) as ViewCallResult;
     }
     // ================================
     // Checkpointed trace proving
@@ -463,43 +474,24 @@ export class PsyWasmWebProverProvider implements IPsyUserProverProvider {
         );
     }
 
-    async getSignTypeFingerprint(signType: SignType): Promise<string> {
-        return PsyWasmWebProverProvider.runWasmServerCall((server) =>
-            server.get_sign_type_fingerprint(signType)
+    // External EIP-191 personal_sign signer (browser / MetaMask flow).
+    // Hex inputs accept an optional `0x` prefix (enforced by the WASM adapter);
+    // the SDK forwards them verbatim and performs no cryptography itself.
+    async ethPersonalRegistrationChallenge(selectedEvmAddressHex: string): Promise<string> {
+        return PsyWasmWebProverProvider.runWasmServerCall(() =>
+            WasmRpcServer.eth_personal_registration_challenge(selectedEvmAddressHex)
         );
     }
 
-    async registerExternalSecpUser(compressedPublicKey: Uint8Array): Promise<PublicKey> {
+    async registerExternalEthPersonalUser(selectedEvmAddressHex: string, recoveryMessageHex32: string, signatureHex65: string): Promise<PublicKey> {
         return PsyWasmWebProverProvider.runWasmServerCall((server) =>
-            server.register_external_secp_user(compressedPublicKey)
+            server.register_external_eth_personal_user(selectedEvmAddressHex, recoveryMessageHex32, signatureHex65)
         );
     }
 
-    async injectSecpSignature(
-        expectedPublicKey: PublicKey,
-        compressedPublicKey: Uint8Array,
-        signature: Uint8Array,
-        sighash: string,
-    ): Promise<PublicKey> {
+    async injectEthPersonalSignature(expectedPkHash: PublicKey, selectedEvmAddressHex: string, messageHex32: string, signatureHex65: string): Promise<PublicKey> {
         return PsyWasmWebProverProvider.runWasmServerCall((server) =>
-            server.inject_secp_signature(expectedPublicKey, compressedPublicKey, signature, sighash)
-        );
-    }
-
-    async registerExternalEthPersonalUser(compressedPublicKey: Uint8Array): Promise<PublicKey> {
-        return PsyWasmWebProverProvider.runWasmServerCall((server) =>
-            server.register_external_eth_personal_user(compressedPublicKey)
-        );
-    }
-
-    async injectEthPersonalSignature(
-        expectedPublicKey: PublicKey,
-        compressedPublicKey: Uint8Array,
-        signature: Uint8Array,
-        sighash: string,
-    ): Promise<PublicKey> {
-        return PsyWasmWebProverProvider.runWasmServerCall((server) =>
-            server.inject_eth_personal_signature(expectedPublicKey, compressedPublicKey, signature, sighash)
+            server.inject_eth_personal_signature(expectedPkHash, selectedEvmAddressHex, messageHex32, signatureHex65)
         );
     }
 

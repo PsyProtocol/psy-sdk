@@ -1,10 +1,25 @@
 // Runtime type definitions
-import { IContractProvider, IContractStateReader } from "@psy-protocol/psy-sdk";
+import type { IContractStateReader } from "@psy-protocol/psy-sdk";
 
 export type Felt = bigint | number;
 export type u32 = Felt;
 export type GHash = [Felt, Felt, Felt, Felt];
 export type PsyFixedArray<T, L extends number> = ReadonlyArray<T> & { length: L };
+
+export interface IContractProvider extends IContractStateReader {
+    sendTransaction(
+        contractId: Felt,
+        functionName: string,
+        args: Array<Felt | string>,
+        publicKey: string,
+    ): Promise<unknown>;
+    callViewFunction(
+        contractId: Felt,
+        functionName: string,
+        args: Array<Felt | string>,
+        publicKey: string,
+    ): Promise<Felt[]>;
+}
 
 export interface ToFelts {
     toFelts(): Felt[];
@@ -27,10 +42,9 @@ export class FeltValue implements ToFelts {
     const felts: Felt[] = [];
 
     (this as T[]).forEach((item) => {
-        if (item && typeof (item as ToFelts).toFelts === "function") {
-            felts.push(...(item as ToFelts).toFelts());
-        } else if (Array.isArray(item)) {
-            felts.push(...(item as any).toFelts());
+        const feltValue = item as unknown as Partial<ToFelts>;
+        if (typeof feltValue?.toFelts === "function") {
+            felts.push(...feltValue.toFelts());
         } else {
             felts.push(item as Felt);
         }
@@ -44,7 +58,7 @@ export interface ISigner {
     provider: IContractProvider;
 }
 
-export type { IContractProvider, IContractStateReader };
+export type { IContractStateReader };
 
 export interface Decodable<T> {
     decode(data: Felt[]): T;
