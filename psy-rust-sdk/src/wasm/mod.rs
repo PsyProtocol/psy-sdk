@@ -66,8 +66,7 @@ fn now_ms() -> u64 {
 }
 
 fn parse_int_string(value: &str) -> Result<u64, JsError> {
-    let normalized = value.strip_prefix("n:").unwrap_or(value);
-    normalized
+    value
         .parse::<u64>()
         .map_err(|e| JsError::new(&e.to_string()))
 }
@@ -3551,20 +3550,21 @@ mod tests {
     use super::{parse_fixed_hex, parse_int_string, parse_u32_string};
 
     #[test]
-    fn int_string_accepts_psy_json_bigint_prefix() {
-        assert_eq!(parse_int_string("n:18446744073709551615").unwrap(), u64::MAX);
+    fn int_string_accepts_decimal_u64() {
+        assert_eq!(parse_int_string("18446744073709551615").unwrap(), u64::MAX);
         assert_eq!(parse_int_string("42").unwrap(), 42);
     }
 
     #[test]
     fn u32_string_rejects_narrowing_overflow() {
-        assert_eq!(parse_u32_string("n:4294967295").unwrap(), u32::MAX);
-        assert!(parse_u32_string("n:4294967296").is_err());
+        assert_eq!(parse_u32_string("4294967295").unwrap(), u32::MAX);
+        assert!(parse_u32_string("4294967296").is_err());
     }
 
     #[test]
-    fn int_string_rejects_invalid_values() {
-        assert!(parse_int_string("n:not-a-number").is_err());
+    fn int_string_rejects_invalid_values_and_legacy_prefix() {
+        assert!(parse_int_string("not-a-number").is_err());
+        assert!(parse_int_string("n:42").is_err());
     }
 
     #[test]
