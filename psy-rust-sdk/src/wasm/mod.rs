@@ -66,9 +66,15 @@ fn now_ms() -> u64 {
 }
 
 fn parse_int_string(value: &str) -> Result<u64, JsError> {
-    value
+    let normalized = value.strip_prefix("n:").unwrap_or(value);
+    normalized
         .parse::<u64>()
         .map_err(|e| JsError::new(&e.to_string()))
+}
+
+fn parse_u32_string(value: &str) -> Result<u32, JsError> {
+    u32::try_from(parse_int_string(value)?)
+        .map_err(|_| JsError::new("integer exceeds u32 range"))
 }
 
 fn parse_fixed_hex<const N: usize>(value: &str, field: &str) -> Result<[u8; N], String> {
@@ -733,14 +739,14 @@ impl WasmRpcServer {
         };
         let parse_u32_arr = |arr: [String; 8]| -> Result<[u32; 8], JsError> {
             Ok([
-                parse_int_string(&arr[0])? as u32,
-                parse_int_string(&arr[1])? as u32,
-                parse_int_string(&arr[2])? as u32,
-                parse_int_string(&arr[3])? as u32,
-                parse_int_string(&arr[4])? as u32,
-                parse_int_string(&arr[5])? as u32,
-                parse_int_string(&arr[6])? as u32,
-                parse_int_string(&arr[7])? as u32,
+                parse_u32_string(&arr[0])?,
+                parse_u32_string(&arr[1])?,
+                parse_u32_string(&arr[2])?,
+                parse_u32_string(&arr[3])?,
+                parse_u32_string(&arr[4])?,
+                parse_u32_string(&arr[5])?,
+                parse_u32_string(&arr[6])?,
+                parse_u32_string(&arr[7])?,
             ])
         };
         let qhash_from_u64_arr = |arr: [u64; 4]| -> QHashOut<F> {
@@ -1668,14 +1674,14 @@ impl WasmRpcServer {
             let arr: [String; 8] = serde_json::from_str(json)
                 .map_err(|e| JsError::new(&format!("parse u32x8: {}", e)))?;
             Ok([
-                parse_int_string(&arr[0])? as u32,
-                parse_int_string(&arr[1])? as u32,
-                parse_int_string(&arr[2])? as u32,
-                parse_int_string(&arr[3])? as u32,
-                parse_int_string(&arr[4])? as u32,
-                parse_int_string(&arr[5])? as u32,
-                parse_int_string(&arr[6])? as u32,
-                parse_int_string(&arr[7])? as u32,
+                parse_u32_string(&arr[0])?,
+                parse_u32_string(&arr[1])?,
+                parse_u32_string(&arr[2])?,
+                parse_u32_string(&arr[3])?,
+                parse_u32_string(&arr[4])?,
+                parse_u32_string(&arr[5])?,
+                parse_u32_string(&arr[6])?,
+                parse_u32_string(&arr[7])?,
             ])
         };
 
@@ -1877,14 +1883,14 @@ impl WasmRpcServer {
             let arr: [String; 8] = serde_json::from_str(json)
                 .map_err(|e| JsError::new(&format!("parse u32x8: {}", e)))?;
             Ok([
-                parse_int_string(&arr[0])? as u32,
-                parse_int_string(&arr[1])? as u32,
-                parse_int_string(&arr[2])? as u32,
-                parse_int_string(&arr[3])? as u32,
-                parse_int_string(&arr[4])? as u32,
-                parse_int_string(&arr[5])? as u32,
-                parse_int_string(&arr[6])? as u32,
-                parse_int_string(&arr[7])? as u32,
+                parse_u32_string(&arr[0])?,
+                parse_u32_string(&arr[1])?,
+                parse_u32_string(&arr[2])?,
+                parse_u32_string(&arr[3])?,
+                parse_u32_string(&arr[4])?,
+                parse_u32_string(&arr[5])?,
+                parse_u32_string(&arr[6])?,
+                parse_u32_string(&arr[7])?,
             ])
         };
 
@@ -3542,7 +3548,24 @@ impl WasmRpcServer {
 
 #[cfg(test)]
 mod tests {
-    use super::parse_fixed_hex;
+    use super::{parse_fixed_hex, parse_int_string, parse_u32_string};
+
+    #[test]
+    fn int_string_accepts_psy_json_bigint_prefix() {
+        assert_eq!(parse_int_string("n:18446744073709551615").unwrap(), u64::MAX);
+        assert_eq!(parse_int_string("42").unwrap(), 42);
+    }
+
+    #[test]
+    fn u32_string_rejects_narrowing_overflow() {
+        assert_eq!(parse_u32_string("n:4294967295").unwrap(), u32::MAX);
+        assert!(parse_u32_string("n:4294967296").is_err());
+    }
+
+    #[test]
+    fn int_string_rejects_invalid_values() {
+        assert!(parse_int_string("n:not-a-number").is_err());
+    }
 
     #[test]
     fn fixed_hex_accepts_optional_prefix_and_mixed_case() {
