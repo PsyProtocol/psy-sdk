@@ -66,7 +66,8 @@ fn now_ms() -> u64 {
 }
 
 fn parse_int_string(value: &str) -> Result<u64, JsError> {
-    value
+    let normalized = value.strip_prefix("n:").unwrap_or(value);
+    normalized
         .parse::<u64>()
         .map_err(|e| JsError::new(&e.to_string()))
 }
@@ -379,6 +380,7 @@ impl WasmConstants {
             "ups_circuit_whitelist_tree_height": psy_config::network_constants::UPS_CIRCUIT_WHITELIST_TREE_HEIGHT,
             "realm_user_tree_height": psy_config::network_constants::REALM_USER_TREE_HEIGHT,
             "max_contract_state_tree_height": psy_config::network_constants::MAX_CONTRACT_STATE_TREE_HEIGHT,
+            "token_contract_state_tree_height": psy_config::network_constants::TOKEN_CONTRACT_STATE_TREE_HEIGHT,
             "token_contract_id": psy_config::network_constants::TOKEN_CONTRACT_ID,
             "users_per_realm": psy_config::network_constants::USERS_PER_REALM,
             "default_user_state_tree_root_u64": psy_config::network_constants::DEFAULT_USER_STATE_TREE_ROOT_U64
@@ -855,7 +857,7 @@ impl WasmRpcServer {
                         .token_contract_id
                         .parse()
                         .map_err(|e: std::num::ParseIntError| {
-                            JsError::new(&format!("invalid private claim token_contract_id: {}", e))
+                            JsError::new(&format!("invalid token_contract_id: {}", e))
                         })?;
                     let contract_id: u64 = contract_id
                         .parse()
@@ -868,9 +870,9 @@ impl WasmRpcServer {
                         user_tree_root,
                         checkpoint_id,
                         note_root_slot,
+                        token_contract_id,
                         random0,
                         random1,
-                        token_contract_id,
                         note_proof_fingerprint: proof_fingerprint,
                         note_proof: proof.clone(),
                         note_verifier_data: verifier_data.clone().into(),
@@ -884,12 +886,10 @@ impl WasmRpcServer {
                             JsError::new(&format!("add_external_proof error: {}", e))
                         })?;
                     console_log!("[note-claim-diag] add_external_proof OK");
-                    let call = claim
-                        .to_contract_call_args(contract_id, &proof_ref)
-                        .map_err(|e| {
-                            console_log!("[note-claim-diag] FAIL build private claim call: {}", e);
-                            JsError::new(&format!("build private claim call error: {}", e))
-                        })?;
+                    let call = claim.to_contract_call_args(contract_id, &proof_ref).map_err(|e| {
+                        console_log!("[note-claim-diag] FAIL to_contract_call_args: {}", e);
+                        JsError::new(&format!("to_contract_call_args error: {}", e))
+                    })?;
                     builder.trace_call(call.clone()).await.map_err(|e| {
                         console_log!("[note-claim-diag] FAIL trace_call: {}", e);
                         JsError::new(&format!("trace private claim call error: {}", e))
@@ -2128,7 +2128,7 @@ impl WasmRpcServer {
         use base64::Engine;
         use plonky2::field::types::{Field, PrimeField64};
         use psy_config::network_constants::{
-            GLOBAL_CONTRACT_TREE_HEIGHT, GLOBAL_USER_TREE_HEIGHT, MAX_CONTRACT_STATE_TREE_HEIGHT,
+            GLOBAL_CONTRACT_TREE_HEIGHT, GLOBAL_USER_TREE_HEIGHT, TOKEN_CONTRACT_STATE_TREE_HEIGHT,
         };
         use psy_crypto::hash::merkle::core::MerkleProofCore;
         use psy_crypto::hash::traits::{
@@ -2192,10 +2192,10 @@ impl WasmRpcServer {
         let highest_note_path_slot = note_root_slot_val
             .checked_add(NOTE_TREE_HEIGHT as u64)
             .ok_or_else(|| JsError::new("note_root_slot path range overflows u64"))?;
-        if highest_note_path_slot >= 1u64 << MAX_CONTRACT_STATE_TREE_HEIGHT {
+        if highest_note_path_slot >= 1u64 << TOKEN_CONTRACT_STATE_TREE_HEIGHT {
             return Err(JsError::new(&format!(
                 "note_root_slot={} with {} path levels exceeds {}-level contract-state tree",
-                note_root_slot_val, NOTE_TREE_HEIGHT, MAX_CONTRACT_STATE_TREE_HEIGHT,
+                note_root_slot_val, NOTE_TREE_HEIGHT, TOKEN_CONTRACT_STATE_TREE_HEIGHT,
             )));
         }
 
@@ -2278,7 +2278,7 @@ impl WasmRpcServer {
                 checkpoint_before,
                 sender_user_id,
                 contract_id_val as u32,
-                MAX_CONTRACT_STATE_TREE_HEIGHT as u8,
+                TOKEN_CONTRACT_STATE_TREE_HEIGHT,
                 note_count_slot,
             )
             .await
@@ -2289,7 +2289,7 @@ impl WasmRpcServer {
             checkpoint_before,
             &note_count_proof,
             note_count_slot,
-            MAX_CONTRACT_STATE_TREE_HEIGHT as usize,
+            TOKEN_CONTRACT_STATE_TREE_HEIGHT as usize,
             None,
         )
         .map_err(|e| JsError::new(&e))?;
@@ -2311,7 +2311,7 @@ impl WasmRpcServer {
                     checkpoint_before,
                     sender_user_id,
                     contract_id_val as u32,
-                    MAX_CONTRACT_STATE_TREE_HEIGHT as u8,
+                    TOKEN_CONTRACT_STATE_TREE_HEIGHT,
                     slot,
                 )
                 .await
@@ -2321,7 +2321,7 @@ impl WasmRpcServer {
                 checkpoint_before,
                 &proof,
                 slot,
-                MAX_CONTRACT_STATE_TREE_HEIGHT as usize,
+                TOKEN_CONTRACT_STATE_TREE_HEIGHT as usize,
                 Some(note_count_proof.root),
             )
             .map_err(|e| JsError::new(&e))?;
@@ -2430,7 +2430,7 @@ impl WasmRpcServer {
                 checkpoint_after,
                 sender_user_id,
                 contract_id_val as u32,
-                MAX_CONTRACT_STATE_TREE_HEIGHT as u8,
+                TOKEN_CONTRACT_STATE_TREE_HEIGHT,
                 note_root_slot_val,
             )
             .await
@@ -2465,7 +2465,7 @@ impl WasmRpcServer {
             note_root_slot: note_root_slot_val,
             note_index,
             note_tree_height: NOTE_TREE_HEIGHT,
-            contract_state_tree_height: MAX_CONTRACT_STATE_TREE_HEIGHT as usize,
+            contract_state_tree_height: TOKEN_CONTRACT_STATE_TREE_HEIGHT as usize,
             contract_tree_height: GLOBAL_CONTRACT_TREE_HEIGHT as usize,
             user_tree_height: GLOBAL_USER_TREE_HEIGHT as usize,
             membership_root: expected_note_root,

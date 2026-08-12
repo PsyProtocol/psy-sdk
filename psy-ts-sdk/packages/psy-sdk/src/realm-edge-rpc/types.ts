@@ -105,28 +105,24 @@ export interface IRealmEdgeRpcProvider {
         checkpointId: Felt,
         userId: Felt,
         contractId: Felt,
-        height: number,
         leafId: Felt
     ): Promise<QHashOut>;
     getUserContractStateTreeLeafHashF(
         checkpointId: Felt,
         userId: Felt,
         contractId: Felt,
-        height: number,
         leafId: Felt
     ): Promise<QHashOut>;
     getSlotValue(
         checkpointId: Felt,
         userId: Felt,
         contractId: Felt,
-        height: number,
         slot: Felt
     ): Promise<Felt>;
     getSlotValues(
         checkpointId: Felt,
         userId: Felt,
         contractId: Felt,
-        height: number,
         slots: Felt[]
     ): Promise<Felt[]>;
 
@@ -135,14 +131,12 @@ export interface IRealmEdgeRpcProvider {
         checkpointId: Felt,
         userId: Felt,
         contractId: Felt,
-        height: number,
         leafId: Felt
     ): Promise<MerkleProofCore<QHashOut>>;
     getUserContractStateTreeMerkleProofF(
         checkpointId: Felt,
         userId: Felt,
         contractId: Felt,
-        height: number,
         leafId: Felt
     ): Promise<MerkleProofCore<QHashOut>>;
 
