@@ -64,6 +64,7 @@ export const wasmrpcserver_prove_endcap_job_from_output_jsons_json: (a: number, 
 export const wasmrpcserver_prove_external_proof_job_json: (a: number, b: number, c: number, d: number) => any;
 export const wasmrpcserver_prove_private_note_inclusion_json: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number, l: number, m: number, n: number, o: number, p: number, q: number, r: number, s: number) => any;
 export const wasmrpcserver_prove_trace_step_json: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number) => any;
+export const wasmrpcserver_prove_tx_trace_json: (a: number, b: number, c: number, d: number, e: number) => any;
 export const wasmrpcserver_prove_ups_start_job_json: (a: number, b: number, c: number, d: number, e: number) => any;
 export const wasmrpcserver_prove_ups_start_json: (a: number, b: number, c: number, d: number, e: number) => any;
 export const wasmrpcserver_prove_zksign_job_json: (a: number, b: number, c: number, d: number, e: number) => any;

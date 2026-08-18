@@ -34,7 +34,6 @@ const mockLeafCheckpointIdNum = 2;
 const mockLeafCheckpointIdBigInt = 2n;
 const mockContractIdNum = 3;
 const mockContractIdBigInt = 3n;
-const mockHeight = 4; // Typically number
 const mockLeafIdNum = 5;
 const mockLeafIdBigInt = 5n;
 const mockRootLevel = 0; // Typically number, levels in a tree

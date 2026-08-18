@@ -155,6 +155,13 @@ export class PsyWasmWebProverProvider implements IPsyUserProverProvider {
         return PsyJSON.parse(result) as GeneratedTxTraceJson;
     }
 
+    async proveTxTrace(pkHash: string, trace: string | GeneratedTxTraceJson): Promise<string> {
+        const envelope = typeof trace === "string" ? trace : PsyJSON.stringify(trace);
+        return PsyWasmWebProverProvider.runWasmServerCall((server) =>
+            server.prove_tx_trace_json(pkHash, envelope)
+        );
+    }
+
     async batchClaim(pkHash: string, claims: ClaimBatchItem[]): Promise<string> {
         const now = new Date().getTime();
         const json = PsyJSON.stringify(claims);

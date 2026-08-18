@@ -1219,6 +1219,26 @@ impl WasmRpcServer {
             .map_err(|e| JsError::new(&format!("Error serializing batch claim tx trace: {}", e)))
     }
 
+    /// Prove and submit an already-generated transaction trace envelope.
+    /// This is the matching submit half of `generate_tx_trace_json` and avoids
+    /// rebuilding a potentially different trace after external authorization.
+    #[wasm_bindgen]
+    pub async fn prove_tx_trace_json(
+        &mut self,
+        pk_hash: &str,
+        envelope_json: &str,
+    ) -> Result<String, JsError> {
+        let pk_hash = QHashOut::<F>::from_str(pk_hash)
+            .map_err(|e| JsError::new(&format!("Parse public key hash error: {}", e)))?;
+        let (_envelope, trace) = parse_tx_trace_envelope(envelope_json)?;
+        let tx_hash = self
+            .wallet_session
+            .prove_tx_trace(pk_hash, &trace)
+            .await
+            .map_err(|e| JsError::new(&format!("Error proving tx trace: {}", e)))?;
+        Ok(tx_hash.to_string())
+    }
+
     #[wasm_bindgen]
     pub async fn batch_claim_json(
         &mut self,

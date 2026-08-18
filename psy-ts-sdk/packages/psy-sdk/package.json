@@ -78,7 +78,7 @@
     "prepare:wasm": "cpx ../../../psy-genesis/config.json src/config && pnpm run clean && pnpm run encode:wasm",
     "build": "NODE_OPTIONS='--max-old-space-size=8192' pnpm run prepare:wasm && NODE_OPTIONS='--max-old-space-size=8192' pnpm run compile",
     "clean": "rimraf dist",
-    "compile": "rollup -c",
+    "compile": "tsc --noEmit && rollup -c",
     "lint": "eslint 'src/**/*.{ts,tsx}' --max-warnings 100",
     "lint:fix": "eslint 'src/**/*.{ts,tsx}' --fix",
     "type-check": "pnpm run prepare:wasm && tsc --noEmit",

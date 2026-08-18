@@ -218,6 +218,12 @@ export class WasmRpcServer {
      */
     prove_private_note_inclusion_json(pk_hash: string, owner_json: string, amount: string, note_secret_json: string, nullifier_secret_json: string, contract_id: string, note_root_slot: string, checkpoint_id: string, end_user_leaf_hash: string): Promise<string>;
     prove_trace_step_json(pk_hash: string, envelope_json: string, state_blob?: Uint8Array | null, proofs?: Uint8Array[] | null): Promise<any>;
+    /**
+     * Prove and submit an already-generated transaction trace envelope.
+     * This is the matching submit half of `generate_tx_trace_json` and avoids
+     * rebuilding a potentially different trace after external authorization.
+     */
+    prove_tx_trace_json(pk_hash: string, envelope_json: string): Promise<string>;
     prove_ups_start_job_json(pk_hash: string, envelope_json: string): Promise<string>;
     prove_ups_start_json(pk_hash: string, envelope_json: string): Promise<any>;
     prove_zksign_job_json(pk_hash: string, envelope_json: string): Promise<string>;
@@ -321,6 +327,7 @@ export interface InitOutput {
     readonly wasmrpcserver_prove_external_proof_job_json: (a: number, b: number, c: number, d: number) => any;
     readonly wasmrpcserver_prove_private_note_inclusion_json: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number, l: number, m: number, n: number, o: number, p: number, q: number, r: number, s: number) => any;
     readonly wasmrpcserver_prove_trace_step_json: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number) => any;
+    readonly wasmrpcserver_prove_tx_trace_json: (a: number, b: number, c: number, d: number, e: number) => any;
     readonly wasmrpcserver_prove_ups_start_job_json: (a: number, b: number, c: number, d: number, e: number) => any;
     readonly wasmrpcserver_prove_ups_start_json: (a: number, b: number, c: number, d: number, e: number) => any;
     readonly wasmrpcserver_prove_zksign_job_json: (a: number, b: number, c: number, d: number, e: number) => any;
