@@ -58,10 +58,15 @@ export interface ModeAResult {
 
 /** Pull finalization.submit_end_cap_input.core.state_transition.end_user_leaf_hash
  *  out of a GeneratedTxTraceJson envelope. Returns '' when absent (older wasm
- *  builds without the field). */
+ *  builds without the field) or when the payload is not the json encoding —
+ *  the wasm also accepts a bincode-base64 payload, which JSON.parse would
+ *  throw on; returning '' there keeps the two paths consistent instead of
+ *  surfacing a spurious parse error. */
 function extractEndUserLeafHash(trace: GeneratedTxTrace): string {
   try {
-    const payload = (trace as { trace?: { payload?: string } }).trace?.payload
+    const envelope = (trace as { trace?: { encoding?: string; payload?: string } }).trace
+    if (envelope?.encoding !== 'json') return ''
+    const payload = envelope.payload
     if (typeof payload !== 'string' || payload === '') return ''
     const parsed = JSON.parse(payload) as {
       finalization?: {
