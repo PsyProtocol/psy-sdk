@@ -49,6 +49,32 @@ export interface ModeAResult {
   /** The compressed secp256k1 pubkey recovered from the personal_sign signature
    *  (0x-hex, 33 bytes). */
   recoveredPubkey: string
+  /** The submitted tx's end-user-leaf hash (hex QHashOut), extracted from the
+   *  generated trace. prove_private_note_inclusion_json's 9th param and
+   *  wait_for_endcap_inclusion key on THIS value — the txHash proveTxTrace
+   *  returns is a different hash, so private-transfer delivery must use this. */
+  endUserLeafHash?: string
+}
+
+/** Pull finalization.submit_end_cap_input.core.state_transition.end_user_leaf_hash
+ *  out of a GeneratedTxTraceJson envelope. Returns '' when absent (older wasm
+ *  builds without the field). */
+function extractEndUserLeafHash(trace: GeneratedTxTrace): string {
+  try {
+    const payload = (trace as { trace?: { payload?: string } }).trace?.payload
+    if (typeof payload !== 'string' || payload === '') return ''
+    const parsed = JSON.parse(payload) as {
+      finalization?: {
+        submit_end_cap_input?: {
+          core?: { state_transition?: { end_user_leaf_hash?: unknown } }
+        }
+      }
+    }
+    const v = parsed.finalization?.submit_end_cap_input?.core?.state_transition?.end_user_leaf_hash
+    return typeof v === 'string' ? v : ''
+  } catch {
+    return ''
+  }
 }
 
 export class ModeASubmitter {
@@ -143,6 +169,7 @@ export class ModeASubmitter {
     return {
       txHash: typeof txHash === 'string' ? txHash : String(txHash),
       recoveredPubkey: '0x' + recoverCompressedPubkeyPersonalSign(sigHash, sig65),
+      endUserLeafHash: extractEndUserLeafHash(trace),
     }
   }
 
@@ -166,6 +193,7 @@ export class ModeASubmitter {
     return {
       txHash: typeof txHash === 'string' ? txHash : String(txHash),
       recoveredPubkey: '0x' + recoverCompressedPubkeyPersonalSign(sigHash, sig65),
+      endUserLeafHash: extractEndUserLeafHash(trace),
     }
   }
 
