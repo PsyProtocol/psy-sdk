@@ -46,8 +46,8 @@ async function basicUsageDynamicExample() {
     // Direct RPC call test: getUserContractStateTreeLeafHash
     try {
         const realmRpc = provider.realmEdgeRpcProvider.getRpcProviderByUserId(userId);
-        console.log(`   🔍 Direct call: getUserContractStateTreeLeafHash(${checkpointId}, ${userId}, ${contractId}, 20, 0)`);
-        const leafHash = await realmRpc.getUserContractStateTreeLeafHash(checkpointId, userId, contractId, 20, 0);
+        console.log(`   🔍 Direct call: getUserContractStateTreeLeafHash(${checkpointId}, ${userId}, ${contractId}, 0)`);
+        const leafHash = await realmRpc.getUserContractStateTreeLeafHash(checkpointId, userId, contractId, 0);
         console.log(`   ✅ Direct leafHash result:`, leafHash);
     } catch (e: any) {
         console.error(`   ❌ Direct getUserContractStateTreeLeafHash failed:`, e?.message || e);

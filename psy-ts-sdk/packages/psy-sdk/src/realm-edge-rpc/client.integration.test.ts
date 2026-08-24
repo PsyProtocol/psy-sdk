@@ -34,7 +34,6 @@ const mockLeafCheckpointIdNum = 2;
 const mockLeafCheckpointIdBigInt = 2n;
 const mockContractIdNum = 3;
 const mockContractIdBigInt = 3n;
-const mockHeight = 4; // Typically number
 const mockLeafIdNum = 5;
 const mockLeafIdBigInt = 5n;
 const mockRootLevel = 0; // Typically number, levels in a tree
@@ -308,7 +307,6 @@ describe("RealmEdgeRpcProvider Integration Tests", () => {
             mockCheckpointIdNum,
             mockUserIdNum,
             mockContractIdNum,
-            mockHeight,
             mockLeafIdNum
         );
         console.log("getUserContractStateTreeLeafHash result:", result);
@@ -320,7 +318,6 @@ describe("RealmEdgeRpcProvider Integration Tests", () => {
             mockCheckpointIdBigInt,
             mockUserIdBigInt,
             mockContractIdBigInt,
-            mockHeight,
             mockLeafIdBigInt
         );
         console.log("getUserContractStateTreeLeafHashF result:", result);
@@ -332,7 +329,6 @@ describe("RealmEdgeRpcProvider Integration Tests", () => {
             mockCheckpointIdNum,
             mockUserIdNum,
             mockContractIdNum,
-            mockHeight,
             mockLeafIdNum
         );
         console.log("getUserContractStateTreeMerkleProof result:", result);
@@ -344,7 +340,6 @@ describe("RealmEdgeRpcProvider Integration Tests", () => {
             mockCheckpointIdBigInt,
             mockUserIdBigInt,
             mockContractIdBigInt,
-            mockHeight,
             mockLeafIdBigInt
         );
         console.log("getUserContractStateTreeMerkleProofF result:", result);
