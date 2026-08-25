@@ -367,7 +367,7 @@ mod tests {
 
         let sender_user_id = 327680;
         let membership_root = QHashOut::<F>::from_values(1, 2, 3, 4);
-        let slot_proof = proof(8_388_609, membership_root, 24);
+        let slot_proof = proof(2_147_483_649, membership_root, 24);
         let contract_proof = proof(0, slot_proof.root, 1);
         let leaf = user_leaf(sender_user_id, contract_proof.root);
         let user_tree_proof = proof(sender_user_id, leaf.qfhash::<PoseidonHasher>(), 20);
@@ -375,7 +375,7 @@ mod tests {
             checkpoint: 142,
             sender_user_id,
             contract_id: 0,
-            note_root_slot: 8_388_609,
+            note_root_slot: 2_147_483_649,
             note_index: 7,
             note_tree_height: 20,
             contract_state_tree_height: 24,
@@ -402,7 +402,7 @@ mod tests {
 
         let sender_user_id = 327680;
         let membership_root = QHashOut::<F>::from_values(1, 2, 3, 4);
-        let slot_proof = proof(8_388_609, membership_root, 24);
+        let slot_proof = proof(2_147_483_649, membership_root, 24);
         let contract_proof = proof(0, slot_proof.root, 1);
         let leaf = user_leaf(sender_user_id, contract_proof.root);
         let user_tree_proof = proof(sender_user_id, leaf.qfhash::<PoseidonHasher>(), 20);
@@ -410,7 +410,7 @@ mod tests {
             checkpoint: 142,
             sender_user_id,
             contract_id: 0,
-            note_root_slot: 8_388_609,
+            note_root_slot: 2_147_483_649,
             note_index: 7 | (1u64 << 48),
             note_tree_height: 20,
             contract_state_tree_height: 24,
@@ -437,7 +437,7 @@ mod tests {
 
         let sender_user_id = 327680;
         let membership_root = QHashOut::<F>::from_values(1, 2, 3, 4);
-        let slot_proof = proof(8_388_609, membership_root, 24);
+        let slot_proof = proof(2_147_483_649, membership_root, 24);
         let contract_proof = proof(0, slot_proof.root, 1);
         let observed_user_state_root = QHashOut::<F>::from_values(21, 22, 23, 24);
         let leaf = user_leaf(sender_user_id, observed_user_state_root);
@@ -446,7 +446,7 @@ mod tests {
             checkpoint: 142,
             sender_user_id,
             contract_id: 0,
-            note_root_slot: 8_388_609,
+            note_root_slot: 2_147_483_649,
             note_index: 7,
             note_tree_height: 20,
             contract_state_tree_height: 24,
