@@ -1,6 +1,6 @@
 import { CoordinatorEdgeRpcProvider } from "./client";
 import { ICoordinatorEdgeRpcProvider } from "./types";
-import { QBCDeployContract, ZKPublicKeyInfo } from "../types";
+import { QBCDeployContractV2, ZKPublicKeyInfo } from "../types";
 
 // Note: These tests are integration tests and require a running Psy Coordinator Edge RPC endpoint.
 // Configure the endpoint URL via the TEST_COORD_EDGE_RPC_URL environment variable.
@@ -30,21 +30,30 @@ const mockZKPublicKeyInfo: ZKPublicKeyInfo = {
     public_key_param: "0xfedcba0987654321",
 };
 
-const mockQBCDeployContract: QBCDeployContract = {
-    deployer: "0x1234567890abcdef",
-    code_definition: {
-        state_tree_height: 1,
-        functions: [
-            {
-                method_id: 1,
-                num_inputs: 1,
-                num_outputs: 1,
-                vm_type: 1,
-                code: [1, 2, 3],
-            },
-        ],
+const mockQBCDeployContract: QBCDeployContractV2 = {
+    deploy_contract: {
+        deployer: "0x1234567890abcdef",
+        code_definition: {
+            state_tree_height: 1,
+            functions: [
+                {
+                    method_id: 1,
+                    num_inputs: 1,
+                    num_outputs: 1,
+                    vm_type: 1,
+                    code: [1, 2, 3],
+                },
+            ],
+        },
+        function_whitelist: ["0x1234567890abcdef"],
+        code_root: "0x1234567890abcdef",
     },
-    function_whitelist: ["0x1234567890abcdef"],
+    layout_protocol_version: 1,
+    state_layout_root: "0x1234567890abcdef",
+    state_layout_field_count: 1n,
+    state_layout_slot_count: 1n,
+    canonical_layout_verifier_fingerprint: "0x1234567890abcdef",
+    canonical_layout_proof: [1],
 };
 
 // --- Assertion Helpers ---

@@ -9,7 +9,7 @@ import {
     GeneratedTxTraceJson,
     IPsyUserProverProvider,
     SimulatedTxJson,
-    QBCDeployContract,
+    QBCDeployContractV2,
     SignData,
     SignType,
     TraceStepProgressJson,
@@ -526,11 +526,16 @@ export class PsyWasmWebProverProvider implements IPsyUserProverProvider {
 
     async getDeployContractCmd(
         deployer: PublicKey,
-        circuitDefs: DPNFunctionCircuitDefinition[]
-    ): Promise<QBCDeployContract> {
+        circuitDefs: DPNFunctionCircuitDefinition[],
+        abi: unknown
+    ): Promise<QBCDeployContractV2> {
+        if (abi == null) {
+            throw new Error("Contract ABI is required to build a layout-aware deploy command");
+        }
         const json = PsyJSON.stringify(circuitDefs);
+        const abiJson = PsyJSON.stringify(abi);
         const resultJson = await PsyWasmWebProverProvider.runWasmServerCall((server) =>
-            server.get_deploy_contract_cmd_json(deployer, json)
+            server.get_layout_aware_deploy_contract_cmd_json(deployer, json, abiJson)
         );
         return PsyJSON.parse(resultJson);
     }

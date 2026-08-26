@@ -3048,6 +3048,27 @@ impl WasmRpcServer {
             .map_err(|e| JsError::new(&format!("Serialize deploy contract cmd error: {}", e)))
     }
 
+    #[wasm_bindgen]
+    pub async fn get_layout_aware_deploy_contract_cmd_json(
+        &self,
+        deployer: &str,
+        circuit_defs_json: &str,
+        abi_json: &str,
+    ) -> Result<String, JsError> {
+        let deployer = QHashOut::<F>::from_str(deployer)
+            .map_err(|e| JsError::new(&format!("Parse deployer error: {}", e)))?;
+        let circuit_defs: Vec<DPNFunctionCircuitDefinition> =
+            serde_json::from_str(circuit_defs_json)
+                .map_err(|e| JsError::new(&format!("Parse circuit defs JSON error: {}", e)))?;
+
+        let cmd = self
+            .wallet_session
+            .get_layout_aware_deploy_contract_cmd_from_json(deployer, circuit_defs, abi_json)
+            .map_err(|e| JsError::new(&format!("Build layout-aware deploy command error: {}", e)))?;
+        serde_json::to_string(&cmd)
+            .map_err(|e| JsError::new(&format!("Serialize layout-aware deploy command error: {}", e)))
+    }
+
     // Test function
     #[wasm_bindgen]
     pub fn ping(&self, message: &str) -> Result<String, JsError> {

@@ -14,6 +14,7 @@ export * from "./GUTAStats";
 export * from "./PMRewardCommitment";
 export * from "./QAddWithdrawalRPCRequest";
 export * from "./QBCDeployContract";
+export * from "./QBCDeployContractV2";
 export * from "./QCheckpointGlobalStateRootsRPCRequest";
 export * from "./QCheckpointLeafDataFRPCRequest";
 export * from "./QCheckpointLeafDataRPCRequest";

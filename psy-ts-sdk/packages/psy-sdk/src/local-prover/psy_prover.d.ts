@@ -135,6 +135,7 @@ export class WasmRpcServer {
     generate_batch_claim_tx_trace_json(pk_hash: string, items_json: string): Promise<string>;
     generate_tx_trace_json(pk_hash: string, call_data_json: string): Promise<string>;
     get_deploy_contract_cmd_json(deployer: string, circuit_defs_json: string): string;
+    get_layout_aware_deploy_contract_cmd_json(deployer: string, circuit_defs_json: string, abi_json: string): Promise<string>;
     get_random_keypair_json(): Promise<string>;
     get_result(id_str: string): Uint8Array;
     get_zk_public_key_json(private_key_str: string): Promise<string>;
@@ -310,6 +311,7 @@ export interface InitOutput {
     readonly wasmrpcserver_generate_batch_claim_tx_trace_json: (a: number, b: number, c: number, d: number, e: number) => any;
     readonly wasmrpcserver_generate_tx_trace_json: (a: number, b: number, c: number, d: number, e: number) => any;
     readonly wasmrpcserver_get_deploy_contract_cmd_json: (a: number, b: number, c: number, d: number, e: number) => [number, number, number, number];
+    readonly wasmrpcserver_get_layout_aware_deploy_contract_cmd_json: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => any;
     readonly wasmrpcserver_get_random_keypair_json: (a: number) => any;
     readonly wasmrpcserver_get_result: (a: number, b: number, c: number) => [number, number, number, number];
     readonly wasmrpcserver_get_zk_public_key_json: (a: number, b: number, c: number) => any;
@@ -345,7 +347,7 @@ export interface InitOutput {
     readonly wasmconstants_register_user_fee: () => bigint;
     readonly wasm_bindgen__convert__closures_____invoke__h447e0f573cfb1039: (a: number, b: number, c: any) => [number, number];
     readonly wasm_bindgen__convert__closures_____invoke__h205d9aeaebc44d62: (a: number, b: number, c: any, d: any) => void;
-    readonly wasm_bindgen__convert__closures_____invoke__hbdaa927f4bad81c2: (a: number, b: number, c: any) => void;
+    readonly wasm_bindgen__convert__closures_____invoke__h18e0802c16bac911: (a: number, b: number, c: any) => void;
     readonly wasm_bindgen__convert__closures_____invoke__hce85efe9a3522159: (a: number, b: number, c: any) => void;
     readonly wasm_bindgen__convert__closures_____invoke__h780b2bd6838c983d: (a: number, b: number) => void;
     readonly memory: WebAssembly.Memory;

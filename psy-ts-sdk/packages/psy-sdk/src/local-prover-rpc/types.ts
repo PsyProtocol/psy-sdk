@@ -1,5 +1,5 @@
 import { Felt, PrivateKey, PublicKey, QHashOut, U8Bytes } from "../core";
-import { QBCDeployContract, ZKPublicKeyInfo, ContractCallArgs, WalletKeyPair, GUTAStats } from "../types";
+import { QBCDeployContractV2, ZKPublicKeyInfo, ContractCallArgs, WalletKeyPair, GUTAStats } from "../types";
 
 // Assertion for DPN function circuits
 interface DPNAssertEqInfoIndexed {
@@ -458,7 +458,7 @@ interface IPsyUserProverProvider {
 
     // Contract deployment
     deployContract(deployer: string, circuitDefs: DPNFunctionCircuitDefinition[]): Promise<string>;
-    getDeployContractCmd(deployer: string, circuitDefs: DPNFunctionCircuitDefinition[]): Promise<QBCDeployContract>;
+    getDeployContractCmd(deployer: string, circuitDefs: DPNFunctionCircuitDefinition[], abi: unknown): Promise<QBCDeployContractV2>;
 
     // Signing and submission
     // getSigHash(networkMagic: bigint): Promise<QHashOut>;
@@ -480,7 +480,7 @@ export type {
     DPNFunctionCircuitDefinition,
     ContractCodeDefinition,
     ContractFunctionCodeDefinition,
-    QBCDeployContract,
+    QBCDeployContractV2,
     Proof,
     ProofWithPublicInputs,
     AltVerifierOnlyCircuitData,

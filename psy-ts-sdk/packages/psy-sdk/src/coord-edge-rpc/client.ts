@@ -6,7 +6,7 @@ import { Provider, ClientConfig, RpcConfig } from "../provider";
 import {
     CheckpointSyncInfo,
     ContractCodeDefinition,
-    QBCDeployContract,
+    QBCDeployContractV2,
     PsyCheckpointGlobalStateRoots,
     PsyCheckpointLeaf,
     PsyCheckpointSyncInfoCompact,
@@ -134,7 +134,7 @@ export class CoordinatorEdgeRpcProvider extends Provider implements ICoordinator
      * @param contract The contract deployment parameters
      * @returns A confirmation message
      */
-    async deployContract(contract: QBCDeployContract, signal?: AbortSignal): Promise<string> {
+    async deployContract(contract: QBCDeployContractV2, signal?: AbortSignal): Promise<string> {
         return this.rpc<string>(CoordinatorEdgeRPCCommand.DeployContract, [contract], "1", "2.0", undefined, signal);
     }
 
@@ -599,7 +599,7 @@ export class MultiCoordinatorRpcProvider implements ICoordinatorEdgeRpcProvider 
     getUserId(publicKey: QHashOut): Promise<number> {
         return this.rpcs.get(this.getCurrentCoordinatorId())!.getUserId(publicKey);
     }
-    deployContract(contract: QBCDeployContract, signal?: AbortSignal): Promise<string> {
+    deployContract(contract: QBCDeployContractV2, signal?: AbortSignal): Promise<string> {
         return this.rpcs.get(this.getCurrentCoordinatorId())!.deployContract(contract, signal);
     }
     getLatestCheckpointId(): Promise<number> {

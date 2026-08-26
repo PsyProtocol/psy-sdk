@@ -47,6 +47,7 @@ export const wasmrpcserver_exec_shield_claim_deposit_json: (a: number, b: number
 export const wasmrpcserver_generate_batch_claim_tx_trace_json: (a: number, b: number, c: number, d: number, e: number) => any;
 export const wasmrpcserver_generate_tx_trace_json: (a: number, b: number, c: number, d: number, e: number) => any;
 export const wasmrpcserver_get_deploy_contract_cmd_json: (a: number, b: number, c: number, d: number, e: number) => [number, number, number, number];
+export const wasmrpcserver_get_layout_aware_deploy_contract_cmd_json: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => any;
 export const wasmrpcserver_get_random_keypair_json: (a: number) => any;
 export const wasmrpcserver_get_result: (a: number, b: number, c: number) => [number, number, number, number];
 export const wasmrpcserver_get_zk_public_key_json: (a: number, b: number, c: number) => any;
@@ -82,7 +83,7 @@ export const wasmpsyconfigbuilder_new: () => number;
 export const wasmconstants_register_user_fee: () => bigint;
 export const wasm_bindgen__convert__closures_____invoke__h447e0f573cfb1039: (a: number, b: number, c: any) => [number, number];
 export const wasm_bindgen__convert__closures_____invoke__h205d9aeaebc44d62: (a: number, b: number, c: any, d: any) => void;
-export const wasm_bindgen__convert__closures_____invoke__hbdaa927f4bad81c2: (a: number, b: number, c: any) => void;
+export const wasm_bindgen__convert__closures_____invoke__h18e0802c16bac911: (a: number, b: number, c: any) => void;
 export const wasm_bindgen__convert__closures_____invoke__hce85efe9a3522159: (a: number, b: number, c: any) => void;
 export const wasm_bindgen__convert__closures_____invoke__h780b2bd6838c983d: (a: number, b: number) => void;
 export const memory: WebAssembly.Memory;

@@ -2,7 +2,7 @@ import { MerkleProofCore, QHashOut, Felt } from "../core";
 import {
     CheckpointSyncInfo,
     ContractCodeDefinition,
-    QBCDeployContract,
+    QBCDeployContractV2,
     PsyCheckpointGlobalStateRoots,
     PsyCheckpointLeaf,
     PsyCheckpointSyncInfoCompact,
@@ -88,7 +88,7 @@ export enum CoordinatorEdgeRPCCommand {
 export interface ICoordinatorEdgeRpcProvider {
     registerUser(pubKey: ZKPublicKeyInfo): Promise<string>;
     getUserId(publicKey: QHashOut): Promise<number>;
-    deployContract(contract: QBCDeployContract, signal?: AbortSignal): Promise<string>;
+    deployContract(contract: QBCDeployContractV2, signal?: AbortSignal): Promise<string>;
     getLatestCheckpointId(): Promise<number>;
     buildBlock(): Promise<string>;
     getCheckpointSyncInfo(checkpointId: Felt): Promise<CheckpointSyncInfo>;
