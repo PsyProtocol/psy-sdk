@@ -119,7 +119,9 @@ class PsyUserWalletProvider implements IPsyUserWalletProvider, IContractProvider
                 "inputs": []
             }
         };
-        return signer.signAndSubmit(publicKey, contractCallData);
+        
+        const trace = await signer.generateTxTrace(publicKey, contractCallData);
+        return signer.proveTxTrace(publicKey, trace);
     }
 
     async callViewFunction(
@@ -151,8 +153,7 @@ class PsyUserWalletProvider implements IPsyUserWalletProvider, IContractProvider
     }
 
     async getLatestCheckpointId(): Promise<Felt> {
-        const latestState = await this.coordinatorEdgeRpcProvider.getLatestBlockState();
-        return latestState.checkpoint_id;
+        return this.coordinatorEdgeRpcProvider.getLatestCheckpointId();
     }
 }
 

@@ -10,14 +10,12 @@ import {
     IPsyUserProverProvider,
     SimulatedTxJson,
     QBCDeployContractV2,
-    SignData,
     SignType,
     TraceStepProgressJson,
     TraceProofConcurrentResult,
     TraceProofJobOutputJson,
     TraceProofJobStepIndices,
     TraceProofScheduleJson,
-    TxMetadata,
     ViewCallData,
     ViewCallResult,
     WalletKeyPair,
@@ -56,6 +54,34 @@ export class PsyWasmWebProverProvider implements IPsyUserProverProvider {
     private static wasmServerPromise: Promise<WasmRpcServer> | null = null;
     private static wasmServerConfigJson: string | null = null;
     private static wasmCallQueue: Promise<void> = Promise.resolve();
+    private static wasmServerGeneration = 0;
+
+    /** Whether a WASM server has finished initializing. */
+    static isWasmServerReady(): boolean {
+        return this.wasmServer !== null;
+    }
+
+    /**
+     * Reset the singleton after all previously queued calls have settled.
+     * Callers must await this before initializing the provider with another
+     * network configuration.
+     */
+    static async resetWasmServer(): Promise<void> {
+        this.wasmServerGeneration += 1;
+        const pendingInitialization = this.wasmServerPromise;
+        const pendingCalls = this.wasmCallQueue;
+
+        const reset = Promise.allSettled([
+            pendingCalls,
+            pendingInitialization ?? Promise.resolve(),
+        ]).then(() => {
+            this.wasmServer = null;
+            this.wasmServerPromise = null;
+            this.wasmServerConfigJson = null;
+        });
+        this.wasmCallQueue = reset.then(() => undefined);
+        await reset;
+    }
 
     constructor(rpcConfigJson: PsyNetworkConfig) {
         const json = PsyJSON.stringify(rpcConfigJson);
@@ -67,10 +93,13 @@ export class PsyWasmWebProverProvider implements IPsyUserProverProvider {
         const json = typeof rpcConfigJson === "string" ? rpcConfigJson : PsyJSON.stringify(rpcConfigJson);
         if (!this.wasmServerPromise) {
             const now = new Date().getTime();
+            const generation = this.wasmServerGeneration;
             initWasmSync();
             this.wasmServerPromise = Promise.resolve(new WasmRpcServer(json)).then((server) => {
                 console.log(`WASM initialized in ${(new Date().getTime() - now) / 1000} seconds`);
-                this.wasmServer = server;
+                if (this.wasmServerGeneration === generation) {
+                    this.wasmServer = server;
+                }
                 return server;
             });
             this.wasmServerConfigJson = json;
@@ -105,53 +134,16 @@ export class PsyWasmWebProverProvider implements IPsyUserProverProvider {
         return this.runWasmServerCall(callback);
     }
 
-    async execContractCall(pkHash: string, callData: ContractCallData): Promise<string> {
+    async generateTxTrace(
+        pkHash: string,
+        input: ContractCallData | ClaimBatchItem[],
+    ): Promise<GeneratedTxTraceJson> {
         const now = new Date().getTime();
-        const json = PsyJSON.stringify(callData);
+        const json = PsyJSON.stringify(input);
         const result = await PsyWasmWebProverProvider.runWasmServerCall((server) =>
-            server.exec_contract_call_json(pkHash, json)
+            server.generate_tx_trace_json(pkHash, json)
         );
-        console.log(`execContractCall in ${(new Date().getTime() - now) / 1000} seconds`);
-        return result;
-    }
-
-    async execContractCallWithTrace(pkHash: string, callData: ContractCallData): Promise<TxMetadata> {
-        const now = new Date().getTime();
-        const json = PsyJSON.stringify(callData);
-        const result = await PsyWasmWebProverProvider.runWasmServerCall((server) =>
-            server.exec_contract_call_with_trace_json(pkHash, json)
-        );
-        console.log(`execContractCallWithTrace in ${(new Date().getTime() - now) / 1000} seconds`);
-        return PsyJSON.parse(result) as TxMetadata;
-    }
-
-    async claimBatch(pkHash: string, claims: ClaimBatchItem[]): Promise<string> {
-        const now = new Date().getTime();
-        const json = PsyJSON.stringify(claims);
-        const result = await PsyWasmWebProverProvider.runWasmServerCall((server) =>
-            server.exec_claim_batch_json(pkHash, json)
-        );
-        console.log(`claimBatch in ${(new Date().getTime() - now) / 1000} seconds`);
-        return result;
-    }
-
-    async claimBatchWithTrace(pkHash: string, claims: ClaimBatchItem[]): Promise<TxMetadata> {
-        const now = new Date().getTime();
-        const json = PsyJSON.stringify(claims);
-        const result = await PsyWasmWebProverProvider.runWasmServerCall((server) =>
-            server.batch_claim_with_trace_json(pkHash, json)
-        );
-        console.log(`claimBatchWithTrace in ${(new Date().getTime() - now) / 1000} seconds`);
-        return PsyJSON.parse(result) as TxMetadata;
-    }
-
-    async generateBatchClaimTxTrace(pkHash: string, claims: ClaimBatchItem[]): Promise<GeneratedTxTraceJson> {
-        const now = new Date().getTime();
-        const json = PsyJSON.stringify(claims);
-        const result = await PsyWasmWebProverProvider.runWasmServerCall((server) =>
-            server.generate_batch_claim_tx_trace_json(pkHash, json)
-        );
-        console.log(`generateBatchClaimTxTrace in ${(new Date().getTime() - now) / 1000} seconds`);
+        console.log(`generateTxTrace in ${(new Date().getTime() - now) / 1000} seconds`);
         return PsyJSON.parse(result) as GeneratedTxTraceJson;
     }
 
@@ -162,14 +154,91 @@ export class PsyWasmWebProverProvider implements IPsyUserProverProvider {
         );
     }
 
-    async batchClaim(pkHash: string, claims: ClaimBatchItem[]): Promise<string> {
-        const now = new Date().getTime();
-        const json = PsyJSON.stringify(claims);
-        const result = await PsyWasmWebProverProvider.runWasmServerCall((server) =>
-            server.batch_claim_json(pkHash, json)
+    async provePrivateNoteInclusion(
+        pkHash: string,
+        ownerJson: string,
+        amount: string,
+        noteSecretJson: string,
+        nullifierSecretJson: string,
+        contractId: string,
+        noteRootSlot: string,
+        checkpointId: string,
+        endUserLeafHash: string,
+    ): Promise<string> {
+        return PsyWasmWebProverProvider.runWasmServerCall((server) =>
+            server.prove_private_note_inclusion_json(
+                pkHash,
+                ownerJson,
+                amount,
+                noteSecretJson,
+                nullifierSecretJson,
+                contractId,
+                noteRootSlot,
+                checkpointId,
+                endUserLeafHash,
+            )
         );
-        console.log(`batchClaim in ${(new Date().getTime() - now) / 1000} seconds`);
-        return result;
+    }
+
+    async proveDepositInclusion(
+        shieldAddressJson: string,
+        nullifierJson: string,
+        noteSecretJson: string,
+        tokenAddressU32x8Json: string,
+        l2TokenContractIdJson: string,
+        amountU32x8Json: string,
+        sourceChainIndex: string,
+        depositIndex: string,
+        depositRootJson: string,
+        depositSiblingsJson: string,
+    ): Promise<string> {
+        return PsyWasmWebProverProvider.runWasmServerCall((server) =>
+            server.prove_deposit_inclusion_json(
+                shieldAddressJson,
+                nullifierJson,
+                noteSecretJson,
+                tokenAddressU32x8Json,
+                l2TokenContractIdJson,
+                amountU32x8Json,
+                sourceChainIndex,
+                depositIndex,
+                depositRootJson,
+                depositSiblingsJson,
+            )
+        );
+    }
+
+    async addExternalProof(
+        pkHash: string,
+        noteProofBincode: Uint8Array,
+        noteProofFingerprintJson?: string | null,
+        noteVerifierDataJson?: string | null,
+    ): Promise<string> {
+        let binary = "";
+        for (const byte of noteProofBincode) binary += String.fromCharCode(byte);
+        const noteProofBincodeBase64 = btoa(binary);
+        return PsyWasmWebProverProvider.runWasmServerCall((server) =>
+            server.add_external_proof_json(
+                pkHash,
+                noteProofBincodeBase64,
+                noteProofFingerprintJson,
+                noteVerifierDataJson,
+            )
+        );
+    }
+
+    async registerSdKeyCircuit(
+        allowedContractIds: BigUint64Array,
+        allowedMethodIds: BigUint64Array,
+        expectedTxCount: bigint,
+    ): Promise<string> {
+        return PsyWasmWebProverProvider.runWasmServerCall((server) =>
+            server.register_sd_key_circuit(
+                allowedContractIds,
+                allowedMethodIds,
+                expectedTxCount,
+            )
+        );
     }
 
     async getClaimRewardsCallArgs(_jobInfos: string): Promise<ContractCallArgs[]> {
@@ -180,50 +249,6 @@ export class PsyWasmWebProverProvider implements IPsyUserProverProvider {
         throw new Error("Method not implemented.");
     }
 
-    // Local proving operations
-    async startSession(pkHash: PublicKey): Promise<string> {
-        return PsyWasmWebProverProvider.runWasmServerCall((server) => server.start_session(pkHash));
-    }
-
-    async proveContractCall(pkHash: PublicKey, contractCallArg: ContractCallArgs): Promise<string> {
-        const now = new Date().getTime();
-        const json = PsyJSON.stringify(contractCallArg);
-        const result = await PsyWasmWebProverProvider.runWasmServerCall((server) =>
-            server.prove_contract_call_json(pkHash, json)
-        );
-        console.log(`proveContractCall in ${(new Date().getTime() - now) / 1000} seconds`);
-        return result;
-    }
-
-    async proveContractCalls(pkHash: PublicKey, contractCallArgs: ContractCallArgs[]): Promise<string> {
-        const now = new Date().getTime();
-        const json = PsyJSON.stringify(contractCallArgs);
-        const result = await PsyWasmWebProverProvider.runWasmServerCall((server) =>
-            server.prove_contract_calls_json(pkHash, json)
-        );
-        console.log(`proveContractCalls in ${(new Date().getTime() - now) / 1000} seconds`);
-        return result;
-    }
-
-    async signAndSubmit(pkHash: PublicKey, signData?: SignData): Promise<string> {
-        const now = new Date().getTime();
-        const signDataJson = signData ? PsyJSON.stringify(signData) : null;
-        const result = await PsyWasmWebProverProvider.runWasmServerCall((server) =>
-            server.sign_and_submit(pkHash, signDataJson)
-        );
-        console.log(`signAndSubmit in ${(new Date().getTime() - now) / 1000} seconds`);
-        return result;
-    }
-
-    async generateTxTrace(pkHash: PublicKey, callData: ContractCallData): Promise<GeneratedTxTraceJson> {
-        const now = new Date().getTime();
-        const json = PsyJSON.stringify(callData);
-        const result = await PsyWasmWebProverProvider.runWasmServerCall((server) =>
-            server.generate_tx_trace_json(pkHash, json)
-        );
-        console.log(`generateTxTrace in ${(new Date().getTime() - now) / 1000} seconds`);
-        return PsyJSON.parse(result) as GeneratedTxTraceJson;
-    }
     async simulateContractCall(pkHash: PublicKey, callData: ContractCallData): Promise<SimulatedTxJson> {
         const now = new Date().getTime();
         const json = PsyJSON.stringify(callData);

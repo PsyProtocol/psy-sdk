@@ -15,6 +15,8 @@ export enum RealmEdgeRPCCommand {
     GetCheckpointLeafData = "psy_get_checkpoint_leaf_data",
     GetCheckpointLeafDataF = "psy_get_checkpoint_leaf_data_f",
     GetLatestBlockState = "psy_get_latest_l2_block_state",
+    GetLatestCheckpointId = "psy_get_latest_checkpoint_id",
+    GetImtLeafIndexForKey = "psy_get_imt_leaf_index_for_key",
     GetBlockState = "psy_get_l2_block_state",
     GetBlockStateF = "psy_get_l2_block_state_f",
     GetUserRegistrationTreeRoot = "psy_get_user_registration_tree_root",
@@ -70,6 +72,15 @@ export interface IRealmEdgeRpcProvider {
 
     // Get block state
     getLatestBlockState(): Promise<PsyBlockState>;
+    getLatestCheckpointId(): Promise<number>;
+    getImtLeafIndexForKey(
+        params: {
+            checkpoint_id: number;
+            user_id: number;
+            contract_id: number;
+            key: string;
+        },
+    ): Promise<number>;
     getBlockState(checkpointId: Felt): Promise<PsyBlockState>;
     getBlockStateF(checkpointId: Felt): Promise<PsyBlockState>;
 

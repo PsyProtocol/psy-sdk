@@ -377,13 +377,54 @@ export enum SignType {
 
 interface IPsyUserProverProvider {
     // Local proving operations
-    execContractCall(pk_hash: string, callData: ContractCallData): Promise<string>;
-    execContractCallWithTrace(pk_hash: string, callData: ContractCallData): Promise<TxMetadata>;
-    startSession(pk_hash: string): Promise<string>;
-    proveContractCall(pk_hash: string, contractCallArg: ContractCallArgs): Promise<string>;
-    proveContractCalls(pk_hash: string, contractCallArgs: ContractCallArgs[]): Promise<string>;
-    signAndSubmit(pk_hash: string, signData?: SignData): Promise<string>;
-    generateTxTrace(pk_hash: string, callData: ContractCallData, localId?: string | null): Promise<GeneratedTxTraceJson>;
+    // execContractCall(pk_hash: string, callData: ContractCallData): Promise<string>;
+    // execContractCallWithTrace(pk_hash: string, callData: ContractCallData): Promise<TxMetadata>;
+    // startSession(pk_hash: string): Promise<string>;
+    // proveContractCall(pk_hash: string, contractCallArg: ContractCallArgs): Promise<string>;
+    // proveContractCalls(pk_hash: string, contractCallArgs: ContractCallArgs[]): Promise<string>;
+    // signAndSubmit(pk_hash: string, signData?: SignData): Promise<string>;
+
+    generateTxTrace(
+        pk_hash: string,
+        input: ContractCallData | ClaimBatchItem[],
+        localId?: string | null,
+    ): Promise<GeneratedTxTraceJson>;
+    proveTxTrace(pkHash: string, trace: string | GeneratedTxTraceJson): Promise<string>;
+    provePrivateNoteInclusion(
+        pk_hash: string,
+        owner_json: string,
+        amount: string,
+        note_secret_json: string,
+        nullifier_secret_json: string,
+        contract_id: string,
+        note_root_slot: string,
+        checkpoint_id: string,
+        end_user_leaf_hash: string,
+    ): Promise<string>;
+    proveDepositInclusion(
+        shield_address_json: string,
+        nullifier_json: string,
+        note_secret_json: string,
+        token_address_u32x8_json: string,
+        l2_token_contract_id_json: string,
+        amount_u32x8_json: string,
+        source_chain_index: string,
+        deposit_index: string,
+        deposit_root_json: string,
+        deposit_siblings_json: string,
+    ): Promise<string>;
+    addExternalProof(
+        pk_hash: string,
+        note_proof_bincode: Uint8Array,
+        note_proof_fingerprint_json?: string | null,
+        note_verifier_data_json?: string | null,
+    ): Promise<string>;
+    registerSdKeyCircuit(
+        allowed_contract_ids: BigUint64Array,
+        allowed_method_ids: BigUint64Array,
+        expected_tx_count: bigint,
+    ): Promise<string>;
+
     simulateContractCall(pk_hash: string, callData: ContractCallData, localId?: string | null): Promise<SimulatedTxJson>;
     callView(pk_hash: string, callData: ViewCallData, localId?: string | null): Promise<ViewCallResult>;
     proveUpsStart(pk_hash: string, envelopeJson: string | GeneratedTxTraceJson): Promise<InitStepProvingJson>;
@@ -434,10 +475,9 @@ interface IPsyUserProverProvider {
         externalFingerprint: string,
         externalProof: Uint8Array,
     ): Promise<any>;
-    generateBatchClaimTxTrace(pk_hash: string, claims: ClaimBatchItem[], localId?: string | null): Promise<GeneratedTxTraceJson>;
-    batchClaim(pk_hash: string, claims: ClaimBatchItem[], localId?: string | null): Promise<string>;
-    claimBatchWithTrace(pk_hash: string, claims: ClaimBatchItem[]): Promise<TxMetadata>;
-    claimBatch(pk_hash: string, claims: ClaimBatchItem[]): Promise<string>;
+    // batchClaim(pk_hash: string, claims: ClaimBatchItem[], localId?: string | null): Promise<string>;
+    // claimBatchWithTrace(pk_hash: string, claims: ClaimBatchItem[]): Promise<TxMetadata>;
+    // claimBatch(pk_hash: string, claims: ClaimBatchItem[]): Promise<string>;
 
     getClaimRewardsCallArgs(jobInfos: string): Promise<ContractCallArgs[]>;
     claimRewards(pk_hash: string, jobInfos: string): Promise<string>;

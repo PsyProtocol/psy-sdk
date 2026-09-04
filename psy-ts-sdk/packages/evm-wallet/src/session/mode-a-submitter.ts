@@ -13,7 +13,7 @@
  *       -> registerExternalEthPersonalUser(evmAddress, challenge, signature)
  *       -> pkHash
  *   Per-tx (exec / claim):
- *     generateTxTrace / generateBatchClaimTxTrace(pkHash, callData/claims)
+ *     generateTxTrace(pkHash, callData | ClaimBatchItem[])
  *       -> GeneratedTxTraceJson.sig_hash
  *       -> personal_sign(sigHash)
  *       -> injectEthPersonalSignature(pkHash, evmAddress, sigHash, signature)
@@ -119,9 +119,12 @@ export class ModeASubmitter {
   }
 
   private generateBatchClaimTxTrace(pkHash: string, claims: ClaimBatchItem[]): Promise<GeneratedTxTrace> {
+    // The SDK has no separate batch-claim entry point: generateTxTrace takes
+    // ClaimBatchItem[] directly and the wasm routes arrays to the claim-batch
+    // branch internally.
     return this.prover.callProver<GeneratedTxTrace>(
-      'generateBatchClaimTxTrace',
-      'generateBatchClaimTxTrace',
+      'generateTxTrace',
+      'generateTxTrace',
       [pkHash, claims],
     )
   }

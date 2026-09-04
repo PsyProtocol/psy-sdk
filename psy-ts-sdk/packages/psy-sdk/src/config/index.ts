@@ -16,16 +16,24 @@ export interface PsyNetworkConfig {
         rpc_url: string[];
     }>;
     prove_proxy_url: string[];
+    faucet_rpc_url?: string[];
     api_services_url?: string[];
+    indexer_graphql_url?: string[];
+    explorer_url?: string[];
+    nostr_relay_url?: string;
+    l1_rpc_urls?: string[];
     bridge_url?: string[];
     native_currency: string;
     native_currency_decimal: number;
     native_currency_name: string;
+    native_currency_symbol?: string;
     fees: {
         register_user_fee: number;
         deploy_contract_fee: number;
         guta_fee: number;
+        da_fee?: number;
     };
+    anvilForkSourceUrlEnv?: string;
     genesis?: PsyGenesisConfig;
     wallet?: PsyWalletConfig;
     whitelist?: PsyWhitelistConfig;

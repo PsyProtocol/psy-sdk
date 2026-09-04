@@ -7,10 +7,10 @@ import {
     TraceStepProgressJson,
     ProvingProofBlobJson,
     ProvingStateBlobJson,
-    TxMetadata,
 } from "../local-prover-rpc";
 import { IPsyTransactionSigner, IPsyTransactionSignerProvider } from "../zksigner";
 import { NetworkId } from "../action";
+import { PsyUserLeaf } from "../types";
 
 interface ICorePsyUserInfo {
     networkId: NetworkId;
@@ -31,18 +31,20 @@ interface IPsyUserWallet {
     getUserInfo(): Promise<IPsyCompleteUserInfo>;
     getBalance(): Promise<bigint>;
     getBalanceString(): Promise<string>;
+    refresh(): Promise<PsyUserLeaf>;
     // getRandomKeypair(): Promise<WalletKeyPair>;
     // registerUser(privateKey: PrivateKey): Promise<PublicKey>;
     // getZKPublicKey(): Promise<PublicKey>;
     // importPrivateKey(privateKey: PrivateKey): Promise<PublicKey>;
     // deployContract(circuitDefs: DPNFunctionCircuitDefinition[]): Promise<string>;
     // getDeployContract(circuitDefs: DPNFunctionCircuitDefinition[]): Promise<QBCDeployContract>;
-    execContractCall(pk_hash: string, contractCallArgs: ContractCallArgs | ContractCallArgs[]): Promise<string>;
-    execContractCallWithTrace(pk_hash: string, contractCallArgs: ContractCallArgs | ContractCallArgs[]): Promise<TxMetadata>;
+    // execContractCall(pk_hash: string, contractCallArgs: ContractCallArgs | ContractCallArgs[]): Promise<string>;
+    // execContractCallWithTrace(pk_hash: string, contractCallArgs: ContractCallArgs | ContractCallArgs[]): Promise<TxMetadata>;
     // Build a savable trace envelope (keyed by `sig_hash`) without proving/submitting, so the
     // wallet can persist it and prove/track it later via the step API.
     generateTxTrace(pk_hash: string, contractCallArgs: ContractCallArgs | ContractCallArgs[]): Promise<GeneratedTxTraceJson>;
     generateBatchClaimTxTrace(pk_hash: string, claims: ClaimBatchItem[]): Promise<GeneratedTxTraceJson>;
+    proveTxTrace(pk_hash: string, envelope: string | GeneratedTxTraceJson): Promise<string>;
     proveTxTraceStep(
         pk_hash: string,
         envelope: string | GeneratedTxTraceJson,

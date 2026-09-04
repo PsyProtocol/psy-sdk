@@ -10,7 +10,6 @@ import {
     TraceStepProgressJson,
     ProvingProofBlobJson,
     ProvingStateBlobJson,
-    TxMetadata,
 } from "../local-prover-rpc";
 import { PsyUserLeaf } from "../types";
 import { psyFelt } from "../utils";
@@ -143,22 +142,6 @@ class PsyUserWallet implements IPsyUserWallet {
     //     return this.prover.getDeployContractCmd(circuitDefs);
     // }
 
-    async execContractCall(pk_hash: string, contractCallArgs: ContractCallArgs | ContractCallArgs[]): Promise<string> {
-        const callData = {
-            contract_calls: Array.isArray(contractCallArgs) ? contractCallArgs : [contractCallArgs],
-            software_defined_call: { "inputs": [] }
-        };
-        return this.signer.signAndSubmit(pk_hash, callData);
-    }
-
-    async execContractCallWithTrace(pk_hash: string, contractCallArgs: ContractCallArgs | ContractCallArgs[]): Promise<TxMetadata> {
-        const callData = {
-            contract_calls: Array.isArray(contractCallArgs) ? contractCallArgs : [contractCallArgs],
-            software_defined_call: { "inputs": [] }
-        };
-        return this.signer.execContractCallWithTrace(pk_hash, callData);
-    }
-
     // Produce a savable trace envelope without proving/submitting. The wallet persists the
     // returned envelope (keyed by `sig_hash`) and later proves/tracks it via the step API.
     async generateTxTrace(pk_hash: string, contractCallArgs: ContractCallArgs | ContractCallArgs[]): Promise<GeneratedTxTraceJson> {
@@ -172,7 +155,11 @@ class PsyUserWallet implements IPsyUserWallet {
     // Batch-claim variant of generateTxTrace: returns the same savable envelope, proven/tracked
     // via the shared step-proving path below.
     async generateBatchClaimTxTrace(pk_hash: string, claims: ClaimBatchItem[]): Promise<GeneratedTxTraceJson> {
-        return this.signer.generateBatchClaimTxTrace(pk_hash, claims);
+        return this.signer.generateTxTrace(pk_hash, claims);
+    }
+
+    async proveTxTrace(pk_hash: string, envelope: string | GeneratedTxTraceJson): Promise<string> {
+        return this.signer.proveTxTrace(pk_hash, envelope);
     }
 
     async proveTxTraceStep(

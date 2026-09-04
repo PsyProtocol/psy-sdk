@@ -21,6 +21,8 @@ export class RealmEdgeRpcProvider extends Provider implements IRealmEdgeRpcProvi
         RealmEdgeRPCCommand.GetCheckpointLeafData,
         RealmEdgeRPCCommand.GetCheckpointLeafDataF,
         RealmEdgeRPCCommand.GetLatestBlockState,
+        RealmEdgeRPCCommand.GetLatestCheckpointId,
+        RealmEdgeRPCCommand.GetImtLeafIndexForKey,
         RealmEdgeRPCCommand.GetBlockState,
         RealmEdgeRPCCommand.GetBlockStateF,
         RealmEdgeRPCCommand.GetUserRegistrationTreeRoot,
@@ -119,6 +121,16 @@ export class RealmEdgeRpcProvider extends Provider implements IRealmEdgeRpcProvi
     async getLatestBlockState(): Promise<PsyBlockState> {
         console.warn("getLatestBlockState");
         return this.rpc(RealmEdgeRPCCommand.GetLatestBlockState, []);
+    }
+
+    async getLatestCheckpointId(): Promise<number> {
+        return this.rpc(RealmEdgeRPCCommand.GetLatestCheckpointId, []);
+    }
+
+    async getImtLeafIndexForKey(
+        params: { checkpoint_id: number; user_id: number; contract_id: number; key: string },
+    ): Promise<number> {
+        return this.rpc(RealmEdgeRPCCommand.GetImtLeafIndexForKey, params);
     }
 
     async getBlockState(checkpointId: Felt): Promise<PsyBlockState> {
@@ -434,6 +446,14 @@ export class MultiRealmRpcProvider implements IRealmEdgeRpcProvider {
     getLatestBlockState(): Promise<PsyBlockState> {
         console.warn("getLatestBlockState");
         return this.rpcs.get(this.getRealmId(this.currentUserId))!.getLatestBlockState();
+    }
+    getLatestCheckpointId(): Promise<number> {
+        return this.rpcs.get(this.getRealmId(this.currentUserId))!.getLatestCheckpointId();
+    }
+    getImtLeafIndexForKey(
+        params: { checkpoint_id: number; user_id: number; contract_id: number; key: string },
+    ): Promise<number> {
+        return this.rpcs.get(this.getRealmId(params.user_id))!.getImtLeafIndexForKey(params);
     }
     getBlockState(checkpointId: Felt): Promise<PsyBlockState> {
         return this.rpcs.get(this.getRealmId(this.currentUserId))!.getBlockState(checkpointId);

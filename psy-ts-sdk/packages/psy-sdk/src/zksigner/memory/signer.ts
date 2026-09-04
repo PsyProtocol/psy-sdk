@@ -1,5 +1,5 @@
 import { getPsyNetworkMagicForNetworkId, NetworkId } from "../../action";
-import { ClaimBatchItem, ContractCallArgs, ContractCallData, DPNFunctionCircuitDefinition, GeneratedTxTraceJson, IPsyUserProverProvider, ProvingProofBlobJson, ProvingStateBlobJson, SignType, TraceProofConcurrentResult, TraceStepProgressJson, TxMetadata } from "../../local-prover-rpc";
+import { ClaimBatchItem, ContractCallArgs, ContractCallData, DPNFunctionCircuitDefinition, GeneratedTxTraceJson, IPsyUserProverProvider, ProvingProofBlobJson, ProvingStateBlobJson, SignType, TraceProofConcurrentResult, TraceStepProgressJson } from "../../local-prover-rpc";
 import { IPsyTransactionSigner, TPsyTransactionSignerAbility } from "../types";
 import { PsyJSON } from "../../utils/json";
 
@@ -43,23 +43,16 @@ class PsyMemoryTransactionSigner implements IPsyTransactionSigner {
         return Promise.resolve(this.fingerprint);
     }
 
-    async signAndSubmit(pk_hash: string, callData: ContractCallData): Promise<string> {
-        return this.prover.execContractCall(pk_hash, callData);
+    async generateTxTrace(
+        pk_hash: string,
+        input: ContractCallData | ClaimBatchItem[],
+    ): Promise<GeneratedTxTraceJson> {
+        return this.prover.generateTxTrace(pk_hash, input);
     }
 
-    async execContractCallWithTrace(pk_hash: string, callData: ContractCallData): Promise<TxMetadata> {
-        return this.prover.execContractCallWithTrace(pk_hash, callData);
+    async proveTxTrace(pk_hash: string, envelope: string | GeneratedTxTraceJson): Promise<string> {
+        return this.prover.proveTxTrace(pk_hash, envelope);
     }
-
-    async generateTxTrace(pk_hash: string, callData: ContractCallData): Promise<GeneratedTxTraceJson> {
-        return this.prover.generateTxTrace(pk_hash, callData);
-    }
-
-    async generateBatchClaimTxTrace(pk_hash: string, claims: ClaimBatchItem[]): Promise<GeneratedTxTraceJson> {
-        return this.prover.generateBatchClaimTxTrace(pk_hash, claims);
-    }
-
-
 
     async deployContract(pk_hash: string, circuitDefs: DPNFunctionCircuitDefinition[]): Promise<string> {
         return this.prover.deployContract(pk_hash, circuitDefs);
