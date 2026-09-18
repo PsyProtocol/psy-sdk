@@ -83,7 +83,7 @@ export const wasmpsyconfigbuilder_new: () => number;
 export const wasmconstants_register_user_fee: () => bigint;
 export const wasm_bindgen__convert__closures_____invoke__h447e0f573cfb1039: (a: number, b: number, c: any) => [number, number];
 export const wasm_bindgen__convert__closures_____invoke__h205d9aeaebc44d62: (a: number, b: number, c: any, d: any) => void;
-export const wasm_bindgen__convert__closures_____invoke__h18e0802c16bac911: (a: number, b: number, c: any) => void;
+export const wasm_bindgen__convert__closures_____invoke__h65d6118466d0195d: (a: number, b: number, c: any) => void;
 export const wasm_bindgen__convert__closures_____invoke__hce85efe9a3522159: (a: number, b: number, c: any) => void;
 export const wasm_bindgen__convert__closures_____invoke__h780b2bd6838c983d: (a: number, b: number) => void;
 export const memory: WebAssembly.Memory;

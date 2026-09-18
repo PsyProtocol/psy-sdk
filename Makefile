@@ -10,6 +10,7 @@ build:
 # WASM 的 magic 来自编译期选中的阶段。localhost 与 testnet 同 magic，
 # 所以这里出的包两个阶段通用；mainnet 需要单独出包。
 PSY_NETWORK ?= testnet
+export PSY_NETWORK
 
 wasm-build:
 	@cd psy-rust-sdk && PSY_NETWORK=$(PSY_NETWORK) wasm-pack build --target web --out-dir ../psy-ts-sdk/packages/psy-sdk/src/local-web-prover --out-name psy_prover --no-pack --release
