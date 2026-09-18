@@ -72,7 +72,7 @@
     ".compiler-artifact.json"
   ],
   "scripts": {
-    "build:wasm": "node --import 'data:text/javascript,import { register } from \"node:module\"; import { pathToFileURL } from \"node:url\"; register(\"ts-node/esm\", pathToFileURL(\"./\"));' src/local-web-prover/build-wasm-binary.ts",
+    "build:wasm": "PSY_NETWORK=${PSY_NETWORK:-testnet} node --import 'data:text/javascript,import { register } from \"node:module\"; import { pathToFileURL } from \"node:url\"; register(\"ts-node/esm\", pathToFileURL(\"./\"));' src/local-web-prover/build-wasm-binary.ts",
     "build:wasm-compiler": "node --import 'data:text/javascript,import { register } from \"node:module\"; import { pathToFileURL } from \"node:url\"; register(\"ts-node/esm\", pathToFileURL(\"./\"));' src/local-web-compiler/build-wasm-binary.ts",
     "encode:wasm": "pnpm run build:wasm && pnpm run build:wasm-compiler",
     "prepare:wasm": "cpx ../../../psy-genesis/config.json src/config && pnpm run clean && pnpm run encode:wasm",
