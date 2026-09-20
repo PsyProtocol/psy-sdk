@@ -145,7 +145,7 @@ const signer = Signer.fromPublicKey(publicKey, provider);
 const contract = new ${firstContract}(userId, contractId, signer);
 
 // Now you can call state-changing functions
-await contract.simple_mint(1000n);
+await contract.mint(1000n);
 \`\`\`
 `;
     }

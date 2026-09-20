@@ -82,47 +82,14 @@ async function basicUsageExample() {
         console.error(`   ❌ Error accessing array:`, error instanceof Error ? error.message : String(error));
     }
 
-    // Step 6: Execute a function (signer required)
-    console.log("6️⃣ Executing Contract Function...");
+    // Step 6: State-changing functions (signer required)
+    console.log("6️⃣ State-Changing Functions...");
     try {
-        const mintBeforeAmount = await contract.balance;
-        console.log(`   ✅ Minting ${mintBeforeAmount} tokens before minting...`);
-        const mintAmounts = 10000000000000n;
-
-        await contract.simple_mint(mintAmounts);
-        console.log(`   ✅ Successfully mint 1000000000 tokens to each recipient\n`);
-
-        // Wait for balance to increase
-        let attempts = 0;
-        const currentBalance = BigInt(await contract.balance);
-        // guta fee and da fee
-        const checkAmounts = currentBalance + mintAmounts - 5000000000000n - 1000n * 100n;
-        let mintAfterAmount = BigInt(await contract.balance);
-
-        while (mintAfterAmount < checkAmounts && attempts < 100) {
-            // ✨ NEW API: Automatically update to the latest checkpoint
-            try {
-                await contract.updateToLatest();
-                console.log(`   📍 Updated to checkpoint: ${contract.checkpointId}`);
-            } catch (updateError) {
-                // Fallback: manual update if updateToLatest fails
-                const latestCheckpoint = (await provider.coordinatorEdgeRpcProvider.getLatestBlockState()).checkpoint_id;
-                contract.updateCheckpoint(latestCheckpoint);
-                console.log(`   📍 Fallback: Manually updated to checkpoint: ${contract.checkpointId}`);
-            }
-
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            mintAfterAmount = BigInt(await contract.balance);
-            console.log(`   ✅ Balance: ${mintAfterAmount}`);
-            attempts++;
-        }
-
-        if (mintAfterAmount <= checkAmounts) {
-            throw new Error(`Balance ${mintAfterAmount} is still not greater than ${checkAmounts} after 100 attempts`);
-        }
-        console.log(`   ✅ Balance confirmed: ${mintAfterAmount}\n`);
+        const currentBalance = await contract.balance;
+        console.log(`   ✅ Current balance: ${currentBalance}`);
+        console.log(`   📌 State-changing methods require a signer and are not demonstrated here.\n`);
     } catch (error) {
-        console.error(`   ❌ Error executing function:`, error instanceof Error ? error.message : String(error));
+        console.error(`   ❌ Error:`, error instanceof Error ? error.message : String(error));
     }
 
     // Step 7: Demonstrate read-only contract (optional)
@@ -142,10 +109,7 @@ async function basicUsageExample() {
 
         // But state-changing functions will fail
         try {
-            const recipients = 1;
-            const amounts = 1000000;
-
-            await readOnlyContract.simple_transfer(recipients, amounts);
+            await (readOnlyContract as any).some_write_method();
         } catch (error) {
             console.log(
                 `   ✅ Expected error for write operation without signer:`,
