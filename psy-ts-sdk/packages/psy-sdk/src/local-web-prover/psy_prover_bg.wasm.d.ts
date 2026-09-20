@@ -81,11 +81,11 @@ export const wasmrpcserver_submit_endcap_job_json: (a: number, b: number, c: num
 export const wasmrpcserver_trace_proof_job_step_indices_json: (a: number, b: number, c: number) => [number, number, number, number];
 export const wasmpsyconfigbuilder_new: () => number;
 export const wasmconstants_register_user_fee: () => bigint;
-export const wasm_bindgen__convert__closures_____invoke__h447e0f573cfb1039: (a: number, b: number, c: any) => [number, number];
-export const wasm_bindgen__convert__closures_____invoke__h205d9aeaebc44d62: (a: number, b: number, c: any, d: any) => void;
-export const wasm_bindgen__convert__closures_____invoke__h65d6118466d0195d: (a: number, b: number, c: any) => void;
-export const wasm_bindgen__convert__closures_____invoke__hce85efe9a3522159: (a: number, b: number, c: any) => void;
-export const wasm_bindgen__convert__closures_____invoke__h780b2bd6838c983d: (a: number, b: number) => void;
+export const wasm_bindgen__convert__closures_____invoke__hdde65a6945d20a34: (a: number, b: number, c: any) => [number, number];
+export const wasm_bindgen__convert__closures_____invoke__h1ae1a526eaf10dad: (a: number, b: number, c: any, d: any) => void;
+export const wasm_bindgen__convert__closures_____invoke__hb74b88c227ffa2ab: (a: number, b: number, c: any) => void;
+export const wasm_bindgen__convert__closures_____invoke__h830504a8d936a413: (a: number, b: number, c: any) => void;
+export const wasm_bindgen__convert__closures_____invoke__h3121247ec672f994: (a: number, b: number) => void;
 export const memory: WebAssembly.Memory;
 export const __wbindgen_malloc: (a: number, b: number) => number;
 export const __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;
