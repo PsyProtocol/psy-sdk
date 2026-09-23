@@ -517,7 +517,7 @@ export class PsyWasmWebProverProvider implements IPsyUserProverProvider {
     }
 
     // Contract deployment
-    async deployContract(deployer: PublicKey, circuitDefs: DPNFunctionCircuitDefinition[]): Promise<string> {
+    async deployContract(deployer: bigint, circuitDefs: DPNFunctionCircuitDefinition[]): Promise<string> {
         const json = PsyJSON.stringify(circuitDefs);
         return PsyWasmWebProverProvider.runWasmServerCall((server) =>
             server.deploy_contract_json(deployer, json)
@@ -525,7 +525,7 @@ export class PsyWasmWebProverProvider implements IPsyUserProverProvider {
     }
 
     async getDeployContractCmd(
-        deployer: PublicKey,
+        deployer: bigint,
         circuitDefs: DPNFunctionCircuitDefinition[],
         abi: unknown
     ): Promise<QBCDeployContractV2> {

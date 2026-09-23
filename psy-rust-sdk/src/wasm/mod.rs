@@ -3011,31 +3011,25 @@ impl WasmRpcServer {
     #[wasm_bindgen]
     pub async fn deploy_contract_json(
         &self,
-        deployer: &str,
+        deployer: u64,
         circuit_defs_json: &str,
     ) -> Result<String, JsError> {
-        let deployer = QHashOut::<F>::from_str(deployer)
-            .map_err(|e| JsError::new(&format!("Parse deployer error: {}", e)))?;
         let circuit_defs: Vec<DPNFunctionCircuitDefinition> =
             serde_json::from_str(circuit_defs_json)
                 .map_err(|e| JsError::new(&format!("Parse circuit defs JSON error: {}", e)))?;
 
-        let contract_uuid = self
-            .wallet_session
-            .deploy_contract(deployer, circuit_defs)
-            .await
-            .map_err(|e| JsError::new(&format!("Deploy contract error: {}", e)))?;
-        Ok(contract_uuid)
+        let _ = (deployer, circuit_defs);
+        Err(JsError::new(
+            "Contract deployment requires ABI; use get_layout_aware_deploy_contract_cmd_json",
+        ))
     }
 
     #[wasm_bindgen]
     pub fn get_deploy_contract_cmd_json(
         &self,
-        deployer: &str,
+        deployer: u64,
         circuit_defs_json: &str,
     ) -> Result<String, JsError> {
-        let deployer = QHashOut::<F>::from_str(deployer)
-            .map_err(|e| JsError::new(&format!("Parse deployer error: {}", e)))?;
         let circuit_defs: Vec<DPNFunctionCircuitDefinition> =
             serde_json::from_str(circuit_defs_json)
                 .map_err(|e| JsError::new(&format!("Parse circuit defs JSON error: {}", e)))?;
@@ -3051,12 +3045,10 @@ impl WasmRpcServer {
     #[wasm_bindgen]
     pub async fn get_layout_aware_deploy_contract_cmd_json(
         &self,
-        deployer: &str,
+        deployer: u64,
         circuit_defs_json: &str,
         abi_json: &str,
     ) -> Result<String, JsError> {
-        let deployer = QHashOut::<F>::from_str(deployer)
-            .map_err(|e| JsError::new(&format!("Parse deployer error: {}", e)))?;
         let circuit_defs: Vec<DPNFunctionCircuitDefinition> =
             serde_json::from_str(circuit_defs_json)
                 .map_err(|e| JsError::new(&format!("Parse circuit defs JSON error: {}", e)))?;
