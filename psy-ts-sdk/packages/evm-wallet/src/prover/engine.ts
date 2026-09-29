@@ -230,8 +230,11 @@ export class ProverEngine {
 
   /** Run one provider-instance method, gated + workerized (execContractCall,
    *  claimBatch, registerUser, …). The ONLY way to touch the provider instance. */
-  callProver<T = unknown>(label: string, method: string, args: unknown[]): Promise<T> {
-    return this.runExclusive(label, () => this.runWorkerCall<T>(method, args, 'provider'))
+  callProver<T = unknown>(label: string, method: string, args: unknown[], beforeDispatch?: () => void): Promise<T> {
+    return this.runExclusive(label, () => {
+      beforeDispatch?.()
+      return this.runWorkerCall<T>(method, args, 'provider')
+    })
   }
 
   /** Run one method on the STATIC wasmServer, gated + workerized. Same FIFO choke

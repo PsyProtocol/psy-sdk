@@ -18,6 +18,10 @@ export interface PsyNetworkConfig {
     prove_proxy_url: string[];
     api_services_url?: string[];
     bridge_url?: string[];
+    bridge_aggregate?: {
+        config: string;
+        registry: string;
+    };
     native_currency: string;
     native_currency_decimal: number;
     native_currency_name: string;

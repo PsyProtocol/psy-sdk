@@ -26,6 +26,113 @@ import { ZKPublicKeyInfo } from "../types";
 import { PsyJSON } from "../utils";
 import { PsyNetworkConfig } from "../config";
 
+export interface AggregationContext {
+    version: number;
+    configHash: string;
+    endCheckpointId: string;
+    endCheckpointRoot: [string, string, string, string];
+    contextId: string;
+    maxProofBytes: number;
+    maxRecords: number;
+}
+
+export interface WithdrawalRecord {
+    chainIndex: number;
+    senderUserId: string;
+    recipient: string;
+    token: string;
+    amount: string;
+    nonce: string;
+}
+
+export interface RewardRecord {
+    claimCheckpointId: string;
+    userId: string;
+    height: number;
+    pathIndex: number;
+    nullifierIndex: number;
+    recipient: string;
+}
+
+export interface AggregateWithdrawalRequest {
+    config: string;
+    registry: string;
+    servicesUrl: string;
+    context: AggregationContext;
+    record: WithdrawalRecord;
+    userId: string;
+}
+
+export interface RewardJob {
+    realmId: string | null;
+    uniquePendingId: string;
+    job: {
+        inner: {
+            job_data_id: {
+                topic: number;
+                goal_id: number | bigint;
+                circuit_type: number;
+                group_id: number;
+                sub_group_id: number;
+                task_index: number;
+                data_type: number;
+                data_index: number;
+            };
+            reward_path_info: number | bigint;
+        };
+        reward_tree_tag_preimage: string;
+    };
+}
+
+export interface PsyCompressedSecp256K1Signature {
+    public_key: string;
+    signature: string;
+    message: string;
+}
+
+export interface MultisigAccount {
+    contract_id: number;
+    initial_policy: {
+        version: number;
+        threshold: number;
+        member_count: number;
+        member_hashes: [string, string, string, string, string, string, string, string];
+    };
+}
+
+export interface MultisigSignatures {
+    member_indices: number[];
+    signatures: PsyCompressedSecp256K1Signature[];
+}
+
+export type ExternalRewardAuthorization =
+    | { scheme: "secp"; signature: PsyCompressedSecp256K1Signature }
+    | { scheme: "personal_sign"; signature: PsyCompressedSecp256K1Signature }
+    | { scheme: "multisig"; account: MultisigAccount; signatures: MultisigSignatures[] };
+
+export interface AggregateRewardRequest {
+    config: string;
+    registry: string;
+    servicesUrl: string;
+    context: AggregationContext;
+    record: RewardRecord;
+    userId: string;
+    job: RewardJob;
+    externalAuthorization?: ExternalRewardAuthorization | null;
+}
+
+export interface AdmissionRequest {
+    version: number;
+    contextId: string;
+    kind: "withdrawal" | "reward";
+    record: string;
+    proof: string;
+}
+
+export type AggregateClaimResult =
+    | { state: "admission"; request: AdmissionRequest }
+    | { state: "fresh_authorization_required"; message: string; record: string; reward: RewardRecord; context: AggregationContext };
+
 let isWasmInitialized = false;
 
 // Synchronous WASM initialization function
@@ -103,6 +210,28 @@ export class PsyWasmWebProverProvider implements IPsyUserProverProvider {
 
     static async runWasmServerConcurrentCall<T>(callback: (server: WasmRpcServer) => T | Promise<T>): Promise<T> {
         return this.runWasmServerCall(callback);
+    }
+
+    async proveAggregateWithdrawal(pkHash: PublicKey, request: AggregateWithdrawalRequest): Promise<AggregateClaimResult> {
+        const result = await PsyWasmWebProverProvider.runWasmServerCall(async (server) => {
+            const method = Reflect.get(server, "prove_aggregate_withdrawal_json");
+            if (typeof method !== "function") {
+                throw new Error("Prover WASM is stale: regenerate it to expose prove_aggregate_withdrawal_json");
+            }
+            return await Reflect.apply(method, server, [pkHash, PsyJSON.stringify(request)]);
+        });
+        return PsyJSON.parse(result) as AggregateClaimResult;
+    }
+
+    async proveAggregateReward(pkHash: PublicKey, request: AggregateRewardRequest): Promise<AggregateClaimResult> {
+        const result = await PsyWasmWebProverProvider.runWasmServerCall(async (server) => {
+            const method = Reflect.get(server, "prove_aggregate_reward_json");
+            if (typeof method !== "function") {
+                throw new Error("Prover WASM is stale: regenerate it to expose prove_aggregate_reward_json");
+            }
+            return await Reflect.apply(method, server, [pkHash, PsyJSON.stringify(request)]);
+        });
+        return PsyJSON.parse(result) as AggregateClaimResult;
     }
 
     async execContractCall(pkHash: string, callData: ContractCallData): Promise<string> {

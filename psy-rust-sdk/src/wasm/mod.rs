@@ -1100,6 +1100,40 @@ impl WasmRpcServer {
     }
 
     #[wasm_bindgen]
+    pub async fn prove_aggregate_withdrawal_json(
+        &self,
+        pk_hash: &str,
+        request_json: &str,
+    ) -> Result<String, JsError> {
+        let pk_hash = QHashOut::<F>::from_str(pk_hash)
+            .map_err(|e| JsError::new(&format!("Parse public key hash error: {}", e)))?;
+        let request = serde_json::from_str::<psy_prover::local::bridge_aggregate::AggregateWithdrawalRequest>(request_json)
+            .map_err(|e| JsError::new(&format!("Parse aggregate withdrawal request error: {}", e)))?;
+        let result = psy_prover::local::bridge_aggregate::prove_aggregate_withdrawal(
+            &self.wallet_session, pk_hash, request,
+        ).await.map_err(|e| JsError::new(&format!("Prove aggregate withdrawal error: {}", e)))?;
+        serde_json::to_string(&result)
+            .map_err(|e| JsError::new(&format!("Serialize aggregate withdrawal result error: {}", e)))
+    }
+
+    #[wasm_bindgen]
+    pub async fn prove_aggregate_reward_json(
+        &self,
+        pk_hash: &str,
+        request_json: &str,
+    ) -> Result<String, JsError> {
+        let pk_hash = QHashOut::<F>::from_str(pk_hash)
+            .map_err(|e| JsError::new(&format!("Parse public key hash error: {}", e)))?;
+        let request = serde_json::from_str::<psy_prover::local::bridge_aggregate::AggregateRewardRequest>(request_json)
+            .map_err(|e| JsError::new(&format!("Parse aggregate reward request error: {}", e)))?;
+        let result = psy_prover::local::bridge_aggregate::prove_aggregate_reward(
+            &self.wallet_session, pk_hash, request,
+        ).await.map_err(|e| JsError::new(&format!("Prove aggregate reward error: {}", e)))?;
+        serde_json::to_string(&result)
+            .map_err(|e| JsError::new(&format!("Serialize aggregate reward result error: {}", e)))
+    }
+
+    #[wasm_bindgen]
     pub async fn exec_contract_call_with_trace_json(
         &mut self,
         pk_hash: &str,
