@@ -56,6 +56,7 @@
       "require": "./dist/local-web-prover/wasm-binary.cjs",
       "types": "./dist/local-web-prover/wasm-binary.d.ts"
     },
+    "./local-web-prover/psy_prover_bg.wasm": "./dist/local-web-prover/psy_prover_bg.wasm",
     "./*": {
       "import": "./dist/*/index.mjs",
       "require": "./dist/*/index.cjs",

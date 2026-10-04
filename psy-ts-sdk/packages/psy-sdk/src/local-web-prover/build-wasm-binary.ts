@@ -128,5 +128,10 @@ export const wasmBinary = decodeBase64(base64Chunks);
 const outputPath = path.join(__dirname, './wasm-binary.ts');
 fs.writeFileSync(outputPath, moduleContent);
 
+// The raw module too, for hosts that load it as a file and compile it once (setWasmModule).
+const distDir = path.resolve(__dirname, "../../dist/local-web-prover");
+fs.mkdirSync(distDir, { recursive: true });
+fs.copyFileSync(wasmPath, path.join(distDir, "psy_prover_bg.wasm"));
+
 console.log('WASM binary module generated successfully!');
 console.log(`Size: ${wasmBuffer.length} bytes`);
