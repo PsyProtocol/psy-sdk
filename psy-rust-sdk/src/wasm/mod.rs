@@ -429,6 +429,20 @@ type C = PoseidonGoldilocksConfig;
 type F = GoldilocksField;
 const D: usize = 2;
 
+/// What the wallet needs of the DepositInclusion circuit (fingerprint, common data, verifier
+/// data), decoded once per worker from the embedded artifacts. Every shield-deposit claim item
+/// used to build the whole circuit for them: about 7 s and 78 MiB (never returned by the shared
+/// memory) per item.
+pub(crate) fn deposit_inclusion_circuit() -> &'static crate::deposit_inclusion_artifacts::DepositInclusionArtifacts {
+    use crate::deposit_inclusion_artifacts::DepositInclusionArtifacts;
+    thread_local! {
+        static ARTIFACTS: std::cell::OnceCell<&'static DepositInclusionArtifacts> = const { std::cell::OnceCell::new() };
+    }
+    ARTIFACTS.with(|c| {
+        *c.get_or_init(|| Box::leak(Box::new(DepositInclusionArtifacts::embedded().expect("embedded DepositInclusion artifacts"))))
+    })
+}
+
 enum NoteProofBytes {
     Bincode(Vec<u8>),
     BincodeOrNative(Vec<u8>),
@@ -655,7 +669,6 @@ impl WasmRpcServer {
         use psy_crypto::hash::traits::hasher::FieldQHasher;
         use psy_crypto::hash::traits::hasher::PoseidonHasher;
         use psy_crypto::shield_address::derive_shield_address;
-        use psy_dpn_circuit::circuits::privacy::deposit_inclusion::DepositInclusionCircuit;
         use psy_prover::trace::GeneratedTxTraceJson;
 
         let pk_hash = QHashOut::<F>::from_str(pk_hash_str)
@@ -959,7 +972,7 @@ impl WasmRpcServer {
                     };
 
                     let shield_address = derive_shield_address(user_id, random0, random1);
-                    let circuit = DepositInclusionCircuit::<C, D>::new();
+                    let circuit = deposit_inclusion_circuit();
                     let proof_fingerprint = circuit.get_fingerprint();
                     if let Some(raw) = input.deposit_proof_fingerprint {
                         let payload_fingerprint = qhash_from_u64_arr(parse_u64_arr(raw)?);
@@ -1884,7 +1897,6 @@ impl WasmRpcServer {
         use psy_crypto::hash::traits::hasher::FieldQHasher;
         use psy_crypto::hash::traits::hasher::PoseidonHasher;
         use psy_crypto::shield_address::derive_shield_address;
-        use psy_dpn_circuit::circuits::privacy::deposit_inclusion::DepositInclusionCircuit;
 
         let parse_u64x4 = |json: &str| -> Result<[u64; 4], JsError> {
             let arr: [String; 4] = serde_json::from_str(json)
@@ -1975,7 +1987,7 @@ impl WasmRpcServer {
             .ok_or_else(|| JsError::new("No user ID found for public key"))?;
 
         let shield_address = derive_shield_address(user_id, random0_val, random1_val);
-        let circuit = DepositInclusionCircuit::<C, D>::new();
+        let circuit = deposit_inclusion_circuit();
         let proof_fingerprint = circuit.get_fingerprint();
         if let Some(raw) = deposit_proof_fingerprint_json.as_deref() {
             let payload_fingerprint =
