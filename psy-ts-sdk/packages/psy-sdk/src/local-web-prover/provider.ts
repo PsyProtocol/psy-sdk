@@ -1,5 +1,5 @@
+import * as proverModule from "./psy_prover";
 import { initSync, WasmRpcServer, WasmPsyConfig, WasmPsyConfigBuilder, WasmConstants } from "./psy_prover";
-import { wasmBinary } from "./wasm-binary";
 import { PrivateKey, PublicKey, QHashOut, U8Bytes } from "../core";
 import {
     ContractCallArgs,
@@ -31,23 +31,81 @@ import { PsyJSON } from "../utils";
 import { PsyNetworkConfig } from "../config";
 
 let isWasmInitialized = false;
+let providedModule: WebAssembly.Module | BufferSource | null = null;
 
-// Synchronous WASM initialization function
-export function initWasmSync(): void {
+/**
+ * Hands the prover module to the SDK: a compiled `WebAssembly.Module` (compile the shipped
+ * `psy_prover_bg.wasm` once with `WebAssembly.compileStreaming` and post it to every worker, so they
+ * share one copy of the code) or the module's bytes. Call it before the first prover use. Without
+ * it the SDK falls back to its embedded base64 copy of the module (54 MB of JavaScript, decoded
+ * on first use).
+ */
+export function setWasmModule(module: WebAssembly.Module | BufferSource): void {
+    if (!isWasmInitialized) {
+        providedModule = module;
+    }
+}
+
+/**
+ * Initialises the prover synchronously from `module`, or from the module given to
+ * `setWasmModule`. Throws if neither is available; `PsyWasmWebProverProvider.ensureWasmServer`
+ * falls back to the embedded copy instead.
+ */
+export function initWasmSync(module?: WebAssembly.Module | BufferSource): void {
     if (isWasmInitialized) {
         return;
     }
-
+    const source = module ?? providedModule;
+    if (!source) {
+        throw new Error("Prover WASM module not provided: call setWasmModule() or use PsyWasmWebProverProvider.ensureWasmServer()");
+    }
     try {
-        // Initialize synchronously with pre-compiled binary data
-        initSync({ module: wasmBinary });
+        initSync({ module: source });
         isWasmInitialized = true;
-
-        console.log("WASM initialized synchronously from binary data");
+        providedModule = null;
+        console.log("WASM initialized");
     } catch (error) {
         console.error("Failed to initialize WASM:", error);
         throw error;
     }
+}
+
+let threadCount = 0;
+
+/**
+ * Proving threads to start after init (0 = none, the default). Takes effect only with a prover
+ * built with the `threads` feature, in a cross-origin isolated context (SharedArrayBuffer);
+ * otherwise proving stays on the calling thread. Call it before `ensureWasmServer`.
+ */
+export function setThreadCount(threads: number): void {
+    threadCount = Math.max(0, Math.floor(threads));
+}
+
+async function startThreadPool(): Promise<void> {
+    const initThreadPool = (proverModule as { initThreadPool?: (n: number) => Promise<unknown> }).initThreadPool;
+    if (threadCount < 2 || !initThreadPool) {
+        return;
+    }
+    if (!(globalThis as { crossOriginIsolated?: boolean }).crossOriginIsolated) {
+        console.warn("Prover threads need cross-origin isolation; proving on one thread");
+        return;
+    }
+    await initThreadPool(threadCount);
+    console.log(`Prover thread pool started with ${threadCount} threads`);
+}
+
+/** Initialises from the provided module, else from the embedded base64 copy (imported only now). */
+async function initWasm(): Promise<void> {
+    if (isWasmInitialized) {
+        return;
+    }
+    if (!providedModule) {
+        const { wasmBinary } = await import("./wasm-binary");
+        initWasmSync(wasmBinary);
+    } else {
+        initWasmSync();
+    }
+    await startThreadPool();
 }
 
 export class PsyWasmWebProverProvider implements IPsyUserProverProvider {
@@ -71,8 +129,7 @@ export class PsyWasmWebProverProvider implements IPsyUserProverProvider {
         const json = typeof rpcConfigJson === "string" ? rpcConfigJson : PsyJSON.stringify(rpcConfigJson);
         if (!this.wasmServerPromise) {
             const now = new Date().getTime();
-            initWasmSync();
-            this.wasmServerPromise = Promise.resolve(new WasmRpcServer(json)).then((server) => {
+            this.wasmServerPromise = initWasm().then(() => new WasmRpcServer(json)).then((server) => {
                 console.log(`WASM initialized in ${(new Date().getTime() - now) / 1000} seconds`);
                 this.wasmServer = server;
                 return server;
