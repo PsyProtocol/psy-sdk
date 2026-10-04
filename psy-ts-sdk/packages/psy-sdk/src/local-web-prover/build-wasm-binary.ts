@@ -22,6 +22,8 @@ function runWasmPack(target: "web" | "nodejs", outDir: string, rustSdkDir: strin
         "--no-opt",
         "--",
         "--locked",
+        // Cargo features for the prover, e.g. PSY_PROVER_FEATURES=threads.
+        ...(process.env.PSY_PROVER_FEATURES ? ["--features", process.env.PSY_PROVER_FEATURES] : []),
     ];
     const result = spawnSync("wasm-pack", args, {
         cwd: rustSdkDir,
