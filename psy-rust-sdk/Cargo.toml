@@ -43,9 +43,15 @@ getrandom = { workspace = true }
 
 # WASM-specific dependencies
 [target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen-rayon = { version = "1.3", optional = true }
 reqwest = { workspace = true, features = ["json"] }
 getrandom = { workspace = true, features = ["wasm_js"] }
 
 [features]
 # default = ["is_sync"]
+# A rayon thread pool on Web Workers (wasm-bindgen-rayon): JS calls `initThreadPool(n)` after
+# init. Needs cross-origin isolation (SharedArrayBuffer). `threads-no-bundler` for pages that
+# load the module without a bundler (the lab harness).
+threads = ["dep:wasm-bindgen-rayon"]
+threads-no-bundler = ["threads", "wasm-bindgen-rayon/no-bundler"]
 is_sync = ["psy_data/is_sync", "psy_vm/is_sync"]
