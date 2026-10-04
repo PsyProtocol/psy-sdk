@@ -6063,6 +6063,7 @@ dependencies = [
 name = "psy_rust_sdk"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "base64 0.22.1",
  "bincode",
  "console_error_panic_hook",
@@ -6079,6 +6080,7 @@ dependencies = [
  "psy_provider",
  "psy_ups_circuit",
  "psy_vm",
+ "rayon",
  "reqwest 0.12.28",
  "serde",
  "serde-wasm-bindgen",
