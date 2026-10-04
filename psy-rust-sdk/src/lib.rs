@@ -8,6 +8,10 @@ pub use psy_provider::{lps, provider, session, wallet};
 #[cfg(target_arch = "wasm32")]
 pub mod wasm;
 
+/// `initThreadPool(n)` for JS: rayon (and so plonky2's parallel prover) runs on n workers.
+#[cfg(all(target_arch = "wasm32", feature = "threads"))]
+pub use wasm_bindgen_rayon::init_thread_pool;
+
 /// The DepositInclusion circuit's fingerprint, common and verifier data, embedded.
 pub mod deposit_inclusion_artifacts;
 
