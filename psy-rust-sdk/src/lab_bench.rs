@@ -98,6 +98,16 @@ pub fn deposit_inclusion_new() -> anyhow::Result<f64> {
     Ok(ms)
 }
 
+/// The wallet's accessor for the DepositInclusion circuit (cached per worker), with its
+/// fingerprint. Returns ms.
+#[cfg(target_arch = "wasm32")]
+pub fn deposit_inclusion_cached() -> f64 {
+    let t = now_ms();
+    let fingerprint = crate::wasm::deposit_inclusion_circuit().get_fingerprint();
+    core::hint::black_box(fingerprint);
+    now_ms() - t
+}
+
 /// Threads rayon would use here.
 pub fn rayon_threads() -> usize {
     rayon::current_num_threads()
@@ -124,6 +134,11 @@ mod exports {
     #[wasm_bindgen]
     pub fn lab_privacy_circuits() -> Result<f64, JsError> {
         super::privacy_circuits().map_err(js)
+    }
+
+    #[wasm_bindgen]
+    pub fn lab_deposit_inclusion_cached() -> f64 {
+        super::deposit_inclusion_cached()
     }
 
     #[wasm_bindgen]
