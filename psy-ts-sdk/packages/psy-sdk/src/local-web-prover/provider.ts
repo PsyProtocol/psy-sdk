@@ -121,7 +121,7 @@ export interface AggregateRewardRequest {
     externalAuthorization?: ExternalRewardAuthorization | null;
 }
 
-export interface AdmissionRequest {
+export interface AggregationClaimRequest {
     version: number;
     contextId: string;
     kind: "withdrawal" | "reward";
@@ -130,7 +130,7 @@ export interface AdmissionRequest {
 }
 
 export type AggregateClaimResult =
-    | { state: "admission"; request: AdmissionRequest }
+    | { state: "aggregation_claim"; request: AggregationClaimRequest }
     | { state: "fresh_authorization_required"; message: string; record: string; reward: RewardRecord; context: AggregationContext };
 
 let isWasmInitialized = false;
