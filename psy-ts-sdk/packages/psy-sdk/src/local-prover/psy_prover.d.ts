@@ -297,4 +297,3 @@ export class WasmRpcServer {
 export function init_logging(): void;
 
 export function main(): void;
-
