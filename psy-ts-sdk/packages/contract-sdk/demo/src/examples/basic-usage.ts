@@ -89,7 +89,7 @@ async function basicUsageExample() {
         console.log(`   ✅ Minting ${mintBeforeAmount} tokens before minting...`);
         const mintAmounts = 10000000000000n;
 
-        await contract.simple_mint(mintAmounts);
+        await contract.mint(mintAmounts);
         console.log(`   ✅ Successfully mint 1000000000 tokens to each recipient\n`);
 
         // Wait for balance to increase
@@ -145,7 +145,7 @@ async function basicUsageExample() {
             const recipients = 1;
             const amounts = 1000000;
 
-            await readOnlyContract.simple_transfer(recipients, amounts);
+            await readOnlyContract.transfer(recipients, amounts);
         } catch (error) {
             console.log(
                 `   ✅ Expected error for write operation without signer:`,

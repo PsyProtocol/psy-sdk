@@ -112,7 +112,7 @@ async function basicUsageDynamicExample() {
         console.log(`   ✅ Balance before minting: ${mintBeforeAmount}`);
         const mintAmounts = 10000000000000n;
 
-        await contract.simple_mint(mintAmounts);
+        await contract.mint(mintAmounts);
         console.log(`   ✅ Successfully minted ${mintAmounts} tokens\n`);
 
         let attempts = 0;
@@ -157,7 +157,7 @@ async function basicUsageDynamicExample() {
         try {
             const recipients = 1;
             const amounts = 1000000;
-            await readOnlyContract.simple_transfer(recipients, amounts);
+            await readOnlyContract.transfer(recipients, amounts);
             console.log(`   ✅ Successfully transferred ${amounts} tokens to ${recipients}\n`);
             const balanceAfterTransfer = await readOnlyContract.balance;
             console.log(`   ✅ Balance after transfer: ${balanceAfterTransfer}\n`);

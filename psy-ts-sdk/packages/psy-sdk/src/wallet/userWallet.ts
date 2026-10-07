@@ -143,7 +143,7 @@ class PsyUserWallet implements IPsyUserWallet {
         if (!this.status || !Number.isSafeInteger(this.userId) || this.userId <= 0) {
             throw new Error("wallet user id is unresolved");
         }
-        return this.signer.deployContract(String(this.userId), circuitDefs);
+        return this.signer.deployContract(BigInt(this.userId), circuitDefs);
     }
 
     // async getDeployContract(circuitDefs: DPNFunctionCircuitDefinition[]): Promise<QBCDeployContract> {

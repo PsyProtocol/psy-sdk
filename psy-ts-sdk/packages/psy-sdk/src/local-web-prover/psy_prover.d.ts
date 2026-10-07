@@ -115,7 +115,7 @@ export class WasmRpcServer {
      * so JS doesn't need to parse the bincode payload.
      */
     compute_sighash_from_envelope_json(envelope_json: string, current_header_json: string): string;
-    deploy_contract_json(deployer: string, circuit_defs_json: string): Promise<string>;
+    deploy_contract_json(deployer: bigint, circuit_defs_json: string): Promise<string>;
     /**
      * Returns the exact 32-byte, network-bound challenge that the selected
      * account must sign before external EIP-191 registration.
@@ -169,8 +169,8 @@ export class WasmRpcServer {
     exec_shield_claim_deposit_json(pk_hash: string, token_address_u32x8_json: string, l2_token_contract_id_json: string, amount_u32x8_json: string, source_chain_index: string, deposit_index: string, deposit_root_json: string, nullifier_hash_json: string, note_commitment_json: string, deposit_proof_bincode_b64: string, random0: string, random1: string, contract_id: string, deposit_proof_fingerprint_json?: string | null): Promise<string>;
     generate_batch_claim_tx_trace_json(pk_hash: string, items_json: string): Promise<string>;
     generate_tx_trace_json(pk_hash: string, call_data_json: string): Promise<string>;
-    get_deploy_contract_cmd_json(deployer: string, circuit_defs_json: string): string;
-    get_layout_aware_deploy_contract_cmd_json(deployer: string, circuit_defs_json: string, abi_json: string): Promise<string>;
+    get_deploy_contract_cmd_json(deployer: bigint, circuit_defs_json: string): string;
+    get_layout_aware_deploy_contract_cmd_json(deployer: bigint, circuit_defs_json: string, abi_json: string): Promise<string>;
     get_random_keypair_json(): Promise<string>;
     get_result(id_str: string): Uint8Array;
     get_zk_public_key_json(private_key_str: string): Promise<string>;
@@ -339,7 +339,7 @@ export interface InitOutput {
     readonly wasmrpcserver_batch_claim_with_trace_json: (a: number, b: number, c: number, d: number, e: number) => any;
     readonly wasmrpcserver_call_view_json: (a: number, b: number, c: number, d: number, e: number) => any;
     readonly wasmrpcserver_compute_sighash_from_envelope_json: (a: number, b: number, c: number, d: number, e: number) => [number, number, number, number];
-    readonly wasmrpcserver_deploy_contract_json: (a: number, b: number, c: number, d: number, e: number) => any;
+    readonly wasmrpcserver_deploy_contract_json: (a: number, b: bigint, c: number, d: number) => any;
     readonly wasmrpcserver_eth_personal_registration_challenge: (a: number, b: number) => any;
     readonly wasmrpcserver_exec_claim_batch_json: (a: number, b: number, c: number, d: number, e: number) => any;
     readonly wasmrpcserver_exec_claim_with_external_proof_json: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number, l: number, m: number, n: number, o: number, p: number, q: number, r: number, s: number, t: number, u: number, v: number, w: number, x: number, y: number, z: number, a1: number) => any;
@@ -348,8 +348,8 @@ export interface InitOutput {
     readonly wasmrpcserver_exec_shield_claim_deposit_json: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number, l: number, m: number, n: number, o: number, p: number, q: number, r: number, s: number, t: number, u: number, v: number, w: number, x: number, y: number, z: number, a1: number, b1: number, c1: number) => any;
     readonly wasmrpcserver_generate_batch_claim_tx_trace_json: (a: number, b: number, c: number, d: number, e: number) => any;
     readonly wasmrpcserver_generate_tx_trace_json: (a: number, b: number, c: number, d: number, e: number) => any;
-    readonly wasmrpcserver_get_deploy_contract_cmd_json: (a: number, b: number, c: number, d: number, e: number) => [number, number, number, number];
-    readonly wasmrpcserver_get_layout_aware_deploy_contract_cmd_json: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => any;
+    readonly wasmrpcserver_get_deploy_contract_cmd_json: (a: number, b: bigint, c: number, d: number) => [number, number, number, number];
+    readonly wasmrpcserver_get_layout_aware_deploy_contract_cmd_json: (a: number, b: bigint, c: number, d: number, e: number, f: number) => any;
     readonly wasmrpcserver_get_random_keypair_json: (a: number) => any;
     readonly wasmrpcserver_get_result: (a: number, b: number, c: number) => [number, number, number, number];
     readonly wasmrpcserver_get_zk_public_key_json: (a: number, b: number, c: number) => any;

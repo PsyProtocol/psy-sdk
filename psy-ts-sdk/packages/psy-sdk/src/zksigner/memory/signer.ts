@@ -61,8 +61,8 @@ class PsyMemoryTransactionSigner implements IPsyTransactionSigner {
 
 
 
-    async deployContract(deployerUserId: string, circuitDefs: DPNFunctionCircuitDefinition[]): Promise<string> {
-        return this.prover.deployContract(deployerUserId, circuitDefs);
+    async deployContract(deployer: bigint, circuitDefs: DPNFunctionCircuitDefinition[]): Promise<string> {
+        return this.prover.deployContract(deployer, circuitDefs);
     }
 
     getAbilities(): TPsyTransactionSignerAbility[] {

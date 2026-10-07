@@ -277,7 +277,7 @@ export class Contract {
      *
      * For map updates: instead of writing state directly (which requires a proof),
      * call the contract method that performs the map operation:
-     *   await contract.callMethod("simple_transfer", recipientId, amount);
+     *   await contract.callMethod("batch_simple_transfer_2", recipientId, amount);
      */
     async callMethod(methodName: string, ...args: any[]): Promise<any> {
         return this._dispatchFunction(methodName, args);

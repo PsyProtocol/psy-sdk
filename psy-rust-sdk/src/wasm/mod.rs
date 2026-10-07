@@ -65,22 +65,6 @@ fn now_ms() -> u64 {
     }
 }
 
-fn parse_deployer_user_id(value: &str) -> Result<u64, JsError> {
-    let normalized = value.trim();
-    if normalized.is_empty()
-        || (normalized.len() > 1 && normalized.starts_with('0'))
-        || normalized.starts_with('+')
-        || normalized.starts_with('-')
-        || !normalized.bytes().all(|byte| byte.is_ascii_digit())
-    {
-        return Err(JsError::new(
-            "deployer must be a decimal user id in the u64 range",
-        ));
-    }
-    normalized.parse::<u64>().map_err(|_| {
-        JsError::new("deployer must be a decimal user id in the u64 range")
-    })
-}
 
 fn parse_int_string(value: &str) -> Result<u64, JsError> {
     let normalized = value.strip_prefix("n:").unwrap_or(value);
@@ -3134,10 +3118,9 @@ impl WasmRpcServer {
     #[wasm_bindgen]
     pub async fn deploy_contract_json(
         &self,
-        deployer: &str,
+        deployer: u64,
         circuit_defs_json: &str,
     ) -> Result<String, JsError> {
-        let deployer = parse_deployer_user_id(deployer)?;
         let circuit_defs: Vec<DPNFunctionCircuitDefinition> =
             serde_json::from_str(circuit_defs_json)
                 .map_err(|e| JsError::new(&format!("Parse circuit defs JSON error: {}", e)))?;
@@ -3153,10 +3136,10 @@ impl WasmRpcServer {
     #[wasm_bindgen]
     pub fn get_deploy_contract_cmd_json(
         &self,
-        deployer: &str,
+        deployer: u64,
         circuit_defs_json: &str,
     ) -> Result<String, JsError> {
-        let deployer = parse_deployer_user_id(deployer)?;
+
         let circuit_defs: Vec<DPNFunctionCircuitDefinition> =
             serde_json::from_str(circuit_defs_json)
                 .map_err(|e| JsError::new(&format!("Parse circuit defs JSON error: {}", e)))?;
@@ -3172,11 +3155,11 @@ impl WasmRpcServer {
     #[wasm_bindgen]
     pub async fn get_layout_aware_deploy_contract_cmd_json(
         &self,
-        deployer: &str,
+        deployer: u64,
         circuit_defs_json: &str,
         abi_json: &str,
     ) -> Result<String, JsError> {
-        let deployer = parse_deployer_user_id(deployer)?;
+
         let circuit_defs: Vec<DPNFunctionCircuitDefinition> =
             serde_json::from_str(circuit_defs_json)
                 .map_err(|e| JsError::new(&format!("Parse circuit defs JSON error: {}", e)))?;
@@ -3708,36 +3691,13 @@ impl WasmRpcServer {
 
 #[cfg(test)]
 mod tests {
-    use super::{parse_deployer_user_id, parse_fixed_hex, parse_int_string, parse_u32_string};
+    use super::{parse_fixed_hex, parse_int_string, parse_u32_string};
 
 
     #[test]
     fn int_string_accepts_decimal_u64() {
         assert_eq!(parse_int_string("18446744073709551615").unwrap(), u64::MAX);
         assert_eq!(parse_int_string("42").unwrap(), 42);
-    }
-    #[test]
-    fn deployer_user_id_accepts_exact_decimal_bounds() {
-        assert_eq!(parse_deployer_user_id("0").unwrap(), 0);
-        assert_eq!(parse_deployer_user_id(" 2122 ").unwrap(), 2122);
-        assert_eq!(
-            parse_deployer_user_id("18446744073709551615").unwrap(),
-            u64::MAX
-        );
-    }
-
-    #[test]
-    fn deployer_user_id_rejects_hash_sign_prefix_and_overflow() {
-        assert!(parse_deployer_user_id(
-            "f83aa03c3e21321421696202b90f4dab0a9f87237c231bbba58b8f93c799126e"
-        )
-        .is_err());
-        assert!(parse_deployer_user_id("+2122").is_err());
-        assert!(parse_deployer_user_id("-1").is_err());
-        assert!(parse_deployer_user_id("18446744073709551616").is_err());
-        assert!(parse_deployer_user_id("02122").is_err());
-        assert!(parse_deployer_user_id("21 22").is_err());
-        assert!(parse_deployer_user_id("").is_err());
     }
 
 

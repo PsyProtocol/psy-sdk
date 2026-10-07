@@ -63,13 +63,13 @@ describe("PsyUserWallet cross-realm identity", () => {
     });
 
     it("does not deploy when refresh cannot resolve the user", async () => {
-        const deployed: string[] = [];
+        const deployed: bigint[] = [];
         const unresolved = new PsyUserWallet(
             "regtest",
             {
                 getPublicKeyHex: async () => "pk-cross",
-                deployContract: async (deployerUserId: string) => {
-                    deployed.push(deployerUserId);
+                deployContract: async (deployer: bigint) => {
+                    deployed.push(deployer);
                     return "submitted";
                 },
             } as never,

@@ -456,9 +456,9 @@ interface IPsyUserProverProvider {
     registerExternalEthPersonalUser(selectedEvmAddressHex: string, recoveryMessageHex32: string, signatureHex65: string): Promise<PublicKey>;
     injectEthPersonalSignature(expectedPkHash: PublicKey, selectedEvmAddressHex: string, messageHex32: string, signatureHex65: string): Promise<PublicKey>;
 
-    // Contract deployment. `deployer` is the deploying user's decimal id.
-    deployContract(deployer: string, circuitDefs: DPNFunctionCircuitDefinition[]): Promise<string>;
-    getDeployContractCmd(deployer: string, circuitDefs: DPNFunctionCircuitDefinition[], abi: unknown): Promise<QBCDeployContractV2>;
+    // Contract deployment
+    deployContract(deployer: bigint, circuitDefs: DPNFunctionCircuitDefinition[]): Promise<string>;
+    getDeployContractCmd(deployer: bigint, circuitDefs: DPNFunctionCircuitDefinition[], abi: unknown): Promise<QBCDeployContractV2>;
 
     // Signing and submission
     // getSigHash(networkMagic: bigint): Promise<QHashOut>;

@@ -711,16 +711,16 @@ export class PsyWasmWebProverProvider implements IPsyUserProverProvider {
         return PsyJSON.parse(json);
     }
 
-    // Contract deployment. `deployer` is the deploying user's decimal id.
-    async deployContract(deployer: string, circuitDefs: DPNFunctionCircuitDefinition[]): Promise<string> {
+    // Contract deployment. `deployer` is the deploying user's id.
+    async deployContract(deployer: bigint, circuitDefs: DPNFunctionCircuitDefinition[]): Promise<string> {
         const json = PsyJSON.stringify(circuitDefs);
         return PsyWasmWebProverProvider.runWasmServerCall((server) =>
-            server.deploy_contract_json(decimalUserId(deployer), json)
+            server.deploy_contract_json(deployer, json)
         );
     }
 
     async getDeployContractCmd(
-        deployer: string,
+        deployer: bigint,
         circuitDefs: DPNFunctionCircuitDefinition[],
         abi: unknown
     ): Promise<QBCDeployContractV2> {
@@ -730,7 +730,7 @@ export class PsyWasmWebProverProvider implements IPsyUserProverProvider {
         const json = PsyJSON.stringify(circuitDefs);
         const abiJson = PsyJSON.stringify(abi);
         const resultJson = await PsyWasmWebProverProvider.runWasmServerCall((server) =>
-            server.get_layout_aware_deploy_contract_cmd_json(decimalUserId(deployer), json, abiJson)
+            server.get_layout_aware_deploy_contract_cmd_json(deployer, json, abiJson)
         );
         return PsyJSON.parse(resultJson);
     }
@@ -743,16 +743,6 @@ export class PsyWasmWebProverProvider implements IPsyUserProverProvider {
     async getResult(id: QHashOut): Promise<U8Bytes> {
         return PsyWasmWebProverProvider.runWasmServerCall((server) => server.get_result(id.toString()));
     }
-}
-function decimalUserId(value: string): string {
-    const normalized = value.trim();
-    if (!/^(0|[1-9][0-9]*)$/.test(normalized) || normalized.length > 20) {
-        throw new Error("deployer must be a decimal user id");
-    }
-    if (BigInt(normalized) > 18446744073709551615n) {
-        throw new Error("deployer user id exceeds u64");
-    }
-    return normalized;
 }
 
 
