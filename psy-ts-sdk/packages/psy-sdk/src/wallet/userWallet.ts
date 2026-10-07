@@ -23,6 +23,7 @@ class PsyUserWallet implements IPsyUserWallet {
     networkMagic: bigint;
     coordinator: ICoordinatorEdgeRpcProvider;
     realm: IRealmEdgeRpcProvider;
+    realmRouter: IRealmEdgeRpcProvider;
     signer: IPsyTransactionSigner;
 
     userId: number;
@@ -33,6 +34,7 @@ class PsyUserWallet implements IPsyUserWallet {
         networkId: NetworkId,
         signer: IPsyTransactionSigner,
         coordinator: ICoordinatorEdgeRpcProvider,
+        realmRouter: IRealmEdgeRpcProvider,
         realm: IRealmEdgeRpcProvider,
         userId: number,
         publicKeyHex: string,
@@ -43,6 +45,7 @@ class PsyUserWallet implements IPsyUserWallet {
         this.signer = signer;
         this.coordinator = coordinator;
         this.realm = realm;
+        this.realmRouter = realmRouter;
 
         this.userId = userId;
         this.publicKeyHex = publicKeyHex;
@@ -53,6 +56,8 @@ class PsyUserWallet implements IPsyUserWallet {
         const publicKeyHex = await this.signer.getPublicKeyHex();
         try {
             const userId = await this.coordinator.getUserId(publicKeyHex);
+            this.userId = userId;
+            this.realm = this.realmRouter.getRpcProviderByUserId(userId);
             const { user, cache } = await userWalletCache.refreshUserFull(this.realm, userId);
 
             user.balance = cache.localBalance;
@@ -133,8 +138,12 @@ class PsyUserWallet implements IPsyUserWallet {
     //     return this.prover.getRandomKeypair();
     // }
 
-    async deployContract(pk_hash: string, circuitDefs: DPNFunctionCircuitDefinition[]): Promise<string> {
-        return this.signer.deployContract(pk_hash, circuitDefs);
+    async deployContract(circuitDefs: DPNFunctionCircuitDefinition[]): Promise<string> {
+        await this.refresh();
+        if (!this.status || !Number.isSafeInteger(this.userId) || this.userId <= 0) {
+            throw new Error("wallet user id is unresolved");
+        }
+        return this.signer.deployContract(String(this.userId), circuitDefs);
     }
 
     // async getDeployContract(circuitDefs: DPNFunctionCircuitDefinition[]): Promise<QBCDeployContract> {

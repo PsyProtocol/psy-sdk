@@ -45,15 +45,6 @@ export interface WithdrawalRecord {
     nonce: string;
 }
 
-export interface RewardRecord {
-    claimCheckpointId: string;
-    userId: string;
-    height: number;
-    pathIndex: number;
-    nullifierIndex: number;
-    recipient: string;
-}
-
 export interface AggregateWithdrawalRequest {
     config: string;
     registry: string;
@@ -63,62 +54,119 @@ export interface AggregateWithdrawalRequest {
     userId: string;
 }
 
-export interface RewardJob {
-    realmId: string | null;
-    uniquePendingId: string;
-    job: {
-        inner: {
-            job_data_id: {
-                topic: number;
-                goal_id: number | bigint;
-                circuit_type: number;
-                group_id: number;
-                sub_group_id: number;
-                task_index: number;
-                data_type: number;
-                data_index: number;
-            };
-            reward_path_info: number | bigint;
+export type Hash4 = [string, string, string, string];
+
+export interface RewardSessionProofFields {
+    checkpointTreeRoot: Hash4;
+    userId: number;
+    recipient: [number, number, number, number, number, number, number, number];
+    totalAmount: [number, number, number, number, number, number, number, number];
+    count: number;
+    jobsCommitment: Hash4;
+    oldLedgerStateRoot: Hash4;
+    newLedgerStateRoot: Hash4;
+}
+
+export interface RewardLedgerState {
+    ledgerWindowHash: Hash4;
+    ledgerRoot: Hash4;
+    userRoot: Hash4;
+    sessionCount: number;
+    unfinishedSessionCount: number;
+}
+
+export interface RewardLedgerWindow {
+    configHash: string;
+    economicDomain: string;
+    windowId: string;
+    endCheckpointId: number;
+    endCheckpointRoot: Hash4;
+    startRoot: Hash4;
+}
+
+export interface RewardTag {
+    tagPreimage: Hash4;
+    leafLeft: Hash4;
+    leafRight: Hash4;
+    leafTag: Hash4;
+    siblings: Hash4[];
+    parentTags: Hash4[];
+}
+
+export interface RewardSessionJob {
+    height: number;
+    pathIndex: number;
+    tag: RewardTag;
+    nullifierSiblings: Hash4[];
+}
+
+export type RewardAuthorization =
+    | { scheme: "zk"; privateKey: Hash4 }
+    | { scheme: "secp"; compressedPublicKey: string; signatureRs: string }
+    | { scheme: "personalSign"; compressedPublicKey: string; signatureRs: string }
+    | {
+        scheme: "multisig";
+        contractId: number;
+        initialPolicy: {
+            version: number;
+            threshold: number;
+            member_count: number;
+            member_hashes: [string, string, string, string, string, string, string, string];
         };
-        reward_tree_tag_preimage: string;
+        policySlots: [Hash4, Hash4, Hash4, Hash4];
+        contractStatePaths: [Hash4[], Hash4[], Hash4[], Hash4[]];
+        policySlotPaths: [Hash4[], Hash4[], Hash4[], Hash4[]];
+        memberIndices: [number, number];
+        compressedPublicKeys: [string, string];
+        signaturesRs: [string, string];
     };
+
+export interface RewardSessionWitness {
+    statement: RewardSessionProofFields;
+    config: string;
+    economicDomain: string;
+    windowId: string;
+    startRoot: Hash4;
+    sourceCheckpointId: number;
+    endCheckpointId: number;
+    sourceLeaf: unknown;
+    sourcePath: Hash4[];
+    oldState: RewardLedgerState;
+    newState: RewardLedgerState;
+    ownState: RewardLedgerState;
+    oldSummary: Hash4;
+    oldSessionRoot: Hash4;
+    sessionSiblings: Hash4[];
+    ownSiblings: Hash4[];
+    ledgerSiblings: Hash4[];
+    ownPrevious: string | null;
+    globalPrevious: string | null;
+    jobs: RewardSessionJob[];
+    isFinalStep: boolean;
+    endLeaf: unknown;
+    endPath: Hash4[];
+    endRoots: unknown;
+    userLeaf: unknown;
+    userPath: Hash4[];
+    publicKeyParam: Hash4;
+    authorization: RewardAuthorization | null;
 }
 
-export interface PsyCompressedSecp256K1Signature {
-    public_key: string;
-    signature: string;
-    message: string;
-}
-
-export interface MultisigAccount {
-    contract_id: number;
-    initial_policy: {
-        version: number;
-        threshold: number;
-        member_count: number;
-        member_hashes: [string, string, string, string, string, string, string, string];
-    };
-}
-
-export interface MultisigSignatures {
-    member_indices: number[];
-    signatures: PsyCompressedSecp256K1Signature[];
-}
-
-export type ExternalRewardAuthorization =
-    | { scheme: "secp"; signature: PsyCompressedSecp256K1Signature }
-    | { scheme: "personal_sign"; signature: PsyCompressedSecp256K1Signature }
-    | { scheme: "multisig"; account: MultisigAccount; signatures: MultisigSignatures[] };
-
-export interface AggregateRewardRequest {
+export interface RewardSessionClaimProvingRequest {
     config: string;
     registry: string;
     servicesUrl: string;
     context: AggregationContext;
-    record: RewardRecord;
-    userId: string;
-    job: RewardJob;
-    externalAuthorization?: ExternalRewardAuthorization | null;
+    witness: RewardSessionWitness;
+    window: RewardLedgerWindow;
+    expectedOldRoot: Hash4;
+}
+export interface RewardSessionClaimRequest {
+    version: number;
+    contextId: string;
+    kind: "reward";
+    record: string;
+    transition: string;
 }
 
 export interface AggregationClaimRequest {
@@ -131,8 +179,14 @@ export interface AggregationClaimRequest {
 
 export type AggregateClaimResult =
     | { state: "aggregation_claim"; request: AggregationClaimRequest }
-    | { state: "fresh_authorization_required"; message: string; record: string; reward: RewardRecord; context: AggregationContext };
-
+    | { state: "fresh_authorization_required"; message: string; record: string; reward: {
+        claimCheckpointId: string;
+        userId: string;
+        height: number;
+        pathIndex: number;
+        nullifierIndex: number;
+        recipient: string;
+    }; context: AggregationContext };
 let isWasmInitialized = false;
 
 // Synchronous WASM initialization function
@@ -218,20 +272,32 @@ export class PsyWasmWebProverProvider implements IPsyUserProverProvider {
             if (typeof method !== "function") {
                 throw new Error("Prover WASM is stale: regenerate it to expose prove_aggregate_withdrawal_json");
             }
-            return await Reflect.apply(method, server, [pkHash, PsyJSON.stringify(request)]);
+            const encoded = await Reflect.apply(method, server, [pkHash, PsyJSON.stringify(request)]);
+            if (typeof encoded !== "string") {
+                throw new Error("aggregate withdrawal proof returned a non-string");
+            }
+            return encoded;
         });
         return PsyJSON.parse(result) as AggregateClaimResult;
     }
 
-    async proveAggregateReward(pkHash: PublicKey, request: AggregateRewardRequest): Promise<AggregateClaimResult> {
+    async proveRewardSessionClaim(pkHash: PublicKey, request: RewardSessionClaimProvingRequest): Promise<RewardSessionClaimRequest> {
         const result = await PsyWasmWebProverProvider.runWasmServerCall(async (server) => {
             const method = Reflect.get(server, "prove_aggregate_reward_json");
             if (typeof method !== "function") {
                 throw new Error("Prover WASM is stale: regenerate it to expose prove_aggregate_reward_json");
             }
-            return await Reflect.apply(method, server, [pkHash, PsyJSON.stringify(request)]);
+            const encoded = await Reflect.apply(method, server, [pkHash, PsyJSON.stringify(request)]);
+            if (typeof encoded !== "string") {
+                throw new Error("reward session claim returned a non-string");
+            }
+            return encoded;
         });
-        return PsyJSON.parse(result) as AggregateClaimResult;
+        const claim = PsyJSON.parse(result) as RewardSessionClaimRequest;
+        if (claim.version !== 2 || claim.kind !== "reward" || typeof claim.contextId !== "string" || !claim.contextId || typeof claim.record !== "string" || typeof claim.transition !== "string" || !claim.transition) {
+            throw new Error("reward session claim is not a version 2 reward transition");
+        }
+        return claim;
     }
 
     async execContractCall(pkHash: string, callData: ContractCallData): Promise<string> {
@@ -645,16 +711,16 @@ export class PsyWasmWebProverProvider implements IPsyUserProverProvider {
         return PsyJSON.parse(json);
     }
 
-    // Contract deployment
-    async deployContract(deployer: PublicKey, circuitDefs: DPNFunctionCircuitDefinition[]): Promise<string> {
+    // Contract deployment. `deployer` is the deploying user's decimal id.
+    async deployContract(deployer: string, circuitDefs: DPNFunctionCircuitDefinition[]): Promise<string> {
         const json = PsyJSON.stringify(circuitDefs);
         return PsyWasmWebProverProvider.runWasmServerCall((server) =>
-            server.deploy_contract_json(deployer, json)
+            server.deploy_contract_json(decimalUserId(deployer), json)
         );
     }
 
     async getDeployContractCmd(
-        deployer: PublicKey,
+        deployer: string,
         circuitDefs: DPNFunctionCircuitDefinition[],
         abi: unknown
     ): Promise<QBCDeployContractV2> {
@@ -664,7 +730,7 @@ export class PsyWasmWebProverProvider implements IPsyUserProverProvider {
         const json = PsyJSON.stringify(circuitDefs);
         const abiJson = PsyJSON.stringify(abi);
         const resultJson = await PsyWasmWebProverProvider.runWasmServerCall((server) =>
-            server.get_layout_aware_deploy_contract_cmd_json(deployer, json, abiJson)
+            server.get_layout_aware_deploy_contract_cmd_json(decimalUserId(deployer), json, abiJson)
         );
         return PsyJSON.parse(resultJson);
     }
@@ -678,6 +744,17 @@ export class PsyWasmWebProverProvider implements IPsyUserProverProvider {
         return PsyWasmWebProverProvider.runWasmServerCall((server) => server.get_result(id.toString()));
     }
 }
+function decimalUserId(value: string): string {
+    const normalized = value.trim();
+    if (!/^(0|[1-9][0-9]*)$/.test(normalized) || normalized.length > 20) {
+        throw new Error("deployer must be a decimal user id");
+    }
+    if (BigInt(normalized) > 18446744073709551615n) {
+        throw new Error("deployer user id exceeds u64");
+    }
+    return normalized;
+}
+
 
 export class PsyWasmConstantsProvider {
     private static _cache: Record<string, any> | null = null;

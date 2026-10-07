@@ -1,5 +1,40 @@
 /* tslint:disable */
 /* eslint-disable */
+/**
+ * The `ReadableStreamType` enum.
+ *
+ * *This API requires the following crate features to be activated: `ReadableStreamType`*
+ */
+
+export type ReadableStreamType = "bytes";
+
+export class IntoUnderlyingByteSource {
+    private constructor();
+    free(): void;
+    [Symbol.dispose](): void;
+    cancel(): void;
+    pull(controller: ReadableByteStreamController): Promise<any>;
+    start(controller: ReadableByteStreamController): void;
+    readonly autoAllocateChunkSize: number;
+    readonly type: ReadableStreamType;
+}
+
+export class IntoUnderlyingSink {
+    private constructor();
+    free(): void;
+    [Symbol.dispose](): void;
+    abort(reason: any): Promise<any>;
+    close(): Promise<any>;
+    write(chunk: any): Promise<any>;
+}
+
+export class IntoUnderlyingSource {
+    private constructor();
+    free(): void;
+    [Symbol.dispose](): void;
+    cancel(): void;
+    pull(controller: ReadableStreamDefaultController): Promise<any>;
+}
 
 export class WasmConstants {
     private constructor();
@@ -155,6 +190,8 @@ export class WasmRpcServer {
     constructor(rpc_config_json: string);
     ping(message: string): string;
     prepare_trace_proof_schedule_json(envelope_json: string): Promise<string>;
+    prove_aggregate_reward_json(pk_hash: string, request_json: string): Promise<string>;
+    prove_aggregate_withdrawal_json(pk_hash: string, request_json: string): Promise<string>;
     prove_cfc_job_with_schedule_step_json(pk_hash: string, envelope_json: string, schedule_json: string, step_index: number): Promise<string>;
     prove_contract_call_json(pk_hash: string, contract_call_json: string): Promise<string>;
     prove_contract_calls_json(pk_hash: string, contract_calls_json: string): Promise<string>;

@@ -79,6 +79,7 @@ class PsyUserWalletProvider implements IPsyUserWalletProvider, IContractProvider
                     this.networkId,
                     signers[index],
                     this.coordinatorEdgeRpcProvider,
+                    this.realmEdgeRpcProvider,
                     this.realmEdgeRpcProvider.getRpcProviderByUserId(userId),
                     userId,
                     publicKeys[index],

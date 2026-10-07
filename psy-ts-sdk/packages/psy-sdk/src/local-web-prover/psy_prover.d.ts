@@ -1,5 +1,40 @@
 /* tslint:disable */
 /* eslint-disable */
+/**
+ * The `ReadableStreamType` enum.
+ *
+ * *This API requires the following crate features to be activated: `ReadableStreamType`*
+ */
+
+export type ReadableStreamType = "bytes";
+
+export class IntoUnderlyingByteSource {
+    private constructor();
+    free(): void;
+    [Symbol.dispose](): void;
+    cancel(): void;
+    pull(controller: ReadableByteStreamController): Promise<any>;
+    start(controller: ReadableByteStreamController): void;
+    readonly autoAllocateChunkSize: number;
+    readonly type: ReadableStreamType;
+}
+
+export class IntoUnderlyingSink {
+    private constructor();
+    free(): void;
+    [Symbol.dispose](): void;
+    abort(reason: any): Promise<any>;
+    close(): Promise<any>;
+    write(chunk: any): Promise<any>;
+}
+
+export class IntoUnderlyingSource {
+    private constructor();
+    free(): void;
+    [Symbol.dispose](): void;
+    cancel(): void;
+    pull(controller: ReadableStreamDefaultController): Promise<any>;
+}
 
 export class WasmConstants {
     private constructor();
@@ -155,6 +190,8 @@ export class WasmRpcServer {
     constructor(rpc_config_json: string);
     ping(message: string): string;
     prepare_trace_proof_schedule_json(envelope_json: string): Promise<string>;
+    prove_aggregate_reward_json(pk_hash: string, request_json: string): Promise<string>;
+    prove_aggregate_withdrawal_json(pk_hash: string, request_json: string): Promise<string>;
     prove_cfc_job_with_schedule_step_json(pk_hash: string, envelope_json: string, schedule_json: string, step_index: number): Promise<string>;
     prove_contract_call_json(pk_hash: string, contract_call_json: string): Promise<string>;
     prove_contract_calls_json(pk_hash: string, contract_calls_json: string): Promise<string>;
@@ -321,6 +358,8 @@ export interface InitOutput {
     readonly wasmrpcserver_new: (a: number, b: number) => any;
     readonly wasmrpcserver_ping: (a: number, b: number, c: number) => [number, number, number, number];
     readonly wasmrpcserver_prepare_trace_proof_schedule_json: (a: number, b: number, c: number) => any;
+    readonly wasmrpcserver_prove_aggregate_reward_json: (a: number, b: number, c: number, d: number, e: number) => any;
+    readonly wasmrpcserver_prove_aggregate_withdrawal_json: (a: number, b: number, c: number, d: number, e: number) => any;
     readonly wasmrpcserver_prove_cfc_job_with_schedule_step_json: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number) => any;
     readonly wasmrpcserver_prove_contract_call_json: (a: number, b: number, c: number, d: number, e: number) => any;
     readonly wasmrpcserver_prove_contract_calls_json: (a: number, b: number, c: number, d: number, e: number) => any;
@@ -346,9 +385,23 @@ export interface InitOutput {
     readonly wasmrpcserver_trace_proof_job_step_indices_json: (a: number, b: number, c: number) => [number, number, number, number];
     readonly wasmpsyconfigbuilder_new: () => number;
     readonly wasmconstants_register_user_fee: () => bigint;
-    readonly wasm_bindgen__convert__closures_____invoke__h447e0f573cfb1039: (a: number, b: number, c: any) => [number, number];
-    readonly wasm_bindgen__convert__closures_____invoke__h205d9aeaebc44d62: (a: number, b: number, c: any, d: any) => void;
-    readonly wasm_bindgen__convert__closures_____invoke__h780b2bd6838c983d: (a: number, b: number) => void;
+    readonly __wbg_intounderlyingsource_free: (a: number, b: number) => void;
+    readonly intounderlyingsource_cancel: (a: number) => void;
+    readonly intounderlyingsource_pull: (a: number, b: any) => any;
+    readonly __wbg_intounderlyingbytesource_free: (a: number, b: number) => void;
+    readonly intounderlyingbytesource_autoAllocateChunkSize: (a: number) => number;
+    readonly intounderlyingbytesource_cancel: (a: number) => void;
+    readonly intounderlyingbytesource_pull: (a: number, b: any) => any;
+    readonly intounderlyingbytesource_start: (a: number, b: any) => void;
+    readonly intounderlyingbytesource_type: (a: number) => number;
+    readonly __wbg_intounderlyingsink_free: (a: number, b: number) => void;
+    readonly intounderlyingsink_abort: (a: number, b: any) => any;
+    readonly intounderlyingsink_close: (a: number) => any;
+    readonly intounderlyingsink_write: (a: number, b: any) => any;
+    readonly wasm_bindgen__convert__closures_____invoke__h7ae0f318904cbfb7: (a: number, b: number, c: any) => [number, number];
+    readonly wasm_bindgen__convert__closures_____invoke__h5e2602ab36a8b573: (a: number, b: number, c: any, d: any) => void;
+    readonly wasm_bindgen__convert__closures_____invoke__hf3ed4e4bb53d7639: (a: number, b: number, c: any) => void;
+    readonly wasm_bindgen__convert__closures_____invoke__hd3e4058c7dbdd773: (a: number, b: number) => void;
     readonly __wbindgen_malloc: (a: number, b: number) => number;
     readonly __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;
     readonly __wbindgen_exn_store: (a: number) => void;

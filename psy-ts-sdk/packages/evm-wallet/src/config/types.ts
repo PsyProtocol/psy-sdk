@@ -39,6 +39,10 @@ export interface PsyChainConfig {
   native_currency_symbol?: string
   fees?: Record<string, number | string>
   l1_rpc_urls?: string[]
+  bridge_aggregate?: {
+    config: string
+    registry: string
+  }
   [key: string]: unknown
 }
 

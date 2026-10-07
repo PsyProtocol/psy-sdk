@@ -42,6 +42,7 @@ export interface PsyInterpretRequest {
         checkpoint_id?: number | bigint;
         nonce?: number | bigint;
         user_public_key_hash?: [number | bigint, number | bigint, number | bigint, number | bigint];
+        session_proof_tree_root?: [number | bigint, number | bigint, number | bigint, number | bigint];
     };
     initial_state?: {
         slots?: Array<{
@@ -58,7 +59,7 @@ export interface PsyInterpretRequest {
         }>;
         deployers?: Array<{
             contract_id: number | bigint;
-            deployer: [number | bigint, number | bigint, number | bigint, number | bigint];
+            deployer: number | bigint;
         }>;
         checkpoint_stats?: Array<{
             checkpoint_id: number | bigint;
