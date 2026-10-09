@@ -99,6 +99,22 @@ export function setThreadCount(threads: number): void {
     threadCount = Math.max(0, Math.floor(threads));
 }
 
+type ThreadGlobals = { __psyProverThreadWorkerFactory?: () => Worker };
+
+/**
+ * How to start one proving thread: return a new module Worker whose script calls
+ * `startProverThreadWorker()` (it must bundle the same SDK build). Hosts bundle that script
+ * themselves, e.g. `() => new Worker(new URL("./prover-thread.ts", import.meta.url), { type: "module" })`.
+ * Required for `setThreadCount`.
+ */
+export function setThreadWorkerFactory(factory: () => Worker): void {
+    (globalThis as ThreadGlobals).__psyProverThreadWorkerFactory = factory;
+}
+
+// The thread-worker side lives in ./thread, which imports only the wasm-bindgen glue, so a host's
+// thread-worker bundle stays small.
+export { startProverThreadWorker } from "./thread";
+
 async function startThreadPool(): Promise<void> {
     const initThreadPool = (proverModule as { initThreadPool?: (n: number) => Promise<unknown> }).initThreadPool;
     if (threadCount < 2 || !initThreadPool) {
@@ -108,7 +124,18 @@ async function startThreadPool(): Promise<void> {
         console.warn("Prover threads need cross-origin isolation; proving on one thread");
         return;
     }
-    await initThreadPool(threadCount);
+    if (typeof (globalThis as ThreadGlobals).__psyProverThreadWorkerFactory !== "function") {
+        console.warn("Prover threads need setThreadWorkerFactory(); proving on one thread");
+        return;
+    }
+    try {
+        await initThreadPool(threadCount);
+    } catch (error) {
+        // Never fail initialisation over the pool: the prover is already initialised, and rayon
+        // without a global pool runs on the calling thread.
+        console.warn("Prover thread pool failed to start; proving on one thread:", error);
+        return;
+    }
     console.log(`Prover thread pool started with ${threadCount} threads`);
 }
 
