@@ -46,6 +46,11 @@
       "require": "./dist/local-web-prover/provider.cjs",
       "types": "./dist/local-web-prover/provider.d.ts"
     },
+    "./local-web-prover/thread": {
+      "types": "./dist/local-web-prover/thread.d.ts",
+      "import": "./dist/local-web-prover/thread.mjs",
+      "require": "./dist/local-web-prover/thread.cjs"
+    },
     "./local-web-prover/psy_prover": {
       "import": "./dist/local-web-prover/psy_prover.mjs",
       "require": "./dist/local-web-prover/psy_prover.cjs",

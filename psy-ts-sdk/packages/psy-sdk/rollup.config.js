@@ -14,6 +14,8 @@ const input = {
     'local-web-compiler/wasm-binary': 'src/local-web-compiler/wasm-binary.ts',
     'local-web-prover/index': 'src/local-web-prover/index.ts',
     'local-web-prover/provider': 'src/local-web-prover/provider.ts',
+    // Proving-thread entry (see thread.ts): only the glue, for small thread-worker bundles.
+    'local-web-prover/thread': 'src/local-web-prover/thread.ts',
     // Keep raw wasm-bindgen entry as explicit Rollup input so exports like
     // prove_private_note_inclusion_json are not pruned.
     'local-web-prover/psy_prover': 'src/local-web-prover/psy_prover.js',
