@@ -36,7 +36,7 @@ interface IPsyTransactionSigner {
         proofs?: ProvingProofBlobJson[],
     ): Promise<TraceStepProgressJson>;
     proveTxTraceConcurrent(pk_hash: string, envelope: string | GeneratedTxTraceJson): Promise<TraceProofConcurrentResult>;
-    deployContract(pk_hash: string, circuitDefs: DPNFunctionCircuitDefinition[]): Promise<string>;
+    deployContract(deployer: bigint, circuitDefs: DPNFunctionCircuitDefinition[]): Promise<string>;
     registerUser(privateKeyHex: string, signType: SignType, fingerprint?: string): Promise<string>;
     addUser(privateKeyHex: string, signType: SignType, fingerprint?: string): Promise<string>;
     getClaimRewardsCallArgs(jobInfos: string): Promise<ContractCallArgs[]>;
