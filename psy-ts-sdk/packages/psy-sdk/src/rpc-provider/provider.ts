@@ -15,20 +15,11 @@ export class RpcProvider {
     this.realmRpcProvider.setUserId(userId);
   }
 
-  async getLastClaimCheckpointId(checkpointId: Felt, userId: Felt): Promise<Felt> {
-    console.log("getLastClaimCheckpointId, checkpointId: " + checkpointId);
-    console.log("getLastClaimCheckpointId, userId: " + userId);
-    const leafHash = await this.realmRpcProvider.getRpcProviderByUserId(userId).getUserContractStateTreeLeafHash(checkpointId, userId, 0, 0);
-    if (!leafHash || leafHash.length != 64) {
-      console.warn("getLastClaimCheckpointId failed, leafHash.length != 64, leafHash: " + leafHash);
-      throw new Error("getLastClaimCheckpointId failed, leafHash.length != 64");
-    }
-    console.log("getLastClaimCheckpointId, leafHash: " + leafHash);
-    return parseInt(leafHash?.substring(32, 48), 16);
-  }
 
   async getPsyBalance(checkpointId: Felt, userId: Felt): Promise<Felt> {
-    const leafHash = await this.realmRpcProvider.getRpcProviderByUserId(userId).getUserContractStateTreeLeafHash(checkpointId, userId, 0, 0);
+    // Clean-Genesis balance: Felt 84, leaf 21, limb 0.
+    const balanceLeaf = 21;
+    const leafHash = await this.realmRpcProvider.getRpcProviderByUserId(userId).getUserContractStateTreeLeafHash(checkpointId, userId, 0, balanceLeaf);
 
     if (!leafHash || leafHash.length != 64) {
       console.warn("getPsyBalance failed, leafHash.length != 64, leafHash: " + leafHash);
@@ -55,10 +46,12 @@ export class RpcProvider {
   async getClaimAmount(checkpointId: Felt, userId: Felt, claimUserId: Felt): Promise<Felt> {
 
     const contractId = 0;
-    const senderTotalSentIndex = 3n + BigInt(userId) * 2n;
+    // Clean-Genesis other_user_info base Felt is 85; two Felts per user.
+    const publicClaimArrayBase = 85n;
+    const senderTotalSentIndex = publicClaimArrayBase + BigInt(userId) * 2n;
     const senderTotalSentSlot = senderTotalSentIndex / 4n;
     const senderTotalSentSlotIndex = 3n - senderTotalSentIndex % 4n;
-    const amountClaimedIndex = 3n + BigInt(claimUserId) * 2n + 1n;
+    const amountClaimedIndex = publicClaimArrayBase + BigInt(claimUserId) * 2n + 1n;
     const amountClaimedSlot = amountClaimedIndex / 4n;
     const amountClaimedSlotIndex = 3n - amountClaimedIndex % 4n;
     const userTotalSentSlotValue = await this.realmRpcProvider.getRpcProviderByUserId(claimUserId).getUserContractStateTreeLeafHash(checkpointId, claimUserId, contractId, senderTotalSentSlot);

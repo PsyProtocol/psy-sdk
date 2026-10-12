@@ -2199,6 +2199,9 @@ impl WasmRpcServer {
         };
 
         const NOTE_TREE_HEIGHT: usize = 20;
+        /// Clean-Genesis note_count: Felt 8589934677, leaf 2147483669, limb 1.
+        const NOTE_COUNT_LEAF: u64 = 2_147_483_669;
+        const NOTE_COUNT_LIMB: usize = 1;
         type C = PoseidonGoldilocksConfig;
         const D: usize = 2;
 
@@ -2238,9 +2241,6 @@ impl WasmRpcServer {
                 "contract_id={} exceeds {}-level contract tree",
                 contract_id_val, GLOBAL_CONTRACT_TREE_HEIGHT,
             )));
-        }
-        if note_root_slot_val == 0 {
-            return Err(JsError::new("note_root_slot must be greater than zero"));
         }
         let highest_note_path_slot = note_root_slot_val
             .checked_add(NOTE_TREE_HEIGHT as u64)
@@ -2324,24 +2324,23 @@ impl WasmRpcServer {
         }
 
         // Build note membership proof from the pre-submit checkpoint.
-        // note_count is at slot note_root_slot - 1, elements[3] is the note index.
-        let note_count_slot = note_root_slot_val.saturating_sub(1);
+        // note_count is leaf 2147483669 limb 1, independent of note_root.
         let note_count_proof = user_provider
             .get_user_contract_state_tree_merkle_proof(
                 checkpoint_before,
                 sender_user_id,
                 contract_id_val as u32,
                 TOKEN_CONTRACT_STATE_TREE_HEIGHT,
-                note_count_slot,
+                NOTE_COUNT_LEAF,
             )
             .await
             .map_err(|e| JsError::new(&format!("note_count_proof: {}", e)))?;
-        let note_index = note_count_proof.value.0.elements[3].to_canonical_u64();
+        let note_index = note_count_proof.value.0.elements[NOTE_COUNT_LIMB].to_canonical_u64();
         validate_snapshot_proof(
             "note_count",
             checkpoint_before,
             &note_count_proof,
-            note_count_slot,
+            NOTE_COUNT_LEAF,
             TOKEN_CONTRACT_STATE_TREE_HEIGHT as usize,
             None,
         )
@@ -2353,7 +2352,7 @@ impl WasmRpcServer {
             )));
         }
 
-        // Collect last_path (levels 0..NOTE_TREE_HEIGHT) from slots note_root_slot+1..
+        // Collect last_path (levels 0..NOTE_TREE_HEIGHT) from leaves immediately after note_root.
         let mut last_path: Vec<QHashOut<F>> = Vec::with_capacity(NOTE_TREE_HEIGHT);
         for level in 0..NOTE_TREE_HEIGHT as u64 {
             let slot = note_root_slot_val

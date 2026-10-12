@@ -67,9 +67,6 @@ pub(crate) fn ensure_private_note_proof_coherence(
     user_leaf: &PsyUserLeaf<F>,
     user_tree_proof: &MerkleProofCore<QHashOut<F>>,
 ) -> Result<(), String> {
-    if context.note_root_slot == 0 {
-        return Err("private note proof invalid: note_root_slot must be greater than zero".to_string());
-    }
     if !index_fits_height(context.note_index, context.note_tree_height) {
         return Err(format!(
             "private note proof invalid at checkpoint {}: note_index={} exceeds {}-level note tree",
@@ -397,6 +394,41 @@ mod tests {
     }
 
     #[test]
+    fn composed_private_note_proofs_accept_root_slot_zero() {
+        use psy_crypto::hash::traits::qhashable::QFieldHashable;
+
+        let sender_user_id = 327680;
+        let membership_root = QHashOut::<F>::from_values(1, 2, 3, 4);
+        let slot_proof = proof(0, membership_root, 24);
+        let contract_proof = proof(0, slot_proof.root, 1);
+        let leaf = user_leaf(sender_user_id, contract_proof.root);
+        let user_tree_proof = proof(sender_user_id, leaf.qfhash::<PoseidonHasher>(), 20);
+        let context = PrivateNoteProofCoherence {
+            checkpoint: 142,
+            sender_user_id,
+            contract_id: 0,
+            note_root_slot: 0,
+            note_index: 7,
+            note_tree_height: 20,
+            contract_state_tree_height: 24,
+            contract_tree_height: 1,
+            user_tree_height: 20,
+            membership_root,
+        };
+
+        assert_eq!(
+            ensure_private_note_proof_coherence(
+                &context,
+                &slot_proof,
+                &contract_proof,
+                &leaf,
+                &user_tree_proof,
+            ),
+            Ok(()),
+        );
+    }
+
+    #[test]
     fn composed_private_note_proofs_reject_high_note_index_before_proving() {
         use psy_crypto::hash::traits::qhashable::QFieldHashable;
 
@@ -429,6 +461,80 @@ mod tests {
         .unwrap_err();
         assert!(err.contains("note_index"));
         assert!(err.contains(&(7u64 | (1u64 << 48)).to_string()));
+    }
+    #[test]
+    fn composed_private_note_proofs_reject_wrong_slot_path() {
+        use psy_crypto::hash::traits::qhashable::QFieldHashable;
+
+        let sender_user_id = 327680;
+        let membership_root = QHashOut::<F>::from_values(1, 2, 3, 4);
+        let wrong_slot = 1u64;
+        let slot_proof = proof(wrong_slot, membership_root, 24);
+        let contract_proof = proof(0, slot_proof.root, 1);
+        let leaf = user_leaf(sender_user_id, contract_proof.root);
+        let user_tree_proof = proof(sender_user_id, leaf.qfhash::<PoseidonHasher>(), 20);
+        let context = PrivateNoteProofCoherence {
+            checkpoint: 142,
+            sender_user_id,
+            contract_id: 0,
+            note_root_slot: 0,
+            note_index: 7,
+            note_tree_height: 20,
+            contract_state_tree_height: 24,
+            contract_tree_height: 1,
+            user_tree_height: 20,
+            membership_root,
+        };
+
+        let err = ensure_private_note_proof_coherence(
+            &context,
+            &slot_proof,
+            &contract_proof,
+            &leaf,
+            &user_tree_proof,
+        )
+        .unwrap_err();
+        assert!(err.contains("note_root_slot"));
+        assert!(err.contains(&wrong_slot.to_string()));
+        assert!(err.contains("expected_index=0"));
+    }
+
+    #[test]
+    fn composed_private_note_proofs_reject_wrong_checkpoint_user_path() {
+        use psy_crypto::hash::traits::qhashable::QFieldHashable;
+
+        let sender_user_id = 327680;
+        let other_user_id = sender_user_id + 1;
+        let membership_root = QHashOut::<F>::from_values(1, 2, 3, 4);
+        let slot_proof = proof(0, membership_root, 24);
+        let contract_proof = proof(0, slot_proof.root, 1);
+        let leaf = user_leaf(sender_user_id, contract_proof.root);
+        let user_tree_proof = proof(other_user_id, leaf.qfhash::<PoseidonHasher>(), 20);
+        let context = PrivateNoteProofCoherence {
+            checkpoint: 142,
+            sender_user_id,
+            contract_id: 0,
+            note_root_slot: 0,
+            note_index: 7,
+            note_tree_height: 20,
+            contract_state_tree_height: 24,
+            contract_tree_height: 1,
+            user_tree_height: 20,
+            membership_root,
+        };
+
+        let err = ensure_private_note_proof_coherence(
+            &context,
+            &slot_proof,
+            &contract_proof,
+            &leaf,
+            &user_tree_proof,
+        )
+        .unwrap_err();
+        assert!(err.contains("user_tree"));
+        assert!(err.contains(&other_user_id.to_string()));
+        assert!(err.contains(&sender_user_id.to_string()));
+        assert!(err.contains("checkpoint 142"));
     }
 
     #[test]
