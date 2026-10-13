@@ -86,7 +86,6 @@ export const wasm_bindgen__convert__closures_____invoke__h205d9aeaebc44d62: (a: 
 export const wasm_bindgen__convert__closures_____invoke__he169e6de137f1eb0: (a: number, b: number, c: any) => void;
 export const wasm_bindgen__convert__closures_____invoke__hce85efe9a3522159: (a: number, b: number, c: any) => void;
 export const wasm_bindgen__convert__closures_____invoke__h780b2bd6838c983d: (a: number, b: number) => void;
-export const memory: WebAssembly.Memory;
 export const __wbindgen_malloc: (a: number, b: number) => number;
 export const __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;
 export const __wbindgen_exn_store: (a: number) => void;
