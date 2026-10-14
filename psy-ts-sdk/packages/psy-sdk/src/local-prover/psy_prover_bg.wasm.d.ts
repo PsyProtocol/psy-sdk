@@ -37,7 +37,7 @@ export const wasmrpcserver_batch_claim_json: (a: number, b: number, c: number, d
 export const wasmrpcserver_batch_claim_with_trace_json: (a: number, b: number, c: number, d: number, e: number) => any;
 export const wasmrpcserver_call_view_json: (a: number, b: number, c: number, d: number, e: number) => any;
 export const wasmrpcserver_compute_sighash_from_envelope_json: (a: number, b: number, c: number, d: number, e: number) => [number, number, number, number];
-export const wasmrpcserver_deploy_contract_json: (a: number, b: number, c: number, d: number, e: number) => any;
+export const wasmrpcserver_deploy_contract_json: (a: number, b: bigint, c: number, d: number) => any;
 export const wasmrpcserver_eth_personal_registration_challenge: (a: number, b: number) => any;
 export const wasmrpcserver_exec_claim_batch_json: (a: number, b: number, c: number, d: number, e: number) => any;
 export const wasmrpcserver_exec_claim_with_external_proof_json: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number, l: number, m: number, n: number, o: number, p: number, q: number, r: number, s: number, t: number, u: number, v: number, w: number, x: number, y: number, z: number, a1: number) => any;
@@ -46,8 +46,8 @@ export const wasmrpcserver_exec_contract_call_with_trace_json: (a: number, b: nu
 export const wasmrpcserver_exec_shield_claim_deposit_json: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number, l: number, m: number, n: number, o: number, p: number, q: number, r: number, s: number, t: number, u: number, v: number, w: number, x: number, y: number, z: number, a1: number, b1: number, c1: number) => any;
 export const wasmrpcserver_generate_batch_claim_tx_trace_json: (a: number, b: number, c: number, d: number, e: number) => any;
 export const wasmrpcserver_generate_tx_trace_json: (a: number, b: number, c: number, d: number, e: number) => any;
-export const wasmrpcserver_get_deploy_contract_cmd_json: (a: number, b: number, c: number, d: number, e: number) => [number, number, number, number];
-export const wasmrpcserver_get_layout_aware_deploy_contract_cmd_json: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => any;
+export const wasmrpcserver_get_deploy_contract_cmd_json: (a: number, b: bigint, c: number, d: number) => [number, number, number, number];
+export const wasmrpcserver_get_layout_aware_deploy_contract_cmd_json: (a: number, b: bigint, c: number, d: number, e: number, f: number) => any;
 export const wasmrpcserver_get_random_keypair_json: (a: number) => any;
 export const wasmrpcserver_get_result: (a: number, b: number, c: number) => [number, number, number, number];
 export const wasmrpcserver_get_zk_public_key_json: (a: number, b: number, c: number) => any;
@@ -86,6 +86,7 @@ export const wasm_bindgen__convert__closures_____invoke__h205d9aeaebc44d62: (a: 
 export const wasm_bindgen__convert__closures_____invoke__he169e6de137f1eb0: (a: number, b: number, c: any) => void;
 export const wasm_bindgen__convert__closures_____invoke__hce85efe9a3522159: (a: number, b: number, c: any) => void;
 export const wasm_bindgen__convert__closures_____invoke__h780b2bd6838c983d: (a: number, b: number) => void;
+export const memory: WebAssembly.Memory;
 export const __wbindgen_malloc: (a: number, b: number) => number;
 export const __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;
 export const __wbindgen_exn_store: (a: number) => void;
