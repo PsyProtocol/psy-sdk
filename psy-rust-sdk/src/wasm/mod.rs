@@ -2650,6 +2650,9 @@ impl WasmRpcServer {
             | psy_prover::trace::TraceSignCircuitSource::EthPersonalSecpBuiltin => {
                 psy_prover::signature::SignContext::new(fingerprint)
             }
+            psy_prover::trace::TraceSignCircuitSource::Multisig => {
+                self.multisig_sign_context_from_trace(zs, trace, current_header, fingerprint)?
+            }
             psy_prover::trace::TraceSignCircuitSource::PsySoftwareDefined { .. } => {
                 if zs.sign_witness.is_empty() {
                     return Err(JsError::new(
@@ -2742,6 +2745,77 @@ impl WasmRpcServer {
 
         Ok(sign_context)
     }
+    fn multisig_sign_context_from_trace(
+        &self,
+        step: &psy_prover::trace::ZkSignStep,
+        trace: &psy_prover::trace::TxTrace,
+        current_header: &psy_data::ups::ups_context_input::UserProvingSessionHeader<F>,
+        fingerprint: QHashOut<F>,
+    ) -> Result<psy_prover::signature::SignContext, JsError> {
+        use psy_crypto::hash::traits::hasher::FieldQHasher;
+        use psy_data::config::store_config::PsyHasher;
+
+        if step.sign_witness.is_empty() {
+            return Err(JsError::new(
+                "trace sign_witness missing for multisig signature",
+            ));
+        }
+        let witness: psy_vm::ups::multisig::MultisigSignatureWitness =
+            serde_json::from_slice(&step.sign_witness).map_err(|e| {
+                JsError::new(&format!("Deserialize multisig sign witness: {}", e))
+            })?;
+        witness.policies().map_err(|e| {
+            JsError::new(&format!("Invalid multisig sign witness: {}", e))
+        })?;
+
+        let (sig_data, sign_context, start_leaf) =
+            psy_vm::ups::signature::sig_hash_fields_from_header_poseidon(
+                current_header,
+                trace.finalization.nonce,
+            );
+        if witness.sig_data != sig_data
+            || witness.sign_context != sign_context
+            || witness.start_session_user_leaf != start_leaf
+            || witness.nonce != trace.finalization.nonce
+        {
+            return Err(JsError::new("multisig witness does not match trace header"));
+        }
+
+        let account_param = witness.account.public_key_param().map_err(|e| {
+            JsError::new(&format!("Invalid multisig account identity: {}", e))
+        })?;
+        if account_param != step.public_key_param {
+            return Err(JsError::new("multisig trace account parameter mismatch"));
+        }
+        if PsyHasher::q_two_to_one(step.fingerprint, step.public_key_param) != trace.meta.public_key
+        {
+            return Err(JsError::new("multisig trace public key mismatch"));
+        }
+        if step.fingerprint != fingerprint {
+            return Err(JsError::new("multisig trace fingerprint mismatch"));
+        }
+
+        let circuit = self.wallet_session.wallet.get_multisig_circuit().map_err(|e| {
+            JsError::new(&format!("Multisig circuit unavailable: {}", e))
+        })?;
+        if circuit.get_fingerprint() != step.fingerprint {
+            return Err(JsError::new("multisig verifier fingerprint mismatch"));
+        }
+        let saved_verifier = step
+            .sign_verifier_data_alt
+            .to_verifier_data::<C, D>();
+        let saved_bytes = bincode::serialize(&saved_verifier)
+            .map_err(|e| JsError::new(&format!("Serialize multisig saved verifier: {}", e)))?;
+        let circuit_bytes = bincode::serialize(circuit.get_verifier_config_ref())
+            .map_err(|e| JsError::new(&format!("Serialize multisig circuit verifier: {}", e)))?;
+        if saved_bytes != circuit_bytes {
+            return Err(JsError::new("multisig saved verifier differs from circuit"));
+        }
+
+        Ok(psy_prover::signature::SignContext::new(fingerprint)
+            .with_multisig_signature_witness(witness))
+    }
+
 
     /// Sign a sighash with the wallet's private key and return the signature
     /// proof as bincode bytes (Uint8Array). Used by the step proving path:
