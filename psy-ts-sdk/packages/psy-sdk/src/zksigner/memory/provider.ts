@@ -1,5 +1,5 @@
 import { getPsyNetworkMagicForNetworkId, NetworkId } from "../../action";
-import { ContractCallArgs, IPsyUserProverProvider, SignType } from "../../local-prover-rpc";
+import { IPsyUserProverProvider, PrepareRewardClaimRequest, PreparedRewardClaim, RewardClaimConfirmation, RewardClaimPreparation, SignType } from "../../local-prover-rpc";
 import { cryptoRandomHashOutHex } from "../../utils";
 import { IPsyTransactionSigner, IPsyTransactionSignerProvider, TPsyTransactionSignerProviderAbility } from "../types";
 import { PsyMemoryTransactionSigner } from "./signer";
@@ -64,12 +64,12 @@ class PsyMemoryTransactionSignerProvider implements IPsyTransactionSignerProvide
         return this.proverProvider.addUser(privateKeyHex, signType, fingerprint);
     }
 
-    async getClaimRewardsCallArgs(jobInfos: string): Promise<ContractCallArgs[]> {
-        return this.proverProvider.getClaimRewardsCallArgs(jobInfos);
+    async prepareRewardClaim(pkHash: string, request: PrepareRewardClaimRequest): Promise<RewardClaimPreparation> {
+        return this.proverProvider.prepareRewardClaim(pkHash, request);
     }
 
-    async claimRewards(pk_hash: string, jobInfos: string): Promise<string> {
-        return this.proverProvider.claimRewards(pk_hash, jobInfos);
+    async confirmRewardClaim(l1RpcUrl: string, prepared: PreparedRewardClaim, txHash: string): Promise<RewardClaimConfirmation> {
+        return this.proverProvider.confirmRewardClaim(l1RpcUrl, prepared, txHash);
     }
 }
 
