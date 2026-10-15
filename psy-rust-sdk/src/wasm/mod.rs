@@ -2414,6 +2414,23 @@ impl WasmRpcServer {
             .ok_or_else(|| JsError::new("No user ID found for public key"))?;
 
         let user_provider = provider.with_user_id_owned(sender_user_id);
+        // The audited U124 FT packs both denomination counters and paths
+        // across Felt positions; they are not adjacent QHash leaves.
+        let wide_denomination = crate::private_ft::Profile::U124PrivateV1
+            .roots()
+            .iter()
+            .position(|root| *root == note_root_slot_val);
+        if wide_denomination.is_some() {
+            crate::private_ft::pin(
+                &user_provider,
+                crate::private_ft::Profile::U124PrivateV1,
+                contract_id_val,
+                "fc19619943370196243a67e0947342d05cd430a6fb076b4cb3ca8c7a827b284f",
+                "35e546bb64ad8405e725377eae4cedd54032ca6980cda5520cc3cb18d81c0a03",
+            )
+            .await
+            .map_err(|e| JsError::new(&e.to_string()))?;
+        }
 
         // The caller's pre-submit checkpoint is immutable. Wait for both
         // streams to expose it before reconstructing the note frontier.
@@ -2460,7 +2477,9 @@ impl WasmRpcServer {
 
         // Build note membership proof from the pre-submit checkpoint.
         // note_count is at slot note_root_slot - 1, elements[3] is the note index.
-        let note_count_slot = note_root_slot_val.saturating_sub(1);
+        let count_offset = wide_denomination.map(|i| [1174405232u64, 1174405233][i]);
+        let note_count_slot = count_offset.map(|v| v / 4)
+            .unwrap_or_else(|| note_root_slot_val.saturating_sub(1));
         let note_count_proof = user_provider
             .get_user_contract_state_tree_merkle_proof(
                 checkpoint_before,
@@ -2471,7 +2490,9 @@ impl WasmRpcServer {
             )
             .await
             .map_err(|e| JsError::new(&format!("note_count_proof: {}", e)))?;
-        let note_index = note_count_proof.value.0.elements[3].to_canonical_u64();
+        let note_index = note_count_proof.value.0.elements[
+            count_offset.map(|v| (v % 4) as usize).unwrap_or(3)
+        ].to_canonical_u64();
         validate_snapshot_proof(
             "note_count",
             checkpoint_before,
@@ -2490,7 +2511,34 @@ impl WasmRpcServer {
 
         // Collect last_path (levels 0..NOTE_TREE_HEIGHT) from slots note_root_slot+1..
         let mut last_path: Vec<QHashOut<F>> = Vec::with_capacity(NOTE_TREE_HEIGHT);
+        let mut path_leaves = std::collections::BTreeMap::new();
+        path_leaves.insert(note_count_slot, note_count_proof.value);
         for level in 0..NOTE_TREE_HEIGHT as u64 {
+            if let Some(i) = wide_denomination {
+                let offset = [1174405234u64, 1174405314][i] + level * 4;
+                let mut words = [F::ZERO; 4];
+                for word in 0..4 {
+                    let felt = offset + word as u64;
+                    let slot = felt / 4;
+                    if !path_leaves.contains_key(&slot) {
+                        let proof = user_provider.get_user_contract_state_tree_merkle_proof(
+                            checkpoint_before, sender_user_id, contract_id_val as u32,
+                            TOKEN_CONTRACT_STATE_TREE_HEIGHT, slot,
+                        ).await.map_err(|e| JsError::new(&e.to_string()))?;
+                        validate_snapshot_proof("FT last_path", checkpoint_before, &proof,
+                            slot, TOKEN_CONTRACT_STATE_TREE_HEIGHT as usize,
+                            Some(note_count_proof.root))
+                            .map_err(|e| JsError::new(&e))?;
+                        path_leaves.insert(slot, proof.value);
+                    }
+                    words[word] = path_leaves[&slot].0.elements[(felt % 4) as usize];
+                }
+                last_path.push(QHashOut::from_values(
+                    words[0].to_canonical_u64(), words[1].to_canonical_u64(),
+                    words[2].to_canonical_u64(), words[3].to_canonical_u64(),
+                ));
+                continue;
+            }
             let slot = note_root_slot_val
                 .checked_add(1 + level)
                 .ok_or_else(|| JsError::new("note_root_slot path range overflows u64"))?;
