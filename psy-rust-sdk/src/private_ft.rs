@@ -385,6 +385,19 @@ mod tests {
                 verify_with_circuit(profile, &packet, &c).unwrap().len(),
                 if profile.wide() { 2 } else { 1 }
             );
+            // Synthetic proofs only: export a release-verification fixture,
+            // never wallet keys or funds. Consumers must still bind the packet
+            // to the real historical checkpoint before projecting a claim.
+            if profile.wide() {
+                if let Some(path)=std::env::var_os("PSY_FT_NATIVE_FIXTURE") {
+                    let proofs=packet.proofs.iter().enumerate().map(|(i,raw)| {
+                        let bytes=base64::engine::general_purpose::STANDARD.decode(raw.as_ref().unwrap()).unwrap();
+                        let proof:ProofWithPublicInputs<F,C,2>=bincode::deserialize(&bytes).unwrap();
+                        serde_json::json!([i,serde_json::to_string(&proof).unwrap()])
+                    }).collect::<Vec<_>>();
+                    std::fs::write(path,serde_json::to_vec(&serde_json::json!({"synthetic":true,"packet":packet,"proofs":proofs})).unwrap()).unwrap();
+                }
+            }
             let mut bad = packet.clone();
             bad.contract_id += 1;
             assert!(verify_with_circuit(profile, &bad, &c).is_err());
@@ -500,10 +513,12 @@ pub async fn verify_checkpoint(
     provider: &psy_provider::provider::RpcProvider,
     packet: &Packet,
 ) -> anyhow::Result<()> {
-    use psy_data::traits::qdatastore::qtreedata::QTreeDataStoreReaderSync;
+    // Exact checkpoint metadata errors when the checkpoint is not yet indexed;
+    // the tree getter can return an earlier checkpoint root.
+    let roots = provider.get_checkpoint_global_state_roots(packet.checkpoint).await?;
     anyhow::ensure!(
-        words(provider.get_user_tree_root(packet.checkpoint).await?) == packet.user_tree_root,
-        "Private FT user root does not match on-chain checkpoint"
+        words(roots.user_tree_root) == packet.user_tree_root,
+        "invalid-native-ft-checkpoint: user root does not match on-chain checkpoint"
     );
     Ok(())
 }
