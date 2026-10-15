@@ -1,5 +1,6 @@
 /* tslint:disable */
 /* eslint-disable */
+export const memory: WebAssembly.Memory;
 export const __wbg_wasmconstants_free: (a: number, b: number) => void;
 export const __wbg_wasmpsyconfig_free: (a: number, b: number) => void;
 export const __wbg_wasmpsyconfigbuilder_free: (a: number, b: number) => void;
@@ -37,6 +38,7 @@ export const wasmrpcserver_batch_claim_json: (a: number, b: number, c: number, d
 export const wasmrpcserver_batch_claim_with_trace_json: (a: number, b: number, c: number, d: number, e: number) => any;
 export const wasmrpcserver_call_view_json: (a: number, b: number, c: number, d: number, e: number) => any;
 export const wasmrpcserver_compute_sighash_from_envelope_json: (a: number, b: number, c: number, d: number, e: number) => [number, number, number, number];
+export const wasmrpcserver_confirm_reward_claim_json: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => any;
 export const wasmrpcserver_deploy_contract_json: (a: number, b: bigint, c: number, d: number) => any;
 export const wasmrpcserver_eth_personal_registration_challenge: (a: number, b: number) => any;
 export const wasmrpcserver_exec_claim_batch_json: (a: number, b: number, c: number, d: number, e: number) => any;
@@ -55,6 +57,7 @@ export const wasmrpcserver_inject_eth_personal_signature: (a: number, b: number,
 export const wasmrpcserver_insert_external_proof_json: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number, l: number, m: number, n: number, o: number, p: number, q: number) => any;
 export const wasmrpcserver_new: (a: number, b: number) => any;
 export const wasmrpcserver_ping: (a: number, b: number, c: number) => [number, number, number, number];
+export const wasmrpcserver_prepare_reward_claim_json: (a: number, b: number, c: number, d: number, e: number) => any;
 export const wasmrpcserver_prepare_trace_proof_schedule_json: (a: number, b: number, c: number) => any;
 export const wasmrpcserver_prove_cfc_job_with_schedule_step_json: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number) => any;
 export const wasmrpcserver_prove_contract_call_json: (a: number, b: number, c: number, d: number, e: number) => any;
@@ -81,12 +84,23 @@ export const wasmrpcserver_submit_endcap_job_json: (a: number, b: number, c: num
 export const wasmrpcserver_trace_proof_job_step_indices_json: (a: number, b: number, c: number) => [number, number, number, number];
 export const wasmpsyconfigbuilder_new: () => number;
 export const wasmconstants_register_user_fee: () => bigint;
-export const wasm_bindgen__convert__closures_____invoke__h447e0f573cfb1039: (a: number, b: number, c: any) => [number, number];
-export const wasm_bindgen__convert__closures_____invoke__h205d9aeaebc44d62: (a: number, b: number, c: any, d: any) => void;
-export const wasm_bindgen__convert__closures_____invoke__he169e6de137f1eb0: (a: number, b: number, c: any) => void;
-export const wasm_bindgen__convert__closures_____invoke__hce85efe9a3522159: (a: number, b: number, c: any) => void;
-export const wasm_bindgen__convert__closures_____invoke__h780b2bd6838c983d: (a: number, b: number) => void;
-export const memory: WebAssembly.Memory;
+export const __wbg_intounderlyingsource_free: (a: number, b: number) => void;
+export const intounderlyingsource_cancel: (a: number) => void;
+export const intounderlyingsource_pull: (a: number, b: any) => any;
+export const __wbg_intounderlyingbytesource_free: (a: number, b: number) => void;
+export const intounderlyingbytesource_autoAllocateChunkSize: (a: number) => number;
+export const intounderlyingbytesource_cancel: (a: number) => void;
+export const intounderlyingbytesource_pull: (a: number, b: any) => any;
+export const intounderlyingbytesource_start: (a: number, b: any) => void;
+export const intounderlyingbytesource_type: (a: number) => number;
+export const __wbg_intounderlyingsink_free: (a: number, b: number) => void;
+export const intounderlyingsink_abort: (a: number, b: any) => any;
+export const intounderlyingsink_close: (a: number) => any;
+export const intounderlyingsink_write: (a: number, b: any) => any;
+export const wasm_bindgen__convert__closures_____invoke__h7ae0f318904cbfb7: (a: number, b: number, c: any) => [number, number];
+export const wasm_bindgen__convert__closures_____invoke__h5e2602ab36a8b573: (a: number, b: number, c: any, d: any) => void;
+export const wasm_bindgen__convert__closures_____invoke__hf3ed4e4bb53d7639: (a: number, b: number, c: any) => void;
+export const wasm_bindgen__convert__closures_____invoke__hd3e4058c7dbdd773: (a: number, b: number) => void;
 export const __wbindgen_malloc: (a: number, b: number) => number;
 export const __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;
 export const __wbindgen_exn_store: (a: number) => void;
@@ -96,5 +110,4 @@ export const __wbindgen_free: (a: number, b: number, c: number) => void;
 export const __wbindgen_destroy_closure: (a: number, b: number) => void;
 export const __externref_table_dealloc: (a: number) => void;
 export const __externref_drop_slice: (a: number, b: number) => void;
-export const __wbindgen_thread_destroy: (a?: number, b?: number, c?: number) => void;
-export const __wbindgen_start: (a: number) => void;
+export const __wbindgen_start: () => void;
