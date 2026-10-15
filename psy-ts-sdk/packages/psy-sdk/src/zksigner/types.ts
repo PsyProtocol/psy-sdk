@@ -3,6 +3,10 @@ import {
     ContractCallData,
     DPNFunctionCircuitDefinition,
     GeneratedTxTraceJson,
+    PrepareRewardClaimRequest,
+    PreparedRewardClaim,
+    RewardClaimConfirmation,
+    RewardClaimPreparation,
     SignType,
     TraceStepProgressJson,
     TraceProofConcurrentResult,
@@ -10,7 +14,6 @@ import {
     ProvingStateBlobJson,
     TxMetadata,
 } from "../local-prover-rpc/types";
-import { ContractCallArgs } from "../types";
 
 type TPsyTransactionSignerAbility = "sign-hash" | "export-private-key-hex";
 type TPsyTransactionSignerProviderAbility = "import-private-key" | "add-random-private-key";
@@ -39,8 +42,8 @@ interface IPsyTransactionSigner {
     deployContract(deployer: bigint, circuitDefs: DPNFunctionCircuitDefinition[]): Promise<string>;
     registerUser(privateKeyHex: string, signType: SignType, fingerprint?: string): Promise<string>;
     addUser(privateKeyHex: string, signType: SignType, fingerprint?: string): Promise<string>;
-    getClaimRewardsCallArgs(jobInfos: string): Promise<ContractCallArgs[]>;
-    claimRewards(pk_hash: string, jobInfos: string): Promise<string>;
+    prepareRewardClaim(pkHash: string, request: PrepareRewardClaimRequest): Promise<RewardClaimPreparation>;
+    confirmRewardClaim(l1RpcUrl: string, prepared: PreparedRewardClaim, txHash: string): Promise<RewardClaimConfirmation>;
 }
 
 interface IPsyTransactionSignerProvider {
@@ -52,8 +55,8 @@ interface IPsyTransactionSignerProvider {
     addRandomPrivateKey?(signType: SignType): Promise<IPsyTransactionSigner>;
     registerUser(privateKeyHex: string, signType: SignType, fingerprint?: string): Promise<string>;
     addUser(privateKeyHex: string, signType: SignType, fingerprint?: string): Promise<string>;
-    getClaimRewardsCallArgs(jobInfos: string): Promise<ContractCallArgs[]>;
-    claimRewards(pk_hash: string, jobInfos: string): Promise<string>;
+    prepareRewardClaim(pkHash: string, request: PrepareRewardClaimRequest): Promise<RewardClaimPreparation>;
+    confirmRewardClaim(l1RpcUrl: string, prepared: PreparedRewardClaim, txHash: string): Promise<RewardClaimConfirmation>;
 }
 
 export type {

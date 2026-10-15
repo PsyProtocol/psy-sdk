@@ -375,6 +375,119 @@ export enum SignType {
     SDKKeySign = "sd-key"
 }
 
+// Integer fields that can exceed 2^53-1 are bigint after PsyJSON.parse and
+// number when they fit. PsyJSON.stringify writes bigint as a JSON integer.
+type PsyJsonUint = number | bigint;
+
+type RewardJobDataId = {
+    topic: number;
+    goal_id: PsyJsonUint;
+    circuit_type: number;
+    group_id: number;
+    sub_group_id: number;
+    task_index: number;
+    data_type: number;
+    data_index: number;
+};
+
+type RewardJobPreimage = {
+    inner: {
+        job_data_id: RewardJobDataId;
+        reward_path_info: PsyJsonUint;
+    };
+    reward_tree_tag_preimage: string;
+};
+
+type RewardPendingSelection = {
+    realmJobs: [PsyJsonUint, PsyJsonUint, PsyJsonUint, RewardJobPreimage][];
+    coordinatorJobs: [PsyJsonUint, RewardJobPreimage][];
+};
+
+type RewardSelectedJob = {
+    sourceCheckpointId: number;
+    height: number;
+    pathIndex: number;
+};
+
+type RewardJobAggregateCache = {
+    schema: number;
+    networkMagic: PsyJsonUint;
+    userId: number;
+    sourceCheckpointId: number;
+    sourceCheckpointLeaf: Record<string, unknown>;
+    sourceCheckpointLeafHash: [PsyJsonUint, PsyJsonUint, PsyJsonUint, PsyJsonUint];
+    selectedJobs: RewardSelectedJob[];
+    selectionIdentity: string;
+    leafFingerprint: [PsyJsonUint, PsyJsonUint, PsyJsonUint, PsyJsonUint];
+    leafCommonDigest: number[];
+    leafVerifierDigest: number[];
+    aggregateFingerprint: [PsyJsonUint, PsyJsonUint, PsyJsonUint, PsyJsonUint];
+    aggregateCommonDigest: number[];
+    aggregateVerifierDigest: number[];
+    aggregateProof: string;
+};
+
+type PrepareRewardClaimRequest = {
+    rewardToken: string;
+    userId: number;
+    recipient: string;
+    jobs: RewardPendingSelection;
+    l1RpcUrl: string;
+    proveProxyUrl: string;
+    proveProxyToken?: string;
+    aggregateCaches?: RewardJobAggregateCache[];
+};
+
+type PreparedRewardClaim = {
+    to: string;
+    chainId: 1 | 31337 | 11155111;
+    value: "0x0";
+    data: string;
+    stateManager: string;
+    checkpointRoot: string;
+    userId: number;
+    recipient: string;
+    checkpointIds: number[];
+    totalAmount: string;
+    snapshotBlockHash: string;
+};
+
+type DeferredRewardCheckpoint = {
+    checkpointId: number;
+    reason: string;
+};
+
+type RewardClaimPreparation =
+    | {
+        status: "ready";
+        claim: PreparedRewardClaim;
+        remainingJobs: RewardPendingSelection;
+        aggregateCaches: RewardJobAggregateCache[];
+        alreadyClaimedCheckpointIds: number[];
+        deferredCheckpoints: DeferredRewardCheckpoint[];
+    }
+    | {
+        status: "proof_only";
+        remainingJobs: RewardPendingSelection;
+        aggregateCaches: RewardJobAggregateCache[];
+        alreadyClaimedCheckpointIds: number[];
+        deferredCheckpoints: DeferredRewardCheckpoint[];
+    }
+    | {
+        status: "nothing_to_claim";
+        alreadyClaimedCheckpointIds: number[];
+    };
+
+type RewardClaimConfirmation =
+    | { status: "pending"; txHash: string }
+    | {
+        status: "confirmed";
+        txHash: string;
+        blockHash: string;
+        blockNumber: PsyJsonUint;
+        checkpointIds: number[];
+        totalAmount: string;
+    };
 interface IPsyUserProverProvider {
     // Local proving operations
     execContractCall(pk_hash: string, callData: ContractCallData): Promise<string>;
@@ -439,8 +552,8 @@ interface IPsyUserProverProvider {
     claimBatchWithTrace(pk_hash: string, claims: ClaimBatchItem[]): Promise<TxMetadata>;
     claimBatch(pk_hash: string, claims: ClaimBatchItem[]): Promise<string>;
 
-    getClaimRewardsCallArgs(jobInfos: string): Promise<ContractCallArgs[]>;
-    claimRewards(pk_hash: string, jobInfos: string): Promise<string>;
+    prepareRewardClaim(pkHash: string, request: PrepareRewardClaimRequest): Promise<RewardClaimPreparation>;
+    confirmRewardClaim(l1RpcUrl: string, prepared: PreparedRewardClaim, txHash: string): Promise<RewardClaimConfirmation>;
 
     // User operations
     registerUser(privateKey: PrivateKey, signType: SignType, fingerprint?: string): Promise<PublicKey>;
@@ -488,4 +601,14 @@ export type {
     PsyContractStateUpdateHistory,
     SubmitUserEndCapNonProofInput,
     IPsyUserProverProvider,
+    RewardJobDataId,
+    RewardJobPreimage,
+    RewardPendingSelection,
+    RewardSelectedJob,
+    RewardJobAggregateCache,
+    PrepareRewardClaimRequest,
+    PreparedRewardClaim,
+    DeferredRewardCheckpoint,
+    RewardClaimPreparation,
+    RewardClaimConfirmation,
 };

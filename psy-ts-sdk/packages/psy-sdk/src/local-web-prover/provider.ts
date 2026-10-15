@@ -8,6 +8,10 @@ import {
     DPNFunctionCircuitDefinition,
     GeneratedTxTraceJson,
     IPsyUserProverProvider,
+    PreparedRewardClaim,
+    PrepareRewardClaimRequest,
+    RewardClaimConfirmation,
+    RewardClaimPreparation,
     SimulatedTxJson,
     QBCDeployContractV2,
     SignData,
@@ -172,12 +176,20 @@ export class PsyWasmWebProverProvider implements IPsyUserProverProvider {
         return result;
     }
 
-    async getClaimRewardsCallArgs(_jobInfos: string): Promise<ContractCallArgs[]> {
-        throw new Error("Method not implemented.");
+    async prepareRewardClaim(pkHash: string, request: PrepareRewardClaimRequest): Promise<RewardClaimPreparation> {
+        const requestJson = PsyJSON.stringify(request);
+        const result = await PsyWasmWebProverProvider.runWasmServerCall((server) =>
+            server.prepare_reward_claim_json(pkHash, requestJson)
+        );
+        return PsyJSON.parse(result) as RewardClaimPreparation;
     }
 
-    async claimRewards(_pkHash: string, _jobInfos: string): Promise<string> {
-        throw new Error("Method not implemented.");
+    async confirmRewardClaim(l1RpcUrl: string, prepared: PreparedRewardClaim, txHash: string): Promise<RewardClaimConfirmation> {
+        const preparedJson = PsyJSON.stringify(prepared);
+        const result = await PsyWasmWebProverProvider.runWasmServerCall((server) =>
+            server.confirm_reward_claim_json(l1RpcUrl, preparedJson, txHash)
+        );
+        return PsyJSON.parse(result) as RewardClaimConfirmation;
     }
 
     // Local proving operations

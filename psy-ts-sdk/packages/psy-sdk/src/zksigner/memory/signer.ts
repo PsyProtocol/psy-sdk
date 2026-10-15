@@ -1,5 +1,5 @@
 import { getPsyNetworkMagicForNetworkId, NetworkId } from "../../action";
-import { ClaimBatchItem, ContractCallArgs, ContractCallData, DPNFunctionCircuitDefinition, GeneratedTxTraceJson, IPsyUserProverProvider, ProvingProofBlobJson, ProvingStateBlobJson, SignType, TraceProofConcurrentResult, TraceStepProgressJson, TxMetadata } from "../../local-prover-rpc";
+import { ClaimBatchItem, ContractCallData, DPNFunctionCircuitDefinition, GeneratedTxTraceJson, IPsyUserProverProvider, PrepareRewardClaimRequest, PreparedRewardClaim, ProvingProofBlobJson, ProvingStateBlobJson, RewardClaimConfirmation, RewardClaimPreparation, SignType, TraceProofConcurrentResult, TraceStepProgressJson, TxMetadata } from "../../local-prover-rpc";
 import { IPsyTransactionSigner, TPsyTransactionSignerAbility } from "../types";
 import { PsyJSON } from "../../utils/json";
 
@@ -81,12 +81,12 @@ class PsyMemoryTransactionSigner implements IPsyTransactionSigner {
         return this.prover.addUser(privateKeyHex, signType, fingerprint);
     }
 
-    async getClaimRewardsCallArgs(jobInfos: string): Promise<ContractCallArgs[]> {
-        return this.prover.getClaimRewardsCallArgs(jobInfos);
+    async prepareRewardClaim(pkHash: string, request: PrepareRewardClaimRequest): Promise<RewardClaimPreparation> {
+        return this.prover.prepareRewardClaim(pkHash, request);
     }
 
-    async claimRewards(pk_hash: string, jobInfos: string): Promise<string> {
-        return this.prover.claimRewards(pk_hash, jobInfos);
+    async confirmRewardClaim(l1RpcUrl: string, prepared: PreparedRewardClaim, txHash: string): Promise<RewardClaimConfirmation> {
+        return this.prover.confirmRewardClaim(l1RpcUrl, prepared, txHash);
     }
 
     async proveTxTraceStep(
