@@ -71,6 +71,12 @@ interface AltVerifierOnlyCircuitData {
 }
 
 export interface PrivateTransferClaimRaw {
+    /** Locally decrypted versioned FT packet; verified again before tracing.
+     * Pins select the ABI. Neither decimals nor amount chooses the adapter. */
+    private_ft_packet?: string;
+    private_ft_profile?: "single_felt_native_v1" | "single_felt_psy20_v1" | "u124_private_v1";
+    private_ft_code_root?: string;
+    private_ft_layout_root?: string;
     note_proof?: Uint8Array;
     note_proof_bincode_b64?: string;
     nullifier: [string, string, string, string];
@@ -434,6 +440,7 @@ interface IPsyUserProverProvider {
         externalFingerprint: string,
         externalProof: Uint8Array,
     ): Promise<any>;
+    verifyPrivateFtPacket?(profile: string, packet: string, codeRoot: string, layoutRoot: string): Promise<{verified: boolean; amount: string; contractId: string; proofCount: number}>;
     generateBatchClaimTxTrace(pk_hash: string, claims: ClaimBatchItem[], localId?: string | null): Promise<GeneratedTxTraceJson>;
     batchClaim(pk_hash: string, claims: ClaimBatchItem[], localId?: string | null): Promise<string>;
     claimBatchWithTrace(pk_hash: string, claims: ClaimBatchItem[]): Promise<TxMetadata>;

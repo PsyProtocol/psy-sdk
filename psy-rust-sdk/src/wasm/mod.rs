@@ -438,9 +438,13 @@ enum NoteProofBytes {
 pub struct WasmRpcServer {
     store: UserProverWorkerStore,
     wallet_session: WalletSession,
+    private_ft_note_circuit: std::cell::OnceCell<psy_dpn_circuit::circuits::privacy::private_note_inclusion::PrivateNoteInclusionCircuit<C, D>>,
 }
 
 impl WasmRpcServer {
+    fn private_ft_circuit(&self) -> &psy_dpn_circuit::circuits::privacy::private_note_inclusion::PrivateNoteInclusionCircuit<C,D> {
+        self.private_ft_note_circuit.get_or_init(|| psy_dpn_circuit::circuits::privacy::private_note_inclusion::PrivateNoteInclusionCircuit::new(32,24,32,20))
+    }
     fn parse_qhash_u64x4_json(json: &str, label: &str) -> Result<QHashOut<F>, JsError> {
         let arr: [String; 4] = serde_json::from_str(json)
             .map_err(|e| JsError::new(&format!("parse {}: {}", label, e)))?;
@@ -676,6 +680,14 @@ impl WasmRpcServer {
         #[derive(serde::Deserialize)]
         struct PrivateTransferClaimInput {
             #[serde(default)]
+            private_ft_packet: Option<String>,
+            #[serde(default)]
+            private_ft_profile: Option<crate::private_ft::Profile>,
+            #[serde(default)]
+            private_ft_code_root: Option<String>,
+            #[serde(default)]
+            private_ft_layout_root: Option<String>,
+            #[serde(default)]
             note_proof_bincode_b64: Option<String>,
             #[serde(default)]
             note_proof: Option<serde_json::Value>,
@@ -768,6 +780,7 @@ impl WasmRpcServer {
             .await
             .map_err(|e| JsError::new(&format!("begin_trace_build error: {}", e)))?;
         let mut ordered_calls: Vec<ContractCallArgs> = Vec::new();
+        let mut ft_capacity_checks = Vec::new();
         for item in items {
             match item {
                 WalletClaimBatchItem::Public(call) => {
@@ -781,6 +794,112 @@ impl WasmRpcServer {
                     contract_id,
                     claim: input,
                 } => {
+                    if let Some(raw) = input.private_ft_packet.as_deref() {
+                        use crate::private_ft as ft;
+                        if raw.len() > 4 * 1024 * 1024 {
+                            return Err(JsError::new("FT packet too large"));
+                        }
+                        let packet: ft::Packet =
+                            serde_json::from_str(raw).map_err(|e| JsError::new(&e.to_string()))?;
+                        let profile = input
+                            .private_ft_profile
+                            .ok_or_else(|| JsError::new("Missing FT profile"))?;
+                        let code_root = input
+                            .private_ft_code_root
+                            .as_deref()
+                            .ok_or_else(|| JsError::new("Missing FT code pin"))?;
+                        let layout_root = input
+                            .private_ft_layout_root
+                            .as_deref()
+                            .ok_or_else(|| JsError::new("Missing FT layout pin"))?;
+                        if contract_id != packet.contract_id.to_string()
+                            || input.token_contract_id != contract_id
+                            || input.amount
+                                != ft::amount(profile, &packet)
+                                    .map_err(|e| JsError::new(&e))?
+                                    .to_string()
+                            || parse_u64_arr(input.owner.clone())? != packet.owner
+                        {
+                            return Err(JsError::new(
+                                "FT claim metadata differs from encrypted packet",
+                            ));
+                        }
+                        ft::pin(
+                            &self.wallet_session.st_provider,
+                            profile,
+                            packet.contract_id,
+                            code_root,
+                            layout_root,
+                        )
+                        .await
+                        .map_err(|e| JsError::new(&e.to_string()))?;
+                        let proofs = ft::verify_with_circuit(profile, &packet, self.private_ft_circuit()).map_err(|e| JsError::new(&e))?;
+                        ft::verify_checkpoint(&self.wallet_session.st_provider,&packet).await.map_err(|e|JsError::new(&e.to_string()))?;
+                        let r0 = parse_int_string(&input.random0)?;
+                        let r1 = parse_int_string(&input.random1)?;
+                        // Contract checks the receiver equation too; preflight it before
+                        // constructing any trace so a forwarded note cannot enter it.
+                        let user_ids = self
+                            .wallet_session
+                            .st_provider
+                            .get_user_ids_for_public_key(pk_hash)
+                            .await
+                            .map_err(|e| JsError::new(&e.to_string()))?;
+                        if user_ids.len() != 1 {
+                            return Err(JsError::new(
+                                "FT claim requires an unambiguous registered wallet identity",
+                            ));
+                        }
+                        let user_id = user_ids[0];
+                        if ft::words(derive_shield_address(user_id, r0, r1)) != packet.owner {
+                            return Err(JsError::new("FT receiver identity mismatch"));
+                        }
+                        let circuit = self.private_ft_circuit();
+                        let mut refs: Vec<(
+                            usize,
+                            psy_prover::session::session::TraceExternalProofRef,
+                        )> = vec![];
+                        for (i, proof) in proofs {
+                            let next = builder
+                                .add_external_proof(
+                                    circuit.get_fingerprint(),
+                                    proof,
+                                    circuit.get_verifier_config_ref().clone(),
+                                )
+                                .await
+                                .map_err(|e| JsError::new(&e.to_string()))?;
+                            for (_, prior) in &mut refs {
+                                prior.leaf_proof =
+                                    ft::refresh_path(&prior.leaf_proof, &next.leaf_proof)
+                                        .map_err(|e| JsError::new(&e))?;
+                            }
+                            refs.push((i, next));
+                        }
+                        let mut paths = [vec![0; 65], vec![0; 65]];
+                        for (i, p) in refs {
+                            let mut path = vec![];
+                            for sibling in p.leaf_proof.siblings {
+                                path.extend(ft::words(sibling));
+                            }
+                            path.push(p.proof_index);
+                            paths[i] = path;
+                        }
+                        let call = ContractCallArgs {
+                            contract_id: packet.contract_id,
+                            method_name: "private_claim".into(),
+                            inputs: ft::claim_inputs(profile, &packet, r0, r1, &paths)
+                                .map_err(|e| JsError::new(&e))?,
+                        };
+                        if !profile.wide() {
+                            ft_capacity_checks.push((ordered_calls.len(),packet.contract_id,packet.amount[0]));
+                        }
+                        builder
+                            .trace_call(call.clone())
+                            .await
+                            .map_err(|e| JsError::new(&e.to_string()))?;
+                        ordered_calls.push(call);
+                        continue;
+                    }
                     console_log!(
                         "[note-claim-diag] private_transfer contract_id={} b64_len={} has_input_fingerprint={} has_input_verifier_data={}",
                         contract_id,
@@ -1077,6 +1196,23 @@ impl WasmRpcServer {
             .finalize_tx_trace_with_opts(call_data.software_defined_call.clone())
             .await
             .map_err(|e| JsError::new(&format!("generate batch claim tx trace error: {}", e)))?;
+        // Inspect the actual anchored trace, including every preceding batch
+        // call. An RPC balance snapshot cannot protect against in-batch wrap.
+        let calls=trace.steps.iter().filter_map(|step| match step {
+            psy_prover::trace::TraceStep::Standard(cfc)=>Some(cfc),_=>None
+        }).collect::<Vec<_>>();
+        for (position,contract_id,amount) in ft_capacity_checks {
+            use psy_vm::dpn::ops::state_cmd::data::DPNStateCmd;
+            let cfc=calls.get(position).ok_or_else(||JsError::new("Missing FT claim trace step"))?;
+            if cfc.contract_id!=contract_id || cfc.method_name!="private_claim" || cfc.cfc_witness.inputs.get(8).map(|v|v.to_canonical_u64())!=Some(amount) {
+                return Err(JsError::new("FT capacity check trace identity mismatch"));
+            }
+            let balances=cfc.cfc_witness.cmd_witnesses.iter().filter_map(|cmd|match &cmd.state_cmd {
+                DPNStateCmd::GetSelfUserCurrentContractStateSlotSingle(slot) if slot.sub_slot_index==0=>cmd.result.first().map(|v|v.to_canonical_u64()),_=>None
+            }).collect::<Vec<_>>();
+            if balances.len()!=1 {return Err(JsError::new("Missing unambiguous anchored FT balance"));}
+            crate::private_ft::single_credit_capacity(balances[0],amount).map_err(|e|JsError::new(&e))?;
+        }
         GeneratedTxTraceJson::from_trace(&trace, call_data_value)
             .map_err(|e| JsError::new(&format!("serialize trace envelope: {}", e)))
     }
@@ -1094,6 +1230,7 @@ impl WasmRpcServer {
             .map_err(|e| JsError::new(&format!("Create wallet session error: {}", e)))?;
 
         Ok(WasmRpcServer {
+            private_ft_note_circuit: std::cell::OnceCell::new(),
             store: UserProverWorkerStore::new(),
             wallet_session,
         })
@@ -1309,6 +1446,37 @@ impl WasmRpcServer {
 
     // Local proving operations
     #[wasm_bindgen]
+    /// Verify an encrypted FT packet after local decryption, before displaying
+    /// its amount or creating a claim. This never submits a transaction.
+    pub async fn verify_private_ft_packet_json(
+        &self,
+        profile_json: &str,
+        packet_json: &str,
+        code_root: &str,
+        layout_root: &str,
+    ) -> Result<String, JsError> {
+        use crate::private_ft as ft;
+        if packet_json.len() > 4 * 1024 * 1024 {
+            return Err(JsError::new("FT packet too large"));
+        }
+        let profile: ft::Profile =
+            serde_json::from_str(profile_json).map_err(|e| JsError::new(&e.to_string()))?;
+        let packet: ft::Packet =
+            serde_json::from_str(packet_json).map_err(|e| JsError::new(&e.to_string()))?;
+        let proofs = ft::verify_with_circuit(profile, &packet, self.private_ft_circuit()).map_err(|e| JsError::new(&format!("invalid-native-ft-proof: {e}")))?;
+        ft::pin(
+            &self.wallet_session.st_provider,
+            profile,
+            packet.contract_id,
+            code_root,
+            layout_root,
+        )
+        .await
+        .map_err(|e| JsError::new(&e.to_string()))?;
+
+                        ft::verify_checkpoint(&self.wallet_session.st_provider,&packet).await.map_err(|e|JsError::new(&e.to_string()))?;
+        Ok(serde_json::json!({"verified":true,"amount":ft::amount(profile,&packet).map_err(|e|JsError::new(&e))?.to_string(),"contractId":packet.contract_id.to_string(),"proofCount":proofs.len()}).to_string())
+    }
     pub async fn start_session(&self, pk_hash: &str) -> Result<String, JsError> {
         let pk_hash = QHashOut::<F>::from_str(pk_hash)
             .map_err(|e| JsError::new(&format!("Parse public key hash error: {}", e)))?;

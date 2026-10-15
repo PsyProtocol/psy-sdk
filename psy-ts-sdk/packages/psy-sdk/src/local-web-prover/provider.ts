@@ -125,6 +125,13 @@ export class PsyWasmWebProverProvider implements IPsyUserProverProvider {
         return PsyJSON.parse(result) as TxMetadata;
     }
 
+    async verifyPrivateFtPacket(profile: string, packet: string, codeRoot: string, layoutRoot: string): Promise<{verified: boolean; amount: string; contractId: string; proofCount: number}> {
+        const result = await PsyWasmWebProverProvider.runWasmServerCall((server) =>
+            server.verify_private_ft_packet_json(JSON.stringify(profile), packet, codeRoot, layoutRoot)
+        );
+        return JSON.parse(result);
+    }
+
     async claimBatch(pkHash: string, claims: ClaimBatchItem[]): Promise<string> {
         const now = new Date().getTime();
         const json = PsyJSON.stringify(claims);

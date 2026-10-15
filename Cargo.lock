@@ -5832,6 +5832,7 @@ dependencies = [
 name = "psy_rust_sdk"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "base64 0.22.1",
  "bincode",
  "console_error_panic_hook",

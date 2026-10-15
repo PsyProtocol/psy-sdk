@@ -255,6 +255,11 @@ export class WasmRpcServer {
     submit_end_cap_json(envelope_json: string, end_cap_proof: Uint8Array): Promise<string>;
     submit_endcap_job_json(envelope_json: string, endcap_output_json: string): Promise<string>;
     trace_proof_job_step_indices_json(envelope_json: string): string;
+    /**
+     * Verify an encrypted FT packet after local decryption, before displaying
+     * its amount or creating a claim. This never submits a transaction.
+     */
+    verify_private_ft_packet_json(profile_json: string, packet_json: string, code_root: string, layout_root: string): Promise<string>;
 }
 
 export function init_logging(): void;
@@ -343,13 +348,14 @@ export interface InitOutput {
     readonly wasmrpcserver_submit_end_cap_json: (a: number, b: number, c: number, d: number, e: number) => any;
     readonly wasmrpcserver_submit_endcap_job_json: (a: number, b: number, c: number, d: number, e: number) => any;
     readonly wasmrpcserver_trace_proof_job_step_indices_json: (a: number, b: number, c: number) => [number, number, number, number];
+    readonly wasmrpcserver_verify_private_ft_packet_json: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number) => any;
     readonly wasmpsyconfigbuilder_new: () => number;
     readonly wasmconstants_register_user_fee: () => bigint;
-    readonly wasm_bindgen__convert__closures_____invoke__h447e0f573cfb1039: (a: number, b: number, c: any) => [number, number];
-    readonly wasm_bindgen__convert__closures_____invoke__h205d9aeaebc44d62: (a: number, b: number, c: any, d: any) => void;
-    readonly wasm_bindgen__convert__closures_____invoke__h18e0802c16bac911: (a: number, b: number, c: any) => void;
-    readonly wasm_bindgen__convert__closures_____invoke__hce85efe9a3522159: (a: number, b: number, c: any) => void;
-    readonly wasm_bindgen__convert__closures_____invoke__h780b2bd6838c983d: (a: number, b: number) => void;
+    readonly wasm_bindgen__convert__closures_____invoke__hdde65a6945d20a34: (a: number, b: number, c: any) => [number, number];
+    readonly wasm_bindgen__convert__closures_____invoke__h1ae1a526eaf10dad: (a: number, b: number, c: any, d: any) => void;
+    readonly wasm_bindgen__convert__closures_____invoke__hf8c39de71ea56db8: (a: number, b: number, c: any) => void;
+    readonly wasm_bindgen__convert__closures_____invoke__h830504a8d936a413: (a: number, b: number, c: any) => void;
+    readonly wasm_bindgen__convert__closures_____invoke__h3121247ec672f994: (a: number, b: number) => void;
     readonly memory: WebAssembly.Memory;
     readonly __wbindgen_malloc: (a: number, b: number) => number;
     readonly __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;

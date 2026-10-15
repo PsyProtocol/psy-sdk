@@ -11,6 +11,11 @@
       "require": "./dist/index.cjs",
       "types": "./dist/index.d.ts"
     },
+    "./utils/json": {
+      "import": "./dist/utils/json.mjs",
+      "require": "./dist/utils/json.cjs",
+      "types": "./dist/utils/json.d.ts"
+    },
     "./expert": {
       "import": "./dist/expert/index.mjs",
       "require": "./dist/expert/index.cjs",
