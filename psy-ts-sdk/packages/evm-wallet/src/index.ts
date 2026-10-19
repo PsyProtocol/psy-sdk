@@ -78,4 +78,4 @@ export { EvmSigner } from './evm/signer'
 export { createRuntime, type PsyWalletRuntime } from './runtime'
 export { ProverEngine } from './prover/engine'
 
-export const EVM_WALLET_VERSION = '0.1.0'
+export const EVM_WALLET_VERSION = '2.0.8'

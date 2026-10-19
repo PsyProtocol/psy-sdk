@@ -1,6 +1,6 @@
 {
   "name": "@psy-protocol/evm-wallet",
-  "version": "0.1.0",
+  "version": "2.0.8",
   "description": "EVM wallet integration for the Psy network: sign in and authorize every Psy operation (deposit, withdraw, transfer, private transfer, claim, UPS proof sessions, inbox, activity) with any EVM wallet via personal_sign — no held key, no seed phrase.",
   "main": "dist/index.cjs",
   "module": "dist/index.mjs",
