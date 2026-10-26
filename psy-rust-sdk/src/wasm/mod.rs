@@ -2652,41 +2652,13 @@ impl WasmRpcServer {
             psy_prover::trace::TraceSignCircuitSource::Multisig => {
                 self.multisig_sign_context_from_trace(zs, trace, current_header, fingerprint)?
             }
-            psy_prover::trace::TraceSignCircuitSource::PsySoftwareDefined { .. } => {
-                if zs.sign_witness.is_empty() {
-                    return Err(JsError::new(
-                        "trace sign_witness missing for Psy software-defined signature",
-                    ));
-                }
-                let signature_input: psy_provider::request::DPNSoftwareDefinedSignatureInput =
-                    bincode::deserialize(&zs.sign_witness).map_err(|e| {
-                        JsError::new(&format!("Deserialize Psy sign witness: {}", e))
-                    })?;
-                psy_prover::signature::SignContext::new(fingerprint).with_psy_signature_input(
-                    signature_input,
-                    trace
-                        .finalization
-                        .submit_end_cap_input
-                        .core
-                        .checkpoint_id
-                        .to_canonical_u64(),
-                    trace.meta.user_id,
-                    current_header.current_state.user_leaf.user_state_tree_root,
-                    trace
-                        .finalization
-                        .submit_end_cap_input
-                        .core
-                        .state_transition
-                        .checkpoint_tree_root_hash,
-                )
-            }
-            psy_prover::trace::TraceSignCircuitSource::Plonky2SoftwareDefined { .. } => {
+            psy_prover::trace::TraceSignCircuitSource::SdKeyPlonky2 { .. } => {
                 if zs.sign_witness.is_empty() {
                     return Err(JsError::new(
                         "trace sign_witness missing for Plonky2 software-defined signature",
                     ));
                 }
-                let signature_input: psy_vm::ups::signature::Plonky2SoftwareDefinedSignatureInput =
+                let signature_input: psy_vm::ups::signature::SDKeyPlonky2CircuitWitnessInput =
                     bincode::deserialize(&zs.sign_witness).map_err(|e| {
                         JsError::new(&format!("Deserialize Plonky2 sign witness: {}", e))
                     })?;
@@ -2695,8 +2667,8 @@ impl WasmRpcServer {
                         psy_config::network_constants::DEFAULT_CALLER_CONTRACT_ID_U64,
                     ))
                     .with_sign_inputs(trace.finalization.software_defined_call.inputs.clone())
-                    .with_plonky2_signature_input(
-                        signature_input,
+                    .with_sd_key_input(
+                        psy_prover::signature::SdKeySignInput::Plonky2(signature_input),
                         trace
                             .finalization
                             .submit_end_cap_input
@@ -2713,20 +2685,20 @@ impl WasmRpcServer {
                             .checkpoint_tree_root_hash,
                     )
             }
-            psy_prover::trace::TraceSignCircuitSource::SdKey { .. } => {
+            psy_prover::trace::TraceSignCircuitSource::SdKeyDpn { .. } => {
                 if zs.sign_witness.is_empty() {
                     return Err(JsError::new(
                         "trace sign_witness missing for SD-key signature",
                     ));
                 }
-                let signature_input: psy_vm::ups::sd_key::SDKeyCircuitWitnessInput =
-                    bincode::deserialize(&zs.sign_witness).map_err(|e| {
+                let signature_input =
+                    psy_vm::ups::sd_key::SDKeyDpnCircuitWitnessInput::from_trace_bytes(&zs.sign_witness).map_err(|e| {
                         JsError::new(&format!("Deserialize SD-key sign witness: {}", e))
                     })?;
                 psy_prover::signature::SignContext::new(fingerprint)
                     .with_sign_inputs(trace.finalization.software_defined_call.inputs.clone())
-                    .with_sd_key_signature_input(
-                        signature_input,
+                    .with_sd_key_input(
+                        psy_prover::signature::SdKeySignInput::Dpn(signature_input),
                         current_header
                             .session_start_context
                             .checkpoint_id
@@ -3045,13 +3017,15 @@ impl WasmRpcServer {
             .iter()
             .map(|id| u32::try_from(*id).map_err(|_| JsError::new("allowed_method_id exceeds u32")))
             .collect::<Result<_, _>>()?;
+        let (function, config) = psy_vm::ups::sd_key::build_allow_method_policy(
+            allowed_contract_ids,
+            &allowed_method_ids_u32,
+            expected_tx_count,
+        )
+        .map_err(|e| JsError::new(&format!("Build sd key policy error: {}", e)))?;
         let fingerprint = self
             .wallet_session
-            .register_sd_key_circuit(
-                allowed_contract_ids,
-                &allowed_method_ids_u32,
-                expected_tx_count,
-            )
+            .register_sd_key_dpn_circuit(function, config)
             .await
             .map_err(|e| JsError::new(&format!("Register sd key circuit error: {}", e)))?;
         Ok(fingerprint.to_string())

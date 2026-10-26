@@ -57,8 +57,7 @@ function ensureWasmArtifacts(): CompilerProvenance | undefined {
         if (!fs.existsSync(wasmPath)) {
             throw new Error(`SKIP_WASM_PACK set but no wasm artifact found at ${wasmPath}`);
         }
-        fs.rmSync(compilerArtifactPath, { force: true });
-        return undefined;
+        return readCompilerProvenance(psyCompilerDir);
     }
 
     const compilerProvenance = readCompilerProvenance(psyCompilerDir);

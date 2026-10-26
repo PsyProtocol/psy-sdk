@@ -90,6 +90,27 @@ describe("compiler artifact provenance", () => {
         );
     });
 
+    it("includes committed tests and rejects dirty test sources", () => {
+        const mainRust = "fn main() {}\n";
+        writeSource(repositoryDir, "src/main.rs", mainRust);
+        writeSource(repositoryDir, "psy-interpreter/tests/uint_proof.rs", "// original test\n");
+        writeSource(repositoryDir, "tests/uint.psy", "// original fixture\n");
+        runGit(repositoryDir, ["add", "."]);
+        runGit(repositoryDir, ["commit", "--quiet", "-m", "fixture"]);
+
+        writeSource(repositoryDir, "psy-interpreter/tests/uint_proof.rs", "// changed test\n");
+        writeSource(repositoryDir, "tests/uint.psy", "// staged fixture\n");
+        runGit(repositoryDir, ["add", "tests/uint.psy"]);
+        writeSource(repositoryDir, "tests/withdrawal_policy_helpers_test.psy", "// new fixture\n");
+
+        expect(() => readCompilerProvenance(repositoryDir)).toThrow(
+            "Compiler source tree has uncommitted eligible source changes:\n" +
+            "- psy-interpreter/tests/uint_proof.rs\n" +
+            "- tests/uint.psy\n" +
+            "- tests/withdrawal_policy_helpers_test.psy",
+        );
+    });
+
     it("rejects staged eligible source changes", () => {
         writeSource(repositoryDir, "src/main.rs", "fn main() {}\n");
         runGit(repositoryDir, ["add", "."]);
