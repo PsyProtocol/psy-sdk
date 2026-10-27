@@ -6,6 +6,21 @@ import { localhost } from '../src/config/presets/localhost'
 import { PsyWalletError } from '../src/errors/types'
 
 describe('config: presets', () => {
+  test('testnet uses the retained protocol and public prover', () => {
+    const net = resolveNetworkDefinition('testnet')
+    expect(BigInt(net.psy.magic)).toBe(0x1337cf514544cf69n)
+    expect(net.urls.proveProxy).toBe('https://prove-stg.psy-protocol.xyz')
+    expect(net.urls.nostrRelays).toEqual(['wss://nostr-stg.psy-protocol.xyz/'])
+    expect(net.urls.l1Rpc).toEqual(['https://rpc-eth-stg.psy-protocol.xyz'])
+  })
+
+  test('testnet targets the fresh Sepolia deployment', () => {
+    const net = resolveNetworkDefinition('testnet')
+    expect(net.l1.chain.bridgeAddress).toBe('0xb133107eEA4D9B255e9721EE2cACaB56747eEeBd')
+    expect(net.l1.chain.routerAddress).toBe('0x947528f677CF514B35393fE5FBb2A31b444C11A8')
+    expect(net.l1.chain.stateManagerAddress).toBe('0x4eC67bA22A3F7a9Af1f19F480e5Df33bFD7B06F1')
+  })
+
   test('testnet preset resolves with derived urls', () => {
     const net = resolveNetworkDefinition('testnet')
     expect(net.name).toBe('testnet')

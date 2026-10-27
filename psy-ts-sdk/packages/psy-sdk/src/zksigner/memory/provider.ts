@@ -3,6 +3,7 @@ import { IPsyUserProverProvider, PrepareRewardClaimRequest, PreparedRewardClaim,
 import { cryptoRandomHashOutHex } from "../../utils";
 import { IPsyTransactionSigner, IPsyTransactionSignerProvider, TPsyTransactionSignerProviderAbility } from "../types";
 import { PsyMemoryTransactionSigner } from "./signer";
+import { signatureFingerprints } from "./signature-fingerprints";
 
 class PsyMemoryTransactionSignerProvider implements IPsyTransactionSignerProvider {
     networkId: NetworkId;
@@ -29,6 +30,10 @@ class PsyMemoryTransactionSignerProvider implements IPsyTransactionSignerProvide
         return ["import-private-key", "add-random-private-key"];
     }
     async importPrivateKey(privateKeyHex: string, signType: SignType, fingerprint: string): Promise<IPsyTransactionSigner> {
+        if ([SignType.ZKSign, SignType.SECP256K1Sign, SignType.EthPersonalSECP256K1Sign].includes(signType)
+            && fingerprint !== this.getFingerprintForSignType(signType)) {
+            throw new Error("Built-in signature fingerprint mismatch");
+        }
         const existing = this.signers.find((signer) => signer.privateKeyHex === privateKeyHex && signer.signType === signType && signer.fingerprint == fingerprint);
         if (existing) return existing;
         const signer = await PsyMemoryTransactionSigner.create(this.proverProvider, this.networkId, privateKeyHex, signType, fingerprint);
@@ -43,14 +48,11 @@ class PsyMemoryTransactionSignerProvider implements IPsyTransactionSignerProvide
     private getFingerprintForSignType(signType: SignType): string {
         switch (signType) {
             case SignType.ZKSign:
-                return "65e0169bfffd55f1c0ea9f76c111a5b15e652322ee253c1a9604a10d59066b50";
+                return signatureFingerprints.zk;
             case SignType.SECP256K1Sign:
-                return "320d034234f0dab4d02c4b03d69276cbd5c2eb831aca1b11c7e52078ace2e33b";
+                return signatureFingerprints.secp256k1;
             case SignType.EthPersonalSECP256K1Sign:
-                // Canonical get_eth_personal_secp256k1_fingerprint() — the Rust
-                // adapter resolves this internally; the TS held-key path mirrors
-                // the existing hardcoded-fingerprint convention for local identity.
-                return "4cf514982eb7155648bf1b7852a6a564d8e86998cc1c6365a50e15796b7f0745";
+                return signatureFingerprints["eth-personal-secp256k1"];
             default:
                 throw new Error(`Unsupported sign type: ${signType}`);
         }

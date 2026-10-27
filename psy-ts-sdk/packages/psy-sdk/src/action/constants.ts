@@ -1,8 +1,9 @@
+import { networkMagics } from './network-magics';
 type NetworkId = "mainnet" | "testnet" | "regtest";
 
-const PSY_NETWORK_MAGIC_MAINNET = 0x1337cf514544c069n;
-const PSY_NETWORK_MAGIC_TESTNET = 0x1337cf514544c169n;
-const PSY_NETWORK_MAGIC_REGTEST = 0x1337cf514544cf69n;
+const PSY_NETWORK_MAGIC_MAINNET = BigInt(networkMagics.mainnet);
+const PSY_NETWORK_MAGIC_TESTNET = BigInt(networkMagics.testnet);
+const PSY_NETWORK_MAGIC_REGTEST = BigInt(networkMagics.localhost);
 
 // Sig Actions
 // 'CDEPOSIT' = 0x5449534F50454443n (little-endian) = 6073477172600063043

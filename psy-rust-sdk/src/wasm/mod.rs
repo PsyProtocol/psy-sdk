@@ -287,8 +287,30 @@ impl WasmPsyConfigBuilder {
 #[wasm_bindgen]
 pub struct WasmConstants;
 
+fn validate_builtin_fingerprint(sign_type: &str, expected: QHashOut<F>, supplied: Option<&str>) -> Result<(), JsError> {
+    if matches!(sign_type, "zk" | "secp256k1" | "eth-personal-secp256k1") {
+        if let Some(value) = supplied {
+            let actual = QHashOut::<F>::from_str(value)
+                .map_err(|_| JsError::new("Invalid built-in signature fingerprint"))?;
+            if actual != expected {
+                return Err(JsError::new("Built-in signature fingerprint mismatch"));
+            }
+        }
+    }
+    Ok(())
+}
+
 #[wasm_bindgen]
 impl WasmConstants {
+    #[wasm_bindgen(getter)]
+    pub fn signature_fingerprints() -> String {
+        serde_json::json!({
+            "zk": psy_prover::wallet::memory_wallet::get_zk_fingerprint::<F>().to_string(),
+            "secp256k1": psy_prover::wallet::memory_wallet::get_secp256k1_fingerprint::<F>().to_string(),
+            "eth-personal-secp256k1": psy_prover::wallet::memory_wallet::get_eth_personal_secp256k1_fingerprint::<F>().to_string(),
+        }).to_string()
+    }
+
     #[wasm_bindgen(getter)]
     pub fn global_user_tree_height() -> u8 {
         psy_config::network_constants::GLOBAL_USER_TREE_HEIGHT
@@ -2932,6 +2954,7 @@ impl WasmRpcServer {
         let private_key = QHashOut::<F>::from_str(private_key_str)
             .map_err(|e| JsError::new(&format!("Parse private key error: {}", e)))?;
 
+        let supplied_fingerprint = fingerprint.clone();
         let fingerprint = match sign_type {
             "zk" => psy_prover::wallet::memory_wallet::get_zk_fingerprint(),
             "secp256k1" => psy_prover::wallet::memory_wallet::get_secp256k1_fingerprint(),
@@ -2956,6 +2979,7 @@ impl WasmRpcServer {
             }
         };
 
+        validate_builtin_fingerprint(sign_type, fingerprint, supplied_fingerprint.as_deref())?;
         let pk_hash = self
             .wallet_session
             .register_user(private_key, fingerprint)
@@ -2974,6 +2998,7 @@ impl WasmRpcServer {
         let private_key = QHashOut::<F>::from_str(private_key_str)
             .map_err(|e| JsError::new(&format!("Parse private key error: {}", e)))?;
 
+        let supplied_fingerprint = fingerprint.clone();
         let fingerprint = match sign_type {
             "zk" => psy_prover::wallet::memory_wallet::get_zk_fingerprint(),
             "secp256k1" => psy_prover::wallet::memory_wallet::get_secp256k1_fingerprint(),
@@ -2998,6 +3023,7 @@ impl WasmRpcServer {
             }
         };
 
+        validate_builtin_fingerprint(sign_type, fingerprint, supplied_fingerprint.as_deref())?;
         let pk_hash = self
             .wallet_session
             .add_user(private_key, fingerprint)

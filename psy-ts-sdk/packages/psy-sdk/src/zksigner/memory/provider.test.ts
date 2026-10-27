@@ -1,15 +1,14 @@
-import { describe, expect, it, jest } from "@jest/globals";
+import { describe, expect, it, test, jest } from "@jest/globals";
 
 import { IPsyUserProverProvider, SignType } from "../../local-prover-rpc";
-import { NetworkId } from "../../action";
+import { NetworkId, getPsyNetworkMagicForNetworkId } from "../../action";
 import { PsyMemoryTransactionSignerProvider } from "./provider";
 
-// Canonical get_eth_personal_secp256k1_fingerprint() — little-endian-limb hex of
-// ETH_PERSONAL_SECP256K1_FINGERPRINT_U64, mirroring the existing hardcoded
-// fingerprint convention the held-key memory provider uses for ZK / secp256k1.
-const ETH_PERSONAL_FINGERPRINT = "4cf514982eb7155648bf1b7852a6a564d8e86998cc1c6365a50e15796b7f0745";
-const SECP256K1_FINGERPRINT = "320d034234f0dab4d02c4b03d69276cbd5c2eb831aca1b11c7e52078ace2e33b";
-const ZK_FINGERPRINT = "65e0169bfffd55f1c0ea9f76c111a5b15e652322ee253c1a9604a10d59066b50";
+import { signatureFingerprints } from "./signature-fingerprints";
+
+const ETH_PERSONAL_FINGERPRINT = signatureFingerprints["eth-personal-secp256k1"];
+const SECP256K1_FINGERPRINT = signatureFingerprints.secp256k1;
+const ZK_FINGERPRINT = signatureFingerprints.zk;
 
 const networkId: NetworkId = "testnet";
 
@@ -36,7 +35,7 @@ describe("PsyMemoryTransactionSignerProvider held-key fingerprint mapping", () =
         expect(addUser).toHaveBeenCalledWith(expect.any(String), SignType.EthPersonalSECP256K1Sign, ETH_PERSONAL_FINGERPRINT);
     });
 
-    it("leaves the classic secp256k1 held-key fingerprint unchanged", async () => {
+    it("selects the compiled classic secp256k1 held-key fingerprint", async () => {
         const { provider, addUser } = recordingProvider();
         const signerProvider = new PsyMemoryTransactionSignerProvider(provider, networkId);
 
@@ -52,5 +51,24 @@ describe("PsyMemoryTransactionSignerProvider held-key fingerprint mapping", () =
         await signerProvider.addRandomPrivateKey(SignType.ZKSign);
 
         expect(addUser).toHaveBeenCalledWith(expect.any(String), SignType.ZKSign, ZK_FINGERPRINT);
+    });
+});
+
+describe('compiled built-in signature fingerprints', () => {
+    for (const signType of [SignType.ZKSign, SignType.SECP256K1Sign, SignType.EthPersonalSECP256K1Sign] as const) {
+        test(`${signType} selects the compiled fingerprint and rejects a mismatch before import`, async () => {
+            const addUser = jest.fn(async (_privateKey: string, _signType: SignType, _fingerprint: string) => 'a'.repeat(64));
+            const provider = new PsyMemoryTransactionSignerProvider({ addUser } as unknown as IPsyUserProverProvider, 'testnet');
+            const fingerprint = signatureFingerprints[signType];
+            const signer = await provider.importPrivateKey('1'.repeat(64), signType, fingerprint);
+            expect(await signer.getFingerprint!()).toEqual(fingerprint);
+            expect(addUser).toHaveBeenCalledWith('1'.repeat(64), signType, fingerprint);
+            await expect(provider.importPrivateKey('2'.repeat(64), signType, '0'.repeat(64))).rejects.toThrow('fingerprint mismatch');
+            expect(addUser).toHaveBeenCalledTimes(1);
+        });
+    }
+    test('testnet actions use canonical CF69 rather than the obsolete C169 magic', () => {
+        expect(getPsyNetworkMagicForNetworkId('testnet')).toEqual(0x1337cf514544cf69n);
+        expect(getPsyNetworkMagicForNetworkId('testnet')).not.toEqual(0x1337cf514544c169n);
     });
 });

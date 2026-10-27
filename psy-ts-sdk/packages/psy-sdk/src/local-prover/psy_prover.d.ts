@@ -58,6 +58,7 @@ export class WasmConstants {
     static readonly realm_rpc_urls: string[];
     static readonly realm_user_tree_height: number;
     static readonly register_user_fee: bigint;
+    static readonly signature_fingerprints: string;
     static readonly users_per_realm: bigint;
 }
 
@@ -307,11 +308,24 @@ export function main(): void;
 export type SyncInitInput = BufferSource | WebAssembly.Module;
 
 export interface InitOutput {
+    readonly __wbg_intounderlyingbytesource_free: (a: number, b: number) => void;
+    readonly __wbg_intounderlyingsink_free: (a: number, b: number) => void;
+    readonly __wbg_intounderlyingsource_free: (a: number, b: number) => void;
     readonly __wbg_wasmconstants_free: (a: number, b: number) => void;
     readonly __wbg_wasmpsyconfig_free: (a: number, b: number) => void;
     readonly __wbg_wasmpsyconfigbuilder_free: (a: number, b: number) => void;
     readonly __wbg_wasmrpcserver_free: (a: number, b: number) => void;
     readonly init_logging: () => void;
+    readonly intounderlyingbytesource_autoAllocateChunkSize: (a: number) => number;
+    readonly intounderlyingbytesource_cancel: (a: number) => void;
+    readonly intounderlyingbytesource_pull: (a: number, b: any) => any;
+    readonly intounderlyingbytesource_start: (a: number, b: any) => void;
+    readonly intounderlyingbytesource_type: (a: number) => number;
+    readonly intounderlyingsink_abort: (a: number, b: any) => any;
+    readonly intounderlyingsink_close: (a: number) => any;
+    readonly intounderlyingsink_write: (a: number, b: any) => any;
+    readonly intounderlyingsource_cancel: (a: number) => void;
+    readonly intounderlyingsource_pull: (a: number, b: any) => any;
     readonly main: () => void;
     readonly wasmconstants_config_path: () => [number, number];
     readonly wasmconstants_coordinator_rpc_url: () => [number, number];
@@ -327,6 +341,8 @@ export interface InitOutput {
     readonly wasmconstants_native_currency_name: () => [number, number];
     readonly wasmconstants_realm_rpc_urls: () => [number, number];
     readonly wasmconstants_realm_user_tree_height: () => number;
+    readonly wasmconstants_register_user_fee: () => bigint;
+    readonly wasmconstants_signature_fingerprints: () => [number, number];
     readonly wasmconstants_users_per_realm: () => bigint;
     readonly wasmpsyconfig_builder: () => number;
     readonly wasmpsyconfig_currentNetworkName: (a: number) => [number, number];
@@ -338,6 +354,7 @@ export interface InitOutput {
     readonly wasmpsyconfigbuilder_build: (a: number) => [number, number, number];
     readonly wasmpsyconfigbuilder_json: (a: number, b: number, c: number) => number;
     readonly wasmpsyconfigbuilder_network: (a: number, b: number, c: number) => number;
+    readonly wasmpsyconfigbuilder_new: () => number;
     readonly wasmrpcserver_add_external_proof_json: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number) => any;
     readonly wasmrpcserver_add_user: (a: number, b: number, c: number, d: number, e: number, f: number, g: number) => any;
     readonly wasmrpcserver_batch_claim_json: (a: number, b: number, c: number, d: number, e: number) => any;
@@ -388,26 +405,11 @@ export interface InitOutput {
     readonly wasmrpcserver_submit_end_cap_json: (a: number, b: number, c: number, d: number, e: number) => any;
     readonly wasmrpcserver_submit_endcap_job_json: (a: number, b: number, c: number, d: number, e: number) => any;
     readonly wasmrpcserver_trace_proof_job_step_indices_json: (a: number, b: number, c: number) => [number, number, number, number];
-    readonly wasmpsyconfigbuilder_new: () => number;
-    readonly wasmconstants_register_user_fee: () => bigint;
-    readonly __wbg_intounderlyingsource_free: (a: number, b: number) => void;
-    readonly intounderlyingsource_cancel: (a: number) => void;
-    readonly intounderlyingsource_pull: (a: number, b: any) => any;
-    readonly __wbg_intounderlyingsink_free: (a: number, b: number) => void;
-    readonly intounderlyingsink_abort: (a: number, b: any) => any;
-    readonly intounderlyingsink_close: (a: number) => any;
-    readonly intounderlyingsink_write: (a: number, b: any) => any;
-    readonly __wbg_intounderlyingbytesource_free: (a: number, b: number) => void;
-    readonly intounderlyingbytesource_autoAllocateChunkSize: (a: number) => number;
-    readonly intounderlyingbytesource_cancel: (a: number) => void;
-    readonly intounderlyingbytesource_pull: (a: number, b: any) => any;
-    readonly intounderlyingbytesource_start: (a: number, b: any) => void;
-    readonly intounderlyingbytesource_type: (a: number) => number;
-    readonly wasm_bindgen__convert__closures_____invoke__h3d552a68f64c0398: (a: number, b: number, c: any) => [number, number];
-    readonly wasm_bindgen__convert__closures_____invoke__h00a08fe4d0d25f52: (a: number, b: number, c: any, d: any) => void;
-    readonly wasm_bindgen__convert__closures_____invoke__hceb8406c7e9e4c13: (a: number, b: number, c: any) => void;
-    readonly wasm_bindgen__convert__closures_____invoke__hf2f60037077f0886: (a: number, b: number, c: any) => void;
-    readonly wasm_bindgen__convert__closures_____invoke__h7bcb9746416107ba: (a: number, b: number) => void;
+    readonly wasm_bindgen__convert__closures_____invoke__h0e46475346c149c9: (a: number, b: number, c: any, d: any) => void;
+    readonly wasm_bindgen__convert__closures_____invoke__h2db0178493f4e3a9: (a: number, b: number, c: any) => [number, number];
+    readonly wasm_bindgen__convert__closures_____invoke__h87d3a5450be591c5: (a: number, b: number, c: any) => void;
+    readonly wasm_bindgen__convert__closures_____invoke__hf6630e8696b3a47e: (a: number, b: number, c: any) => void;
+    readonly wasm_bindgen__convert__closures_____invoke__h0f5d9a7ef56ec304: (a: number, b: number) => void;
     readonly memory: WebAssembly.Memory;
     readonly __wbindgen_malloc: (a: number, b: number) => number;
     readonly __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;

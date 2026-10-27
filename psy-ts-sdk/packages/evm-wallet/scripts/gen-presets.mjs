@@ -12,8 +12,78 @@
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { createHash } from 'node:crypto'
+import assert from 'node:assert/strict'
 
 const here = dirname(fileURLToPath(import.meta.url))
+
+// Public builds consume reviewed client and deployment exports, never node topology.
+if (process.argv[2] === '--public-config') {
+  assert.equal(process.argv.length, 5, 'Usage: --public-config client.json deployments.json')
+  const { PsyJSON } = await import('@psy-protocol/psy-sdk')
+  const clientBytes = readFileSync(resolve(process.argv[3]), 'utf8')
+  const deploymentBytes = readFileSync(resolve(process.argv[4]), 'utf8')
+  const client = PsyJSON.parse(clientBytes)
+  const deployments = JSON.parse(deploymentBytes)
+  assert.equal(client.defaultNetwork, 'testnet')
+  assert(client.networks?.testnet, 'Missing testnet client config')
+  const rows = deployments.l1_chains.filter(row => row.chain_id === 11155111)
+  assert.equal(rows.length, 1, 'Expected exactly one Sepolia deployment')
+  const row = rows[0]
+  assert.equal(row.chain_index, 0)
+  const core = row.contracts
+  for (const key of ['Router', 'Bridge', 'StateManager', 'ERC20Gateway', 'WETH9', 'USDTToken', 'PsyToken']) {
+    assert(/^0x[0-9a-fA-F]{40}$/.test(core[key]) && !/^0x0{40}$/.test(core[key]), `Invalid ${key}`)
+  }
+  const psy = {
+    ...client.networks.testnet,
+    nostr_relay_urls: client.networks.testnet.nostr_relay_urls ?? [client.networks.testnet.nostr_relay_url],
+    // This preset selects Sepolia; BSC/Base RPCs cannot be fallback endpoints for it.
+    l1_rpc_urls: [row.rpc_url],
+  }
+  const definition = {
+    name: 'testnet', psy,
+    l1: {
+      chainId: row.chain_id,
+      chain: {
+        chainId: row.chain_id, name: row.name, shortName: row.network, psyIndex: row.chain_index,
+        nativeCurrency: row.native_currency, explorerUrl: row.explorer_url, rpcUrls: [row.rpc_url],
+        routerAddress: core.Router, bridgeAddress: core.Bridge, stateManagerAddress: core.StateManager,
+        erc20GatewayAddress: core.ERC20Gateway, wethAddress: core.WETH9,
+        stateManager: core.StateManager, erc20Gateway: core.ERC20Gateway,
+        mockUSDT: core.USDTToken, psyToken: core.PsyToken, deployed: true,
+      },
+    },
+  }
+  function checkUrls(value) {
+    if (Array.isArray(value)) value.forEach(checkUrls)
+    else if (value && typeof value === 'object') Object.values(value).forEach(checkUrls)
+    else if (typeof value === 'string' && /^(?:https?|wss?):\/\//.test(value)) {
+      const url = new URL(value)
+      assert(['https:', 'wss:'].includes(url.protocol), 'Public preset needs TLS')
+      assert(!url.username && !url.password, 'Credential-bearing URL')
+      assert(/^[a-z0-9.-]+\.[a-z]{2,}$/i.test(url.hostname), 'Public DNS name required')
+      assert(!url.hostname.endsWith('.internal') && !url.hostname.endsWith('.local'), 'Internal hostname')
+    }
+  }
+  checkUrls(definition)
+  assert(psy.nostr_relay_urls.every(url => typeof url === 'string' && url.startsWith('wss://')))
+  const digest = bytes => createHash('sha256').update(bytes).digest('hex')
+  const body = `/**
+ * Generated from public client SHA256 ${digest(clientBytes)}
+ * and public deployment SHA256 ${digest(deploymentBytes)}.
+ * Regenerate: node scripts/gen-presets.mjs --public-config client.json deployments.json
+ */
+import { PsyJSON } from '@psy-protocol/psy-sdk'
+import type { PsyNetworkDefinition } from '../types'
+
+export const testnet = PsyJSON.parse(${JSON.stringify(PsyJSON.stringify(definition))}) as PsyNetworkDefinition
+`
+  const out = join(here, '../src/config/presets/testnet.ts')
+  writeFileSync(out, body)
+  console.log(`wrote testnet preset (client ${digest(clientBytes)}, deployments ${digest(deploymentBytes)})`)
+  process.exit(0)
+}
 const parth = resolve(
   process.argv[2] ?? join(here, '../../../../..', 'parth-generic-v1'),
 )

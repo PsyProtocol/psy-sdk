@@ -1,7 +1,7 @@
 import fs from "fs";
 import path from "path";
 import { spawnSync } from "child_process";
-import { fileURLToPath } from "url";
+import { fileURLToPath, pathToFileURL } from "url";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -81,6 +81,20 @@ function ensureWasmArtifacts() {
 ensureWasmArtifacts();
 
 const wasmBuffer = fs.readFileSync(wasmPath);
+// Keep held-key identities in TypeScript identical to the compiled Rust selectors.
+const prover = await import(pathToFileURL(path.join(__dirname, "psy_prover.js")).href);
+prover.initSync({ module: wasmBuffer });
+const fingerprints = JSON.parse(prover.WasmConstants.signature_fingerprints) as Record<string, string>;
+for (const scheme of ["zk", "secp256k1", "eth-personal-secp256k1"]) {
+    if (!/^[0-9a-f]{64}$/.test(fingerprints[scheme] ?? "")) {
+        throw new Error(`Invalid compiled signature fingerprint for ${scheme}`);
+    }
+}
+if (Object.keys(fingerprints).length !== 3 || new Set(Object.values(fingerprints)).size !== 3) {
+    throw new Error("Invalid compiled signature fingerprint set");
+}
+fs.writeFileSync(path.resolve(__dirname, "../zksigner/memory/signature-fingerprints.ts"),
+    `// Generated from WasmConstants.signature_fingerprints; do not edit.\nexport const signatureFingerprints = ${JSON.stringify(fingerprints, null, 2)} as const;\n`);
 const base64Chunks = wasmBuffer.toString("base64").match(/.{1,65536}/g) ?? [];
 const base64ChunkString = base64Chunks.map((chunk) => `    ${JSON.stringify(chunk)},`).join("\n");
 
