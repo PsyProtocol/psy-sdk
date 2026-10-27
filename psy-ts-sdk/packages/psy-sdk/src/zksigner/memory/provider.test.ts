@@ -56,6 +56,21 @@ describe("PsyMemoryTransactionSignerProvider held-key fingerprint mapping", () =
 
 describe('compiled built-in signature fingerprints', () => {
     for (const signType of [SignType.ZKSign, SignType.SECP256K1Sign, SignType.EthPersonalSECP256K1Sign] as const) {
+        test(`${signType} resolves omitted and empty fingerprints and reuses the canonical signer`, async () => {
+            const { provider: prover, addUser } = recordingProvider();
+            const provider = new PsyMemoryTransactionSignerProvider(prover, networkId);
+            const expected = signatureFingerprints[signType];
+            const omitted = await provider.importPrivateKey('1'.repeat(64), signType);
+            const empty = await provider.importPrivateKey('1'.repeat(64), signType, '');
+            const explicit = await provider.importPrivateKey('1'.repeat(64), signType, expected);
+            expect(await omitted.getFingerprint!()).toBe(expected);
+            expect(empty).toBe(omitted);
+            expect(explicit).toBe(omitted);
+            expect(addUser).toHaveBeenCalledTimes(1);
+            expect(addUser).toHaveBeenCalledWith('1'.repeat(64), signType, expected);
+            await expect(provider.importPrivateKey('2'.repeat(64), signType, ' ')).rejects.toThrow('fingerprint mismatch');
+            expect(addUser).toHaveBeenCalledTimes(1);
+        });
         test(`${signType} selects the compiled fingerprint and rejects a mismatch before import`, async () => {
             const addUser = jest.fn(async (_privateKey: string, _signType: SignType, _fingerprint: string) => 'a'.repeat(64));
             const provider = new PsyMemoryTransactionSignerProvider({ addUser } as unknown as IPsyUserProverProvider, 'testnet');

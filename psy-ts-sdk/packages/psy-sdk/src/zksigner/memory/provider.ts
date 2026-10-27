@@ -29,10 +29,13 @@ class PsyMemoryTransactionSignerProvider implements IPsyTransactionSignerProvide
     getAbilities(): TPsyTransactionSignerProviderAbility[] {
         return ["import-private-key", "add-random-private-key"];
     }
-    async importPrivateKey(privateKeyHex: string, signType: SignType, fingerprint: string): Promise<IPsyTransactionSigner> {
-        if ([SignType.ZKSign, SignType.SECP256K1Sign, SignType.EthPersonalSECP256K1Sign].includes(signType)
-            && fingerprint !== this.getFingerprintForSignType(signType)) {
-            throw new Error("Built-in signature fingerprint mismatch");
+    async importPrivateKey(privateKeyHex: string, signType: SignType, fingerprint: string = ""): Promise<IPsyTransactionSigner> {
+        if ([SignType.ZKSign, SignType.SECP256K1Sign, SignType.EthPersonalSECP256K1Sign].includes(signType)) {
+            const expected = this.getFingerprintForSignType(signType);
+            if (fingerprint !== "" && fingerprint !== expected) {
+                throw new Error("Built-in signature fingerprint mismatch");
+            }
+            fingerprint = expected;
         }
         const existing = this.signers.find((signer) => signer.privateKeyHex === privateKeyHex && signer.signType === signType && signer.fingerprint == fingerprint);
         if (existing) return existing;
