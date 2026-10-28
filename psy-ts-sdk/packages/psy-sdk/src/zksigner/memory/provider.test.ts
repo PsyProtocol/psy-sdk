@@ -7,8 +7,8 @@ import { PsyMemoryTransactionSignerProvider } from "./provider";
 // Canonical get_eth_personal_secp256k1_fingerprint() — little-endian-limb hex of
 // ETH_PERSONAL_SECP256K1_FINGERPRINT_U64, mirroring the existing hardcoded
 // fingerprint convention the held-key memory provider uses for ZK / secp256k1.
-const ETH_PERSONAL_FINGERPRINT = "4cf514982eb7155648bf1b7852a6a564d8e86998cc1c6365a50e15796b7f0745";
-const SECP256K1_FINGERPRINT = "320d034234f0dab4d02c4b03d69276cbd5c2eb831aca1b11c7e52078ace2e33b";
+const ETH_PERSONAL_FINGERPRINT = "5a6bb7b8a960b9dd54e0475f79418655acc7e167314b8ed1601b1c58a9673d61";
+const SECP256K1_FINGERPRINT = "021dd3bbe9e7ec33a4c2fb0c276e663e920eb87421a4d8114d348f0e1eb93aa1";
 const ZK_FINGERPRINT = "65e0169bfffd55f1c0ea9f76c111a5b15e652322ee253c1a9604a10d59066b50";
 
 const networkId: NetworkId = "testnet";

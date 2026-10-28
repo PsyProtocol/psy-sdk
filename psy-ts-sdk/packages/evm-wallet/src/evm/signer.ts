@@ -20,7 +20,8 @@
 
 import { verifyMessage, verifyTypedData, type TypedDataDomain } from 'ethers'
 import type { Config as WagmiConfig } from 'wagmi'
-import { getAccount, signMessage, signTypedData, watchAccount } from 'wagmi/actions'
+import { getTypesForEIP712Domain } from 'viem'
+import { getAccount, signMessage, watchAccount } from 'wagmi/actions'
 
 type Hex = `0x${string}`
 
@@ -122,8 +123,10 @@ export class EvmSigner {
 
   /**
    * `eth_signTypedData_v4` the domain-bound Auth struct (the v2 auth path).
-   * wagmi/viem derive the `EIP712Domain` type from `domain`, so we pass only the
-   * `Auth` type. Same recover-to-address integrity gate as `personalSign`.
+   * The auth domain deliberately pins chainId to 1 for cross-network identity.
+   * Send the EIP-1193 request through the connected wallet: wagmi's typed-data
+   * action rejects a domain chainId that differs from the active L1 chain.
+   * Keep the recover-to-address integrity gate from `personalSign`.
    */
   async signTypedDataV4(
     domain: { name: string; version: string; chainId: number },
@@ -133,13 +136,43 @@ export class EvmSigner {
   ): Promise<string> {
     let sig: string
     try {
-      sig = await signTypedData(this.wagmiConfig, {
-        account: address as Hex,
+      const account = getAccount(this.wagmiConfig)
+      if (!account.connector || account.address?.toLowerCase() !== address.toLowerCase()) {
+        throw new Error('Connected wallet account changed before signing.')
+      }
+      const provider = await account.connector.getProvider() as {
+        request(args: { method: string; params?: unknown[] }): Promise<unknown>
+      }
+      const payload = JSON.stringify({
         domain,
-        types: { Auth: types.Auth as Eip712Field[] },
+        types: { EIP712Domain: getTypesForEIP712Domain({ domain }), Auth: types.Auth },
         primaryType: 'Auth',
         message: value,
       })
+      const activeChainId = await provider.request({ method: 'eth_chainId' })
+      if (typeof activeChainId !== 'string' || !/^0x[0-9a-f]+$/i.test(activeChainId)) {
+        throw new Error('Wallet returned an invalid active chain ID.')
+      }
+      const switchChain = async (chainId: string) => {
+        await provider.request({ method: 'wallet_switchEthereumChain', params: [{ chainId }] })
+      }
+      const shouldSwitch = BigInt(activeChainId) !== BigInt(domain.chainId)
+      if (shouldSwitch) await switchChain(`0x${domain.chainId.toString(16)}`)
+      let response: unknown
+      try {
+        response = await provider.request({ method: 'eth_signTypedData_v4', params: [address, payload] })
+      } finally {
+        if (shouldSwitch) {
+          try {
+            await switchChain(activeChainId)
+          } catch {
+            // Restoring the network is best-effort: preserve the signature or
+            // the original signing error if the wallet refuses the switch.
+          }
+        }
+      }
+      if (typeof response !== 'string') throw new Error('Wallet returned a malformed typed-data signature.')
+      sig = response
     } catch (e) {
       if (isUserRejection(e)) throw new Error(REJECT_MESSAGE)
       throw e
