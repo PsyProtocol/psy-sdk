@@ -1,25 +1,5 @@
-# <project-root>/.cargo/config.toml
-[env]
-TS_RS_EXPORT_DIR = { value = "psy-ts-sdk/packages/psy-sdk/src/types", relative = true }
-# psy_config's build script panics without this (localhost/testnet/mainnet).
-# `make check` runs plain `cargo check`, which never went through the
-# Makefile's PSY_NETWORK ?= testnet default (only wasm-build used it), so it
-# failed at psy_config's build.rs before this. `force = false` (the default)
-# means an explicit PSY_NETWORK in the environment still wins, matching the
-# Makefile's `?=` semantics.
-PSY_NETWORK = "testnet"
-
-[target.wasm32-unknown-unknown]
-rustflags = [
-    "-C", "target-feature=+atomics",
-    "-C", "panic=abort",
-    # Shared (+atomics) memory defaults to LLD's 1 GB maximum (16384 pages),
-    # which the wallet's degree-2^17 circuit build exhausts -> "RuntimeError:
-    # unreachable" at login for returning users. Raise to the wasm32 max (4 GB).
-    "-C", "link-arg=--max-memory=4294967296",
-    '--cfg', 'getrandom_backend="wasm_js"'
-]
-
-[unstable]
-build-std = ["panic_abort", "std"]
-# build-std-features = ["panic_immediate_abort"]
+# Cargo's built-in SSH client cannot authenticate with github.com in this
+# environment; shell out to the git CLI, which uses the developer's own SSH
+# configuration.
+[net]
+git-fetch-with-cli = true

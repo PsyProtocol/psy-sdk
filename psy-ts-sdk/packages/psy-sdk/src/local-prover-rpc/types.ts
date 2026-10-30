@@ -149,6 +149,8 @@ export interface BridgeWithdrawalWitnessInput {
     amount: number[];
     nonce: number[];
     destination_chain_index: number;
+    /** Source token contract committed at leaf/slot word 34; never inferred from token. */
+    token_contract_id: number;
     leaf_index: number;
     bridge_user_id: number;
     siblings: string[];

@@ -1,5 +1,6 @@
 import { FetchHTTPClient } from "../http/fetchClient";
 import type { IHTTPClient } from "../http/types";
+import { hashNoPad } from "poseidon-goldilocks-lite";
 import type {
     BridgeDepositBatchGroth16Proof,
     BridgeDepositBatchWitnessInput,
@@ -65,6 +66,72 @@ export function hexToU32x8(hex: string): U32x8 {
     }
     return words as U32x8;
 }
+export const WITHDRAWAL_LEAF_HASH_VECTOR =
+    "0x5566778811223344eeff0011aabbccdd000000020000000100000000ffffffff";
+
+/** Render four Poseidon limbs as the indexed leaf-hash bytes32.
+ * Limb 0x1122334455667788 begins 55667788, not 11223344. */
+export function withdrawalLeafHashBytes32(limbs: readonly bigint[]): string {
+    if (limbs.length !== 4) throw new Error("withdrawal leaf hash must be four limbs");
+    let hex = "0x";
+    for (const limb of limbs) {
+        if (limb < 0n || limb > 0xffffffffffffffffn) throw new Error("withdrawal leaf hash limb is wider than a u64");
+        const lo = limb & 0xffffffffn;
+        const hi = limb >> 32n;
+        hex += lo.toString(16).padStart(8, "0") + hi.toString(16).padStart(8, "0");
+    }
+    return hex;
+}
+
+function uint32Felt(value: number | string, name: string): bigint {
+    const parsed = typeof value === "number"
+        ? value
+        : typeof value === "string" && /^[0-9]+$/.test(value)
+            ? Number(value)
+            : NaN;
+    if (!Number.isInteger(parsed) || parsed < 0 || parsed > 0xffffffff) {
+        throw new Error(`${name} must be a uint32 number or unsigned decimal string`);
+    }
+    return BigInt(parsed);
+}
+
+function bytes32FeltWords(value: bigint | string): bigint[] {
+    const parsed = typeof value === "bigint" ? value : BigInt(value);
+    if (parsed < 0n || parsed >= 1n << 256n) throw new Error("withdrawal value is not a uint256");
+    const words: bigint[] = [];
+    for (let shift = 224; shift >= 0; shift -= 32) words.push((parsed >> BigInt(shift)) & 0xffffffffn);
+    return words;
+}
+
+function addressFeltWords(value: string): bigint[] {
+    const raw = value.trim().replace(/^0x/i, "");
+    if (!/^[0-9a-fA-F]{40}$/.test(raw) && !(raw.length === 64 && /^0{24}/i.test(raw))) {
+        throw new Error("withdrawal address is not 20 bytes");
+    }
+    return bytes32FeltWords(BigInt(`0x${raw.length === 40 ? raw : raw.slice(24)}`));
+}
+
+export function withdrawalLeafNullifier(identity: {
+    senderUserId: number | string;
+    recipient: string;
+    tokenAddress: string;
+    amount: bigint | string;
+    nonce: bigint | string;
+    destinationChainIndex: number | string;
+    tokenContractId: number | string;
+}): string {
+    const felts = [
+        uint32Felt(identity.senderUserId, "senderUserId"),
+        ...addressFeltWords(identity.recipient),
+        ...addressFeltWords(identity.tokenAddress),
+        ...bytes32FeltWords(identity.amount),
+        ...bytes32FeltWords(identity.nonce),
+        uint32Felt(identity.destinationChainIndex, "destinationChainIndex"),
+        uint32Felt(identity.tokenContractId, "tokenContractId"),
+    ];
+    return withdrawalLeafHashBytes32(hashNoPad(felts) as readonly bigint[]);
+}
+
 
 export class PoseidonBridgeClient {
     private readonly httpClient: IHTTPClient;
@@ -91,23 +158,37 @@ export class PoseidonBridgeClient {
         servicesUrl: string,
         query: WithdrawalClaimProofQuery
     ): Promise<WithdrawalClaimProofResult> {
-        const params: Record<string, string> = {
-            recipient: query.recipient,
-            token_address: query.tokenAddress,
-            amount: query.amount,
-            nonce: query.nonce,
-            destination_chain_index: query.destinationChainIndex.toString(),
-        };
-        if (query.senderUserId !== undefined) {
-            params.sender_user_id = query.senderUserId.toString();
+        let nullifier: string;
+        try {
+            nullifier = withdrawalLeafNullifier({
+                senderUserId: query.senderUserId,
+                recipient: query.recipient,
+                tokenAddress: query.tokenAddress,
+                amount: query.amount,
+                nonce: query.nonce,
+                destinationChainIndex: query.destinationChainIndex,
+                tokenContractId: query.tokenContractId,
+            });
+        } catch (error) {
+            throw new Error(`withdrawal-claim-proof: ${error instanceof Error ? error.message : String(error)}`);
         }
-        const qs = encodeQuery(params);
+        const qs = encodeQuery({
+            destination_chain_index: query.destinationChainIndex.toString(),
+            nullifier,
+        });
         const resp = await this.httpClient.sendRequest({
             url: `${servicesUrl.replace(/\/$/, "")}/api/v1/bridge/withdrawal-claim-proof?${qs}`,
             method: "GET",
             responseType: "json",
         });
-        return assertOkResponse(resp.body, "withdrawal-claim-proof");
+        const result = assertOkResponse<WithdrawalClaimProofResult>(resp.body, "withdrawal-claim-proof");
+        if (result.withdrawal?.nullifier?.toLowerCase() !== nullifier.toLowerCase()) {
+            throw new Error("withdrawal-claim-proof: echoed nullifier does not match the withdrawal leaf hash");
+        }
+        if (result.leaf_hash != null && result.leaf_hash.toLowerCase() !== nullifier.toLowerCase()) {
+            throw new Error("withdrawal-claim-proof: leaf_hash does not match the withdrawal leaf hash");
+        }
+        return result;
     }
 
     async proveWithdrawalClaim(

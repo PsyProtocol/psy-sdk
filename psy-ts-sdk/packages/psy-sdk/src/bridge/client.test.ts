@@ -1,6 +1,6 @@
 import { describe, expect, it } from "@jest/globals";
 
-import { PoseidonBridgeClient } from "./client";
+import { PoseidonBridgeClient, WITHDRAWAL_LEAF_HASH_VECTOR, withdrawalLeafHashBytes32, withdrawalLeafNullifier } from "./client";
 import type {
     IHTTPClient,
     ISimpleHTTPRequest,
@@ -10,11 +10,13 @@ import type {
     BridgeWithdrawalBatchGroth16Proof,
     BridgeWithdrawalBatchWitnessInput,
     DepositClaimProofResult,
+    WithdrawalClaimProofQuery,
+    WithdrawalClaimProofResult,
 } from "./types";
 
 /**
  * Minimal recording HTTP client: captures every request verbatim and returns
- * a fixed response. Lets us assert the exact wire shape getDepositClaimProof
+ * a fixed response. Lets us assert the exact wire shape the bridge client
  * emits, without touching the network or the real fetch implementation.
  */
 function recordingHttpClient(response: ISimpleHTTPResponse): {
@@ -36,9 +38,20 @@ function jsonRpcOk<T>(result: T): ISimpleHTTPResponse {
 }
 
 /** Services success envelope shape consumed by assertOkResponse. */
-function servicesOk(data: DepositClaimProofResult): ISimpleHTTPResponse {
+function servicesOk<T>(data: T): ISimpleHTTPResponse {
     return { statusCode: 200, body: { success: true, data } };
 }
+
+describe("withdrawal leaf hash bytes", () => {
+    it("renders low u32 then high u32, each big-endian", () => {
+        expect(withdrawalLeafHashBytes32([
+            0x1122334455667788n,
+            0xaabbccddeeff0011n,
+            0x0000000100000002n,
+            0xffffffff00000000n,
+        ])).toBe(WITHDRAWAL_LEAF_HASH_VECTOR);
+    });
+});
 
 describe("PoseidonBridgeClient.getDepositClaimProof", () => {
     it("serializes exactly deposit_index, source_chain_index and snapshot_deposit_count into the request URL", async () => {
@@ -166,8 +179,99 @@ describe("PoseidonBridgeClient.getDepositClaimProof", () => {
     });
 });
 
+describe("PoseidonBridgeClient.getWithdrawalClaimProof", () => {
+    const query: WithdrawalClaimProofQuery = {
+        recipient: "0x1111111111111111111111111111111111111111",
+        tokenAddress: "0x2222222222222222222222222222222222222222",
+        amount: "777",
+        nonce: "0x" + "ab".repeat(32),
+        destinationChainIndex: 3,
+        senderUserId: 42,
+        tokenContractId: 7,
+    };
+
+    it.each([0, 42, 4294967295, "0", "42", "4294967295", "00042"])(
+        "sends destination and the withdrawal leaf hash for sender %p",
+        async (senderUserId) => {
+            const { client, requests } = recordingHttpClient(servicesOk({ found: false, withdrawal: { recipient: query.recipient, token_address: query.tokenAddress, amount: query.amount, nonce: query.nonce, destination_chain_index: 3, sender_user_id: null, token_contract_id: null, nullifier: withdrawalLeafNullifier({ ...query, senderUserId, amount: query.amount, nonce: query.nonce }) } }));
+            const bridgeClient = new PoseidonBridgeClient(client);
+            const current = { ...query, senderUserId };
+            await bridgeClient.getWithdrawalClaimProof("https://services.test/", current);
+            const url = new URL(requests[0]!.url);
+            expect(Array.from(url.searchParams.entries())).toEqual([
+                ["destination_chain_index", "3"],
+                ["nullifier", withdrawalLeafNullifier(current)],
+            ]);
+        },
+    );
+
+    it.each([
+        undefined, null, -1, 1.5, 4294967296, NaN, Infinity,
+        "", " ", "undefined", "null", "abc", "-1", "1.5", "4294967296",
+        "1e2", "0x2a", "+42", " 42", "42 ", true, {}, 42n,
+    ])("rejects invalid sender %p before making a request", async (senderUserId) => {
+        const { client, requests } = recordingHttpClient(servicesOk({ found: false }));
+        const bridgeClient = new PoseidonBridgeClient(client);
+        // Exercise untyped JavaScript callers as well as valid TypeScript input.
+        const invalidQuery = { ...query, senderUserId } as unknown as WithdrawalClaimProofQuery;
+
+        await expect(bridgeClient.getWithdrawalClaimProof("https://services.test/", invalidQuery))
+            .rejects.toThrow("withdrawal-claim-proof: senderUserId must be a uint32 number or unsigned decimal string");
+        expect(requests).toHaveLength(0);
+    });
+
+    it("rejects an omitted sender before making a request", async () => {
+        const { client, requests } = recordingHttpClient(servicesOk({ found: false }));
+        const bridgeClient = new PoseidonBridgeClient(client);
+        const { senderUserId: _senderUserId, ...missingSender } = query;
+
+        await expect(bridgeClient.getWithdrawalClaimProof(
+            "https://services.test/", missingSender as WithdrawalClaimProofQuery,
+        )).rejects.toThrow("senderUserId must be a uint32 number or unsigned decimal string");
+        expect(requests).toHaveLength(0);
+    });
+
+    it("rejects an echoed nullifier that is not the withdrawal leaf hash", async () => {
+        const data: WithdrawalClaimProofResult = {
+            found: true,
+            withdrawal: {
+                recipient: query.recipient,
+                token_address: query.tokenAddress,
+                amount: query.amount,
+                nonce: query.nonce,
+                destination_chain_index: 3,
+                sender_user_id: 42,
+                token_contract_id: 7,
+                nullifier: "0x" + "cd".repeat(32),
+            },
+        };
+        const { client } = recordingHttpClient(servicesOk(data));
+        await expect(new PoseidonBridgeClient(client).getWithdrawalClaimProof("https://services.test/", query))
+            .rejects.toThrow("echoed nullifier does not match the withdrawal leaf hash");
+    });
+
+    it("accepts a no-match whose nullifier echoes the queried leaf hash", async () => {
+        const nullifier = withdrawalLeafNullifier(query);
+        const data: WithdrawalClaimProofResult = {
+            found: false,
+            withdrawal: {
+                recipient: null,
+                token_address: null,
+                amount: null,
+                nonce: null,
+                destination_chain_index: null,
+                sender_user_id: null,
+                token_contract_id: null,
+                nullifier,
+            },
+        };
+        const { client } = recordingHttpClient(servicesOk(data));
+        await expect(new PoseidonBridgeClient(client).getWithdrawalClaimProof("https://services.test/", query)).resolves.toEqual(data);
+    });
+});
+
 describe("PoseidonBridgeClient.proveWithdrawalClaim", () => {
-    it("emits the canonical batch JSON-RPC method and a single-element batch witness params array", async () => {
+    it("emits the batch JSON-RPC method and a single-element batch witness params array", async () => {
         const proof: BridgeWithdrawalBatchGroth16Proof = {
             solidity_proof: ["0xp0", "0xp1", "0xp2", "0xp3", "0xp4", "0xp5", "0xp6", "0xp7"],
             public_inputs: [1, 2, 3],
@@ -182,6 +286,7 @@ describe("PoseidonBridgeClient.proveWithdrawalClaim", () => {
                 {
                     withdrawal_root: "0xroot",
                     sender_user_id: 7,
+                    token_contract_id: 7,
                     recipient: [10],
                     token: [11],
                     amount: [12],

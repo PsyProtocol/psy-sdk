@@ -59,21 +59,37 @@ export interface WithdrawalClaimProofQuery {
     amount: string;
     nonce: string;
     destinationChainIndex: number | string;
-    senderUserId?: number | string;
+    /** Leaf word 0. The L1 nullifier is the Poseidon hash of the full
+     *  35-word leaf, not this sender and the nonce. */
+    senderUserId: number | string;
+    /** Leaf word 34. Required to recompute the withdrawal leaf hash. */
+    tokenContractId: number | string;
 }
 
 export interface WithdrawalClaimProofResult {
     found: boolean;
     leaf_index?: number;
+    /** Indexed Poseidon withdrawal leaf hash bytes32, when the service row
+     *  carries it; the client rechecks it against the queried leaf hash. */
+    leaf_hash?: string | null;
     siblings?: string[];
     withdrawal_root?: string;
     withdrawal?: {
-        recipient: string;
-        token_address: string;
-        amount: string;
-        nonce: string;
-        destination_chain_index: number;
-        sender_user_id?: number;
+        recipient: string | null;
+        token_address: string | null;
+        amount: string | null;
+        nonce: string | null;
+        destination_chain_index: number | null;
+        /** Indexed withdrawal event emitter; required for the 35-word claim leaf. */
+        token_contract_id: number | null;
+        /** Required when withdrawal is present; null is valid for no-match or
+         *  checkpoint-0 responses, not a matched withdrawal. */
+        sender_user_id: number | null;
+        /** Poseidon withdrawal leaf hash bytes32: eight u32 words, low half
+         *  of each limb first, each word big-endian. The SDK passes the
+         *  service value through and checks it against withdrawalLeafNullifier.
+         *  Nullable on no-match only. */
+        nullifier: string | null;
     };
 }
 

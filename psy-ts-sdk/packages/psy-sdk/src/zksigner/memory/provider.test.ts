@@ -4,11 +4,13 @@ import { IPsyUserProverProvider, SignType } from "../../local-prover-rpc";
 import { NetworkId } from "../../action";
 import { PsyMemoryTransactionSignerProvider } from "./provider";
 
-// Canonical get_eth_personal_secp256k1_fingerprint() — little-endian-limb hex of
-// ETH_PERSONAL_SECP256K1_FINGERPRINT_U64, mirroring the existing hardcoded
-// fingerprint convention the held-key memory provider uses for ZK / secp256k1.
-const ETH_PERSONAL_FINGERPRINT = "5a6bb7b8a960b9dd54e0475f79418655acc7e167314b8ed1601b1c58a9673d61";
-const SECP256K1_FINGERPRINT = "021dd3bbe9e7ec33a4c2fb0c276e663e920eb87421a4d8114d348f0e1eb93aa1";
+// Canonical node-side measured fingerprints (psy_prover::wallet::memory_wallet)
+// in QHashOut string form — limbs reversed, each as 16-hex big-endian — for
+// stage magic 0x1337CF514544CF69 (localhost/testnet). The eth-personal value is
+// additionally verified against the rebuilt local-web-prover WASM: the
+// add_user fingerprint dispatch accepts exactly this value.
+const ETH_PERSONAL_FINGERPRINT = "ecebdc4f04de4300441dd9fa0704c905c7d2c4db90ceb612459a266481b88a6d";
+const SECP256K1_FINGERPRINT = "b3fe2b5b448751fa150f312ed92e9e2d7ab14c1eff9d43dcab36b57ad44f06a3";
 const ZK_FINGERPRINT = "65e0169bfffd55f1c0ea9f76c111a5b15e652322ee253c1a9604a10d59066b50";
 
 const networkId: NetworkId = "testnet";
