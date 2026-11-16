@@ -6,12 +6,11 @@ import { PsyMemoryTransactionSignerProvider } from "./provider";
 
 // Canonical node-side measured fingerprints (psy_prover::wallet::memory_wallet)
 // in QHashOut string form — limbs reversed, each as 16-hex big-endian — for
-// stage magic 0x1337CF514544CF69 (localhost/testnet). The eth-personal value is
-// additionally verified against the rebuilt local-web-prover WASM: the
-// add_user fingerprint dispatch accepts exactly this value.
-const ETH_PERSONAL_FINGERPRINT = "ecebdc4f04de4300441dd9fa0704c905c7d2c4db90ceb612459a266481b88a6d";
-const SECP256K1_FINGERPRINT = "b3fe2b5b448751fa150f312ed92e9e2d7ab14c1eff9d43dcab36b57ad44f06a3";
-const ZK_FINGERPRINT = "65e0169bfffd55f1c0ea9f76c111a5b15e652322ee253c1a9604a10d59066b50";
+// stage magic 0x1337CF514544CF69 (localhost/testnet); measured node-side via
+// psy_user_cli get-user-end-cap-common-data.
+const ETH_PERSONAL_FINGERPRINT = "d02a6784ac56e446b2109dff922ce3d49e785be25dac781bb3b1d7770f871513";
+const SECP256K1_FINGERPRINT = "64a459036da31084f2b043e036679592aa85bd9dc8df226fc4519c7e7f1ebf4a";
+const ZK_FINGERPRINT = "2257f7b847ff2a04ad10b596baa1ac3209041a4e15d040de7abcb62fb4d5c89d";
 
 const networkId: NetworkId = "testnet";
 

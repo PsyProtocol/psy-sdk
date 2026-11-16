@@ -13,8 +13,8 @@ describe("calculatePkHash", () => {
         ],
         [
             "January 2026 fingerprint",
-            "65e0169bfffd55f1c0ea9f76c111a5b15e652322ee253c1a9604a10d59066b50",
-            "0x67e5b7a03eeec54ee0d2e579a68bb30af0dc115132a3a2b8fd59d6e95d1a2a1e",
+            "2257f7b847ff2a04ad10b596baa1ac3209041a4e15d040de7abcb62fb4d5c89d",
+            "0x5297625c1b053415167b9b32448181b9d4163e49d61132e7e6ced4a26b252c02",
         ],
     ])("hashes the %s", (_name, fingerprint, expected) => {
         const zkPublicKeyInfo: ZKPublicKeyInfo = {

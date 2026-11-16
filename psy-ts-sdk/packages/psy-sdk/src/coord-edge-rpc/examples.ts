@@ -273,7 +273,7 @@ export async function cacheManagementExample() {
         // Fill cache with some data
         await client.getCheckpointLeafData(1);
         await client.getCheckpointLeafData(2);
-        await client.getContractLeafData(1);
+        await client.getContractLeafData(1, 1);
 
         console.log("Cache stats after operations:", client.getCacheStats());
 

@@ -12,6 +12,15 @@ pub(crate) fn is_checkpoint_observable(requested: u64, coordinator: u64, realm: 
     coordinator >= requested && realm >= requested
 }
 
+pub(crate) fn endcap_nonce_observed(
+    checkpoint: u64,
+    checkpoint_before: u64,
+    observed_nonce: u64,
+    expected_end_nonce: u64,
+) -> bool {
+    checkpoint > checkpoint_before && observed_nonce >= expected_end_nonce
+}
+
 pub(crate) fn ensure_expected_private_note_root(
     checkpoint: u64,
     observed: QHashOut<F>,
@@ -194,7 +203,7 @@ pub(crate) fn private_note_proof_diagnostic(context: &PrivateNoteProofCoherence)
 #[cfg(test)]
 mod tests {
     use super::{
-        ensure_expected_private_note_root, ensure_private_note_proof_coherence,
+        endcap_nonce_observed, ensure_expected_private_note_root, ensure_private_note_proof_coherence,
         is_checkpoint_observable, validate_snapshot_proof, PrivateNoteProofCoherence,
     };
     use plonky2::field::{goldilocks_field::GoldilocksField, types::Field};
@@ -203,6 +212,31 @@ mod tests {
     use psy_data::qdata::user::PsyUserLeaf;
 
     type F = GoldilocksField;
+
+    #[test]
+    fn endcap_nonce_requires_strictly_newer_checkpoint() {
+        assert!(!endcap_nonce_observed(99, 100, 8, 8));
+        assert!(!endcap_nonce_observed(100, 100, 9, 8));
+    }
+
+    #[test]
+    fn endcap_nonce_rejects_intermediate_nonce_below_submitted_target() {
+        // A nonce may change from the old baseline without including this claim.
+        assert!(!endcap_nonce_observed(101, 100, 7, 8));
+    }
+
+    #[test]
+    fn endcap_nonce_accepts_exact_or_later_nonce() {
+        assert!(endcap_nonce_observed(101, 100, 8, 8));
+        assert!(endcap_nonce_observed(101, 100, 9, 8));
+    }
+
+    #[test]
+    fn endcap_nonce_cannot_confirm_at_saturated_checkpoint() {
+        assert!(!endcap_nonce_observed(u64::MAX, u64::MAX, 9, 8));
+        assert!(!endcap_nonce_observed(u64::MAX, u64::MAX - 1, 7, 8));
+        assert!(endcap_nonce_observed(u64::MAX, u64::MAX - 1, 8, 8));
+    }
     // ----------------------------------------------------------------
     // is_checkpoint_observable(requested, coordinator, realm) -> bool
     //

@@ -46,17 +46,16 @@ class PsyMemoryTransactionSignerProvider implements IPsyTransactionSignerProvide
         // big-endian), for stage magic 0x1337CF514544CF69 (localhost/testnet).
         switch (signType) {
             case SignType.ZKSign:
-                return "65e0169bfffd55f1c0ea9f76c111a5b15e652322ee253c1a9604a10d59066b50";
+                return "2257f7b847ff2a04ad10b596baa1ac3209041a4e15d040de7abcb62fb4d5c89d";
             case SignType.SECP256K1Sign:
-                return "b3fe2b5b448751fa150f312ed92e9e2d7ab14c1eff9d43dcab36b57ad44f06a3";
+                return "64a459036da31084f2b043e036679592aa85bd9dc8df226fc4519c7e7f1ebf4a";
             case SignType.EthPersonalSECP256K1Sign:
                 // Canonical get_eth_personal_secp256k1_fingerprint() — the Rust
                 // adapter resolves this internally; the TS held-key path mirrors
                 // the existing hardcoded-fingerprint convention for local identity.
-                // Measured against the rebuilt local-web-prover WASM: the
-                // add_user dispatch accepts exactly this value and rejects the
-                // pre-repin fingerprints.
-                return "ecebdc4f04de4300441dd9fa0704c905c7d2c4db90ceb612459a266481b88a6d";
+                // Measured node-side (psy_user_cli get-user-end-cap-common-data)
+                // for stage magic 0x1337CF514544CF69.
+                return "d02a6784ac56e446b2109dff922ce3d49e785be25dac781bb3b1d7770f871513";
             default:
                 throw new Error(`Unsupported sign type: ${signType}`);
         }

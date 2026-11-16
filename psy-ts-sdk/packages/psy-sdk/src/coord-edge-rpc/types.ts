@@ -92,8 +92,8 @@ export interface ICoordinatorEdgeRpcProvider {
     getLatestCheckpointId(): Promise<number>;
     buildBlock(): Promise<string>;
     getCheckpointSyncInfo(checkpointId: Felt): Promise<CheckpointSyncInfo>;
-    getContractLeafData(contractId: Felt): Promise<PsyContractLeaf>;
-    getContractLeafDataF(contractId: Felt): Promise<PsyContractLeaf>;
+    getContractLeafData(checkpointId: Felt, contractId: Felt): Promise<PsyContractLeaf>;
+    getContractLeafDataF(checkpointId: Felt, contractId: Felt): Promise<PsyContractLeaf>;
     getCheckpointLeafData(checkpointId: Felt): Promise<PsyCheckpointLeaf>;
     getCheckpointLeafDataF(checkpointId: Felt): Promise<PsyCheckpointLeaf>;
     getContractCodeDefinition(contractId: Felt): Promise<ContractCodeDefinition>;

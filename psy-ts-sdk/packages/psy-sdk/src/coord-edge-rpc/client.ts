@@ -164,21 +164,23 @@ export class CoordinatorEdgeRpcProvider extends Provider implements ICoordinator
     }
 
     /**
-     * Get contract leaf data
+     * Get contract leaf data at a specific checkpoint
+     * @param checkpointId The checkpoint ID the leaf is read from
      * @param contractId The contract ID
      * @returns Contract leaf data
      */
-    async getContractLeafData(contractId: Felt): Promise<PsyContractLeaf> {
-        return this.rpc<PsyContractLeaf>(CoordinatorEdgeRPCCommand.GetContractLeafData, [contractId]);
+    async getContractLeafData(checkpointId: Felt, contractId: Felt): Promise<PsyContractLeaf> {
+        return this.rpc<PsyContractLeaf>(CoordinatorEdgeRPCCommand.GetContractLeafData, [checkpointId, contractId]);
     }
 
     /**
-     * Get contract leaf data with field element
+     * Get contract leaf data at a specific checkpoint with field element
+     * @param checkpointId The checkpoint ID the leaf is read from
      * @param contractId The contract ID as a bigint
      * @returns Contract leaf data
      */
-    async getContractLeafDataF(contractId: Felt): Promise<PsyContractLeaf> {
-        return this.rpc<PsyContractLeaf>(CoordinatorEdgeRPCCommand.GetContractLeafDataF, [contractId]);
+    async getContractLeafDataF(checkpointId: Felt, contractId: Felt): Promise<PsyContractLeaf> {
+        return this.rpc<PsyContractLeaf>(CoordinatorEdgeRPCCommand.GetContractLeafDataF, [checkpointId, contractId]);
     }
 
     /**
@@ -611,11 +613,11 @@ export class MultiCoordinatorRpcProvider implements ICoordinatorEdgeRpcProvider 
     getCheckpointSyncInfo(checkpointId: Felt): Promise<CheckpointSyncInfo> {
         return this.rpcs.get(this.getCurrentCoordinatorId())!.getCheckpointSyncInfo(checkpointId);
     }
-    getContractLeafData(contractId: Felt): Promise<PsyContractLeaf> {
-        return this.rpcs.get(this.getCurrentCoordinatorId())!.getContractLeafData(contractId);
+    getContractLeafData(checkpointId: Felt, contractId: Felt): Promise<PsyContractLeaf> {
+        return this.rpcs.get(this.getCurrentCoordinatorId())!.getContractLeafData(checkpointId, contractId);
     }
-    getContractLeafDataF(contractId: Felt): Promise<PsyContractLeaf> {
-        return this.rpcs.get(this.getCurrentCoordinatorId())!.getContractLeafDataF(contractId);
+    getContractLeafDataF(checkpointId: Felt, contractId: Felt): Promise<PsyContractLeaf> {
+        return this.rpcs.get(this.getCurrentCoordinatorId())!.getContractLeafDataF(checkpointId, contractId);
     }
     getCheckpointLeafData(checkpointId: Felt): Promise<PsyCheckpointLeaf> {
         return this.rpcs.get(this.getCurrentCoordinatorId())!.getCheckpointLeafData(checkpointId);

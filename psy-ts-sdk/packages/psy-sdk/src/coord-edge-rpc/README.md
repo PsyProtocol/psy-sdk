@@ -128,7 +128,7 @@ const userId = await client.getUserId(qhash);
 await client.deployContract(contractData);
 
 // Get contract information
-const contract = await client.getContractLeafData(contractId);
+const contract = await client.getContractLeafData(checkpointId, contractId);
 const code = await client.getContractCodeDefinition(contractId);
 ```
 

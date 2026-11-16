@@ -6,7 +6,7 @@ import { SignType } from "@psy-protocol/psy-sdk";
 
 const privateKey = "c71603f33a1144ca7953db0ab48808f4c4055e3364a246c33c18a9786cb0b359";
 const signType = "zk" as SignType;
-const zkFingerprint = "65e0169bfffd55f1c0ea9f76c111a5b15e652322ee253c1a9604a10d59066b50";
+const zkFingerprint = "2257f7b847ff2a04ad10b596baa1ac3209041a4e15d040de7abcb62fb4d5c89d";
 const contractId = 0;
 
 async function basicUsageExample() {

@@ -187,7 +187,7 @@ describe("CoordinatorEdgeRpcProvider Integration Tests", () => {
 
     it("getContractLeafData should return PsyContractLeaf", async () => {
         try {
-            const result = await client.getContractLeafData(mockContractIdNum);
+            const result = await client.getContractLeafData(mockCheckpointIdNum, mockContractIdNum);
             expectPsyContractLeaf(result);
             console.log("getContractLeafData result:", result);
         } catch (error) {
@@ -197,7 +197,7 @@ describe("CoordinatorEdgeRpcProvider Integration Tests", () => {
 
     it("getContractLeafDataF should return PsyContractLeaf", async () => {
         try {
-            const result = await client.getContractLeafDataF(mockContractIdNum);
+            const result = await client.getContractLeafDataF(mockCheckpointIdBigInt, mockContractIdBigInt);
             expectPsyContractLeaf(result);
             console.log("getContractLeafDataF result:", result);
         } catch (error) {

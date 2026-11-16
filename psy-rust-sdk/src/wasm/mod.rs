@@ -1398,7 +1398,7 @@ impl WasmRpcServer {
     ///   random0                 - decimal string
     ///   random1                 - decimal string
     ///
-    /// Returns the transaction hash string.
+    /// Returns the transaction hash after a newer checkpoint reaches the submitted end nonce.
     #[wasm_bindgen]
     pub async fn exec_claim_with_external_proof_json(
         &mut self,
@@ -1420,6 +1420,7 @@ impl WasmRpcServer {
         use base64::Engine;
         use plonky2::field::types::PrimeField64;
         use psy_data::traits::qdatastore::qmetadata::QMetaDataStoreReaderSync;
+        use crate::private_note_checkpoint::endcap_nonce_observed;
 
         // Helper: parse JSON array of 4 decimal strings → [u64; 4]
         let parse_u64x4 = |json: &str| -> Result<[u64; 4], JsError> {
@@ -1519,7 +1520,7 @@ impl WasmRpcServer {
             .await
             .map_err(|e| JsError::new(&format!("prove_contract_call: {}", e)))?;
 
-        // Baseline receiver nonce before submit; wait for it to change after submit.
+        // Record the observable checkpoint before submitting this claim.
         let provider = self.wallet_session.st_provider.clone();
         let user_ids = provider
             .get_user_ids_for_public_key(pk_hash)
@@ -1534,12 +1535,6 @@ impl WasmRpcServer {
             .await
             .map_err(|e| JsError::new(&format!("get_latest_block_state: {}", e)))?;
         let checkpoint_before = baseline_snapshot.checkpoint_id;
-        let baseline_nonce = provider
-            .get_user_leaf_data(checkpoint_before, receiver_user_id)
-            .await
-            .map_err(|e| JsError::new(&format!("get_user_leaf_data(baseline): {}", e)))?
-            .nonce
-            .to_canonical_u64();
 
         // Step 5: sign and submit
         let tx_hash = self
@@ -1548,14 +1543,27 @@ impl WasmRpcServer {
             .await
             .map_err(|e| JsError::new(&format!("sign_and_submit: {}", e)))?;
 
-        // Step 6: wait nonce change on observable checkpoint stream.
+        // prove_end_cap writes this exact submitted new_user_leaf during signing.
+        // Copy only its nonce, releasing the session map guard before any await.
+        let expected_end_nonce = self
+            .wallet_session
+            .user_session_mgrs
+            .get(&pk_hash)
+            .ok_or_else(|| JsError::new("Missing finalized private_claim session after sign_and_submit"))?
+            .get_current_ups_header()
+            .current_state
+            .user_leaf
+            .nonce
+            .to_canonical_u64();
+
+        // Step 6: wait for the submitted nonce on a strictly newer observable checkpoint.
         let wait_deadline_ms = now_ms().saturating_add(180_000);
         let mut latest_coordinator_seen = checkpoint_before;
         let mut latest_realm_seen = checkpoint_before;
         let mut latest_observable_seen = checkpoint_before;
         let mut last_error = String::new();
-        let mut next_checkpoint = checkpoint_before.saturating_add(1);
-        let mut nonce_changed = false;
+        let mut next_checkpoint = checkpoint_before.checked_add(1);
+        let mut inclusion_confirmed = false;
 
         while now_ms() < wait_deadline_ms {
             let latest_coordinator = provider
@@ -1576,43 +1584,43 @@ impl WasmRpcServer {
             let latest_observable = latest_realm.min(latest_coordinator);
             latest_observable_seen = latest_observable_seen.max(latest_observable);
 
-            while next_checkpoint <= latest_observable {
+            while let Some(checkpoint) = next_checkpoint.filter(|cp| *cp <= latest_observable) {
                 let nonce = match provider
-                    .get_user_leaf_data(next_checkpoint, receiver_user_id)
+                    .get_user_leaf_data(checkpoint, receiver_user_id)
                     .await
                 {
                     Ok(leaf) => leaf.nonce.to_canonical_u64(),
                     Err(e) => {
                         last_error = format!(
                             "get_user_leaf_data failed at checkpoint {}: {}",
-                            next_checkpoint, e
+                            checkpoint, e
                         );
                         break;
                     }
                 };
 
-                if nonce != baseline_nonce {
-                    nonce_changed = true;
+                if endcap_nonce_observed(checkpoint, checkpoint_before, nonce, expected_end_nonce) {
+                    inclusion_confirmed = true;
                     break;
                 }
                 last_error = format!(
-                    "nonce unchanged at checkpoint {}: nonce={} baseline={}",
-                    next_checkpoint, nonce, baseline_nonce
+                    "nonce below expected at checkpoint {}: nonce={} expected={}",
+                    checkpoint, nonce, expected_end_nonce
                 );
-                next_checkpoint = next_checkpoint.saturating_add(1);
+                next_checkpoint = checkpoint.checked_add(1);
             }
 
-            if nonce_changed {
+            if inclusion_confirmed {
                 break;
             }
             async_sleep_ms(1000).await;
         }
 
-        if !nonce_changed {
+        if !inclusion_confirmed {
             return Err(JsError::new(&format!(
-                "[wallet-wasm-v2] timeout waiting private_claim nonce change (checkpoint_before={}, baseline_nonce={}, latestCoordinator={}, latestRealm={}, latestObservable={}, lastError={})",
+                "[wallet-wasm-v2] timeout waiting private_claim inclusion (checkpoint_before={}, expected_end_nonce={}, latestCoordinator={}, latestRealm={}, latestObservable={}, lastError={})",
                 checkpoint_before,
-                baseline_nonce,
+                expected_end_nonce,
                 latest_coordinator_seen,
                 latest_realm_seen,
                 latest_observable_seen,

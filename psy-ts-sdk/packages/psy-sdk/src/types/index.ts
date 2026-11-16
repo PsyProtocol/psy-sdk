@@ -204,10 +204,12 @@ export interface LatestCheckpointResponse {
 
 // Request types for RPC methods
 export interface QContractLeafDataRPCRequest {
+    checkpoint_id: number;
     contract_id: number;
 }
 
 export interface QContractLeafDataFRPCRequest {
+    checkpoint_id: bigint;
     contract_id: bigint;
 }
 
