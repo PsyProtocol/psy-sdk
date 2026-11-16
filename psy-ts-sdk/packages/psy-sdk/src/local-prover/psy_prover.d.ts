@@ -146,7 +146,8 @@ export class WasmRpcServer {
      *   random0                 - decimal string
      *   random1                 - decimal string
      *
-     * Returns the transaction hash string.
+     * Returns the submitted tx's end-user-leaf hash (hex QHashOut) after a newer
+     * checkpoint reaches the submitted end nonce.
      */
     exec_claim_with_external_proof_json(pk_hash: string, note_proof_bincode_b64: string, nullifier_json: string, owner_json: string, amount: string, user_tree_root_json: string, checkpoint_id: string, note_root_slot: string, contract_id: string, random0: string, random1: string, note_proof_fingerprint_json?: string | null, note_verifier_data_json?: string | null): Promise<string>;
     exec_contract_call_json(pk_hash: string, call_data_json: string): Promise<string>;
@@ -168,7 +169,8 @@ export class WasmRpcServer {
      *   contract_id                - decimal string
      *   deposit_proof_fingerprint_json - optional JSON array of 4 decimal strings (circuit fingerprint)
      *
-     * Returns the transaction hash string.
+     * Returns the submitted tx's end-user-leaf hash (hex QHashOut) once the
+     * endcap is included at a later checkpoint.
      */
     exec_shield_claim_deposit_json(pk_hash: string, token_address_u32x8_json: string, l2_token_contract_id_json: string, amount_u32x8_json: string, source_chain_index: string, deposit_index: string, deposit_root_json: string, nullifier_hash_json: string, note_commitment_json: string, deposit_proof_bincode_b64: string, random0: string, random1: string, contract_id: string, deposit_proof_fingerprint_json?: string | null): Promise<string>;
     generate_batch_claim_tx_trace_json(pk_hash: string, items_json: string): Promise<string>;
@@ -256,7 +258,9 @@ export class WasmRpcServer {
      *   contract_id        - contract ID (u64 as decimal string)
      *   note_root_slot     - note root slot index (u64 as decimal string)
      *   checkpoint_id      - immutable pre-submit checkpoint ID (u64 as decimal string)
-     *   end_user_leaf_hash - submitted transaction's end-user leaf hash (hex QHashOut)
+     *   end_user_leaf_hash - submitted transaction's end-user leaf hash (hex QHashOut);
+     *     inclusion is discovered by matching this hash against the sender's user
+     *     leaf at each observable checkpoint after checkpoint_id
      *
      * Returns JSON matching NoteProofOutput.
      */

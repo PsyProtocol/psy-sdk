@@ -5916,6 +5916,7 @@ dependencies = [
  "alloy-sol-types",
  "anyhow",
  "async-trait",
+ "base64 0.22.1",
  "bincode",
  "clap",
  "dashmap",

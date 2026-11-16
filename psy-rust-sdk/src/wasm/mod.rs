@@ -1398,7 +1398,8 @@ impl WasmRpcServer {
     ///   random0                 - decimal string
     ///   random1                 - decimal string
     ///
-    /// Returns the transaction hash after a newer checkpoint reaches the submitted end nonce.
+    /// Returns the submitted tx's end-user-leaf hash (hex QHashOut) after a newer
+    /// checkpoint reaches the submitted end nonce.
     #[wasm_bindgen]
     pub async fn exec_claim_with_external_proof_json(
         &mut self,
@@ -1537,7 +1538,7 @@ impl WasmRpcServer {
         let checkpoint_before = baseline_snapshot.checkpoint_id;
 
         // Step 5: sign and submit
-        let tx_hash = self
+        let (end_user_leaf_hash, _end_nonce) = self
             .wallet_session
             .sign_and_submit(pk_hash, DPNSoftwareDefinedCallData::default())
             .await
@@ -1628,7 +1629,7 @@ impl WasmRpcServer {
             )));
         }
 
-        Ok(tx_hash.to_string())
+        Ok(end_user_leaf_hash.to_string())
     }
 
     /// Atomic shield claim_deposit:
@@ -1866,7 +1867,8 @@ impl WasmRpcServer {
     ///   contract_id                - decimal string
     ///   deposit_proof_fingerprint_json - optional JSON array of 4 decimal strings (circuit fingerprint)
     ///
-    /// Returns the transaction hash string.
+    /// Returns the submitted tx's end-user-leaf hash (hex QHashOut) once the
+    /// endcap is included at a later checkpoint.
     #[wasm_bindgen]
     pub async fn exec_shield_claim_deposit_json(
         &mut self,
@@ -2110,18 +2112,18 @@ impl WasmRpcServer {
             .await
             .map_err(|e| JsError::new(&format!("prove_contract_call: {}", e)))?;
 
-        let tx_hash = self
+        let (end_user_leaf_hash, expected_end_nonce) = self
             .wallet_session
             .sign_and_submit(pk_hash, DPNSoftwareDefinedCallData::default())
             .await
             .map_err(|e| JsError::new(&format!("sign_and_submit: {}", e)))?;
 
         provider
-            .wait_for_endcap_inclusion(user_id, tx_hash, checkpoint_before, Some(180), 1)
+            .wait_for_endcap_inclusion(user_id, expected_end_nonce, checkpoint_before, Some(180), 1)
             .await
             .map_err(|e| JsError::new(&format!("wait_for_endcap_inclusion: {}", e)))?;
 
-        Ok(tx_hash.to_string())
+        Ok(end_user_leaf_hash.to_string())
     }
 
     /// Generate a PrivateNoteInclusion ZK proof and return the full NoteProofOutput as JSON.
@@ -2135,7 +2137,9 @@ impl WasmRpcServer {
     ///   contract_id        - contract ID (u64 as decimal string)
     ///   note_root_slot     - note root slot index (u64 as decimal string)
     ///   checkpoint_id      - immutable pre-submit checkpoint ID (u64 as decimal string)
-    ///   end_user_leaf_hash - submitted transaction's end-user leaf hash (hex QHashOut)
+    ///   end_user_leaf_hash - submitted transaction's end-user leaf hash (hex QHashOut);
+    ///     inclusion is discovered by matching this hash against the sender's user
+    ///     leaf at each observable checkpoint after checkpoint_id
     ///
     /// Returns JSON matching NoteProofOutput.
     #[wasm_bindgen]
@@ -2389,21 +2393,54 @@ impl WasmRpcServer {
             MerkleProofCore::new_from_params::<PoseidonHasher>(note_index, commitment, siblings);
 
         let expected_note_root = note_membership_proof.root;
-        let checkpoint_after = provider
-            .wait_for_endcap_inclusion(
-                sender_user_id,
-                end_user_leaf_hash,
-                checkpoint_before,
-                Some(180),
-                1,
-            )
-            .await
-            .map_err(|e| {
-                JsError::new(&format!(
-                    "wait_for_endcap_inclusion failed (sender_user_id={}, end_user_leaf_hash={}, checkpoint_before={}): {}",
-                    sender_user_id, end_user_leaf_hash, checkpoint_before, e
-                ))
-            })?;
+        // Inclusion discovery keys on the submitted tx's end-user-leaf hash:
+        // the node's wait_for_endcap_inclusion is nonce-keyed, but only this
+        // hash identity crosses the JS boundary (and the prover may be a
+        // different wallet from the submitter, so no local session nonce
+        // exists). Scan each newly observable checkpoint for the sender user
+        // leaf whose hash matches, mirroring the node's wait window.
+        let inclusion_wait_deadline_ms = now_ms().saturating_add(180_000);
+        let mut next_checkpoint = checkpoint_before.checked_add(1);
+        let mut inclusion_checkpoint: Option<u64> = None;
+        while inclusion_checkpoint.is_none() && now_ms() < inclusion_wait_deadline_ms {
+            let latest_coordinator = provider
+                .get_coordinator_latest_block_state()
+                .await
+                .map_err(|e| JsError::new(&format!("get_coordinator_latest_block_state: {}", e)))?
+                .checkpoint_id;
+            let latest_realm = user_provider
+                .get_realm_latest_block_state()
+                .await
+                .map_err(|e| JsError::new(&format!("get_realm_latest_block_state: {}", e)))?
+                .checkpoint_id;
+            let latest_observable = latest_realm.min(latest_coordinator);
+
+            while let Some(checkpoint) = next_checkpoint.filter(|cp| *cp <= latest_observable) {
+                let leaf = user_provider
+                    .get_user_leaf_data(checkpoint, sender_user_id)
+                    .await
+                    .map_err(|e| {
+                        JsError::new(&format!(
+                            "get_user_leaf_data failed at checkpoint {}: {}",
+                            checkpoint, e
+                        ))
+                    })?;
+                if leaf.qfhash::<PoseidonHasher>() == end_user_leaf_hash {
+                    inclusion_checkpoint = Some(checkpoint);
+                    break;
+                }
+                next_checkpoint = checkpoint.checked_add(1);
+            }
+            if inclusion_checkpoint.is_none() {
+                async_sleep_ms(1000).await;
+            }
+        }
+        let checkpoint_after = inclusion_checkpoint.ok_or_else(|| {
+            JsError::new(&format!(
+                "[wallet-wasm-v2] timeout waiting end_user_leaf_hash inclusion (checkpoint_before={}, end_user_leaf_hash={}, sender_user_id={})",
+                checkpoint_before, end_user_leaf_hash, sender_user_id
+            ))
+        })?;
 
         // Inclusion discovery is coordinator-backed. Do not read composed
         // proof data until the realm stream exposes that same checkpoint too.
@@ -2628,7 +2665,7 @@ impl WasmRpcServer {
             .map_err(|e| JsError::new(&format!("Parse sign data error: {}", e)))?
             .unwrap_or_default();
 
-        let end_user_leaf_hash = self
+        let (end_user_leaf_hash, _end_nonce) = self
             .wallet_session
             .sign_and_submit(pk_hash, software_defined_call)
             .await
