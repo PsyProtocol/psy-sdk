@@ -21,3 +21,5 @@ mod private_note_checkpoint;
 
 #[cfg(feature = "lab-bench")]
 pub mod lab_bench;
+#[cfg(feature = "lab-thread-alloc")]
+mod lab_alloc;

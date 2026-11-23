@@ -53,6 +53,8 @@ getrandom = { workspace = true, features = ["wasm_js"] }
 # default = ["is_sync"]
 # Lab benchmarks (wasm-prover-lab-20261005); not part of the shipped SDK.
 lab-bench = ["dep:rayon"]
+# Lab experiment: per-thread allocation cache (see src/lab_alloc.rs).
+lab-thread-alloc = []
 # A rayon thread pool on Web Workers (wasm-bindgen-rayon): JS calls `initThreadPool(n)` after
 # init. Needs cross-origin isolation (SharedArrayBuffer). `threads-no-bundler` for pages that
 # load the module without a bundler (the lab harness).
