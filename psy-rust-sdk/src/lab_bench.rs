@@ -478,6 +478,35 @@ pub fn goldilocks_mul_limbs(a: u64, b: u64) -> u64 {
     sum.wrapping_add(EPSILON * carry as u64)
 }
 
+/// The same product with Karatsuba's three multiplications instead of four.
+#[inline(always)]
+pub fn goldilocks_mul_karatsuba(a: u64, b: u64) -> u64 {
+    const EPSILON: u64 = 0xffff_ffff;
+    let (a0, a1) = (a & EPSILON, a >> 32);
+    let (b0, b1) = (b & EPSILON, b >> 32);
+    let (p00, p11) = (a0 * b0, a1 * b1);
+    // a0*b1 + a1*b0 = p00 + p11 + (a1 - a0) * (b0 - b1), up to 66 bits: `top` holds bits 64 and up.
+    let (da, a_negative) = if a1 >= a0 { (a1 - a0, false) } else { (a0 - a1, true) };
+    let (db, b_negative) = if b0 >= b1 { (b0 - b1, false) } else { (b1 - b0, true) };
+    let m = da * db;
+    let (sum, carry) = p00.overflowing_add(p11);
+    let (cross, top) = if a_negative != b_negative {
+        let (cross, borrow) = sum.overflowing_sub(m);
+        (cross, carry as u64 - borrow as u64)
+    } else {
+        let (cross, carry2) = sum.overflowing_add(m);
+        (cross, carry as u64 + carry2 as u64)
+    };
+    let (lo, carry) = p00.overflowing_add(cross << 32);
+    let hi = p11 + (cross >> 32) + (top << 32) + carry as u64;
+    let (mut t0, borrow) = lo.overflowing_sub(hi >> 32);
+    if borrow {
+        t0 = t0.wrapping_sub(EPSILON);
+    }
+    let (sum, carry) = t0.overflowing_add((hi & EPSILON) * EPSILON);
+    sum.wrapping_add(EPSILON * carry as u64)
+}
+
 /// Nanoseconds per operation for the pieces of a Poseidon permutation, as a JSON object.
 pub fn poseidon_profile(iterations: u32) -> anyhow::Result<String> {
     use plonky2::field::types::{Field, PrimeField64};
@@ -498,6 +527,8 @@ pub fn poseidon_profile(iterations: u32) -> anyhow::Result<String> {
         let (a, b) = (seed(i), seed(i + 7919));
         let limbs = F::from_noncanonical_u64(goldilocks_mul_limbs(a.to_canonical_u64(), b.to_canonical_u64()));
         anyhow::ensure!(limbs == a * b, "limb multiplication differs from the field's at {i}");
+        let karatsuba = F::from_noncanonical_u64(goldilocks_mul_karatsuba(a.to_canonical_u64(), b.to_canonical_u64()));
+        anyhow::ensure!(karatsuba == a * b, "Karatsuba multiplication differs from the field's at {i}");
     }
 
     let per_element = n * 64;
@@ -550,6 +581,29 @@ pub fn poseidon_profile(iterations: u32) -> anyhow::Result<String> {
         sbox_limbs(black_box(&mut raw));
     }
     record("sbox_layer_12_elements_32bit_limbs", n * 8, now_ms() - t);
+
+    let sbox_karatsuba = |state: &mut [u64; 12]| {
+        for x in state.iter_mut() {
+            let x2 = goldilocks_mul_karatsuba(*x, *x);
+            let x4 = goldilocks_mul_karatsuba(x2, x2);
+            let x3 = goldilocks_mul_karatsuba(*x, x2);
+            *x = goldilocks_mul_karatsuba(x3, x4);
+        }
+    };
+    let t = now_ms();
+    for _ in 0..n * 8 {
+        sbox_karatsuba(black_box(&mut raw));
+    }
+    record("sbox_layer_12_elements_karatsuba", n * 8, now_ms() - t);
+
+    // The whole permutation without 128-bit integers (what wasm32 builds use for `poseidon`).
+    let mut limb_state = state;
+    let t = now_ms();
+    for _ in 0..n {
+        limb_state = plonky2::hash::poseidon_goldilocks_limbs::poseidon(black_box(limb_state));
+    }
+    record("permutation_32bit_limbs", n, now_ms() - t);
+    black_box(limb_state);
 
     let t = now_ms();
     for _ in 0..n * 8 {
