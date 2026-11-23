@@ -716,28 +716,63 @@ mod webgpu_exports {
     }
 }
 
-/// Routes Poseidon Merkle trees to the page's `labGpuTree(dataPtr, leaves, leafLen, levels,
-/// outPtr)`, which blocks until a GPU worker has written the digests into this module's memory.
-/// Threads without that function (the rayon workers) and failed calls fall back to the CPU.
+/// The tables the GPU needs for a coset extension from `1 << log_n` coefficients to a domain
+/// `1 << rate_bits` times larger: the powers of the large domain's root of unity (half the
+/// domain), then the powers of the coset shift (`1 << log_n`), as canonical (low, high) pairs.
+pub fn ntt_tables(log_n: usize, rate_bits: usize) -> Vec<u32> {
+    use plonky2::field::types::{Field, PrimeField64};
+    let big_n = 1usize << (log_n + rate_bits);
+    let root = F::primitive_root_of_unity(log_n + rate_bits);
+    let words = |x: F| {
+        let v = x.to_canonical_u64();
+        [v as u32, (v >> 32) as u32]
+    };
+    root.powers().take(big_n / 2).chain(F::coset_shift().powers().take(1 << log_n)).flat_map(words).collect()
+}
+
+/// 0: Merkle trees on the CPU. 1: the page's `labGpuTree(dataPtr, leaves, leafLen, levels, outPtr)`
+/// hashes each tree from its leaves. 2: `labGpuCommitStart(coefficientsPtr, polys, polyLen,
+/// rateBits, levels, outPtr)` / `labGpuCommitWait()` extend and hash from the coefficients while
+/// the CPU extends too. The page functions block until a GPU worker has written the digests into
+/// this module's memory; threads without them (the rayon workers) and failed calls use the CPU.
 #[cfg(target_arch = "wasm32")]
-pub fn gpu_merkle_enable(enabled: bool) {
-    use plonky2::hash::merkle_tree::set_poseidon_tree_accelerator;
+pub fn gpu_merkle_mode(mode: u32) {
+    use plonky2::hash::merkle_tree::{set_poseidon_commit_accelerator, set_poseidon_tree_accelerator, PoseidonCommitAccelerator};
     use wasm_bindgen::{JsCast, JsValue};
-    if !enabled {
-        return set_poseidon_tree_accelerator(None);
-    }
-    set_poseidon_tree_accelerator(Some(std::sync::Arc::new(|matrix: &[u64], leaf_len: usize, levels: usize, out: &mut [u64]| {
-        let Ok(function) = js_sys::Reflect::get(&js_sys::global(), &"labGpuTree".into()) else { return false };
+
+    fn call(name: &str, args: &[u32]) -> bool {
+        let Ok(function) = js_sys::Reflect::get(&js_sys::global(), &name.into()) else { return false };
         let Ok(function) = function.dyn_into::<js_sys::Function>() else { return false };
-        let args = js_sys::Array::of5(
-            &JsValue::from(matrix.as_ptr() as u32),
-            &JsValue::from((matrix.len() / leaf_len) as u32),
-            &JsValue::from(leaf_len as u32),
-            &JsValue::from(levels as u32),
-            &JsValue::from(out.as_mut_ptr() as u32),
-        );
+        let args: js_sys::Array = args.iter().map(|a| JsValue::from(*a)).collect();
         function.apply(&JsValue::NULL, &args).ok().and_then(|done| done.as_bool()).unwrap_or(false)
-    })));
+    }
+
+    struct PageCommit;
+    impl PoseidonCommitAccelerator for PageCommit {
+        fn start(&self, coefficients: &[u64], poly_len: usize, rate_bits: usize, levels: usize, out: &mut [u64]) -> bool {
+            call(
+                "labGpuCommitStart",
+                &[
+                    coefficients.as_ptr() as u32,
+                    (coefficients.len() / poly_len) as u32,
+                    poly_len as u32,
+                    rate_bits as u32,
+                    levels as u32,
+                    out.as_mut_ptr() as u32,
+                ],
+            )
+        }
+        fn finish(&self) -> bool {
+            call("labGpuCommitWait", &[])
+        }
+    }
+
+    set_poseidon_tree_accelerator((mode == 1).then(|| {
+        std::sync::Arc::new(|matrix: &[u64], leaf_len: usize, levels: usize, out: &mut [u64]| {
+            call("labGpuTree", &[matrix.as_ptr() as u32, (matrix.len() / leaf_len) as u32, leaf_len as u32, levels as u32, out.as_mut_ptr() as u32])
+        }) as _
+    }));
+    set_poseidon_commit_accelerator((mode == 2).then(|| std::sync::Arc::new(PageCommit) as _));
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -745,7 +780,19 @@ mod gpu_merkle_exports {
     use wasm_bindgen::prelude::*;
 
     #[wasm_bindgen]
-    pub fn lab_gpu_merkle_enable(enabled: bool) {
-        super::gpu_merkle_enable(enabled)
+    pub fn lab_gpu_merkle_mode(mode: u32) {
+        super::gpu_merkle_mode(mode)
+    }
+
+    #[wasm_bindgen]
+    pub fn lab_ntt_tables(log_n: u32, rate_bits: u32) -> Vec<u32> {
+        super::ntt_tables(log_n as usize, rate_bits as usize)
+    }
+
+    /// Accelerated trees accepted and rejected so far.
+    #[wasm_bindgen]
+    pub fn lab_gpu_tree_counts() -> Vec<u32> {
+        let (accepted, rejected) = plonky2::hash::merkle_tree::accelerated_tree_counts();
+        vec![accepted as u32, rejected as u32]
     }
 }
