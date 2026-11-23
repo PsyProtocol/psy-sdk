@@ -716,23 +716,24 @@ mod webgpu_exports {
     }
 }
 
-/// Routes Poseidon Merkle leaf hashing to the page's `labGpuLeafHash(dataPtr, leaves, leafLen,
+/// Routes Poseidon Merkle trees to the page's `labGpuTree(dataPtr, leaves, leafLen, levels,
 /// outPtr)`, which blocks until a GPU worker has written the digests into this module's memory.
 /// Threads without that function (the rayon workers) and failed calls fall back to the CPU.
 #[cfg(target_arch = "wasm32")]
 pub fn gpu_merkle_enable(enabled: bool) {
-    use plonky2::hash::merkle_tree::set_poseidon_leaf_accelerator;
+    use plonky2::hash::merkle_tree::set_poseidon_tree_accelerator;
     use wasm_bindgen::{JsCast, JsValue};
     if !enabled {
-        return set_poseidon_leaf_accelerator(None);
+        return set_poseidon_tree_accelerator(None);
     }
-    set_poseidon_leaf_accelerator(Some(std::sync::Arc::new(|matrix: &[u64], leaf_len: usize, out: &mut [u64]| {
-        let Ok(function) = js_sys::Reflect::get(&js_sys::global(), &"labGpuLeafHash".into()) else { return false };
+    set_poseidon_tree_accelerator(Some(std::sync::Arc::new(|matrix: &[u64], leaf_len: usize, levels: usize, out: &mut [u64]| {
+        let Ok(function) = js_sys::Reflect::get(&js_sys::global(), &"labGpuTree".into()) else { return false };
         let Ok(function) = function.dyn_into::<js_sys::Function>() else { return false };
-        let args = js_sys::Array::of4(
+        let args = js_sys::Array::of5(
             &JsValue::from(matrix.as_ptr() as u32),
             &JsValue::from((matrix.len() / leaf_len) as u32),
             &JsValue::from(leaf_len as u32),
+            &JsValue::from(levels as u32),
             &JsValue::from(out.as_mut_ptr() as u32),
         );
         function.apply(&JsValue::NULL, &args).ok().and_then(|done| done.as_bool()).unwrap_or(false)
