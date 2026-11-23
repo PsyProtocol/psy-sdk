@@ -3,3 +3,16 @@
 # configuration.
 [net]
 git-fetch-with-cli = true
+
+# Threads need shared memory: the release line dropped these flags on 2026-10-30 (01b8f2b0), so
+# the wasm in wallet 0.4.40 has plain, non-shared memory. Restored from the earlier config.
+[target.wasm32-unknown-unknown]
+rustflags = [
+    "-C", "target-feature=+atomics",
+    "-C", "panic=abort",
+    "-C", "link-arg=--max-memory=4294967296",
+    '--cfg', 'getrandom_backend="wasm_js"'
+]
+
+[unstable]
+build-std = ["panic_abort", "std"]
