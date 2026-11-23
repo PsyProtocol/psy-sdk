@@ -1357,7 +1357,6 @@ dependencies = [
 [[package]]
 name = "cf_utils"
 version = "0.1.0"
-source = "git+https://github.com/PsyProtocol/psy-node?rev=6f07c8ef2f7561c6fba00869e004da5a247a6f48#6f07c8ef2f7561c6fba00869e004da5a247a6f48"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4256,7 +4255,6 @@ checksum = "a4933f3f57a8e9d9da04db23fb153356ecaf00cbd14aee46279c33dc80925c37"
 [[package]]
 name = "kvq"
 version = "0.1.0"
-source = "git+https://github.com/PsyProtocol/psy-node?rev=6f07c8ef2f7561c6fba00869e004da5a247a6f48#6f07c8ef2f7561c6fba00869e004da5a247a6f48"
 dependencies = [
  "ambassador",
  "anyhow",
@@ -4904,7 +4902,6 @@ dependencies = [
 [[package]]
 name = "parth_common"
 version = "0.1.0"
-source = "git+https://github.com/PsyProtocol/psy-node?rev=6f07c8ef2f7561c6fba00869e004da5a247a6f48#6f07c8ef2f7561c6fba00869e004da5a247a6f48"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4929,7 +4926,6 @@ dependencies = [
 [[package]]
 name = "parth_core"
 version = "0.1.0"
-source = "git+https://github.com/PsyProtocol/psy-node?rev=6f07c8ef2f7561c6fba00869e004da5a247a6f48#6f07c8ef2f7561c6fba00869e004da5a247a6f48"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4964,7 +4960,6 @@ dependencies = [
 [[package]]
 name = "parth_crypto"
 version = "0.1.0"
-source = "git+https://github.com/PsyProtocol/psy-node?rev=6f07c8ef2f7561c6fba00869e004da5a247a6f48#6f07c8ef2f7561c6fba00869e004da5a247a6f48"
 dependencies = [
  "anyhow",
  "parth_core",
@@ -5023,7 +5018,6 @@ dependencies = [
 [[package]]
 name = "pderive"
 version = "0.1.0"
-source = "git+https://github.com/PsyProtocol/psy-node?rev=6f07c8ef2f7561c6fba00869e004da5a247a6f48#6f07c8ef2f7561c6fba00869e004da5a247a6f48"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -5172,7 +5166,6 @@ checksum = "19f132c84eca552bf34cab8ec81f1c1dcc229b811638f9d283dceabe58c5569e"
 [[package]]
 name = "plonky2"
 version = "1.1.0"
-source = "git+https://www.github.com/PsyProtocol/plonky2-hwa?rev=736572e9dd3ca93566471cf5a2a1cb67a13fe01d#736572e9dd3ca93566471cf5a2a1cb67a13fe01d"
 dependencies = [
  "ahash",
  "anyhow",
@@ -5200,7 +5193,6 @@ dependencies = [
 [[package]]
 name = "plonky2_field"
 version = "1.0.0"
-source = "git+https://www.github.com/PsyProtocol/plonky2-hwa?rev=736572e9dd3ca93566471cf5a2a1cb67a13fe01d#736572e9dd3ca93566471cf5a2a1cb67a13fe01d"
 dependencies = [
  "anyhow",
  "bytemuck",
@@ -5219,7 +5211,6 @@ dependencies = [
 [[package]]
 name = "plonky2_maybe_rayon"
 version = "1.0.0"
-source = "git+https://www.github.com/PsyProtocol/plonky2-hwa?rev=736572e9dd3ca93566471cf5a2a1cb67a13fe01d#736572e9dd3ca93566471cf5a2a1cb67a13fe01d"
 dependencies = [
  "rayon",
 ]
@@ -5227,7 +5218,6 @@ dependencies = [
 [[package]]
 name = "plonky2_util"
 version = "1.0.0"
-source = "git+https://www.github.com/PsyProtocol/plonky2-hwa?rev=736572e9dd3ca93566471cf5a2a1cb67a13fe01d#736572e9dd3ca93566471cf5a2a1cb67a13fe01d"
 
 [[package]]
 name = "plonky2x"
@@ -5439,7 +5429,6 @@ dependencies = [
 [[package]]
 name = "pser"
 version = "0.1.0"
-source = "git+https://github.com/PsyProtocol/psy-node?rev=6f07c8ef2f7561c6fba00869e004da5a247a6f48#6f07c8ef2f7561c6fba00869e004da5a247a6f48"
 dependencies = [
  "anyhow",
  "bincode",
@@ -5456,7 +5445,6 @@ dependencies = [
 [[package]]
 name = "psy_api_core"
 version = "0.1.0"
-source = "git+https://github.com/PsyProtocol/psy-node?rev=6f07c8ef2f7561c6fba00869e004da5a247a6f48#6f07c8ef2f7561c6fba00869e004da5a247a6f48"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -5491,7 +5479,6 @@ dependencies = [
 [[package]]
 name = "psy_client_common"
 version = "0.1.0"
-source = "git+https://github.com/PsyProtocol/psy-node?rev=6f07c8ef2f7561c6fba00869e004da5a247a6f48#6f07c8ef2f7561c6fba00869e004da5a247a6f48"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -5522,7 +5509,6 @@ dependencies = [
 [[package]]
 name = "psy_client_data"
 version = "0.1.0"
-source = "git+https://github.com/PsyProtocol/psy-node?rev=6f07c8ef2f7561c6fba00869e004da5a247a6f48#6f07c8ef2f7561c6fba00869e004da5a247a6f48"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -5550,7 +5536,6 @@ dependencies = [
 [[package]]
 name = "psy_common_circuit"
 version = "0.1.0"
-source = "git+https://github.com/PsyProtocol/psy-node?rev=6f07c8ef2f7561c6fba00869e004da5a247a6f48#6f07c8ef2f7561c6fba00869e004da5a247a6f48"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -5583,7 +5568,6 @@ dependencies = [
 [[package]]
 name = "psy_compiler"
 version = "0.1.0"
-source = "git+https://github.com/PsyProtocol/psy-node?rev=6f07c8ef2f7561c6fba00869e004da5a247a6f48#6f07c8ef2f7561c6fba00869e004da5a247a6f48"
 dependencies = [
  "anyhow",
  "bincode",
@@ -5605,7 +5589,6 @@ dependencies = [
 [[package]]
 name = "psy_config"
 version = "0.1.0"
-source = "git+https://github.com/PsyProtocol/psy-node?rev=6f07c8ef2f7561c6fba00869e004da5a247a6f48#6f07c8ef2f7561c6fba00869e004da5a247a6f48"
 dependencies = [
  "anyhow",
  "indexmap 2.14.0",
@@ -5620,7 +5603,6 @@ dependencies = [
 [[package]]
 name = "psy_core"
 version = "0.1.0"
-source = "git+https://github.com/PsyProtocol/psy-node?rev=6f07c8ef2f7561c6fba00869e004da5a247a6f48#6f07c8ef2f7561c6fba00869e004da5a247a6f48"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -5650,7 +5632,6 @@ dependencies = [
 [[package]]
 name = "psy_crypto"
 version = "0.1.0"
-source = "git+https://github.com/PsyProtocol/psy-node?rev=6f07c8ef2f7561c6fba00869e004da5a247a6f48#6f07c8ef2f7561c6fba00869e004da5a247a6f48"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -5681,7 +5662,6 @@ dependencies = [
 [[package]]
 name = "psy_data"
 version = "0.1.0"
-source = "git+https://github.com/PsyProtocol/psy-node?rev=6f07c8ef2f7561c6fba00869e004da5a247a6f48#6f07c8ef2f7561c6fba00869e004da5a247a6f48"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -5723,7 +5703,6 @@ dependencies = [
 [[package]]
 name = "psy_dpn_circuit"
 version = "0.1.0"
-source = "git+https://github.com/PsyProtocol/psy-node?rev=6f07c8ef2f7561c6fba00869e004da5a247a6f48#6f07c8ef2f7561c6fba00869e004da5a247a6f48"
 dependencies = [
  "alloy-primitives",
  "alloy-signer",
@@ -5778,7 +5757,6 @@ dependencies = [
 [[package]]
 name = "psy_dummy_prover"
 version = "0.1.0"
-source = "git+https://github.com/PsyProtocol/psy-node?rev=6f07c8ef2f7561c6fba00869e004da5a247a6f48#6f07c8ef2f7561c6fba00869e004da5a247a6f48"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -5817,7 +5795,6 @@ dependencies = [
 [[package]]
 name = "psy_io"
 version = "0.1.0"
-source = "git+https://github.com/PsyProtocol/psy-node?rev=6f07c8ef2f7561c6fba00869e004da5a247a6f48#6f07c8ef2f7561c6fba00869e004da5a247a6f48"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -5831,7 +5808,6 @@ dependencies = [
 [[package]]
 name = "psy_network_circuit"
 version = "0.1.0"
-source = "git+https://github.com/PsyProtocol/psy-node?rev=6f07c8ef2f7561c6fba00869e004da5a247a6f48#6f07c8ef2f7561c6fba00869e004da5a247a6f48"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -5849,7 +5825,6 @@ dependencies = [
 [[package]]
 name = "psy_plonky2_basic_helpers"
 version = "0.1.0"
-source = "git+https://github.com/PsyProtocol/psy-node?rev=6f07c8ef2f7561c6fba00869e004da5a247a6f48#6f07c8ef2f7561c6fba00869e004da5a247a6f48"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -5880,7 +5855,6 @@ dependencies = [
 [[package]]
 name = "psy_plonky2_circuits"
 version = "0.1.0"
-source = "git+https://github.com/PsyProtocol/psy-node?rev=6f07c8ef2f7561c6fba00869e004da5a247a6f48#6f07c8ef2f7561c6fba00869e004da5a247a6f48"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -5931,7 +5905,6 @@ dependencies = [
 [[package]]
 name = "psy_plonky2_common_circuits"
 version = "0.1.0"
-source = "git+https://github.com/PsyProtocol/psy-node?rev=6f07c8ef2f7561c6fba00869e004da5a247a6f48#6f07c8ef2f7561c6fba00869e004da5a247a6f48"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -5962,7 +5935,6 @@ dependencies = [
 [[package]]
 name = "psy_prover"
 version = "0.1.0"
-source = "git+https://github.com/PsyProtocol/psy-node?rev=6f07c8ef2f7561c6fba00869e004da5a247a6f48#6f07c8ef2f7561c6fba00869e004da5a247a6f48"
 dependencies = [
  "alloy-primitives",
  "alloy-signer",
@@ -6035,7 +6007,6 @@ dependencies = [
 [[package]]
 name = "psy_provider"
 version = "0.1.0"
-source = "git+https://github.com/PsyProtocol/psy-node?rev=6f07c8ef2f7561c6fba00869e004da5a247a6f48#6f07c8ef2f7561c6fba00869e004da5a247a6f48"
 dependencies = [
  "alloy-primitives",
  "alloy-signer",
@@ -6123,7 +6094,6 @@ dependencies = [
 [[package]]
 name = "psy_serialize"
 version = "0.1.0"
-source = "git+https://github.com/PsyProtocol/psy-node?rev=6f07c8ef2f7561c6fba00869e004da5a247a6f48#6f07c8ef2f7561c6fba00869e004da5a247a6f48"
 dependencies = [
  "anyhow",
  "bytemuck",
@@ -6134,7 +6104,6 @@ dependencies = [
 [[package]]
 name = "psy_ups_circuit"
 version = "0.1.0"
-source = "git+https://github.com/PsyProtocol/psy-node?rev=6f07c8ef2f7561c6fba00869e004da5a247a6f48#6f07c8ef2f7561c6fba00869e004da5a247a6f48"
 dependencies = [
  "alloy-primitives",
  "alloy-signer",
@@ -6188,7 +6157,6 @@ dependencies = [
 [[package]]
 name = "psy_vm"
 version = "0.1.0"
-source = "git+https://github.com/PsyProtocol/psy-node?rev=6f07c8ef2f7561c6fba00869e004da5a247a6f48#6f07c8ef2f7561c6fba00869e004da5a247a6f48"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -6215,7 +6183,6 @@ dependencies = [
 [[package]]
 name = "psy_worker_core"
 version = "0.1.0"
-source = "git+https://github.com/PsyProtocol/psy-node?rev=6f07c8ef2f7561c6fba00869e004da5a247a6f48#6f07c8ef2f7561c6fba00869e004da5a247a6f48"
 dependencies = [
  "anyhow",
  "async-trait",
