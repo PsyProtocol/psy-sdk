@@ -531,6 +531,26 @@ pub fn poseidon_profile(iterations: u32) -> anyhow::Result<String> {
     }
     record("sbox_layer_12_elements", n * 8, now_ms() - t);
 
+    // The same S-box layer with the limb multiplication, checked against the field's.
+    let sbox_limbs = |state: &mut [u64; 12]| {
+        for x in state.iter_mut() {
+            let x2 = goldilocks_mul_limbs(*x, *x);
+            let x4 = goldilocks_mul_limbs(x2, x2);
+            let x3 = goldilocks_mul_limbs(*x, x2);
+            *x = goldilocks_mul_limbs(x3, x4);
+        }
+    };
+    let mut raw: [u64; 12] = core::array::from_fn(|i| state[i].to_canonical_u64());
+    let mut expected = state;
+    F::sbox_layer(&mut expected);
+    sbox_limbs(&mut raw);
+    anyhow::ensure!((0..12).all(|i| F::from_noncanonical_u64(raw[i]) == expected[i]), "limb S-box differs from the field's");
+    let t = now_ms();
+    for _ in 0..n * 8 {
+        sbox_limbs(black_box(&mut raw));
+    }
+    record("sbox_layer_12_elements_32bit_limbs", n * 8, now_ms() - t);
+
     let t = now_ms();
     for _ in 0..n * 8 {
         state = F::mds_layer(black_box(&state));
