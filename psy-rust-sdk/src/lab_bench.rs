@@ -453,3 +453,139 @@ mod replay_exports {
         super::replay_fingerprints().map_err(|e| JsError::new(&format!("{e:#}")))
     }
 }
+
+// ---------------------------------------------------------------------------------------------
+// Poseidon cost breakdown: where one permutation spends its time on this target. Single thread.
+// ---------------------------------------------------------------------------------------------
+
+/// Goldilocks multiplication from four 32x32->64 products, without 128-bit integers (which
+/// wasm32 multiplies through a library call). Returns a value below 2^64, not canonical.
+#[inline(always)]
+pub fn goldilocks_mul_limbs(a: u64, b: u64) -> u64 {
+    const EPSILON: u64 = 0xffff_ffff;
+    let (a0, a1) = (a & EPSILON, a >> 32);
+    let (b0, b1) = (b & EPSILON, b >> 32);
+    let p00 = a0 * b0;
+    let mid = a0 * b1 + (p00 >> 32);
+    let mid2 = a1 * b0 + (mid & EPSILON);
+    let lo = (mid2 << 32) | (p00 & EPSILON);
+    let hi = a1 * b1 + (mid >> 32) + (mid2 >> 32);
+    let (mut t0, borrow) = lo.overflowing_sub(hi >> 32);
+    if borrow {
+        t0 = t0.wrapping_sub(EPSILON);
+    }
+    let (sum, carry) = t0.overflowing_add((hi & EPSILON) * EPSILON);
+    sum.wrapping_add(EPSILON * carry as u64)
+}
+
+/// Nanoseconds per operation for the pieces of a Poseidon permutation, as a JSON object.
+pub fn poseidon_profile(iterations: u32) -> anyhow::Result<String> {
+    use plonky2::field::types::{Field, PrimeField64};
+    use plonky2::hash::poseidon::{Poseidon, PoseidonHash};
+    use plonky2::plonk::config::Hasher;
+    use std::hint::black_box;
+
+    let n = iterations.max(1) as usize;
+    let mut out = serde_json::Map::new();
+    let mut record = |name: &str, ops: usize, ms: f64| {
+        out.insert(name.into(), (ms * 1e6 / ops as f64).into());
+    };
+    let seed = |i: u64| F::from_noncanonical_u64(0x9e37_79b9_7f4a_7c15u64.wrapping_mul(i + 1));
+    let mut state: [F; 12] = core::array::from_fn(|i| seed(i as u64));
+
+    // The limb multiplication must agree with the field's.
+    for i in 0..1000u64 {
+        let (a, b) = (seed(i), seed(i + 7919));
+        let limbs = F::from_noncanonical_u64(goldilocks_mul_limbs(a.to_canonical_u64(), b.to_canonical_u64()));
+        anyhow::ensure!(limbs == a * b, "limb multiplication differs from the field's at {i}");
+    }
+
+    let per_element = n * 64;
+    let (mut x, y) = (seed(1), seed(2));
+    let t = now_ms();
+    for _ in 0..per_element {
+        x = black_box(x) * y;
+    }
+    record("field_mul_u128", per_element, now_ms() - t);
+    black_box(x);
+
+    let (mut x, y) = (seed(1).to_canonical_u64(), seed(2).to_canonical_u64());
+    let t = now_ms();
+    for _ in 0..per_element {
+        x = goldilocks_mul_limbs(black_box(x), y);
+    }
+    record("field_mul_32bit_limbs", per_element, now_ms() - t);
+    black_box(x);
+
+    let (mut x, y) = (seed(1), seed(2));
+    let t = now_ms();
+    for _ in 0..per_element {
+        x = black_box(x) + y;
+    }
+    record("field_add", per_element, now_ms() - t);
+    black_box(x);
+
+    let t = now_ms();
+    for _ in 0..n * 8 {
+        F::sbox_layer(black_box(&mut state));
+    }
+    record("sbox_layer_12_elements", n * 8, now_ms() - t);
+
+    let t = now_ms();
+    for _ in 0..n * 8 {
+        state = F::mds_layer(black_box(&state));
+    }
+    record("mds_layer", n * 8, now_ms() - t);
+
+    let t = now_ms();
+    for i in 0..n * 8 {
+        F::constant_layer(black_box(&mut state), i % 8);
+    }
+    record("constant_layer", n * 8, now_ms() - t);
+
+    let t = now_ms();
+    for i in 0..n * 8 {
+        state = F::mds_partial_layer_fast(black_box(&state), i % 22);
+    }
+    record("partial_round_mds", n * 8, now_ms() - t);
+
+    let t = now_ms();
+    for _ in 0..n * 8 {
+        state[0] = F::sbox_monomial(black_box(state[0]));
+    }
+    record("partial_round_sbox", n * 8, now_ms() - t);
+
+    let t = now_ms();
+    for _ in 0..n {
+        state = F::poseidon(black_box(state));
+    }
+    record("permutation", n, now_ms() - t);
+
+    let leaf: Vec<F> = (0..135).map(seed).collect();
+    let leaves = (n / 16).max(1);
+    let t = now_ms();
+    let mut digest = PoseidonHash::hash_no_pad(&leaf);
+    for _ in 1..leaves {
+        digest = PoseidonHash::hash_no_pad(black_box(&leaf));
+    }
+    record("leaf_hash_135_elements", leaves, now_ms() - t);
+
+    let t = now_ms();
+    for _ in 0..n {
+        digest = PoseidonHash::two_to_one(black_box(digest), digest);
+    }
+    record("two_to_one", n, now_ms() - t);
+    black_box((state, digest));
+
+    Ok(serde_json::Value::Object(out).to_string())
+}
+
+#[cfg(target_arch = "wasm32")]
+mod poseidon_exports {
+    use wasm_bindgen::prelude::*;
+
+    #[wasm_bindgen]
+    pub fn lab_poseidon_profile(iterations: u32) -> Result<String, JsError> {
+        super::poseidon_profile(iterations).map_err(|e| JsError::new(&format!("{e:#}")))
+    }
+}
