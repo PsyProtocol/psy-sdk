@@ -3672,15 +3672,13 @@ impl WasmRpcServer {
     /// Prove a reward claim with the selected held ZK key and return `RewardClaimPreparation`.
     #[wasm_bindgen]
     pub async fn prepare_reward_claim_json(&self, pk_hash: &str, request_json: &str) -> Result<String, JsError> {
-        use psy_prover::local::reward_client::{PrepareRewardClaimRequest, RewardClient, UserRewardCircuits};
+        use psy_prover::local::reward_client::{PrepareRewardClaimRequest, RewardClient};
         use psy_prover::signature::traits::SignatureUser;
 
         let pk_hash = QHashOut::<F>::from_str(pk_hash)
             .map_err(|e| JsError::new(&format!("Parse public key hash error: {}", e)))?;
         let request: PrepareRewardClaimRequest = serde_json::from_str(request_json)
             .map_err(|e| JsError::new(&format!("Parse reward claim request error: {}", e)))?;
-        let circuits = UserRewardCircuits::build()
-            .map_err(|e| JsError::new(&format!("Build reward circuits error: {}", e)))?;
         let client = RewardClient::new(self.wallet_session.st_provider.clone());
         let signer = self
             .wallet_session
@@ -3689,7 +3687,7 @@ impl WasmRpcServer {
             .map_err(|e| JsError::new(&format!("Select reward signer error: {}", e)))?;
         let signer: &(dyn SignatureUser + Sync) = signer.as_ref();
         let prepared = client
-            .prepare_reward_claim(&circuits, signer, request)
+            .prepare_reward_claim(signer, request)
             .await
             .map_err(|e| JsError::new(&e.to_string()))?;
         serde_json::to_string(&prepared).map_err(|e| JsError::new(&format!("Serialize reward claim preparation error: {}", e)))
