@@ -270,6 +270,35 @@ fn proof_from_json(json: &str) -> anyhow::Result<ProofWithPublicInputs<F, C, D>>
     Ok(serde_json::from_str(json)?)
 }
 
+thread_local! {
+    /// Whether `replay` verifies every proof it produces, and the time spent verifying.
+    static REPLAY_VERIFY: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+    static REPLAY_VERIFY_MS: std::cell::Cell<f64> = const { std::cell::Cell::new(0.0) };
+    static REPLAY_VERIFIED: std::cell::Cell<u32> = const { std::cell::Cell::new(0) };
+}
+
+pub fn replay_verify(enabled: bool) {
+    REPLAY_VERIFY.with(|flag| flag.set(enabled));
+}
+
+/// Passes `proof` through, after checking it with `circuit`'s verifier when verification is on.
+fn verified<Circuit: QStandardCircuit<C, D>>(
+    circuit: &Circuit,
+    proof: ProofWithPublicInputs<F, C, D>,
+) -> anyhow::Result<ProofWithPublicInputs<F, C, D>> {
+    if REPLAY_VERIFY.with(|flag| flag.get()) {
+        let t = now_ms();
+        let verifier = plonky2::plonk::circuit_data::VerifierCircuitData {
+            verifier_only: circuit.get_verifier_config_ref().clone(),
+            common: circuit.get_common_circuit_data_ref().clone(),
+        };
+        verifier.verify(proof.clone()).map_err(|error| anyhow::anyhow!("the produced proof does not verify: {error}"))?;
+        REPLAY_VERIFY_MS.with(|ms| ms.set(ms.get() + now_ms() - t));
+        REPLAY_VERIFIED.with(|count| count.set(count.get() + 1));
+    }
+    Ok(proof)
+}
+
 /// Replays one captured request (`{"method": ..., "params": ...}`). Returns a JSON object with
 /// `method`, `decode_ms`, `build_ms` (circuits built because of this request), `prove_ms`,
 /// `public_inputs` (count) and, for contract calls, `contract_id`, `fn_id` and `fingerprint`.
@@ -311,15 +340,15 @@ pub fn replay(request_json: &str) -> anyhow::Result<String> {
                 RequestParamsV2::UpsEndCap(r) => {
                     let whitelist_proof = agg.circuit_inclusion_proofs.get_inclusion_proof_for_type(r.circuit_type);
                     let verifier_data = replay.circuit_info.get_circuit_info_by_fingerprint(r.fingerprint)?.verifier_data.to_verifier_data::<C, D>();
-                    manager.ups_end_cap.prove_base(&r.end_cap_from_proof_tree_input, &whitelist_proof, &r.agg_header, &r.proof, &verifier_data)?
+                    verified(&manager.ups_end_cap, manager.ups_end_cap.prove_base(&r.end_cap_from_proof_tree_input, &whitelist_proof, &r.agg_header, &r.proof, &verifier_data)?)?
                 }
-                RequestParamsV2::SingleLeaf(r) => agg.circuit_set.single_leaf_circuit.prove_base(
+                RequestParamsV2::SingleLeaf(r) => verified(&agg.circuit_set.single_leaf_circuit, agg.circuit_set.single_leaf_circuit.prove_base(
                     r.agg_circuit_whitelist_root,
                     &r.single_insert_leaf_proof,
                     &r.single_proof,
                     &r.single_verifier_data.to_verifier_data(),
-                )?,
-                RequestParamsV2::TwoLeaf(r) => agg.circuit_set.two_leaf_circuit.prove_base(
+                )?)?,
+                RequestParamsV2::TwoLeaf(r) => verified(&agg.circuit_set.two_leaf_circuit, agg.circuit_set.two_leaf_circuit.prove_base(
                     r.agg_circuit_whitelist_root,
                     &r.left_insert_leaf_proof,
                     &r.left_proof,
@@ -327,8 +356,8 @@ pub fn replay(request_json: &str) -> anyhow::Result<String> {
                     &r.right_insert_leaf_proof,
                     &r.right_proof,
                     &r.right_verifier_data.to_verifier_data(),
-                )?,
-                RequestParamsV2::TwoAgg(r) => agg.circuit_set.two_agg_circuit.prove_base(
+                )?)?,
+                RequestParamsV2::TwoAgg(r) => verified(&agg.circuit_set.two_agg_circuit, agg.circuit_set.two_agg_circuit.prove_base(
                     &r.left_agg_whitelist_merkle_proof,
                     &r.left_agg_proof_header,
                     &r.left_proof,
@@ -337,8 +366,8 @@ pub fn replay(request_json: &str) -> anyhow::Result<String> {
                     &r.right_agg_proof_header,
                     &r.right_proof,
                     &r.right_verifier_data.to_verifier_data(),
-                )?,
-                RequestParamsV2::LeftLeafRightAgg(r) => agg.circuit_set.left_leaf_right_agg_circuit.prove_base(
+                )?)?,
+                RequestParamsV2::LeftLeafRightAgg(r) => verified(&agg.circuit_set.left_leaf_right_agg_circuit, agg.circuit_set.left_leaf_right_agg_circuit.prove_base(
                     &r.left_insert_leaf_proof,
                     &r.left_proof,
                     &r.left_verifier_data.to_verifier_data(),
@@ -346,8 +375,8 @@ pub fn replay(request_json: &str) -> anyhow::Result<String> {
                     &r.right_agg_proof_header,
                     &r.right_proof,
                     &r.right_verifier_data.to_verifier_data(),
-                )?,
-                RequestParamsV2::LeftAggRightLeaf(r) => agg.circuit_set.left_agg_right_leaf_circuit.prove_base(
+                )?)?,
+                RequestParamsV2::LeftAggRightLeaf(r) => verified(&agg.circuit_set.left_agg_right_leaf_circuit, agg.circuit_set.left_agg_right_leaf_circuit.prove_base(
                     &r.left_agg_whitelist_merkle_proof,
                     &r.left_agg_proof_header,
                     &r.left_proof,
@@ -355,7 +384,7 @@ pub fn replay(request_json: &str) -> anyhow::Result<String> {
                     &r.right_insert_leaf_proof,
                     &r.right_proof,
                     &r.right_verifier_data.to_verifier_data(),
-                )?,
+                )?)?,
             };
             (decode_ms, t_prove, proof)
         } else {
@@ -363,10 +392,10 @@ pub fn replay(request_json: &str) -> anyhow::Result<String> {
             let decode_ms = now_ms() - t_decode;
             let mut t_prove = now_ms();
             let proof = match request {
-                RequestParams::ProveUpsStart(r) => manager.ups_start.prove_base(&r.input)?,
-                RequestParams::ProveUpsStartRegisterUser(r) => manager.ups_start_register_user.prove_base(&r.input)?,
-                RequestParams::UpsCfcStandardTx(r) => manager.ups_cfc_standard_tx.prove_base(&r.input)?,
-                RequestParams::UpsCfcDeferredTx(r) => manager.ups_cfc_deferred_tx.prove_base(&r.input)?,
+                RequestParams::ProveUpsStart(r) => verified(&manager.ups_start, manager.ups_start.prove_base(&r.input)?)?,
+                RequestParams::ProveUpsStartRegisterUser(r) => verified(&manager.ups_start_register_user, manager.ups_start_register_user.prove_base(&r.input)?)?,
+                RequestParams::UpsCfcStandardTx(r) => verified(&manager.ups_cfc_standard_tx, manager.ups_cfc_standard_tx.prove_base(&r.input)?)?,
+                RequestParams::UpsCfcDeferredTx(r) => verified(&manager.ups_cfc_deferred_tx, manager.ups_cfc_deferred_tx.prove_base(&r.input)?)?,
                 RequestParams::ProveContractCall(r) => {
                     out.insert("contract_id".into(), r.contract_id.into());
                     out.insert("fn_id".into(), r.fn_id.into());
@@ -389,7 +418,7 @@ pub fn replay(request_json: &str) -> anyhow::Result<String> {
                     if let Some(registration) = manager.contract_function_registration(r.contract_id, r.fn_id) {
                         out.insert("fingerprint".into(), registration.fingerprint.to_string().into());
                     }
-                    circuit.prove_base(&r.input)?
+                    verified(&*circuit, circuit.prove_base(&r.input)?)?
                 }
                 RequestParams::ZKSignatureMinifierProof(r) => {
                     let inner = proof_from_json(&r.inner_proof)?;
@@ -400,14 +429,14 @@ pub fn replay(request_json: &str) -> anyhow::Result<String> {
                     let circuit = manager.private_note_inclusion_minifier_circuit();
                     build_ms = now_ms() - t_prove;
                     t_prove = now_ms();
-                    circuit.prove_minifier(base)?
+                    verified(circuit, circuit.prove_minifier(base)?)?
                 }
                 RequestParams::ShieldDepositClaimMinifierProof(r) => {
                     let base = proof_from_json(&r.base_proof)?;
                     let circuit = manager.shield_deposit_claim_minifier_circuit();
                     build_ms = now_ms() - t_prove;
                     t_prove = now_ms();
-                    circuit.prove_minifier(base)?
+                    verified(circuit, circuit.prove_minifier(base)?)?
                 }
                 _ => anyhow::bail!("replay does not handle {}", method),
             };
@@ -415,7 +444,10 @@ pub fn replay(request_json: &str) -> anyhow::Result<String> {
         };
         out.insert("decode_ms".into(), decode_ms.into());
         out.insert("build_ms".into(), build_ms.into());
-        out.insert("prove_ms".into(), (now_ms() - t_prove).into());
+        let verify_ms = REPLAY_VERIFY_MS.with(|ms| ms.replace(0.0));
+        out.insert("prove_ms".into(), (now_ms() - t_prove - verify_ms).into());
+        out.insert("verify_ms".into(), verify_ms.into());
+        out.insert("verified".into(), REPLAY_VERIFIED.with(|count| count.replace(0)).into());
         out.insert("public_inputs".into(), proof.public_inputs.len().into());
         // One entry per plonky2 proof inside this request (base proof, then minifiers).
         let stages: Vec<serde_json::Value> =
@@ -446,6 +478,11 @@ mod replay_exports {
 #[wasm_bindgen]
     pub fn lab_replay(request_json: &str) -> Result<String, JsError> {
         super::replay(request_json).map_err(|e| JsError::new(&format!("{e:#}")))
+    }
+
+    #[wasm_bindgen]
+    pub fn lab_replay_verify(enabled: bool) {
+        super::replay_verify(enabled)
     }
 
     #[wasm_bindgen]

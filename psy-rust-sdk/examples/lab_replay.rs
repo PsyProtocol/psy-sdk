@@ -12,6 +12,7 @@ fn main() -> anyhow::Result<()> {
         rayon::ThreadPoolBuilder::new().num_threads(threads).build_global()?;
     }
     use psy_rust_sdk::lab_bench::*;
+    replay_verify(std::env::var_os("LAB_VERIFY").is_some());
     println!("{}", serde_json::json!({"event": "init", "threads": rayon_threads(), "ms": replay_init()?}));
 
     println!("{{\"event\":\"fingerprints\",\"value\":{}}}", replay_fingerprints()?);
