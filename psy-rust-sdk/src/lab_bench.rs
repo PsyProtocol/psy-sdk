@@ -663,3 +663,55 @@ mod poseidon_exports {
         super::poseidon_profile(iterations).map_err(|e| JsError::new(&format!("{e:#}")))
     }
 }
+
+// ---------------------------------------------------------------------------------------------
+// WebGPU Merkle prototype support: the Poseidon constants for the shader, and the CPU leaf
+// hashing it is compared with. Field elements cross the boundary as (low, high) u32 pairs.
+// ---------------------------------------------------------------------------------------------
+
+/// The constants a naive Poseidon permutation needs, as JSON arrays of u32
+/// (`round_constants` holds low and high halves alternately).
+pub fn poseidon_constants() -> String {
+    use plonky2::hash::poseidon::{Poseidon, ALL_ROUND_CONSTANTS};
+    let round_constants: Vec<u32> = ALL_ROUND_CONSTANTS.iter().flat_map(|c| [*c as u32, (*c >> 32) as u32]).collect();
+    serde_json::json!({
+        "round_constants": round_constants,
+        "mds_circ": <F as Poseidon>::MDS_MATRIX_CIRC.to_vec(),
+        "mds_diag": <F as Poseidon>::MDS_MATRIX_DIAG.to_vec(),
+    })
+    .to_string()
+}
+
+/// Hashes `data.len() / (2 * leaf_len)` leaves of `leaf_len` elements each, on the rayon pool,
+/// the way a Merkle tree hashes its leaves. Returns four canonical elements per leaf.
+pub fn poseidon_hash_leaves(data: &[u32], leaf_len: usize) -> Vec<u32> {
+    use plonky2::field::types::{Field, PrimeField64};
+    use plonky2::hash::poseidon::PoseidonHash;
+    use plonky2::plonk::config::Hasher;
+    use rayon::prelude::*;
+    data.par_chunks(leaf_len * 2)
+        .flat_map_iter(|leaf| {
+            let elements: Vec<F> = leaf.chunks_exact(2).map(|w| F::from_noncanonical_u64(w[0] as u64 | (w[1] as u64) << 32)).collect();
+            let digest = PoseidonHash::hash_no_pad(&elements);
+            digest.elements.into_iter().flat_map(|e| {
+                let v = e.to_canonical_u64();
+                [v as u32, (v >> 32) as u32]
+            })
+        })
+        .collect()
+}
+
+#[cfg(target_arch = "wasm32")]
+mod webgpu_exports {
+    use wasm_bindgen::prelude::*;
+
+    #[wasm_bindgen]
+    pub fn lab_poseidon_constants() -> String {
+        super::poseidon_constants()
+    }
+
+    #[wasm_bindgen]
+    pub fn lab_poseidon_hash_leaves(data: &[u32], leaf_len: u32) -> Vec<u32> {
+        super::poseidon_hash_leaves(data, leaf_len as usize)
+    }
+}
