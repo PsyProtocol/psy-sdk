@@ -19,11 +19,8 @@ fn main() -> anyhow::Result<()> {
     files.sort();
     let stem = |p: &std::path::Path| p.file_name().unwrap().to_string_lossy().to_string();
     for path in files.iter().filter(|p| stem(p).starts_with("psy_resolve_contract_function")) {
-        let fixture: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(path)?)?;
-        let params = &fixture["request"]["params"];
-        let contract_id = params["contract_id"].as_u64().unwrap_or_default();
-        let functions = replay_add_contract_code(contract_id, &params["contract_code"].to_string())?;
-        println!("{}", serde_json::json!({"event": "contract_code", "contract_id": contract_id, "functions": functions}));
+        let contract_id = replay_add_contract_code_fixture(&std::fs::read_to_string(path)?)?;
+        println!("{}", serde_json::json!({"event": "contract_code", "contract_id": contract_id}));
     }
 
     let mut seen: BTreeMap<String, usize> = BTreeMap::new();
@@ -35,9 +32,9 @@ fn main() -> anyhow::Result<()> {
             continue;
         }
         *count += 1;
-        let fixture: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(path)?)?;
+        let fixture = std::fs::read_to_string(path)?;
         let t = now_ms();
-        match replay(&fixture["request"].to_string()) {
+        match replay(&fixture) {
             Ok(line) => println!("{{\"event\":\"replay\",\"file\":\"{name}\",\"total_ms\":{:.1},\"result\":{line}}}", now_ms() - t),
             Err(error) => println!("{}", serde_json::json!({"event": "error", "file": name, "error": format!("{error:#}")})),
         }

@@ -256,6 +256,15 @@ pub fn replay_fingerprints() -> anyhow::Result<String> {
     })
 }
 
+/// `replay_add_contract_code` from a captured `psy_resolve_contract_function_*` file as it is on disk.
+pub fn replay_add_contract_code_fixture(fixture_json: &str) -> anyhow::Result<u64> {
+    let fixture: serde_json::Value = serde_json::from_str(fixture_json)?;
+    let params = &fixture["request"]["params"];
+    let contract_id = params["contract_id"].as_u64().ok_or_else(|| anyhow::anyhow!("fixture has no contract_id"))?;
+    replay_add_contract_code(contract_id, &params["contract_code"].to_string())?;
+    Ok(contract_id)
+}
+
 fn proof_from_json(json: &str) -> anyhow::Result<ProofWithPublicInputs<F, C, D>> {
     Ok(serde_json::from_str(json)?)
 }
@@ -266,6 +275,11 @@ fn proof_from_json(json: &str) -> anyhow::Result<ProofWithPublicInputs<F, C, D>>
 pub fn replay(request_json: &str) -> anyhow::Result<String> {
     let t_decode = now_ms();
     let mut value: serde_json::Value = serde_json::from_str(request_json)?;
+    // A whole capture file is accepted as it is on disk: field elements are 64-bit JSON numbers,
+    // so the text must never pass through a JavaScript JSON round trip.
+    if let Some(request) = value.get_mut("request").map(serde_json::Value::take) {
+        value = request;
+    }
     let method = value.get("method").and_then(|m| m.as_str()).unwrap_or_default().to_string();
     let request = serde_json::json!({ "method": method, "params": value.get_mut("params").map(serde_json::Value::take) });
     let is_v2 = matches!(
@@ -418,8 +432,8 @@ mod replay_exports {
     }
 
 #[wasm_bindgen]
-    pub fn lab_replay_add_contract_code(contract_id: u64, code_json: &str) -> Result<usize, JsError> {
-        super::replay_add_contract_code(contract_id, code_json).map_err(|e| JsError::new(&format!("{e:#}")))
+    pub fn lab_replay_add_contract_code_fixture(fixture_json: &str) -> Result<u64, JsError> {
+        super::replay_add_contract_code_fixture(fixture_json).map_err(|e| JsError::new(&format!("{e:#}")))
     }
 
 #[wasm_bindgen]
