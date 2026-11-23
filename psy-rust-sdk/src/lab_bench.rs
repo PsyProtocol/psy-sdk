@@ -210,6 +210,7 @@ fn poll_once<T>(future: impl std::future::Future<Output = T>) -> anyhow::Result<
 /// Builds the fixed circuits (UPS start, CFC transaction, proof-tree aggregation, End Cap) the
 /// way `WalletSession::new` would without a prove proxy. Returns ms.
 pub fn replay_init() -> anyhow::Result<f64> {
+    plonky2::util::stage_log::set_enabled(true);
     let t = now_ms();
     let manager = PsyUPSStepCircuitManager::<C, D>::new_with_config(psy_config::network_constants::PSY_NETWORK_MAGIC);
     let mut circuit_info = SessionCircuitInfoStore::<F>::new();
@@ -293,6 +294,8 @@ pub fn replay(request_json: &str) -> anyhow::Result<String> {
     );
     let mut out = serde_json::Map::new();
     out.insert("method".into(), method.clone().into());
+    // Drop stage lines left by circuit builds or an earlier failed request.
+    plonky2::util::stage_log::take();
 
     REPLAY.with(|slot| {
         let slot = slot.borrow();
@@ -414,6 +417,10 @@ pub fn replay(request_json: &str) -> anyhow::Result<String> {
         out.insert("build_ms".into(), build_ms.into());
         out.insert("prove_ms".into(), (now_ms() - t_prove).into());
         out.insert("public_inputs".into(), proof.public_inputs.len().into());
+        // One entry per plonky2 proof inside this request (base proof, then minifiers).
+        let stages: Vec<serde_json::Value> =
+            plonky2::util::stage_log::take().iter().filter_map(|line| serde_json::from_str(line).ok()).collect();
+        out.insert("proofs".into(), stages.into());
         let (cached_bytes, budget_bytes, cached_circuits) = manager.contract_prover_cache_usage();
         out.insert("contract_cache_bytes".into(), cached_bytes.into());
         out.insert("contract_cache_budget".into(), budget_bytes.into());
