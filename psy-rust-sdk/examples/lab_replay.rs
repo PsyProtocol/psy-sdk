@@ -14,6 +14,7 @@ fn main() -> anyhow::Result<()> {
     use psy_rust_sdk::lab_bench::*;
     println!("{}", serde_json::json!({"event": "init", "threads": rayon_threads(), "ms": replay_init()?}));
 
+    println!("{{\"event\":\"fingerprints\",\"value\":{}}}", replay_fingerprints()?);
     let mut files: Vec<_> = std::fs::read_dir(&dir)?.filter_map(|e| e.ok().map(|e| e.path())).collect();
     files.sort();
     let stem = |p: &std::path::Path| p.file_name().unwrap().to_string_lossy().to_string();

@@ -231,6 +231,31 @@ pub fn replay_add_contract_code(contract_id: u64, code_json: &str) -> anyhow::Re
     })
 }
 
+/// Fingerprints of the fixed circuits, to compare one build of the manager with another
+/// (native against wasm, or either against the proxy that produced the captured requests).
+pub fn replay_fingerprints() -> anyhow::Result<String> {
+    REPLAY.with(|slot| {
+        let slot = slot.borrow();
+        let replay = slot.as_ref().ok_or_else(|| anyhow::anyhow!("replay_init was not called"))?;
+        let m = &replay.manager;
+        let set = &m.proof_tree_agg_circuits.circuit_set;
+        Ok(serde_json::json!({
+            "ups_start": m.ups_start.get_fingerprint().to_string(),
+            "ups_start_register_user": m.ups_start_register_user.get_fingerprint().to_string(),
+            "ups_cfc_standard_tx": m.ups_cfc_standard_tx.get_fingerprint().to_string(),
+            "ups_cfc_deferred_tx": m.ups_cfc_deferred_tx.get_fingerprint().to_string(),
+            "ups_end_cap": m.ups_end_cap.get_fingerprint().to_string(),
+            "ups_circuit_whitelist_root": m.ups_circuit_whitelist_root.to_string(),
+            "single_leaf": set.single_leaf_circuit.get_fingerprint().to_string(),
+            "two_leaf": set.two_leaf_circuit.get_fingerprint().to_string(),
+            "two_agg": set.two_agg_circuit.get_fingerprint().to_string(),
+            "left_leaf_right_agg": set.left_leaf_right_agg_circuit.get_fingerprint().to_string(),
+            "left_agg_right_leaf": set.left_agg_right_leaf_circuit.get_fingerprint().to_string(),
+        })
+        .to_string())
+    })
+}
+
 fn proof_from_json(json: &str) -> anyhow::Result<ProofWithPublicInputs<F, C, D>> {
     Ok(serde_json::from_str(json)?)
 }
@@ -400,5 +425,10 @@ mod replay_exports {
 #[wasm_bindgen]
     pub fn lab_replay(request_json: &str) -> Result<String, JsError> {
         super::replay(request_json).map_err(|e| JsError::new(&format!("{e:#}")))
+    }
+
+    #[wasm_bindgen]
+    pub fn lab_replay_fingerprints() -> Result<String, JsError> {
+        super::replay_fingerprints().map_err(|e| JsError::new(&format!("{e:#}")))
     }
 }
