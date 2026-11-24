@@ -480,6 +480,13 @@ mod replay_exports {
         super::replay(request_json).map_err(|e| JsError::new(&format!("{e:#}")))
     }
 
+    /// Wallet sessions created after this prove transactions locally (see
+    /// `psy_prover::session::LAB_LOCAL_PROVE`).
+    #[wasm_bindgen]
+    pub fn lab_set_local_prove(enabled: bool) {
+        psy_prover::session::LAB_LOCAL_PROVE.store(enabled, std::sync::atomic::Ordering::Relaxed);
+    }
+
     #[wasm_bindgen]
     pub fn lab_replay_verify(enabled: bool) {
         super::replay_verify(enabled)

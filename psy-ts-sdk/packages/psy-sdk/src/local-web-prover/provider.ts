@@ -140,6 +140,13 @@ type LabExports = {
     lab_gpu_tree_counts?: () => Uint32Array;
 };
 
+let localProve = false;
+
+/** LAB ONLY. Prove whole transactions in this prover instead of sending them to the prove proxy. Call before first use. */
+export function setLocalProve(enabled: boolean): void {
+    localProve = enabled;
+}
+
 /** LAB ONLY. How to start the GPU worker (a module Worker running the lab's gpu-worker.js). */
 export function setGpuWorkerFactory(factory: () => Worker): void {
     (globalThis as GpuGlobals).__psyProverGpuWorkerFactory = factory;
@@ -248,6 +255,15 @@ async function initWasm(): Promise<void> {
     }
     await startThreadPool();
     await startGpu();
+    if (localProve) {
+        const set = (proverModule as unknown as { lab_set_local_prove?: (enabled: boolean) => void }).lab_set_local_prove;
+        if (set) {
+            set(true);
+            console.log("[lab-local-prove] wallet sessions prove transactions locally");
+        } else {
+            console.warn("[lab-local-prove] this prover build has no lab_set_local_prove");
+        }
+    }
 }
 
 export class PsyWasmWebProverProvider implements IPsyUserProverProvider {
