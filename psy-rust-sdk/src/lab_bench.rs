@@ -828,7 +828,20 @@ pub fn gpu_merkle_mode(mode: u32) {
             call("labGpuTree", &[matrix.as_ptr() as u32, (matrix.len() / leaf_len) as u32, leaf_len as u32, levels as u32, out.as_mut_ptr() as u32])
         }) as _
     }));
-    set_poseidon_commit_accelerator((mode == 2).then(|| std::sync::Arc::new(PageCommit) as _));
+    set_poseidon_commit_accelerator((mode >= 2).then(|| std::sync::Arc::new(PageCommit) as _));
+    // 3: also the FRI proof-of-work search, through the page's `labGpuPow(statePtr, position,
+    // leadingZeros)`, which returns the witness as a number or -1.
+    plonky2::fri::prover::set_pow_accelerator((mode == 3).then(|| {
+        std::sync::Arc::new(|state: &[u64], position: usize, leading_zeros: u32| {
+            if state.len() != 12 {
+                return None;
+            }
+            let function = js_sys::Reflect::get(&js_sys::global(), &"labGpuPow".into()).ok()?.dyn_into::<js_sys::Function>().ok()?;
+            let args: js_sys::Array = [state.as_ptr() as u32, position as u32, leading_zeros].iter().map(|a| JsValue::from(*a)).collect();
+            let witness = function.apply(&JsValue::NULL, &args).ok()?.as_f64()?;
+            (witness >= 0.0).then_some(witness as u64)
+        }) as _
+    }));
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -849,6 +862,7 @@ mod gpu_merkle_exports {
     #[wasm_bindgen]
     pub fn lab_gpu_tree_counts() -> Vec<u32> {
         let (accepted, rejected) = plonky2::hash::merkle_tree::accelerated_tree_counts();
-        vec![accepted as u32, rejected as u32]
+        let (pow_accepted, pow_rejected) = plonky2::fri::prover::accelerated_pow_counts();
+        vec![accepted as u32, rejected as u32, pow_accepted as u32, pow_rejected as u32]
     }
 }
