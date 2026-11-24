@@ -21,16 +21,16 @@ plonky2 = { git = "https://github.com/PsyProtocol/plonky2-hwa", rev = "1dfe6112c
 ] }
 plonky2_maybe_rayon = { git = "https://github.com/PsyProtocol/plonky2-hwa", rev = "1dfe6112c3eca3668c15820755371a8a3e75f934" }
 
-psy_vm = { git = "https://github.com/PsyProtocol/psy-node", rev = "85405bfd347fb914473811d5ea6b96909bb2ddcb", package = "psy_vm", default-features = false }
-psy_crypto = { git = "https://github.com/PsyProtocol/psy-node", rev = "85405bfd347fb914473811d5ea6b96909bb2ddcb", package = "psy_crypto" }
-psy_data = { git = "https://github.com/PsyProtocol/psy-node", rev = "85405bfd347fb914473811d5ea6b96909bb2ddcb", package = "psy_client_data", default-features = false }
-psy_common = { git = "https://github.com/PsyProtocol/psy-node", rev = "85405bfd347fb914473811d5ea6b96909bb2ddcb", package = "psy_client_common" }
-psy_config = { git = "https://github.com/PsyProtocol/psy-node", rev = "85405bfd347fb914473811d5ea6b96909bb2ddcb", package = "psy_config" }
-psy_prover = { git = "https://github.com/PsyProtocol/psy-node", rev = "85405bfd347fb914473811d5ea6b96909bb2ddcb", package = "psy_prover", default-features = false }
-psy_provider = { git = "https://github.com/PsyProtocol/psy-node", rev = "85405bfd347fb914473811d5ea6b96909bb2ddcb", package = "psy_provider" }
-psy_common_circuit = { git = "https://github.com/PsyProtocol/psy-node", rev = "85405bfd347fb914473811d5ea6b96909bb2ddcb", package = "psy_common_circuit", default-features = false }
-psy_dpn_circuit = { git = "https://github.com/PsyProtocol/psy-node", rev = "85405bfd347fb914473811d5ea6b96909bb2ddcb", package = "psy_dpn_circuit", default-features = false }
-psy_ups_circuit = { git = "https://github.com/PsyProtocol/psy-node", rev = "85405bfd347fb914473811d5ea6b96909bb2ddcb", package = "psy_ups_circuit" }
+psy_vm = { git = "https://github.com/PsyProtocol/psy-node", rev = "719433683f95a2d72a873c6d8cb12fcc4f3dd60c", package = "psy_vm", default-features = false }
+psy_crypto = { git = "https://github.com/PsyProtocol/psy-node", rev = "719433683f95a2d72a873c6d8cb12fcc4f3dd60c", package = "psy_crypto" }
+psy_data = { git = "https://github.com/PsyProtocol/psy-node", rev = "719433683f95a2d72a873c6d8cb12fcc4f3dd60c", package = "psy_client_data", default-features = false }
+psy_common = { git = "https://github.com/PsyProtocol/psy-node", rev = "719433683f95a2d72a873c6d8cb12fcc4f3dd60c", package = "psy_client_common" }
+psy_config = { git = "https://github.com/PsyProtocol/psy-node", rev = "719433683f95a2d72a873c6d8cb12fcc4f3dd60c", package = "psy_config" }
+psy_prover = { git = "https://github.com/PsyProtocol/psy-node", rev = "719433683f95a2d72a873c6d8cb12fcc4f3dd60c", package = "psy_prover", default-features = false }
+psy_provider = { git = "https://github.com/PsyProtocol/psy-node", rev = "719433683f95a2d72a873c6d8cb12fcc4f3dd60c", package = "psy_provider" }
+psy_common_circuit = { git = "https://github.com/PsyProtocol/psy-node", rev = "719433683f95a2d72a873c6d8cb12fcc4f3dd60c", package = "psy_common_circuit", default-features = false }
+psy_dpn_circuit = { git = "https://github.com/PsyProtocol/psy-node", rev = "719433683f95a2d72a873c6d8cb12fcc4f3dd60c", package = "psy_dpn_circuit", default-features = false }
+psy_ups_circuit = { git = "https://github.com/PsyProtocol/psy-node", rev = "719433683f95a2d72a873c6d8cb12fcc4f3dd60c", package = "psy_ups_circuit" }
 
 base64 = "0.22"
 bincode = { version = "=1.3.3" }
