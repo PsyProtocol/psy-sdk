@@ -304,6 +304,13 @@ export function init_logging(): void;
 
 export function main(): void;
 
+/**
+ * Whether sessions prove a transaction with one prove-proxy request (`psy_prove_tx_trace`) when
+ * the proxy supports it, instead of one request per proof. Off by default. Transactions it does
+ * not cover, and proxies without the method, are proved step by step as before.
+ */
+export function set_one_request_proving(enabled: boolean): void;
+
 export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembly.Module;
 
 export interface InitOutput {
@@ -314,6 +321,7 @@ export interface InitOutput {
     readonly __wbg_wasmrpcserver_free: (a: number, b: number) => void;
     readonly init_logging: () => void;
     readonly main: () => void;
+    readonly set_one_request_proving: (a: number) => void;
     readonly wasmconstants_config_path: () => [number, number];
     readonly wasmconstants_coordinator_rpc_url: () => [number, number];
     readonly wasmconstants_coordinator_user_tree_height: () => number;

@@ -7,6 +7,7 @@ export const __wbg_wasmpsyconfigbuilder_free: (a: number, b: number) => void;
 export const __wbg_wasmrpcserver_free: (a: number, b: number) => void;
 export const init_logging: () => void;
 export const main: () => void;
+export const set_one_request_proving: (a: number) => void;
 export const wasmconstants_config_path: () => [number, number];
 export const wasmconstants_coordinator_rpc_url: () => [number, number];
 export const wasmconstants_coordinator_user_tree_height: () => number;

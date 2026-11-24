@@ -303,3 +303,10 @@ export class WasmRpcServer {
 export function init_logging(): void;
 
 export function main(): void;
+
+/**
+ * Whether sessions prove a transaction with one prove-proxy request (`psy_prove_tx_trace`) when
+ * the proxy supports it, instead of one request per proof. Off by default. Transactions it does
+ * not cover, and proxies without the method, are proved step by step as before.
+ */
+export function set_one_request_proving(enabled: boolean): void;
