@@ -1,4 +1,4 @@
-import { initSync, WasmRpcServer, WasmPsyConfig, WasmPsyConfigBuilder, WasmConstants } from "./psy_prover";
+import { initSync, set_one_request_proving, WasmRpcServer, WasmPsyConfig, WasmPsyConfigBuilder, WasmConstants } from "./psy_prover";
 import { wasmBinary } from "./wasm-binary";
 import { PrivateKey, PublicKey, QHashOut, U8Bytes } from "../core";
 import {
@@ -31,6 +31,21 @@ import { PsyJSON } from "../utils";
 import { PsyNetworkConfig } from "../config";
 
 let isWasmInitialized = false;
+let oneRequestProving = false;
+
+/**
+ * Prove a transaction with one prove-proxy request when the proxy supports it (the proxy proves
+ * every step and returns the End Cap proof; only the signature's inner proof is made here),
+ * instead of one request per proof. Off by default. Transactions it does not cover and proxies
+ * without the method are proved step by step as before. May be called before or after the prover
+ * is initialised.
+ */
+export function setOneRequestProving(enabled: boolean): void {
+    oneRequestProving = enabled;
+    if (isWasmInitialized) {
+        set_one_request_proving(enabled);
+    }
+}
 
 // Synchronous WASM initialization function
 export function initWasmSync(): void {
@@ -42,6 +57,9 @@ export function initWasmSync(): void {
         // Initialize synchronously with pre-compiled binary data
         initSync({ module: wasmBinary });
         isWasmInitialized = true;
+        if (oneRequestProving) {
+            set_one_request_proving(true);
+        }
 
         console.log("WASM initialized synchronously from binary data");
     } catch (error) {

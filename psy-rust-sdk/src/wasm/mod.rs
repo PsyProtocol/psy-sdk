@@ -168,6 +168,14 @@ pub fn main() {
     tracing::info!("PSY Rust SDK WASM module initialized successfully with psy_prover support");
 }
 
+/// Whether sessions prove a transaction with one prove-proxy request (`psy_prove_tx_trace`) when
+/// the proxy supports it, instead of one request per proof. Off by default. Transactions it does
+/// not cover, and proxies without the method, are proved step by step as before.
+#[wasm_bindgen]
+pub fn set_one_request_proving(enabled: bool) {
+    psy_provider::provider::set_one_request_proving(enabled);
+}
+
 // Optional manual initialization function
 #[wasm_bindgen]
 pub fn init_logging() {
