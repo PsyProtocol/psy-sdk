@@ -60,7 +60,7 @@ export function initWasmSync(module?: WebAssembly.Module | BufferSource): void {
         throw new Error("Prover WASM module not provided: call setWasmModule() or use PsyWasmWebProverProvider.ensureWasmServer()");
     }
     try {
-        initSync({ module: source });
+        wasmMemory = (initSync({ module: source }) as unknown as { memory: WebAssembly.Memory }).memory;
         isWasmInitialized = true;
         providedModule = null;
         console.log("WASM initialized");
@@ -71,6 +71,7 @@ export function initWasmSync(module?: WebAssembly.Module | BufferSource): void {
 }
 
 let threadCount = 0;
+let wasmMemory: WebAssembly.Memory | null = null;
 
 /**
  * Proving threads to start after init (0 = none, the default). Takes effect only with a prover
@@ -121,6 +122,119 @@ async function startThreadPool(): Promise<void> {
     console.log(`Prover thread pool started with ${threadCount} threads`);
 }
 
+// LAB ONLY (local-proving lab): Merkle commitments on WebGPU. A second worker owns the GPU device
+// and reads the prover's shared memory; the prover blocks in Atomics.wait for each tree (see the
+// lab's harness/static/gpu-worker.js for the worker side and the message protocol).
+type GpuGlobals = {
+    __psyProverGpuWorkerFactory?: () => Worker;
+    labGpuTree?: (dataPtr: number, n: number, leafLen: number, levels: number, outPtr: number) => boolean;
+    labGpuCommitStart?: (coeffPtr: number, polys: number, polyLen: number, rateBits: number, levels: number, outPtr: number) => boolean;
+    labGpuCommitWait?: () => boolean;
+    __psyProverGpuStatus?: unknown;
+};
+type LabExports = {
+    lab_poseidon_constants?: () => string;
+    lab_poseidon_hash_leaves?: (data: Uint32Array, leafLen: number) => Uint32Array;
+    lab_ntt_tables?: (logN: number, rateBits: number) => Uint32Array;
+    lab_gpu_merkle_mode?: (mode: number) => void;
+    lab_gpu_tree_counts?: () => Uint32Array;
+};
+
+/** LAB ONLY. How to start the GPU worker (a module Worker running the lab's gpu-worker.js). */
+export function setGpuWorkerFactory(factory: () => Worker): void {
+    (globalThis as GpuGlobals).__psyProverGpuWorkerFactory = factory;
+}
+
+/** LAB ONLY. `[accepted, rejected]` GPU trees so far, or null without the lab exports. */
+export function gpuTreeCounts(): number[] | null {
+    const counts = (proverModule as unknown as LabExports).lab_gpu_tree_counts;
+    return counts ? Array.from(counts()) : null;
+}
+
+async function startGpu(): Promise<void> {
+    const globals = globalThis as GpuGlobals;
+    const lab = proverModule as unknown as LabExports;
+    const factory = globals.__psyProverGpuWorkerFactory;
+    const status = (value: unknown) => {
+        globals.__psyProverGpuStatus = value;
+        console.log("[lab-gpu]", JSON.stringify(value));
+    };
+    if (typeof factory !== "function") {
+        return;
+    }
+    if (!wasmMemory || !(wasmMemory.buffer instanceof SharedArrayBuffer) || !lab.lab_gpu_merkle_mode || !lab.lab_poseidon_constants || !lab.lab_poseidon_hash_leaves || !lab.lab_ntt_tables) {
+        status({ useGpu: false, reason: "prover without shared memory or lab exports" });
+        return;
+    }
+    try {
+        const ntt = lab.lab_ntt_tables;
+        const ctrl = new Int32Array(new SharedArrayBuffer(16));
+        const worker = factory();
+        // The same leaves on both sides decide whether the GPU is worth using on this device.
+        const calN = 4096;
+        const calLeaf = 135;
+        const calData = new Uint32Array(calN * calLeaf * 2);
+        for (let i = 0, x = 0x9e3779b9; i < calData.length; i += 1) {
+            x ^= x << 13;
+            x ^= x >>> 17;
+            x ^= x << 5;
+            calData[i] = x >>> 0;
+        }
+        let cpuMs = Infinity;
+        for (let i = 0; i < 2; i += 1) {
+            const t = performance.now();
+            lab.lab_poseidon_hash_leaves(calData, calLeaf);
+            cpuMs = Math.min(cpuMs, performance.now() - t);
+        }
+        const ready = new Promise<{ ok: boolean; error?: string; adapter?: unknown; calibrationMs?: number }>((resolve) => {
+            worker.onmessage = (event) => resolve(event.data);
+            worker.onerror = (event) => resolve({ ok: false, error: `gpu worker failed to load: ${event.message || event.type}` });
+            setTimeout(() => resolve({ ok: false, error: "no answer in 20 s" }), 20000);
+        });
+        worker.postMessage({
+            memory: wasmMemory,
+            ctrl: ctrl.buffer,
+            constants: JSON.parse(lab.lab_poseidon_constants()),
+            calibrate: { data: calData, n: calN, leafLen: calLeaf },
+        });
+        const info = await ready;
+        worker.onmessage = null;
+        if (!info.ok || typeof info.calibrationMs !== "number") {
+            status({ useGpu: false, reason: info.error ?? "no calibration" });
+            worker.terminate();
+            return;
+        }
+        if (info.calibrationMs >= cpuMs) {
+            status({ useGpu: false, reason: "GPU slower than CPU", adapter: info.adapter, gpuMs: info.calibrationMs, cpuMs });
+            worker.terminate();
+            return;
+        }
+        globals.labGpuTree = (dataPtr, n, leafLen, levels, outPtr) => {
+            Atomics.store(ctrl, 0, 0);
+            worker.postMessage({ dataPtr, n, leafLen, levels, outPtr });
+            Atomics.wait(ctrl, 0, 0, 60000);
+            return Atomics.load(ctrl, 0) === 1;
+        };
+        const tableKeys = new Set<string>();
+        globals.labGpuCommitStart = (coeffPtr, polys, polyLen, rateBits, levels, outPtr) => {
+            const key = `${polyLen}:${rateBits}`;
+            const tables = tableKeys.has(key) ? null : ntt(Math.log2(polyLen), rateBits);
+            tableKeys.add(key);
+            Atomics.store(ctrl, 0, 0);
+            worker.postMessage({ commit: true, coeffPtr, polys, polyLen, rateBits, levels, outPtr, tables });
+            return true;
+        };
+        globals.labGpuCommitWait = () => {
+            Atomics.wait(ctrl, 0, 0, 60000);
+            return Atomics.load(ctrl, 0) === 1;
+        };
+        lab.lab_gpu_merkle_mode(2);
+        status({ useGpu: true, adapter: info.adapter, gpuMs: info.calibrationMs, cpuMs });
+    } catch (error) {
+        status({ useGpu: false, reason: String(error) });
+    }
+}
+
 /** Initialises from the provided module, else from the embedded base64 copy (imported only now). */
 async function initWasm(): Promise<void> {
     if (isWasmInitialized) {
@@ -133,6 +247,7 @@ async function initWasm(): Promise<void> {
         initWasmSync();
     }
     await startThreadPool();
+    await startGpu();
 }
 
 export class PsyWasmWebProverProvider implements IPsyUserProverProvider {
