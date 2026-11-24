@@ -130,6 +130,7 @@ type GpuGlobals = {
     labGpuTree?: (dataPtr: number, n: number, leafLen: number, levels: number, outPtr: number) => boolean;
     labGpuCommitStart?: (coeffPtr: number, polys: number, polyLen: number, rateBits: number, levels: number, outPtr: number) => boolean;
     labGpuCommitWait?: () => boolean;
+    labGpuPow?: (statePtr: number, pos: number, bits: number) => number;
     __psyProverGpuStatus?: unknown;
 };
 type LabExports = {
@@ -245,7 +246,14 @@ async function startGpu(): Promise<void> {
             Atomics.wait(ctrl, 0, 0, 60000);
             return Atomics.load(ctrl, 0) === 1;
         };
-        lab.lab_gpu_merkle_mode(2);
+        // The FRI proof-of-work search: returns the witness, or -1 (the prover then searches itself).
+        globals.labGpuPow = (statePtr, pos, bits) => {
+            Atomics.store(ctrl, 0, 0);
+            worker.postMessage({ pow: true, statePtr, pos, bits });
+            Atomics.wait(ctrl, 0, 0, 60000);
+            return Atomics.load(ctrl, 0) === 1 ? (Atomics.load(ctrl, 1) >>> 0) + (Atomics.load(ctrl, 2) >>> 0) * 2 ** 32 : -1;
+        };
+        lab.lab_gpu_merkle_mode(3);
         status({ useGpu: true, adapter: info.adapter, gpuMs: info.calibrationMs, cpuMs });
     } catch (error) {
         status({ useGpu: false, reason: String(error) });
