@@ -151,6 +151,13 @@ export function timelineTake(): { now_ms: number; lines: Array<Record<string, un
     return JSON.parse(take());
 }
 
+let oneShot = false;
+
+/** LAB ONLY. Prove a transaction with a single prove-proxy request when the proxy supports it. Call before first use. */
+export function setOneShotProxy(enabled: boolean): void {
+    oneShot = enabled;
+}
+
 let localProve = false;
 
 /** LAB ONLY. Prove whole transactions in this prover instead of sending them to the prove proxy. Call before first use. */
@@ -274,6 +281,9 @@ async function initWasm(): Promise<void> {
     (proverModule as unknown as { lab_timeline_enable?: (enabled: boolean) => void }).lab_timeline_enable?.(true);
     await startThreadPool();
     await startGpu();
+    if (oneShot) {
+        (proverModule as unknown as { lab_set_one_shot?: (enabled: boolean) => void }).lab_set_one_shot?.(true);
+    }
     if (localProve) {
         const set = (proverModule as unknown as { lab_set_local_prove?: (enabled: boolean) => void }).lab_set_local_prove;
         if (set) {

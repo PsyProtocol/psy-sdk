@@ -480,6 +480,13 @@ mod replay_exports {
         super::replay(request_json).map_err(|e| JsError::new(&format!("{e:#}")))
     }
 
+    /// Wallet sessions then prove a transaction with one prove-proxy request when they can (see
+    /// `psy_prover::session::LAB_ONE_SHOT`).
+    #[wasm_bindgen]
+    pub fn lab_set_one_shot(enabled: bool) {
+        psy_prover::session::LAB_ONE_SHOT.store(enabled, std::sync::atomic::Ordering::Relaxed);
+    }
+
     /// Turns the timeline on: one JSON line per RPC, per local proof and per named phase.
     #[wasm_bindgen]
     pub fn lab_timeline_enable(enabled: bool) {
