@@ -140,6 +140,16 @@ type LabExports = {
     lab_gpu_tree_counts?: () => Uint32Array;
 };
 
+/** LAB ONLY. Timeline lines (RPCs, local proofs, phases) recorded since the last call, or null. */
+export function timelineTake(): { now_ms: number; lines: Array<Record<string, unknown>> } | null {
+    const take = (proverModule as unknown as { lab_timeline_take?: () => string }).lab_timeline_take;
+    if (!isWasmInitialized || !take) {
+        return null;
+    }
+    // Times and sizes only: safe to parse as JavaScript numbers.
+    return JSON.parse(take());
+}
+
 let localProve = false;
 
 /** LAB ONLY. Prove whole transactions in this prover instead of sending them to the prove proxy. Call before first use. */
@@ -253,6 +263,7 @@ async function initWasm(): Promise<void> {
     } else {
         initWasmSync();
     }
+    (proverModule as unknown as { lab_timeline_enable?: (enabled: boolean) => void }).lab_timeline_enable?.(true);
     await startThreadPool();
     await startGpu();
     if (localProve) {

@@ -480,6 +480,18 @@ mod replay_exports {
         super::replay(request_json).map_err(|e| JsError::new(&format!("{e:#}")))
     }
 
+    /// Turns the timeline on: one JSON line per RPC, per local proof and per named phase.
+    #[wasm_bindgen]
+    pub fn lab_timeline_enable(enabled: bool) {
+        plonky2::util::stage_log::set_enabled(enabled);
+    }
+
+    /// The timeline lines recorded since the last call, as a JSON array, and the clock they use.
+    #[wasm_bindgen]
+    pub fn lab_timeline_take() -> String {
+        format!("{{\"now_ms\":{:.1},\"lines\":[{}]}}", plonky2::util::stage_log::now_ms(), plonky2::util::stage_log::take().join(","))
+    }
+
     /// Wallet sessions created after this prove transactions locally (see
     /// `psy_prover::session::LAB_LOCAL_PROVE`).
     #[wasm_bindgen]
