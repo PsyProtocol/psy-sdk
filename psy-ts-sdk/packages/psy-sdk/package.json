@@ -1,6 +1,6 @@
 {
   "name": "@psy-protocol/psy-sdk",
-  "version": "2.1.0-sd192.20261101.1",
+  "version": "2.1.0-sd192.20261124.1",
   "main": "dist/index.cjs",
   "module": "dist/index.mjs",
   "types": "dist/index.d.ts",
