@@ -241,8 +241,16 @@ export class RealmEdgeRpcProvider extends Provider implements IRealmEdgeRpcProvi
             const slotIndex = BigInt(slot) / 4n;
             const slotOffset = 3n - BigInt(slot) % 4n;
             const slotHash = await this.getUserContractStateTreeLeafHash(checkpointId, userId, contractId, slotIndex);
-            const slotValue = parseInt(slotHash?.substring(Number(slotOffset) * 16, Number(slotOffset) * 16 + 16), 16);
-            slotValues.push(slotValue);
+            const start = Number(slotOffset) * 16;
+            const hex = slotHash?.substring(start, start + 16);
+            // parseInt silently loses precision above Number.MAX_SAFE_INTEGER, so parse as
+            // BigInt and only narrow to number when that is lossless.
+            if (!hex) {
+                slotValues.push(NaN);
+                continue;
+            }
+            const value = BigInt("0x" + hex);
+            slotValues.push(value > BigInt(Number.MAX_SAFE_INTEGER) ? value : Number(value));
         }
         return slotValues;
     }
